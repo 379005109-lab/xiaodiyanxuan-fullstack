@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 500px;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 24px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+        
+        .result h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .result pre {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            margin-top: 10px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            color: #004085;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 登录测试</h1>
+        
+        <div class="info">
+            <strong>测试信息:</strong><br>
+            账号: <code>zcd</code><br>
+            密码: <code>asd123</code>
+        </div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">账号</label>
+                <input type="text" id="username" placeholder="输入账号" value="zcd" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" placeholder="输入密码" value="asd123" required>
+            </div>
+            
+            <button type="submit">登录</button>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在登录...</p>
+            </div>
+        </form>
+        
+        <div class="result" id="result"></div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('loginForm')
+        const loading = document.getElementById('loading')
+        const result = document.getElementById('result')
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault()
+            
+            const username = document.getElementById('username').value
+            const password = document.getElementById('password').value
+            
+            loading.classList.add('show')
+            result.className = 'result'
+            
+            try {
+                // 尝试使用公网地址
+                let response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                }).catch(err => {
+                    // 如果公网地址失败，尝试本地地址
+                    console.log('公网地址失败，尝试本地地址...')
+                    return fetch('http://localhost:8080/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            username: username,
+                            password: password
+                        })
+                    })
+                })
+                
+                const data = await response.json()
+                
+                loading.classList.remove('show')
+                
+                if (data.success) {
+                    result.className = 'result success'
+                    result.innerHTML = `
+                        <h3>✅ 登录成功！</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                        <p style="margin-top: 10px; font-size: 12px;">
+                            Token 已保存到 localStorage，可以在后续请求中使用。
+                        </p>
+                    `
+                    
+                    // 保存 token 和用户信息
+                    localStorage.setItem('token', data.data.token)
+                    localStorage.setItem('user', JSON.stringify(data.data.user))
+                } else {
+                    result.className = 'result error'
+                    result.innerHTML = `
+                        <h3>❌ 登录失败</h3>
+                        <p><strong>错误信息:</strong> ${data.message}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `
+                }
+            } catch (error) {
+                loading.classList.remove('show')
+                result.className = 'result error'
+                result.innerHTML = `
+                    <h3>❌ 请求失败</h3>
+                    <p><strong>错误信息:</strong> ${error.message}</p>
+                    <p style="margin-top: 10px; font-size: 12px;">
+                        可能是网络错误或 CORS 问题。请检查浏览器控制台了解详情。
+                    </p>
+                `
+                console.error('登录错误:', error)
+            }
+        })
+    </script>
+</body>
+</html>
