@@ -1,0 +1,531 @@
+import React, { useState } from 'react';
+import { Plus, X, ChevronLeft, Save } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { formatPrice } from '@/lib/utils';
+
+// 定义商品类型
+// 定义套餐类型，用于存储
+interface Package {
+  id: number;
+  name: string;
+  price: number;
+  image: string;
+  images?: string[];
+  tags: string[];
+  selectedProducts: Record<string, Product[]>;
+  optionalQuantities: Record<string, number>;
+  productCount: number;
+  categoryCount: number;
+  channelPrice?: number;
+  designerPrice?: number;
+  status?: string;
+}
+
+// 定义商品类型
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  img: string;
+  specs: string;
+  material: { [key: string]: string };
+  category: string;
+  subCategory: string; // 新增子类别字段
+}
+
+// 扩展模拟数据
+const mockProducts: Product[] = [
+  { id: 1, name: '现代简约布艺沙发', price: 2999, img: '/placeholder.svg', specs: '三人位 (210x90x85cm)', material: { fabric: '棉麻', filling: '高弹海绵', frame: '实木', feet: '金属' }, category: '沙发', subCategory: '布艺沙发' },
+  { id: 2, name: '轻奢科技绒沙发', price: 3599, img: '/placeholder.svg', specs: '四人位 (280x95x80cm)', material: { fabric: '科技绒', filling: '羽绒', frame: '松木', feet: '碳素钢' }, category: '沙发', subCategory: '科技绒沙发' },
+  { id: 3, name: '北欧风格岩板茶几', price: 899, img: '/placeholder.svg', specs: '120x60x45cm', material: { tableTop: '岩板', frame: '金属', feet: '金属' }, category: '茶几', subCategory: '岩板茶几' },
+  { id: 4, name: '意式极简真皮床', price: 4599, img: '/placeholder.svg', specs: '1.8m*2.0m', material: { fabric: '头层牛皮', filling: '羽绒+海绵', frame: '实木', feet: '碳素钢' }, category: '床', subCategory: '真皮床' },
+  { id: 5, name: '智能储物床头柜', price: 499, img: '/placeholder.svg', specs: '50x40x50cm', material: { main: '实木颗粒板', surface: '钢琴烤漆' }, category: '床头柜', subCategory: '智能床头柜' },
+  { id: 6, name: '单人休闲沙发椅', price: 1299, img: '/placeholder.svg', specs: '单人位', material: { fabric: '棉麻', filling: '海绵', frame: '金属' }, category: '沙发', subCategory: '单人沙发' },
+];
+
+const allAvailableTags = ['沙发', '茶几', '床', '床头柜', '餐桌', '餐椅', '书桌', '椅子', '柜子'];
+
+const PackageManagementPage: React.FC = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isEditing = Boolean(id);
+
+  // 在编辑模式下，我们会从API加载数据，这里用模拟数据代替
+  const [packageName, setPackageName] = useState('');
+  const [packagePrice, setPackagePrice] = useState(0);
+  const [packageImage, setPackageImage] = useState<string>(''); // Will store base64 image string
+  const [packageImages, setPackageImages] = useState<string[]>([]); // Multiple images
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const [tags, setTags] = useState<string[]>([]);
+  const [allTags, setAllTags] = useState<string[]>(allAvailableTags);
+  const [newTag, setNewTag] = useState('');
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<Record<string, Product[]>>({});
+  const [optionalQuantities, setOptionalQuantities] = useState<Record<string, number>>({});
+
+  React.useEffect(() => {
+    if (isEditing && id) {
+      const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]');
+      const packageToEdit = existingPackages.find(p => p.id === parseInt(id, 10));
+      if (packageToEdit) {
+        setPackageName(packageToEdit.name);
+        setPackagePrice(packageToEdit.price);
+        setPackageImage(packageToEdit.image); // Load existing image
+        setPackageImages(packageToEdit.images || []); // Load existing images
+        const packageTags = packageToEdit.tags || [];
+        setTags(packageTags);
+        setAllTags(prev => [...new Set([...prev, ...packageTags])]); // Add tags from package to allTags
+        setSelectedProducts(packageToEdit.selectedProducts || {});
+        setOptionalQuantities(packageToEdit.optionalQuantities || {});
+      }
+    }
+  }, [id, isEditing]);
+  const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
+  const [activeSubFilters, setActiveSubFilters] = useState<Record<string, string | null>>({});
+
+  const handleQuantityChange = (category: string, quantity: number) => {
+    setOptionalQuantities({
+      ...optionalQuantities,
+      [category]: Math.max(0, quantity) // 保证数量不为负
+    });
+  };
+
+  const handleSearchChange = (category: string, term: string) => {
+    setSearchTerms({ ...searchTerms, [category]: term });
+  };
+
+  const handleSubFilterChange = (category: string, subCategory: string | null) => {
+    setActiveSubFilters({ ...activeSubFilters, [category]: subCategory });
+  };
+
+  const handleAddProduct = (product: Product, category: string) => {
+    const currentSelected = selectedProducts[category] || [];
+    // Check if the product is already selected
+    if (!currentSelected.find(p => p.id === product.id)) {
+      setSelectedProducts(prev => ({
+        ...prev,
+        [category]: [...(prev[category] || []), product]
+      }));
+    }
+  };
+
+  const handleRemoveProduct = (product: Product, category: string) => {
+    const currentSelected = selectedProducts[category] || [];
+    setSelectedProducts({
+      ...selectedProducts,
+      [category]: currentSelected.filter(p => p.id !== product.id)
+    });
+  };
+
+  const handleToggleTag = (tag: string) => {
+    if (tags.includes(tag)) {
+      setTags(tags.filter(t => t !== tag));
+    } else {
+      setTags([...tags, tag]);
+    }
+  };
+
+  const handleAddNewTag = () => {
+    if (newTag && !allTags.includes(newTag)) {
+      setAllTags([...allTags, newTag]);
+      setTags([...tags, newTag]);
+      setNewTag('');
+      setIsAddingTag(false);
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setAllTags(allTags.filter(tag => tag !== tagToRemove));
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPackageImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleMultipleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      Array.from(e.target.files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPackageImages(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setPackageImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (index: number) => {
+    if (draggedIndex !== null && draggedIndex !== index) {
+      const newImages = [...packageImages];
+      const draggedImage = newImages[draggedIndex];
+      newImages.splice(draggedIndex, 1);
+      newImages.splice(index, 0, draggedImage);
+      setPackageImages(newImages);
+    }
+    setDraggedIndex(null);
+  };
+
+  const handleSave = () => {
+    // 从localStorage获取现有套餐列表
+    const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]');
+    
+    // 获取原有套餐的利润信息（如果是编辑）
+    let existingProfitData = {};
+    if (isEditing && id) {
+      const existingPackage = existingPackages.find(p => p.id === parseInt(id, 10));
+      if (existingPackage) {
+        existingProfitData = {
+          channelPrice: existingPackage.channelPrice,
+          designerPrice: existingPackage.designerPrice,
+          status: existingPackage.status,
+        };
+      }
+    }
+
+    const newPackage = {
+      id: isEditing ? parseInt(id!, 10) : Date.now(),
+      name: packageName,
+      price: packagePrice,
+      image: packageImage || '/placeholder.svg',
+      images: packageImages.length > 0 ? packageImages : undefined,
+      tags,
+      selectedProducts,
+      optionalQuantities,
+      productCount: Object.values(selectedProducts).reduce((acc, products) => acc + products.length, 0),
+      categoryCount: tags.length,
+      ...existingProfitData, // 保留原有的利润信息
+    };
+
+    if (isEditing) {
+      // 更新现有套餐
+      const packageIndex = existingPackages.findIndex(p => p.id === newPackage.id);
+      if (packageIndex > -1) {
+        existingPackages[packageIndex] = newPackage;
+      }
+    } else {
+      // 添加新套餐
+      existingPackages.push(newPackage);
+    }
+
+    // 将更新后的列表存回localStorage
+    localStorage.setItem('packages', JSON.stringify(existingPackages));
+
+    alert('套餐已保存！');
+    navigate('/admin/packages');
+  };
+
+  return (
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="flex items-center gap-4 mb-6">
+        <button
+          onClick={() => navigate('/admin/packages')}
+          className="p-2 hover:bg-white rounded-lg transition-colors"
+          title="返回套餐列表"
+        >
+          <ChevronLeft className="h-6 w-6 text-gray-700" />
+        </button>
+        <h1 className="text-3xl font-bold">{isEditing ? '编辑套餐' : '创建新套餐'}</h1>
+      </div>
+
+      {/* 1. 套餐图片 */}
+      <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+        <h2 className="text-xl font-semibold mb-4">套餐主图</h2>
+        
+        {/* 主图上传 */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">主图</label>
+          <div 
+            className="w-full max-w-2xl h-64 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary-500 bg-gray-50 transition-colors"
+            onClick={() => document.getElementById('packageImageInput')?.click()}
+          >
+            <input 
+              type="file" 
+              id="packageImageInput"
+              className="hidden" 
+              accept="image/*"
+              onChange={handleImageChange} 
+            />
+            {packageImage ? (
+              <img src={packageImage} alt="套餐预览" className="h-full w-full object-contain rounded-lg" />
+            ) : (
+              <div className="text-center text-gray-500">
+                <Plus className="mx-auto h-12 w-12" />
+                <p className="mt-2">点击上传套餐主图</p>
+                <p className="text-xs mt-1">建议尺寸：800x400px</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 多张图片上传 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            详情图片 ({packageImages.length} 张)
+          </label>
+          <div 
+            className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary-500 bg-gray-50 transition-colors mb-4"
+            onClick={() => document.getElementById('packageMultipleImagesInput')?.click()}
+          >
+            <input 
+              type="file" 
+              id="packageMultipleImagesInput"
+              className="hidden" 
+              accept="image/*"
+              multiple
+              onChange={handleMultipleImagesChange} 
+            />
+            <Plus className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-gray-600 font-medium">点击或拖拽上传多张图片</p>
+            <p className="text-xs text-gray-400 mt-1">支持长按拖动改变图片顺序</p>
+          </div>
+
+          {/* 图片列表 - 可拖动排序 */}
+          {packageImages.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {packageImages.map((image, index) => (
+                <div
+                  key={index}
+                  draggable
+                  onDragStart={() => handleDragStart(index)}
+                  onDragOver={handleDragOver}
+                  onDrop={() => handleDrop(index)}
+                  className={`relative group rounded-lg overflow-hidden border-2 transition-all ${
+                    draggedIndex === index 
+                      ? 'border-primary-500 opacity-50' 
+                      : 'border-gray-200 hover:border-primary-500'
+                  }`}
+                >
+                  <img 
+                    src={image} 
+                    alt={`图片 ${index + 1}`}
+                    className="w-full h-32 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveImage(index);
+                        }}
+                        className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
+                        title="删除图片"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                    {index + 1}
+                  </div>
+                  {draggedIndex === index && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-primary-500 bg-opacity-20">
+                      <span className="text-primary-600 font-semibold">拖动中...</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 2. 套餐基本信息 */}
+      <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+        <h2 className="text-xl font-semibold mb-4">基本信息</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">套餐名称</label>
+            <input type="text" value={packageName} onChange={(e) => setPackageName(e.target.value)} placeholder="例如：温馨卧室三人套餐" className="input w-full" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">套餐价格</label>
+            <input type="number" value={packagePrice} onChange={(e) => setPackagePrice(parseFloat(e.target.value))} placeholder="套餐最终售价" className="input w-full" />
+          </div>
+        </div>
+      </div>
+
+      {/* 3. 标签管理 */}
+      <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+        <h2 className="text-xl font-semibold mb-4">商品类别标签</h2>
+        <div className="flex flex-wrap gap-2 items-center">
+          {allTags.map(tag => (
+            <button 
+              key={tag} 
+              onClick={() => handleToggleTag(tag)}
+              className={`btn relative group ${tags.includes(tag) ? 'btn-primary' : 'btn-secondary'}`}>
+              {tag}
+              <span onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag); }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                <X size={12} />
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="mt-4">
+          {isAddingTag ? (
+            <div className="flex items-center gap-2">
+              <input 
+                type="text" 
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddNewTag()}
+                placeholder="新标签名称"
+                className="input input-sm"
+                autoFocus
+              />
+              <button onClick={handleAddNewTag} className="btn btn-primary btn-sm">确认</button>
+              <button onClick={() => setIsAddingTag(false)} className="btn btn-secondary btn-sm">取消</button>
+            </div>
+          ) : (
+            <button onClick={() => setIsAddingTag(true)} className="btn btn-secondary btn-sm flex items-center gap-1">
+              <Plus size={16} /> 添加标签
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 4. 商品选择 */}
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <h2 className="text-xl font-semibold mb-4">选择商品组成套餐</h2>
+        
+        {tags.map(category => {
+          const availableProducts = mockProducts.filter(p => p.category === category);
+          const currentSelected = selectedProducts[category] || [];
+          
+          return (
+            <div key={category} className="border border-gray-200 rounded-lg p-4 mb-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">{category}</h3>
+                <div className="bg-gray-100 p-2 rounded-md flex items-center gap-2">
+                  <span className="font-semibold text-gray-700">已选:</span>
+                  <span className="font-bold text-blue-600 text-lg">{currentSelected.length}</span>
+                  <span className="text-gray-400">/</span>
+                  <span className="font-semibold text-gray-700">可选:</span>
+                  <input 
+                    type='number' 
+                    className='w-16 text-center border rounded-md font-bold text-lg text-green-600' 
+                    value={optionalQuantities[category] || 1}
+                    onChange={(e) => handleQuantityChange(category, parseInt(e.target.value, 10))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* 左侧：可选商品列表 */}
+                <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-semibold">可选商品 ({availableProducts.length})</h4>
+                    <input 
+                      type="text" 
+                      placeholder="搜索商品..."
+                      className="input input-sm w-48"
+                      value={searchTerms[category] || ''}
+                      onChange={(e) => handleSearchChange(category, e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <button 
+                      onClick={() => handleSubFilterChange(category, null)}
+                      className={`btn btn-xs ${!activeSubFilters[category] ? 'btn-primary' : 'btn-secondary'}`}>
+                      全部
+                    </button>
+                    {[...new Set(availableProducts.map(p => p.subCategory))].map(subCat => (
+                      <button 
+                        key={subCat} 
+                        onClick={() => handleSubFilterChange(category, subCat)}
+                        className={`btn btn-xs ${activeSubFilters[category] === subCat ? 'btn-primary' : 'btn-secondary'}`}>
+                        {subCat}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {availableProducts
+                      .filter(p => {
+                        const searchTermMatch = p.name.toLowerCase().includes((searchTerms[category] || '').toLowerCase());
+                        const subFilterMatch = !activeSubFilters[category] || p.subCategory === activeSubFilters[category];
+                        return searchTermMatch && subFilterMatch;
+                      })
+                      .map(product => (
+                      <div key={product.id} className="border rounded-md p-3 flex items-start gap-4 bg-white">
+                        <img src={product.img} alt={product.name} className="w-20 h-20 object-cover rounded" />
+                        <div className="flex-1">
+                          <p className="font-semibold">{product.name}</p>
+                          <p className="text-sm text-red-500">{formatPrice(product.price)}</p>
+                          <p className="text-xs text-gray-500 mt-1">规格: {product.specs}</p>
+                          <p className="text-xs text-gray-500">材质: {Object.values(product.material).join(', ')}</p>
+                        </div>
+                        {currentSelected.find(p => p.id === product.id) ? (
+                          <span className="text-sm text-green-600 font-semibold self-center">已添加</span>
+                        ) : (
+                          <button onClick={() => handleAddProduct(product, category)} className="btn-primary btn-sm self-center">添加</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 右侧：已选商品列表 */}
+                <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+                  <h4 className="font-semibold mb-2">已选商品</h4>
+                  <div className="space-y-3">
+                    {currentSelected.map(product => (
+                      <div key={product.id} className="border rounded-md p-3 flex items-start gap-4 bg-white">
+                        <img src={product.img} alt={product.name} className="w-20 h-20 object-cover rounded" />
+                        <div className="flex-1">
+                          <p className="font-semibold">{product.name}</p>
+                          <p className="text-sm text-red-500">{formatPrice(product.price)}</p>
+                        </div>
+                        <button onClick={() => handleRemoveProduct(product, category)} className="btn-danger btn-sm self-center">删除</button>
+                      </div>
+                    ))}
+                    {currentSelected.length === 0 && <p className='text-sm text-gray-500'>暂未选择商品</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 5. 操作按钮 */}
+      <div className="flex justify-end gap-4 mt-8 mb-6">
+        <button 
+          onClick={() => navigate('/admin/packages')} 
+          className="btn btn-secondary flex items-center gap-2"
+        >
+          取消
+        </button>
+        <button 
+          onClick={handleSave} 
+          className="btn btn-primary flex items-center gap-2"
+        >
+          <Save size={18} />
+          保存套餐
+        </button>
+      </div>
+
+    </div>
+  );
+};
+
+export default PackageManagementPage;
