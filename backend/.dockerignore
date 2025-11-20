@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+logs
+.vscode
+.DS_Store
+*.md
+.pm2
+ecosystem.config.js

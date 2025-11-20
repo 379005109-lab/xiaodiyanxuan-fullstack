@@ -1,0 +1,92 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-api-ingress
+  namespace: ns-cxxiwxce
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: lgpzubdtdxjf.sealoshzh.site
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: wangzhan
+            port:
+              number: 3000
+  - host: pkochbpmcgaa.sealoshzh.site
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: newhouduan
+            port:
+              number: 8080
+  tls:
+  - hosts:
+    - lgpzubdtdxjf.sealoshzh.site
+    - pkochbpmcgaa.sealoshzh.site
+    secretName: wildcard-cert
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-restore-script
+  namespace: ns-cxxiwxce
+data:
+  restore-ingress.sh: |
+    #!/bin/bash
+    # This script restores the frontend Ingress configuration
+    # Run this after each deployment to ensure public access is maintained
+    
+    NAMESPACE="ns-cxxiwxce"
+    INGRESS_NAME="wangzhan-frontend-api"
+    
+    echo "Restoring Ingress configuration..."
+    
+    # Apply the Ingress configuration
+    kubectl apply -f - <<EOF
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: $INGRESS_NAME
+      namespace: $NAMESPACE
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    spec:
+      ingressClassName: nginx
+      rules:
+      - host: pkochbpmcgaa.sealoshzh.site
+        http:
+          paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: newhouduan
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wangzhan
+                port:
+                  number: 3000
+      tls:
+      - hosts:
+        - pkochbpmcgaa.sealoshzh.site
+        secretName: wildcard-cert
+    EOF
+    
+    echo "Ingress configuration restored successfully"
+    echo "Frontend: https://pkochbpmcgaa.sealoshzh.site"
+    echo "API: https://pkochbpmcgaa.sealoshzh.site/api"

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xiaodiyanxuan-api 测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .endpoint {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .endpoint h3 {
+            margin: 0 0 10px 0;
+            color: #007bff;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .response {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e8f4f8;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.success {
+            background-color: #28a745;
+            color: white;
+        }
+        .status.error {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status.loading {
+            background-color: #ffc107;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 xiaodiyanxuan-api 测试工具</h1>
+        <p>API 地址: <strong>https://pkochbpmcgaa.sealoshzh.site/api/</strong></p>
+
+        <div class="endpoint">
+            <h3>主页 <span class="status loading" id="status-home">待测试</span></h3>
+            <button onclick="testEndpoint('/api/', 'home')">测试</button>
+            <div class="response" id="response-home"></div>
+        </div>
+
+        <div class="endpoint">
+            <h3>健康检查 <span class="status loading" id="status-health">待测试</span></h3>
+            <button onclick="testEndpoint('/api/health', 'health')">测试</button>
+            <div class="response" id="response-health"></div>
+        </div>
+
+        <div class="endpoint">
+            <h3>用户列表 <span class="status loading" id="status-users">待测试</span></h3>
+            <button onclick="testEndpoint('/api/users', 'users')">测试</button>
+            <div class="response" id="response-users"></div>
+        </div>
+
+        <div class="endpoint">
+            <h3>产品列表 <span class="status loading" id="status-products">待测试</span></h3>
+            <button onclick="testEndpoint('/api/products', 'products')">测试</button>
+            <div class="response" id="response-products"></div>
+        </div>
+
+        <div class="endpoint">
+            <h3>订单列表 <span class="status loading" id="status-orders">待测试</span></h3>
+            <button onclick="testEndpoint('/api/orders', 'orders')">测试</button>
+            <div class="response" id="response-orders"></div>
+        </div>
+
+        <div class="endpoint">
+            <h3>全部测试</h3>
+            <button onclick="testAll()">运行全部测试</button>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = 'https://pkochbpmcgaa.sealoshzh.site';
+
+        async function testEndpoint(path, id) {
+            const statusEl = document.getElementById(`status-${id}`);
+            const responseEl = document.getElementById(`response-${id}`);
+            
+            statusEl.textContent = '测试中...';
+            statusEl.className = 'status loading';
+            responseEl.textContent = '加载中...';
+
+            try {
+                const response = await fetch(baseUrl + path);
+                const data = await response.json();
+                
+                statusEl.textContent = `✅ 成功 (${response.status})`;
+                statusEl.className = 'status success';
+                responseEl.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                statusEl.textContent = `❌ 失败`;
+                statusEl.className = 'status error';
+                responseEl.textContent = `错误: ${error.message}`;
+            }
+        }
+
+        async function testAll() {
+            const endpoints = [
+                { path: '/api/', id: 'home' },
+                { path: '/api/health', id: 'health' },
+                { path: '/api/users', id: 'users' },
+                { path: '/api/products', id: 'products' },
+                { path: '/api/orders', id: 'orders' }
+            ];
+
+            for (const endpoint of endpoints) {
+                await testEndpoint(endpoint.path, endpoint.id);
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        // 页面加载时自动测试
+        window.addEventListener('load', () => {
+            console.log('页面已加载，准备自动测试...');
+            setTimeout(testAll, 500);
+        });
+    </script>
+</body>
+</html>

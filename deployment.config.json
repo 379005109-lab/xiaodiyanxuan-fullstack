@@ -1,0 +1,27 @@
+{
+  "github": {
+    "username": "379005109-lab",
+    "token": "NEWQ",
+    "email": "379005109@qq.com",
+    "repo_url": "https://github.com/379005109-lab/xiaodiyanxuan-fullstack.git",
+    "backend_path": "backend",
+    "frontend_path": "frontend"
+  },
+  "docker": {
+    "registry": "ghcr.io",
+    "username": "379005109-lab",
+    "password": "NEWQ",
+    "backend_image": "379005109-lab/xiaodiyanxuan-backend",
+    "frontend_image": "379005109-lab/xiaodiyanxuan-frontend"
+  },
+  "sealos": {
+    "namespace": "ns-cxxiwxce",
+    "backend_deployment": "xiaodiyanxuan-api",
+    "frontend_deployment": "xiaodiyanxuan-frontend"
+  },
+  "deployment": {
+    "backend_url": "https://pkochbpmcgaa.sealoshzh.site",
+    "frontend_url": "https://lgpzubdtdxjf.sealoshzh.site",
+    "api_prefix": "/api"
+  }
+}
