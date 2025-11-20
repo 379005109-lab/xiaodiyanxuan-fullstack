@@ -1,0 +1,27 @@
+version: "3.9"
+ 
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      # 请根据实际需要修改 MongoDB 连接等变量
+      - CORS_ORIGIN=http://localhost:3000,https://localhost:3000
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - API_BASE_URL=http://backend:8080/api
+
+networks:
+  default:
+    driver: bridge
+Commit message
