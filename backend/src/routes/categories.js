@@ -2,7 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const router = express.Router()
 const { authenticate, optionalAuth } = require('../middleware/auth')
-const { listCategories, getCategory, createCategory, updateCategory, deleteCategory } = require('../controllers/categoryController')
+const { listCategories, getCategory, createCategory, updateCategory, deleteCategory, getCategoryStats } = require('../controllers/categoryController')
 
 // 配置 multer
 const storage = multer.memoryStorage()
@@ -22,8 +22,11 @@ const upload = multer({
 // GET /api/categories - List categories
 router.get('/', optionalAuth, listCategories)
 
-// POST /api/categories - Create category (暂时禁用)
-// router.post('/', authenticate, createCategory)
+// GET /api/categories/stats - Get category statistics (must be before /:id route)
+router.get('/stats', optionalAuth, getCategoryStats)
+
+// POST /api/categories - Create category
+router.post('/', authenticate, createCategory)
 
 // 上传功能暂时禁用，待实现
 // POST /api/categories/:id/upload-image - Upload image
@@ -35,10 +38,10 @@ router.get('/', optionalAuth, listCategories)
 // GET /api/categories/:id - Get category
 router.get('/:id', optionalAuth, getCategory)
 
-// PUT /api/categories/:id - Update category (暂时禁用)
-// router.put('/:id', authenticate, updateCategory)
+// PUT /api/categories/:id - Update category
+router.put('/:id', authenticate, updateCategory)
 
-// DELETE /api/categories/:id - Delete category (暂时禁用)
-// router.delete('/:id', authenticate, deleteCategory)
+// DELETE /api/categories/:id - Delete category
+router.delete('/:id', authenticate, deleteCategory)
 
 module.exports = router

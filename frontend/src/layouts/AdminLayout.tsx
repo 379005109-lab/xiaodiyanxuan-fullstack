@@ -12,7 +12,7 @@ export default function AdminLayout() {
       <Suspense fallback={<div className="w-64 bg-white"></div>}>
         <AdminSidebar open={sidebarOpen} setOpen={setSidebarOpen} />
       </Suspense>
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col lg:ml-64">
         <Suspense fallback={<div className="h-16 bg-white border-b"></div>}>
           <AdminHeader toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
         </Suspense>

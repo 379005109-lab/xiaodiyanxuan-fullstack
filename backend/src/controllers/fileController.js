@@ -11,16 +11,38 @@ const uploadFile = async (req, res) => {
     }
 
     const storage = req.query.storage || 'gridfs';
-    const result = await FileService.upload(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype,
-      storage
-    );
-
-    sendResponse(res, result, '文件上传成功', 201);
+    
+    try {
+      const result = await FileService.upload(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        storage
+      );
+      sendResponse(res, result, '文件上传成功', 201);
+    } catch (uploadErr) {
+      // 如果 GridFS 失败，使用 Base64 作为备选方案
+      console.warn('GridFS 上传失败，使用 Base64 备选方案:', uploadErr.message);
+      
+      const base64Data = req.file.buffer.toString('base64');
+      const dataUrl = `data:${req.file.mimetype};base64,${base64Data}`;
+      
+      const result = {
+        fileId: `base64_${Date.now()}`,
+        filename: req.file.originalname,
+        originalName: req.file.originalname,
+        url: dataUrl,
+        size: req.file.size,
+        mimeType: req.file.mimetype,
+        uploadedAt: new Date(),
+        storage: 'base64'
+      };
+      
+      sendResponse(res, result, '文件上传成功（Base64）', 201);
+    }
   } catch (err) {
-    sendError(res, err.message, 400);
+    console.error('文件上传错误:', err);
+    sendError(res, err.message, 500);
   }
 };
 

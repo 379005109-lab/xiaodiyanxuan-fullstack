@@ -213,12 +213,34 @@ const uploadIcon = async (req, res) => {
   }
 }
 
+/**
+ * 获取分类统计
+ * GET /api/categories/stats
+ */
+const getCategoryStats = async (req, res) => {
+  try {
+    const total = await Category.countDocuments()
+    const activeCount = await Category.countDocuments({ status: 'active' })
+    const inactiveCount = await Category.countDocuments({ status: 'inactive' })
+
+    res.json(successResponse({
+      total,
+      active: activeCount,
+      inactive: inactiveCount
+    }))
+  } catch (err) {
+    console.error('Get category stats error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
 module.exports = {
   listCategories,
   getCategory,
   createCategory,
   updateCategory,
   deleteCategory,
+  getCategoryStats,
   uploadImage,
   uploadIcon
 }
