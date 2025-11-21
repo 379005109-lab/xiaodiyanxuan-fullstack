@@ -28,7 +28,7 @@ export interface Cart {
 // 获取购物车
 export const getCart = async () => {
   try {
-    const response = await apiClient.get('/api/cart')
+    const response = await apiClient.get('/cart')
     return response.data.data
   } catch (error: any) {
     throw new Error(error.response?.data?.message || '获取购物车失败')
@@ -38,7 +38,7 @@ export const getCart = async () => {
 // 添加到购物车
 export const addToCart = async (productId: string, skuId: string, quantity: number, price: number, selections?: any) => {
   try {
-    const response = await apiClient.post('/api/cart', {
+    const response = await apiClient.post('/cart', {
       productId,
       skuId,
       quantity,
@@ -74,7 +74,7 @@ export const removeFromCart = async (itemId: string) => {
 // 清空购物车
 export const clearCart = async () => {
   try {
-    const response = await apiClient.delete('/api/cart')
+    const response = await apiClient.delete('/cart')
     return response.data.data
   } catch (error: any) {
     throw new Error(error.response?.data?.message || '清空购物车失败')

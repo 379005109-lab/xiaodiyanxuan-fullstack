@@ -15,7 +15,7 @@ export interface Favorite {
 // 获取收藏列表
 export const getFavorites = async (page = 1, limit = 10) => {
   try {
-    const response = await apiClient.get('/api/favorites', {
+    const response = await apiClient.get('/favorites', {
       params: { page, limit },
     })
     return response.data.data
@@ -27,7 +27,7 @@ export const getFavorites = async (page = 1, limit = 10) => {
 // 添加收藏
 export const addFavorite = async (productId: string) => {
   try {
-    const response = await apiClient.post('/api/favorites', { productId })
+    const response = await apiClient.post('/favorites', { productId })
     return response.data.data
   } catch (error: any) {
     throw new Error(error.response?.data?.message || '添加收藏失败')
@@ -56,7 +56,7 @@ export const checkFavorite = async (productId: string) => {
 // 清空所有收藏
 export const clearAllFavorites = async () => {
   try {
-    await apiClient.delete('/api/favorites')
+    await apiClient.delete('/favorites')
   } catch (error: any) {
     throw new Error(error.response?.data?.message || '清空收藏失败')
   }

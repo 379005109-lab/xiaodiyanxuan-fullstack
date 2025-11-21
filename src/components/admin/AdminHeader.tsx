@@ -23,7 +23,10 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
 
   // 加载通知数据
   useEffect(() => {
-    loadNotifications()
+    // 延迟加载通知，避免阻塞页面渲染
+    const timer = setTimeout(() => {
+      loadNotifications()
+    }, 500)
     
     // 监听通知更新事件
     const handleNotificationUpdate = () => {
@@ -32,21 +35,33 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
     
     window.addEventListener('notificationUpdated', handleNotificationUpdate)
     return () => {
+      clearTimeout(timer)
       window.removeEventListener('notificationUpdated', handleNotificationUpdate)
     }
   }, [])
 
   const loadNotifications = async () => {
     try {
-      const [allNotifications, unread] = await Promise.all([
-        cloudServices.notificationService.getRecentNotifications(10),
-        cloudServices.notificationService.getUnreadCount()
-      ])
-      setNotifications(allNotifications)
-      setUnreadCount(unread)
+      if (cloudServices?.notificationService && typeof cloudServices.notificationService.getRecentNotifications === 'function') {
+        try {
+          const allNotifications = await cloudServices.notificationService.getRecentNotifications(10)
+          setNotifications(allNotifications || [])
+        } catch (e) {
+          setNotifications([])
+        }
+        
+        try {
+          const unread = await cloudServices.notificationService.getUnreadCount()
+          setUnreadCount(unread || 0)
+        } catch (e) {
+          setUnreadCount(0)
+        }
+      }
     } catch (error) {
       console.error('加载通知失败:', error)
-      // 如果云端失败，可以显示错误提示
+      // 如果云端失败，使用默认值
+      setNotifications([])
+      setUnreadCount(0)
     }
   }
 

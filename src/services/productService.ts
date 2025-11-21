@@ -4,7 +4,7 @@ import { Product } from '@/types';
 // 获取商品列表
 export const getProducts = async (params?: any) => {
   try {
-    const response = await apiClient.get('/api/products', { params });
+    const response = await apiClient.get('/products', { params });
     return response.data;
   } catch (error: any) {
     console.error('获取商品列表失败:', error);
@@ -15,7 +15,7 @@ export const getProducts = async (params?: any) => {
 // 获取单个商品
 export const getProductById = async (id: string): Promise<Product | null> => {
   try {
-    const response = await apiClient.get(`/api/products/${id}`);
+    const response = await apiClient.get(`/products/${id}`);
     return response.data.data;
   } catch (error: any) {
     console.error('获取商品失败:', error);
@@ -26,7 +26,7 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 // 创建商品
 export const createProduct = async (productData: any) => {
   try {
-    const response = await apiClient.post('/api/products', productData);
+    const response = await apiClient.post('/products', productData);
     return response.data;
   } catch (error: any) {
     console.error('创建商品失败:', error);
@@ -37,7 +37,7 @@ export const createProduct = async (productData: any) => {
 // 更新商品
 export const updateProduct = async (id: string, productData: any) => {
   try {
-    const response = await apiClient.put(`/api/products/${id}`, productData);
+    const response = await apiClient.put(`/products/${id}`, productData);
     return response.data;
   } catch (error: any) {
     console.error('更新商品失败:', error);
@@ -48,7 +48,7 @@ export const updateProduct = async (id: string, productData: any) => {
 // 删除商品
 export const deleteProduct = async (id: string) => {
   try {
-    const response = await apiClient.delete(`/api/products/${id}`);
+    const response = await apiClient.delete(`/products/${id}`);
     return response.data;
   } catch (error: any) {
     console.error('删除商品失败:', error);
@@ -59,7 +59,7 @@ export const deleteProduct = async (id: string) => {
 // 切换商品状态
 export const toggleProductStatus = async (id: string) => {
   try {
-    const response = await apiClient.patch(`/api/products/${id}/status`);
+    const response = await apiClient.patch(`/products/${id}/status`);
     return response.data;
   } catch (error: any) {
     console.error('切换商品状态失败:', error);
@@ -70,7 +70,7 @@ export const toggleProductStatus = async (id: string) => {
 // 搜索商品
 export const searchProducts = async (keyword: string, params?: any) => {
   try {
-    const response = await apiClient.get('/api/products/search', {
+    const response = await apiClient.get('/products/search', {
       params: { keyword, ...params }
     });
     return response.data;

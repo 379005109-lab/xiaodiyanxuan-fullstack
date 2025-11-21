@@ -3,7 +3,7 @@ import { RegisterFormData, AuthResponse } from '@/types';
 
 export const registerUser = async (formData: RegisterFormData): Promise<AuthResponse> => {
   try {
-    const response = await apiClient.post('/api/auth/register', formData);
+    const response = await apiClient.post('/auth/register', formData);
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || '注册失败，请稍后再试');
@@ -17,7 +17,7 @@ export const loginUser = async (formData: any): Promise<AuthResponse> => {
       username: formData.username,
       password: formData.password,
     };
-    const response = await apiClient.post('/api/auth/login', loginData);
+    const response = await apiClient.post('/auth/login', loginData);
     return response.data;
   } catch (error: any) {
     throw new Error(error.response?.data?.message || '登录失败，请检查您的凭证');

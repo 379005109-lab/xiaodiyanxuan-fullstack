@@ -4,7 +4,7 @@ import { CustomerOrder, CustomerOrderItem, OrderStatus } from '@/types'
 // 获取订单列表
 export const getCustomerOrders = async (): Promise<CustomerOrder[]> => {
   try {
-    const response = await apiClient.get('/api/orders')
+    const response = await apiClient.get('/orders')
     return response.data.data || []
   } catch (error: any) {
     console.error('获取订单列表失败:', error)
@@ -15,7 +15,7 @@ export const getCustomerOrders = async (): Promise<CustomerOrder[]> => {
 // 创建订单
 export const createCustomerOrder = async (payload: Omit<CustomerOrder, 'id' | 'createdAt' | 'updatedAt'>) => {
   try {
-    const response = await apiClient.post('/api/orders', payload)
+    const response = await apiClient.post('/orders', payload)
     return response.data.data
   } catch (error: any) {
     console.error('创建订单失败:', error)

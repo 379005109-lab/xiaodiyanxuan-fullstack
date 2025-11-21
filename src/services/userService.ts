@@ -13,7 +13,7 @@ export interface UserListResponse {
 }
 
 export const fetchUsers = async (params: Record<string, any> = {}): Promise<UserListResponse> => {
-  const { data } = await apiClient.get<UserListResponse>('/api/users', { params })
+  const { data } = await apiClient.get<UserListResponse>('/users', { params })
   return data
 }
 

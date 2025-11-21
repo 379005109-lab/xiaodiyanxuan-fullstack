@@ -3,6 +3,7 @@ import { Toaster } from 'sonner'
 import { useAuthStore } from './store/authStore'
 import { UserRole } from './types'
 import ErrorBoundary from './components/ErrorBoundary'
+import { useEffect, useState } from 'react'
 // 导入测试工具
 import './utils/testImageSave'
 
@@ -69,17 +70,42 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles, fallbackPath = '/' }: ProtectedRouteProps) => {
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, token } = useAuthStore()
+  const [isReady, setIsReady] = useState(false)
+  
+  // 等待 Zustand persist 中间件恢复状态
+  useEffect(() => {
+    // 检查 localStorage 中是否有认证信息
+    const hasAuthData = localStorage.getItem('auth-storage')
+    // 延迟一个 tick，确保 Zustand 已经恢复状态
+    const timer = setTimeout(() => {
+      setIsReady(true)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [])
+  
+  // 在初始化完成前显示加载状态
+  if (!isReady) {
+    return <div className="flex items-center justify-center h-screen bg-gray-50">加载中...</div>
+  }
+  
+  // 如果有 token 但 isAuthenticated 为 false，等待状态恢复
+  if (token && !isAuthenticated) {
+    return <div className="flex items-center justify-center h-screen bg-gray-50">恢复认证状态中...</div>
+  }
   
   if (!isAuthenticated) {
+    console.log('[ProtectedRoute] 未认证，重定向到登录页')
     return <Navigate to="/login" replace />
   }
   
   if (requireAdmin && user?.role !== 'admin' && user?.role !== 'super_admin') {
+    console.log('[ProtectedRoute] 权限不足，重定向到', fallbackPath)
     return <Navigate to={fallbackPath} replace />
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    console.log('[ProtectedRoute] 角色不匹配，重定向到', fallbackPath)
     return <Navigate to={fallbackPath} replace />
   }
   
@@ -132,7 +158,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={
-              <ProtectedRoute requireAdmin fallbackPath="/admin/products">
+              <ProtectedRoute allowedRoles={['admin', 'super_admin']} fallbackPath="/admin/products">
                 <Dashboard />
               </ProtectedRoute>
             } />

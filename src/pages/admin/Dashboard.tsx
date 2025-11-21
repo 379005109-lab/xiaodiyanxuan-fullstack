@@ -18,6 +18,13 @@ import {
 import { formatPrice } from '@/lib/utils'
 
 export default function Dashboard() {
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-4">仪表板</h1>
+      <p className="text-gray-600">欢迎来到管理后台！</p>
+    </div>
+  )
+  
   // 统计数据 - 核心指标
   const stats = [
     {

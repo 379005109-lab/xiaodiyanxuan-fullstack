@@ -316,18 +316,29 @@ const mapPackage = (pkg: StoredPackage): PackagePlan => {
 export const getAllPackages = async (): Promise<PackagePlan[]> => {
   try {
     // 先尝试从 API 获取
-    const response = await apiClient.get('/api/packages')
-    return response.data.data.map((pkg: any) => ({
-      id: pkg._id,
-      name: pkg.name,
-      price: pkg.basePrice,
-      banner: pkg.image || '/placeholder.svg',
-      gallery: [pkg.image || '/placeholder.svg'],
-      tags: pkg.tags || [],
-      description: pkg.description,
-      status: pkg.status,
-      categories: [],
-    }))
+    const response = await apiClient.get('/packages')
+    const apiData = response.data.data
+    
+    // 如果 API 返回数据，使用 API 数据
+    if (apiData && apiData.length > 0) {
+      return apiData.map((pkg: any) => ({
+        id: pkg._id,
+        name: pkg.name,
+        price: pkg.basePrice,
+        banner: pkg.image || '/placeholder.svg',
+        gallery: [pkg.image || '/placeholder.svg'],
+        tags: pkg.tags || [],
+        description: pkg.description,
+        status: pkg.status,
+        categories: [],
+      }))
+    }
+    
+    // 如果 API 返回空数据，使用本地数据
+    console.warn('API 返回空数据，使用本地数据')
+    const stored = readStoredPackages()
+    await wait()
+    return stored.map(mapPackage)
   } catch (error) {
     // 如果 API 失败，回退到本地存储
     console.warn('获取套餐列表失败，使用本地数据')
