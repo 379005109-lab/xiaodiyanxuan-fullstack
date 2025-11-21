@@ -1,7 +1,7 @@
 const express = require('express')
 const multer = require('multer')
 const router = express.Router()
-const { authenticate, optionalAuth } = require('../middleware/auth')
+const { auth, optionalAuth } = require('../middleware/auth')
 const { listCategories, getCategory, createCategory, updateCategory, deleteCategory } = require('../controllers/categoryController')
 
 // 配置 multer

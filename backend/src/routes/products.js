@@ -1,7 +1,7 @@
 const express = require('express')
 const multer = require('multer')
 const router = express.Router()
-const { optionalAuth, authenticate } = require('../middleware/auth')
+const { optionalAuth, auth } = require('../middleware/auth')
 const { listProducts, getProduct, getProductCategories, getProductStyles, search } = require('../controllers/productController')
 
 // 配置 multer
