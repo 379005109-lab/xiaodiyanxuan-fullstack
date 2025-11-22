@@ -1,0 +1,132 @@
+# 🔧 修复 GitHub Actions 403 错误
+
+## 问题
+
+```
+ERROR: failed to push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+unexpected status from HEAD request: 403 Forbidden
+```
+
+## 原因
+
+GitHub Actions 没有权限推送镜像到 GitHub Container Registry (ghcr.io)。
+
+---
+
+## ✅ 解决方案（3选1）
+
+### 方案 1：修改仓库 Actions 权限（最简单）⭐
+
+1. 打开仓库设置：
+   ```
+   https://github.com/379005109-lab/xiaodiyanxuan-fullstack/settings/actions
+   ```
+
+2. 滚动到 **Workflow permissions** 部分
+
+3. 选择：
+   - ✅ **Read and write permissions**
+   - ✅ **Allow GitHub Actions to create and approve pull requests**
+
+4. 点击 **Save**
+
+5. 重新运行失败的工作流：
+   ```
+   https://github.com/379005109-lab/xiaodiyanxuan-fullstack/actions
+   ```
+   点击失败的工作流 → 点击右上角 **Re-run all jobs**
+
+---
+
+### 方案 2：使用个人访问令牌（如果方案1不行）
+
+1. 创建个人访问令牌 (PAT)：
+   - 访问：https://github.com/settings/tokens/new
+   - 勾选权限：
+     - ✅ `write:packages`
+     - ✅ `read:packages`
+     - ✅ `delete:packages`
+   - 点击 **Generate token**
+   - **复制令牌**（只显示一次！）
+
+2. 添加到仓库 Secrets：
+   - 访问：https://github.com/379005109-lab/xiaodiyanxuan-fullstack/settings/secrets/actions
+   - 点击 **New repository secret**
+   - Name: `GH_PAT`
+   - Secret: 粘贴刚才的令牌
+   - 点击 **Add secret**
+
+3. 修改工作流文件：
+   ```yaml
+   - name: Log in to Container Registry
+     uses: docker/login-action@v3
+     with:
+       registry: ${{ env.REGISTRY }}
+       username: ${{ github.repository_owner }}
+       password: ${{ secrets.GH_PAT }}  # 使用 PAT
+   ```
+
+4. 提交并推送
+
+---
+
+### 方案 3：检查 Package 权限设置
+
+如果 package 已经存在，可能需要修改其权限：
+
+1. 访问你的 Packages：
+   ```
+   https://github.com/379005109-lab?tab=packages
+   ```
+
+2. 找到 `xiaodiyanxuan-backend`
+
+3. 点击 **Package settings**
+
+4. 在 **Manage Actions access** 部分：
+   - 确保仓库 `xiaodiyanxuan-fullstack` 有 **Write** 权限
+
+5. 保存设置
+
+---
+
+## 🎯 推荐步骤
+
+**按顺序尝试：**
+
+1. ✅ 先试方案 1（最简单，90%有效）
+2. 如果不行，试方案 3（检查 Package 权限）
+3. 最后才用方案 2（创建 PAT）
+
+---
+
+## 🔄 重新运行构建
+
+修复权限后：
+
+1. 访问 Actions 页面：
+   ```
+   https://github.com/379005109-lab/xiaodiyanxuan-fullstack/actions
+   ```
+
+2. 点击失败的工作流
+
+3. 点击右上角 **Re-run all jobs**
+
+---
+
+## ✅ 验证成功
+
+构建成功后，你会看到：
+- ✅ "Build and push Docker image" 步骤通过
+- ✅ "Update Kubernetes deployment" 步骤执行
+- ✅ 镜像已推送到 `ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest`
+
+---
+
+## 💡 提示
+
+我已经修改了工作流配置，使用 `github.repository_owner` 作为登录用户名，
+这样更符合 GitHub Container Registry 的要求。
+
+现在你只需要按照上面的方案 1 修改权限设置即可！
