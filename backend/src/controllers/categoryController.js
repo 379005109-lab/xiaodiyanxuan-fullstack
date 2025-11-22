@@ -55,7 +55,7 @@ const getCategory = async (req, res) => {
  */
 const createCategory = async (req, res) => {
   try {
-    const { name, description, order, status } = req.body
+    const { name, description, order, status, icon, image } = req.body
 
     if (!name) {
       return res.status(400).json(errorResponse('分类名称不能为空', 400))
@@ -64,13 +64,16 @@ const createCategory = async (req, res) => {
     const category = new Category({
       name,
       description,
+      icon,
+      image,
       order: order || 0,
-      status: status || 'active'
+      status: status || 'active',
+      updatedAt: new Date()
     })
 
     await category.save()
 
-    res.status(201).json(successResponse(category))
+    res.status(201).json(successResponse(category, '分类创建成功'))
   } catch (err) {
     console.error('Create category error:', err)
     if (err.code === 11000) {
