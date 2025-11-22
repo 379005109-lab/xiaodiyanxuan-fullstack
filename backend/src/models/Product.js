@@ -1,25 +1,52 @@
 const mongoose = require('mongoose')
 const { PRODUCT_STATUS } = require('../config/constants')
 
+// SKU子文档Schema
+const skuSchema = new mongoose.Schema({
+  code: String,
+  spec: String,
+  color: String,
+  material: mongoose.Schema.Types.Mixed, // 支持字符串或对象 {fabric, filling, frame, leg}
+  materialId: String,
+  materialUpgradePrices: mongoose.Schema.Types.Mixed,
+  materialImages: mongoose.Schema.Types.Mixed,
+  materialDescriptions: mongoose.Schema.Types.Mixed,
+  stock: { type: Number, default: 0 },
+  price: { type: Number, required: true },
+  discountPrice: Number,
+  images: [String],
+  length: Number,
+  width: Number,
+  height: Number,
+  isPro: { type: Boolean, default: false },
+  proFeature: String,
+  status: { type: Boolean, default: true },
+  sales: { type: Number, default: 0 }
+}, { _id: true })
+
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  productCode: String,
   code: { type: String, unique: true, sparse: true },
   description: String,
   basePrice: { type: Number, required: true },
   stock: { type: Number, default: 0 },
   thumbnail: String,
   images: [String],
-  category: { id: String, name: String },
-  style: { id: String, name: String },
-  specifications: {
-    sizes: [{ id: String, name: String, priceExtra: { type: Number, default: 0 } }],
-    materials: [{ id: String, name: String, priceExtra: { type: Number, default: 0 }, colors: [String] }],
-    fills: [{ id: String, name: String, priceExtra: { type: Number, default: 0 } }],
-    frames: [{ id: String, name: String, priceExtra: { type: Number, default: 0 } }],
-    legs: [{ id: String, name: String, priceExtra: { type: Number, default: 0 } }]
-  },
+  videos: [String],
+  files: [mongoose.Schema.Types.Mixed],
+  category: mongoose.Schema.Types.Mixed, // 支持字符串ID或对象
+  style: mongoose.Schema.Types.Mixed,
+  specifications: mongoose.Schema.Types.Mixed,
+  skus: [skuSchema], // SKU数组
+  tags: [String],
+  isCombo: { type: Boolean, default: false },
+  comboItems: [String],
   sales: { type: Number, default: 0 },
   views: { type: Number, default: 0 },
+  rating: { type: Number, default: 0 },
+  reviews: { type: Number, default: 0 },
+  order: { type: Number, default: 0 },
   status: { type: String, enum: Object.values(PRODUCT_STATUS), default: PRODUCT_STATUS.ACTIVE },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
