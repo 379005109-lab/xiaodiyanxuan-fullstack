@@ -26,10 +26,8 @@ const listCategories = async (req, res) => {
 
       // 第一遍：创建映射
       allCategories.forEach(cat => {
-        categoryMap[cat._id] = {
-          ...cat.toObject(),
-          children: []
-        }
+        const catObj = cat.toObject()
+        categoryMap[cat._id] = Object.assign({}, catObj, { children: [] })
       })
 
       // 第二遍：构建树
