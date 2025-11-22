@@ -53,42 +53,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
-
-      - name: Configure Kubernetes
-        if: ${{ secrets.KUBECONFIG != '' }}
+      - name: Build completed
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
-
-      - name: Update Kubernetes deployment
-        if: ${{ secrets.KUBECONFIG != '' }}
-        run: |
-          kubectl set image deployment/xiaodiyanxuan-api \
-            api=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest \
-            -n ns-cxxiwxce
-          
-          kubectl rollout status deployment/xiaodiyanxuan-api -n ns-cxxiwxce --timeout=300s
-
-      - name: Verify deployment
-        if: ${{ secrets.KUBECONFIG != '' }}
-        run: |
-          echo "✅ Deployment completed!"
-          kubectl get pods -n ns-cxxiwxce -l app=xiaodiyanxuan-api
-          echo ""
-          echo "🔍 Testing health endpoint..."
-          kubectl get svc -n ns-cxxiwxce xiaodiyanxuan-api
-          
-      - name: Deployment skipped
-        if: ${{ secrets.KUBECONFIG == '' }}
-        run: |
-          echo "⚠️ KUBECONFIG secret not configured"
-          echo "📦 Docker image built and pushed successfully!"
-          echo "🔧 To deploy, please configure KUBECONFIG secret in repository settings"
-
-      - name: Image digest
-        run: echo ${{ steps.build.outputs.digest }}
+          echo "✅ Docker image built and pushed successfully\!"
+          echo "📦 Image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest"
+          echo "🔖 Digest: ${{ steps.build.outputs.digest }}"
