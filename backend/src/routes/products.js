@@ -1,8 +1,8 @@
 const express = require('express')
 const multer = require('multer')
 const router = express.Router()
-const { optionalAuth, authenticate } = require('../middleware/auth')
-const { listProducts, getProduct, getProductCategories, getProductStyles, search } = require('../controllers/productController')
+const { optionalAuth, auth } = require('../middleware/auth')
+const { listProducts, getProduct, getProductCategories, getProductStyles, search, bulkImport } = require('../controllers/productController')
 
 // 配置 multer
 const storage = multer.memoryStorage()
@@ -28,6 +28,9 @@ router.get('/styles', getProductStyles)
 
 // GET /api/products/search - Search products
 router.get('/search', optionalAuth, search)
+
+// POST /api/products - Bulk import products
+router.post('/', auth, bulkImport)
 
 // GET /api/products - List products
 router.get('/', optionalAuth, listProducts)

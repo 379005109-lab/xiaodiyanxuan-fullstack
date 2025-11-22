@@ -195,6 +195,33 @@ const deleteImage = async (req, res) => {
   }
 }
 
+// 批量导入商品
+const bulkImport = async (req, res) => {
+  try {
+    const products = req.body
+
+    // 验证是否为数组
+    if (!Array.isArray(products)) {
+      return res.status(400).json(errorResponse('请求体必须是数组', 400))
+    }
+
+    if (products.length === 0) {
+      return res.status(400).json(errorResponse('商品列表不能为空', 400))
+    }
+
+    // 批量插入商品
+    const result = await Product.insertMany(products, { ordered: false })
+
+    res.status(201).json(successResponse({
+      imported: result.length,
+      products: result
+    }, '批量导入成功'))
+  } catch (err) {
+    console.error('Bulk import error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
 module.exports = {
   listProducts,
   getProduct,
@@ -203,5 +230,6 @@ module.exports = {
   search,
   uploadThumbnail,
   uploadImages,
-  deleteImage
+  deleteImage,
+  bulkImport
 }
