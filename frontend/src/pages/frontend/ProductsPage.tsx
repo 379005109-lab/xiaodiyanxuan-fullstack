@@ -189,7 +189,7 @@ export default function ProductsPage() {
     e.preventDefault()
     e.stopPropagation()
     // 添加产品的第一个SKU到对比列表
-    const firstSku = product.skus[0]
+    const firstSku = product.skus && product.skus[0]
     if (!firstSku) {
       toast.error('该商品暂无可选规格')
       return
@@ -210,7 +210,7 @@ export default function ProductsPage() {
       .map(sku => sku.images && sku.images[0])
       .filter(Boolean)
     
-    return skuImages.length > 0 ? skuImages : [product.images[0]]
+    return skuImages.length > 0 ? skuImages : [(product.images && product.images[0]) || '/placeholder.png']
   }
 
   if (loading) {
@@ -479,7 +479,7 @@ export default function ProductsPage() {
                         <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100 group">
                           {/* 主图 - 根据预览索引显示 */}
                           <img
-                            src={getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || product.images[0]}
+                            src={getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png'}
                             alt={product.name}
                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                           />
@@ -530,7 +530,7 @@ export default function ProductsPage() {
                                 handleAddToCompare(e, product)
                               }}
                               className={`p-2 rounded-full shadow-md transition-colors ${
-                                product.skus[0] && isInCompare(product._id, product.skus[0]._id)
+                                product.skus && product.skus[0] && isInCompare(product._id, product.skus[0]._id)
                                   ? 'bg-blue-500 text-white'
                                   : 'bg-white text-gray-600 hover:text-blue-500'
                               }`}
