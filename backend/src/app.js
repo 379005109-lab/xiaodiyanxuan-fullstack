@@ -41,9 +41,9 @@ app.use(compression())
 // 日志中间件
 app.use(morgan('dev'))
 
-// 请求体解析
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+// JSON 解析中间件 - 增加请求体大小限制到50MB支持图片上传
+app.use(express.json({ limit: '50mb' }))
+app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 
 // 健康检查
 app.get('/health', (req, res) => {
