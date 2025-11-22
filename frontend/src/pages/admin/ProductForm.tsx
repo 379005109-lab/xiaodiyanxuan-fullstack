@@ -869,13 +869,19 @@ export default function ProductForm() {
                 className="input"
               >
                 <option value="">请选择分类</option>
-                {categories.filter(cat => cat.level === 1).map(parent => (
+                {categories.map(parent => (
                   <optgroup key={parent._id} label={parent.name}>
-                    {categories.filter(cat => cat.parentId === parent._id).map(child => (
-                      <option key={child._id} value={child._id}>
-                        {child.name}
+                    {parent.children && parent.children.length > 0 ? (
+                      parent.children.map(child => (
+                        <option key={child._id} value={child._id}>
+                          {child.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option key={parent._id} value={parent._id}>
+                        {parent.name}（无子分类）
                       </option>
-                    ))}
+                    )}
                   </optgroup>
                 ))}
               </select>
