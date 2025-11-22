@@ -1,7 +1,7 @@
 const express = require('express')
 const multer = require('multer')
 const router = express.Router()
-const { authenticate, optionalAuth } = require('../middleware/auth')
+const { auth, optionalAuth } = require('../middleware/auth')
 const { listCategories, getCategory, createCategory, updateCategory, deleteCategory, getCategoryStats } = require('../controllers/categoryController')
 
 // 配置 multer
@@ -26,7 +26,7 @@ router.get('/', optionalAuth, listCategories)
 router.get('/stats', optionalAuth, getCategoryStats)
 
 // POST /api/categories - Create category
-router.post('/', authenticate, createCategory)
+router.post('/', auth, createCategory)
 
 // 上传功能暂时禁用，待实现
 // POST /api/categories/:id/upload-image - Upload image
@@ -39,9 +39,9 @@ router.post('/', authenticate, createCategory)
 router.get('/:id', optionalAuth, getCategory)
 
 // PUT /api/categories/:id - Update category
-router.put('/:id', authenticate, updateCategory)
+router.put('/:id', auth, updateCategory)
 
 // DELETE /api/categories/:id - Delete category
-router.delete('/:id', authenticate, deleteCategory)
+router.delete('/:id', auth, deleteCategory)
 
 module.exports = router
