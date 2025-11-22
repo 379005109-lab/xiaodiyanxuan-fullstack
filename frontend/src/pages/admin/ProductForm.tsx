@@ -170,8 +170,19 @@ export default function ProductForm() {
           videos: ((product as any).videos || []) as string[],
           specifications: product.specifications ? 
             Object.entries(product.specifications).map(([name, value]) => {
+              // 兼容性检查：value可能是字符串或对象
+              if (typeof value !== 'string') {
+                // 如果是对象格式（旧数据），返回默认值
+                return {
+                  name,
+                  length: 0,
+                  width: 0,
+                  height: 0,
+                  unit: 'CM'
+                }
+              }
               // 解析格式: "200x90x85CM"
-              const match = (value as string).match(/(\d+)x(\d+)x(\d+)(\w+)/)
+              const match = value.match(/(\d+)x(\d+)x(\d+)(\w+)/)
               if (match) {
                 return {
                   name,
