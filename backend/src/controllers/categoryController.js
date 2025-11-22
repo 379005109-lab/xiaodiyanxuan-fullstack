@@ -4,25 +4,57 @@ const Category = require('../models/Category')
 const Product = require('../models/Product')
 
 /**
- * 获取分类列表
+ * 获取所有分类（树状结构）
  * GET /api/categories
  */
 const listCategories = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, status = 'active' } = req.query
+    const { page, limit, status } = req.query
+    
+    let query = {}
+    if (status) {
+      query.status = status
+    }
 
-    const query = status ? { status } : {}
-    const skip = (page - 1) * pageSize
-    const limit = parseInt(pageSize)
+    // 如果没有分页参数，返回树状结构
+    if (!page && !limit) {
+      const allCategories = await Category.find(query).sort({ order: 1, createdAt: -1 })
+      
+      // 构建树状结构
+      const categoryMap = {}
+      const tree = []
 
+      // 第一遍：创建映射
+      allCategories.forEach(cat => {
+        categoryMap[cat._id] = {
+          ...cat.toObject(),
+          children: []
+        }
+      })
+
+      // 第二遍：构建树
+      allCategories.forEach(cat => {
+        if (cat.parentId && categoryMap[cat.parentId]) {
+          // 是子分类，添加到父分类的 children
+          categoryMap[cat.parentId].children.push(categoryMap[cat._id])
+        } else {
+          // 是顶级分类，添加到树根
+          tree.push(categoryMap[cat._id])
+        }
+      })
+
+      return res.json(paginatedResponse(tree, allCategories.length, 1, allCategories.length))
+    }
+
+    // 有分页参数，返回扁平列表
+    const skip = (page - 1) * limit
+    const total = await Category.countDocuments(query)
     const categories = await Category.find(query)
       .sort({ order: 1, createdAt: -1 })
       .skip(skip)
-      .limit(limit)
+      .limit(parseInt(limit))
 
-    const total = await Category.countDocuments(query)
-
-    res.json(paginatedResponse(categories, total, page, pageSize))
+    res.json(paginatedResponse(categories, total, page, limit))
   } catch (err) {
     console.error('List categories error:', err)
     res.status(500).json(errorResponse(err.message, 500))
