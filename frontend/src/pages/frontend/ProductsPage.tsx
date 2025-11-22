@@ -202,7 +202,7 @@ export default function ProductsPage() {
   // 获取商品SKU预览图
   const getProductPreviewImages = (product: Product) => {
     // 获取前4个SKU的首图
-    const skuImages = product.skus
+    const skuImages = (product.skus || [])
       .slice(0, 4)
       .map(sku => sku.images && sku.images[0])
       .filter(Boolean)

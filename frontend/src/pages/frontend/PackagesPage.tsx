@@ -125,7 +125,7 @@ export default function PackagesPage() {
                     className="h-80 lg:h-full w-full object-cover"
                   />
                   <div className="absolute bottom-6 left-6 flex flex-wrap gap-2">
-                    {pkg.tags.slice(0, 4).map((tag, index) => (
+                    {(pkg.tags || []).slice(0, 4).map((tag, index) => (
                       <span
                         key={tag}
                         className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white"
