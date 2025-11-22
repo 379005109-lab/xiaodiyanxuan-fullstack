@@ -264,7 +264,7 @@ export default function CategoryManagement() {
                   {category.name}
                 </span>
                 {/* 折扣标签：只有最低折扣低于60%才显示 */}
-                {category.hasDiscount && (() => {
+                {category.hasDiscount && category.discounts && category.discounts.length > 0 && (() => {
                   const minDiscount = Math.min(...category.discounts.map(d => d.discount))
                   if (minDiscount < 60) {
                     const discountLabel = Math.floor(minDiscount / 10)
@@ -318,11 +318,15 @@ export default function CategoryManagement() {
 
             {/* 角色折扣 */}
             <div className="flex-1 text-sm text-gray-600 px-4">
-              {category.discounts.map((d, idx) => (
-                <span key={idx} className="mr-4">
-                  {d.roleName}:{d.discount}%
-                </span>
-              ))}
+              {category.discounts && category.discounts.length > 0 ? (
+                category.discounts.map((d, idx) => (
+                  <span key={idx} className="mr-4">
+                    {d.roleName}:{d.discount}%
+                  </span>
+                ))
+              ) : (
+                <span className="text-gray-400">未设置</span>
+              )}
             </div>
 
             {/* 操作按钮 */}

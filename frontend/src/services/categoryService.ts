@@ -7,7 +7,16 @@ export type { Category };
 export const getAllCategories = async (): Promise<Category[]> => {
   try {
     const response = await apiClient.get('/categories');
-    return response.data.data || [];
+    const categories = response.data.data || [];
+    // 确保每个分类都有 discounts 字段
+    return categories.map((cat: any) => ({
+      ...cat,
+      discounts: cat.discounts || [],
+      hasDiscount: cat.hasDiscount || false,
+      productCount: cat.productCount || 0,
+      level: cat.level || 1,
+      children: cat.children || []
+    }));
   } catch (error: any) {
     console.error('获取分类列表失败:', error);
     throw error;
