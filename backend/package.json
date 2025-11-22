@@ -1,7 +1,7 @@
 {
   "name": "xiaodiyanxuan-api",
   "version": "1.0.0",
-  "description": "Backend API for WeChat mini-program and Web commerce platform",
+  "description": "Backend API for WeChat mini-program and Web commerce platform - v2.0 with SKU support",
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
