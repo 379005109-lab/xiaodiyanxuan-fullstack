@@ -195,6 +195,62 @@ const deleteImage = async (req, res) => {
   }
 }
 
+// 创建单个商品
+const createProduct = async (req, res) => {
+  try {
+    const productData = req.body
+
+    // 创建商品
+    const product = await Product.create(productData)
+
+    res.status(201).json(successResponse(product, '商品创建成功'))
+  } catch (err) {
+    console.error('Create product error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
+// 更新商品
+const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params
+    const productData = req.body
+
+    const product = await Product.findByIdAndUpdate(
+      id,
+      { ...productData, updatedAt: Date.now() },
+      { new: true }
+    )
+
+    if (!product) {
+      return res.status(404).json(errorResponse('商品不存在', 404))
+    }
+
+    res.json(successResponse(product, '商品更新成功'))
+  } catch (err) {
+    console.error('Update product error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
+// 删除商品
+const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const product = await Product.findByIdAndDelete(id)
+
+    if (!product) {
+      return res.status(404).json(errorResponse('商品不存在', 404))
+    }
+
+    res.json(successResponse(null, '商品删除成功'))
+  } catch (err) {
+    console.error('Delete product error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
 // 批量导入商品
 const bulkImport = async (req, res) => {
   try {
@@ -225,6 +281,9 @@ const bulkImport = async (req, res) => {
 module.exports = {
   listProducts,
   getProduct,
+  createProduct,
+  updateProduct,
+  deleteProduct,
   getProductCategories,
   getProductStyles,
   search,
