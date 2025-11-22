@@ -6,6 +6,8 @@ const categorySchema = new mongoose.Schema({
   description: String,
   icon: String,
   image: String,
+  parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: null }, // 父分类ID
+  level: { type: Number, default: 1 }, // 层级：1为顶级，2为二级
   order: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   createdAt: { type: Date, default: Date.now },

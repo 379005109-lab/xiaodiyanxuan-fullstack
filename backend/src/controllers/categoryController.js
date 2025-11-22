@@ -55,7 +55,7 @@ const getCategory = async (req, res) => {
  */
 const createCategory = async (req, res) => {
   try {
-    const { name, description, order, status, icon, image } = req.body
+    const { name, description, order, status, icon, image, parentId, level } = req.body
 
     if (!name) {
       return res.status(400).json(errorResponse('分类名称不能为空', 400))
@@ -66,6 +66,8 @@ const createCategory = async (req, res) => {
       description,
       icon,
       image,
+      parentId: parentId || null,
+      level: level || 1,
       order: order || 0,
       status: status || 'active',
       updatedAt: new Date()
