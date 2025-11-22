@@ -5,10 +5,14 @@ const { calculatePagination } = require('../utils/helpers')
 const { NotFoundError } = require('../utils/errors')
 
 const getProducts = async (filters = {}) => {
-  const { page = 1, pageSize = 10, search, categoryId, styleId, sortBy = '-createdAt' } = filters
+  const { page = 1, pageSize = 10, search, categoryId, styleId, sortBy = '-createdAt', status } = filters
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
-  const query = { status: 'active' }
+  // 默认不过滤状态，如果传了status参数才过滤
+  const query = {}
+  if (status) {
+    query.status = status
+  }
   
   if (search) {
     query.$text = { $search: search }

@@ -265,8 +265,20 @@ const bulkImport = async (req, res) => {
       return res.status(400).json(errorResponse('商品列表不能为空', 400))
     }
 
+    // 为每个商品添加必要字段
+    const productsWithDefaults = products.map(p => ({
+      ...p,
+      status: p.status || 'active',
+      stock: p.stock || 0,
+      sales: p.sales || 0,
+      views: p.views || 0,
+      images: p.images || [],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }))
+
     // 批量插入商品
-    const result = await Product.insertMany(products, { ordered: false })
+    const result = await Product.insertMany(productsWithDefaults, { ordered: false })
 
     res.status(201).json(successResponse({
       imported: result.length,
