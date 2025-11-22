@@ -27,8 +27,9 @@ const uploadFile = async (req, res) => {
       const base64Data = req.file.buffer.toString('base64');
       const dataUrl = `data:${req.file.mimetype};base64,${base64Data}`;
       
+      // 直接返回 data URL 作为 fileId，前端可以直接使用
       const result = {
-        fileId: `base64_${Date.now()}`,
+        fileId: dataUrl,  // 直接使用 data URL
         filename: req.file.originalname,
         originalName: req.file.originalname,
         url: dataUrl,
