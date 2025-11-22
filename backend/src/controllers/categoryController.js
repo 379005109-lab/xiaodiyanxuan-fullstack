@@ -1,6 +1,7 @@
 const { successResponse, errorResponse, paginatedResponse } = require('../utils/response')
 const FileService = require('../services/fileService')
 const Category = require('../models/Category')
+const Product = require('../models/Product')
 
 /**
  * 获取分类列表
@@ -223,10 +224,18 @@ const getCategoryStats = async (req, res) => {
     const activeCount = await Category.countDocuments({ status: 'active' })
     const inactiveCount = await Category.countDocuments({ status: 'inactive' })
 
+    // 统计商品总数
+    const totalProducts = await Product.countDocuments()
+
+    // 目前数据模型中没有明确的 "优惠" 标记，这里先返回 0，避免前端访问 undefined
+    const withDiscount = 0
+
     res.json(successResponse({
       total,
       active: activeCount,
-      inactive: inactiveCount
+      inactive: inactiveCount,
+      totalProducts,
+      withDiscount
     }))
   } catch (err) {
     console.error('Get category stats error:', err)
