@@ -86,15 +86,18 @@ export default function ProductsPage() {
     try {
       const response = await getAllProducts();
       console.log('[ProductsPage] 加载商品响应:', response);
-      if (response.success) {
+      if (response.success && response.data) {
         // 只显示上架的商品
-        const activeProducts = response.data.filter((p: Product) => p.status !== 'inactive');
+        const activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');
         console.log('[ProductsPage] 加载商品数量:', activeProducts.length);
         setProducts(activeProducts);
+      } else {
+        setProducts([]);
       }
     } catch (error) {
       console.error('[ProductsPage] 加载商品失败:', error);
       toast.error('加载商品失败');
+      setProducts([]);
     } finally {
       setLoading(false);
     }
