@@ -153,15 +153,11 @@ function App() {
 
           {/* 后台路由 */}
           <Route path="/admin" element={
-            <ProtectedRoute allowedRoles={[ 'admin', 'super_admin', 'designer' ]} fallbackPath="/admin/products">
+            <ProtectedRoute allowedRoles={[ 'admin', 'super_admin', 'designer' ]}>
               <AdminLayout />
             </ProtectedRoute>
           }>
-            <Route index element={
-              <ProtectedRoute allowedRoles={['admin', 'super_admin']} fallbackPath="/admin/products">
-                <Dashboard />
-              </ProtectedRoute>
-            } />
+            <Route index element={<Navigate to="/admin/products" replace />} />
             <Route path="products" element={
               <ProtectedRoute allowedRoles={['admin', 'super_admin', 'designer']}>
                 <ProductManagement />

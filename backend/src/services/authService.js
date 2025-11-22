@@ -89,9 +89,9 @@ const usernamePasswordLogin = async (username, password) => {
     user: {
       id: user._id,
       username: user.username,
-      nickname: user.nickname,
       avatar: user.avatar,
-      userType: user.userType
+      role: user.role || user.userType || 'customer',
+      userType: user.role || user.userType || 'customer'
     }
   }
 }

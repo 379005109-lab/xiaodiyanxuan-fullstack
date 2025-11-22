@@ -24,7 +24,13 @@ export default function LoginPage() {
       if (response.success && response.data) {
         login(response.data.user, response.data.token);
         toast.success('登录成功！');
-        navigate('/');
+        // 根据用户角色跳转
+        const user = response.data.user;
+        if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'designer') {
+          navigate('/admin/products');
+        } else {
+          navigate('/');
+        }
       } else {
         throw new Error(response.message || '登录失败');
       }
