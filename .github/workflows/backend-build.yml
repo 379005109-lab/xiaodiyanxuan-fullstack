@@ -30,8 +30,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
@@ -59,12 +59,14 @@ jobs:
           version: 'latest'
 
       - name: Configure Kubernetes
+        if: ${{ secrets.KUBECONFIG != '' }}
         run: |
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
 
       - name: Update Kubernetes deployment
+        if: ${{ secrets.KUBECONFIG != '' }}
         run: |
           kubectl set image deployment/xiaodiyanxuan-api \
             api=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest \
@@ -73,12 +75,20 @@ jobs:
           kubectl rollout status deployment/xiaodiyanxuan-api -n ns-cxxiwxce --timeout=300s
 
       - name: Verify deployment
+        if: ${{ secrets.KUBECONFIG != '' }}
         run: |
           echo "✅ Deployment completed!"
           kubectl get pods -n ns-cxxiwxce -l app=xiaodiyanxuan-api
           echo ""
           echo "🔍 Testing health endpoint..."
           kubectl get svc -n ns-cxxiwxce xiaodiyanxuan-api
+          
+      - name: Deployment skipped
+        if: ${{ secrets.KUBECONFIG == '' }}
+        run: |
+          echo "⚠️ KUBECONFIG secret not configured"
+          echo "📦 Docker image built and pushed successfully!"
+          echo "🔧 To deploy, please configure KUBECONFIG secret in repository settings"
 
       - name: Image digest
         run: echo ${{ steps.build.outputs.digest }}
