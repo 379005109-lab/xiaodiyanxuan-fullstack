@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getProductById } from '@/services/productService.mock';
+import { getProductById } from '@/services/productService';
 import { getAllMaterials } from '@/services/materialService';
 import { Product, ProductSKU, ProductFile } from '@/types';
 import { useCartStore } from '@/store/cartStore';

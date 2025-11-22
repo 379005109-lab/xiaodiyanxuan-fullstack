@@ -4,8 +4,8 @@ import { motion } from 'framer-motion'
 import { Grid, List, SlidersHorizontal, Heart, Scale, TrendingUp, Star, Zap } from 'lucide-react'
 import { Product } from '@/types'
 import { formatPrice } from '@/lib/utils'
-// 暂时使用模拟服务进行前端开发
-import { getProducts as getAllProducts } from '@/services/productService.mock'
+// 使用真实API服务
+import { getProducts as getAllProducts } from '@/services/productService'
 import { getAllCategories } from '@/services/categoryService'
 import { useFavoriteStore } from '@/store/favoriteStore'
 import { useCompareStore } from '@/store/compareStore'

@@ -6,8 +6,8 @@ import * as XLSX from 'xlsx'
 import ImageUploader from '@/components/admin/ImageUploader'
 import MaterialSelectModal from '@/components/admin/MaterialSelectModal'
 import SkuImageManagerModal from '@/components/admin/SkuImageManagerModal'
-// 暂时使用模拟服务进行前端开发
-import { getProductById, createProduct, updateProduct } from '@/services/productService.mock'
+// 使用真实的后端API服务
+import { getProductById, createProduct, updateProduct } from '@/services/productService'
 import { getAllCategories, Category } from '@/services/categoryService'
 import { imageCache } from '@/services/imageCache'
 

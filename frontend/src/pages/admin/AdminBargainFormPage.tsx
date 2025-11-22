@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
 import ProductSelector from '../../components/admin/ProductSelector';
-import { getProducts } from '@/services/productService.mock';
+import { getProducts } from '@/services/productService';
 import { getAllCategories, Category } from '@/services/categoryService';
 import { createCategoryLookup, getRoleDiscountMultiplier } from '@/utils/categoryHelper';
 import { useAuthStore } from '@/store/authStore';

@@ -15,7 +15,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { formatPrice } from '@/lib/utils'
-import { getProductById } from '@/services/productService.mock'
+import { getProductById } from '@/services/productService'
 
 type TimePeriod = 'week' | 'month' | 'quarter' | 'year'
 
