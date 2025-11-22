@@ -43,7 +43,17 @@ const listCategories = async (req, res) => {
         }
       })
 
-      return res.json(paginatedResponse(tree, allCategories.length, 1, allCategories.length))
+      // 直接返回树状数据，确保 children 字段存在
+      return res.json({
+        success: true,
+        data: tree,
+        pagination: {
+          page: 1,
+          limit: allCategories.length,
+          total: allCategories.length,
+          totalPages: 1
+        }
+      })
     }
 
     // 有分页参数，返回扁平列表
