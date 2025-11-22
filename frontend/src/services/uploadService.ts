@@ -8,14 +8,14 @@ import apiClient from '@/lib/apiClient'
 export const uploadFile = async (file: File) => {
   try {
     console.log(`📤 开始上传文件: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`)
-    console.log(`📍 API 端点: /upload`)
+    console.log(`📍 API 端点: /files/upload`)
     
     const formData = new FormData()
     formData.append('file', file)
 
-    console.log(`🔗 完整请求 URL 将是: ${apiClient.defaults.baseURL}/upload`)
+    console.log(`🔗 完整请求 URL 将是: ${apiClient.defaults.baseURL}/files/upload`)
     
-    const response = await apiClient.post('/upload', formData, {
+    const response = await apiClient.post('/files/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
@@ -39,7 +39,16 @@ export const uploadFile = async (file: File) => {
  * @returns 文件 URL
  */
 export const getFileUrl = (fileId: string): string => {
-  return `/api/upload/download/${fileId}`
+  // 如果fileId已经是完整URL，直接返回
+  if (fileId.startsWith('http') || fileId.startsWith('/api/')) {
+    return fileId
+  }
+  // 如果是base64数据，直接返回
+  if (fileId.startsWith('data:')) {
+    return fileId
+  }
+  // 否则构造正确的API路径
+  return `/api/files/${fileId}`
 }
 
 /**
@@ -49,7 +58,7 @@ export const getFileUrl = (fileId: string): string => {
  */
 export const downloadFile = async (fileId: string) => {
   try {
-    const response = await apiClient.get(`/upload/download/${fileId}`, {
+    const response = await apiClient.get(`/files/${fileId}`, {
       responseType: 'blob'
     })
     return response.data
