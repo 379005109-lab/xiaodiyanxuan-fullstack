@@ -9,16 +9,17 @@ interface MaterialFormModalProps {
   categories: MaterialCategory[]
   onClose: () => void
   onCategoryCreate?: () => void
+  defaultCategoryId?: string // 新增：默认分类ID
 }
 
-export default function MaterialFormModal({ material, categories, onClose, onCategoryCreate }: MaterialFormModalProps) {
+export default function MaterialFormModal({ material, categories, onClose, onCategoryCreate, defaultCategoryId }: MaterialFormModalProps) {
   const isEdit = !!material
 
   const [formData, setFormData] = useState({
     name: material?.name || '',
     type: 'texture' as MaterialType, // 固定为材质类型
     image: material?.image || '',
-    categoryId: material?.categoryId || '',
+    categoryId: material?.categoryId || defaultCategoryId || '', // 优先使用material的categoryId，否则使用defaultCategoryId
     tags: material?.tags || [],
     properties: material?.properties || {
       材质: '',

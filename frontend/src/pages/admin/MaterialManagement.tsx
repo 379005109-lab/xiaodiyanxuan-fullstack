@@ -1030,6 +1030,7 @@ export default function MaterialManagement() {
           key={editingMaterial?._id || 'new'} // 添加key以确保分类列表更新时重新渲染
           material={editingMaterial}
           categories={getAllMaterialCategories()}
+          defaultCategoryId={selectedCategoryId} // 传递当前选中的分类ID
           onClose={handleModalClose}
           onCategoryCreate={() => {
             // 记住当前编辑的素材，以便创建分类后恢复
