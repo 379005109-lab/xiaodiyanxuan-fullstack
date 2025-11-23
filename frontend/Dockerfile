@@ -6,8 +6,8 @@ WORKDIR /app
 # 复制 package 文件
 COPY package*.json ./
 
-# 安装依赖
-RUN npm ci
+# 安装依赖（使用 npm install 代替 npm ci，更宽松）
+RUN npm install --legacy-peer-deps
 
 # 复制源代码
 COPY . .
