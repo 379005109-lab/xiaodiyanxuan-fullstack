@@ -26,9 +26,11 @@ const getApiUrl = () => {
       return 'http://localhost:8080';
     }
     
-    // 如果在公网，直接使用后端API URL
-    console.log(`✅ 生产环境 (${hostname})，使用后端API: http://lgpzubdtdxjf.sealoshzh.site/api`);
-    return 'http://lgpzubdtdxjf.sealoshzh.site/api';
+    // 如果在公网，使用相对路径（需要配置代理）或使用当前协议
+    const protocol = window.location.protocol; // https: or http:
+    const apiUrl = `${protocol}//lgpzubdtdxjf.sealoshzh.site/api`;
+    console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
+    return apiUrl;
   }
   
   // 默认使用本地
