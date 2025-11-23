@@ -7,7 +7,7 @@ import apiClient from '@/lib/apiClient'
  */
 export const uploadFile = async (file: File) => {
   try {
-    console.log(`📤 开始上传文件: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`)
+    console.log(`🔥🔥🔥 [GRIDFS-FIX-v2025-11-23-11-18] 开始上传文件: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`)
     console.log(`📍 API 端点: /files/upload`)
     
     const formData = new FormData()
