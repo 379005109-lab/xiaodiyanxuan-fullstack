@@ -64,11 +64,12 @@ class FileService {
       });
 
       uploadStream.on('finish', () => {
+        const fileId = uploadStream.id.toString();
         resolve({
-          fileId: uploadStream.id,
+          fileId: fileId,
           filename: filename,
           originalName: originalName,
-          url: `/api/files/${uploadStream.id}`,
+          url: `/api/files/${fileId}`,
           size: fileBuffer.length,
           mimeType: mimeType,
           uploadedAt: new Date(),
