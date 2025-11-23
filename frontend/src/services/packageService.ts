@@ -1,5 +1,6 @@
 import apiClient from '@/lib/apiClient'
 import { PackagePlan, PackageProductMaterial, PackageProductOption } from '@/types'
+import { getFileUrl } from '@/services/uploadService'
 
 interface StoredPackageProduct {
   id: number
@@ -315,23 +316,88 @@ const mapPackage = (pkg: StoredPackage): PackagePlan => {
 
 export const getAllPackages = async (): Promise<PackagePlan[]> => {
   try {
-    // 先尝试从 API 获取
+    // 先尝试从 API 获取套餐列表
     const response = await apiClient.get('/packages')
     const apiData = response.data.data
     
     // 如果 API 返回数据，使用 API 数据
     if (apiData && apiData.length > 0) {
-      return apiData.map((pkg: any) => ({
-        id: pkg._id,
-        name: pkg.name,
-        price: pkg.basePrice,
-        banner: pkg.image || '/placeholder.svg',
-        gallery: [pkg.image || '/placeholder.svg'],
-        tags: pkg.tags || [],
-        description: pkg.description,
-        status: pkg.status,
-        categories: [],
-      }))
+      // 获取所有产品的详细信息
+      const packagesWithDetails = await Promise.all(
+        apiData.map(async (pkg: any) => {
+          const categories: any[] = []
+          
+          // 按类别分组产品
+          if (pkg.products && pkg.products.length > 0) {
+            // 获取所有产品详情
+            const productDetails = await Promise.all(
+              pkg.products.map(async (item: any) => {
+                try {
+                  const prodResponse = await apiClient.get(`/products/${item.productId}`)
+                  return {
+                    ...prodResponse.data.data,
+                    packageQuantity: item.quantity || 1,
+                    packagePrice: item.price
+                  }
+                } catch (err) {
+                  console.error(`获取产品${item.productId}失败:`, err)
+                  return null
+                }
+              })
+            )
+            
+            // 过滤掉获取失败的产品
+            const validProducts = productDetails.filter(p => p !== null)
+            
+            // 按类别分组
+            const categoryMap: Record<string, any[]> = {}
+            validProducts.forEach(product => {
+              const category = product.category || product.categoryName || '其他'
+              if (!categoryMap[category]) {
+                categoryMap[category] = []
+              }
+              categoryMap[category].push({
+                id: product._id,
+                name: product.name,
+                price: product.packagePrice || product.basePrice || 0,
+                image: product.images?.[0] ? getFileUrl(product.images[0]) : '/placeholder.svg',
+                specs: product.specs || '',
+                description: product.description || '',
+                materials: {
+                  fabric: [],
+                  filling: [],
+                  frame: [],
+                  leg: []
+                }
+              })
+            })
+            
+            // 转换为categories格式
+            Object.entries(categoryMap).forEach(([categoryName, products]) => {
+              categories.push({
+                key: categoryName,
+                name: categoryName,
+                required: 1,
+                products: products
+              })
+            })
+          }
+          
+          return {
+            id: pkg._id,
+            name: pkg.name,
+            price: pkg.basePrice || 0,
+            banner: pkg.thumbnail ? getFileUrl(pkg.thumbnail) : (pkg.images?.[0] ? getFileUrl(pkg.images[0]) : '/placeholder.svg'),
+            gallery: pkg.images && pkg.images.length > 0 ? pkg.images.map((img: string) => getFileUrl(img)) : [pkg.thumbnail ? getFileUrl(pkg.thumbnail) : '/placeholder.svg'],
+            tags: categories.map(c => c.name),
+            description: pkg.description || '',
+            status: pkg.status || 'active',
+            categories: categories
+          }
+        })
+      )
+      
+      return packagesWithDetails
     }
     
     // 如果 API 返回空数据，使用本地数据
@@ -341,7 +407,7 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
     return stored.map(mapPackage)
   } catch (error) {
     // 如果 API 失败，回退到本地存储
-    console.warn('获取套餐列表失败，使用本地数据')
+    console.warn('获取套餐列表失败，使用本地数据', error)
     const stored = readStoredPackages()
     await wait()
     return stored.map(mapPackage)
