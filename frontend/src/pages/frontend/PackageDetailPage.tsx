@@ -22,12 +22,17 @@ const MATERIAL_PREMIUM_RULES: { keyword: string; extra: number }[] = [
   { keyword: '进口', extra: 1200 },
   { keyword: '真皮', extra: 1500 },
   { keyword: '航空铝', extra: 900 },
-  { keyword: '碳素钢', extra: 600 },
-  { keyword: '岩板', extra: 800 },
-  { keyword: '头层', extra: 1000 },
-  { keyword: '电镀', extra: 500 },
-  { keyword: '高密', extra: 400 },
+  { keyword: '高密度', extra: 800 },
+  { keyword: '实木', extra: 700 },
 ]
+
+// 材质字段中英文映射
+const MATERIAL_NAMES: Record<string, string> = {
+  fabric: '面料',
+  filling: '填充',
+  frame: '框架',
+  leg: '脚架',
+}
 
 const PRIMARY_BLUE = '#3E76FF'
 const PRIMARY_BLUE_LIGHT = '#E8F0FF'
@@ -240,7 +245,8 @@ export default function PackageDetailPage() {
       setPkg(packageData)
       setLoading(false)
       if (packageData && packageData.categories.length) {
-        setExpandedCategory(packageData.categories[0].key)
+        // 默认展开所有套餐类别
+        // setExpandedCategory(packageData.categories[0].key)
         const defaults: MaterialSelectionMap = {}
         packageData.categories.forEach((category) => {
           category.products.forEach((product) => {
@@ -827,7 +833,7 @@ export default function PackageDetailPage() {
                                     <div className="flex items-center justify-between">
                                       <div>
                                         <p className="text-xs text-gray-400">SKU #{product.id}</p>
-                                        <h4 className="text-lg font-semibold text-gray-900">{product.name}</h4>
+                                        <h4 className="text-lg font-semibold text-gray-900">{category.name}</h4>
                                       </div>
                                       <div className="text-right">
                                         <p className="text-xs text-gray-400">单价</p>
@@ -842,8 +848,8 @@ export default function PackageDetailPage() {
                                     <div className="grid grid-cols-2 gap-3 text-xs">
                                       {product.materials && Object.entries(product.materials).map(([key, options]) => (
                                         <div key={key} className="bg-gray-50 rounded-xl p-3">
-                                          <p className="text-gray-400 tracking-widest mb-1">{key.toUpperCase()}</p>
-                                          <p className="text-gray-700 font-medium line-clamp-2">{options.join(' / ')}</p>
+                                          <p className="text-gray-400 tracking-widest mb-1">{MATERIAL_NAMES[key] || key.toUpperCase()}</p>
+                                          <p className="text-gray-700 font-medium line-clamp-2">{Array.isArray(options) ? options.join(' / ') : '暂无'}</p>
                                         </div>
                                       ))}
                                     </div>
@@ -859,7 +865,20 @@ export default function PackageDetailPage() {
                                   )}
 
                                   <button
-                                    onClick={() => handleSelectProduct(category.key, product)}
+                                    onClick={() => {
+                                      // 检查是否有材质选项需要选择
+                                      const hasMaterials = product.materials && Object.keys(product.materials).length > 0;
+                                      const hasSelection = materialSelections[product.id];
+                                      
+                                      if (!isSelected && hasMaterials && !hasSelection) {
+                                        // 如果有材质但没有选择，打开预览选择材质
+                                        toast.info('请先选择规格和材质');
+                                        openPreview(category.key, productIndex);
+                                        return;
+                                      }
+                                      
+                                      handleSelectProduct(category.key, product);
+                                    }}
                                     className={`w-full flex items-center justify-center gap-2 rounded-2xl py-3 font-semibold transition ${
                                       isSelected
                                         ? 'bg-[#3E76FF] text-white'
@@ -1219,38 +1238,45 @@ function ProductPreviewModal({
             {product.materials ? (
               Object.entries(product.materials as PackageProductMaterial).map(([materialKey, options]) => {
                 const materialOptions = (options ?? []) as string[]
+                const MATERIAL_NAMES: Record<string, string> = {
+                  fabric: '面料',
+                  filling: '填充',
+                  frame: '框架',
+                  leg: '脚架',
+                }
                 return (
                   <div key={materialKey}>
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-gray-800">{materialKey.toUpperCase()}</p>
+                      <p className="text-sm font-semibold text-gray-800">{MATERIAL_NAMES[materialKey] || materialKey.toUpperCase()}</p>
                       <span className="text-xs text-gray-400">可选 {materialOptions.length} 款</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-3">
                       {materialOptions.map((option) => {
                         const isActive = localSelections[materialKey] === option
+                        const materialImage = getMaterialPreviewImage(product, option)
                         return (
-                          <div key={option} className="relative inline-flex">
+                          <div key={option} className="relative">
                             <button
                               onClick={() => handleSelectMaterial(materialKey, option)}
-                              className={`px-3 py-1.5 rounded-full border text-sm transition ${
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition ${
                                 isActive
                                   ? 'border-primary-500 bg-primary-50 text-primary-700'
                                   : 'border-gray-200 text-gray-600 hover:border-gray-400'
                               }`}
                             >
-                              {option}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handlePreviewOption(option)
-                              }}
-                              className="absolute -top-2 -right-2 p-1 rounded-full bg-white shadow text-gray-500 hover:text-[#3E76FF]"
-                              aria-label={`预览${option}`}
-                            >
-                              <Maximize2 className="h-3 w-3" />
+                              <img 
+                                src={materialImage}
+                                alt={option}
+                                className="w-6 h-6 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-primary-500"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handlePreviewOption(option)
+                                }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/placeholder.svg'
+                                }}
+                              />
+                              <span>{option}</span>
                             </button>
                           </div>
                         )
