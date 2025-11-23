@@ -7,13 +7,6 @@ const getApiUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     const apiUrl = import.meta.env.VITE_API_URL;
     console.log(`✅ 使用环境变量 VITE_API_URL: ${apiUrl}`);
-    
-    // 如果是相对路径（/api），则使用相对路径
-    if (apiUrl.startsWith('/')) {
-      console.log(`✅ 使用相对路径: ${apiUrl}`);
-      return apiUrl;
-    }
-    
     return apiUrl;
   }
   
@@ -23,7 +16,7 @@ const getApiUrl = () => {
     return 'http://localhost:8080';
   }
   
-  // 生产环境：检查当前页面是否在本地
+  // 生产环境：直接使用后端API地址
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     
@@ -33,9 +26,9 @@ const getApiUrl = () => {
       return 'http://localhost:8080';
     }
     
-    // 如果在公网，使用相对路径（通过Nginx代理）
-    console.log(`✅ 公网环境 (${hostname})，使用相对路径代理`);
-    return '/api';
+    // 如果在公网，直接使用后端API URL
+    console.log(`✅ 生产环境 (${hostname})，使用后端API: http://lgpzubdtdxjf.sealoshzh.site/api`);
+    return 'http://lgpzubdtdxjf.sealoshzh.site/api';
   }
   
   // 默认使用本地
