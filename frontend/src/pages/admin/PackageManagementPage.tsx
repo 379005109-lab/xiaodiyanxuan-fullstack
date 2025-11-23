@@ -154,22 +154,6 @@ const PackageManagementPage: React.FC = () => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    if (isEditing && id) {
-      const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]');
-      const packageToEdit = existingPackages.find(p => p.id === parseInt(id, 10));
-      if (packageToEdit) {
-        setPackageName(packageToEdit.name);
-        setPackagePrice(packageToEdit.price);
-        setPackageImage(packageToEdit.image);
-        setPackageImages(packageToEdit.images || []);
-        const packageTags = packageToEdit.tags || [];
-        setTags(packageTags);
-        setSelectedProducts(packageToEdit.selectedProducts || {});
-        setOptionalQuantities(packageToEdit.optionalQuantities || {});
-      }
-    }
-  }, [id, isEditing]);
   const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
   const [activeSubFilters, setActiveSubFilters] = useState<Record<string, string | null>>({});
 
@@ -366,31 +350,6 @@ const PackageManagementPage: React.FC = () => {
       
       const result = await response.json();
       console.log('📦 保存成功:', result);
-      
-      // 同时保存到localStorage作为备份
-      const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]');
-      const newPackage = {
-        id: isEditing ? parseInt(id!, 10) : Date.now(),
-        name: packageName,
-        price: packagePrice,
-        image: packageImage || '/placeholder.svg',
-        images: packageImages.length > 0 ? packageImages : undefined,
-        tags,
-        selectedProducts,
-        optionalQuantities,
-        productCount: Object.values(selectedProducts).reduce((acc, products) => acc + products.length, 0),
-        categoryCount: tags.length,
-      };
-      
-      if (isEditing) {
-        const packageIndex = existingPackages.findIndex(p => p.id === newPackage.id);
-        if (packageIndex > -1) {
-          existingPackages[packageIndex] = newPackage;
-        }
-      } else {
-        existingPackages.push(newPackage);
-      }
-      localStorage.setItem('packages', JSON.stringify(existingPackages));
       
       toast.success('套餐保存成功！');
       navigate('/admin/packages');
