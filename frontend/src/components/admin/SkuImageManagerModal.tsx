@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, Trash2, GripVertical } from 'lucide-react'
 import { toast } from 'sonner'
+import { getFileUrl } from '@/services/uploadService'
 
 interface SkuImageManagerModalProps {
   images: string[]
@@ -162,7 +163,7 @@ export default function SkuImageManagerModal({
                 >
                   {/* 图片 */}
                   <img
-                    src={image}
+                    src={getFileUrl(image)}
                     alt={`SKU ${index + 1}`}
                     className="w-full h-40 object-cover"
                   />

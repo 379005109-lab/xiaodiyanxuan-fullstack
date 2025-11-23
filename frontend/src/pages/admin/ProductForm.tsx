@@ -10,7 +10,7 @@ import SkuImageManagerModal from '@/components/admin/SkuImageManagerModal'
 import { getProductById, createProduct, updateProduct } from '@/services/productService'
 import { getAllCategories, Category } from '@/services/categoryService'
 import { imageCache } from '@/services/imageCache'
-import { uploadFile } from '@/services/uploadService'
+import { uploadFile, getFileUrl } from '@/services/uploadService'
 
 const CATEGORY_STORAGE_KEY = 'productForm:lastCategory'
 
@@ -1054,7 +1054,7 @@ export default function ProductForm() {
                           >
                             {sku.images.slice(0, 3).map((img, imgIndex) => (
                               <div key={imgIndex} className="relative w-10 h-10 group">
-                                <img src={img} alt={`SKU ${imgIndex + 1}`} className="w-full h-full object-cover rounded border border-gray-300 cursor-pointer" />
+                                <img src={getFileUrl(img)} alt={`SKU ${imgIndex + 1}`} className="w-full h-full object-cover rounded border border-gray-300 cursor-pointer" />
                               </div>
                             ))}
                             {sku.images.length > 3 && (
