@@ -59,9 +59,11 @@ const PackageManagementPage: React.FC = () => {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [categoryTree, setCategoryTree] = useState<any[]>([]);
 
-  // 递归获取某个分类及其所有子分类的名称列表
-  const getAllSubCategoryNames = (categoryName: string, tree: any[]): string[] => {
-    const result: string[] = [categoryName];
+  // 递归获取某个分类及其所有子分类的ID和名称
+  const getAllSubCategoryInfo = (categoryName: string, tree: any[]): { ids: string[], names: string[], map: Record<string, string> } => {
+    const ids: string[] = [];
+    const names: string[] = [categoryName];
+    const map: Record<string, string> = {};  // id -> name的映射
     
     const findCategory = (name: string, categories: any[]): any => {
       for (const cat of categories) {
@@ -75,19 +77,26 @@ const PackageManagementPage: React.FC = () => {
     };
     
     const category = findCategory(categoryName, tree);
-    if (category && category.children && category.children.length > 0) {
-      const collectChildNames = (children: any[]): void => {
-        children.forEach(child => {
-          result.push(child.name);
-          if (child.children && child.children.length > 0) {
-            collectChildNames(child.children);
-          }
-        });
-      };
-      collectChildNames(category.children);
+    if (category) {
+      ids.push(category._id);
+      map[category._id] = category.name;
+      
+      if (category.children && category.children.length > 0) {
+        const collectChildren = (children: any[]): void => {
+          children.forEach(child => {
+            ids.push(child._id);
+            names.push(child.name);
+            map[child._id] = child.name;
+            if (child.children && child.children.length > 0) {
+              collectChildren(child.children);
+            }
+          });
+        };
+        collectChildren(category.children);
+      }
     }
     
-    return result;
+    return { ids, names, map };
   };
 
   // 加载分类和商品数据
@@ -484,25 +493,38 @@ const PackageManagementPage: React.FC = () => {
           <div className="text-center py-8 text-gray-500">请先选择商品类别标签</div>
         ) : (
           tags.map(category => {
-          // 获取该分类及其所有子分类的名称
-          const allCategoryNames = getAllSubCategoryNames(category, categoryTree);
+          // 获取该分类及其所有子分类的ID和名称
+          const categoryInfo = getAllSubCategoryInfo(category, categoryTree);
+          const { ids: allCategoryIds, names: allCategoryNames, map: categoryIdToName } = categoryInfo;
           
           // 过滤出属于这些分类的商品
           const availableProducts = Array.isArray(allProducts) 
             ? allProducts.filter(p => {
-                const pCategory = typeof p.category === 'string' ? p.category : p.categoryName;
-                return pCategory && allCategoryNames.includes(pCategory);
+                // 商品的category可能是字符串ID或对象{id, name}
+                let pCategoryId = null;
+                if (typeof p.category === 'string') {
+                  pCategoryId = p.category;
+                } else if (p.category && typeof p.category === 'object') {
+                  pCategoryId = (p.category as any).id || (p.category as any)._id;
+                }
+                return pCategoryId && allCategoryIds.includes(pCategoryId);
               })
             : [];
             
           // 按子分类分组
           const productsBySubCategory: Record<string, typeof availableProducts> = {};
           availableProducts.forEach(product => {
-            const pCategory = typeof product.category === 'string' ? product.category : (product.categoryName || '其他');
-            if (!productsBySubCategory[pCategory]) {
-              productsBySubCategory[pCategory] = [];
+            let pCategoryId = null;
+            if (typeof product.category === 'string') {
+              pCategoryId = product.category;
+            } else if (product.category && typeof product.category === 'object') {
+              pCategoryId = (product.category as any).id || (product.category as any)._id;
             }
-            productsBySubCategory[pCategory].push(product);
+            const pCategoryName = pCategoryId ? (categoryIdToName[pCategoryId] || '其他') : '其他';
+            if (!productsBySubCategory[pCategoryName]) {
+              productsBySubCategory[pCategoryName] = [];
+            }
+            productsBySubCategory[pCategoryName].push(product);
           });
           const currentSelected = selectedProducts[category] || [];
           
@@ -556,8 +578,17 @@ const PackageManagementPage: React.FC = () => {
                     {availableProducts
                       .filter(p => {
                         const searchTermMatch = p.name.toLowerCase().includes((searchTerms[category] || '').toLowerCase());
-                        const pCategory = typeof p.category === 'string' ? p.category : (p.categoryName || '其他');
-                        const subFilterMatch = !activeSubFilters[category] || pCategory === activeSubFilters[category];
+                        
+                        // 获取商品的分类名称
+                        let pCategoryId = null;
+                        if (typeof p.category === 'string') {
+                          pCategoryId = p.category;
+                        } else if (p.category && typeof p.category === 'object') {
+                          pCategoryId = (p.category as any).id || (p.category as any)._id;
+                        }
+                        const pCategoryName = pCategoryId ? (categoryIdToName[pCategoryId] || '其他') : '其他';
+                        
+                        const subFilterMatch = !activeSubFilters[category] || pCategoryName === activeSubFilters[category];
                         return searchTermMatch && subFilterMatch;
                       })
                       .map(product => (
@@ -567,7 +598,15 @@ const PackageManagementPage: React.FC = () => {
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-semibold">{product.name}</p>
                             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                              {typeof product.category === 'string' ? product.category : (product.categoryName || '未分类')}
+                              {(() => {
+                                let pCategoryId = null;
+                                if (typeof product.category === 'string') {
+                                  pCategoryId = product.category;
+                                } else if (product.category && typeof product.category === 'object') {
+                                  pCategoryId = (product.category as any).id || (product.category as any)._id;
+                                }
+                                return pCategoryId ? (categoryIdToName[pCategoryId] || '未分类') : '未分类';
+                              })()}
                             </span>
                           </div>
                           <p className="text-sm text-red-500">{formatPrice(product.basePrice)}</p>
@@ -594,7 +633,15 @@ const PackageManagementPage: React.FC = () => {
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-semibold">{product.name}</p>
                             <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                              {typeof product.category === 'string' ? product.category : (product.categoryName || '未分类')}
+                              {(() => {
+                                let pCategoryId = null;
+                                if (typeof product.category === 'string') {
+                                  pCategoryId = product.category;
+                                } else if (product.category && typeof product.category === 'object') {
+                                  pCategoryId = (product.category as any).id || (product.category as any)._id;
+                                }
+                                return pCategoryId ? (categoryIdToName[pCategoryId] || '未分类') : '未分类';
+                              })()}
                             </span>
                           </div>
                           <p className="text-sm text-red-500">{formatPrice(product.basePrice)}</p>
