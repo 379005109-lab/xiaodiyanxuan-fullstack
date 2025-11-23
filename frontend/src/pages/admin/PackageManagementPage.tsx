@@ -56,22 +56,29 @@ const PackageManagementPage: React.FC = () => {
   const [selectedProducts, setSelectedProducts] = useState<Record<string, Product[]>>({});
   const [optionalQuantities, setOptionalQuantities] = useState<Record<string, number>>({});
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   // 加载分类和商品数据
   useEffect(() => {
     const loadData = async () => {
+      setIsLoadingData(true);
       try {
         // 加载分类
         const categories = await getAllCategories();
-        const categoryNames = categories.map(cat => cat.name);
+        const categoryNames = Array.isArray(categories) ? categories.map(cat => cat.name) : [];
         setAllTags(categoryNames);
         
         // 加载商品
         const products = await getProducts();
-        setAllProducts(products);
+        const productsArray = Array.isArray(products) ? products : [];
+        setAllProducts(productsArray);
       } catch (error) {
         console.error('加载数据失败:', error);
         toast.error('加载数据失败');
+        setAllProducts([]);
+        setAllTags([]);
+      } finally {
+        setIsLoadingData(false);
       }
     };
     loadData();
@@ -433,8 +440,15 @@ const PackageManagementPage: React.FC = () => {
       <div className="bg-white p-6 rounded-lg shadow-sm">
         <h2 className="text-xl font-semibold mb-4">选择商品组成套餐</h2>
         
-        {tags.map(category => {
-          const availableProducts = allProducts.filter(p => (p.category === category || p.categoryName === category));
+        {isLoadingData ? (
+          <div className="text-center py-8 text-gray-500">加载商品数据中...</div>
+        ) : tags.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">请先选择商品类别标签</div>
+        ) : (
+          tags.map(category => {
+          const availableProducts = Array.isArray(allProducts) 
+            ? allProducts.filter(p => (p.category === category || p.categoryName === category))
+            : [];
           const currentSelected = selectedProducts[category] || [];
           
           return (
@@ -528,7 +542,8 @@ const PackageManagementPage: React.FC = () => {
               </div>
             </div>
           )
-        })}
+        })
+        )}
       </div>
 
       {/* 5. 操作按钮 */}
