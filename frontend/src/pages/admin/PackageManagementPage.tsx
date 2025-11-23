@@ -565,14 +565,6 @@ const PackageManagementPage: React.FC = () => {
             : [];
           
           console.log('按分类过滤后的商品数量:', availableProducts.length);
-          
-          // 如果按分类过滤后没有商品，则显示所有商品
-          if (availableProducts.length === 0) {
-            console.log('⚠️ 没有匹配的商品，显示所有商品供选择');
-            availableProducts = Array.isArray(allProducts) ? allProducts : [];
-          }
-          
-          console.log('最终可选商品数量:', availableProducts.length);
           console.log('==================');
             
           // 按子分类分组
@@ -621,11 +613,6 @@ const PackageManagementPage: React.FC = () => {
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold">可选商品 ({availableProducts.length})</h4>
-                      {availableProducts.length === allProducts.length && allProducts.length > 0 && (
-                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
-                          显示所有商品（未找到匹配分类的商品）
-                        </span>
-                      )}
                     </div>
                     <input 
                       type="text" 

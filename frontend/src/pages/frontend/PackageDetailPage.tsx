@@ -821,7 +821,7 @@ export default function PackageDetailPage() {
                                       </div>
                                       <div className="text-right">
                                         <p className="text-xs text-gray-400">单价</p>
-                                        <p className="text-xl font-bold text-red-600">¥{product.price.toLocaleString()}</p>
+                                        <p className="text-xl font-bold text-red-600">¥{(product.price || 0).toLocaleString()}</p>
                                       </div>
                                     </div>
 

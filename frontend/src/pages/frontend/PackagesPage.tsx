@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Sparkles, ArrowRight, Tag, Loader2 } from 'lucide-react'
 import { PackagePlan } from '@/types'
 import { getAllPackages } from '@/services/packageService'
+import { getFileUrl } from '@/services/uploadService'
 
 const TAG_PALETTE = ['#EF4444', '#F97316', '#0EA5E9', '#10B981', '#8B5CF6', '#EC4899']
 
@@ -111,24 +112,28 @@ export default function PackagesPage() {
             </div>
           )}
 
-          {!loading && filteredPackages.map((pkg) => (
-            <Link
-              to={`/packages/${pkg.id}`}
-              key={pkg.id}
-              className="block rounded-3xl overflow-hidden shadow-xl bg-white transition hover:-translate-y-1 hover:shadow-2xl"
-            >
-              <div className="flex flex-col lg:flex-row">
-                <div className="lg:w-1/2 relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {!loading && filteredPackages.map((pkg) => (
+              <Link
+                to={`/packages/${pkg.id}`}
+                key={pkg.id}
+                className="block rounded-2xl overflow-hidden shadow-lg bg-white transition hover:-translate-y-2 hover:shadow-2xl"
+              >
+                <div className="relative">
                   <img
-                    src={pkg.banner}
+                    src={pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg'}
                     alt={pkg.name}
-                    className="h-80 lg:h-full w-full object-cover"
+                    className="h-64 w-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
                   />
-                  <div className="absolute bottom-6 left-6 flex flex-wrap gap-2">
-                    {(pkg.tags || []).slice(0, 4).map((tag, index) => (
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full">
+                    <p className="text-lg font-bold text-primary-600">¥{(pkg.price || 0).toLocaleString()}</p>
+                  </div>
+                  <div className="absolute bottom-4 left-4 flex flex-wrap gap-2">
+                    {(pkg.tags || []).slice(0, 2).map((tag, index) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white"
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white backdrop-blur"
                         style={{ backgroundColor: TAG_PALETTE[index % TAG_PALETTE.length] }}
                       >
                         <Tag className="h-3 w-3 mr-1" /> {tag}
@@ -137,38 +142,36 @@ export default function PackagesPage() {
                   </div>
                 </div>
 
-                <div className="lg:w-1/2 p-8 lg:p-12 space-y-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm text-gray-400">套餐编号 #{pkg.id}</p>
-                      <h2 className="text-3xl font-semibold text-gray-900 mt-1">{pkg.name}</h2>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-400">整套到手价</p>
-                      <p className="text-3xl font-bold text-primary-600">¥{pkg.price.toLocaleString()}</p>
-                    </div>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 line-clamp-1">{pkg.name}</h2>
+                    <p className="text-sm text-gray-500 mt-1">套餐编号 #{pkg.id}</p>
                   </div>
-                  <p className="text-gray-600 leading-relaxed line-clamp-3">{pkg.description || '立即查看搭配详情，获取更多材质与规格信息。'}</p>
-                  <div className="flex flex-wrap gap-4">
-                    {pkg.categories.map((category) => (
-                      <div key={category.key} className="flex items-center space-x-2 text-sm text-gray-500 bg-gray-50 rounded-full px-4 py-1">
-                        <span className="font-semibold text-gray-800">{category.required} 选 1</span>
-                        <span className="text-gray-400">{category.name}</span>
+                  <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">{pkg.description || '立即查看搭配详情，获取更多材质与规格信息。'}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {pkg.categories.slice(0, 3).map((category) => (
+                      <div key={category.key} className="text-xs text-gray-500 bg-gray-50 rounded-full px-3 py-1">
+                        {category.name}
                       </div>
                     ))}
+                    {pkg.categories.length > 3 && (
+                      <div className="text-xs text-gray-400 bg-gray-50 rounded-full px-3 py-1">
+                        +{pkg.categories.length - 3}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-400">
-                      包含 {pkg.categories.length} 大品类 · {pkg.categories.reduce((sum, category) => sum + category.products.length, 0)} 个细项
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div className="text-xs text-gray-400">
+                      {pkg.categories.length} 大品类 · {pkg.categories.reduce((sum, category) => sum + category.products.length, 0)} 个细项
                     </div>
-                    <div className="inline-flex items-center text-primary-600 font-semibold">
+                    <div className="inline-flex items-center text-primary-600 font-medium text-sm">
                       查看详情 <ArrowRight className="h-4 w-4 ml-1" />
                     </div>
                   </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
         </section>
       </div>
     </div>
