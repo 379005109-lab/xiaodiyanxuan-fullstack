@@ -1,7 +1,7 @@
 {
   "name": "xiaodiyanxuan-api",
   "version": "1.0.1",
-  "description": "Backend API with 100MB body limit for large images - v21, Web commerce platform - v2.0 with SKU support",
+  "description": "Backend API with 500MB body limit for massive images - v22",
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
