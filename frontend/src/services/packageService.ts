@@ -357,27 +357,56 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
                 categoryMap[category] = []
               }
               
-              // 从商品的skus中提取材质信息
+              // 从商品的skus中提取材质信息和规格
               const materials: Record<string, string[]> = {}
-              let specs = product.description || ''
+              const materialImages: Record<string, string> = {}
+              let specs = ''
               
               if (product.skus && product.skus.length > 0) {
-                // 收集所有SKU的材质
+                // 收集所有SKU的材质和对应的图片
                 const fabricSet = new Set<string>()
                 const fillingSet = new Set<string>()
                 const frameSet = new Set<string>()
                 const legSet = new Set<string>()
                 
+                // 收集规格信息：尺寸
+                const specsArray: string[] = []
+                
                 product.skus.forEach((sku: any) => {
+                  // 提取材质
                   if (sku.material) {
                     if (sku.material.fabric) fabricSet.add(sku.material.fabric)
                     if (sku.material.filling) fillingSet.add(sku.material.filling)
                     if (sku.material.frame) frameSet.add(sku.material.frame)
                     if (sku.material.leg) legSet.add(sku.material.leg)
                   }
-                  // 使用第一个SKU的spec作为规格
-                  if (!specs && sku.spec) {
-                    specs = sku.spec
+                  
+                  // 提取规格：尺寸
+                  if (sku.dimensions && sku.dimensions.length && sku.dimensions.width && sku.dimensions.height) {
+                    const size = `${sku.dimensions.length}x${sku.dimensions.width}x${sku.dimensions.height}cm`
+                    if (!specsArray.includes(size)) {
+                      specsArray.push(size)
+                    }
+                  }
+                  
+                  // 提取材质对应的图片
+                  if (sku.images && sku.images.length > 0) {
+                    const skuImage = getFileUrl(sku.images[0])
+                    // 为每个材质保存图片
+                    if (sku.material) {
+                      if (sku.material.fabric && !materialImages[sku.material.fabric]) {
+                        materialImages[sku.material.fabric] = skuImage
+                      }
+                      if (sku.material.filling && !materialImages[sku.material.filling]) {
+                        materialImages[sku.material.filling] = skuImage
+                      }
+                      if (sku.material.frame && !materialImages[sku.material.frame]) {
+                        materialImages[sku.material.frame] = skuImage
+                      }
+                      if (sku.material.leg && !materialImages[sku.material.leg]) {
+                        materialImages[sku.material.leg] = skuImage
+                      }
+                    }
                   }
                 })
                 
@@ -385,6 +414,16 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
                 if (fillingSet.size > 0) materials['filling'] = Array.from(fillingSet)
                 if (frameSet.size > 0) materials['frame'] = Array.from(frameSet)
                 if (legSet.size > 0) materials['leg'] = Array.from(legSet)
+                
+                // 构建规格字符串
+                if (specsArray.length > 0) {
+                  specs = `尺寸：${specsArray.join('、')}`
+                }
+              }
+              
+              // 如果没有从SKU提取到规格，使用description
+              if (!specs && product.description) {
+                specs = product.description
               }
               
               categoryMap[category].push({
@@ -394,7 +433,8 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
                 image: product.images?.[0] ? getFileUrl(product.images[0]) : '/placeholder.svg',
                 specs: specs,
                 description: product.description || '',
-                materials: materials
+                materials: materials,
+                materialImages: materialImages  // 添加材质图片映射
               })
             })
             

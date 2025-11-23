@@ -249,8 +249,8 @@ export default function PackageDetailPage() {
       setPkg(packageData)
       setLoading(false)
       if (packageData && packageData.categories.length) {
-        // 默认展开所有套餐类别
-        // setExpandedCategory(packageData.categories[0].key)
+        // 默认不设置expandedCategory，让所有分类都展开
+        // setExpandedCategory(null)  // null表示不折叠任何分类
         const defaults: MaterialSelectionMap = {}
         packageData.categories.forEach((category) => {
           category.products.forEach((product) => {
@@ -840,8 +840,8 @@ export default function PackageDetailPage() {
                                   >
                                     <div className="flex items-center justify-between">
                                       <div>
-                                        <p className="text-xs text-gray-400">#{productIndex + 1}</p>
-                                        <h4 className="text-lg font-semibold text-gray-900">{category.name}</h4>
+                                        <p className="text-xs text-gray-400">{category.name}</p>
+                                        <h4 className="text-lg font-semibold text-gray-900">{product.name}</h4>
                                       </div>
                                       <div className="text-right">
                                         <p className="text-xs text-gray-400">单价</p>
@@ -1256,7 +1256,6 @@ function ProductPreviewModal({
                   <div key={materialKey}>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm font-semibold text-gray-800">{MATERIAL_NAMES[materialKey] || materialKey.toUpperCase()}</p>
-                      <span className="text-xs text-gray-400">可选 {materialOptions.length} 款</span>
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {materialOptions.map((option) => {
