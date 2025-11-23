@@ -568,11 +568,11 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
                       >
                         <div className="relative w-full aspect-square bg-white rounded-lg border border-gray-200 overflow-hidden mb-2">
                           <img
-                            src={sku.image}
+                            src={getFileUrl(sku.image)}
                             alt={sku.name}
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/placeholder.png'
+                              (e.target as HTMLImageElement).src = '/placeholder.svg'
                             }}
                           />
                           <button

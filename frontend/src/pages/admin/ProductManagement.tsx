@@ -11,6 +11,7 @@ import { getProducts, deleteProduct, toggleProductStatus, createProduct, updateP
 import { getAllCategories, Category } from '@/services/categoryService'
 import { createCategoryLookup, getRoleDiscountMultiplier } from '@/utils/categoryHelper'
 import { useAuthStore } from '@/store/authStore'
+import { getFileUrl } from '@/services/uploadService'
 
 export default function ProductManagement() {
   const navigate = useNavigate()
@@ -572,15 +573,15 @@ export default function ProductManagement() {
                   <td className="py-4 px-4">
                     <div className="flex items-center">
                       <img
-                        src={product.images[0] || '/placeholder.png'}
+                        src={getFileUrl(product.images[0] || '/placeholder.svg')}
                         alt={product.name}
                         className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                         loading="lazy"
                         style={{ imageRendering: 'auto' }}
                         onError={(e) => {
                           const target = e.target as HTMLImageElement
-                          if (target.src !== window.location.origin + '/placeholder.png' && !target.src.includes('placeholder.png')) {
-                            target.src = '/placeholder.png'
+                          if (target.src !== window.location.origin + '/placeholder.svg' && !target.src.includes('placeholder.svg')) {
+                            target.src = '/placeholder.svg'
                           }
                         }}
                       />
