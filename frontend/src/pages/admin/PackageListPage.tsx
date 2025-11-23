@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Edit, DollarSign, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { formatPrice } from '@/lib/utils';
+import { getAllPackages } from '@/services/packageService';
+import apiClient from '@/lib/apiClient';
+import { toast } from 'sonner';
 
 // 定义套餐类型
 interface Package {
@@ -25,29 +28,40 @@ const PackageListPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    const storedPackages = JSON.parse(localStorage.getItem('packages') || '[]');
-    const initialPackages: Package[] = [
-      {
-        id: 1,
-        name: '默认温馨卧室三人套餐',
-        price: 8999,
-        productCount: 3,
-        categoryCount: 3,
-        image: '/placeholder.svg',
-        status: '已下架' // Default status for new packages
-      },
-    ];
-
-    setPackages(storedPackages.length > 0 ? storedPackages : initialPackages);
+    loadPackages();
   }, []);
 
-    const handleDelete = (packageId: number) => {
-    const updatedPackages = packages.filter(p => p.id !== packageId);
-    setPackages(updatedPackages);
-    localStorage.setItem('packages', JSON.stringify(updatedPackages));
+  const loadPackages = async () => {
+    try {
+      const response = await apiClient.get('/packages');
+      const apiPackages = response.data.data.map((pkg: any) => ({
+        id: pkg._id,
+        name: pkg.name,
+        price: pkg.basePrice,
+        productCount: pkg.products?.length || 0,
+        categoryCount: 0,
+        image: pkg.thumbnail || '/placeholder.svg',
+        status: pkg.status
+      }));
+      setPackages(apiPackages);
+    } catch (error) {
+      console.error('加载套餐失败', error);
+      toast.error('加载套餐失败');
+    }
   };
 
-  const handleStatusToggle = (packageId: number) => {
+  const handleDelete = async (packageId: string | number) => {
+    try {
+      await apiClient.delete(`/packages/${packageId}`);
+      toast.success('套餐已删除');
+      loadPackages();
+    } catch (error) {
+      console.error('删除套餐失败', error);
+      toast.error('删除套餐失败');
+    }
+  };
+
+  const handleStatusToggle = (packageId: string | number) => {
     const updatedPackages = packages.map(p => {
       if (p.id === packageId) {
         return { ...p, status: p.status === '已上架' ? '已下架' : '已上架' };

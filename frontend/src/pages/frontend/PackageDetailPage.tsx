@@ -1220,24 +1220,44 @@ function ProductPreviewModal({
                 }
                 
                 // 按材质类型分组
-                const materialGroups: Record<string, string[]> = {}
+                const materialGroups: Record<string, Array<{original: string, display: string}>> = {}
                 const groupOrder: string[] = []
                 
                 materialOptions.forEach(material => {
                   let groupKey = 'other'
-                  if (material.includes('普通皮')) groupKey = '普通皮'
-                  else if (material.includes('全青皮')) groupKey = '全青皮'
-                  else if (material.includes('牛皮')) groupKey = '牛皮'
-                  else if (material.includes('绒布')) groupKey = '绒布'
-                  else if (material.includes('麻布')) groupKey = '麻布'
-                  else if (material.includes('科技布')) groupKey = '科技布'
-                  else if (material.includes('半皮')) groupKey = '半皮'
+                  let displayName = material
+                  
+                  // 检查材质类型并提取颜色/子类型
+                  if (material.includes('普通皮')) {
+                    groupKey = '普通皮'
+                    // 如果是"普通皮-白色"格式，提取"白色"
+                    displayName = material.replace('普通皮-', '').replace('普通皮', material)
+                  } else if (material.includes('全青皮')) {
+                    groupKey = '全青皮'
+                    displayName = material.replace('全青皮-', '').replace('全青皮', material)
+                  } else if (material.includes('牛皮')) {
+                    groupKey = '牛皮'
+                    displayName = material.replace('牛皮-', '').replace('牛皮', material)
+                  } else if (material.includes('绒布')) {
+                    groupKey = '绒布'
+                    displayName = material.replace('绒布-', '').replace('绒布', material)
+                  } else if (material.includes('麻布')) {
+                    groupKey = '麻布'
+                    displayName = material.replace('麻布-', '').replace('麻布', material)
+                  } else if (material.includes('科技布')) {
+                    groupKey = '科技布'
+                    displayName = material.replace('科技布-', '').replace('科技布', material)
+                  } else if (material.includes('半皮')) {
+                    groupKey = '半皮'
+                    displayName = material.replace('半皮-', '').replace('半皮', material)
+                  }
                   
                   if (!materialGroups[groupKey]) {
                     materialGroups[groupKey] = []
                     groupOrder.push(groupKey)
                   }
-                  materialGroups[groupKey].push(material)
+                  // 保存原始材质名和显示名
+                  materialGroups[groupKey].push({ original: material, display: displayName })
                 })
                 
                 return (
@@ -1256,14 +1276,14 @@ function ProductPreviewModal({
                               </div>
                             )}
                             <div className="flex flex-wrap gap-3">
-                              {materialGroups[groupKey].map(materialName => {
-                                const isSelected = localSelections[materialKey] === materialName
-                                const preview = product.materialImages?.[materialName] || getMaterialPreviewImage(product, materialName)
+                              {materialGroups[groupKey].map(materialItem => {
+                                const isSelected = localSelections[materialKey] === materialItem.original
+                                const preview = product.materialImages?.[materialItem.original] || getMaterialPreviewImage(product, materialItem.original)
                                 return (
                                   <button
-                                    key={materialName}
+                                    key={materialItem.original}
                                     type="button"
-                                    onClick={() => handleSelectMaterial(materialKey, materialName)}
+                                    onClick={() => handleSelectMaterial(materialKey, materialItem.original)}
                                     className="flex flex-col items-center gap-2 cursor-pointer"
                                   >
                                     <span
@@ -1273,11 +1293,11 @@ function ProductPreviewModal({
                                     >
                                       <img 
                                         src={preview} 
-                                        alt={materialName} 
+                                        alt={materialItem.display} 
                                         className="w-full h-full object-cover"
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          handlePreviewOption(materialName)
+                                          handlePreviewOption(materialItem.original)
                                         }}
                                         onError={(e) => {
                                           (e.target as HTMLImageElement).src = '/placeholder.svg'
@@ -1287,7 +1307,7 @@ function ProductPreviewModal({
                                     <span className={`text-xs text-center max-w-[60px] leading-tight ${
                                       isSelected ? 'text-[#1F64FF] font-semibold' : 'text-gray-600'
                                     }`}>
-                                      {materialName}
+                                      {materialItem.display}
                                     </span>
                                   </button>
                                 )
