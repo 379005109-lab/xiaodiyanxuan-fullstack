@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Upload } from 'lucide-react'
 import { toast } from 'sonner'
-import { uploadFile } from '@/services/uploadService'
+import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { Category } from '@/types'
 import { createCategory, updateCategory, getAllCategories } from '@/services/categoryService'
 
@@ -163,7 +163,7 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
               {formData.image && (
                 <div className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden">
                   <img
-                    src={formData.image}
+                    src={getFileUrl(formData.image)}
                     alt="分类图片"
                     className="w-full h-full object-cover"
                   />

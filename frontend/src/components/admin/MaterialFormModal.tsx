@@ -3,7 +3,7 @@ import { X, Upload, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Material, MaterialCategory, MaterialType } from '@/types'
 import { createMaterial, updateMaterial, getAllMaterials, deleteMaterial } from '@/services/materialService'
-import { uploadFile } from '@/services/uploadService'
+import { uploadFile, getFileUrl } from '@/services/uploadService'
 
 interface MaterialFormModalProps {
   material: Material | null
@@ -302,7 +302,7 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
               {formData.image && (
                 <div className="relative w-40 h-40 border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                   <img
-                    src={formData.image}
+                    src={getFileUrl(formData.image)}
                     alt="素材图片"
                     className="w-full h-full object-cover"
                   />
