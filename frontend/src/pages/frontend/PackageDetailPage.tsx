@@ -749,13 +749,6 @@ export default function PackageDetailPage() {
                 ))}
               </div>
               <p className="text-gray-600 leading-relaxed">{pkg.description}</p>
-              <div className="flex flex-wrap gap-3">
-                {pkg.tags.map((tag) => (
-                  <span key={tag} className="px-4 py-1 rounded-full bg-[#E8F0FF] text-[#3E76FF] text-sm font-medium">
-                    {tag}
-                  </span>
-                ))}
-              </div>
             </div>
 
             <div className="space-y-6">
