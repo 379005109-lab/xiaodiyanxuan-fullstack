@@ -356,28 +356,55 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
               if (!categoryMap[category]) {
                 categoryMap[category] = []
               }
+              
+              // 从商品的skus中提取材质信息
+              const materials: Record<string, string[]> = {}
+              let specs = product.description || ''
+              
+              if (product.skus && product.skus.length > 0) {
+                // 收集所有SKU的材质
+                const fabricSet = new Set<string>()
+                const fillingSet = new Set<string>()
+                const frameSet = new Set<string>()
+                const legSet = new Set<string>()
+                
+                product.skus.forEach((sku: any) => {
+                  if (sku.material) {
+                    if (sku.material.fabric) fabricSet.add(sku.material.fabric)
+                    if (sku.material.filling) fillingSet.add(sku.material.filling)
+                    if (sku.material.frame) frameSet.add(sku.material.frame)
+                    if (sku.material.leg) legSet.add(sku.material.leg)
+                  }
+                  // 使用第一个SKU的spec作为规格
+                  if (!specs && sku.spec) {
+                    specs = sku.spec
+                  }
+                })
+                
+                if (fabricSet.size > 0) materials['fabric'] = Array.from(fabricSet)
+                if (fillingSet.size > 0) materials['filling'] = Array.from(fillingSet)
+                if (frameSet.size > 0) materials['frame'] = Array.from(frameSet)
+                if (legSet.size > 0) materials['leg'] = Array.from(legSet)
+              }
+              
               categoryMap[category].push({
                 id: product._id,
                 name: product.name,
                 price: product.packagePrice || product.basePrice || 0,
                 image: product.images?.[0] ? getFileUrl(product.images[0]) : '/placeholder.svg',
-                specs: product.specs || '',
+                specs: specs,
                 description: product.description || '',
-                materials: {
-                  fabric: [],
-                  filling: [],
-                  frame: [],
-                  leg: []
-                }
+                materials: materials
               })
             })
             
             // 转换为categories格式
             Object.entries(categoryMap).forEach(([categoryName, products]) => {
+              // required设置为该类别的商品数量，表示可以选择多个
               categories.push({
                 key: categoryName,
                 name: categoryName,
-                required: 1,
+                required: products.length,  // 允许选择该类别的所有商品
                 products: products
               })
             })
