@@ -181,12 +181,14 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
             })
             
             // 转换为categories格式
+            // 如果套餐有保存categories信息，使用它的required，否则默认为1
+            const savedCategories = pkg.categories || [];
             Object.entries(categoryMap).forEach(([categoryName, products]) => {
-              // required设置为该类别的商品数量，表示可以选择多个
+              const savedCategory = savedCategories.find((c: any) => c.name === categoryName);
               categories.push({
                 key: categoryName,
                 name: categoryName,
-                required: products.length,  // 允许选择该类别的所有商品
+                required: savedCategory?.required || 1,  // 使用保存的required值，默认为1
                 products: products
               })
             })

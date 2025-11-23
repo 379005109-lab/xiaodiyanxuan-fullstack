@@ -296,6 +296,13 @@ const PackageManagementPage: React.FC = () => {
           price: product.basePrice || 0
         }));
       
+      // 构建categories结构，包含required信息
+      const categories = tags.map(tag => ({
+        name: tag,
+        required: optionalQuantities[tag] || 1,  // 使用用户设置的required值
+        products: (selectedProducts[tag] || []).map(p => p._id)
+      }));
+      
       const packageData = {
         name: packageName,
         description: '',
@@ -303,6 +310,7 @@ const PackageManagementPage: React.FC = () => {
         images: packageImages.length > 0 ? packageImages : [],
         basePrice: packagePrice,
         products: products,
+        categories: categories,  // 添加categories结构
         status: 'active'
       };
       
