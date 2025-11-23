@@ -319,26 +319,13 @@ export default function ProductForm() {
         return
       }
 
-      // 检查图片数据大小
-      const totalImageSize = formData.skus.reduce((sum, sku) => {
-        const skuImageSize = (sku.images || []).reduce((imgSum, img) => {
-          return imgSum + (img ? img.length : 0)
-        }, 0)
-        return sum + skuImageSize
-      }, 0)
+      // 使用GridFS后，图片只保存fileId（24字节），不再需要计算Base64大小
+      const totalImageCount = formData.skus.reduce((sum, sku) => {
+        return sum + (sku.images || []).length
+      }, 0) + (formData.mainImages || []).length
       
-      const mainImageSize = (formData.mainImages || []).reduce((sum, img) => {
-        return sum + (img ? img.length : 0)
-      }, 0)
-      
-      const totalSize = totalImageSize + mainImageSize
-      const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2)
-      
-      console.log(`[ProductForm] 商品数据大小: ${totalSizeMB}MB (SKU图片: ${(totalImageSize / (1024 * 1024)).toFixed(2)}MB, 主图: ${(mainImageSize / (1024 * 1024)).toFixed(2)}MB)`)
-      
-      if (totalSize > 5 * 1024 * 1024) {
-        toast.warning(`⚠️ 图片数据过大 (${totalSizeMB}MB)，可能无法完全保存到本地存储。建议减少图片数量或使用更小的图片。`)
-      }
+      console.log(`[ProductForm] 商品图片数量: ${totalImageCount} 张 (SKU: ${formData.skus.reduce((sum, sku) => sum + (sku.images || []).length, 0)}张, 主图: ${formData.mainImages.length}张)`)
+      console.log(`[ProductForm] 使用GridFS存储，商品数据大小: < 1KB`)
 
       // 构建商品数据
       const productData: any = {
