@@ -10,6 +10,7 @@ import SkuImageManagerModal from '@/components/admin/SkuImageManagerModal'
 import { getProductById, createProduct, updateProduct } from '@/services/productService'
 import { getAllCategories, Category } from '@/services/categoryService'
 import { imageCache } from '@/services/imageCache'
+import { uploadFile } from '@/services/uploadService'
 
 const CATEGORY_STORAGE_KEY = 'productForm:lastCategory'
 
@@ -1062,30 +1063,38 @@ export default function ProductForm() {
                             accept="image/*"
                             multiple
                             className="hidden"
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const files = Array.from(e.target.files || [])
-                              files.forEach((file, fileIndex) => {
-                                const reader = new FileReader()
-                                reader.onload = (event) => {
-                                  const imageData = event.target?.result as string
-                                  const newSkus = [...formData.skus]
-                                  const currentImages = newSkus[index].images || []
-                                  
-                                  // 保存到缓存
-                                  const productId = id || 'new'
-                                  const skuId = newSkus[index].id
-                                  imageCache.saveImage(productId, skuId, currentImages.length + fileIndex, imageData)
-                                  
-                                  // 添加到 formData
-                                  newSkus[index].images = [...currentImages, imageData]
-                                  setFormData({ ...formData, skus: newSkus })
-                                  
-                                  // 显示缓存统计
-                                  const stats = imageCache.getStats()
-                                  console.log(`[ProductForm] 图片缓存统计: ${stats.count} 张图片, ${stats.sizeMB}MB / ${stats.maxSizeMB}MB`)
+                              if (files.length === 0) return
+
+                              toast.info(`正在上传 ${files.length} 张图片到GridFS...`)
+                              
+                              try {
+                                for (const file of files) {
+                                  // 上传到GridFS
+                                  const result = await uploadFile(file)
+                                  if (result.success) {
+                                    const fileId = result.data.fileId
+                                    const newSkus = [...formData.skus]
+                                    const currentImages = newSkus[index].images || []
+                                    
+                                    // 添加fileId到formData
+                                    newSkus[index].images = [...currentImages, fileId]
+                                    setFormData({ ...formData, skus: newSkus })
+                                    
+                                    console.log(`✅ SKU图片上传成功: ${file.name} -> ${fileId}`)
+                                  } else {
+                                    toast.error(`${file.name} 上传失败`)
+                                  }
                                 }
-                                reader.readAsDataURL(file)
-                              })
+                                toast.success(`${files.length} 张图片上传成功`)
+                              } catch (error: any) {
+                                console.error('❌ SKU图片上传失败:', error)
+                                toast.error('图片上传失败，请重试')
+                              }
+                              
+                              // 重置文件输入
+                              e.target.value = ''
                             }}
                           />
                         </label>
@@ -1533,26 +1542,42 @@ export default function ProductForm() {
                 accept=".dwg,.max,.fbx,.obj,.3ds,.dxf,.skp,.blend,.ma,.mb,.c4d"
                 multiple
                 className="hidden"
-                onChange={(e) => {
+                onChange={async (e) => {
                   const files = Array.from(e.target.files || [])
-                  files.forEach((file) => {
-                    const reader = new FileReader()
-                    reader.onload = (event) => {
-                      const newFile = {
-                        name: file.name,
-                        url: event.target?.result as string,
-                        format: file.name.split('.').pop()?.toUpperCase() || '',
-                        size: file.size,
-                        uploadTime: new Date().toLocaleString('zh-CN')
+                  if (files.length === 0) return
+
+                  toast.info(`正在上传 ${files.length} 个文件到GridFS...`)
+                  
+                  try {
+                    for (const file of files) {
+                      // 上传到GridFS
+                      const result = await uploadFile(file)
+                      if (result.success) {
+                        const fileId = result.data.fileId
+                        const newFile = {
+                          name: file.name,
+                          url: fileId, // 保存fileId而不是Base64
+                          format: file.name.split('.').pop()?.toUpperCase() || '',
+                          size: file.size,
+                          uploadTime: new Date().toLocaleString('zh-CN')
+                        }
+                        setFormData({
+                          ...formData,
+                          files: [...formData.files, newFile]
+                        })
+                        console.log(`✅ 文件上传成功: ${file.name} -> ${fileId}`)
+                      } else {
+                        toast.error(`${file.name} 上传失败`)
                       }
-                      setFormData({
-                        ...formData,
-                        files: [...formData.files, newFile]
-                      })
                     }
-                    reader.readAsDataURL(file)
-                  })
-                  toast.success('文件上传成功')
+                    toast.success(`${files.length} 个文件上传成功`)
+                  } catch (error: any) {
+                    console.error('❌ 文件上传失败:', error)
+                    toast.error('文件上传失败，请重试')
+                  }
+                  
+                  // 重置文件输入
+                  e.target.value = ''
                 }}
               />
             </label>
