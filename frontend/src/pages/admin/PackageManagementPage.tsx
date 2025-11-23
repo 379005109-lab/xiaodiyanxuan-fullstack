@@ -286,6 +286,17 @@ const PackageManagementPage: React.FC = () => {
   };
 
   const handleSave = () => {
+    // 验证：检查所有已选择的类别是否都有商品
+    const emptyCategories = tags.filter(tag => {
+      const products = selectedProducts[tag] || [];
+      return products.length === 0;
+    });
+    
+    if (emptyCategories.length > 0) {
+      toast.error(`以下类别必须选择商品：${emptyCategories.join('、')}`);
+      return;
+    }
+    
     // 从localStorage获取现有套餐列表
     const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]');
     
