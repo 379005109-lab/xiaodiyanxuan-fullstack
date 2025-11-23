@@ -497,6 +497,17 @@ const PackageManagementPage: React.FC = () => {
           const categoryInfo = getAllSubCategoryInfo(category, categoryTree);
           const { ids: allCategoryIds, names: allCategoryNames, map: categoryIdToName } = categoryInfo;
           
+          // 调试输出
+          console.log('===== 调试信息 =====');
+          console.log('选中的分类:', category);
+          console.log('所有分类ID:', allCategoryIds);
+          console.log('所有商品数量:', allProducts.length);
+          console.log('前3个商品的category:', allProducts.slice(0, 3).map(p => ({
+            name: p.name,
+            category: p.category,
+            categoryType: typeof p.category
+          })));
+          
           // 过滤出属于这些分类的商品
           const availableProducts = Array.isArray(allProducts) 
             ? allProducts.filter(p => {
@@ -507,9 +518,17 @@ const PackageManagementPage: React.FC = () => {
                 } else if (p.category && typeof p.category === 'object') {
                   pCategoryId = (p.category as any).id || (p.category as any)._id;
                 }
-                return pCategoryId && allCategoryIds.includes(pCategoryId);
+                
+                const matched = pCategoryId && allCategoryIds.includes(pCategoryId);
+                if (!matched && p.category) {
+                  console.log('未匹配的商品:', p.name, '分类:', p.category, 'ID:', pCategoryId);
+                }
+                return matched;
               })
             : [];
+          
+          console.log('过滤后的商品数量:', availableProducts.length);
+          console.log('==================');
             
           // 按子分类分组
           const productsBySubCategory: Record<string, typeof availableProducts> = {};
