@@ -325,21 +325,31 @@ const PackageManagementPage: React.FC = () => {
         ? `/api/packages/${id}` 
         : '/api/packages';
       
+      // 获取认证token
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       console.log('📦 保存套餐到:', apiUrl);
       console.log('📦 套餐数据:', packageData);
+      console.log('📦 是否有token:', !!token);
       
       if (isEditing && id) {
         // 更新现有套餐
         response = await fetch(apiUrl, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify(packageData)
         });
       } else {
         // 创建新套餐
         response = await fetch(apiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify(packageData)
         });
       }
