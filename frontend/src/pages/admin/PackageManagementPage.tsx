@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, ChevronLeft, Save } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { formatPrice } from '@/lib/utils';
-import { uploadFile } from '@/services/uploadService';
+import { uploadFile, getFileUrl } from '@/services/uploadService';
+import { getAllCategories } from '@/services/categoryService';
+import { getProducts } from '@/services/productService';
 import { toast } from 'sonner';
 
 // 定义商品类型
@@ -25,27 +27,15 @@ interface Package {
 
 // 定义商品类型
 interface Product {
-  id: number;
+  _id: string;
   name: string;
-  price: number;
-  img: string;
-  specs: string;
-  material: { [key: string]: string };
+  basePrice: number;
+  images: string[];
+  specs?: string;
   category: string;
-  subCategory: string; // 新增子类别字段
+  categoryName?: string;
+  subCategory?: string;
 }
-
-// 扩展模拟数据
-const mockProducts: Product[] = [
-  { id: 1, name: '现代简约布艺沙发', price: 2999, img: '/placeholder.svg', specs: '三人位 (210x90x85cm)', material: { fabric: '棉麻', filling: '高弹海绵', frame: '实木', feet: '金属' }, category: '沙发', subCategory: '布艺沙发' },
-  { id: 2, name: '轻奢科技绒沙发', price: 3599, img: '/placeholder.svg', specs: '四人位 (280x95x80cm)', material: { fabric: '科技绒', filling: '羽绒', frame: '松木', feet: '碳素钢' }, category: '沙发', subCategory: '科技绒沙发' },
-  { id: 3, name: '北欧风格岩板茶几', price: 899, img: '/placeholder.svg', specs: '120x60x45cm', material: { tableTop: '岩板', frame: '金属', feet: '金属' }, category: '茶几', subCategory: '岩板茶几' },
-  { id: 4, name: '意式极简真皮床', price: 4599, img: '/placeholder.svg', specs: '1.8m*2.0m', material: { fabric: '头层牛皮', filling: '羽绒+海绵', frame: '实木', feet: '碳素钢' }, category: '床', subCategory: '真皮床' },
-  { id: 5, name: '智能储物床头柜', price: 499, img: '/placeholder.svg', specs: '50x40x50cm', material: { main: '实木颗粒板', surface: '钢琴烤漆' }, category: '床头柜', subCategory: '智能床头柜' },
-  { id: 6, name: '单人休闲沙发椅', price: 1299, img: '/placeholder.svg', specs: '单人位', material: { fabric: '棉麻', filling: '海绵', frame: '金属' }, category: '沙发', subCategory: '单人沙发' },
-];
-
-const allAvailableTags = ['沙发', '茶几', '床', '床头柜', '餐桌', '餐椅', '书桌', '椅子', '柜子'];
 
 const PackageManagementPage: React.FC = () => {
   const { id } = useParams();
@@ -60,24 +50,44 @@ const PackageManagementPage: React.FC = () => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const [tags, setTags] = useState<string[]>([]);
-  const [allTags, setAllTags] = useState<string[]>(allAvailableTags);
+  const [allTags, setAllTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<Record<string, Product[]>>({});
   const [optionalQuantities, setOptionalQuantities] = useState<Record<string, number>>({});
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
 
-  React.useEffect(() => {
+  // 加载分类和商品数据
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // 加载分类
+        const categories = await getAllCategories();
+        const categoryNames = categories.map(cat => cat.name);
+        setAllTags(categoryNames);
+        
+        // 加载商品
+        const products = await getProducts();
+        setAllProducts(products);
+      } catch (error) {
+        console.error('加载数据失败:', error);
+        toast.error('加载数据失败');
+      }
+    };
+    loadData();
+  }, []);
+
+  useEffect(() => {
     if (isEditing && id) {
       const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]');
       const packageToEdit = existingPackages.find(p => p.id === parseInt(id, 10));
       if (packageToEdit) {
         setPackageName(packageToEdit.name);
         setPackagePrice(packageToEdit.price);
-        setPackageImage(packageToEdit.image); // Load existing image
-        setPackageImages(packageToEdit.images || []); // Load existing images
+        setPackageImage(packageToEdit.image);
+        setPackageImages(packageToEdit.images || []);
         const packageTags = packageToEdit.tags || [];
         setTags(packageTags);
-        setAllTags(prev => [...new Set([...prev, ...packageTags])]); // Add tags from package to allTags
         setSelectedProducts(packageToEdit.selectedProducts || {});
         setOptionalQuantities(packageToEdit.optionalQuantities || {});
       }
@@ -104,7 +114,7 @@ const PackageManagementPage: React.FC = () => {
   const handleAddProduct = (product: Product, category: string) => {
     const currentSelected = selectedProducts[category] || [];
     // Check if the product is already selected
-    if (!currentSelected.find(p => p.id === product.id)) {
+    if (!currentSelected.find(p => p._id === product._id)) {
       setSelectedProducts(prev => ({
         ...prev,
         [category]: [...(prev[category] || []), product]
@@ -116,7 +126,7 @@ const PackageManagementPage: React.FC = () => {
     const currentSelected = selectedProducts[category] || [];
     setSelectedProducts({
       ...selectedProducts,
-      [category]: currentSelected.filter(p => p.id !== product.id)
+      [category]: currentSelected.filter(p => p._id !== product._id)
     });
   };
 
@@ -281,7 +291,7 @@ const PackageManagementPage: React.FC = () => {
               onChange={handleImageChange} 
             />
             {packageImage ? (
-              <img src={packageImage} alt="套餐预览" className="h-full w-full object-contain rounded-lg" />
+              <img src={getFileUrl(packageImage)} alt="套餐预览" className="h-full w-full object-contain rounded-lg" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }} />
             ) : (
               <div className="text-center text-gray-500">
                 <Plus className="mx-auto h-12 w-12" />
@@ -331,9 +341,10 @@ const PackageManagementPage: React.FC = () => {
                   }`}
                 >
                   <img 
-                    src={image} 
+                    src={getFileUrl(image)} 
                     alt={`图片 ${index + 1}`}
                     className="w-full h-32 object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
@@ -423,7 +434,7 @@ const PackageManagementPage: React.FC = () => {
         <h2 className="text-xl font-semibold mb-4">选择商品组成套餐</h2>
         
         {tags.map(category => {
-          const availableProducts = mockProducts.filter(p => p.category === category);
+          const availableProducts = allProducts.filter(p => (p.category === category || p.categoryName === category));
           const currentSelected = selectedProducts[category] || [];
           
           return (
@@ -480,15 +491,14 @@ const PackageManagementPage: React.FC = () => {
                         return searchTermMatch && subFilterMatch;
                       })
                       .map(product => (
-                      <div key={product.id} className="border rounded-md p-3 flex items-start gap-4 bg-white">
-                        <img src={product.img} alt={product.name} className="w-20 h-20 object-cover rounded" />
+                      <div key={product._id} className="border rounded-md p-3 flex items-start gap-4 bg-white">
+                        <img src={product.images?.[0] ? getFileUrl(product.images[0]) : '/placeholder.svg'} alt={product.name} className="w-20 h-20 object-cover rounded" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }} />
                         <div className="flex-1">
                           <p className="font-semibold">{product.name}</p>
-                          <p className="text-sm text-red-500">{formatPrice(product.price)}</p>
-                          <p className="text-xs text-gray-500 mt-1">规格: {product.specs}</p>
-                          <p className="text-xs text-gray-500">材质: {Object.values(product.material).join(', ')}</p>
+                          <p className="text-sm text-red-500">{formatPrice(product.basePrice)}</p>
+                          {product.specs && <p className="text-xs text-gray-500 mt-1">规格: {product.specs}</p>}
                         </div>
-                        {currentSelected.find(p => p.id === product.id) ? (
+                        {currentSelected.find(p => p._id === product._id) ? (
                           <span className="text-sm text-green-600 font-semibold self-center">已添加</span>
                         ) : (
                           <button onClick={() => handleAddProduct(product, category)} className="btn-primary btn-sm self-center">添加</button>
@@ -503,11 +513,11 @@ const PackageManagementPage: React.FC = () => {
                   <h4 className="font-semibold mb-2">已选商品</h4>
                   <div className="space-y-3">
                     {currentSelected.map(product => (
-                      <div key={product.id} className="border rounded-md p-3 flex items-start gap-4 bg-white">
-                        <img src={product.img} alt={product.name} className="w-20 h-20 object-cover rounded" />
+                      <div key={product._id} className="border rounded-md p-3 flex items-start gap-4 bg-white">
+                        <img src={product.images?.[0] ? getFileUrl(product.images[0]) : '/placeholder.svg'} alt={product.name} className="w-20 h-20 object-cover rounded" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }} />
                         <div className="flex-1">
                           <p className="font-semibold">{product.name}</p>
-                          <p className="text-sm text-red-500">{formatPrice(product.price)}</p>
+                          <p className="text-sm text-red-500">{formatPrice(product.basePrice)}</p>
                         </div>
                         <button onClick={() => handleRemoveProduct(product, category)} className="btn-danger btn-sm self-center">删除</button>
                       </div>
