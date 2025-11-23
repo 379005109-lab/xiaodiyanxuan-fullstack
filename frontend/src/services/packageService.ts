@@ -2,50 +2,7 @@ import apiClient from '@/lib/apiClient'
 import { PackagePlan, PackageProductMaterial, PackageProductOption } from '@/types'
 import { getFileUrl } from '@/services/uploadService'
 
-interface StoredPackageProduct {
-  id: number
-  name: string
-  price: number
-  img: string
-  specs?: string
-  description?: string
-  material?: Record<string, string | string[]>
-}
-
-interface StoredPackage {
-  id: number
-  name: string
-  price: number
-  image: string
-  gallery?: string[]
-  tags?: string[]
-  description?: string
-  status?: string
-  selectedProducts?: Record<string, StoredPackageProduct[]>
-  optionalQuantities?: Record<string, number>
-  productCount?: number
-  categoryCount?: number
-}
-
-// 所有假数据已删除，只使用API数据
-
-// localStorage逻辑已删除
-
-const normalizeMaterial = (material?: Record<string, string | string[]>): PackageProductMaterial => {
-  const ensureArray = (value?: string | string[]) => {
-    if (!value) return []
-    return Array.isArray(value) ? value : [value]
-  }
-
-  return {
-    fabric: ensureArray(material?.fabric),
-    filling: ensureArray(material?.filling),
-    frame: ensureArray(material?.frame),
-    leg: ensureArray(material?.leg ?? material?.feet),
-  }
-}
-
-// 旧的mapProduct和mapPackage函数已删除
+// 所有localStorage、假数据、旧数据结构已删除，只使用API
 
 export const getAllPackages = async (): Promise<PackagePlan[]> => {
   try {

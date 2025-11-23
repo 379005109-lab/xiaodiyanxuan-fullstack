@@ -61,15 +61,20 @@ const PackageListPage: React.FC = () => {
     }
   };
 
-  const handleStatusToggle = (packageId: string | number) => {
-    const updatedPackages = packages.map(p => {
-      if (p.id === packageId) {
-        return { ...p, status: p.status === '已上架' ? '已下架' : '已上架' };
-      }
-      return p;
-    });
-    setPackages(updatedPackages);
-    localStorage.setItem('packages', JSON.stringify(updatedPackages));
+  const handleStatusToggle = async (packageId: string | number) => {
+    try {
+      const pkg = packages.find(p => p.id === packageId);
+      if (!pkg) return;
+      
+      const newStatus = pkg.status === 'active' ? 'inactive' : 'active';
+      await apiClient.put(`/packages/${packageId}`, { status: newStatus });
+      
+      toast.success('状态已更新');
+      loadPackages();
+    } catch (error) {
+      console.error('更新状态失败', error);
+      toast.error('更新状态失败');
+    }
   };
 
   const filteredPackages = packages.filter(pkg => {
