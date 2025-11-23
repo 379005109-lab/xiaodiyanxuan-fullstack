@@ -11,6 +11,7 @@ import { useFavoriteStore } from '@/store/favoriteStore'
 import { useCompareStore } from '@/store/compareStore'
 import { toast } from 'sonner'
 
+import { getFileUrl } from '@/services/uploadService'
 // 简化价格显示
 const formatPriceSimplified = (price: number): string => {
   if (price >= 10000) {
@@ -479,7 +480,7 @@ export default function ProductsPage() {
                         <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100 group">
                           {/* 主图 - 根据预览索引显示 */}
                           <img
-                            src={getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png'}
+                            src={getFileUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || \'/placeholder.png\')}
                             alt={product.name}
                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                           />
@@ -497,7 +498,7 @@ export default function ProductsPage() {
                                 }`}
                               >
                                 <img
-                                  src={img}
+                                  src={getFileUrl(img)}
                                   alt=""
                                   className="w-full h-full object-cover"
                                 />
