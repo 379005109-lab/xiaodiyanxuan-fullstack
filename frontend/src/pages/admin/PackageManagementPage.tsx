@@ -321,25 +321,39 @@ const PackageManagementPage: React.FC = () => {
       };
       
       let response;
+      const apiUrl = isEditing && id 
+        ? `/api/packages/${id}` 
+        : '/api/packages';
+      
+      console.log('📦 保存套餐到:', apiUrl);
+      console.log('📦 套餐数据:', packageData);
+      
       if (isEditing && id) {
         // 更新现有套餐
-        response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/packages/${id}`, {
+        response = await fetch(apiUrl, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(packageData)
         });
       } else {
         // 创建新套餐
-        response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/packages`, {
+        response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(packageData)
         });
       }
       
+      console.log('📦 API响应状态:', response.status);
+      
       if (!response.ok) {
-        throw new Error('保存套餐失败');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('📦 保存失败:', errorData);
+        throw new Error(errorData.message || '保存套餐失败');
       }
+      
+      const result = await response.json();
+      console.log('📦 保存成功:', result);
       
       // 同时保存到localStorage作为备份
       const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]');
