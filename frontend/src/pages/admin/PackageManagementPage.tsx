@@ -5,8 +5,10 @@ import { formatPrice } from '@/lib/utils';
 import { uploadFile, getFileUrl } from '@/services/uploadService';
 import { getAllCategories, getCategoryTree } from '@/services/categoryService';
 import { getProducts } from '@/services/productService';
+import { getPackageById } from '@/services/packageService';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
+import apiClient from '@/lib/apiClient';
 
 // 定义商品类型
 // 定义套餐类型，用于存储
@@ -153,6 +155,63 @@ const PackageManagementPage: React.FC = () => {
     };
     loadData();
   }, []);
+
+  // 加载套餐数据（编辑模式）
+  useEffect(() => {
+    const loadPackageData = async () => {
+      if (!isEditing || !id || allProducts.length === 0) return;
+      
+      try {
+        console.log('🔄 加载套餐数据:', id);
+        const response = await apiClient.get(`/packages/${id}`);
+        const pkg = response.data.data;
+        console.log('📦 套餐数据:', pkg);
+        
+        // 设置基本信息
+        setPackageName(pkg.name);
+        setPackagePrice(pkg.basePrice || 0);
+        setPackageImage(pkg.thumbnail || '');
+        setPackageImages(pkg.images || []);
+        
+        // 设置categories和required
+        if (pkg.categories && pkg.categories.length > 0) {
+          const categoryNames = pkg.categories.map((c: any) => c.name);
+          setTags(categoryNames);
+          
+          // 设置每个category的required值
+          const quantities: Record<string, number> = {};
+          pkg.categories.forEach((c: any) => {
+            quantities[c.name] = c.required || 1;
+          });
+          setOptionalQuantities(quantities);
+          
+          // 设置selectedProducts - 从categories.products中加载
+          const productsMap: Record<string, Product[]> = {};
+          pkg.categories.forEach((category: any) => {
+            if (category.products && category.products.length > 0) {
+              const categoryProducts: Product[] = [];
+              category.products.forEach((productId: string) => {
+                const product = allProducts.find((p: Product) => p._id === productId);
+                if (product) {
+                  categoryProducts.push(product);
+                }
+              });
+              productsMap[category.name] = categoryProducts;
+            }
+          });
+          setSelectedProducts(productsMap);
+          console.log('✅ 已加载商品:', productsMap);
+        }
+        
+        toast.success('套餐数据加载成功');
+      } catch (error) {
+        console.error('❌ 加载套餐数据失败:', error);
+        toast.error('加载套餐数据失败');
+      }
+    };
+    
+    loadPackageData();
+  }, [isEditing, id, allProducts]);
 
   const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
   const [activeSubFilters, setActiveSubFilters] = useState<Record<string, string | null>>({});
