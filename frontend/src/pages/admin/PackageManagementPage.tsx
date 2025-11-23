@@ -501,27 +501,43 @@ const PackageManagementPage: React.FC = () => {
           console.log('===== 调试信息 =====');
           console.log('选中的分类:', category);
           console.log('所有分类ID:', allCategoryIds);
+          console.log('所有分类名称:', allCategoryNames);
           console.log('所有商品数量:', allProducts.length);
-          console.log('前3个商品的category:', allProducts.slice(0, 3).map(p => ({
+          console.log('前5个商品的category:', allProducts.slice(0, 5).map(p => ({
             name: p.name,
             category: p.category,
             categoryType: typeof p.category
           })));
           
           // 过滤出属于这些分类的商品
+          // 支持按ID或名称匹配
           const availableProducts = Array.isArray(allProducts) 
             ? allProducts.filter(p => {
-                // 商品的category可能是字符串ID或对象{id, name}
+                if (!p.category) return false;
+                
+                // 商品的category可能是：
+                // 1. 字符串ID："6921ee98..."
+                // 2. 对象：{id: "...", name: "..."}
+                // 3. 分类名称："极简风格沙发"
                 let pCategoryId = null;
+                let pCategoryName = null;
+                
                 if (typeof p.category === 'string') {
+                  // 字符串可能是ID或名称
                   pCategoryId = p.category;
+                  pCategoryName = p.category;
                 } else if (p.category && typeof p.category === 'object') {
                   pCategoryId = (p.category as any).id || (p.category as any)._id;
+                  pCategoryName = (p.category as any).name;
                 }
                 
-                const matched = pCategoryId && allCategoryIds.includes(pCategoryId);
+                // 按ID匹配或按名称匹配
+                const matchedById = pCategoryId && allCategoryIds.includes(pCategoryId);
+                const matchedByName = pCategoryName && allCategoryNames.includes(pCategoryName);
+                const matched = matchedById || matchedByName;
+                
                 if (!matched && p.category) {
-                  console.log('未匹配的商品:', p.name, '分类:', p.category, 'ID:', pCategoryId);
+                  console.log('未匹配的商品:', p.name, '分类:', p.category, 'ID:', pCategoryId, '名称:', pCategoryName);
                 }
                 return matched;
               })
@@ -533,17 +549,22 @@ const PackageManagementPage: React.FC = () => {
           // 按子分类分组
           const productsBySubCategory: Record<string, typeof availableProducts> = {};
           availableProducts.forEach(product => {
-            let pCategoryId = null;
+            // 获取商品的分类名称用于分组显示
+            let displayName = '其他';
+            
             if (typeof product.category === 'string') {
-              pCategoryId = product.category;
+              // 如果是字符串，先尝试从映射表中找，找不到就直接使用该字符串
+              displayName = categoryIdToName[product.category] || product.category;
             } else if (product.category && typeof product.category === 'object') {
-              pCategoryId = (product.category as any).id || (product.category as any)._id;
+              const catId = (product.category as any).id || (product.category as any)._id;
+              const catName = (product.category as any).name;
+              displayName = categoryIdToName[catId] || catName || '其他';
             }
-            const pCategoryName = pCategoryId ? (categoryIdToName[pCategoryId] || '其他') : '其他';
-            if (!productsBySubCategory[pCategoryName]) {
-              productsBySubCategory[pCategoryName] = [];
+            
+            if (!productsBySubCategory[displayName]) {
+              productsBySubCategory[displayName] = [];
             }
-            productsBySubCategory[pCategoryName].push(product);
+            productsBySubCategory[displayName].push(product);
           });
           const currentSelected = selectedProducts[category] || [];
           
@@ -598,16 +619,17 @@ const PackageManagementPage: React.FC = () => {
                       .filter(p => {
                         const searchTermMatch = p.name.toLowerCase().includes((searchTerms[category] || '').toLowerCase());
                         
-                        // 获取商品的分类名称
-                        let pCategoryId = null;
+                        // 获取商品的分类名称（用于筛选）
+                        let displayName = '其他';
                         if (typeof p.category === 'string') {
-                          pCategoryId = p.category;
+                          displayName = categoryIdToName[p.category] || p.category;
                         } else if (p.category && typeof p.category === 'object') {
-                          pCategoryId = (p.category as any).id || (p.category as any)._id;
+                          const catId = (p.category as any).id || (p.category as any)._id;
+                          const catName = (p.category as any).name;
+                          displayName = categoryIdToName[catId] || catName || '其他';
                         }
-                        const pCategoryName = pCategoryId ? (categoryIdToName[pCategoryId] || '其他') : '其他';
                         
-                        const subFilterMatch = !activeSubFilters[category] || pCategoryName === activeSubFilters[category];
+                        const subFilterMatch = !activeSubFilters[category] || displayName === activeSubFilters[category];
                         return searchTermMatch && subFilterMatch;
                       })
                       .map(product => (
@@ -618,13 +640,14 @@ const PackageManagementPage: React.FC = () => {
                             <p className="font-semibold">{product.name}</p>
                             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
                               {(() => {
-                                let pCategoryId = null;
                                 if (typeof product.category === 'string') {
-                                  pCategoryId = product.category;
+                                  return categoryIdToName[product.category] || product.category;
                                 } else if (product.category && typeof product.category === 'object') {
-                                  pCategoryId = (product.category as any).id || (product.category as any)._id;
+                                  const catId = (product.category as any).id || (product.category as any)._id;
+                                  const catName = (product.category as any).name;
+                                  return categoryIdToName[catId] || catName || '未分类';
                                 }
-                                return pCategoryId ? (categoryIdToName[pCategoryId] || '未分类') : '未分类';
+                                return '未分类';
                               })()}
                             </span>
                           </div>
@@ -653,13 +676,14 @@ const PackageManagementPage: React.FC = () => {
                             <p className="font-semibold">{product.name}</p>
                             <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
                               {(() => {
-                                let pCategoryId = null;
                                 if (typeof product.category === 'string') {
-                                  pCategoryId = product.category;
+                                  return categoryIdToName[product.category] || product.category;
                                 } else if (product.category && typeof product.category === 'object') {
-                                  pCategoryId = (product.category as any).id || (product.category as any)._id;
+                                  const catId = (product.category as any).id || (product.category as any)._id;
+                                  const catName = (product.category as any).name;
+                                  return categoryIdToName[catId] || catName || '未分类';
                                 }
-                                return pCategoryId ? (categoryIdToName[pCategoryId] || '未分类') : '未分类';
+                                return '未分类';
                               })()}
                             </span>
                           </div>
