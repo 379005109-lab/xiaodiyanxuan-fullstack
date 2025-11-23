@@ -130,9 +130,71 @@ const uploadImages = async (req, res) => {
   }
 }
 
+/**
+ * 创建套餐
+ * POST /api/packages
+ */
+const create = async (req, res) => {
+  try {
+    const packageData = req.body;
+    const pkg = await Package.create(packageData);
+    
+    res.status(201).json(successResponse(pkg, '套餐创建成功'));
+  } catch (err) {
+    console.error('Create package error:', err);
+    res.status(500).json(errorResponse(err.message, 500));
+  }
+};
+
+/**
+ * 更新套餐
+ * PUT /api/packages/:id
+ */
+const update = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = { ...req.body, updatedAt: new Date() };
+    
+    const pkg = await Package.findByIdAndUpdate(id, updateData, { new: true });
+    
+    if (!pkg) {
+      return res.status(404).json(errorResponse('套餐不存在', 404));
+    }
+    
+    res.json(successResponse(pkg, '套餐更新成功'));
+  } catch (err) {
+    console.error('Update package error:', err);
+    res.status(500).json(errorResponse(err.message, 500));
+  }
+};
+
+/**
+ * 删除套餐
+ * DELETE /api/packages/:id
+ */
+const deletePackage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const pkg = await Package.findByIdAndDelete(id);
+    
+    if (!pkg) {
+      return res.status(404).json(errorResponse('套餐不存在', 404));
+    }
+    
+    res.json(successResponse(null, '套餐删除成功'));
+  } catch (err) {
+    console.error('Delete package error:', err);
+    res.status(500).json(errorResponse(err.message, 500));
+  }
+};
+
 module.exports = {
   list,
   getPackage,
+  create,
+  update,
+  deletePackage,
   uploadThumbnail,
   uploadImages
 }

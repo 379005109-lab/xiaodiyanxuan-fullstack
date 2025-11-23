@@ -2,7 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const router = express.Router()
 const { optionalAuth, auth } = require('../middleware/auth')
-const { list, getPackage, uploadThumbnail, uploadImages } = require('../controllers/packageController')
+const { list, getPackage, create, update, deletePackage, uploadThumbnail, uploadImages } = require('../controllers/packageController')
 
 // 配置 multer
 const storage = multer.memoryStorage()
@@ -21,6 +21,15 @@ const upload = multer({
 
 // GET /api/packages - 获取套餐列表
 router.get('/', optionalAuth, list)
+
+// POST /api/packages - 创建套餐
+router.post('/', auth, create)
+
+// PUT /api/packages/:id - 更新套餐
+router.put('/:id', auth, update)
+
+// DELETE /api/packages/:id - 删除套餐
+router.delete('/:id', auth, deletePackage)
 
 // POST /api/packages/:id/upload-thumbnail - 上传缩略图
 router.post('/:id/upload-thumbnail', auth, upload.single('file'), uploadThumbnail)
