@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { uploadFile } from '@/services/uploadService'
 import { Material } from '@/types'
 import { createMaterial } from '@/services/materialService'
 
@@ -16,27 +17,25 @@ export default function MaterialSKUModal({ material, onClose, onSuccess }: Mater
     image: '',
   })
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('请选择图片文件')
-      return
-    }
 
     if (file.size > 5 * 1024 * 1024) {
       toast.error('图片大小不能超过5MB')
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const imageUrl = event.target?.result as string
-      setFormData({ ...formData, image: imageUrl })
-      toast.success('图片已上传')
+    try {
+      toast.info('正在上传到GridFS...')
+      const result = await uploadFile(file)
+      if (result.success) {
+        setFormData({ ...formData, image: result.data.fileId })
+        toast.success('图片上传成功')
+      }
+    } catch (error) {
+      toast.error('图片上传失败')
     }
-    reader.readAsDataURL(file)
   }
 
   const handleSubmit = (e: React.FormEvent) => {

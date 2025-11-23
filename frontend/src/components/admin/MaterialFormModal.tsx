@@ -3,6 +3,7 @@ import { X, Upload, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Material, MaterialCategory, MaterialType } from '@/types'
 import { createMaterial, updateMaterial, getAllMaterials, deleteMaterial } from '@/services/materialService'
+import { uploadFile } from '@/services/uploadService'
 
 interface MaterialFormModalProps {
   material: Material | null
@@ -39,22 +40,25 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
 
   // 加载SKU列表
   useEffect(() => {
-    if (material) {
-      const allMaterials = getAllMaterials()
-      // 获取同类别的所有材质（SKU）
-      const materialPrefix = material.name.split('-')[0]
-      const relatedSkus = allMaterials.filter(m => 
-        m.categoryId === material.categoryId && 
-        m.name.startsWith(materialPrefix + '-')
-      )
-      setSkuList(relatedSkus)
+    const loadSkus = async () => {
+      if (material) {
+        const allMaterials = await getAllMaterials()
+        // 获取同类别的所有材质（SKU）
+        const materialPrefix = material.name.split('-')[0]
+        const relatedSkus = allMaterials.filter(m => 
+          m.categoryId === material.categoryId && 
+          m.name.startsWith(materialPrefix + '-')
+        )
+        setSkuList(relatedSkus)
+      }
     }
+    loadSkus()
   }, [material])
 
   // 重新加载SKU列表（当添加或删除SKU后）
-  const reloadSkuList = () => {
+  const reloadSkuList = async () => {
     if (material) {
-      const allMaterials = getAllMaterials()
+      const allMaterials = await getAllMaterials()
       const materialPrefix = material.name.split('-')[0]
       const relatedSkus = allMaterials.filter(m => 
         m.categoryId === material.categoryId && 
@@ -64,7 +68,7 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
     }
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -78,13 +82,19 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const imageUrl = event.target?.result as string
-      setFormData({ ...formData, image: imageUrl })
-      toast.success('图片已上传')
+    try {
+      toast.info('正在上传到GridFS...')
+      const result = await uploadFile(file)
+      if (result.success) {
+        setFormData({ ...formData, image: result.data.fileId })
+        toast.success('图片上传成功')
+      } else {
+        toast.error('图片上传失败')
+      }
+    } catch (error) {
+      console.error('图片上传失败:', error)
+      toast.error('图片上传失败，请重试')
     }
-    reader.readAsDataURL(file)
   }
 
   const handleAddTag = () => {
@@ -133,7 +143,7 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
     })
   }
 
-  const handleSKUImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSKUImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -147,16 +157,22 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const imageUrl = event.target?.result as string
-      setSkuFormData({ ...skuFormData, image: imageUrl })
-      toast.success('图片已上传')
+    try {
+      toast.info('正在上传到GridFS...')
+      const result = await uploadFile(file)
+      if (result.success) {
+        setSkuFormData({ ...skuFormData, image: result.data.fileId })
+        toast.success('图片上传成功')
+      } else {
+        toast.error('图片上传失败')
+      }
+    } catch (error) {
+      console.error('图片上传失败:', error)
+      toast.error('图片上传失败，请重试')
     }
-    reader.readAsDataURL(file)
   }
 
-  const handleAddSKU = () => {
+  const handleAddSKU = async () => {
     if (!skuFormData.skuName.trim()) {
       toast.error('请输入SKU名称')
       return
@@ -175,7 +191,7 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
     try {
       const newSKUName = `${material.name.split('-')[0]}-${skuFormData.skuName}`
       
-      const newSKU = createMaterial({
+      const newSKU = await createMaterial({
         name: newSKUName,
         type: 'texture',
         image: skuFormData.image,
@@ -198,19 +214,19 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
     }
   }
 
-  const handleDeleteSKU = (skuId: string) => {
+  const handleDeleteSKU = async (skuId: string) => {
     // 从数据库中删除
     try {
-      deleteMaterial(skuId)
+      await deleteMaterial(skuId)
       // 重新加载SKU列表以确保显示最新数据
-      reloadSkuList()
+      await reloadSkuList()
       toast.success('SKU已删除')
     } catch (error) {
       toast.error('删除失败')
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!formData.name.trim()) {
@@ -232,21 +248,21 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
 
     try {
       if (isEdit && material) {
-        updateMaterial(material._id, {
+        await updateMaterial(material._id, {
           ...formData,
           categoryName: category?.name,
         })
         
         // 保存SKU的排序
-        skuList.forEach((sku, index) => {
-          updateMaterial(sku._id, {
+        for (const [index, sku] of skuList.entries()) {
+          await updateMaterial(sku._id, {
             order: index + 1,
           })
-        })
+        }
         
         toast.success('素材已更新')
       } else {
-        createMaterial({
+        await createMaterial({
           ...formData,
           categoryName: category?.name,
           uploadBy: '管理员',

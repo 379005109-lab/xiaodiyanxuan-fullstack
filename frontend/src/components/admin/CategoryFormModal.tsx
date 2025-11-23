@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { uploadFile } from '@/services/uploadService'
 import { Category } from '@/types'
 import { createCategory, updateCategory, getAllCategories } from '@/services/categoryService'
 
@@ -38,29 +39,25 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
     loadParentCategories();
   }, []);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // 检查文件类型
-    if (!file.type.startsWith('image/')) {
-      toast.error('请选择图片文件')
-      return
-    }
-
-    // 检查文件大小（限制5MB）
     if (file.size > 5 * 1024 * 1024) {
       toast.error('图片大小不能超过5MB')
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const imageUrl = event.target?.result as string
-      setFormData({ ...formData, image: imageUrl })
-      toast.success('图片已上传')
+    try {
+      toast.info('正在上传到GridFS...')
+      const result = await uploadFile(file)
+      if (result.success) {
+        setFormData({ ...formData, image: result.data.fileId })
+        toast.success('图片上传成功')
+      }
+    } catch (error) {
+      toast.error('图片上传失败')
     }
-    reader.readAsDataURL(file)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

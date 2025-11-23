@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Plus, X, ChevronLeft, Save } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { formatPrice } from '@/lib/utils';
+import { uploadFile } from '@/services/uploadService';
+import { toast } from 'sonner';
 
 // 定义商品类型
 // 定义套餐类型，用于存储
@@ -140,26 +142,38 @@ const PackageManagementPage: React.FC = () => {
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPackageImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        toast.info('正在上传...');
+        const result = await uploadFile(file);
+        if (result.success) {
+          setPackageImage(result.data.fileId);
+          toast.success('图片上传成功');
+        }
+      } catch (error) {
+        toast.error('图片上传失败');
+      }
     }
   };
 
-  const handleMultipleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMultipleImagesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      Array.from(e.target.files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setPackageImages(prev => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
-      });
+      const files = Array.from(e.target.files);
+      toast.info(`正在上传${files.length}张图片...`);
+      
+      for (const file of files) {
+        try {
+          const result = await uploadFile(file);
+          if (result.success) {
+            setPackageImages(prev => [...prev, result.data.fileId]);
+          }
+        } catch (error) {
+          console.error('图片上传失败:', error);
+        }
+      }
+      toast.success(`${files.length}张图片上传成功`);
     }
   };
 

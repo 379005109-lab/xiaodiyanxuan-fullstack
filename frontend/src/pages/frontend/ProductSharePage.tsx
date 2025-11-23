@@ -20,6 +20,20 @@ export default function ProductSharePage() {
   const filling = searchParams.get('filling') || ''
   const frame = searchParams.get('frame') || ''
   const leg = searchParams.get('leg') || ''
+  const [materials, setMaterials] = useState([])
+
+  useEffect(() => {
+    const loadMaterials = async () => {
+      try {
+        const allMaterials = await getAllMaterials()
+        setMaterials(allMaterials)
+      } catch (err: any) {
+        console.error('加载材料失败:', err)
+      }
+    }
+
+    loadMaterials()
+  }, [])
 
   useEffect(() => {
     const loadProduct = async () => {

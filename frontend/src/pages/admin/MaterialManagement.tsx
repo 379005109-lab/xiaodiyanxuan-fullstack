@@ -70,13 +70,13 @@ export default function MaterialManagement() {
     loadStats()
   }, [])
 
-  const loadMaterials = () => {
-    const allMaterials = getAllMaterials()
+  const loadMaterials = async () => {
+    const allMaterials = await getAllMaterials()
     setMaterials(allMaterials)
   }
 
-  const loadCategories = () => {
-    const tree = getMaterialCategoryTree()
+  const loadCategories = async () => {
+    const tree = await getMaterialCategoryTree()
     setCategories(tree)
     // 默认展开第一个分类
     if (tree.length > 0) {
@@ -84,8 +84,8 @@ export default function MaterialManagement() {
     }
   }
 
-  const loadStats = () => {
-    const materialStats = getMaterialStats()
+  const loadStats = async () => {
+    const materialStats = await getMaterialStats()
     setStats(materialStats)
   }
 
@@ -102,28 +102,34 @@ export default function MaterialManagement() {
     setSelectedIds([])
   }
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (confirm(`确定要删除素材"${name}"吗？`)) {
-      if (deleteMaterial(id)) {
+      try {
+        await deleteMaterial(id)
         toast.success('素材已删除')
         loadMaterials()
         loadStats()
+      } catch (error) {
+        toast.error('删除失败')
       }
     }
   }
 
-  const handleBatchDelete = () => {
+  const handleBatchDelete = async () => {
     if (selectedIds.length === 0) {
       toast.error('请选择要删除的素材')
       return
     }
     
     if (confirm(`确定要删除选中的 ${selectedIds.length} 个素材吗？`)) {
-      if (deleteMaterials(selectedIds)) {
+      try {
+        await deleteMaterials(selectedIds)
         toast.success(`已删除 ${selectedIds.length} 个素材`)
         setSelectedIds([])
         loadMaterials()
         loadStats()
+      } catch (error) {
+        toast.error('删除失败')
       }
     }
   }
@@ -144,11 +150,14 @@ export default function MaterialManagement() {
     }
   }
 
-  const handleChangeStatus = (id: string, status: 'approved' | 'offline') => {
-    if (updateMaterial(id, { status })) {
+  const handleChangeStatus = async (id: string, status: 'approved' | 'offline') => {
+    try {
+      await updateMaterial(id, { status })
       toast.success('状态已更新')
       loadMaterials()
       loadStats()
+    } catch (error) {
+      toast.error('更新失败')
     }
   }
 
@@ -180,7 +189,7 @@ export default function MaterialManagement() {
     e.dataTransfer.dropEffect = 'move'
   }
 
-  const handleCategoryDrop = (e: DragEvent, targetCategory: MaterialCategory) => {
+  const handleCategoryDrop = async (e: DragEvent, targetCategory: MaterialCategory) => {
     e.preventDefault()
     
     if (!draggedCategory || draggedCategory._id === targetCategory._id) {
@@ -195,7 +204,7 @@ export default function MaterialManagement() {
     }
 
     try {
-      const allCategories = getAllMaterialCategories()
+      const allCategories = await getAllMaterialCategories()
       let sameLevelCategories = allCategories
         .filter(cat => cat.parentId === draggedCategory.parentId)
         .sort((a, b) => a.order - b.order)
@@ -249,7 +258,7 @@ export default function MaterialManagement() {
     setDragOverCategoryId(null)
   }
 
-  const handleMaterialDrop = (e: DragEvent, targetMaterial?: Material, targetIndex?: number) => {
+  const handleMaterialDrop = async (e: DragEvent, targetMaterial?: Material, targetIndex?: number) => {
     e.preventDefault()
     e.stopPropagation()
     setDragOverMaterialIndex(null)
@@ -266,7 +275,7 @@ export default function MaterialManagement() {
       }
 
       // 获取同一分类的所有素材（按当前排序）
-      const allMaterialsList = getAllMaterials()
+      const allMaterialsList = await getAllMaterials()
       const sameCategoryMaterials = allMaterialsList
         .filter(m => m.categoryId === draggedMaterial.categoryId)
         .sort((a, b) => {
@@ -1030,7 +1039,7 @@ export default function MaterialManagement() {
         <MaterialFormModal
           key={editingMaterial?._id || 'new'} // 添加key以确保分类列表更新时重新渲染
           material={editingMaterial}
-          categories={getAllMaterialCategories()}
+          categories={categories}
           defaultCategoryId={selectedCategoryId} // 传递当前选中的分类ID
           onClose={handleModalClose}
           onCategoryCreate={() => {

@@ -3,6 +3,7 @@ import { X, Search, Upload } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import { Order } from '@/types'
 import { toast } from 'sonner'
+import { uploadFile } from '@/services/uploadService'
 
 interface RefundFormModalProps {
   onClose: () => void
@@ -47,29 +48,27 @@ export default function RefundFormModal({ onClose, onSubmit }: RefundFormModalPr
     }
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-
-    if (images.length + files.length > 5) {
-      toast.error('最多只能上传5张图片')
-      return
-    }
-
-    const newImages: string[] = []
-    Array.from(files).forEach(file => {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const result = e.target?.result as string
-          newImages.push(result)
-          if (newImages.length === files.length) {
-            setImages(prev => [...prev, ...newImages])
-          }
+    
+    const fileArray = Array.from(files).filter(file => file.type.startsWith('image/'))
+    if (fileArray.length === 0) return
+    
+    toast.info(`正在上传${fileArray.length}张图片...`)
+    
+    for (const file of fileArray) {
+      try {
+        const result = await uploadFile(file)
+        if (result.success) {
+          setImages(prev => [...prev, result.data.fileId])
         }
-        reader.readAsDataURL(file)
+      } catch (error) {
+        console.error('图片上传失败:', error)
       }
-    })
+    }
+    
+    toast.success(`${fileArray.length}张图片上传成功`)
   }
 
   const handleRemoveImage = (index: number) => {
