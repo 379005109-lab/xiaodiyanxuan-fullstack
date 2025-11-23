@@ -5,6 +5,7 @@ import { formatPrice } from '@/lib/utils';
 import { uploadFile, getFileUrl } from '@/services/uploadService';
 import { getAllCategories, getCategoryTree } from '@/services/categoryService';
 import { getProducts } from '@/services/productService';
+import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 
 // 定义商品类型
@@ -40,6 +41,7 @@ interface Product {
 const PackageManagementPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { token } = useAuthStore();
   const isEditing = Boolean(id);
 
   // 在编辑模式下，我们会从API加载数据，这里用模拟数据代替
@@ -325,8 +327,7 @@ const PackageManagementPage: React.FC = () => {
         ? `/api/packages/${id}` 
         : '/api/packages';
       
-      // 获取认证token
-      const token = localStorage.getItem('token');
+      // 使用从authStore获取的token
       const headers: HeadersInit = {
         'Content-Type': 'application/json'
       };
@@ -337,6 +338,7 @@ const PackageManagementPage: React.FC = () => {
       console.log('📦 保存套餐到:', apiUrl);
       console.log('📦 套餐数据:', packageData);
       console.log('📦 是否有token:', !!token);
+      console.log('📦 token值:', token ? `${token.substring(0, 20)}...` : 'null');
       
       if (isEditing && id) {
         // 更新现有套餐
