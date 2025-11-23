@@ -735,7 +735,7 @@ export default function PackageDetailPage() {
                       className="w-full flex items-center justify-between px-6 py-4 border-b text-left"
                     >
                       <div>
-                        <p className="text-xs text-gray-400 tracking-widest">{category.required} 选 1</p>
+                        <p className="text-xs text-gray-400 tracking-widest">{category.products.length} 选 {category.required}</p>
                         <h3 className="text-xl font-semibold text-gray-900">{category.name}</h3>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500">
