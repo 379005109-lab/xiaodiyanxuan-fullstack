@@ -683,7 +683,7 @@ export default function PackageDetailPage() {
               </div>
               <div className="rounded-3xl overflow-hidden relative">
                 <img
-                  src={pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg'}
+                  src={pkg.gallery && pkg.gallery[activeImage] ? pkg.gallery[activeImage] : (pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg')}
                   alt={pkg.name}
                   className="w-full h-[500px] object-cover"
                   onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
@@ -1178,7 +1178,7 @@ function ProductPreviewModal({
           </button>
         </div>
         <div className="grid md:grid-cols-2 gap-8 p-6">
-          <div className="relative min-h-[360px] bg-gray-50 rounded-2xl overflow-hidden">
+          <div className="relative aspect-square bg-gray-50 rounded-2xl overflow-hidden">
             <img src={previewImage} alt={product.name} className="w-full h-full object-cover" />
             <button
               onClick={() => onNavigate('prev')}
