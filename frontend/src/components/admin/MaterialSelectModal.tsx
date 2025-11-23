@@ -3,6 +3,7 @@ import { X, Search, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { Material, MaterialCategory } from '@/types'
 import { getAllMaterials, getMaterialCategoryTree } from '@/services/materialService'
+import { getFileUrl } from '@/services/uploadService'
 
 interface MaterialSelectModalProps {
   onSelect: (material: Material, upgradePrice?: number) => void
@@ -359,9 +360,12 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
                             )}
                             <div className="relative pb-[100%]">
                               <img
-                                src={material.image}
+                                src={getFileUrl(material.image)}
                                 alt={material.name}
                                 className="absolute inset-0 w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/placeholder.svg'
+                                }}
                               />
                             </div>
                             <div className="p-3">
