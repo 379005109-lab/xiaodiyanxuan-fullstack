@@ -781,7 +781,7 @@ export default function PackageDetailPage() {
                                   <img
                                     src={product.image ? getFileUrl(product.image) : '/placeholder.svg'}
                                     alt={product.name}
-                                    className="h-32 w-full object-cover rounded-xl"
+                                    className="aspect-square w-full object-cover rounded-xl"
                                     onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
                                   />
                                   <span className="absolute top-3 left-3 inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-white/90 text-gray-700">

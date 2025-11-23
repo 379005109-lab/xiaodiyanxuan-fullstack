@@ -8,6 +8,7 @@ const packageSchema = new mongoose.Schema({
   basePrice: { type: Number, required: true },
   discountPrice: Number,
   products: [{ productId: String, productName: String, quantity: Number, price: Number }],
+  categories: [{ name: String, required: Number, products: [String] }],  // 添加categories字段
   stock: { type: Number, default: 0 },
   sales: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
