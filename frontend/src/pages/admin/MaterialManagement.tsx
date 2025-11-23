@@ -709,7 +709,7 @@ export default function MaterialManagement() {
                               alt={groupKey}
                               className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
                               onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/placeholder.png'
+                                (e.target as HTMLImageElement).src = '/placeholder.svg'
                               }}
                             />
                             {/* 状态徽章 */}
@@ -841,7 +841,7 @@ export default function MaterialManagement() {
                                     alt={material.name}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
-                                      (e.target as HTMLImageElement).src = '/placeholder.png'
+                                      (e.target as HTMLImageElement).src = '/placeholder.svg'
                                     }}
                                   />
                                   <button
@@ -889,7 +889,7 @@ export default function MaterialManagement() {
                                     alt={material.name}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
-                                      (e.target as HTMLImageElement).src = '/placeholder.png'
+                                      (e.target as HTMLImageElement).src = '/placeholder.svg'
                                     }}
                                   />
                                   
