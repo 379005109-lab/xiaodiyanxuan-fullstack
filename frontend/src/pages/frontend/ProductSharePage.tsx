@@ -20,15 +20,16 @@ export default function ProductSharePage() {
   const filling = searchParams.get('filling') || ''
   const frame = searchParams.get('frame') || ''
   const leg = searchParams.get('leg') || ''
-  const [materials, setMaterials] = useState([])
+  const [materials, setMaterials] = useState<any[]>([])
 
   useEffect(() => {
     const loadMaterials = async () => {
       try {
         const allMaterials = await getAllMaterials()
-        setMaterials(allMaterials)
+        setMaterials(Array.isArray(allMaterials) ? allMaterials : [])
       } catch (err: any) {
         console.error('加载材料失败:', err)
+        setMaterials([])
       }
     }
 

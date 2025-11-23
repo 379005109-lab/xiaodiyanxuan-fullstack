@@ -48,8 +48,9 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
   const loadMaterials = async () => {
     try {
       const allMaterials = await getAllMaterials()
-      // 只显示已上线的材质
-      setMaterials(allMaterials.filter(m => m.status === 'approved'))
+      // 确保allMaterials是数组，只显示已上线的材质
+      const materialsArray = Array.isArray(allMaterials) ? allMaterials : []
+      setMaterials(materialsArray.filter(m => m.status === 'approved'))
     } catch (error) {
       console.error('加载材质失败:', error)
       setMaterials([])
@@ -59,7 +60,7 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
   const loadCategories = async () => {
     try {
       const tree = await getMaterialCategoryTree()
-      setCategories(tree)
+      setCategories(Array.isArray(tree) ? tree : [])
     } catch (error) {
       console.error('加载分类失败:', error)
       setCategories([])

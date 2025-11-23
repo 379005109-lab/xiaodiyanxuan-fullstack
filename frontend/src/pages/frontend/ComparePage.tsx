@@ -22,6 +22,7 @@ export default function ComparePage() {
   const [compareItems, setCompareItems] = useState<CompareItemDetail[]>([])
   const [compareStats, setCompareStats] = useState<any>(null)
   const [materials, setMaterials] = useState<any[]>([])
+  const [materialsLoaded, setMaterialsLoaded] = useState(false)
   const { compareItems: rawCompareItems, removeFromCompare, loadCompareItems } = useCompareStore()
   const { addItem } = useCartStore()
 
@@ -32,10 +33,13 @@ export default function ComparePage() {
     // 加载材质数据
     const loadMaterials = async () => {
       try {
-        const materials = await getAllMaterials()
-        setMaterials(materials)
+        const allMaterials = await getAllMaterials()
+        setMaterials(Array.isArray(allMaterials) ? allMaterials : [])
+        setMaterialsLoaded(true)
       } catch (error) {
         console.error('加载材质失败:', error)
+        setMaterials([])
+        setMaterialsLoaded(true)
       }
     }
     loadMaterials()
