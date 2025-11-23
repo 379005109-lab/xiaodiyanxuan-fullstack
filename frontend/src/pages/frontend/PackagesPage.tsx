@@ -62,12 +62,7 @@ export default function PackagesPage() {
           <div className="bg-white/15 backdrop-blur rounded-2xl p-6 min-w-[260px]">
             <h3 className="text-sm uppercase text-white/70 mb-3">当前提供</h3>
             <p className="text-5xl font-bold">{packages.length}</p>
-            <p className="text-sm text-white/70">套整屋方案</p>
-            <div className="mt-6 space-y-2 text-sm text-white/80">
-              <p>· 支持品类自由组合</p>
-              <p>· 自动同步材质与规格</p>
-              <p>· 本地化售后与交付</p>
-            </div>
+            <p className="text-sm text-white/70">套餐方案</p>
           </div>
         </section>
 
