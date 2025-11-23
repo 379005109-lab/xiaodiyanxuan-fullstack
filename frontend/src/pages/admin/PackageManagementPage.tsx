@@ -121,11 +121,19 @@ const PackageManagementPage: React.FC = () => {
         
         // 加载商品
         console.log('🔄 开始加载商品...');
-        const products = await getProducts();
-        console.log('📦 商品API返回:', products);
-        console.log('📦 商品类型:', typeof products, Array.isArray(products));
+        const productsResponse = await getProducts();
+        console.log('📦 商品API返回:', productsResponse);
+        console.log('📦 返回类型:', typeof productsResponse, Array.isArray(productsResponse));
         
-        const productsArray = Array.isArray(products) ? products : [];
+        // getProducts返回的是 {success: true, data: [...]} 或 {data: [...]}
+        // 需要提取data字段
+        let productsArray: any[] = [];
+        if (Array.isArray(productsResponse)) {
+          productsArray = productsResponse;
+        } else if (productsResponse && typeof productsResponse === 'object') {
+          productsArray = Array.isArray(productsResponse.data) ? productsResponse.data : [];
+        }
+        
         console.log('✅ 商品数组:', productsArray.length, '个商品');
         if (productsArray.length > 0) {
           console.log('📦 第一个商品示例:', productsArray[0]);
