@@ -238,14 +238,17 @@ const ProductDetailPage = () => {
   }, [loadFavorites, loadCompareItems]);
 
   useEffect(() => {
-    const materials = getAllMaterials();
-    const assetMap = materials.reduce<Record<string, string>>((acc, material) => {
-      if (material.name && material.image) {
-        acc[material.name] = material.image;
-      }
-      return acc;
-    }, {});
-    setMaterialAssetMap(assetMap);
+    const loadMaterials = async () => {
+      const materials = await getAllMaterials();
+      const assetMap = materials.reduce<Record<string, string>>((acc, material) => {
+        if (material.name && material.image) {
+          acc[material.name] = material.image;
+        }
+        return acc;
+      }, {});
+      setMaterialAssetMap(assetMap);
+    };
+    loadMaterials();
   }, []);
 
   const defaultGalleryImages = useMemo(() => {
