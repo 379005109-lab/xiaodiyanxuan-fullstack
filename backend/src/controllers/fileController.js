@@ -12,35 +12,19 @@ const uploadFile = async (req, res) => {
 
     const storage = req.query.storage || 'gridfs';
     
-    try {
-      const result = await FileService.upload(
-        req.file.buffer,
-        req.file.originalname,
-        req.file.mimetype,
-        storage
-      );
-      sendResponse(res, result, '文件上传成功', 201);
-    } catch (uploadErr) {
-      // 如果 GridFS 失败，使用 Base64 作为备选方案
-      console.warn('GridFS 上传失败，使用 Base64 备选方案:', uploadErr.message);
-      
-      const base64Data = req.file.buffer.toString('base64');
-      const dataUrl = `data:${req.file.mimetype};base64,${base64Data}`;
-      
-      // 直接返回 data URL 作为 fileId，前端可以直接使用
-      const result = {
-        fileId: dataUrl,  // 直接使用 data URL
-        filename: req.file.originalname,
-        originalName: req.file.originalname,
-        url: dataUrl,
-        size: req.file.size,
-        mimeType: req.file.mimetype,
-        uploadedAt: new Date(),
-        storage: 'base64'
-      };
-      
-      sendResponse(res, result, '文件上传成功（Base64）', 201);
+    const result = await FileService.upload(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+      storage
+    );
+    
+    // 确保返回的是GridFS fileId，而不是Base64
+    if (!result.fileId || result.fileId.startsWith('data:')) {
+      throw new Error('GridFS上传失败，返回了Base64数据');
     }
+    
+    sendResponse(res, result, '文件上传成功（GridFS）', 201);
   } catch (err) {
     console.error('文件上传错误:', err);
     sendError(res, err.message, 500);
