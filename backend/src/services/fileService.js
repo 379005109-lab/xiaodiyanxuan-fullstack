@@ -94,7 +94,7 @@ class FileService {
       }
 
       try {
-        const objectId = mongoose.Types.ObjectId(fileId);
+        const objectId = new mongoose.Types.ObjectId(fileId);
         const readStream = gfs.createReadStream({ _id: objectId });
 
         // 获取文件信息
@@ -131,7 +131,7 @@ class FileService {
       }
 
       try {
-        const objectId = mongoose.Types.ObjectId(fileId);
+        const objectId = new mongoose.Types.ObjectId(fileId);
         gfs.remove({ _id: objectId }, (err) => {
           if (err) {
             return reject(err);
