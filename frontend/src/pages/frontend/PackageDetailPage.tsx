@@ -1194,139 +1194,97 @@ function ProductPreviewModal({
             </button>
           </div>
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">单件价格</p>
-                <p className="text-3xl font-bold text-red-600">¥{(product.price || 0).toLocaleString()}</p>
+            {/* 选择规格 */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-base font-semibold text-gray-900">选择规格</h4>
+                <span className="text-xs text-gray-400">当前 1款</span>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-400">材质升级</p>
-                <p className="text-2xl font-bold text-red-600">+¥{(surcharge || 0).toLocaleString()}</p>
+              <div className="border-2 border-blue-500 rounded-2xl p-4 bg-blue-50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-gray-900">{product.name}</span>
+                  <span className="text-red-600 font-bold text-lg">¥{(product.price || 0).toLocaleString()}</span>
+                </div>
+                {product.specs && (
+                  <p className="text-sm text-gray-600">尺寸：{product.specs}</p>
+                )}
               </div>
+              {surcharge > 0 && (
+                <div className="text-sm text-gray-600">
+                  材质升级费用：<span className="text-red-600 font-semibold">+¥{surcharge.toLocaleString()}</span>
+                </div>
+              )}
             </div>
-            {product.specs && (
-              <div className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-600">
-                {product.specs}
+            
+            {/* 选择材质 */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-base font-semibold text-gray-900">选择材质</h4>
+                <span className="text-xs text-gray-400">套装仅能下单，点击即可切换</span>
               </div>
-            )}
-            {product.materials ? (
-              Object.entries(product.materials as PackageProductMaterial).map(([materialKey, options]) => {
-                const materialOptions = (options ?? []) as string[]
-                const MATERIAL_NAMES: Record<string, string> = {
-                  fabric: '面料',
-                  filling: '填充',
-                  frame: '框架',
-                  leg: '脚架',
-                }
-                
-                // 按材质类型分组
-                const materialGroups: Record<string, Array<{original: string, display: string}>> = {}
-                const groupOrder: string[] = []
-                
-                materialOptions.forEach(material => {
-                  // 确保material是字符串
-                  const materialStr = String(material || '')
-                  let groupKey = 'other'
-                  let displayName = materialStr
-                  
-                  // 检查材质类型并提取颜色/子类型
-                  if (materialStr.includes('普通皮')) {
-                    groupKey = '普通皮'
-                    // 如果是"普通皮-白色"格式，提取"白色"
-                    displayName = materialStr.replace('普通皮-', '').replace('普通皮', materialStr)
-                  } else if (materialStr.includes('全青皮')) {
-                    groupKey = '全青皮'
-                    displayName = materialStr.replace('全青皮-', '').replace('全青皮', materialStr)
-                  } else if (materialStr.includes('牛皮')) {
-                    groupKey = '牛皮'
-                    displayName = materialStr.replace('牛皮-', '').replace('牛皮', materialStr)
-                  } else if (materialStr.includes('绒布')) {
-                    groupKey = '绒布'
-                    displayName = materialStr.replace('绒布-', '').replace('绒布', materialStr)
-                  } else if (materialStr.includes('麻布')) {
-                    groupKey = '麻布'
-                    displayName = materialStr.replace('麻布-', '').replace('麻布', materialStr)
-                  } else if (materialStr.includes('科技布')) {
-                    groupKey = '科技布'
-                    displayName = materialStr.replace('科技布-', '').replace('科技布', materialStr)
-                  } else if (materialStr.includes('半皮')) {
-                    groupKey = '半皮'
-                    displayName = materialStr.replace('半皮-', '').replace('半皮', materialStr)
+              {product.materials ? (
+                Object.entries(product.materials as PackageProductMaterial).map(([materialKey, options]) => {
+                  const materialOptions = (options ?? []) as string[]
+                  const MATERIAL_NAMES: Record<string, string> = {
+                    fabric: '面料',
+                    filling: '填充',
+                    frame: '框架',
+                    leg: '脚架',
                   }
                   
-                  if (!materialGroups[groupKey]) {
-                    materialGroups[groupKey] = []
-                    groupOrder.push(groupKey)
-                  }
-                  // 保存原始材质名和显示名
-                  materialGroups[groupKey].push({ original: material, display: displayName })
-                })
-                
-                return (
-                  <div key={materialKey} className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900">{MATERIAL_NAMES[materialKey] || materialKey.toUpperCase()}</p>
-                      <span className="text-xs text-gray-400">{materialOptions.length ? `${materialOptions.length} 种` : '未设置'}</span>
-                    </div>
-                    {materialOptions.length ? (
-                      <div className="space-y-4">
-                        {groupOrder.map(groupKey => (
-                          <div key={groupKey}>
-                            {groupKey !== 'other' && (
-                              <div className="flex items-center gap-2 mb-2">
-                                <p className="text-xs font-medium text-gray-600">{groupKey}</p>
-                              </div>
-                            )}
-                            <div className="flex flex-wrap gap-3">
-                              {materialGroups[groupKey].map(materialItem => {
-                                const isSelected = localSelections[materialKey] === materialItem.original
-                                const preview = product.materialImages?.[materialItem.original] || getMaterialPreviewImage(product, materialItem.original)
-                                return (
-                                  <button
-                                    key={materialItem.original}
-                                    type="button"
-                                    onClick={() => handleSelectMaterial(materialKey, materialItem.original)}
-                                    className="flex flex-col items-center gap-2 cursor-pointer"
-                                  >
-                                    <span
-                                      className={`w-14 h-14 rounded-lg border-2 flex items-center justify-center overflow-hidden transition-all ${
-                                        isSelected ? 'border-[#1F64FF] shadow-[0_4px_12px_rgba(31,100,255,0.25)]' : 'border-transparent hover:border-gray-300'
-                                      }`}
-                                    >
-                                      <img 
-                                        src={preview} 
-                                        alt={materialItem.display} 
-                                        className="w-full h-full object-cover"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handlePreviewOption(materialItem.original)
-                                        }}
-                                        onError={(e) => {
-                                          (e.target as HTMLImageElement).src = '/placeholder.svg'
-                                        }}
-                                      />
-                                    </span>
-                                    <span className={`text-xs text-center max-w-[60px] leading-tight ${
-                                      isSelected ? 'text-[#1F64FF] font-semibold' : 'text-gray-600'
-                                    }`}>
-                                      {materialItem.display}
-                                    </span>
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        ))}
+                  return (
+                    <div key={materialKey} className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-900">{MATERIAL_NAMES[materialKey] || materialKey.toUpperCase()}</p>
+                        <span className="text-xs text-gray-400">{materialOptions.length} 种</span>
                       </div>
-                    ) : (
-                      <p className="text-xs text-gray-500">暂无可选项</p>
-                    )}
-                  </div>
-                )
-              })
-            ) : (
-              <p className="text-sm text-gray-500">该商品暂无材质可选</p>
-            )}
+                      <div className="grid grid-cols-4 gap-3">
+                        {materialOptions.map(material => {
+                          const materialStr = String(material || '')
+                          const isSelected = localSelections[materialKey] === material
+                          const preview = product.materialImages?.[material] || getMaterialPreviewImage(product, material)
+                          
+                          return (
+                            <button
+                              key={material}
+                              type="button"
+                              onClick={() => handleSelectMaterial(materialKey, material)}
+                              className="flex flex-col items-center gap-1.5 cursor-pointer"
+                            >
+                              <span
+                                className={`w-16 h-16 rounded-lg border-2 flex items-center justify-center overflow-hidden transition-all ${
+                                  isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <img 
+                                  src={getFileUrl(preview)} 
+                                  alt={materialStr} 
+                                  className="w-full h-full object-cover"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handlePreviewOption(material)
+                                  }}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = '/placeholder.svg'
+                                  }}
+                                />
+                              </span>
+                              <span className={`text-xs text-center max-w-[70px] leading-tight ${
+                                isSelected ? 'text-blue-600 font-semibold' : 'text-gray-600'
+                              }`}>
+                                {materialStr}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <p className="text-sm text-gray-500">该商品暂无材质可选</p>
+              )}
+            </div>
             <div className="space-y-3">
               <p className="text-xs text-gray-400">提示：切换至更高阶材质后，会在右侧总价中自动计算加价。</p>
               <div className="flex items-center justify-end gap-3">
