@@ -284,6 +284,7 @@ const normalizeMaterial = (material?: Record<string, string | string[]>): Packag
 const mapProduct = (product: StoredPackageProduct): PackageProductOption => ({
   id: String(product.id),
   name: product.name,
+  basePrice: product.price,
   price: product.price,
   image: product.img || '/placeholder.svg',
   specs: product.specs,
@@ -426,15 +427,24 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
                 specs = product.description
               }
               
+              // 保存完整的商品数据，包括SKU数组
               categoryMap[category].push({
                 id: product._id,
                 name: product.name,
-                price: product.packagePrice || product.basePrice || 0,
+                category: product.category || product.categoryName,
+                basePrice: product.basePrice || 0,
+                packagePrice: product.packagePrice,
                 image: product.images?.[0] ? getFileUrl(product.images[0]) : '/placeholder.svg',
+                images: product.images ? product.images.map((img: string) => getFileUrl(img)) : [],
                 specs: specs,
                 description: product.description || '',
                 materials: materials,
-                materialImages: materialImages  // 添加材质图片映射
+                materialImages: materialImages,
+                // 保存完整的SKU数组
+                skus: product.skus || [],
+                // 其他商品信息
+                specifications: product.specifications,
+                videos: product.videos
               })
             })
             

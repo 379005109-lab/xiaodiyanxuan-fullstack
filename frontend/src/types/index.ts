@@ -182,12 +182,20 @@ export interface PackageProductMaterial {
 export interface PackageProductOption {
   id: string
   name: string
-  price: number
+  category?: string
+  basePrice: number
+  packagePrice?: number
+  price?: number  // 为了兼容旧代码
   image: string
+  images?: string[]
   specs?: string
   description?: string
   materials?: PackageProductMaterial
   materialImages?: Record<string, string>
+  // 完整的SKU数据
+  skus?: ProductSKU[]
+  specifications?: any
+  videos?: any[]
 }
 
 export interface PackageCategoryOption {
