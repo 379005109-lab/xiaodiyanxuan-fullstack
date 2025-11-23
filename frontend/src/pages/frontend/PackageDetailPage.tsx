@@ -217,7 +217,7 @@ export default function PackageDetailPage() {
   const [pkg, setPkg] = useState<PackagePlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeImage, setActiveImage] = useState(0)
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
   const [selectedProducts, setSelectedProducts] = useState<SelectionMap>({})
   const [materialSelections, setMaterialSelections] = useState<MaterialSelectionMap>({})
   const [selectionQuantities, setSelectionQuantities] = useState<QuantityMap>({})
@@ -249,8 +249,7 @@ export default function PackageDetailPage() {
       setPkg(packageData)
       setLoading(false)
       if (packageData && packageData.categories.length) {
-        // 默认不设置expandedCategory，让所有分类都展开
-        // setExpandedCategory(null)  // null表示不折叠任何分类
+        // collapsedCategories默认为空，所有分类都展开
         const defaults: MaterialSelectionMap = {}
         packageData.categories.forEach((category) => {
           category.products.forEach((product) => {
@@ -483,7 +482,12 @@ export default function PackageDetailPage() {
 
     if (incomplete) {
       toast.error(`请完成「${incomplete.name}」的 ${incomplete.required} 选 1 选择`)
-      setExpandedCategory(incomplete.key)
+      // 展开未完成的分类
+      setCollapsedCategories(prev => {
+        const next = new Set(prev)
+        next.delete(incomplete.key)
+        return next
+      })
       return
     }
 
@@ -760,12 +764,22 @@ export default function PackageDetailPage() {
                 const selectedIds = selectedProducts[category.key] || []
                 const selectedCount = getCategorySelectedQuantity(category.key)
                 const remaining = Math.max(category.required - selectedCount, 0)
-                const isExpanded = expandedCategory === category.key
+                const isExpanded = !collapsedCategories.has(category.key)
 
                 return (
                   <div key={category.key} className="bg-white rounded-3xl shadow">
                     <button
-                      onClick={() => setExpandedCategory(isExpanded ? null : category.key)}
+                      onClick={() => {
+                        setCollapsedCategories(prev => {
+                          const next = new Set(prev)
+                          if (isExpanded) {
+                            next.add(category.key)
+                          } else {
+                            next.delete(category.key)
+                          }
+                          return next
+                        })
+                      }}
                       className="w-full flex items-center justify-between px-6 py-4 border-b text-left"
                     >
                       <div>
