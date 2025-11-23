@@ -2,32 +2,34 @@ const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
-// GridFS 初始化
-let gfs;
+// GridFS Bucket 初始化
+let bucket;
 const conn = mongoose.connection;
 
-// 延迟初始化 GridFS
-const initGridFS = () => {
+// 延迟初始化 GridFS Bucket
+const initGridFSBucket = () => {
   try {
-    const Grid = require('gridfs-stream');
-    if (!gfs && conn.db) {
-      gfs = Grid(conn.db, mongoose.mongo);
+    if (!bucket && conn.db) {
+      bucket = new mongoose.mongo.GridFSBucket(conn.db, {
+        bucketName: 'uploads'
+      });
+      console.log('✅ GridFSBucket 初始化成功');
     }
   } catch (err) {
-    console.warn('GridFS 初始化失败:', err.message);
+    console.warn('❌ GridFSBucket 初始化失败:', err.message);
   }
 };
 
 conn.once('open', () => {
-  initGridFS();
+  initGridFSBucket();
 });
 
-// 确保 GridFS 已初始化
-const ensureGridFS = () => {
-  if (!gfs) {
-    initGridFS();
+// 确保 GridFSBucket 已初始化
+const ensureGridFSBucket = () => {
+  if (!bucket) {
+    initGridFSBucket();
   }
-  return gfs;
+  return bucket;
 };
 
 /**
@@ -44,17 +46,16 @@ class FileService {
    */
   static async uploadToGridFS(fileBuffer, originalName, mimeType) {
     return new Promise((resolve, reject) => {
-      const gridfs = ensureGridFS();
-      if (!gridfs) {
-        return reject(new Error('GridFS 未初始化，请确保 MongoDB 已连接'));
+      const gridFSBucket = ensureGridFSBucket();
+      if (!gridFSBucket) {
+        return reject(new Error('GridFSBucket 未初始化，请确保 MongoDB 已连接'));
       }
 
       // 生成唯一的文件名
       const ext = path.extname(originalName);
       const filename = `${uuidv4()}${ext}`;
 
-      const writeStream = gridfs.createWriteStream({
-        filename: filename,
+      const uploadStream = gridFSBucket.openUploadStream(filename, {
         metadata: {
           originalName: originalName,
           uploadedAt: new Date(),
@@ -62,23 +63,23 @@ class FileService {
         },
       });
 
-      writeStream.on('close', (file) => {
+      uploadStream.on('finish', () => {
         resolve({
-          fileId: file._id,
+          fileId: uploadStream.id,
           filename: filename,
           originalName: originalName,
-          url: `/api/files/${file._id}`,
-          size: file.length,
+          url: `/api/files/${uploadStream.id}`,
+          size: fileBuffer.length,
           mimeType: mimeType,
           uploadedAt: new Date(),
         });
       });
 
-      writeStream.on('error', (err) => {
+      uploadStream.on('error', (err) => {
         reject(err);
       });
 
-      writeStream.end(fileBuffer);
+      uploadStream.end(fileBuffer);
     });
   }
 
@@ -88,35 +89,32 @@ class FileService {
    * @returns {Promise<Object>} - { stream, filename, mimeType }
    */
   static async downloadFromGridFS(fileId) {
-    return new Promise((resolve, reject) => {
-      if (!gfs) {
-        return reject(new Error('GridFS 未初始化'));
+    const gridFSBucket = ensureGridFSBucket();
+    if (!gridFSBucket) {
+      throw new Error('GridFSBucket 未初始化');
+    }
+
+    try {
+      const objectId = new mongoose.Types.ObjectId(fileId);
+      
+      // 查找文件信息
+      const files = await gridFSBucket.find({ _id: objectId }).toArray();
+      if (!files || files.length === 0) {
+        throw new Error('文件不存在');
       }
 
-      try {
-        const objectId = new mongoose.Types.ObjectId(fileId);
-        const readStream = gfs.createReadStream({ _id: objectId });
+      const file = files[0];
+      const downloadStream = gridFSBucket.openDownloadStream(objectId);
 
-        // 获取文件信息
-        gfs.files.findOne({ _id: objectId }, (err, file) => {
-          if (err) {
-            return reject(err);
-          }
-          if (!file) {
-            return reject(new Error('文件不存在'));
-          }
-
-          resolve({
-            stream: readStream,
-            filename: file.filename,
-            mimeType: file.metadata?.mimeType || 'application/octet-stream',
-            size: file.length,
-          });
-        });
-      } catch (err) {
-        reject(err);
-      }
-    });
+      return {
+        stream: downloadStream,
+        filename: file.filename,
+        mimeType: file.metadata?.mimeType || 'application/octet-stream',
+        size: file.length,
+      };
+    } catch (err) {
+      throw err;
+    }
   }
 
   /**
@@ -125,23 +123,18 @@ class FileService {
    * @returns {Promise<Boolean>}
    */
   static async deleteFromGridFS(fileId) {
-    return new Promise((resolve, reject) => {
-      if (!gfs) {
-        return reject(new Error('GridFS 未初始化'));
-      }
+    const gridFSBucket = ensureGridFSBucket();
+    if (!gridFSBucket) {
+      throw new Error('GridFSBucket 未初始化');
+    }
 
-      try {
-        const objectId = new mongoose.Types.ObjectId(fileId);
-        gfs.remove({ _id: objectId }, (err) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve(true);
-        });
-      } catch (err) {
-        reject(err);
-      }
-    });
+    try {
+      const objectId = new mongoose.Types.ObjectId(fileId);
+      await gridFSBucket.delete(objectId);
+      return true;
+    } catch (err) {
+      throw err;
+    }
   }
 
   /**
