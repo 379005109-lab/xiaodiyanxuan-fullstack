@@ -28,16 +28,7 @@ export default function PackagesPage() {
     loadPackages()
   }, [])
 
-  const tags = useMemo(() => {
-    const all = new Set<string>(['全部'])
-    packages.forEach((pkg) => pkg.tags.forEach((tag) => all.add(tag)))
-    return Array.from(all)
-  }, [packages])
-
-  const filteredPackages = useMemo(() => {
-    if (activeTag === '全部') return packages
-    return packages.filter((pkg) => pkg.tags.includes(activeTag))
-  }, [packages, activeTag])
+  const filteredPackages = packages
 
   const handleTagClick = (tag: string) => {
     if (tag === '全部') {
@@ -80,25 +71,6 @@ export default function PackagesPage() {
           </div>
         </section>
 
-        <section className="mt-12">
-          <div className="flex flex-wrap gap-3">
-            {tags.map((tag, index) => (
-              <button
-                key={tag}
-                onClick={() => handleTagClick(tag)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  activeTag === tag
-                    ? 'bg-gray-900 text-white shadow-lg shadow-gray-200'
-                    : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-                }`}
-                style={activeTag === tag ? { backgroundColor: TAG_PALETTE[index % TAG_PALETTE.length], color: '#fff' } : {}}
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </section>
-
         <section className="mt-10 space-y-8">
           {loading && (
             <div className="flex justify-center py-20">
@@ -129,23 +101,11 @@ export default function PackagesPage() {
                   <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full">
                     <p className="text-lg font-bold text-primary-600">¥{(pkg.price || 0).toLocaleString()}</p>
                   </div>
-                  <div className="absolute bottom-4 left-4 flex flex-wrap gap-2">
-                    {(pkg.tags || []).slice(0, 2).map((tag, index) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white backdrop-blur"
-                        style={{ backgroundColor: TAG_PALETTE[index % TAG_PALETTE.length] }}
-                      >
-                        <Tag className="h-3 w-3 mr-1" /> {tag}
-                      </span>
-                    ))}
-                  </div>
                 </div>
 
                 <div className="p-6 space-y-4">
                   <div>
                     <h2 className="text-xl font-semibold text-gray-900 line-clamp-1">{pkg.name}</h2>
-                    <p className="text-sm text-gray-500 mt-1">套餐编号 #{pkg.id}</p>
                   </div>
                   <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">{pkg.description || '立即查看搭配详情，获取更多材质与规格信息。'}</p>
                   <div className="flex flex-wrap gap-2">
