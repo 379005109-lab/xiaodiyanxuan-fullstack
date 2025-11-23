@@ -6,6 +6,7 @@ import { formatPrice } from '@/lib/utils';
 import { getAllPackages } from '@/services/packageService';
 import apiClient from '@/lib/apiClient';
 import { toast } from 'sonner';
+import { getFileUrl } from '@/services/uploadService';
 
 // 定义套餐类型
 interface Package {
@@ -40,7 +41,7 @@ const PackageListPage: React.FC = () => {
         price: pkg.basePrice,
         productCount: pkg.products?.length || 0,
         categoryCount: 0,
-        image: pkg.thumbnail || '/placeholder.svg',
+        image: pkg.thumbnail ? getFileUrl(pkg.thumbnail) : '/placeholder.svg',
         status: pkg.status
       }));
       setPackages(apiPackages);

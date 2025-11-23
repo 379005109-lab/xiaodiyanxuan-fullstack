@@ -768,6 +768,22 @@ const PackageManagementPage: React.FC = () => {
                           </div>
                           <p className="text-sm text-red-500">{formatPrice(product.basePrice)}</p>
                           {product.specs && <p className="text-xs text-gray-500 mt-1">规格: {product.specs}</p>}
+                          {/* 显示SKU列表 */}
+                          {(product as any).skus && (product as any).skus.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs text-gray-600 font-medium mb-1">可选规格:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {(product as any).skus.slice(0, 3).map((sku: any, idx: number) => (
+                                  <span key={idx} className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                                    {sku.spec || sku.code || `规格${idx + 1}`}
+                                  </span>
+                                ))}
+                                {(product as any).skus.length > 3 && (
+                                  <span className="text-xs text-gray-500">+{(product as any).skus.length - 3}个</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                         {currentSelected.find(p => p._id === product._id) ? (
                           <span className="text-sm text-green-600 font-semibold self-center">已添加</span>
