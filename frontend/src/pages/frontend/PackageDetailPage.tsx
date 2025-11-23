@@ -715,7 +715,6 @@ export default function PackageDetailPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h1 className="text-4xl font-semibold text-gray-900">{pkg.name}</h1>
-                  <p className="text-sm text-gray-400 mt-2">套餐编号 #{pkg.id}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-400">整套基础价</p>
@@ -1266,43 +1265,87 @@ function ProductPreviewModal({
                   frame: '框架',
                   leg: '脚架',
                 }
+                
+                // 按材质类型分组
+                const materialGroups: Record<string, string[]> = {}
+                const groupOrder: string[] = []
+                
+                materialOptions.forEach(material => {
+                  let groupKey = 'other'
+                  if (material.includes('普通皮')) groupKey = '普通皮'
+                  else if (material.includes('全青皮')) groupKey = '全青皮'
+                  else if (material.includes('牛皮')) groupKey = '牛皮'
+                  else if (material.includes('绒布')) groupKey = '绒布'
+                  else if (material.includes('麻布')) groupKey = '麻布'
+                  else if (material.includes('科技布')) groupKey = '科技布'
+                  else if (material.includes('半皮')) groupKey = '半皮'
+                  
+                  if (!materialGroups[groupKey]) {
+                    materialGroups[groupKey] = []
+                    groupOrder.push(groupKey)
+                  }
+                  materialGroups[groupKey].push(material)
+                })
+                
                 return (
-                  <div key={materialKey}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-gray-800">{MATERIAL_NAMES[materialKey] || materialKey.toUpperCase()}</p>
+                  <div key={materialKey} className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-gray-900">{MATERIAL_NAMES[materialKey] || materialKey.toUpperCase()}</p>
+                      <span className="text-xs text-gray-400">{materialOptions.length ? `${materialOptions.length} 种` : '未设置'}</span>
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                      {materialOptions.map((option) => {
-                        const isActive = localSelections[materialKey] === option
-                        const materialImage = getMaterialPreviewImage(product, option)
-                        return (
-                          <div key={option} className="relative">
-                            <button
-                              onClick={() => handleSelectMaterial(materialKey, option)}
-                              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition ${
-                                isActive
-                                  ? 'border-primary-500 bg-primary-50 text-primary-700'
-                                  : 'border-gray-200 text-gray-600 hover:border-gray-400'
-                              }`}
-                            >
-                              <img 
-                                src={materialImage}
-                                alt={option}
-                                className="w-6 h-6 rounded-full object-cover cursor-pointer hover:ring-2 hover:ring-primary-500"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handlePreviewOption(option)
-                                }}
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = '/placeholder.svg'
-                                }}
-                              />
-                              <span>{option}</span>
-                            </button>
+                    {materialOptions.length ? (
+                      <div className="space-y-4">
+                        {groupOrder.map(groupKey => (
+                          <div key={groupKey}>
+                            {groupKey !== 'other' && (
+                              <div className="flex items-center gap-2 mb-2">
+                                <p className="text-xs font-medium text-gray-600">{groupKey}</p>
+                              </div>
+                            )}
+                            <div className="flex flex-wrap gap-3">
+                              {materialGroups[groupKey].map(materialName => {
+                                const isSelected = localSelections[materialKey] === materialName
+                                const preview = product.materialImages?.[materialName] || getMaterialPreviewImage(product, materialName)
+                                return (
+                                  <button
+                                    key={materialName}
+                                    type="button"
+                                    onClick={() => handleSelectMaterial(materialKey, materialName)}
+                                    className="flex flex-col items-center gap-2 cursor-pointer"
+                                  >
+                                    <span
+                                      className={`w-14 h-14 rounded-lg border-2 flex items-center justify-center overflow-hidden transition-all ${
+                                        isSelected ? 'border-[#1F64FF] shadow-[0_4px_12px_rgba(31,100,255,0.25)]' : 'border-transparent hover:border-gray-300'
+                                      }`}
+                                    >
+                                      <img 
+                                        src={preview} 
+                                        alt={materialName} 
+                                        className="w-full h-full object-cover"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handlePreviewOption(materialName)
+                                        }}
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src = '/placeholder.svg'
+                                        }}
+                                      />
+                                    </span>
+                                    <span className={`text-xs text-center max-w-[60px] leading-tight ${
+                                      isSelected ? 'text-[#1F64FF] font-semibold' : 'text-gray-600'
+                                    }`}>
+                                      {materialName}
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                            </div>
                           </div>
-                        )
-                      })}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500">暂无可选项</p>
+                    )}
                   </div>
                 )
               })
