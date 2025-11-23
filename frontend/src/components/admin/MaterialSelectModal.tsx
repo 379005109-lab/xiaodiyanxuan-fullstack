@@ -46,14 +46,24 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
   }, [selectedMaterials, materialUpgradePrices, materialType])
 
   const loadMaterials = async () => {
-    const allMaterials = await getAllMaterials()
-    // 只显示已上线的材质
-    setMaterials(allMaterials.filter(m => m.status === 'approved'))
+    try {
+      const allMaterials = await getAllMaterials()
+      // 只显示已上线的材质
+      setMaterials(allMaterials.filter(m => m.status === 'approved'))
+    } catch (error) {
+      console.error('加载材质失败:', error)
+      setMaterials([])
+    }
   }
 
   const loadCategories = async () => {
-    const tree = await getMaterialCategoryTree()
-    setCategories(tree)
+    try {
+      const tree = await getMaterialCategoryTree()
+      setCategories(tree)
+    } catch (error) {
+      console.error('加载分类失败:', error)
+      setCategories([])
+    }
   }
 
   // 获取材质所属的类别
