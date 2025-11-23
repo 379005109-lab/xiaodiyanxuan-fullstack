@@ -285,7 +285,7 @@ const PackageManagementPage: React.FC = () => {
     setDraggedIndex(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // 验证：检查所有已选择的类别是否都有商品
     const emptyCategories = tags.filter(tag => {
       const products = selectedProducts[tag] || [];
@@ -297,52 +297,81 @@ const PackageManagementPage: React.FC = () => {
       return;
     }
     
-    // 从localStorage获取现有套餐列表
-    const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]');
-    
-    // 获取原有套餐的利润信息（如果是编辑）
-    let existingProfitData = {};
-    if (isEditing && id) {
-      const existingPackage = existingPackages.find(p => p.id === parseInt(id, 10));
-      if (existingPackage) {
-        existingProfitData = {
-          channelPrice: existingPackage.channelPrice,
-          designerPrice: existingPackage.designerPrice,
-          status: existingPackage.status,
-        };
+    try {
+      toast.info('正在保存套餐...');
+      
+      // 准备套餐数据
+      const products = Object.values(selectedProducts)
+        .flat()
+        .map(product => ({
+          productId: product._id,
+          productName: product.name,
+          quantity: 1,
+          price: product.basePrice || 0
+        }));
+      
+      const packageData = {
+        name: packageName,
+        description: '',
+        thumbnail: packageImage || '',
+        images: packageImages.length > 0 ? packageImages : [],
+        basePrice: packagePrice,
+        products: products,
+        status: 'active'
+      };
+      
+      let response;
+      if (isEditing && id) {
+        // 更新现有套餐
+        response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/packages/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(packageData)
+        });
+      } else {
+        // 创建新套餐
+        response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/packages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(packageData)
+        });
       }
-    }
-
-    const newPackage = {
-      id: isEditing ? parseInt(id!, 10) : Date.now(),
-      name: packageName,
-      price: packagePrice,
-      image: packageImage || '/placeholder.svg',
-      images: packageImages.length > 0 ? packageImages : undefined,
-      tags,
-      selectedProducts,
-      optionalQuantities,
-      productCount: Object.values(selectedProducts).reduce((acc, products) => acc + products.length, 0),
-      categoryCount: tags.length,
-      ...existingProfitData, // 保留原有的利润信息
-    };
-
-    if (isEditing) {
-      // 更新现有套餐
-      const packageIndex = existingPackages.findIndex(p => p.id === newPackage.id);
-      if (packageIndex > -1) {
-        existingPackages[packageIndex] = newPackage;
+      
+      if (!response.ok) {
+        throw new Error('保存套餐失败');
       }
-    } else {
-      // 添加新套餐
-      existingPackages.push(newPackage);
+      
+      // 同时保存到localStorage作为备份
+      const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]');
+      const newPackage = {
+        id: isEditing ? parseInt(id!, 10) : Date.now(),
+        name: packageName,
+        price: packagePrice,
+        image: packageImage || '/placeholder.svg',
+        images: packageImages.length > 0 ? packageImages : undefined,
+        tags,
+        selectedProducts,
+        optionalQuantities,
+        productCount: Object.values(selectedProducts).reduce((acc, products) => acc + products.length, 0),
+        categoryCount: tags.length,
+      };
+      
+      if (isEditing) {
+        const packageIndex = existingPackages.findIndex(p => p.id === newPackage.id);
+        if (packageIndex > -1) {
+          existingPackages[packageIndex] = newPackage;
+        }
+      } else {
+        existingPackages.push(newPackage);
+      }
+      localStorage.setItem('packages', JSON.stringify(existingPackages));
+      
+      toast.success('套餐保存成功！');
+      navigate('/admin/packages');
+    } catch (error) {
+      console.error('保存套餐失败:', error);
+      toast.error('保存套餐失败，请重试');
     }
-
-    // 将更新后的列表存回localStorage
-    localStorage.setItem('packages', JSON.stringify(existingPackages));
-
-    alert('套餐已保存！');
-    navigate('/admin/packages');
   };
 
   return (
