@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { PackagePlan, PackageProductMaterial, PackageProductOption, PackageSelectionGroup, PackageSelectionItem, OrderStatus } from '@/types'
-import { getPackageById } from '@/services/packageService'
+import { useNavigate, useParams, Link } from 'react-router-dom'
+import { Plus, Minus, X, AlertCircle, ChevronLeft, ChevronRight, Check, Sparkles, ShieldCheck, ArrowLeft, ImageIcon, Layers3, Loader2, Maximize2, CheckCircle2 } from 'lucide-react'
+import { PackagePlan, PackageProductMaterial } from '@/types'
+import { getAllPackages } from '@/services/packageService'
+import { getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
-import { ArrowLeft, ChevronLeft, ChevronRight, ImageIcon, Layers3, Loader2, Minus, Plus, X, Maximize2, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react'
 import { createCustomerOrder } from '@/services/customerOrderService'
 import axios from '@/lib/axios'
 import { useAuthStore } from '@/store/authStore'
+
+// 从PackagePlan中提取Category和Product类型
+type PackageCategory = PackagePlan['categories'][number]
+type PackageProduct = PackageCategory['products'][number]
+type PackageProductOption = any
 
 type SelectionMap = Record<string, string[]>
 type MaterialSelectionMap = Record<string, Record<string, string>>
@@ -45,7 +51,7 @@ const stringToHexColor = (str: string) => {
   return color
 }
 
-const getMaterialPreviewImage = (product: PackageProductOption, option: string) => {
+const getMaterialPreviewImage = (product: PackageProduct, option: string) => {
   if (product.materialImages?.[option]) return product.materialImages[option]
   const color = stringToHexColor(option).replace('#', '')
   const text = encodeURIComponent(option)
@@ -54,7 +60,7 @@ const getMaterialPreviewImage = (product: PackageProductOption, option: string) 
 
 interface OrderConfirmModalProps {
   pkg: PackagePlan
-  selectionGroups: PackageSelectionGroup[]
+  selectionGroups: PackageCategory[]
   totalPrice: number
   note: string
   contact: { name: string; phone: string; address: string }
@@ -133,19 +139,19 @@ function OrderConfirmModal({
             <h4 className="text-lg font-semibold text-gray-900">配置确认</h4>
             <div className="space-y-3 max-h-[360px] overflow-y-auto pr-2">
               {selectionGroups.map((group) => (
-                <div key={group.categoryKey} className="border border-gray-100 rounded-2xl p-4">
+                <div key={group.key} className="border border-gray-100 rounded-2xl p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-semibold text-gray-900">{group.categoryName}</p>
+                    <p className="font-semibold text-gray-900">{group.name}</p>
                     <span className="text-xs text-gray-500">需 {group.required}</span>
                   </div>
-                  {group.items.length === 0 ? (
+                  {group.products.length === 0 ? (
                     <p className="text-xs text-gray-400">未选择</p>
                   ) : (
                     <div className="space-y-2">
-                      {group.items.map((item) => (
-                        <div key={item.productId} className="text-sm text-gray-600">
+                      {group.products.map((item) => (
+                        <div key={item.id} className="text-sm text-gray-600">
                           <p className="font-semibold text-gray-900">
-                            {item.productName} <span className="text-xs text-gray-500">× {item.quantity}</span>
+                            {item.name} <span className="text-xs text-gray-500">× {item.quantity}</span>
                           </p>
                           {item.materials && (
                             <p className="text-xs text-gray-500">
@@ -229,13 +235,14 @@ export default function PackageDetailPage() {
     const loadPackage = async () => {
       if (!id) return
       setLoading(true)
-      const data = await getPackageById(id)
-      setPkg(data)
+      const data = await getAllPackages()
+      const packageData = data.find((pkg) => pkg.id === id)
+      setPkg(packageData)
       setLoading(false)
-      if (data && data.categories.length) {
-        setExpandedCategory(data.categories[0].key)
+      if (packageData && packageData.categories.length) {
+        setExpandedCategory(packageData.categories[0].key)
         const defaults: MaterialSelectionMap = {}
-        data.categories.forEach((category) => {
+        packageData.categories.forEach((category) => {
           category.products.forEach((product) => {
             if (!product.materials) return
             const materialEntries = Object.entries(product.materials as PackageProductMaterial)
@@ -249,7 +256,7 @@ export default function PackageDetailPage() {
         setMaterialSelections(defaults)
 
         const quantityDefaults: QuantityMap = {}
-        data.categories.forEach((category) => {
+        packageData.categories.forEach((category) => {
           category.products.forEach((product) => {
             quantityDefaults[product.id] = MIN_QUANTITY
           })
@@ -287,7 +294,7 @@ export default function PackageDetailPage() {
     return color
   }
 
-  const getMaterialPreviewImage = (product: PackageProductOption, option: string) => {
+  const getMaterialPreviewImage = (product: PackageProduct, option: string) => {
     if (product.materialImages?.[option]) return product.materialImages[option]
     const color = stringToHexColor(option).replace('#', '')
     const text = encodeURIComponent(option)
@@ -295,7 +302,7 @@ export default function PackageDetailPage() {
   }
 
   const calculateMaterialSurcharge = (
-    product: PackageProductOption,
+    product: PackageProduct,
     selections?: Record<string, string>
   ) => {
     if (!selections || !product.materials) return 0
@@ -309,7 +316,7 @@ export default function PackageDetailPage() {
     }, 0)
   }
 
-  const getProductMaterialSurcharge = (product: PackageProductOption) => {
+  const getProductMaterialSurcharge = (product: PackageProduct) => {
     const selections = materialSelections[product.id]
     return calculateMaterialSurcharge(product, selections)
   }
@@ -328,7 +335,7 @@ export default function PackageDetailPage() {
 
   const productLookup = useMemo(() => {
     if (!pkg) return {}
-    const map: Record<string, PackageProductOption & { categoryKey: string; categoryName: string; categoryRequired: number }> = {}
+    const map: Record<string, PackageProduct & { categoryKey: string; categoryName: string; categoryRequired: number }> = {}
     pkg.categories.forEach((category) => {
       category.products.forEach((product) => {
         map[product.id] = { ...product, categoryKey: category.key, categoryName: category.name, categoryRequired: category.required }
@@ -348,7 +355,7 @@ export default function PackageDetailPage() {
     return pkg.price + materialSurchargeTotal
   }, [pkg, materialSurchargeTotal])
 
-  const selectionGroups = useMemo<PackageSelectionGroup[]>(() => {
+  const selectionGroups = useMemo<PackageCategory[]>(() => {
     if (!pkg) return []
     return pkg.categories.map((category) => {
       const items = (selectedProducts[category.key] || [])
@@ -364,15 +371,15 @@ export default function PackageDetailPage() {
             quantity,
             materials,
             materialUpgrade,
-          } as PackageSelectionItem
+          }
         })
-        .filter((item): item is PackageSelectionItem => !!item)
+        .filter((item): item is any => !!item)
 
       return {
-        categoryKey: category.key,
-        categoryName: category.name,
+        key: category.key,
+        name: category.name,
         required: category.required,
-        items,
+        products: items,
       }
     })
   }, [pkg, selectedProducts, materialSelections, selectionQuantities, productLookup])
@@ -398,7 +405,7 @@ export default function PackageDetailPage() {
     ? Math.round((selectionProgress.totalSelected / selectionProgress.totalRequired) * 100)
     : 0
 
-  const handleSelectProduct = (categoryKey: string, product: PackageProductOption) => {
+  const handleSelectProduct = (categoryKey: string, product: PackageProduct) => {
     if (!pkg) return
     const category = pkg.categories.find((c) => c.key === categoryKey)
     if (!category) return
@@ -438,7 +445,7 @@ export default function PackageDetailPage() {
     })
   }
 
-  const handleSelectAll = (categoryKey: string, products: PackageProductOption[], required: number) => {
+  const handleSelectAll = (categoryKey: string, products: PackageProduct[], required: number) => {
     const limited = products.slice(0, required).map((item) => item.id)
     setSelectedProducts((prev) => ({
       ...prev,
@@ -469,7 +476,7 @@ export default function PackageDetailPage() {
     setIsOrderConfirmOpen(true)
   }
 
-  const handleMaterialModalConfirm = (categoryKey: string, product: PackageProductOption, selections: Record<string, string>) => {
+  const handleMaterialModalConfirm = (categoryKey: string, product: PackageProduct, selections: Record<string, string>) => {
     setMaterialSelections((prev) => ({
       ...prev,
       [product.id]: selections,
@@ -536,7 +543,7 @@ export default function PackageDetailPage() {
       toast.error('请输入正确的手机号码')
       return
     }
-    if (selectionGroups.some((group) => group.items.length === 0)) {
+    if (selectionGroups.some((group) => group.products.length === 0)) {
       toast.error('请先完成所有类别的选择')
       return
     }
@@ -550,7 +557,7 @@ export default function PackageDetailPage() {
       const orderNo = `PKG${dateStr}${random}`
 
       const selectionSummary = selectionGroups.reduce<Record<string, string>>((acc, group) => {
-        acc[group.categoryName] = group.items
+        acc[group.name] = group.products
           .map((item) => {
             const materialText = item.materials
               ? Object.entries(item.materials)
@@ -566,7 +573,7 @@ export default function PackageDetailPage() {
       const payload = {
         orderNo,
         title: `「${pkg.name}」套餐订单`,
-        status: 'pending' as OrderStatus,
+        status: 'pending' as any,
         source: 'self' as const,
         totalAmount: totalPrice,
         items: [
@@ -649,7 +656,7 @@ export default function PackageDetailPage() {
     setPreviewContext({ categoryKey: previewContext.categoryKey, index: nextIndex })
   }
 
-  const getSelectedMaterialLabel = (product: PackageProductOption) => {
+  const getSelectedMaterialLabel = (product: PackageProduct) => {
     const selections = materialSelections[product.id]
     if (!selections) return null
     const labels = Object.entries(selections).map(([key, value]) => `${key.toUpperCase()} · ${value}`)
@@ -699,9 +706,10 @@ export default function PackageDetailPage() {
               </div>
               <div className="rounded-3xl overflow-hidden relative">
                 <img
-                  src={pkg.gallery[activeImage]}
+                  src={pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg'}
                   alt={pkg.name}
-                  className="w-full h-[420px] object-cover"
+                  className="w-full h-[500px] object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
                 />
                 <button
                   onClick={() => navigate(-1)}
@@ -748,12 +756,7 @@ export default function PackageDetailPage() {
                     >
                       <div>
                         <p className="text-xs text-gray-400 tracking-widest">{category.required} 选 1</p>
-                        <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-3">
-                          {category.name}
-                          <span className="inline-flex items-center text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-600">
-                            已选 {selectedCount}
-                          </span>
-                        </h3>
+                        <h3 className="text-xl font-semibold text-gray-900">{category.name}</h3>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         {remaining > 0 ? `还需选择 ${remaining} 件` : '已完成'}
@@ -785,7 +788,9 @@ export default function PackageDetailPage() {
                               <div
                                 key={product.id}
                                 className={`rounded-2xl border-2 overflow-hidden transition shadow-sm ${
-                                  isSelected ? 'border-[#3E76FF] shadow-[#E8F0FF]' : 'border-transparent'
+                                  isSelected
+                                    ? 'border-[#3E76FF] shadow-[#E8F0FF]'
+                                    : 'border-transparent'
                                 }`}
                               >
                                 <button
@@ -793,7 +798,12 @@ export default function PackageDetailPage() {
                                   onClick={() => openPreview(category.key, productIndex)}
                                   className="relative w-full focus:outline-none"
                                 >
-                                  <img src={product.image} alt={product.name} className="w-full h-48 object-cover" />
+                                  <img
+                                    src={product.image ? getFileUrl(product.image) : '/placeholder.svg'}
+                                    alt={product.name}
+                                    className="h-32 w-full object-cover rounded-xl"
+                                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
+                                  />
                                   <span className="absolute top-3 left-3 inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-white/90 text-gray-700">
                                     <ImageIcon className="h-3 w-3" /> {category.name}
                                   </span>
@@ -1194,11 +1204,11 @@ function ProductPreviewModal({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-400">单件价格</p>
-                <p className="text-3xl font-bold text-red-600">¥{product.price.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-red-600">¥{(product.price || 0).toLocaleString()}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-400">材质升级</p>
-                <p className="text-2xl font-bold text-red-600">+¥{surcharge.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-red-600">+¥{(surcharge || 0).toLocaleString()}</p>
               </div>
             </div>
             {product.specs && (
