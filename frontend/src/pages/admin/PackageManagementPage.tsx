@@ -513,7 +513,7 @@ const PackageManagementPage: React.FC = () => {
                   <img 
                     src={getFileUrl(image)} 
                     alt={`图片 ${index + 1}`}
-                    className="w-full h-32 object-cover"
+                    className="w-full aspect-video object-cover"
                     onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">

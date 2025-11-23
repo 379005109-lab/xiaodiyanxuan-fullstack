@@ -1224,32 +1224,34 @@ function ProductPreviewModal({
                 const groupOrder: string[] = []
                 
                 materialOptions.forEach(material => {
+                  // 确保material是字符串
+                  const materialStr = String(material || '')
                   let groupKey = 'other'
-                  let displayName = material
+                  let displayName = materialStr
                   
                   // 检查材质类型并提取颜色/子类型
-                  if (material.includes('普通皮')) {
+                  if (materialStr.includes('普通皮')) {
                     groupKey = '普通皮'
                     // 如果是"普通皮-白色"格式，提取"白色"
-                    displayName = material.replace('普通皮-', '').replace('普通皮', material)
-                  } else if (material.includes('全青皮')) {
+                    displayName = materialStr.replace('普通皮-', '').replace('普通皮', materialStr)
+                  } else if (materialStr.includes('全青皮')) {
                     groupKey = '全青皮'
-                    displayName = material.replace('全青皮-', '').replace('全青皮', material)
-                  } else if (material.includes('牛皮')) {
+                    displayName = materialStr.replace('全青皮-', '').replace('全青皮', materialStr)
+                  } else if (materialStr.includes('牛皮')) {
                     groupKey = '牛皮'
-                    displayName = material.replace('牛皮-', '').replace('牛皮', material)
-                  } else if (material.includes('绒布')) {
+                    displayName = materialStr.replace('牛皮-', '').replace('牛皮', materialStr)
+                  } else if (materialStr.includes('绒布')) {
                     groupKey = '绒布'
-                    displayName = material.replace('绒布-', '').replace('绒布', material)
-                  } else if (material.includes('麻布')) {
+                    displayName = materialStr.replace('绒布-', '').replace('绒布', materialStr)
+                  } else if (materialStr.includes('麻布')) {
                     groupKey = '麻布'
-                    displayName = material.replace('麻布-', '').replace('麻布', material)
-                  } else if (material.includes('科技布')) {
+                    displayName = materialStr.replace('麻布-', '').replace('麻布', materialStr)
+                  } else if (materialStr.includes('科技布')) {
                     groupKey = '科技布'
-                    displayName = material.replace('科技布-', '').replace('科技布', material)
-                  } else if (material.includes('半皮')) {
+                    displayName = materialStr.replace('科技布-', '').replace('科技布', materialStr)
+                  } else if (materialStr.includes('半皮')) {
                     groupKey = '半皮'
-                    displayName = material.replace('半皮-', '').replace('半皮', material)
+                    displayName = materialStr.replace('半皮-', '').replace('半皮', materialStr)
                   }
                   
                   if (!materialGroups[groupKey]) {
