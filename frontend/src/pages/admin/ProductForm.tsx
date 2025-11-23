@@ -477,8 +477,8 @@ export default function ProductForm() {
           length: 0,
           width: 0,
           height: 0,
-          material: createDefaultFabricMaterials(),
-          materialUpgradePrices: createDefaultMaterialUpgradePrices(),
+          material: createEmptyMaterialSelection(), // 空材质，需手动选择
+          materialUpgradePrices: {}, // 空升级价格
           price: 0,
           discountPrice: 0,
           stock: 100,
