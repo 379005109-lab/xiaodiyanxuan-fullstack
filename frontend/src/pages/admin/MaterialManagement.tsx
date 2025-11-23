@@ -17,6 +17,7 @@ import {
   getMaterialStats,
   updateMaterialCategory,
 } from '@/services/materialService'
+import { getFileUrl } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
 import MaterialReviewModal from '@/components/admin/MaterialReviewModal'
 import CategoryFormModal from '@/components/admin/MaterialCategoryModal'
@@ -704,7 +705,7 @@ export default function MaterialManagement() {
                             className="relative w-24 h-24 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-primary-400 transition-colors cursor-pointer group"
                           >
                             <img
-                              src={representativeMaterial.image}
+                              src={getFileUrl(representativeMaterial.image)}
                               alt={groupKey}
                               className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
                               onError={(e) => {
@@ -836,7 +837,7 @@ export default function MaterialManagement() {
                               >
                                 <div className="relative w-full aspect-square bg-white rounded-lg border border-gray-200 overflow-hidden mb-2 hover:border-primary-300 transition-colors">
                                   <img
-                                    src={material.image}
+                                    src={getFileUrl(material.image)}
                                     alt={material.name}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
@@ -884,7 +885,7 @@ export default function MaterialManagement() {
                                 {/* 图片容器 - 更紧凑 */}
                                 <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-primary-300 transition-colors">
                                   <img
-                                    src={material.image}
+                                    src={getFileUrl(material.image)}
                                     alt={material.name}
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
