@@ -45,14 +45,14 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
     }
   }, [selectedMaterials, materialUpgradePrices, materialType])
 
-  const loadMaterials = () => {
-    const allMaterials = getAllMaterials()
+  const loadMaterials = async () => {
+    const allMaterials = await getAllMaterials()
     // 只显示已上线的材质
     setMaterials(allMaterials.filter(m => m.status === 'approved'))
   }
 
-  const loadCategories = () => {
-    const tree = getMaterialCategoryTree()
+  const loadCategories = async () => {
+    const tree = await getMaterialCategoryTree()
     setCategories(tree)
   }
 
