@@ -653,11 +653,12 @@ export default function MaterialManagement() {
                 const groupOrder: string[] = [];
                 
                 filteredMaterials.forEach(material => {
-                  // 提取材质类型（如"普通皮"、"全青皮"等）
-                  let groupKey = 'other';
-                  if (material.name.includes('普通皮')) {
+                  // 不自动分组，新建材质显示为独立项
+                  // 只在材质名称明确包含分类关键词时才分组
+                  let groupKey = material.name; // 默认使用材质名称作为key
+                  if (material.name.includes('普通皮-')) {
                     groupKey = '普通皮';
-                  } else if (material.name.includes('全青皮')) {
+                  } else if (material.name.includes('全青皮-')) {
                     groupKey = '全青皮';
                   } else if (material.name.includes('牛皮')) {
                     groupKey = '牛皮';

@@ -37,7 +37,7 @@ export const addFavorite = async (productId: string) => {
 // 删除收藏
 export const removeFavorite = async (favoriteId: string) => {
   try {
-    await apiClient.delete(`/api/favorites/${favoriteId}`)
+    await apiClient.delete(`/favorites/${favoriteId}`)
   } catch (error: any) {
     throw new Error(error.response?.data?.message || '删除收藏失败')
   }
@@ -46,7 +46,7 @@ export const removeFavorite = async (favoriteId: string) => {
 // 检查商品是否已收藏
 export const checkFavorite = async (productId: string) => {
   try {
-    const response = await apiClient.get(`/api/favorites/check/${productId}`)
+    const response = await apiClient.get(`/favorites/check/${productId}`)
     return response.data.data
   } catch (error: any) {
     throw new Error(error.response?.data?.message || '检查收藏状态失败')
