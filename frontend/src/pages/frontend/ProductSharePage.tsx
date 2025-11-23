@@ -135,11 +135,10 @@ export default function ProductSharePage() {
   }
 
   const currentImages = getCurrentImages()
-  const allMaterials = getAllMaterials()
 
   // 获取材质名称
   const getMaterialName = (materialValue: string) => {
-    const material = allMaterials.find(m => m.name === materialValue)
+    const material = materials.find(m => m.name === materialValue)
     return material?.name || materialValue
   }
 

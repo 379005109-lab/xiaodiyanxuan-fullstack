@@ -21,12 +21,24 @@ interface CompareItemDetail {
 export default function ComparePage() {
   const [compareItems, setCompareItems] = useState<CompareItemDetail[]>([])
   const [compareStats, setCompareStats] = useState<any>(null)
+  const [materials, setMaterials] = useState<any[]>([])
   const { compareItems: rawCompareItems, removeFromCompare, loadCompareItems } = useCompareStore()
   const { addItem } = useCartStore()
 
   useEffect(() => {
     loadCompareItems()
     updateCompareStats()
+    
+    // 加载材质数据
+    const loadMaterials = async () => {
+      try {
+        const materials = await getAllMaterials()
+        setMaterials(materials)
+      } catch (error) {
+        console.error('加载材质失败:', error)
+      }
+    }
+    loadMaterials()
     
     // 监听对比列表更新事件
     const handleCompareListUpdate = () => {
@@ -295,26 +307,25 @@ export default function ComparePage() {
                   <tr className="border-b border-gray-200">
                     <td className="py-4 px-4 text-sm font-medium bg-gray-50">面料</td>
                     {compareItems.map((item) => {
-                      const allMaterials = getAllMaterials()
                       const material = item.sku.material
                       let fabricDisplay = '-'
                       let fabricImage: string | undefined
                       
                       if (item.selectedMaterials?.fabric) {
                         fabricDisplay = item.selectedMaterials.fabric
-                        const materialInfo = allMaterials.find(m => m.name === item.selectedMaterials?.fabric)
+                        const materialInfo = materials.find(m => m.name === item.selectedMaterials?.fabric)
                         fabricImage = materialInfo?.image
                       } else if (material) {
                         if (typeof material === 'string') {
                           fabricDisplay = material
-                          const materialInfo = allMaterials.find(m => m.name === material)
+                          const materialInfo = materials.find(m => m.name === material)
                           fabricImage = materialInfo?.image
                         } else if (typeof material === 'object') {
                           const materialObj = material as { fabric?: string | string[] }
                           if (materialObj.fabric) {
                             const fabricValue = Array.isArray(materialObj.fabric) ? materialObj.fabric[0] : materialObj.fabric
                             fabricDisplay = fabricValue || '-'
-                            const materialInfo = allMaterials.find(m => m.name === fabricValue)
+                            const materialInfo = materials.find(m => m.name === fabricValue)
                             fabricImage = materialInfo?.image
                           }
                         }
@@ -341,21 +352,20 @@ export default function ComparePage() {
                   <tr className="border-b border-gray-200">
                     <td className="py-4 px-4 text-sm font-medium bg-gray-50">填充</td>
                     {compareItems.map((item) => {
-                      const allMaterials = getAllMaterials()
                       const material = item.sku.material
                       let fillingDisplay = '-'
                       let fillingImage: string | undefined
                       
                       if (item.selectedMaterials?.filling) {
                         fillingDisplay = item.selectedMaterials.filling
-                        const materialInfo = allMaterials.find(m => m.name === item.selectedMaterials?.filling)
+                        const materialInfo = materials.find(m => m.name === item.selectedMaterials?.filling)
                         fillingImage = materialInfo?.image
                       } else if (material && typeof material === 'object') {
                         const materialObj = material as { filling?: string | string[] }
                         if (materialObj.filling) {
                           const fillingValue = Array.isArray(materialObj.filling) ? materialObj.filling[0] : materialObj.filling
                           fillingDisplay = fillingValue || '-'
-                          const materialInfo = allMaterials.find(m => m.name === fillingValue)
+                          const materialInfo = materials.find(m => m.name === fillingValue)
                           fillingImage = materialInfo?.image
                         }
                       }
@@ -381,21 +391,20 @@ export default function ComparePage() {
                   <tr className="border-b border-gray-200">
                     <td className="py-4 px-4 text-sm font-medium bg-gray-50">框架</td>
                     {compareItems.map((item) => {
-                      const allMaterials = getAllMaterials()
                       const material = item.sku.material
                       let frameDisplay = '-'
                       let frameImage: string | undefined
                       
                       if (item.selectedMaterials?.frame) {
                         frameDisplay = item.selectedMaterials.frame
-                        const materialInfo = allMaterials.find(m => m.name === item.selectedMaterials?.frame)
+                        const materialInfo = materials.find(m => m.name === item.selectedMaterials?.frame)
                         frameImage = materialInfo?.image
                       } else if (material && typeof material === 'object') {
                         const materialObj = material as { frame?: string | string[] }
                         if (materialObj.frame) {
                           const frameValue = Array.isArray(materialObj.frame) ? materialObj.frame[0] : materialObj.frame
                           frameDisplay = frameValue || '-'
-                          const materialInfo = allMaterials.find(m => m.name === frameValue)
+                          const materialInfo = materials.find(m => m.name === frameValue)
                           frameImage = materialInfo?.image
                         }
                       }
@@ -421,21 +430,20 @@ export default function ComparePage() {
                   <tr className="border-b border-gray-200">
                     <td className="py-4 px-4 text-sm font-medium bg-gray-50">脚架</td>
                     {compareItems.map((item) => {
-                      const allMaterials = getAllMaterials()
                       const material = item.sku.material
                       let legDisplay = '-'
                       let legImage: string | undefined
                       
                       if (item.selectedMaterials?.leg) {
                         legDisplay = item.selectedMaterials.leg
-                        const materialInfo = allMaterials.find(m => m.name === item.selectedMaterials?.leg)
+                        const materialInfo = materials.find(m => m.name === item.selectedMaterials?.leg)
                         legImage = materialInfo?.image
                       } else if (material && typeof material === 'object') {
                         const materialObj = material as { leg?: string | string[] }
                         if (materialObj.leg) {
                           const legValue = Array.isArray(materialObj.leg) ? materialObj.leg[0] : materialObj.leg
                           legDisplay = legValue || '-'
-                          const materialInfo = allMaterials.find(m => m.name === legValue)
+                          const materialInfo = materials.find(m => m.name === legValue)
                           legImage = materialInfo?.image
                         }
                       }
