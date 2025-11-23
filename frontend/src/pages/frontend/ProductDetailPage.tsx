@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, ChevronDown, Share2, Heart, Minus, Plus, FileText, Video, AlertCircle, X, Maximize2, Download, Check, Info } from 'lucide-react';
 import { cn, formatPrice } from '@/lib/utils';
+import { getFileUrl } from '@/services/uploadService';
 
 import ShareModal from '@/components/frontend/ShareModal';
 import CustomizationForm from '@/components/frontend/CustomizationForm';
@@ -586,9 +587,9 @@ const ProductDetailPage = () => {
               <div className="relative w-full aspect-[4/3]">
                 {mainImage ? (
                   isVideoFile(mainImage) ? (
-                    <video src={mainImage} controls className="absolute inset-0 w-full h-full object-contain bg-black" />
+                    <video src={getFileUrl(mainImage)} controls className="absolute inset-0 w-full h-full object-contain bg-black" />
                   ) : (
-                    <img src={mainImage} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" />
+                    <img src={getFileUrl(mainImage)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" />
                   )
                 ) : (
                   <div className="absolute inset-0 w-full h-full flex items-center justify-center text-gray-400">暂无图片</div>
@@ -638,7 +639,7 @@ const ProductDetailPage = () => {
                   {isVideoFile(img) ? (
                     <div className="w-full h-20 flex items-center justify-center bg-black text-white text-xs">视频</div>
                   ) : (
-                    <img src={img} alt={`thumbnail ${idx + 1}`} className="w-full h-20 object-cover" />
+                    <img src={getFileUrl(img)} alt={`thumbnail ${idx + 1}`} className="w-full h-20 object-cover" />
                   )}
                 </button>
               ))}
@@ -886,7 +887,7 @@ const ProductDetailPage = () => {
                                               )}
                                             >
                                               {preview ? (
-                                                <img src={preview} alt={materialName} className="w-full h-full object-cover" />
+                                                <img src={getFileUrl(preview)} alt={materialName} className="w-full h-full object-cover" />
                                               ) : (
                                                 <span
                                                   className={cn(
@@ -1138,7 +1139,7 @@ const ProductDetailPage = () => {
                     {isVideoFile(img) ? (
                       <div className="w-full h-40 flex items-center justify-center bg-black text-white text-sm">视频</div>
                     ) : (
-                      <img src={img} alt={`gallery-${idx}`} className="w-full h-40 object-cover" />
+                      <img src={getFileUrl(img)} alt={`gallery-${idx}`} className="w-full h-40 object-cover" />
                     )}
                     <span className="absolute top-2 right-2 h-7 w-7 rounded-full flex items-center justify-center bg-white/90 text-gray-700 border">
                       {checked ? <Check className="h-4 w-4 text-primary-600" /> : idx + 1}
@@ -1187,7 +1188,7 @@ const ProductDetailPage = () => {
             </h3>
             <div className="rounded-xl overflow-hidden border border-gray-100 mb-3">
               <img
-                src={getMaterialPreviewImage(materialInfoModal.material)}
+                src={getFileUrl(getMaterialPreviewImage(materialInfoModal.material))}
                 alt={materialInfoModal.material}
                 className="w-full h-48 object-cover"
               />
