@@ -43,9 +43,10 @@ export const getFileUrl = (fileId: string): string => {
   if (fileId.startsWith('http') || fileId.startsWith('/api/')) {
     return fileId
   }
-  // 如果是base64数据，直接返回
+  // 如果是base64数据，不返回（旧数据，已废弃）
   if (fileId.startsWith('data:')) {
-    return fileId
+    console.warn('检测到Base64图片数据，已废弃，返回占位图');
+    return '/placeholder.svg'; // 返回占位图而不是Base64
   }
   // 否则构造正确的API路径
   return `/api/files/${fileId}`
