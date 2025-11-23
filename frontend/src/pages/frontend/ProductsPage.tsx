@@ -480,7 +480,7 @@ export default function ProductsPage() {
                         <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100 group">
                           {/* 主图 - 根据预览索引显示 */}
                           <img
-                            src={getFileUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || \'/placeholder.png\')}
+                            src={getFileUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png')}
                             alt={product.name}
                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                           />
