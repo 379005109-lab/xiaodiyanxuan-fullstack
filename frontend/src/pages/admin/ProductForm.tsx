@@ -565,8 +565,8 @@ export default function ProductForm() {
       length: spec.length,
       width: spec.width,
       height: spec.height,
-      material: createDefaultFabricMaterials(),
-      materialUpgradePrices: createDefaultMaterialUpgradePrices(),
+      material: createEmptyMaterialSelection(), // 空材质，需手动选择
+      materialUpgradePrices: {}, // 空升级价格
       price: formData.basePrice || 0,
       discountPrice: 0,
       stock: 100,
