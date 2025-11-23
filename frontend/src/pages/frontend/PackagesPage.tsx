@@ -79,48 +79,52 @@ export default function PackagesPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="space-y-6">
             {!loading && filteredPackages.map((pkg) => (
               <Link
                 to={`/packages/${pkg.id}`}
                 key={pkg.id}
-                className="block rounded-2xl overflow-hidden shadow-lg bg-white transition hover:-translate-y-2 hover:shadow-2xl"
+                className="block rounded-2xl overflow-hidden shadow-lg bg-white transition hover:shadow-2xl"
               >
-                <div className="relative">
-                  <img
-                    src={pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg'}
-                    alt={pkg.name}
-                    className="h-64 w-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
-                  />
-                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full">
-                    <p className="text-lg font-bold text-primary-600">¥{(pkg.price || 0).toLocaleString()}</p>
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 line-clamp-1">{pkg.name}</h2>
-                  </div>
-                  <p className="text-gray-600 text-sm leading-relaxed line-clamp-2">{pkg.description || '立即查看搭配详情，获取更多材质与规格信息。'}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {pkg.categories.slice(0, 3).map((category) => (
-                      <div key={category.key} className="text-xs text-gray-500 bg-gray-50 rounded-full px-3 py-1">
-                        {category.name}
-                      </div>
-                    ))}
-                    {pkg.categories.length > 3 && (
-                      <div className="text-xs text-gray-400 bg-gray-50 rounded-full px-3 py-1">
-                        +{pkg.categories.length - 3}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                    <div className="text-xs text-gray-400">
-                      {pkg.categories.length} 大品类 · {pkg.categories.reduce((sum, category) => sum + category.products.length, 0)} 个细项
+                <div className="flex flex-col md:flex-row">
+                  <div className="relative md:w-2/5 lg:w-1/3">
+                    <img
+                      src={pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg'}
+                      alt={pkg.name}
+                      className="h-64 md:h-full w-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
+                    />
+                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-4 py-2 rounded-full">
+                      <p className="text-xl font-bold text-primary-600">¥{(pkg.price || 0).toLocaleString()}</p>
                     </div>
-                    <div className="inline-flex items-center text-primary-600 font-medium text-sm">
-                      查看详情 <ArrowRight className="h-4 w-4 ml-1" />
+                  </div>
+
+                  <div className="p-8 md:w-3/5 lg:w-2/3 flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">{pkg.name}</h2>
+                        <p className="text-gray-600 leading-relaxed line-clamp-2">{pkg.description || '立即查看搭配详情，获取更多材质与规格信息。'}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {pkg.categories.slice(0, 5).map((category) => (
+                          <div key={category.key} className="text-sm text-gray-600 bg-gray-100 rounded-full px-4 py-1.5">
+                            {category.name}
+                          </div>
+                        ))}
+                        {pkg.categories.length > 5 && (
+                          <div className="text-sm text-gray-400 bg-gray-50 rounded-full px-4 py-1.5">
+                            +{pkg.categories.length - 5}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 mt-4">
+                      <div className="text-sm text-gray-500">
+                        {pkg.categories.length} 大品类 · {pkg.categories.reduce((sum, category) => sum + category.products.length, 0)} 个细项
+                      </div>
+                      <div className="inline-flex items-center text-primary-600 font-semibold">
+                        查看详情 <ArrowRight className="h-5 w-5 ml-1" />
+                      </div>
                     </div>
                   </div>
                 </div>

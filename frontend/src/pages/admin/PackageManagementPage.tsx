@@ -201,9 +201,12 @@ const PackageManagementPage: React.FC = () => {
           });
           setSelectedProducts(productsMap);
           console.log('✅ 已加载商品:', productsMap);
+          toast.success('套餐数据加载成功');
+        } else {
+          // 旧套餐没有categories结构
+          console.warn('⚠️ 该套餐没有categories结构，请删除后重新创建');
+          toast.error('该套餐数据格式过旧，无法编辑。请删除后重新创建套餐。');
         }
-        
-        toast.success('套餐数据加载成功');
       } catch (error) {
         console.error('❌ 加载套餐数据失败:', error);
         toast.error('加载套餐数据失败');

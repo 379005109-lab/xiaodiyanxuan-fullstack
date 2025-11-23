@@ -131,7 +131,7 @@ const PackageListPage: React.FC = () => {
                 }}
                 className="flex-shrink-0 cursor-pointer group"
               >
-                <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-gray-100">
+                <div className="relative w-40 h-32 rounded-lg overflow-hidden bg-gray-100">
                   <img 
                     src={pkg.image} 
                     alt={pkg.name} 
