@@ -11,7 +11,6 @@ import { getProductById, createProduct, updateProduct } from '@/services/product
 import { getAllCategories, Category } from '@/services/categoryService'
 import { imageCache } from '@/services/imageCache'
 
-const DEFAULT_STYLE_TAGS = ['现代简约', '北欧风格', '美式乡村', '新中式', '轻奢风', '日式禅风', '现代轻奢', '中古风', '奶油风', '大师款型']
 const CATEGORY_STORAGE_KEY = 'productForm:lastCategory'
 
 type MaterialSelection = {
@@ -75,14 +74,12 @@ export default function ProductForm() {
     name: '',
     productCode: '',
     category: '',
-    style: 'modern',
     basePrice: 0,
     mainImages: [] as string[],
     videos: [] as string[],
     specifications: [
       { name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' },
     ],
-    tags: DEFAULT_STYLE_TAGS,
     skus: [
       {
         id: 'sku-1',
@@ -164,7 +161,6 @@ export default function ProductForm() {
           category: typeof product.category === 'string'
             ? product.category
             : (product.category as any)?._id || '',
-          style: product.style,
           basePrice: product.basePrice,
           mainImages: product.images || [],
           videos: ((product as any).videos || []) as string[],
@@ -201,7 +197,6 @@ export default function ProductForm() {
               }
             }) : 
             [{ name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' }],
-          tags: product.tags || [],
           skus: product.skus.map((sku) => ({
             id: sku._id,
             images: sku.images || [],
@@ -323,10 +318,6 @@ export default function ProductForm() {
       toast.error('请输入商品描述');
       return;
     }
-    if (!formData.style) {
-      toast.error('请选择设计风格');
-      return;
-    }
     if (formData.basePrice <= 0) {
       toast.error('请输入有效的商品价格');
       return;
@@ -374,7 +365,6 @@ export default function ProductForm() {
         productCode: normalizedProductCode || formData.productCode,
         description: formData.description,
         category: formData.category as any,
-        style: formData.style as any,
         basePrice: formData.basePrice,
         images: formData.mainImages,
         // 视频和文件
@@ -412,7 +402,6 @@ export default function ProductForm() {
           discountPrice: sku.discountPrice,
         })),
         isCombo: false,
-        tags: formData.tags,
         specifications: formData.specifications.reduce((acc, spec) => {
           if (spec.name) {
             acc[spec.name] = `${spec.length}x${spec.width}x${spec.height}${spec.unit}`
@@ -573,24 +562,6 @@ export default function ProductForm() {
   }
 
 
-  const toggleTag = (tag: string) => {
-    setFormData(prev => {
-      const exists = prev.tags.includes(tag)
-      const updated = exists ? prev.tags.filter(t => t !== tag) : [...prev.tags, tag]
-      return { ...prev, tags: updated }
-    })
-  }
-
-  const addTag = () => {
-    const tag = prompt('请输入标签名称')
-    if (tag && tag.trim() && !formData.tags.includes(tag.trim())) {
-      setFormData({ ...formData, tags: [...formData.tags, tag.trim()] })
-    }
-  }
-
-  const removeTag = (tag: string) => {
-    setFormData({ ...formData, tags: formData.tags.filter(t => t !== tag) })
-  }
 
   const handleCategoryChange = (value: string) => {
     setFormData(prev => ({ ...prev, category: value }))
@@ -1019,58 +990,6 @@ export default function ProductForm() {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* 商品风格 */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">商品风格</h2>
-            <button
-              onClick={addTag}
-              className="text-primary-600 hover:text-primary-700 text-sm"
-            >
-              + 添加
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {DEFAULT_STYLE_TAGS.map(tag => {
-              const isSelected = formData.tags.includes(tag)
-              return (
-                <button
-                  type="button"
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={
-                    isSelected
-                      ? 'px-3 py-1 rounded-full text-sm bg-primary-600 text-white'
-                      : 'px-3 py-1 rounded-full text-sm border border-gray-200 text-gray-600 hover:border-primary-400'
-                  }
-                >
-                  {tag}
-                </button>
-              )
-            })}
-          </div>
-          {formData.tags.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {formData.tags.map(tag => (
-                <span
-                  key={tag}
-                  className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm flex items-center"
-                >
-                  {tag}
-                  <button
-                    onClick={() => removeTag(tag)}
-                    className="ml-2 text-gray-500 hover:text-red-600"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-400">尚未选择任何风格标签，点击上方标签即可选择</p>
-          )}
         </div>
 
         {/* SKU列表 */}
