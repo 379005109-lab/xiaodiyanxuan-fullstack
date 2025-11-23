@@ -227,7 +227,14 @@ export default function ProductForm() {
             status: true,
           })),
           description: product.description,
-          files: (product as any).files || [],
+          files: ((product as any).files || []).filter((file: any) => {
+            // 过滤掉Base64文件数据
+            if (file.url && file.url.startsWith('data:')) {
+              console.warn(`文件 ${file.name} 包含Base64数据，已过滤`);
+              return false;
+            }
+            return true;
+          }),
         })
       } else {
         toast.error('商品不存在')
