@@ -40,6 +40,7 @@ const wxLogin = async (code) => {
       openId: user.openId,
       nickname: user.nickname,
       avatar: user.avatar,
+      role: user.userType,
       userType: user.userType
     }
   }
@@ -92,6 +93,39 @@ const usernamePasswordLogin = async (username, password) => {
       avatar: user.avatar,
       role: user.role || user.userType || 'customer',
       userType: user.role || user.userType || 'customer'
+    }
+  }
+}
+
+const adminLogin = async (username, password) => {
+  // 查找用户
+  const user = await User.findOne({ username })
+  
+  if (!user) {
+    throw new AuthenticationError('用户不存在')
+  }
+  
+  // 验证密码（使用 bcrypt）
+  const isPasswordValid = await bcryptjs.compare(password, user.password)
+  if (!isPasswordValid) {
+    throw new AuthenticationError('密码错误')
+  }
+  
+  // 更新最后登录时间
+  user.lastLoginAt = new Date()
+  await user.save()
+  
+  // 生成 token
+  const token = generateToken(user._id)
+  
+  return {
+    token,
+    user: {
+      id: user._id,
+      username: user.username,
+      avatar: user.avatar,
+      role: user.userType,
+      userType: user.userType
     }
   }
 }
