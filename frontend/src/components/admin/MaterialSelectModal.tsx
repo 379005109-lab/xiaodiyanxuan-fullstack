@@ -249,19 +249,17 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
                 const groupOrder: string[] = [];
                 
                 filteredMaterials.forEach(material => {
-                  // 提取材质类型（如"普通皮"、"全青皮"等）
-                  let groupKey = 'other';
-                  if (material.name.includes('普通皮')) {
-                    groupKey = '普通皮';
-                  } else if (material.name.includes('全青皮')) {
-                    groupKey = '全青皮';
-                  } else if (material.name.includes('牛皮')) {
-                    groupKey = '牛皮';
-                  } else if (material.name.includes('绒布')) {
-                    groupKey = '绒布';
-                  } else if (material.name.includes('麻布')) {
-                    groupKey = '麻布';
+                  // 通用分组逻辑：按"-"分隔符提取前缀
+                  // 例如："全青皮-黑色" → "全青皮"
+                  // "磨砂布-灰色" → "磨砂布"
+                  // "单独材质" → "单独材质"（没有"-"的保持原样）
+                  let groupKey = material.name;
+                  const dashIndex = material.name.indexOf('-');
+                  if (dashIndex > 0) {
+                    // 有"-"分隔符，取前缀作为groupKey
+                    groupKey = material.name.substring(0, dashIndex);
                   }
+                  // 否则使用完整名称作为groupKey（独立材质）
                   
                   if (!materialGroups[groupKey]) {
                     materialGroups[groupKey] = [];
