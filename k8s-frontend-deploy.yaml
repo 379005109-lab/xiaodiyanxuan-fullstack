@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xiaodiyanxuan-frontend
+  namespace: ns-cxxiwxce
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: xiaodiyanxuan-frontend
+  template:
+    metadata:
+      labels:
+        app: xiaodiyanxuan-frontend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-credentials
+      containers:
+      - name: frontend
+        image: ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: xiaodiyanxuan-frontend
+  namespace: ns-cxxiwxce
+spec:
+  selector:
+    app: xiaodiyanxuan-frontend
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: xiaodiyanxuan-frontend
+  namespace: ns-cxxiwxce
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - lgpzubdtdxjf.sealoshzh.site
+    secretName: xiaodiyanxuan-frontend-tls
+  rules:
+  - host: lgpzubdtdxjf.sealoshzh.site
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: xiaodiyanxuan-frontend
+            port:
+              number: 80
