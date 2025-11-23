@@ -44,9 +44,11 @@ const MAX_QUANTITY = 5
 const formatCurrency = (value: number) => `¥${value.toLocaleString()}`
 
 const stringToHexColor = (str: string) => {
+  // 确保str是字符串
+  const safeStr = String(str || 'default')
   let hash = 0
-  for (let i = 0; i < str.length; i += 1) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  for (let i = 0; i < safeStr.length; i += 1) {
+    hash = safeStr.charCodeAt(i) + ((hash << 5) - hash)
   }
   let color = '#'
   for (let i = 0; i < 3; i += 1) {
@@ -58,8 +60,10 @@ const stringToHexColor = (str: string) => {
 
 const getMaterialPreviewImage = (product: PackageProduct, option: string) => {
   if (product.materialImages?.[option]) return product.materialImages[option]
-  const color = stringToHexColor(option).replace('#', '')
-  const text = encodeURIComponent(option)
+  // 确保option是字符串
+  const safeOption = String(option || 'default')
+  const color = stringToHexColor(safeOption).replace('#', '')
+  const text = encodeURIComponent(safeOption)
   return `https://placehold.co/1200x800/${color}/FFFFFF?text=${text}`
 }
 
@@ -288,9 +292,11 @@ export default function PackageDetailPage() {
   }
 
   const stringToHexColor = (str: string) => {
+    // 确保str是字符串
+    const safeStr = String(str || 'default')
     let hash = 0
-    for (let i = 0; i < str.length; i += 1) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash)
+    for (let i = 0; i < safeStr.length; i += 1) {
+      hash = safeStr.charCodeAt(i) + ((hash << 5) - hash)
     }
     let color = '#'
     for (let i = 0; i < 3; i += 1) {
@@ -302,8 +308,10 @@ export default function PackageDetailPage() {
 
   const getMaterialPreviewImage = (product: PackageProduct, option: string) => {
     if (product.materialImages?.[option]) return product.materialImages[option]
-    const color = stringToHexColor(option).replace('#', '')
-    const text = encodeURIComponent(option)
+    // 确保option是字符串
+    const safeOption = String(option || 'default')
+    const color = stringToHexColor(safeOption).replace('#', '')
+    const text = encodeURIComponent(safeOption)
     return `https://placehold.co/1200x800/${color}/FFFFFF?text=${text}`
   }
 
@@ -832,7 +840,7 @@ export default function PackageDetailPage() {
                                   >
                                     <div className="flex items-center justify-between">
                                       <div>
-                                        <p className="text-xs text-gray-400">SKU #{product.id}</p>
+                                        <p className="text-xs text-gray-400">#{productIndex + 1}</p>
                                         <h4 className="text-lg font-semibold text-gray-900">{category.name}</h4>
                                       </div>
                                       <div className="text-right">
