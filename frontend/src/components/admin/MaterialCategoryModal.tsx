@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { MaterialCategory } from '@/types'
@@ -17,12 +17,23 @@ export default function MaterialCategoryModal({ category, onClose }: MaterialCat
     parentId: category?.parentId || null,
   })
 
-  const [parentCategories, setParentCategories] = useState<MaterialCategory[]>(() => {
-    const allCats = getAllMaterialCategories()
-    return allCats.filter(cat => !cat.parentId)
-  })
+  const [parentCategories, setParentCategories] = useState<MaterialCategory[]>([])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const allCats = await getAllMaterialCategories()
+        const topLevelCats = Array.isArray(allCats) ? allCats.filter(cat => !cat.parentId) : []
+        setParentCategories(topLevelCats)
+      } catch (error) {
+        console.error('加载分类失败:', error)
+        setParentCategories([])
+      }
+    }
+    loadCategories()
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!formData.name.trim()) {
@@ -30,21 +41,24 @@ export default function MaterialCategoryModal({ category, onClose }: MaterialCat
       return
     }
 
-    // 获取同级分类的最大order值
-    const allCategories = getAllMaterialCategories()
-    const sameLevelCategories = allCategories.filter(
-      cat => cat.parentId === formData.parentId
-    )
-    const maxOrder = sameLevelCategories.length > 0 
-      ? Math.max(...sameLevelCategories.map(cat => cat.order))
-      : 0
+    // 获取同级分类的最大order值需要异步处理
+    let maxOrder = 0
 
     try {
+      // 获取同级分类的最大order值
+      const allCategories = await getAllMaterialCategories()
+      const sameLevelCategories = Array.isArray(allCategories) 
+        ? allCategories.filter(cat => cat.parentId === formData.parentId)
+        : []
+      maxOrder = sameLevelCategories.length > 0 
+        ? Math.max(...sameLevelCategories.map(cat => cat.order))
+        : 0
+
       if (isEdit && category) {
-        updateMaterialCategory(category._id, formData)
+        await updateMaterialCategory(category._id, formData)
         toast.success('分类已更新')
       } else {
-        createMaterialCategory({
+        await createMaterialCategory({
           ...formData,
           order: maxOrder + 1,
         })
