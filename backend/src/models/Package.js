@@ -8,7 +8,12 @@ const packageSchema = new mongoose.Schema({
   basePrice: { type: Number, required: true },
   discountPrice: Number,
   products: [{ productId: String, productName: String, quantity: Number, price: Number }],
-  categories: [{ name: String, required: Number, products: [String] }],  // 添加categories字段
+  // 添加categories字段用于存储套餐分类信息
+  categories: [{ 
+    name: String,      // 分类名称
+    required: Number,  // 该分类需要选择的商品数量
+    products: [String] // 该分类下的商品ID列表
+  }],
   stock: { type: Number, default: 0 },
   sales: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
