@@ -663,20 +663,17 @@ export default function MaterialManagement() {
                 const groupOrder: string[] = [];
                 
                 filteredMaterials.forEach(material => {
-                  // 不自动分组，新建材质显示为独立项
-                  // 只在材质名称明确包含分类关键词时才分组
-                  let groupKey = material.name; // 默认使用材质名称作为key
-                  if (material.name.includes('普通皮-')) {
-                    groupKey = '普通皮';
-                  } else if (material.name.includes('全青皮-')) {
-                    groupKey = '全青皮';
-                  } else if (material.name.includes('牛皮')) {
-                    groupKey = '牛皮';
-                  } else if (material.name.includes('绒布')) {
-                    groupKey = '绒布';
-                  } else if (material.name.includes('麻布')) {
-                    groupKey = '麻布';
+                  // 通用分组逻辑：按"-"分隔符提取前缀
+                  // 例如："全青皮-黑色" → "全青皮"
+                  // "磨砂布-灰色" → "磨砂布"
+                  // "单独材质" → "单独材质"（没有"-"的保持原样）
+                  let groupKey = material.name;
+                  const dashIndex = material.name.indexOf('-');
+                  if (dashIndex > 0) {
+                    // 有"-"分隔符，取前缀作为groupKey
+                    groupKey = material.name.substring(0, dashIndex);
                   }
+                  // 否则使用完整名称作为groupKey（独立材质）
                   
                   if (!materialGroups[groupKey]) {
                     materialGroups[groupKey] = [];
