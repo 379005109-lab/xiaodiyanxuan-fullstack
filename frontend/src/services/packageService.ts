@@ -428,10 +428,16 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
     }
     
     // 如果 API 返回空数据，使用本地数据
-    console.warn('API 返回空数据，使用本地数据')
+    console.warn('📦 API 返回空数据，使用本地数据')
     const stored = readStoredPackages()
+    console.log('📦 localStorage中的套餐数量:', stored.length)
+    if (stored.length > 0) {
+      console.log('📦 第一个套餐:', stored[0])
+    }
     await wait()
-    return stored.map(mapPackage)
+    const mapped = stored.map(mapPackage)
+    console.log('📦 转换后的套餐数量:', mapped.length)
+    return mapped
   } catch (error) {
     // 如果 API 失败，回退到本地存储
     console.warn('获取套餐列表失败，使用本地数据', error)
