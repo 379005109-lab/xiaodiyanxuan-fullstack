@@ -140,37 +140,42 @@ export default function ProductForm() {
           mainImages: product.images || [],
           videos: ((product as any).videos || []) as string[],
           specifications: product.specifications ? 
-            Object.entries(product.specifications).map(([name, value]) => {
-              // 兼容性检查：value可能是字符串或对象
-              if (typeof value !== 'string') {
-                // 如果是对象格式（旧数据），返回默认值
-                return {
-                  name,
-                  length: 0,
-                  width: 0,
-                  height: 0,
-                  unit: 'CM'
-                }
+            (() => {
+              // 检查specifications格式
+              const specs = product.specifications;
+              
+              // 如果是旧格式（包含sizes/materials/fills/frames/legs等数组字段）
+              if (typeof specs === 'object' && 
+                  ('sizes' in specs || 'materials' in specs || 'fills' in specs)) {
+                // 旧格式数据，返回默认规格
+                console.warn('检测到旧格式specifications数据，使用默认规格');
+                return [{ name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' }];
               }
-              // 解析格式: "200x90x85CM"
-              const match = value.match(/(\d+)x(\d+)x(\d+)(\w+)/)
-              if (match) {
-                return {
-                  name,
-                  length: parseInt(match[1]),
-                  width: parseInt(match[2]),
-                  height: parseInt(match[3]),
-                  unit: match[4]
-                }
-              }
-              return {
-                name,
-                length: 0,
-                width: 0,
-                height: 0,
-                unit: 'CM'
-              }
-            }) : 
+              
+              // 新格式：{"2人位": "200x90x85CM", "3人位": "220x95x85CM"}
+              return Object.entries(specs)
+                .filter(([name, value]) => typeof value === 'string') // 只处理字符串值
+                .map(([name, value]) => {
+                  // 解析格式: "200x90x85CM"
+                  const match = (value as string).match(/(\d+)x(\d+)x(\d+)(\w+)/);
+                  if (match) {
+                    return {
+                      name,
+                      length: parseInt(match[1]),
+                      width: parseInt(match[2]),
+                      height: parseInt(match[3]),
+                      unit: match[4]
+                    };
+                  }
+                  return {
+                    name,
+                    length: 0,
+                    width: 0,
+                    height: 0,
+                    unit: 'CM'
+                  };
+                });
+            })() :
             [{ name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' }],
           skus: product.skus.map((sku) => ({
             id: sku._id,
