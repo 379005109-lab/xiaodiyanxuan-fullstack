@@ -138,7 +138,14 @@ export default function ProductForm() {
             ? product.category
             : (product.category as any)?._id || '',
           basePrice: product.basePrice,
-          mainImages: product.images || [],
+          mainImages: (product.images || []).filter((img: string) => {
+            // 过滤掉Base64数据，只保留fileId
+            if (img.startsWith('data:')) {
+              console.warn('检测到旧Base64图片数据，已过滤');
+              return false;
+            }
+            return true;
+          }),
           videos: ((product as any).videos || []) as string[],
           specifications: product.specifications ? 
             (() => {
@@ -180,7 +187,14 @@ export default function ProductForm() {
             [{ name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' }],
           skus: product.skus.map((sku) => ({
             id: sku._id,
-            images: sku.images || [],
+            images: (sku.images || []).filter((img: string) => {
+              // 过滤掉Base64数据，只保留fileId
+              if (img.startsWith('data:')) {
+                console.warn(`SKU ${sku._id} 检测到旧Base64图片数据，已过滤`);
+                return false;
+              }
+              return true;
+            }),
             code: (sku as any).code || sku._id, // 加载SKU型号
             spec: (sku as any).spec || sku.color || '', // 加载规格
             length: (sku as any).length || 0, // 加载长度
