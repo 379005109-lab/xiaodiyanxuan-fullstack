@@ -27,31 +27,6 @@ const createEmptyMaterialSelection = (): MaterialSelection => ({
   leg: [],
 })
 
-// 创建默认的面料材质选择（普通皮和全青皮）
-const createDefaultFabricMaterials = (): MaterialSelection => ({
-  fabric: [
-    '普通皮-黑色',
-    '普通皮-棕色',
-    '普通皮-红色',
-    '普通皮-灰色',
-    '全青皮-黑色',
-    '全青皮-棕色',
-    '全青皮-黄色',
-    '全青皮-绿色',
-  ],
-  filling: [],
-  frame: [],
-  leg: [],
-})
-
-// 创建默认的材质升级价格
-const createDefaultMaterialUpgradePrices = (): Record<string, number> => ({
-  '普通皮': 0,
-  '全青皮': 0,
-  '牛皮': 0,
-  '绒布': 0,
-  '麻布': 0,
-})
 
 export default function ProductForm() {
   const navigate = useNavigate()
