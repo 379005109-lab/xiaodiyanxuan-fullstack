@@ -351,7 +351,8 @@ export default function ProductForm() {
         videos: formData.videos,
         files: formData.files,
         skus: formData.skus.map((sku) => ({
-          ...(isEdit && { _id: sku.id }),
+          // 只有在编辑模式且SKU ID不是临时ID（不以"sku-"开头）时才包含_id
+          ...(isEdit && sku.id && !sku.id.startsWith('sku-') && { _id: sku.id }),
           code: sku.code, // 保存SKU型号
           color: sku.spec || '默认',
           spec: sku.spec, // 保存规格
