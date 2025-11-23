@@ -104,22 +104,35 @@ const PackageManagementPage: React.FC = () => {
     const loadData = async () => {
       setIsLoadingData(true);
       try {
+        console.log('🔄 开始加载数据...');
+        
         // 加载分类树
         const tree = await getCategoryTree();
+        console.log('📂 分类树API返回:', tree);
         const treeArray = Array.isArray(tree) ? tree : [];
+        console.log('📂 分类树数组:', treeArray.length, '个分类');
         setCategoryTree(treeArray);
         
         // 只获取顶级分类作为标签
         const topLevelCategories = treeArray.filter(cat => !cat.parentId);
         const categoryNames = topLevelCategories.map(cat => cat.name);
+        console.log('🏷️ 顶级分类标签:', categoryNames);
         setAllTags(categoryNames);
         
         // 加载商品
+        console.log('🔄 开始加载商品...');
         const products = await getProducts();
+        console.log('📦 商品API返回:', products);
+        console.log('📦 商品类型:', typeof products, Array.isArray(products));
+        
         const productsArray = Array.isArray(products) ? products : [];
+        console.log('✅ 商品数组:', productsArray.length, '个商品');
+        if (productsArray.length > 0) {
+          console.log('📦 第一个商品示例:', productsArray[0]);
+        }
         setAllProducts(productsArray);
       } catch (error) {
-        console.error('加载数据失败:', error);
+        console.error('❌ 加载数据失败:', error);
         toast.error('加载数据失败');
         setAllProducts([]);
         setAllTags([]);
