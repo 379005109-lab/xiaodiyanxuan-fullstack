@@ -70,6 +70,49 @@ const pickPremiumMaterial = (options: string[], upgradePrices?: Record<string, n
   }, null);
 };
 
+// 提取材质系列名称（参考PackageDetailPage的逻辑）
+const extractMaterialSeries = (materialName: string): string => {
+  const knownSeries = [
+    '全青皮', '半青皮', '普通皮', '真皮', '牛皮', '半皮',
+    '磨砂布', '绒布', '麻布', '棉布', '丝绒',
+    '实木', '橡木', '胡桃木', '榉木', '松木',
+    '不锈钢', '铁艺', '航空铝', '碳钢',
+    '大理石', '岩板', '玻璃'
+  ];
+  
+  for (const series of knownSeries) {
+    if (materialName.includes(series)) {
+      return series;
+    }
+  }
+  
+  const match = materialName.match(/^[\u4e00-\u9fa5]{1,3}/);
+  return match ? match[0] : materialName;
+};
+
+// 计算材质加价（支持完全匹配和系列匹配）
+const getMaterialUpgradePrice = (materialName: string, upgradePrices?: Record<string, number>): number => {
+  if (!upgradePrices) return 0;
+  
+  // 1. 完全匹配
+  if (upgradePrices[materialName] !== undefined) {
+    return upgradePrices[materialName];
+  }
+  
+  // 2. 系列匹配
+  const materialSeries = extractMaterialSeries(materialName);
+  if (materialSeries) {
+    for (const [key, price] of Object.entries(upgradePrices)) {
+      const keySeries = extractMaterialSeries(key);
+      if (key.includes(materialSeries) || keySeries === materialSeries) {
+        return price;
+      }
+    }
+  }
+  
+  return 0;
+};
+
 const isVideoFile = (url: string) => /\.(mp4|webm|ogg)$/i.test(url);
 
 const buildVideoEmbedUrl = (url: string) => {
@@ -508,7 +551,11 @@ const ProductDetailPage = () => {
   
   const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : product.basePrice;
 
-  const isFavorited = product ? favorites.some(f => f.productId === product._id) : false;
+  const isFavorited = product ? favorites.some(f => {
+    if (!f || !f.product) return false;
+    const favProductId = typeof f.product === 'string' ? f.product : f.product._id;
+    return favProductId === product._id;
+  }) : false;
 
   const getMaterialPreviewImage = (materialName?: string) => {
     if (!materialName) return selectedSku?.images?.[0] || product.images?.[0] || '';
@@ -872,7 +919,7 @@ const ProductDetailPage = () => {
                                         const isSelected = selectedOption === materialName;
                                         const isSingle = list.length === 1;
                                         const preview = getMaterialPreviewImage(materialName);
-                                        const materialUpgrade = selectedSku.materialUpgradePrices?.[materialName] ?? 0;
+                                        const materialUpgrade = getMaterialUpgradePrice(materialName, selectedSku.materialUpgradePrices);
                                         return (
                                           <button
                                             key={materialName}
