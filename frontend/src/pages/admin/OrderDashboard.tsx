@@ -51,19 +51,10 @@ export default function OrderDashboard() {
     try {
       let allOrders: Order[] = []
 
-      // 尝试从API获取
-      try {
-        const { data: payload } = await axios.get<{ success: boolean; data?: Order[] }>('/orders')
-        if (payload?.success && payload.data) {
-          allOrders = payload.data
-        } else {
-          throw new Error('API返回失败')
-        }
-      } catch (apiError) {
-        console.log('API获取失败，从本地存储读取')
-        const stored = localStorage.getItem('local_orders')
-        allOrders = stored ? JSON.parse(stored) : []
-      }
+      // 从本地存储读取订单（管理后台使用本地存储）
+      const stored = localStorage.getItem('orders') || localStorage.getItem('local_orders')
+      allOrders = stored ? JSON.parse(stored) : []
+      console.log('📊 订单数据看板：从本地存储读取', allOrders.length, '个订单')
 
       // 计算统计数据
       const totalOrders = allOrders.length

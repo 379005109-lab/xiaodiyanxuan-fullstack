@@ -362,8 +362,10 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">
-                              {fabricDisplay}
+                            <div className="text-sm">
+                              <span className={fabricUpgradePrice > 0 ? "text-red-600 font-semibold" : "text-gray-700"}>
+                                {fabricDisplay}
+                              </span>
                               {fabricUpgradePrice > 0 && (
                                 <span className="block text-red-600 font-semibold text-xs mt-1">+¥{fabricUpgradePrice}</span>
                               )}
@@ -422,8 +424,10 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">
-                              {fillingDisplay}
+                            <div className="text-sm">
+                              <span className={fillingUpgradePrice > 0 ? "text-red-600 font-semibold" : "text-gray-700"}>
+                                {fillingDisplay}
+                              </span>
                               {fillingUpgradePrice > 0 && (
                                 <span className="block text-red-600 font-semibold text-xs mt-1">+¥{fillingUpgradePrice}</span>
                               )}
@@ -482,8 +486,10 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">
-                              {frameDisplay}
+                            <div className="text-sm">
+                              <span className={frameUpgradePrice > 0 ? "text-red-600 font-semibold" : "text-gray-700"}>
+                                {frameDisplay}
+                              </span>
                               {frameUpgradePrice > 0 && (
                                 <span className="block text-red-600 font-semibold text-xs mt-1">+¥{frameUpgradePrice}</span>
                               )}
@@ -542,8 +548,10 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">
-                              {legDisplay}
+                            <div className="text-sm">
+                              <span className={legUpgradePrice > 0 ? "text-red-600 font-semibold" : "text-gray-700"}>
+                                {legDisplay}
+                              </span>
                               {legUpgradePrice > 0 && (
                                 <span className="block text-red-600 font-semibold text-xs mt-1">+¥{legUpgradePrice}</span>
                               )}
