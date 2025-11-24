@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore'
 import { formatPrice } from '@/lib/utils'
 import { toast } from 'sonner'
 import axios from '@/lib/axios'
+import { getFileUrl } from '@/services/uploadService'
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
@@ -375,7 +376,7 @@ export default function CheckoutPage() {
                 {items.map((item) => (
                   <div key={`${item.product._id}-${item.sku._id}`} className="flex gap-4 pt-4 first:pt-0">
                     <img
-                      src={item.product.images[0]}
+                      src={getFileUrl(item.sku.images?.[0] || item.product.images?.[0] || '/placeholder.png')}
                       alt={item.product.name}
                       className="w-24 h-24 object-cover rounded-2xl"
                     />
@@ -420,7 +421,7 @@ export default function CheckoutPage() {
                     {items.map((item) => (
                       <div key={`summary-${item.product._id}-${item.sku._id}`} className="flex items-start gap-3">
                         <img
-                          src={item.product.images[0]}
+                          src={getFileUrl(item.sku.images?.[0] || item.product.images?.[0] || '/placeholder.png')}
                           alt={item.product.name}
                           className="w-14 h-14 rounded-xl object-cover"
                         />

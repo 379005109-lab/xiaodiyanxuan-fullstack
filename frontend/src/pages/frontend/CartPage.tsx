@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useState, useEffect, useMemo } from 'react'
 import CheckoutModal from '@/components/frontend/CheckoutModal'
+import { getFileUrl } from '@/services/uploadService'
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart, conciergeMode, conciergeOrderInfo, exitConciergeMode, enterConciergeMode } = useCartStore()
@@ -209,7 +210,7 @@ export default function CartPage() {
                   {/* 商品图片 */}
                   <Link to={`/products/${item.product._id}`} className="flex-shrink-0">
                     <img
-                      src={item.sku.images?.[0] || item.product.images[0]}
+                      src={getFileUrl(item.sku.images?.[0] || item.product.images?.[0] || '/placeholder.png')}
                       alt={item.product.name}
                       className="w-full sm:w-32 h-32 object-cover rounded-lg"
                     />
@@ -289,7 +290,27 @@ export default function CartPage() {
                                     const fabricName = Array.isArray((item.sku.material as any).fabric) 
                                       ? (item.sku.material as any).fabric[0] 
                                       : (item.sku.material as any).fabric
-                                    const upgradePrice = (item.sku as any).materialUpgradePrices?.[fabricName]
+                                    const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                                    
+                                    // 尝试精确匹配
+                                    let upgradePrice = materialUpgradePrices[fabricName]
+                                    
+                                    // 如果没有精确匹配，尝试模糊匹配（去除空格、颜色等）
+                                    if (!upgradePrice) {
+                                      const fabricBase = fabricName.split(/\s+/)[0] // 取第一个词，如"全青皮 白色" → "全青皮"
+                                      upgradePrice = materialUpgradePrices[fabricBase]
+                                      
+                                      // 如果还是没有，遍历所有key查找包含关系
+                                      if (!upgradePrice) {
+                                        for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                                          if (fabricName.includes(key) || key.includes(fabricName)) {
+                                            upgradePrice = price as number
+                                            break
+                                          }
+                                        }
+                                      }
+                                    }
+                                    
                                     return (
                                       <>
                                         <span>{fabricName}</span>
@@ -307,7 +328,22 @@ export default function CartPage() {
                                     const fillingName = Array.isArray((item.sku.material as any).filling) 
                                       ? (item.sku.material as any).filling[0] 
                                       : (item.sku.material as any).filling
-                                    const upgradePrice = (item.sku as any).materialUpgradePrices?.[fillingName]
+                                    const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                                    
+                                    let upgradePrice = materialUpgradePrices[fillingName]
+                                    if (!upgradePrice) {
+                                      const fillingBase = fillingName.split(/\s+/)[0]
+                                      upgradePrice = materialUpgradePrices[fillingBase]
+                                      if (!upgradePrice) {
+                                        for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                                          if (fillingName.includes(key) || key.includes(fillingName)) {
+                                            upgradePrice = price as number
+                                            break
+                                          }
+                                        }
+                                      }
+                                    }
+                                    
                                     return (
                                       <>
                                         <span>{fillingName}</span>
@@ -325,7 +361,22 @@ export default function CartPage() {
                                     const frameName = Array.isArray((item.sku.material as any).frame) 
                                       ? (item.sku.material as any).frame[0] 
                                       : (item.sku.material as any).frame
-                                    const upgradePrice = (item.sku as any).materialUpgradePrices?.[frameName]
+                                    const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                                    
+                                    let upgradePrice = materialUpgradePrices[frameName]
+                                    if (!upgradePrice) {
+                                      const frameBase = frameName.split(/\s+/)[0]
+                                      upgradePrice = materialUpgradePrices[frameBase]
+                                      if (!upgradePrice) {
+                                        for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                                          if (frameName.includes(key) || key.includes(frameName)) {
+                                            upgradePrice = price as number
+                                            break
+                                          }
+                                        }
+                                      }
+                                    }
+                                    
                                     return (
                                       <>
                                         <span>{frameName}</span>
@@ -343,7 +394,22 @@ export default function CartPage() {
                                     const legName = Array.isArray((item.sku.material as any).leg) 
                                       ? (item.sku.material as any).leg[0] 
                                       : (item.sku.material as any).leg
-                                    const upgradePrice = (item.sku as any).materialUpgradePrices?.[legName]
+                                    const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                                    
+                                    let upgradePrice = materialUpgradePrices[legName]
+                                    if (!upgradePrice) {
+                                      const legBase = legName.split(/\s+/)[0]
+                                      upgradePrice = materialUpgradePrices[legBase]
+                                      if (!upgradePrice) {
+                                        for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                                          if (legName.includes(key) || key.includes(legName)) {
+                                            upgradePrice = price as number
+                                            break
+                                          }
+                                        }
+                                      }
+                                    }
+                                    
                                     return (
                                       <>
                                         <span>{legName}</span>
