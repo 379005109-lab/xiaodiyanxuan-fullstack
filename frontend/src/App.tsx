@@ -36,6 +36,7 @@ import ProductDashboard from './pages/admin/ProductDashboard'
 import OrderManagement from './pages/admin/OrderManagement'
 import UserManagement from './pages/admin/UserManagement'
 import ImageManagement from './pages/admin/ImageManagement'
+import SiteImageManagement from './pages/admin/SiteImageManagement'
 import CategoryManagement from './pages/admin/CategoryManagement'
 import MaterialManagement from './pages/admin/MaterialManagement'
 import OrderAnalysis from './pages/admin/OrderAnalysis'
@@ -186,7 +187,7 @@ function App() {
             <Route path="orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderManagement /></ProtectedRoute>} />
             <Route path="order-dashboard" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderDashboard /></ProtectedRoute>} />
             <Route path="users" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><UserManagement /></ProtectedRoute>} />
-            <Route path="images" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ImageManagement /></ProtectedRoute>} />
+            <Route path="images" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><SiteImageManagement /></ProtectedRoute>} />
             <Route path="categories" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CategoryManagement /></ProtectedRoute>} />
             <Route path="materials" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><MaterialManagement /></ProtectedRoute>} />
             <Route path="order-analysis" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderAnalysis /></ProtectedRoute>} />

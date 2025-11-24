@@ -12,6 +12,7 @@ import { useCompareStore } from '@/store/compareStore'
 import { toast } from 'sonner'
 
 import { getFileUrl } from '@/services/uploadService'
+import { getAllSiteConfigs } from '@/services/siteConfigService'
 // 简化价格显示
 const formatPriceSimplified = (price: number): string => {
   if (price >= 10000) {
@@ -47,7 +48,7 @@ export default function ProductsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 18
 
-  // 价格区间拖拽条状态
+  // 价格区间拖拽条状态（初始值会在商品加载后更新）
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000])
   const [priceRangeInput, setPriceRangeInput] = useState<[number, number]>([0, 500000])
 
@@ -65,13 +66,8 @@ export default function ProductsPage() {
     ]
   }, [products])
   
-  // 风格卡片图片配置
-  const styleCardImages: Record<string, string> = {
-    '现代风': '/styles/modern.jpg',
-    '中古风': '/styles/vintage.jpg',
-    '轻奢风': '/styles/luxury.jpg',
-    '极简风': '/styles/minimal.jpg'
-  }
+  // 风格卡片图片配置（从网站配置加载）
+  const [styleCardImages, setStyleCardImages] = useState<Record<string, string>>({})
 
   // 加载商品数据
   useEffect(() => {
@@ -79,7 +75,23 @@ export default function ProductsPage() {
     loadCategories()
     loadFavorites()
     loadCompareItems()
+    loadStyleImages()
   }, [])
+  
+  // 加载风格卡片图片
+  const loadStyleImages = async () => {
+    try {
+      const configs = await getAllSiteConfigs()
+      setStyleCardImages({
+        '现代风': configs['style.modern'] || '',
+        '中古风': configs['style.vintage'] || '',
+        '轻奢风': configs['style.luxury'] || '',
+        '极简风': configs['style.minimal'] || ''
+      })
+    } catch (error) {
+      console.error('加载风格图片失败:', error)
+    }
+  }
 
   // 同步URL参数到筛选条件
   useEffect(() => {
@@ -102,9 +114,10 @@ export default function ProductsPage() {
         setPriceRange([min, max])
         setPriceRangeInput([min, max])
       }
-    } else {
-      setPriceRange([0, 500000])
-      setPriceRangeInput([0, 500000])
+    } else if (products.length > 0) {
+      // 如果没有URL参数，使用实际价格区间
+      setPriceRange(actualPriceRange as [number, number])
+      setPriceRangeInput(actualPriceRange as [number, number])
     }
   }, [searchParams])
 
@@ -191,8 +204,18 @@ export default function ProductsPage() {
   const actualPriceRange = useMemo(() => {
     if (products.length === 0) return [0, 500000]
     const prices = products.map(p => p.basePrice)
-    return [Math.min(...prices), Math.max(...prices)]
+    const minPrice = Math.floor(Math.min(...prices) / 1000) * 1000 // 向下取整到千位
+    const maxPrice = Math.ceil(Math.max(...prices) / 1000) * 1000 // 向上取整到千位
+    return [minPrice, maxPrice]
   }, [products])
+  
+  // 当商品加载后，更新价格区间初始值
+  useEffect(() => {
+    if (products.length > 0 && !searchParams.get('priceRange')) {
+      setPriceRange(actualPriceRange as [number, number])
+      setPriceRangeInput(actualPriceRange as [number, number])
+    }
+  }, [actualPriceRange, searchParams, products.length])
 
   // 排序
   const sortedProducts = [...filteredProducts].sort((a, b) => {
@@ -324,14 +347,15 @@ export default function ProductsPage() {
                         type="number"
                         value={priceRangeInput[0]}
                         onChange={(e) => {
-                          const value = Math.max(0, Math.min(Number(e.target.value), priceRangeInput[1] - 1))
+                          const value = Math.max(actualPriceRange[0], Math.min(Number(e.target.value), priceRangeInput[1] - 1))
                           setPriceRangeInput([value, priceRangeInput[1]])
                           setPriceRange([value, priceRangeInput[1]])
                           setFilters({ ...filters, priceRange: `${value}-${priceRangeInput[1]}` })
                         }}
                         className="input text-sm w-full"
-                        min="0"
+                        min={actualPriceRange[0]}
                         max={priceRangeInput[1] - 1}
+                        placeholder={`最低${actualPriceRange[0]}`}
                       />
                     </div>
                     <div>
@@ -340,14 +364,15 @@ export default function ProductsPage() {
                         type="number"
                         value={priceRangeInput[1]}
                         onChange={(e) => {
-                          const value = Math.max(priceRangeInput[0] + 1, Math.min(Number(e.target.value), 500000))
+                          const value = Math.max(priceRangeInput[0] + 1, Math.min(Number(e.target.value), actualPriceRange[1]))
                           setPriceRangeInput([priceRangeInput[0], value])
                           setPriceRange([priceRangeInput[0], value])
                           setFilters({ ...filters, priceRange: `${priceRangeInput[0]}-${value}` })
                         }}
                         className="input text-sm w-full"
                         min={priceRangeInput[0] + 1}
-                        max="500000"
+                        max={actualPriceRange[1]}
+                        placeholder={`最高${actualPriceRange[1]}`}
                       />
                     </div>
                   </div>
@@ -358,14 +383,14 @@ export default function ProductsPage() {
                     <div 
                       className="absolute h-2 bg-primary-600 rounded-lg"
                       style={{
-                        left: `${(priceRange[0] / 500000) * 100}%`,
-                        width: `${((priceRange[1] - priceRange[0]) / 500000) * 100}%`
+                        left: `${((priceRange[0] - actualPriceRange[0]) / (actualPriceRange[1] - actualPriceRange[0])) * 100}%`,
+                        width: `${((priceRange[1] - priceRange[0]) / (actualPriceRange[1] - actualPriceRange[0])) * 100}%`
                       }}
                     ></div>
                     <input
                       type="range"
-                      min="0"
-                      max="500000"
+                      min={actualPriceRange[0]}
+                      max={actualPriceRange[1]}
                       step="1000"
                       value={priceRange[0]}
                       onChange={(e) => {
@@ -380,8 +405,8 @@ export default function ProductsPage() {
                     />
                     <input
                       type="range"
-                      min="0"
-                      max="500000"
+                      min={actualPriceRange[0]}
+                      max={actualPriceRange[1]}
                       step="1000"
                       value={priceRange[1]}
                       onChange={(e) => {
@@ -407,8 +432,8 @@ export default function ProductsPage() {
               <button
                 onClick={() => {
                   setFilters({ category: '', style: '', priceRange: '', sort: 'newest' })
-                  setPriceRange([0, 500000])
-                  setPriceRangeInput([0, 500000])
+                  setPriceRange(actualPriceRange as [number, number])
+                  setPriceRangeInput(actualPriceRange as [number, number])
                 }}
                 className="w-full btn-secondary"
               >
@@ -445,7 +470,7 @@ export default function ProductsPage() {
                     {stat.image ? (
                       <div 
                         className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110"
-                        style={{ backgroundImage: `url(${stat.image})` }}
+                        style={{ backgroundImage: `url(${getFileUrl(stat.image)})` }}
                       >
                         <div className={`absolute inset-0 bg-gradient-to-br ${stat.bgColor} opacity-60`} />
                       </div>
