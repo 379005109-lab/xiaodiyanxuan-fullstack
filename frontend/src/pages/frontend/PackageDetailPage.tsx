@@ -331,7 +331,8 @@ export default function PackageDetailPage() {
       // 遍历所有SKU，查找是否有materialUpgradePrices包含此材质
       for (const sku of product.skus) {
         if (sku.materialUpgradePrices) {
-          console.log(`🔥 [加价检查] 商品: ${product.name}, 材质: ${option}, SKU加价规则:`, sku.materialUpgradePrices)
+          console.log(`🔥 [加价检查] 商品: ${product.name}, 材质: ${option}`)
+          console.log(`📋 [SKU加价规则详情]:`, JSON.stringify(sku.materialUpgradePrices, null, 2))
           
           // 1. 首先查找完全匹配的材质名称
           if (sku.materialUpgradePrices[option]) {
@@ -1459,9 +1460,12 @@ function ProductPreviewModal({
                 console.log('🔥 product.materials:', product.materials)
                 console.log('🔥 materials type:', typeof product.materials)
                 console.log('🔥 materials keys:', product.materials ? Object.keys(product.materials) : 'null/undefined')
+                console.log('📋 materials详细内容:', JSON.stringify(product.materials, null, 2))
                 return product.materials
               })() ? (
                 Object.entries(product.materials as PackageProductMaterial).map(([materialKey, options]) => {
+                  console.log(`🔑 [材质Key]: ${materialKey}, 选项数量: ${Array.isArray(options) ? options.length : '非数组'}`)
+                  console.log(`📝 [材质选项]:`, options)
                   const materialOptions = (options ?? []) as string[]
                   const MATERIAL_NAMES: Record<string, string> = {
                     fabric: '面料',
