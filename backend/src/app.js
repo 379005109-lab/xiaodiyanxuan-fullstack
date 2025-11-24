@@ -64,6 +64,7 @@ app.use('/api/notifications', require('./routes/notifications'))
 app.use('/api/products', require('./routes/products'))
 app.use('/api/categories', require('./routes/categories'))
 app.use('/api/materials', require('./routes/materials'))
+app.use('/api/dashboard', require('./routes/dashboard'))
 
 // 文件上传路由
 app.use('/api/files', require('./routes/files'))
