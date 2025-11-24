@@ -295,10 +295,24 @@ export default function PackageDetailPage() {
     if (product && product.skus && product.skus.length > 0) {
       // 遍历所有SKU，查找是否有materialUpgradePrices包含此材质
       for (const sku of product.skus) {
-        if (sku.materialUpgradePrices && sku.materialUpgradePrices[option]) {
-          const price = sku.materialUpgradePrices[option]
-          // 确保返回有效的数字
-          return typeof price === 'number' && !isNaN(price) ? price : 0
+        if (sku.materialUpgradePrices) {
+          // 1. 首先查找完全匹配的材质名称
+          if (sku.materialUpgradePrices[option]) {
+            const price = sku.materialUpgradePrices[option]
+            return typeof price === 'number' && !isNaN(price) ? price : 0
+          }
+          
+          // 2. 如果没有完全匹配，查找材质系列匹配
+          // 提取材质系列名（如"全青皮"、"真皮"、"航空铝"等）
+          const materialSeries = extractMaterialSeries(option)
+          if (materialSeries) {
+            // 查找以该系列开头的任何加价规则
+            for (const [materialKey, price] of Object.entries(sku.materialUpgradePrices)) {
+              if (materialKey.includes(materialSeries) || extractMaterialSeries(materialKey) === materialSeries) {
+                return typeof price === 'number' && !isNaN(price) ? price : 0
+              }
+            }
+          }
         }
       }
     }
@@ -307,25 +321,23 @@ export default function PackageDetailPage() {
     return 0
   }
 
-  const getMaterialPreviewImage = (product: PackageProduct, option: string) => {
-    // 优先从材质管理中获取图片
-    if (materialImageMap[option]) {
-      return materialImageMap[option]
-    }
-    // 其次从商品的materialImages中获取
-    if (product.materialImages?.[option]) {
-      return product.materialImages[option]
-    }
-    // 最后尝试从SKU的materialImages中获取
-    if (product.skus) {
-      for (const sku of product.skus) {
-        if (sku.materialImages?.[option]) {
-          return sku.materialImages[option]
-        }
+  // 提取材质系列名称的辅助函数
+  const extractMaterialSeries = (materialName: string) => {
+    // 定义常见的材质系列
+    const materialSeriesList = ['全青皮', '真皮', '航空铝', '进口', '实木', '布艺', '金属']
+    
+    for (const series of materialSeriesList) {
+      if (materialName.includes(series)) {
+        return series
       }
     }
-    return product.image || '/placeholder.svg'
+    
+    // 如果没有匹配到已知系列，返回材质名称的前几个字符作为系列
+    // 例如："橡木浅色" -> "橡木"
+    const match = materialName.match(/^[\u4e00-\u9fa5]{1,3}/)
+    return match ? match[0] : materialName
   }
+
 
   const calculateMaterialSurcharge = (
     product: PackageProduct,
@@ -1214,11 +1226,23 @@ function ProductPreviewModal({
   const [showAllSpecs, setShowAllSpecs] = useState(false)
   
   useEffect(() => {
-    setLocalSelections(materialSelections[product.id] || {})
-    setPreviewImage(product.image)
+    const currentSelections = materialSelections[product.id] || {}
+    setLocalSelections(currentSelections)
     setSelectedSku(product.skus?.[0] || null)
     setShowAllSpecs(false)
-  }, [product.id, materialSelections, product.image, product.skus])
+    
+    // 根据当前选中的材质设置初始图片
+    const currentMaterialSelections = Object.values(currentSelections)
+    if (currentMaterialSelections.length > 0) {
+      // 使用第一个选中的材质来确定显示的图片
+      const firstSelectedMaterial = currentMaterialSelections[0]
+      const materialImage = getMaterialPreviewImage(product, firstSelectedMaterial, materialImageMap)
+      setPreviewImage(materialImage)
+    } else {
+      // 如果没有选中材质，使用商品默认图片
+      setPreviewImage(product.image)
+    }
+  }, [product.id, materialSelections, product.image, product.skus, materialImageMap])
   
   const surcharge = calculateMaterialSurcharge(product, localSelections)
 
