@@ -1277,7 +1277,9 @@ function ProductPreviewModal({
 
   const handlePreviewOption = (option: string) => {
     // 使用传入的materialImageMap获取材质图片
+    console.log('handlePreviewOption called with:', option)
     const newImage = getMaterialPreviewImage(product, option, materialImageMap)
+    console.log('Setting preview image to:', newImage)
     setPreviewImage(newImage)
   }
 
@@ -1300,7 +1302,7 @@ function ProductPreviewModal({
         </div>
         <div className="grid md:grid-cols-2 gap-8 p-6">
           <div className="relative aspect-square bg-gray-50 rounded-2xl overflow-hidden">
-            <img src={previewImage} alt={product.name} className="w-full h-full object-cover" />
+            <img src={previewImage.startsWith('/') || previewImage.startsWith('http') ? previewImage : getFileUrl(previewImage)} alt={product.name} className="w-full h-full object-cover" />
             <button
               onClick={() => onNavigate('prev')}
               className="absolute top-1/2 -translate-y-1/2 left-4 bg-white/90 hover:bg-white rounded-full p-3 shadow"
