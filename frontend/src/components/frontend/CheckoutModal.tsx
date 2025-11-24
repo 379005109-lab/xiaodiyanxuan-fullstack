@@ -255,37 +255,43 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
       return
     }
     
-    // 尝试提交到API（如果失败也不影响，因为已经保存到本地）
+    // 提交到云端API
     try {
       const response = await axios.post('/orders', orderData)
       
       // axios拦截器返回的是response.data，所以response已经是数据本身
       if (response && (response as any).success) {
-        console.log('✅ API提交成功')
-        toast.success('订单提交成功！')
+        console.log('✅ 订单已提交到云端')
+        toast.success(`订单提交成功！订单号：${orderNo}`)
+        
+        // 清空购物车并跳转
+        clearCart()
+        onClose()
+        
+        // 跳转到前端订单列表
+        setTimeout(() => {
+          window.location.href = '/orders'
+        }, 500)
       } else {
-        console.log('⚠️ API返回失败，但已保存到本地')
-        toast.success(`订单已保存到本地！订单号：${orderNo}`)
+        throw new Error('API返回失败')
       }
     } catch (error: any) {
-      console.log('⚠️ API提交失败，但已保存到本地')
-      console.error('API错误详情:', {
-        message: error.message,
-        code: error.code,
-        response: error.response,
-        request: error.request
-      })
-      toast.success(`订单已保存到本地！订单号：${orderNo}`)
+      console.error('❌ 订单提交失败，尝试保存到本地备份', error)
+      
+      // 如果云端失败，保存到本地作为备份
+      try {
+        const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+        existingOrders.unshift(localOrder)
+        localStorage.setItem('orders', JSON.stringify(existingOrders))
+        console.log('✅ 订单已保存到本地备份')
+      } catch (localError) {
+        console.error('❌ 本地备份也失败', localError)
+      }
+      
+      toast.error('订单提交失败，请检查网络或联系客服')
+      setSubmitting(false)
+      return
     }
-    
-    // 清空购物车并跳转
-    clearCart()
-    onClose()
-    
-    // 跳转到订单管理页面
-    setTimeout(() => {
-      window.location.href = '/admin/orders'
-    }, 500)
     
     setSubmitting(false)
   }
