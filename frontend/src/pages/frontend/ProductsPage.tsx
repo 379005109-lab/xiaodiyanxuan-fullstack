@@ -32,8 +32,9 @@ export default function ProductsPage() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [hoveredProductId, setHoveredProductId] = useState<string | null>(null) // 鼠标悬停的商品ID
   const [previewImageIndex, setPreviewImageIndex] = useState<Record<string, number>>({}) // 每个商品的SKU预览图片索引
+  const [favoriteStatuses, setFavoriteStatuses] = useState<Record<string, boolean>>({}) // 商品收藏状态
   
-  const { isFavorited, toggleFavorite, loadFavorites } = useFavoriteStore()
+  const { isFavorited, toggleFavorite, loadFavorites, favorites } = useFavoriteStore()
   const { isInCompare, addToCompare: addToCompareStore, loadCompareItems } = useCompareStore()
 
   // 筛选条件
@@ -77,6 +78,22 @@ export default function ProductsPage() {
     loadCompareItems()
     loadStyleImages()
   }, [])
+  
+  // 当商品或收藏列表变化时，更新收藏状态
+  useEffect(() => {
+    const updateFavoriteStatuses = () => {
+      const statuses: Record<string, boolean> = {}
+      products.forEach(product => {
+        statuses[product._id] = favorites.some(fav => {
+          const favProductId = typeof fav.product === 'string' ? fav.product : fav.product._id
+          return favProductId === product._id
+        })
+      })
+      setFavoriteStatuses(statuses)
+      console.log('🔥 [收藏状态] 更新:', statuses)
+    }
+    updateFavoriteStatuses()
+  }, [products, favorites])
   
   // 加载风格卡片图片
   const loadStyleImages = async () => {
@@ -680,16 +697,15 @@ export default function ProductsPage() {
                             <button
                               onClick={(e) => {
                                 e.preventDefault()
-                                e.stopPropagation()
                                 handleToggleFavorite(e, product)
                               }}
                               className={`p-2 rounded-full shadow-md transition-colors ${
-                                isFavorited(product._id)
+                                favoriteStatuses[product._id]
                                   ? 'bg-red-500 text-white'
                                   : 'bg-white text-gray-600 hover:text-red-500'
                               }`}
                             >
-                              <Heart className={`h-4 w-4 ${isFavorited(product._id) ? 'fill-current' : ''}`} />
+                              <Heart className={`h-4 w-4 ${favoriteStatuses[product._id] ? 'fill-current' : ''}`} />
                             </button>
                             <button
                               onClick={(e) => {

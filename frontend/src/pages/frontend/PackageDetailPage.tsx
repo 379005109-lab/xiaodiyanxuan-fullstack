@@ -331,23 +331,32 @@ export default function PackageDetailPage() {
       // 遍历所有SKU，查找是否有materialUpgradePrices包含此材质
       for (const sku of product.skus) {
         if (sku.materialUpgradePrices) {
+          console.log(`🔥 [加价检查] 商品: ${product.name}, 材质: ${option}, SKU加价规则:`, sku.materialUpgradePrices)
+          
           // 1. 首先查找完全匹配的材质名称
           if (sku.materialUpgradePrices[option]) {
             const price = sku.materialUpgradePrices[option]
+            console.log(`✅ [完全匹配] ${option} = ${price}`)
             return typeof price === 'number' && !isNaN(price) ? price : 0
           }
           
           // 2. 如果没有完全匹配，查找材质系列匹配
           // 提取材质系列名（如"全青皮"、"真皮"、"航空铝"等）
           const materialSeries = extractMaterialSeries(option)
+          console.log(`🔍 [系列匹配] ${option} 提取系列: ${materialSeries}`)
+          
           if (materialSeries) {
             // 查找以该系列开头的任何加价规则
             for (const [materialKey, price] of Object.entries(sku.materialUpgradePrices)) {
-              if (materialKey.includes(materialSeries) || extractMaterialSeries(materialKey) === materialSeries) {
+              const keySeries = extractMaterialSeries(materialKey)
+              if (materialKey.includes(materialSeries) || keySeries === materialSeries) {
+                console.log(`✅ [系列匹配成功] ${option} (${materialSeries}) 匹配到 ${materialKey} = ${price}`)
                 return typeof price === 'number' && !isNaN(price) ? price : 0
               }
             }
           }
+          
+          console.log(`❌ [无匹配] ${option} 未找到加价规则`)
         }
       }
     }
