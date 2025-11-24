@@ -7,6 +7,8 @@ const packageSchema = new mongoose.Schema({
   images: [String],
   basePrice: { type: Number, required: true },
   discountPrice: Number,
+  channelPrice: Number,    // 渠道价格
+  designerPrice: Number,   // 设计师价格
   products: [{ productId: String, productName: String, quantity: Number, price: Number }],
   // 添加categories字段用于存储套餐分类信息
   categories: [{ 

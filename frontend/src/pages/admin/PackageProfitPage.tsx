@@ -4,12 +4,16 @@ import { motion } from 'framer-motion'
 import { ChevronLeft, Save, DollarSign } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import { toast } from 'sonner'
+import apiClient from '@/lib/apiClient'
 
 interface Package {
-  id: number
+  _id: string
+  id?: number
   name: string
   price: number
+  basePrice: number
   image: string
+  thumbnail: string
   tags: string[]
   selectedProducts: Record<string, any[]>
   optionalQuantities: Record<string, number>
@@ -33,16 +37,16 @@ export default function PackageProfitPage() {
     loadPackage()
   }, [id])
 
-  const loadPackage = () => {
+  const loadPackage = async () => {
     setLoading(true)
     try {
       if (id) {
-        const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]')
-        const pkg = existingPackages.find(p => p.id === parseInt(id, 10))
-        if (pkg) {
+        const response = await apiClient.get(`/packages/${id}`)
+        if (response.data.success && response.data.data) {
+          const pkg = response.data.data
           setPackageData(pkg)
-          setChannelPrice(pkg.channelPrice || pkg.price * 0.7)
-          setDesignerPrice(pkg.designerPrice || pkg.price * 0.6)
+          setChannelPrice(pkg.channelPrice || pkg.basePrice * 0.7)
+          setDesignerPrice(pkg.designerPrice || pkg.basePrice * 0.6)
         } else {
           toast.error('套餐不存在')
           navigate('/admin/packages')
@@ -51,28 +55,27 @@ export default function PackageProfitPage() {
     } catch (error) {
       console.error('加载套餐失败:', error)
       toast.error('加载套餐失败')
+      navigate('/admin/packages')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!packageData) return
     
     setSaving(true)
     try {
-      const existingPackages: Package[] = JSON.parse(localStorage.getItem('packages') || '[]')
-      const index = existingPackages.findIndex(p => p.id === packageData.id)
+      const response = await apiClient.put(`/packages/${packageData._id}`, {
+        channelPrice,
+        designerPrice
+      })
       
-      if (index !== -1) {
-        existingPackages[index] = {
-          ...existingPackages[index],
-          channelPrice,
-          designerPrice
-        }
-        localStorage.setItem('packages', JSON.stringify(existingPackages))
+      if (response.data.success) {
         toast.success('利润设置已保存')
         navigate('/admin/packages')
+      } else {
+        toast.error('保存失败')
       }
     } catch (error) {
       console.error('保存失败:', error)
