@@ -95,14 +95,24 @@ const getCategory = async (req, res) => {
  */
 const createCategory = async (req, res) => {
   try {
-    const { name, description, order, status, icon, image, parentId, level } = req.body
+    let { name, description, order, status, icon, image, parentId, level, slug } = req.body
 
     if (!name) {
       return res.status(400).json(errorResponse('分类名称不能为空', 400))
     }
 
+    // 如果前端没有提供slug或slug为空，自动生成
+    if (!slug || slug.trim() === '') {
+      slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u4e00-\u9fa5-]/g, '')
+      // 如果生成的slug还是空（全是特殊字符），使用时间戳
+      if (!slug) {
+        slug = `category-${Date.now()}`
+      }
+    }
+
     const category = new Category({
       name,
+      slug,
       description,
       icon,
       image,
@@ -119,6 +129,10 @@ const createCategory = async (req, res) => {
   } catch (err) {
     console.error('Create category error:', err)
     if (err.code === 11000) {
+      // 检查是否是slug冲突
+      if (err.keyPattern && err.keyPattern.slug) {
+        return res.status(400).json(errorResponse('分类标识已存在，请使用不同的分类名称', 400))
+      }
       return res.status(400).json(errorResponse('分类名称已存在', 400))
     }
     res.status(500).json(errorResponse(err.message, 500))
