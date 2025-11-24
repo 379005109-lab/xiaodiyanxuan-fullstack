@@ -373,8 +373,17 @@ const ProductDetailPage = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!filteredSkus.length) return;
+    // 如果筛选后没有SKU，清空选中的SKU
+    if (!filteredSkus.length) {
+      setSelectedSku(null);
+      setMaterialSelections(EMPTY_SELECTIONS);
+      return;
+    }
+    
+    // 如果当前选中的SKU在筛选结果中，保持选中
     if (selectedSku && filteredSkus.some(s => s._id === selectedSku._id)) return;
+    
+    // 否则选择筛选结果中的第一个SKU
     const fallback = filteredSkus[0];
     setSelectedSku(fallback);
     if (fallback?.images?.length) {
@@ -831,8 +840,16 @@ const ProductDetailPage = () => {
                   <div className="border-t border-gray-100 p-4">
                     <div className="flex flex-col gap-3">
                       {filteredSkus.length === 0 && (
-                        <div className="p-4 rounded-xl border border-dashed border-gray-300 text-center text-sm text-gray-500 col-span-full">
-                          当前版本暂无可选 SKU
+                        <div className="p-8 rounded-xl border border-dashed border-gray-300 text-center col-span-full">
+                          <div className="flex flex-col items-center gap-2">
+                            <AlertCircle className="h-12 w-12 text-gray-400" />
+                            <p className="text-sm font-medium text-gray-700">
+                              {activeFilter === 'pro' ? '该商品暂无 PRO 版本' : 
+                               activeFilter === 'standard' ? '该商品暂无标准版本' : 
+                               '暂无可选规格'}
+                            </p>
+                            <p className="text-xs text-gray-500">请选择其他版本或联系客服咨询</p>
+                          </div>
                         </div>
                       )}
                       {filteredSkus.map(sku => {

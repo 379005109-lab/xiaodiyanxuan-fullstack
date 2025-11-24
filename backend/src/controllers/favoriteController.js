@@ -24,6 +24,11 @@ const list = async (req, res) => {
 
 const add = async (req, res) => {
   try {
+    // 额外的安全检查：确保userId存在
+    if (!req.userId) {
+      return res.status(401).json(errorResponse('User not authenticated', 401))
+    }
+    
     const { productId } = req.body
     
     if (!productId) {
