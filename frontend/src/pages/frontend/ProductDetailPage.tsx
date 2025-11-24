@@ -320,6 +320,30 @@ const ProductDetailPage = () => {
     return product.skus;
   }, [product, activeFilter]);
 
+  // 根据商品实际的SKU动态生成可用的筛选选项
+  const availableFilters = useMemo(() => {
+    if (!product || !product.skus || product.skus.length === 0) return [];
+    
+    const filters: { key: SkuFilter; label: string }[] = [];
+    const hasStandard = product.skus.some(sku => !sku.isPro);
+    const hasPro = product.skus.some(sku => sku.isPro);
+    
+    // 只有当同时有标准版和PRO版时才显示"全部款式"
+    if (hasStandard && hasPro) {
+      filters.push({ key: 'all', label: '全部款式' });
+    }
+    
+    if (hasStandard) {
+      filters.push({ key: 'standard', label: '标准版' });
+    }
+    
+    if (hasPro) {
+      filters.push({ key: 'pro', label: 'PRO 版' });
+    }
+    
+    return filters;
+  }, [product]);
+
   const videoList = useMemo(() => normalizeVideoUrls(product?.videos || (product as any)?.videoUrls), [product]);
   const fileList = useMemo(() => normalizeFileList(product?.files || (product as any)?.fileList), [product]);
 
@@ -714,10 +738,24 @@ const ProductDetailPage = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     if (!product) return;
-                    const added = toggleFavorite(product);
-                    toast.success(added ? '已加入收藏' : '已取消收藏');
+                    
+                    // 检查是否登录
+                    const { isAuthenticated } = useAuthStore.getState();
+                    if (!isAuthenticated) {
+                      toast.error('请先登录后再收藏商品');
+                      navigate('/login');
+                      return;
+                    }
+                    
+                    try {
+                      const added = await toggleFavorite(product);
+                      toast.success(added ? '已加入收藏' : '已取消收藏');
+                    } catch (error) {
+                      console.error('收藏操作失败:', error);
+                      toast.error('操作失败，请重试');
+                    }
                   }}
                   className={cn(
                     'p-2 rounded-full border transition-colors',
@@ -744,34 +782,37 @@ const ProductDetailPage = () => {
                 </div>
               </div>
 
-              <div className="mb-4">
-                <p className="text-sm text-gray-500 mb-2">选择版本</p>
-                <div className="flex gap-2">
-                  {SKU_FILTERS.map(filter => (
-                    <button
-                      key={filter.key}
-                      onClick={() => handleFilterChange(filter.key)}
-                      className={cn(
-                        'px-4 py-2 rounded-full text-sm border transition-colors',
-                        activeFilter === filter.key
-                          ? 'text-white'
-                          : 'text-gray-600 border-gray-200 hover:border-gray-400'
-                      )}
-                      style={activeFilter === filter.key
-                        ? { backgroundColor: PRIMARY_BLUE, borderColor: PRIMARY_BLUE }
-                        : {}}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-                {selectedSku?.isPro && (
-                  <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
-                    <p className="text-sm font-semibold text-yellow-900 mb-1">PRO 专业版特性</p>
-                    <p className="text-xs text-yellow-800">{selectedSku.proFeature || 'PRO 版本提供更高端材质与功能升级。'}</p>
+              {/* 只有当有多个版本时才显示版本筛选 */}
+              {availableFilters.length > 1 && (
+                <div className="mb-4">
+                  <p className="text-sm text-gray-500 mb-2">选择版本</p>
+                  <div className="flex gap-2">
+                    {availableFilters.map(filter => (
+                      <button
+                        key={filter.key}
+                        onClick={() => handleFilterChange(filter.key)}
+                        className={cn(
+                          'px-4 py-2 rounded-full text-sm border transition-colors',
+                          activeFilter === filter.key
+                            ? 'text-white'
+                            : 'text-gray-600 border-gray-200 hover:border-gray-400'
+                        )}
+                        style={activeFilter === filter.key
+                          ? { backgroundColor: PRIMARY_BLUE, borderColor: PRIMARY_BLUE }
+                          : {}}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
                   </div>
-                )}
-              </div>
+                  {selectedSku?.isPro && (
+                    <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
+                      <p className="text-sm font-semibold text-yellow-900 mb-1">PRO 专业版特性</p>
+                      <p className="text-xs text-yellow-800">{selectedSku.proFeature || 'PRO 版本提供更高端材质与功能升级。'}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Specification & SKU Selection */}
               <div className="border border-gray-200 rounded-2xl bg-white">
