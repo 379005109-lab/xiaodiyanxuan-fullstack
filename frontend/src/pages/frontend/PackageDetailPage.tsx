@@ -781,7 +781,7 @@ export default function PackageDetailPage() {
                                   <img
                                     src={product.image ? getFileUrl(product.image) : '/placeholder.svg'}
                                     alt={product.name}
-                                    className="aspect-square w-full object-cover rounded-xl"
+                                    className="aspect-square w-full object-contain rounded-xl bg-gray-50"
                                     onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
                                   />
                                   <span className="absolute top-3 left-3 inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-white/90 text-gray-700">
@@ -811,7 +811,7 @@ export default function PackageDetailPage() {
                                       </div>
                                       <div className="text-right">
                                         <p className="text-xs text-gray-400">单价</p>
-                                        <p className="text-xl font-bold text-red-600">¥{(product.price || 0).toLocaleString()}</p>
+                                        <p className="text-xl font-bold text-red-600">¥{(product.basePrice || product.packagePrice || 0).toLocaleString()}</p>
                                       </div>
                                     </div>
 
@@ -1141,11 +1141,16 @@ function ProductPreviewModal({
   if (!category || !product) return null
 
   const [localSelections, setLocalSelections] = useState<Record<string, string>>(materialSelections[product.id] || {})
+  const [selectedSku, setSelectedSku] = useState<any>(product.skus?.[0] || null)
   const [previewImage, setPreviewImage] = useState(product.image)
+  const [showSpecs, setShowSpecs] = useState(true)
+  
   useEffect(() => {
     setLocalSelections(materialSelections[product.id] || {})
     setPreviewImage(product.image)
-  }, [product.id, materialSelections, product.image])
+    setSelectedSku(product.skus?.[0] || null)
+  }, [product.id, materialSelections, product.image, product.skus])
+  
   const surcharge = calculateMaterialSurcharge(product, localSelections)
 
   const handleSelectMaterial = (materialKey: string, option: string) => {
@@ -1198,17 +1203,61 @@ function ProductPreviewModal({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-base font-semibold text-gray-900">选择规格</h4>
-                <span className="text-xs text-gray-400">当前 1款</span>
+                <button
+                  type="button"
+                  onClick={() => setShowSpecs(!showSpecs)}
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+                >
+                  {showSpecs ? '收起' : '展开'}
+                  <ChevronRight className={`h-4 w-4 transition-transform ${showSpecs ? 'rotate-90' : ''}`} />
+                </button>
               </div>
-              <div className="border-2 border-blue-500 rounded-2xl p-4 bg-blue-50">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-gray-900">{product.name}</span>
-                  <span className="text-red-600 font-bold text-lg">¥{(product.price || 0).toLocaleString()}</span>
+              
+              {showSpecs && (
+                <div className="space-y-2">
+                  {product.skus && product.skus.length > 0 ? (
+                    product.skus.map((sku: any, index: number) => {
+                      const isSelected = selectedSku?.code === sku.code
+                      const skuPrice = sku.price || sku.discountPrice || 0
+                      const dimensions = sku.length && sku.width && sku.height
+                        ? `${Math.round(sku.length / 10)}×${Math.round(sku.width / 10)}×${Math.round(sku.height / 10)}cm`
+                        : sku.spec || ''
+                      
+                      return (
+                        <button
+                          key={sku.code || index}
+                          type="button"
+                          onClick={() => setSelectedSku(sku)}
+                          className={`w-full border-2 rounded-2xl p-4 text-left transition ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-semibold text-gray-900">{sku.spec || `规格${index + 1}`}</span>
+                            <span className="text-red-600 font-bold text-lg">¥{skuPrice.toLocaleString()}</span>
+                          </div>
+                          {dimensions && (
+                            <p className="text-sm text-gray-600">尺寸：{dimensions}</p>
+                          )}
+                        </button>
+                      )
+                    })
+                  ) : (
+                    <div className="border-2 border-blue-500 rounded-2xl p-4 bg-blue-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-gray-900">{product.name}</span>
+                        <span className="text-red-600 font-bold text-lg">¥{(product.basePrice || product.packagePrice || 0).toLocaleString()}</span>
+                      </div>
+                      {product.specs && (
+                        <p className="text-sm text-gray-600">规格：{product.specs}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {product.specs && (
-                  <p className="text-sm text-gray-600">尺寸：{product.specs}</p>
-                )}
-              </div>
+              )}
+              
               {surcharge > 0 && (
                 <div className="text-sm text-gray-600">
                   材质升级费用：<span className="text-red-600 font-semibold">+¥{surcharge.toLocaleString()}</span>
