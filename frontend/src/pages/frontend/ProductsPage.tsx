@@ -131,14 +131,31 @@ export default function ProductsPage() {
         const activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');
         
         // 调试：检查商品的风格数据
-        console.log('[ProductsPage] 商品风格数据示例:', 
+        console.log('🔥 [ProductsPage] 加载商品数量:', activeProducts.length);
+        console.log('🔥 [ProductsPage] 前3个商品详情:', 
           activeProducts.slice(0, 3).map((p: any) => ({ 
+            id: p._id,
             name: p.name, 
             styles: p.styles,
-            style: p.style 
+            style: p.style,
+            views: p.views,
+            sales: p.sales,
+            createdAt: p.createdAt
           }))
         );
-        console.log('[ProductsPage] 加载商品数量:', activeProducts.length);
+        
+        // 检查有风格标签的商品
+        const productsWithStyles = activeProducts.filter((p: any) => p.styles && p.styles.length > 0)
+        console.log('🔥 [ProductsPage] 有风格标签的商品数量:', productsWithStyles.length);
+        if (productsWithStyles.length > 0) {
+          console.log('🔥 [ProductsPage] 有风格标签的商品示例:', 
+            productsWithStyles.slice(0, 3).map((p: any) => ({ 
+              name: p.name, 
+              styles: p.styles 
+            }))
+          );
+        }
+        
         setProducts(activeProducts);
       } else {
         setProducts([]);
@@ -226,34 +243,31 @@ export default function ProductsPage() {
     }
   }, [actualPriceRange, searchParams, products.length])
 
-  // 计算商品热度评分（综合多个指标）
+  // 计算商品热度评分（综合浏览、销量、收藏）
   const calculateHotScore = (product: Product): number => {
     const views = product.views || 0
-    const sales = product.sales || 0
-    const rating = product.rating || 0
-    const reviews = product.reviews || 0
+    const sales = product.sales || 0 // 下单数量
+    // 注：收藏数需要后端聚合，暂时使用views作为用户兴趣指标
     
     // 计算商品天数（用于新品加权）
     const daysSinceCreated = (Date.now() - new Date(product.createdAt).getTime()) / (1000 * 60 * 60 * 24)
     const isNewProduct = daysSinceCreated <= 30 // 30天内为新品
     const newProductBonus = isNewProduct ? 1.5 : 1 // 新品加权1.5倍
     
-    // 综合评分：浏览量权重0.2 + 销量权重0.4 + 评分权重0.2 + 评论数权重0.2
+    // 综合评分：浏览量30% + 销量（下单）50% + 浏览转化率20%
     const score = (
-      (views * 0.2) +
-      (sales * 10 * 0.4) + // 销量权重更高
-      (rating * 20 * 0.2) +
-      (reviews * 5 * 0.2)
+      (views * 0.3) +
+      (sales * 15 * 0.5) + // 销量（实际下单）权重最高
+      (views * 0.2) // 用户兴趣度
     ) * newProductBonus
     
     return score
   }
   
-  // 计算推荐评分（偏向新品和高质量）
+  // 计算推荐评分（偏向新品和热门）
   const calculateRecommendScore = (product: Product): number => {
     const views = product.views || 0
     const sales = product.sales || 0
-    const rating = product.rating || 0
     
     // 计算商品天数
     const daysSinceCreated = (Date.now() - new Date(product.createdAt).getTime()) / (1000 * 60 * 60 * 24)
@@ -264,11 +278,11 @@ export default function ProductsPage() {
     else if (daysSinceCreated <= 60) newProductBonus = 1.5
     else if (daysSinceCreated <= 90) newProductBonus = 1.2
     
-    // 推荐评分：更看重评分和新品
+    // 推荐评分：新品40% + 销量35% + 浏览25%
     const score = (
-      (rating * 30 * 0.4) + // 评分权重最高
-      (sales * 8 * 0.3) +
-      (views * 0.3)
+      (sales * 12 * 0.35) + // 销量权重
+      (views * 0.25) + // 浏览量
+      100 // 基础分，让新品加权生效
     ) * newProductBonus
     
     return score
