@@ -28,6 +28,7 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
     },
     description: material?.description || '',  // 材质介绍
     status: material?.status || 'pending' as const,
+    isCategory: material?.isCategory || false, // 是否为类别
   })
 
   const [tagInput, setTagInput] = useState('')
@@ -330,6 +331,38 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
             </div>
           </div>
 
+          {/* 类型选择：类别或SKU */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              材质类型 <span className="text-red-500">*</span>
+            </label>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="materialType"
+                  checked={formData.isCategory === true}
+                  onChange={() => setFormData({ ...formData, isCategory: true })}
+                  className="w-4 h-4 text-primary-600"
+                />
+                <span className="text-sm">类别（如：全青皮、沙发）</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="materialType"
+                  checked={formData.isCategory === false}
+                  onChange={() => setFormData({ ...formData, isCategory: false })}
+                  className="w-4 h-4 text-primary-600"
+                />
+                <span className="text-sm">SKU（如：全青皮-蓝色、劳伦斯）</span>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              类别不可选，仅作为分组；SKU可以被选中使用
+            </p>
+          </div>
+
           {/* 素材名称 */}
           <div>
             <label className="block text-sm font-medium mb-2">
@@ -339,7 +372,7 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="请输入素材名称"
+              placeholder={formData.isCategory ? "例如：全青皮、沙发" : "例如：全青皮-蓝色、劳伦斯"}
               className="input w-full"
               required
             />

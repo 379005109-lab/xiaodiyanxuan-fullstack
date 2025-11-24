@@ -105,6 +105,7 @@ export interface Material {
   description?: string  // 材质介绍
   price?: number
   isPro?: boolean  // 是否为 PRO 材质
+  isCategory?: boolean  // 是否为类别（true=类别，false=SKU）
   status: MaterialStatus
   uploadBy: string
   reviewBy?: string

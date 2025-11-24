@@ -34,6 +34,10 @@ const MaterialSchema = new mongoose.Schema({
     type: Number, 
     default: 0 
   },
+  isCategory: {
+    type: Boolean,
+    default: false // false表示是SKU，true表示是类别
+  },
   reviewBy: String,
   reviewAt: Date,
   reviewNote: String

@@ -331,23 +331,44 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {materialGroups[groupKey].map((material) => {
                         const isSelected = selectedIds.includes(material.name)
+                        const isDisabled = material.isCategory || (material.isPro && !skuIsPro)
                         return (
                           <div
                             key={material._id}
-                            onClick={() => handleSelect(material)}
-                            className={`border rounded-lg overflow-hidden cursor-pointer hover:border-primary-500 hover:shadow-md transition-all relative ${
+                            onClick={() => !isDisabled && handleSelect(material)}
+                            className={`border rounded-lg overflow-hidden transition-all relative ${
+                              isDisabled 
+                                ? 'opacity-50 cursor-not-allowed bg-gray-50' 
+                                : 'cursor-pointer hover:border-primary-500 hover:shadow-md'
+                            } ${
                               isSelected ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : 'border-gray-200'
-                            } ${material.isPro && !skuIsPro ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            }`}
                           >
+                            {/* 类别标识 */}
+                            {material.isCategory && (
+                              <div className="absolute top-2 left-2 bg-gray-500 text-white px-2 py-0.5 rounded text-xs font-bold z-20">
+                                类别
+                              </div>
+                            )}
+                            
                             {/* PRO 标识 */}
-                            {material.isPro && (
+                            {material.isPro && !material.isCategory && (
                               <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-0.5 rounded text-xs font-bold z-20">
                                 PRO
                               </div>
                             )}
                             
-                            {/* 禁用提示 */}
-                            {material.isPro && !skuIsPro && (
+                            {/* 类别不可选提示 */}
+                            {material.isCategory && (
+                              <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-15">
+                                <span className="text-white text-xs font-medium bg-black bg-opacity-50 px-2 py-1 rounded">
+                                  类别不可选
+                                </span>
+                              </div>
+                            )}
+                            
+                            {/* PRO禁用提示 */}
+                            {material.isPro && !skuIsPro && !material.isCategory && (
                               <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center z-15">
                                 <span className="text-white text-xs font-medium bg-black bg-opacity-50 px-2 py-1 rounded">
                                   需要开启 PRO
