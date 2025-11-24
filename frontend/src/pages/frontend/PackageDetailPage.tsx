@@ -1265,7 +1265,7 @@ function ProductPreviewModal({
       setPreviewImage(materialImage)
     } else {
       // 如果没有选中材质，使用商品默认图片
-      setPreviewImage(product.image)
+      setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
     }
   }, [product.id, materialSelections, product.image, product.skus, materialImageMap])
   
