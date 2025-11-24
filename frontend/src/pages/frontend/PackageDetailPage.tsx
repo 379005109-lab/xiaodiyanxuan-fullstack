@@ -215,6 +215,11 @@ export default function PackageDetailPage() {
   const [loading, setLoading] = useState(true)
   const [materialSelections, setMaterialSelections] = useState<MaterialSelectionMap>({})
   const [quantities, setQuantities] = useState<QuantityMap>({})
+  const [selectedProducts, setSelectedProducts] = useState<Record<string, string[]>>({})
+  const [selectionQuantities, setSelectionQuantities] = useState<QuantityMap>({})
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+  const [summaryExpandedCategory, setSummaryExpandedCategory] = useState<string | null>(null)
+  const [activeImage, setActiveImage] = useState<number>(0)
   const [previewContext, setPreviewContext] = useState<{ categoryKey: string; index: number } | null>(null)
   const [note, setNote] = useState('')
   const [isOrderConfirmOpen, setIsOrderConfirmOpen] = useState(false)
@@ -340,6 +345,15 @@ export default function PackageDetailPage() {
   const getProductMaterialSurcharge = (product: PackageProduct) => {
     const selections = materialSelections[product.id]
     return calculateMaterialSurcharge(product, selections)
+  }
+
+  const getProductQuantity = (productId: string) => {
+    return selectionQuantities[productId] || MIN_QUANTITY
+  }
+
+  const getCategorySelectedQuantity = (categoryKey: string) => {
+    const selectedIds = selectedProducts[categoryKey] || []
+    return selectedIds.reduce((sum, productId) => sum + getProductQuantity(productId), 0)
   }
 
   const materialSurchargeTotal = useMemo(() => {
