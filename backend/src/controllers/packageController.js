@@ -1,5 +1,6 @@
 const { successResponse, errorResponse, paginatedResponse } = require('../utils/response')
 const Package = require('../models/Package')
+const Product = require('../models/Product')
 const { calculatePagination } = require('../utils/helpers')
 const FileService = require('../services/fileService')
 
@@ -15,6 +16,31 @@ const list = async (req, res) => {
       .limit(size)
       .lean()
     
+    // 填充商品详细信息
+    for (let pkg of packages) {
+      if (pkg.categories) {
+        for (let category of pkg.categories) {
+          if (category.products && Array.isArray(category.products)) {
+            // 获取所有商品ID
+            const productIds = category.products
+            // 查询商品详细信息
+            const products = await Product.find({ _id: { $in: productIds } }).lean()
+            // 替换商品ID为商品详细信息
+            category.products = products.map(product => ({
+              id: product._id.toString(),
+              name: product.name,
+              image: product.images && product.images[0] ? product.images[0] : null,
+              basePrice: product.basePrice,
+              packagePrice: product.basePrice, // 可以根据套餐设置特殊价格
+              specs: `${product.skus && product.skus[0] ? product.skus[0].dimensions : ''}`,
+              materials: product.materials || {},
+              skus: product.skus || []
+            }))
+          }
+        }
+      }
+    }
+    
     res.json(paginatedResponse(packages, total, page, size))
   } catch (err) {
     console.error('List packages error:', err)
@@ -26,9 +52,32 @@ const getPackage = async (req, res) => {
   try {
     const { id } = req.params
     
-    const pkg = await Package.findById(id)
+    const pkg = await Package.findById(id).lean()
     if (!pkg) {
       return res.status(404).json(errorResponse('Package not found', 404))
+    }
+    
+    // 填充商品详细信息
+    if (pkg.categories) {
+      for (let category of pkg.categories) {
+        if (category.products && Array.isArray(category.products)) {
+          // 获取所有商品ID
+          const productIds = category.products
+          // 查询商品详细信息
+          const products = await Product.find({ _id: { $in: productIds } }).lean()
+          // 替换商品ID为商品详细信息
+          category.products = products.map(product => ({
+            id: product._id.toString(),
+            name: product.name,
+            image: product.images && product.images[0] ? product.images[0] : null,
+            basePrice: product.basePrice,
+            packagePrice: product.basePrice, // 可以根据套餐设置特殊价格
+            specs: `${product.skus && product.skus[0] ? product.skus[0].dimensions : ''}`,
+            materials: product.materials || {},
+            skus: product.skus || []
+          }))
+        }
+      }
     }
     
     res.json(successResponse(pkg))
