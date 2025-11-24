@@ -72,8 +72,23 @@ const remove = async (req, res) => {
   }
 }
 
+// 检查商品是否已收藏
+const check = async (req, res) => {
+  try {
+    const { productId } = req.params
+    
+    const favorite = await Favorite.findOne({ userId: req.userId, productId })
+    
+    res.json(successResponse({ isFavorited: !!favorite }))
+  } catch (err) {
+    console.error('Check favorite error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
 module.exports = {
   list,
   add,
-  remove
+  remove,
+  check
 }
