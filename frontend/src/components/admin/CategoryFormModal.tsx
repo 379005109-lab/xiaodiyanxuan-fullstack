@@ -94,18 +94,27 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
       : 0
 
     try {
+      // 只发送Category模型需要的字段
+      const categoryData = {
+        name: formData.name,
+        image: formData.image,
+        parentId: formData.parentId,
+        level: formData.level,
+        status: formData.status,
+        slug,
+      }
+      
       if (isEdit && category) {
-        await updateCategory(category._id, {
-          ...formData,
-          slug,
-        })
+        await updateCategory(category._id, categoryData)
         toast.success('分类已更新')
       } else {
         await createCategory({
-          ...formData,
-          slug,
+          ...categoryData,
           order: maxOrder + 1,
-        })
+          productCount: 0,
+          hasDiscount: false,
+          discounts: [],
+        } as any)
         toast.success('分类已创建')
       }
       onClose()
