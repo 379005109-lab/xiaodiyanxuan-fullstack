@@ -296,18 +296,19 @@ export default function PackageDetailPage() {
   const loadMaterialImages = async () => {
     try {
       const materials = await getAllMaterials()
-      console.log('Loaded materials:', materials)
+      console.log('🔥 Loaded materials:', materials)
       const imageMap: Record<string, string> = {}
       materials.forEach((material: any) => {
-        if (material.name && material.images && material.images.length > 0) {
-          imageMap[material.name] = material.images[0]
-          console.log('Added material to map:', material.name, '->', material.images[0])
+        // 修复：Material模型中是image（单数），不是images（复数）
+        if (material.name && material.image) {
+          imageMap[material.name] = material.image
+          console.log('🔥 Added material to map:', material.name, '->', material.image)
         }
       })
-      console.log('Final material image map:', imageMap)
+      console.log('🔥 Final material image map:', imageMap)
       setMaterialImageMap(imageMap)
     } catch (error) {
-      console.error('加载材质图片失败:', error)
+      console.error('❌ 加载材质图片失败:', error)
     }
   }
 
