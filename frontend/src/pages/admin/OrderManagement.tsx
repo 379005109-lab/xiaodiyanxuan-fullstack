@@ -6,6 +6,7 @@ import { Order, OrderStatus } from '@/types'
 import { toast } from 'sonner'
 import { useCartStore } from '@/store/cartStore'
 import { mapAdminOrderToCartItems } from '@/utils/conciergeHelper'
+import { getFileUrl } from '@/services/uploadService'
 
 export default function OrderManagement() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -476,7 +477,9 @@ export default function OrderManagement() {
                           <div className="space-y-3">
                             {order.items.map((item, itemIndex) => {
                               const productObj = typeof item.product === 'object' ? item.product : null
-                              const productImage = item.productImage || productObj?.images?.[0]
+                              // 优先使用SKU图片，回退到商品图片
+                              const skuImages = (item as any).sku?.images
+                              const productImage = skuImages?.[0] || item.productImage || productObj?.images?.[0]
                               // 从SKU列表中获取材质信息
                               const targetSku = productObj?.skus?.find((sku: any) => sku._id === (item as any).skuId) || productObj?.skus?.[0]
                               const skuMaterial = targetSku?.material
@@ -488,7 +491,7 @@ export default function OrderManagement() {
                                     {/* 商品图片 */}
                                     {productImage ? (
                                       <img
-                                        src={productImage}
+                                        src={getFileUrl(productImage)}
                                         alt="商品"
                                         className="w-20 h-20 object-cover rounded flex-shrink-0"
                                       />

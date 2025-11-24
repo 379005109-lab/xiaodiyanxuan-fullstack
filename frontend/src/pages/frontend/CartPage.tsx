@@ -243,36 +243,120 @@ export default function CartPage() {
                       {item.selectedMaterials && (
                         <>
                           {item.selectedMaterials.fabric && (
-                            <p>面料: 
-                              <span>{item.selectedMaterials.fabric}</span>
-                              {(item.sku as any).materialUpgradePrices?.[item.selectedMaterials.fabric] > 0 && (
-                                <span className="text-red-600 font-semibold ml-1">(材质升级+¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.fabric]})</span>
-                              )}
-                            </p>
+                            <p>面料: {(() => {
+                              const fabricName = item.selectedMaterials.fabric
+                              const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                              
+                              let upgradePrice = materialUpgradePrices[fabricName]
+                              if (!upgradePrice) {
+                                const fabricBase = fabricName.split(/\s+/)[0]
+                                upgradePrice = materialUpgradePrices[fabricBase]
+                                if (!upgradePrice) {
+                                  for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                                    if (fabricName.includes(key) || key.includes(fabricName)) {
+                                      upgradePrice = price as number
+                                      break
+                                    }
+                                  }
+                                }
+                              }
+                              
+                              return (
+                                <>
+                                  <span>{fabricName}</span>
+                                  {upgradePrice > 0 && (
+                                    <span className="text-red-600 font-semibold ml-1">(材质升级+¥{upgradePrice})</span>
+                                  )}
+                                </>
+                              )
+                            })()}</p>
                           )}
                           {item.selectedMaterials.filling && (
-                            <p>填充: 
-                              <span>{item.selectedMaterials.filling}</span>
-                              {(item.sku as any).materialUpgradePrices?.[item.selectedMaterials.filling] > 0 && (
-                                <span className="text-red-600 font-semibold ml-1">(材质升级+¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.filling]})</span>
-                              )}
-                            </p>
+                            <p>填充: {(() => {
+                              const fillingName = item.selectedMaterials.filling
+                              const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                              
+                              let upgradePrice = materialUpgradePrices[fillingName]
+                              if (!upgradePrice) {
+                                const fillingBase = fillingName.split(/\s+/)[0]
+                                upgradePrice = materialUpgradePrices[fillingBase]
+                                if (!upgradePrice) {
+                                  for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                                    if (fillingName.includes(key) || key.includes(fillingName)) {
+                                      upgradePrice = price as number
+                                      break
+                                    }
+                                  }
+                                }
+                              }
+                              
+                              return (
+                                <>
+                                  <span>{fillingName}</span>
+                                  {upgradePrice > 0 && (
+                                    <span className="text-red-600 font-semibold ml-1">(材质升级+¥{upgradePrice})</span>
+                                  )}
+                                </>
+                              )
+                            })()}</p>
                           )}
                           {item.selectedMaterials.frame && (
-                            <p>框架: 
-                              <span>{item.selectedMaterials.frame}</span>
-                              {(item.sku as any).materialUpgradePrices?.[item.selectedMaterials.frame] > 0 && (
-                                <span className="text-red-600 font-semibold ml-1">(材质升级+¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.frame]})</span>
-                              )}
-                            </p>
+                            <p>框架: {(() => {
+                              const frameName = item.selectedMaterials.frame
+                              const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                              
+                              let upgradePrice = materialUpgradePrices[frameName]
+                              if (!upgradePrice) {
+                                const frameBase = frameName.split(/\s+/)[0]
+                                upgradePrice = materialUpgradePrices[frameBase]
+                                if (!upgradePrice) {
+                                  for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                                    if (frameName.includes(key) || key.includes(frameName)) {
+                                      upgradePrice = price as number
+                                      break
+                                    }
+                                  }
+                                }
+                              }
+                              
+                              return (
+                                <>
+                                  <span>{frameName}</span>
+                                  {upgradePrice > 0 && (
+                                    <span className="text-red-600 font-semibold ml-1">(材质升级+¥{upgradePrice})</span>
+                                  )}
+                                </>
+                              )
+                            })()}</p>
                           )}
                           {item.selectedMaterials.leg && (
-                            <p>脚架: 
-                              <span>{item.selectedMaterials.leg}</span>
-                              {(item.sku as any).materialUpgradePrices?.[item.selectedMaterials.leg] > 0 && (
-                                <span className="text-red-600 font-semibold ml-1">(材质升级+¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.leg]})</span>
-                              )}
-                            </p>
+                            <p>脚架: {(() => {
+                              const legName = item.selectedMaterials.leg
+                              const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                              
+                              let upgradePrice = materialUpgradePrices[legName]
+                              if (!upgradePrice) {
+                                const legBase = legName.split(/\s+/)[0]
+                                upgradePrice = materialUpgradePrices[legBase]
+                                if (!upgradePrice) {
+                                  for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                                    if (legName.includes(key) || key.includes(legName)) {
+                                      upgradePrice = price as number
+                                      break
+                                    }
+                                  }
+                                }
+                              }
+                              
+                              return (
+                                <>
+                                  <span>{legName}</span>
+                                  {upgradePrice > 0 && (
+                                    <span className="text-red-600 font-semibold ml-1">(材质升级+¥{upgradePrice})</span>
+                                  )}
+                                </>
+                              )
+                            })()}</p>
                           )}
                         </>
                       )}
