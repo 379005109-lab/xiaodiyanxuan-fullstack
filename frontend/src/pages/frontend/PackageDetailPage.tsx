@@ -1306,7 +1306,7 @@ function ProductPreviewModal({
         </div>
         <div className="grid md:grid-cols-2 gap-8 p-6">
           <div className="relative aspect-square bg-gray-50 rounded-2xl overflow-hidden">
-            <img src={previewImage === '/placeholder.svg' || previewImage.startsWith('http') ? previewImage : getFileUrl(previewImage)} alt={product.name} className="w-full h-full object-cover" />
+            <img src={previewImage && previewImage !== '/placeholder.svg' && !previewImage.startsWith('http') ? getFileUrl(previewImage) : previewImage} alt={product.name} className="w-full h-full object-cover" />
             <button
               onClick={() => onNavigate('prev')}
               className="absolute top-1/2 -translate-y-1/2 left-4 bg-white/90 hover:bg-white rounded-full p-3 shadow"
