@@ -19,27 +19,102 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
           
           // 优先使用新的categories结构（后端已填充完整商品信息）
           if (pkg.categories && pkg.categories.length > 0) {
-            // 直接使用后端返回的categories数据
+            // 直接使用后端返回的categories数据，但需要从SKU提取材质信息
             categories = pkg.categories.map((cat: any) => ({
               key: cat._id || cat.name,
               name: cat.name,
               required: cat.required || 1,
-              products: cat.products.map((product: any) => ({
-                id: product.id,
-                name: product.name,
-                category: cat.name,
-                basePrice: product.basePrice || 0,
-                packagePrice: product.packagePrice || product.basePrice,
-                image: product.image ? getFileUrl(product.image) : '/placeholder.svg',
-                images: product.image ? [getFileUrl(product.image)] : [],
-                specs: product.specs || '',
-                description: product.description || '',
-                materials: product.materials || {},
-                materialImages: {},
-                skus: product.skus || [],
-                specifications: product.specifications,
-                videos: product.videos
-              }))
+              products: cat.products.map((product: any) => {
+                // 从SKU中提取材质信息
+                const materials: Record<string, string[]> = {}
+                const materialImages: Record<string, string> = {}
+                let specs = product.specs || ''
+                
+                if (product.skus && product.skus.length > 0) {
+                  const fabricSet = new Set<string>()
+                  const fillingSet = new Set<string>()
+                  const frameSet = new Set<string>()
+                  const legSet = new Set<string>()
+                  
+                  product.skus.forEach((sku: any) => {
+                    // 提取材质
+                    if (sku.material) {
+                      if (Array.isArray(sku.material.fabric)) {
+                        sku.material.fabric.forEach((f: string) => fabricSet.add(f))
+                      } else if (sku.material.fabric) {
+                        fabricSet.add(sku.material.fabric)
+                      }
+                      
+                      if (Array.isArray(sku.material.filling)) {
+                        sku.material.filling.forEach((f: string) => fillingSet.add(f))
+                      } else if (sku.material.filling) {
+                        fillingSet.add(sku.material.filling)
+                      }
+                      
+                      if (Array.isArray(sku.material.frame)) {
+                        sku.material.frame.forEach((f: string) => frameSet.add(f))
+                      } else if (sku.material.frame) {
+                        frameSet.add(sku.material.frame)
+                      }
+                      
+                      if (Array.isArray(sku.material.leg)) {
+                        sku.material.leg.forEach((l: string) => legSet.add(l))
+                      } else if (sku.material.leg) {
+                        legSet.add(sku.material.leg)
+                      }
+                    }
+                    
+                    // 提取材质图片
+                    if (sku.images && sku.images.length > 0) {
+                      const skuImage = getFileUrl(sku.images[0])
+                      if (sku.material) {
+                        if (Array.isArray(sku.material.fabric)) {
+                          sku.material.fabric.forEach((f: string) => {
+                            if (!materialImages[f]) materialImages[f] = skuImage
+                          })
+                        }
+                        if (Array.isArray(sku.material.filling)) {
+                          sku.material.filling.forEach((f: string) => {
+                            if (!materialImages[f]) materialImages[f] = skuImage
+                          })
+                        }
+                        if (Array.isArray(sku.material.frame)) {
+                          sku.material.frame.forEach((f: string) => {
+                            if (!materialImages[f]) materialImages[f] = skuImage
+                          })
+                        }
+                        if (Array.isArray(sku.material.leg)) {
+                          sku.material.leg.forEach((l: string) => {
+                            if (!materialImages[l]) materialImages[l] = skuImage
+                          })
+                        }
+                      }
+                    }
+                  })
+                  
+                  if (fabricSet.size > 0) materials['fabric'] = Array.from(fabricSet)
+                  if (fillingSet.size > 0) materials['filling'] = Array.from(fillingSet)
+                  if (frameSet.size > 0) materials['frame'] = Array.from(frameSet)
+                  if (legSet.size > 0) materials['leg'] = Array.from(legSet)
+                }
+                
+                return {
+                  id: product.id,
+                  name: product.name,
+                  category: cat.name,
+                  basePrice: product.basePrice || 0,
+                  packagePrice: product.packagePrice || product.basePrice,
+                  image: product.image ? getFileUrl(product.image) : '/placeholder.svg',
+                  images: product.image ? [getFileUrl(product.image)] : [],
+                  specs: specs,
+                  description: product.description || '',
+                  materials: materials,
+                  materialImages: materialImages,
+                  skus: product.skus || [],
+                  specifications: product.specifications,
+                  videos: product.videos
+                }
+              })
             }))
           }
           // 如果没有新的categories结构，按旧方式处理products数组
