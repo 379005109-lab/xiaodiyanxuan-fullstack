@@ -16,6 +16,17 @@ const listProducts = async (req, res) => {
       sortBy
     })
     
+    // 调试日志：检查返回的商品styles
+    const productsWithStyles = result.products.filter(p => p.styles && p.styles.length > 0)
+    console.log('🔥 [商品列表] 总商品数:', result.total)
+    console.log('🔥 [商品列表] 有styles的商品数:', productsWithStyles.length)
+    if (productsWithStyles.length > 0) {
+      console.log('🔥 [商品列表] 示例:', productsWithStyles.slice(0, 2).map(p => ({
+        name: p.name,
+        styles: p.styles
+      })))
+    }
+    
     res.json(paginatedResponse(result.products, result.total, result.page, result.pageSize))
   } catch (err) {
     console.error('List products error:', err)
@@ -215,6 +226,11 @@ const updateProduct = async (req, res) => {
   try {
     const { id } = req.params
     const productData = req.body
+    
+    // 调试日志：检查styles字段
+    console.log('🔥 [更新商品] ID:', id)
+    console.log('🔥 [更新商品] 接收到的styles:', productData.styles)
+    console.log('🔥 [更新商品] 商品名称:', productData.name)
 
     const product = await Product.findByIdAndUpdate(
       id,
@@ -225,6 +241,9 @@ const updateProduct = async (req, res) => {
     if (!product) {
       return res.status(404).json(errorResponse('商品不存在', 404))
     }
+    
+    // 调试日志：确认保存后的styles
+    console.log('🔥 [更新商品] 保存后的styles:', product.styles)
 
     res.json(successResponse(product, '商品更新成功'))
   } catch (err) {

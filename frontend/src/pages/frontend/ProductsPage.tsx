@@ -208,6 +208,10 @@ export default function ProductsPage() {
     // 风格筛选 - 从styles数组中匹配
     if (filters.style) {
       const productStyles = (product as any).styles || []
+      
+      // 添加调试日志
+      console.log(`🔍 风格筛选: 商品"${product.name}" 的风格:`, productStyles, '| 筛选条件:', filters.style, '| 匹配:', productStyles.includes(filters.style))
+      
       if (!Array.isArray(productStyles) || !productStyles.includes(filters.style)) {
         return false
       }
