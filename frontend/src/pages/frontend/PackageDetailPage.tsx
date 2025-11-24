@@ -1093,6 +1093,7 @@ export default function PackageDetailPage() {
             materialSelections={materialSelections}
             onConfirmSelection={handleMaterialModalConfirm}
             calculateMaterialSurcharge={calculateMaterialSurcharge}
+            getOptionPremium={getOptionPremium}
           />
         )}
         {isOrderConfirmOpen && (
@@ -1124,6 +1125,7 @@ interface ProductPreviewProps {
     product: PackageProductOption,
     selections?: Record<string, string>
   ) => number
+  getOptionPremium: (option: string, basePrice: number) => number
 }
 
 function ProductPreviewModal({
@@ -1134,6 +1136,7 @@ function ProductPreviewModal({
   materialSelections,
   onConfirmSelection,
   calculateMaterialSurcharge,
+  getOptionPremium,
 }: ProductPreviewProps) {
   const category = pkg.categories.find((c) => c.key === previewContext.categoryKey)
   const product = category?.products[previewContext.index]
