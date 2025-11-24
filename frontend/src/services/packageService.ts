@@ -15,10 +15,35 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
       // 获取所有产品的详细信息
       const packagesWithDetails = await Promise.all(
         apiData.map(async (pkg: any) => {
-          const categories: any[] = []
+          let categories: any[] = []
           
-          // 按类别分组产品
-          if (pkg.products && pkg.products.length > 0) {
+          // 优先使用新的categories结构（后端已填充完整商品信息）
+          if (pkg.categories && pkg.categories.length > 0) {
+            // 直接使用后端返回的categories数据
+            categories = pkg.categories.map((cat: any) => ({
+              key: cat._id || cat.name,
+              name: cat.name,
+              required: cat.required || 1,
+              products: cat.products.map((product: any) => ({
+                id: product.id,
+                name: product.name,
+                category: cat.name,
+                basePrice: product.basePrice || 0,
+                packagePrice: product.packagePrice || product.basePrice,
+                image: product.image ? getFileUrl(product.image) : '/placeholder.svg',
+                images: product.image ? [getFileUrl(product.image)] : [],
+                specs: product.specs || '',
+                description: product.description || '',
+                materials: product.materials || {},
+                materialImages: {},
+                skus: product.skus || [],
+                specifications: product.specifications,
+                videos: product.videos
+              }))
+            }))
+          }
+          // 如果没有新的categories结构，按旧方式处理products数组
+          else if (pkg.products && pkg.products.length > 0) {
             // 获取所有产品详情
             const productDetails = await Promise.all(
               pkg.products.map(async (item: any) => {
