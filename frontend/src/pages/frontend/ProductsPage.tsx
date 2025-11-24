@@ -51,14 +51,27 @@ export default function ProductsPage() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000])
   const [priceRangeInput, setPriceRangeInput] = useState<[number, number]>([0, 500000])
 
-  // 风格筛选选项
-  const styleOptions = [
-    { value: '', label: '全部风格' },
-    { value: '中古风', label: '中古风' },
-    { value: '轻奢风', label: '轻奢风' },
-    { value: '极简风', label: '极简风' },
-    { value: '现代风', label: '现代风' }
-  ]
+  // 风格筛选选项 - 从商品中动态获取
+  const styleOptions = useMemo(() => {
+    const stylesSet = new Set<string>()
+    products.forEach(product => {
+      if ((product as any).styles && Array.isArray((product as any).styles)) {
+        (product as any).styles.forEach((style: string) => stylesSet.add(style))
+      }
+    })
+    return [
+      { value: '', label: '全部风格' },
+      ...Array.from(stylesSet).map(style => ({ value: style, label: style }))
+    ]
+  }, [products])
+  
+  // 风格卡片图片配置
+  const styleCardImages: Record<string, string> = {
+    '现代风': '/styles/modern.jpg',
+    '中古风': '/styles/vintage.jpg',
+    '轻奢风': '/styles/luxury.jpg',
+    '极简风': '/styles/minimal.jpg'
+  }
 
   // 加载商品数据
   useEffect(() => {
@@ -153,9 +166,12 @@ export default function ProductsPage() {
       }
     }
     
-    // 风格筛选
-    if (filters.style && product.style !== filters.style) {
-      return false
+    // 风格筛选 - 从styles数组中匹配
+    if (filters.style) {
+      const productStyles = (product as any).styles || []
+      if (!Array.isArray(productStyles) || !productStyles.includes(filters.style)) {
+        return false
+      }
     }
     
     // 价格筛选
@@ -403,13 +419,13 @@ export default function ProductsPage() {
 
           {/* 主内容区 */}
           <main className="flex-1">
-            {/* 商城统计卡片 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {/* 商城统计卡片 - 风格展示（宽卡片带图片） */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {[
-                { label: '商品总数', value: products.length, icon: Grid, color: 'text-blue-600' },
-                { label: '中古风', value: products.filter(p => p.style === '中古风').length, icon: TrendingUp, color: 'text-amber-600' },
-                { label: '轻奢风', value: products.filter(p => p.style === '轻奢风').length, icon: Zap, color: 'text-purple-600' },
-                { label: '极简风', value: products.filter(p => p.style === '极简风').length, icon: Star, color: 'text-gray-600' },
+                { label: '现代风', value: products.filter(p => (p as any).styles?.includes('现代风')).length, icon: Grid, color: 'text-blue-600', bgColor: 'from-blue-500 to-blue-600', image: styleCardImages['现代风'] },
+                { label: '中古风', value: products.filter(p => (p as any).styles?.includes('中古风')).length, icon: TrendingUp, color: 'text-amber-600', bgColor: 'from-amber-500 to-amber-600', image: styleCardImages['中古风'] },
+                { label: '轻奢风', value: products.filter(p => (p as any).styles?.includes('轻奢风')).length, icon: Zap, color: 'text-purple-600', bgColor: 'from-purple-500 to-purple-600', image: styleCardImages['轻奢风'] },
+                { label: '极简风', value: products.filter(p => (p as any).styles?.includes('极简风')).length, icon: Star, color: 'text-gray-600', bgColor: 'from-gray-500 to-gray-600', image: styleCardImages['极简风'] },
               ].map((stat, index) => {
                 const Icon = stat.icon
                 return (
@@ -418,15 +434,34 @@ export default function ProductsPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className="card p-4"
+                    onClick={() => {
+                      setFilters({ ...filters, style: stat.label })
+                      setSearchParams({ ...Object.fromEntries(searchParams), style: stat.label })
+                      setCurrentPage(1)
+                    }}
+                    className="relative overflow-hidden rounded-xl cursor-pointer group h-32 shadow-md hover:shadow-xl transition-all"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg bg-gray-50`}>
-                        <Icon className={`h-5 w-5 ${stat.color}`} />
+                    {/* 背景图片 */}
+                    {stat.image ? (
+                      <div 
+                        className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110"
+                        style={{ backgroundImage: `url(${stat.image})` }}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br ${stat.bgColor} opacity-60`} />
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-600">{stat.label}</p>
-                        <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
+                    ) : (
+                      <div className={`absolute inset-0 bg-gradient-to-br ${stat.bgColor}`} />
+                    )}
+                    
+                    {/* 内容 */}
+                    <div className="relative h-full flex flex-col justify-between p-5 text-white">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-bold tracking-wide">{stat.label}</h3>
+                        <Icon className="h-6 w-6 opacity-80" />
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-black">{stat.value}</span>
+                        <span className="text-sm opacity-90">件商品</span>
                       </div>
                     </div>
                   </motion.div>
