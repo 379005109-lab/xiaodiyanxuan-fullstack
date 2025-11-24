@@ -24,6 +24,11 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     const loadFavoriteProducts = async () => {
+      if (favorites.length === 0) {
+        setProducts([])
+        return
+      }
+
       const result = await Promise.all(
         favorites.map(async (fav) => {
           // 如果 product 是对象，直接返回
@@ -32,17 +37,20 @@ export default function FavoritesPage() {
           }
           // 否则根据 product ID 获取
           const productId = typeof fav.product === 'string' ? fav.product : fav._id
-          const mockProduct = await getMockProductById(productId)
-          if (mockProduct) return mockProduct
-          return await getApiProductById(productId)
+          try {
+            const mockProduct = await getMockProductById(productId)
+            if (mockProduct) return mockProduct
+            return await getApiProductById(productId)
+          } catch (error) {
+            console.error(`获取产品失败 ${productId}:`, error)
+            return null
+          }
         })
       )
       setProducts(result.filter((product): product is Product => !!product))
     }
 
-    if (favorites.length > 0) {
-      loadFavoriteProducts()
-    }
+    loadFavoriteProducts()
   }, [favorites])
 
   const handleRemove = async (productId: string) => {
