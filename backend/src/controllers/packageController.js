@@ -21,8 +21,18 @@ const list = async (req, res) => {
       if (pkg.categories) {
         for (let category of pkg.categories) {
           if (category.products && Array.isArray(category.products)) {
-            // 获取所有商品ID
-            const productIds = category.products
+            // 提取商品ID（兼容旧数据：可能是字符串ID或完整对象）
+            const productIds = category.products.map(p => {
+              if (typeof p === 'string') {
+                return p  // 新数据：字符串ID
+              } else if (p && p._id) {
+                return p._id.toString()  // 旧数据：完整对象，提取ID
+              } else if (p && p.id) {
+                return p.id  // 旧数据：已转换的对象，提取id
+              }
+              return null
+            }).filter(id => id !== null)
+            
             // 查询商品详细信息
             const products = await Product.find({ _id: { $in: productIds } }).lean()
             
@@ -34,7 +44,7 @@ const list = async (req, res) => {
             
             // 替换商品ID为商品详细信息，保持顺序，处理已删除商品
             category.products = productIds.map(productId => {
-              const product = productMap[productId.toString()]
+              const product = productMap[productId]
               
               // 商品已被删除
               if (!product) {
@@ -105,8 +115,18 @@ const getPackage = async (req, res) => {
     if (pkg.categories) {
       for (let category of pkg.categories) {
         if (category.products && Array.isArray(category.products)) {
-          // 获取所有商品ID
-          const productIds = category.products
+          // 提取商品ID（兼容旧数据：可能是字符串ID或完整对象）
+          const productIds = category.products.map(p => {
+            if (typeof p === 'string') {
+              return p  // 新数据：字符串ID
+            } else if (p && p._id) {
+              return p._id.toString()  // 旧数据：完整对象，提取ID
+            } else if (p && p.id) {
+              return p.id  // 旧数据：已转换的对象，提取id
+            }
+            return null
+          }).filter(id => id !== null)
+          
           // 查询商品详细信息
           const products = await Product.find({ _id: { $in: productIds } }).lean()
           
@@ -118,7 +138,7 @@ const getPackage = async (req, res) => {
           
           // 替换商品ID为商品详细信息，保持顺序，处理已删除商品
           category.products = productIds.map(productId => {
-            const product = productMap[productId.toString()]
+            const product = productMap[productId]
             
             // 商品已被删除
             if (!product) {
