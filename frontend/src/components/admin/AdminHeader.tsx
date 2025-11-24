@@ -182,14 +182,13 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
 
       {/* 右侧 */}
       <div className="flex items-center space-x-4">
-        {roleBadge && (
-          <button
-            onClick={() => navigate('/')}
-            className="hidden md:flex items-center gap-2 px-3 py-2 text-xs font-medium text-primary-600 bg-primary-50 border border-primary-200 rounded-full hover:bg-primary-100"
-          >
-            <ExternalLink className="h-4 w-4" /> 返回前台网站
-          </button>
-        )}
+        {/* 返回前台网站按钮 - 所有用户可见 */}
+        <button
+          onClick={() => navigate('/')}
+          className="hidden md:flex items-center gap-2 px-3 py-2 text-xs font-medium text-primary-600 bg-primary-50 border border-primary-200 rounded-full hover:bg-primary-100 transition-colors"
+        >
+          <ExternalLink className="h-4 w-4" /> 返回前台首页
+        </button>
 
         {/* 通知 */}
         <div className="relative">

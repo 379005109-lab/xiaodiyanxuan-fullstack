@@ -10,6 +10,7 @@ import { useFavoriteStore } from '@/store/favoriteStore'
 import { useCompareStore } from '@/store/compareStore'
 import { useCartStore } from '@/store/cartStore'
 import { toast } from 'sonner'
+import { getFileUrl } from '@/services/uploadService'
 
 export default function FavoritesPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -58,8 +59,12 @@ export default function FavoritesPage() {
     toast.success('已添加到购物车')
   }
 
-  const handleAddToCompare = (productId: string) => {
-    const result = addToCompareStore(productId)
+  const handleAddToCompare = (product: Product) => {
+    if (!product.skus || product.skus.length === 0) {
+      toast.error('该商品暂无可选规格')
+      return
+    }
+    const result = addToCompareStore(product._id, product.skus[0]._id)
     if (result.success) {
       toast.success(result.message)
     } else {
@@ -106,7 +111,7 @@ export default function FavoritesPage() {
                 {/* 商品图片 */}
                 <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100">
                   <img
-                    src={product.images[0]}
+                    src={getFileUrl((product.images && product.images[0]) || '/placeholder.png')}
                     alt={product.name}
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                   />
@@ -155,7 +160,7 @@ export default function FavoritesPage() {
                   加购物车
                 </button>
                 <button
-                  onClick={() => handleAddToCompare(product._id)}
+                  onClick={() => handleAddToCompare(product)}
                   className="flex-1 py-2.5 rounded-lg border font-medium text-sm flex items-center justify-center gap-1 transition-all duration-200"
                   style={{ borderColor: '#1F64FF', color: '#1F64FF', backgroundColor: '#f0f5ff' }}
                 >
