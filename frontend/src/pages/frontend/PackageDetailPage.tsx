@@ -1328,8 +1328,16 @@ function ProductPreviewModal({
       [materialKey]: option,
     }))
     
-    // 检查是否是规格选择
-    const isSpecSelection = ['spec', 'size', 'specification', '规格', '尺寸'].includes(materialKey.toLowerCase())
+    // 扩展规格字段识别：检查是否是规格选择
+    const materialKeyLower = materialKey.toLowerCase()
+    const isSpecSelection = 
+      materialKeyLower.includes('spec') || 
+      materialKeyLower.includes('size') || 
+      materialKeyLower.includes('规格') || 
+      materialKeyLower.includes('尺寸') ||
+      materialKeyLower.includes('型号') ||
+      materialKeyLower === 'specifications' ||
+      materialKey === 'spec'
     
     if (isSpecSelection) {
       console.log(`📐 [规格选择] materialKey: ${materialKey}, option: ${option}, 查找SKU图片`)
@@ -1337,29 +1345,52 @@ function ProductPreviewModal({
       // 查找匹配的SKU
       if (product.skus && product.skus.length > 0) {
         const matchingSku = product.skus.find(sku => 
-          sku.spec === option || sku.spec?.includes(option) || option.includes(sku.spec || '')
+          sku.spec === option || 
+          sku.spec?.includes(option) || 
+          option.includes(sku.spec || '') ||
+          sku.code === option ||
+          sku.dimensions === option
         )
         
         if (matchingSku) {
           console.log(`✅ [找到SKU] ${option}:`, matchingSku)
           setSelectedSku(matchingSku)
           
-          // 使用SKU的图片或商品默认图片
+          // 优先使用SKU的图片
           if (matchingSku.images && matchingSku.images.length > 0) {
             const skuImageUrl = getFileUrl(matchingSku.images[0])
             console.log(`🖼️ [SKU图片] 使用SKU第一张图片:`, skuImageUrl)
             setPreviewImage(skuImageUrl)
+          } else if (matchingSku.image) {
+            // 尝试使用SKU的单张图片字段
+            const skuImageUrl = getFileUrl(matchingSku.image)
+            console.log(`🖼️ [SKU图片] 使用SKU图片:`, skuImageUrl)
+            setPreviewImage(skuImageUrl)
+          } else if (product.images && product.images.length > 0) {
+            // 使用商品的图片数组
+            const productImageUrl = getFileUrl(product.images[0])
+            console.log(`🖼️ [商品图片] 使用商品第一张图片:`, productImageUrl)
+            setPreviewImage(productImageUrl)
           } else {
-            console.log(`🖼️ [SKU图片] SKU无图片，使用商品默认图`)
+            console.log(`🖼️ [默认图片] SKU和商品都无图片，使用默认图`)
             setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
           }
         } else {
-          console.log(`❌ [未找到SKU] ${option}`)
-          setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+          console.log(`❌ [未找到SKU] ${option}，尝试使用商品图片`)
+          // 未找到匹配的SKU，使用商品图片
+          if (product.images && product.images.length > 0) {
+            setPreviewImage(getFileUrl(product.images[0]))
+          } else {
+            setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+          }
         }
       } else {
-        console.log(`⚠️ [无SKU] 商品没有SKU数据`)
-        setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+        console.log(`⚠️ [无SKU] 商品没有SKU数据，使用商品图片`)
+        if (product.images && product.images.length > 0) {
+          setPreviewImage(getFileUrl(product.images[0]))
+        } else {
+          setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+        }
       }
     } else {
       // 材质选择：显示材质图片

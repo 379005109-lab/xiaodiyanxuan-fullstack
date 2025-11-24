@@ -5,7 +5,7 @@ const { calculatePagination } = require('../utils/helpers')
 
 const list = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10 } = req.query
+    const { page = 1, pageSize = 100 } = req.query  // 默认返回更多收藏
     const { skip, pageSize: size } = calculatePagination(page, pageSize)
     
     const total = await Favorite.countDocuments({ userId: req.userId })
@@ -15,7 +15,26 @@ const list = async (req, res) => {
       .limit(size)
       .lean()
     
-    res.json(paginatedResponse(favorites, total, page, size))
+    // 填充商品详细信息
+    const favoritesWithProducts = await Promise.all(
+      favorites.map(async (fav) => {
+        try {
+          const product = await Product.findById(fav.productId).lean()
+          return {
+            ...fav,
+            product: product || null,  // 如果商品被删除，返回null
+          }
+        } catch (err) {
+          console.error(`Error fetching product ${fav.productId}:`, err)
+          return {
+            ...fav,
+            product: null,
+          }
+        }
+      })
+    )
+    
+    res.json(paginatedResponse(favoritesWithProducts, total, page, size))
   } catch (err) {
     console.error('List favorites error:', err)
     res.status(500).json(errorResponse(err.message, 500))
