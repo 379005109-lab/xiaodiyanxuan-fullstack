@@ -872,17 +872,24 @@ const ProductDetailPage = () => {
                                         const isSelected = selectedOption === materialName;
                                         const isSingle = list.length === 1;
                                         const preview = getMaterialPreviewImage(materialName);
+                                        const materialUpgrade = selectedSku.materialUpgradePrices?.[materialName] ?? 0;
                                         return (
                                           <button
                                             key={materialName}
                                             type="button"
                                             onClick={() => !isSingle && handleMaterialChoice(section.key, materialName)}
                                             className={cn(
-                                              'flex flex-col items-center gap-2',
+                                              'flex flex-col items-center gap-2 relative',
                                               isSingle ? 'cursor-default' : 'cursor-pointer'
                                             )}
                                             disabled={isSingle}
                                           >
+                                            {/* 加价标签 */}
+                                            {materialUpgrade > 0 && (
+                                              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium shadow-sm z-10">
+                                                +¥{materialUpgrade}
+                                              </span>
+                                            )}
                                             <span
                                               className={cn(
                                                 'w-14 h-14 rounded-lg border-2 flex items-center justify-center overflow-hidden transition-all',
