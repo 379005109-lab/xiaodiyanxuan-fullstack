@@ -10,6 +10,7 @@ import { useCompareStore } from '@/store/compareStore'
 import { useCartStore } from '@/store/cartStore'
 import { toast } from 'sonner'
 import cloudServices from '@/services/cloudServices'
+import { getFileUrl } from '@/services/uploadService'
 
 interface CompareItemDetail {
   product: Product
@@ -215,7 +216,7 @@ export default function ComparePage() {
                     </button>
                     <Link to={`/products/${item.product._id}`}>
                       <img
-                        src={item.sku.images?.[0] || item.product.images[0]}
+                        src={getFileUrl(item.sku.images?.[0] || item.product.images?.[0] || '/placeholder.png')}
                         alt={item.product.name}
                         className="w-full h-48 object-cover rounded-lg mb-3"
                       />
@@ -340,7 +341,7 @@ export default function ComparePage() {
                           <div className="flex flex-col items-center gap-2">
                             {fabricImage && (
                               <img
-                                src={fabricImage}
+                                src={getFileUrl(fabricImage)}
                                 alt={fabricDisplay}
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
@@ -379,7 +380,7 @@ export default function ComparePage() {
                           <div className="flex flex-col items-center gap-2">
                             {fillingImage && (
                               <img
-                                src={fillingImage}
+                                src={getFileUrl(fillingImage)}
                                 alt={fillingDisplay}
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
@@ -418,7 +419,7 @@ export default function ComparePage() {
                           <div className="flex flex-col items-center gap-2">
                             {frameImage && (
                               <img
-                                src={frameImage}
+                                src={getFileUrl(frameImage)}
                                 alt={frameDisplay}
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
@@ -457,7 +458,7 @@ export default function ComparePage() {
                           <div className="flex flex-col items-center gap-2">
                             {legImage && (
                               <img
-                                src={legImage}
+                                src={getFileUrl(legImage)}
                                 alt={legDisplay}
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />

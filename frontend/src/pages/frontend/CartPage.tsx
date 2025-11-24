@@ -243,39 +243,35 @@ export default function CartPage() {
                         <>
                           {item.selectedMaterials.fabric && (
                             <p>面料: 
-                              {(item.sku as any).materialUpgradePrices?.[item.selectedMaterials.fabric] ? (
-                                <span className="text-red-600 font-bold">{item.selectedMaterials.fabric} +¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.fabric]}</span>
-                              ) : (
-                                <span>{item.selectedMaterials.fabric}</span>
-                              )
-                            }</p>
+                              <span>{item.selectedMaterials.fabric}</span>
+                              {(item.sku as any).materialUpgradePrices?.[item.selectedMaterials.fabric] > 0 && (
+                                <span className="text-red-600 font-semibold ml-1">(材质升级+¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.fabric]})</span>
+                              )}
+                            </p>
                           )}
                           {item.selectedMaterials.filling && (
-                            <p>填充: {
-                              (item.sku as any).materialUpgradePrices?.[item.selectedMaterials.filling] ? (
-                                <span className="text-red-600 font-bold">{item.selectedMaterials.filling} +¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.filling]}</span>
-                              ) : (
-                                <span>{item.selectedMaterials.filling}</span>
-                              )
-                            }</p>
+                            <p>填充: 
+                              <span>{item.selectedMaterials.filling}</span>
+                              {(item.sku as any).materialUpgradePrices?.[item.selectedMaterials.filling] > 0 && (
+                                <span className="text-red-600 font-semibold ml-1">(材质升级+¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.filling]})</span>
+                              )}
+                            </p>
                           )}
                           {item.selectedMaterials.frame && (
-                            <p>框架: {
-                              (item.sku as any).materialUpgradePrices?.[item.selectedMaterials.frame] ? (
-                                <span className="text-red-600 font-bold">{item.selectedMaterials.frame} +¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.frame]}</span>
-                              ) : (
-                                <span>{item.selectedMaterials.frame}</span>
-                              )
-                            }</p>
+                            <p>框架: 
+                              <span>{item.selectedMaterials.frame}</span>
+                              {(item.sku as any).materialUpgradePrices?.[item.selectedMaterials.frame] > 0 && (
+                                <span className="text-red-600 font-semibold ml-1">(材质升级+¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.frame]})</span>
+                              )}
+                            </p>
                           )}
                           {item.selectedMaterials.leg && (
-                            <p>脚架: {
-                              (item.sku as any).materialUpgradePrices?.[item.selectedMaterials.leg] ? (
-                                <span className="text-red-600 font-bold">{item.selectedMaterials.leg} +¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.leg]}</span>
-                              ) : (
-                                <span>{item.selectedMaterials.leg}</span>
-                              )
-                            }</p>
+                            <p>脚架: 
+                              <span>{item.selectedMaterials.leg}</span>
+                              {(item.sku as any).materialUpgradePrices?.[item.selectedMaterials.leg] > 0 && (
+                                <span className="text-red-600 font-semibold ml-1">(材质升级+¥{(item.sku as any).materialUpgradePrices[item.selectedMaterials.leg]})</span>
+                              )}
+                            </p>
                           )}
                         </>
                       )}
@@ -294,10 +290,13 @@ export default function CartPage() {
                                       ? (item.sku.material as any).fabric[0] 
                                       : (item.sku.material as any).fabric
                                     const upgradePrice = (item.sku as any).materialUpgradePrices?.[fabricName]
-                                    return upgradePrice ? (
-                                      <span className="text-red-600 font-bold">{fabricName} +¥{upgradePrice}</span>
-                                    ) : (
-                                      <span>{fabricName}</span>
+                                    return (
+                                      <>
+                                        <span>{fabricName}</span>
+                                        {upgradePrice > 0 && (
+                                          <span className="text-red-600 font-semibold ml-1">(材质升级+¥{upgradePrice})</span>
+                                        )}
+                                      </>
                                     )
                                   })()
                                 }</p>
@@ -309,10 +308,13 @@ export default function CartPage() {
                                       ? (item.sku.material as any).filling[0] 
                                       : (item.sku.material as any).filling
                                     const upgradePrice = (item.sku as any).materialUpgradePrices?.[fillingName]
-                                    return upgradePrice ? (
-                                      <span className="text-red-600 font-bold">{fillingName} +¥{upgradePrice}</span>
-                                    ) : (
-                                      <span>{fillingName}</span>
+                                    return (
+                                      <>
+                                        <span>{fillingName}</span>
+                                        {upgradePrice > 0 && (
+                                          <span className="text-red-600 font-semibold ml-1">(材质升级+¥{upgradePrice})</span>
+                                        )}
+                                      </>
                                     )
                                   })()
                                 }</p>
@@ -324,10 +326,13 @@ export default function CartPage() {
                                       ? (item.sku.material as any).frame[0] 
                                       : (item.sku.material as any).frame
                                     const upgradePrice = (item.sku as any).materialUpgradePrices?.[frameName]
-                                    return upgradePrice ? (
-                                      <span className="text-red-600 font-bold">{frameName} +¥{upgradePrice}</span>
-                                    ) : (
-                                      <span>{frameName}</span>
+                                    return (
+                                      <>
+                                        <span>{frameName}</span>
+                                        {upgradePrice > 0 && (
+                                          <span className="text-red-600 font-semibold ml-1">(材质升级+¥{upgradePrice})</span>
+                                        )}
+                                      </>
                                     )
                                   })()
                                 }</p>
@@ -339,10 +344,13 @@ export default function CartPage() {
                                       ? (item.sku.material as any).leg[0] 
                                       : (item.sku.material as any).leg
                                     const upgradePrice = (item.sku as any).materialUpgradePrices?.[legName]
-                                    return upgradePrice ? (
-                                      <span className="text-red-600 font-bold">{legName} +¥{upgradePrice}</span>
-                                    ) : (
-                                      <span>{legName}</span>
+                                    return (
+                                      <>
+                                        <span>{legName}</span>
+                                        {upgradePrice > 0 && (
+                                          <span className="text-red-600 font-semibold ml-1">(材质升级+¥{upgradePrice})</span>
+                                        )}
+                                      </>
                                     )
                                   })()
                                 }</p>

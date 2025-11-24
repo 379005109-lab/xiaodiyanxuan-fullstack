@@ -764,6 +764,13 @@ export default function ProductsPage() {
                           )}
                         </div>
 
+                        {/* 显示尺寸信息 */}
+                        {product.skus[0] && (product.skus[0].length || product.skus[0].width || product.skus[0].height) && (
+                          <div className="text-xs text-gray-500 mb-2">
+                            尺寸: {product.skus[0].length || '-'}×{product.skus[0].width || '-'}×{product.skus[0].height || '-'} CM
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between text-xs">
                           {product.style && (
                             <span className="px-2 py-1 bg-primary-50 text-primary-600 rounded-full font-medium">
