@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Grid, List, SlidersHorizontal, Heart, Scale, TrendingUp, Star, Zap } from 'lucide-react'
 import { Product } from '@/types'
@@ -9,6 +9,7 @@ import { getProducts as getAllProducts } from '@/services/productService'
 import { getAllCategories } from '@/services/categoryService'
 import { useFavoriteStore } from '@/store/favoriteStore'
 import { useCompareStore } from '@/store/compareStore'
+import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 
 import { getFileUrl } from '@/services/uploadService'
@@ -24,6 +25,7 @@ const formatPriceSimplified = (price: number): string => {
 }
 
 export default function ProductsPage() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<any[]>([])
@@ -36,6 +38,7 @@ export default function ProductsPage() {
   
   const { isFavorited, toggleFavorite, loadFavorites, favorites } = useFavoriteStore()
   const { isInCompare, addToCompare: addToCompareStore, loadCompareItems } = useCompareStore()
+  const { isAuthenticated } = useAuthStore()
 
   // 筛选条件
   const [filters, setFilters] = useState({
@@ -347,6 +350,13 @@ export default function ProductsPage() {
   const handleToggleFavorite = async (e: React.MouseEvent, product: Product) => {
     e.preventDefault()
     e.stopPropagation()
+    
+    // 检查是否登录
+    if (!isAuthenticated) {
+      toast.error('请先登录后再收藏商品')
+      navigate('/login')
+      return
+    }
     
     try {
       const currentlyFavorited = favoriteStatuses[product._id]
