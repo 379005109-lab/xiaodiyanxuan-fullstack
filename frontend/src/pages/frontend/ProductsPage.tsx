@@ -343,14 +343,28 @@ export default function ProductsPage() {
   }, [filters, priceRange])
 
   // 切换收藏
-  const handleToggleFavorite = (e: React.MouseEvent, product: Product) => {
+  const handleToggleFavorite = async (e: React.MouseEvent, product: Product) => {
     e.preventDefault()
     e.stopPropagation()
-    const added = toggleFavorite(product)
-    if (added) {
-      toast.success('已添加到收藏')
-    } else {
-      toast.success('已取消收藏')
+    
+    try {
+      const currentlyFavorited = favoriteStatuses[product._id]
+      const result = await toggleFavorite(product)
+      
+      // 立即更新本地状态，不等待重新加载
+      setFavoriteStatuses(prev => ({
+        ...prev,
+        [product._id]: !currentlyFavorited
+      }))
+      
+      if (!currentlyFavorited) {
+        toast.success('已添加到收藏')
+      } else {
+        toast.success('已取消收藏')
+      }
+    } catch (error) {
+      console.error('收藏操作失败:', error)
+      toast.error('操作失败，请重试')
     }
   }
 

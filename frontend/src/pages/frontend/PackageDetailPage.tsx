@@ -388,14 +388,18 @@ export default function PackageDetailPage() {
     selections?: Record<string, string>
   ) => {
     if (!selections || !product.materials) return 0
-    return Object.entries(selections).reduce((sum, [materialKey, option]) => {
+    const total = Object.entries(selections).reduce((sum, [materialKey, option]) => {
       if (!option) return sum
       const options = (product.materials as PackageProductMaterial)[materialKey as keyof PackageProductMaterial]
       if (!options || !options.length) return sum
       const isUpgrade = option !== options[0]
       if (!isUpgrade) return sum
-      return sum + getOptionPremium(option, product.price, product)
+      const premium = getOptionPremium(option, product.price, product)
+      console.log(`💰 [材质加价计算] 商品: ${product.name}, 材质Key: ${materialKey}, 选项: ${option}, 加价: ${premium}`)
+      return sum + premium
     }, 0)
+    console.log(`💰 [总材质加价] 商品: ${product.name}, 总加价: ${total}`)
+    return total
   }
 
   const getProductMaterialSurcharge = (product: PackageProduct) => {
@@ -1295,7 +1299,19 @@ function ProductPreviewModal({
       ...prev,
       [materialKey]: option,
     }))
-    handlePreviewOption(option)
+    
+    // 只有选择材质时才更新预览图，选择规格（如单人位、双人位）时不更新
+    // 规格的materialKey通常是 'spec' 或 'size'，材质的key是 'fabric', 'leather' 等
+    const isMaterialSelection = !['spec', 'size', 'specification', '规格', '尺寸'].includes(materialKey.toLowerCase())
+    
+    if (isMaterialSelection) {
+      console.log(`🖼️ [材质选择] materialKey: ${materialKey}, option: ${option}, 更新预览图`)
+      handlePreviewOption(option)
+    } else {
+      console.log(`📐 [规格选择] materialKey: ${materialKey}, option: ${option}, 保持商品图`)
+      // 选择规格时，恢复为商品默认图片
+      setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+    }
   }
 
   const handlePreviewOption = (option: string) => {
