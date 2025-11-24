@@ -254,8 +254,17 @@ export default function PackageDetailPage() {
   const loadPackage = async () => {
     if (!id) return
     setLoading(true)
+    console.log('🔥 PackageDetailPage - Loading packages - v20251124-1300')
     const data = await getAllPackages()
+    console.log('🔥 PackageDetailPage - Loaded packages:', data)
     const packageData = data.find((pkg) => pkg.id === id)
+    console.log('🔥 PackageDetailPage - Found package:', packageData)
+    if (packageData && packageData.categories) {
+      console.log('🔥 PackageDetailPage - Categories:', packageData.categories)
+      if (packageData.categories[0] && packageData.categories[0].products) {
+        console.log('🔥 PackageDetailPage - First product:', packageData.categories[0].products[0])
+      }
+    }
     setPkg(packageData)
     setLoading(false)
     if (packageData && packageData.categories.length) {
