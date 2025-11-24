@@ -887,6 +887,8 @@ export default function PackageDetailPage() {
                             const productQuantity = getProductQuantity(product.id)
                             const otherSelectedTotal = getCategorySelectedQuantity(category.key, product.id)
                             const canIncreaseQuantity = isSelected && productQuantity < MAX_QUANTITY && (otherSelectedTotal + productQuantity) < category.required
+                            const isDeleted = product.isDeleted || product.status === 'inactive'
+                            
                             return (
                               <div
                                 key={product.id}
@@ -894,12 +896,13 @@ export default function PackageDetailPage() {
                                   isSelected
                                     ? 'border-[#3E76FF] shadow-[#E8F0FF]'
                                     : 'border-transparent'
-                                }`}
+                                } ${isDeleted ? 'opacity-50' : ''}`}
                               >
                                 <button
                                   type="button"
-                                  onClick={() => openPreview(category.key, productIndex)}
+                                  onClick={() => !isDeleted && openPreview(category.key, productIndex)}
                                   className="relative w-full focus:outline-none"
+                                  disabled={isDeleted}
                                 >
                                   <img
                                     src={product.image ? getFileUrl(product.image) : '/placeholder.svg'}
@@ -907,12 +910,19 @@ export default function PackageDetailPage() {
                                     className="aspect-square w-full object-contain rounded-xl bg-gray-50"
                                     onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
                                   />
+                                  {isDeleted && (
+                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                      <span className="text-white font-semibold text-lg">商品已下架</span>
+                                    </div>
+                                  )}
                                   <span className="absolute top-3 left-3 inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-white/90 text-gray-700">
                                     <ImageIcon className="h-3 w-3" /> {category.name}
                                   </span>
-                                  <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-gray-900/70 text-white">
-                                    <Maximize2 className="h-3 w-3" /> 查看大图
-                                  </span>
+                                  {!isDeleted && (
+                                    <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full bg-gray-900/70 text-white">
+                                      <Maximize2 className="h-3 w-3" /> 查看大图
+                                    </span>
+                                  )}
                                 </button>
                                 <div className="p-4 space-y-3">
                                   <div
@@ -963,6 +973,11 @@ export default function PackageDetailPage() {
 
                                   <button
                                     onClick={() => {
+                                      if (isDeleted) {
+                                        toast.error('该商品已下架，无法选择');
+                                        return;
+                                      }
+                                      
                                       // 检查是否有材质选项需要选择
                                       const hasMaterials = product.materials && Object.keys(product.materials).length > 0;
                                       const hasSelection = materialSelections[product.id];
@@ -976,14 +991,26 @@ export default function PackageDetailPage() {
                                       
                                       handleSelectProduct(category.key, product);
                                     }}
+                                    disabled={isDeleted}
                                     className={`w-full flex items-center justify-center gap-2 rounded-2xl py-3 font-semibold transition ${
-                                      isSelected
+                                      isDeleted
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                        : isSelected
                                         ? 'bg-[#3E76FF] text-white'
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                                   >
-                                    {isSelected ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                                    {isSelected ? '取消选择' : '加入搭配'}
+                                    {isDeleted ? (
+                                      <>
+                                        <X className="h-4 w-4" />
+                                        商品已下架
+                                      </>
+                                    ) : (
+                                      <>
+                                        {isSelected ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                                        {isSelected ? '取消选择' : '加入搭配'}
+                                      </>
+                                    )}
                                   </button>
                                   <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
                                     <span>数量</span>

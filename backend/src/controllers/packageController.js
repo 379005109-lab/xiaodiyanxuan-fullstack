@@ -25,17 +25,61 @@ const list = async (req, res) => {
             const productIds = category.products
             // 查询商品详细信息
             const products = await Product.find({ _id: { $in: productIds } }).lean()
-            // 替换商品ID为商品详细信息
-            category.products = products.map(product => ({
-              id: product._id.toString(),
-              name: product.name,
-              image: product.images && product.images[0] ? product.images[0] : null,
-              basePrice: product.basePrice,
-              packagePrice: product.basePrice, // 可以根据套餐设置特殊价格
-              specs: `${product.skus && product.skus[0] ? product.skus[0].dimensions : ''}`,
-              materials: product.materials || {},
-              skus: product.skus || []
-            }))
+            
+            // 创建商品ID到商品对象的映射，保持原有顺序
+            const productMap = {}
+            products.forEach(p => {
+              productMap[p._id.toString()] = p
+            })
+            
+            // 替换商品ID为商品详细信息，保持顺序，处理已删除商品
+            category.products = productIds.map(productId => {
+              const product = productMap[productId.toString()]
+              
+              // 商品已被删除
+              if (!product) {
+                return {
+                  id: productId.toString(),
+                  name: '该商品已下架',
+                  image: null,
+                  basePrice: 0,
+                  packagePrice: 0,
+                  price: 0,
+                  specs: '',
+                  description: '该商品已从商品库中删除',
+                  materials: {},
+                  materialImages: {},
+                  skus: [],
+                  specifications: {},
+                  videos: [],
+                  isDeleted: true,
+                  status: 'inactive'
+                }
+              }
+              
+              // 返回完整的商品数据
+              return {
+                id: product._id.toString(),
+                name: product.name,
+                image: product.images && product.images[0] ? product.images[0] : null,
+                images: product.images || [],
+                basePrice: product.basePrice,
+                packagePrice: product.packagePrice || product.basePrice,
+                price: product.basePrice, // 兼容旧代码
+                specs: product.skus && product.skus[0] ? product.skus[0].dimensions || '' : '',
+                description: product.description || '',
+                category: product.category,
+                materials: product.materials || {},
+                materialImages: product.materialImages || {},
+                skus: product.skus || [],
+                specifications: product.specifications || {},
+                videos: product.videos || [],
+                stock: product.stock,
+                sales: product.sales,
+                status: product.status,
+                isDeleted: false
+              }
+            })
           }
         }
       }
@@ -65,17 +109,61 @@ const getPackage = async (req, res) => {
           const productIds = category.products
           // 查询商品详细信息
           const products = await Product.find({ _id: { $in: productIds } }).lean()
-          // 替换商品ID为商品详细信息
-          category.products = products.map(product => ({
-            id: product._id.toString(),
-            name: product.name,
-            image: product.images && product.images[0] ? product.images[0] : null,
-            basePrice: product.basePrice,
-            packagePrice: product.basePrice, // 可以根据套餐设置特殊价格
-            specs: `${product.skus && product.skus[0] ? product.skus[0].dimensions : ''}`,
-            materials: product.materials || {},
-            skus: product.skus || []
-          }))
+          
+          // 创建商品ID到商品对象的映射，保持原有顺序
+          const productMap = {}
+          products.forEach(p => {
+            productMap[p._id.toString()] = p
+          })
+          
+          // 替换商品ID为商品详细信息，保持顺序，处理已删除商品
+          category.products = productIds.map(productId => {
+            const product = productMap[productId.toString()]
+            
+            // 商品已被删除
+            if (!product) {
+              return {
+                id: productId.toString(),
+                name: '该商品已下架',
+                image: null,
+                basePrice: 0,
+                packagePrice: 0,
+                price: 0,
+                specs: '',
+                description: '该商品已从商品库中删除',
+                materials: {},
+                materialImages: {},
+                skus: [],
+                specifications: {},
+                videos: [],
+                isDeleted: true,
+                status: 'inactive'
+              }
+            }
+            
+            // 返回完整的商品数据
+            return {
+              id: product._id.toString(),
+              name: product.name,
+              image: product.images && product.images[0] ? product.images[0] : null,
+              images: product.images || [],
+              basePrice: product.basePrice,
+              packagePrice: product.packagePrice || product.basePrice,
+              price: product.basePrice, // 兼容旧代码
+              specs: product.skus && product.skus[0] ? product.skus[0].dimensions || '' : '',
+              description: product.description || '',
+              category: product.category,
+              materials: product.materials || {},
+              materialImages: product.materialImages || {},
+              skus: product.skus || [],
+              specifications: product.specifications || {},
+              videos: product.videos || [],
+              stock: product.stock,
+              sales: product.sales,
+              status: product.status,
+              isDeleted: false
+            }
+          })
         }
       }
     }

@@ -198,6 +198,10 @@ export interface PackageProductOption {
   skus?: ProductSKU[]
   specifications?: any
   videos?: any[]
+  stock?: number
+  sales?: number
+  status?: string
+  isDeleted?: boolean  // 商品是否已从商品库删除
 }
 
 export interface PackageCategoryOption {
