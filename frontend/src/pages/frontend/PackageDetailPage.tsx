@@ -1337,17 +1337,25 @@ function ProductPreviewModal({
                           <div key={groupName}>
                             <p className="text-xs font-medium text-gray-500 mb-2">{groupName}</p>
                             <div className="grid grid-cols-4 gap-3">
-                              {materialGroups[groupName].map(({value, label}) => {
+                              {materialGroups[groupName].map(({value, label}, index) => {
                                 const isSelected = localSelections[materialKey] === value
                                 const preview = product.materialImages?.[value] || getMaterialPreviewImage(product, value)
+                                // 计算升级价格：如果不是第一个选项，就是升级材质
+                                const isFirstOption = index === 0
+                                const upgradePrice = !isFirstOption ? getOptionPremium(value, product.basePrice || product.packagePrice || 0) : 0
                                 
                                 return (
                                   <button
                                     key={value}
                                     type="button"
                                     onClick={() => handleSelectMaterial(materialKey, value)}
-                                    className="flex flex-col items-center gap-1.5 cursor-pointer"
+                                    className="flex flex-col items-center gap-1.5 cursor-pointer relative"
                                   >
+                                    {upgradePrice > 0 && (
+                                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full z-10">
+                                        +¥{upgradePrice}
+                                      </span>
+                                    )}
                                     <span
                                       className={`w-16 h-16 rounded-lg border-2 flex items-center justify-center overflow-hidden transition-all ${
                                         isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'
@@ -1370,6 +1378,9 @@ function ProductPreviewModal({
                                       isSelected ? 'text-blue-600 font-semibold' : 'text-gray-600'
                                     }`}>
                                       {label}
+                                      {upgradePrice > 0 && (
+                                        <span className="block text-red-500 text-xs">+¥{upgradePrice}</span>
+                                      )}
                                     </span>
                                   </button>
                                 )

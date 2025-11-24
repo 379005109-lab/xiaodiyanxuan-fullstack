@@ -145,11 +145,17 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
 
   const handleConfirm = () => {
     if (multiple && selectedIds.length > 0) {
-      // 多选模式：返回选中的材质
-      const selectedMaterials = materials.filter(m => selectedIds.includes(m.name))
-      selectedMaterials.forEach(material => {
-        onSelect(material)
+      // 多选模式：批量返回所有选中的材质
+      const selectedMaterialsData = materials.filter(m => selectedIds.includes(m.name))
+      
+      // 一次性传递所有材质，避免多次状态更新冲突
+      // 为了保持向后兼容，仍然逐个调用onSelect，但在同一个事件循环中
+      Promise.resolve().then(() => {
+        selectedMaterialsData.forEach(material => {
+          onSelect(material)
+        })
       })
+      
       // 在确认时才调用 onUpdatePrices，避免频繁触发父组件重新渲染
       if (onUpdatePrices) {
         onUpdatePrices(categoryPrices)

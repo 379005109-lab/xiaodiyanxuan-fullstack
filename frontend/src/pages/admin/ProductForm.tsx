@@ -258,28 +258,31 @@ export default function ProductForm() {
   // 处理材质选择（支持多选）
   const handleMaterialSelect = (material: any, materialType: 'fabric' | 'filling' | 'frame' | 'leg', upgradePrice?: number) => {
     if (selectingMaterialForSkuIndex >= 0) {
-      const newSkus = [...formData.skus]
-      if (!newSkus[selectingMaterialForSkuIndex].material || typeof newSkus[selectingMaterialForSkuIndex].material === 'string') {
-        newSkus[selectingMaterialForSkuIndex].material = createEmptyMaterialSelection()
-      }
-      const materialObj = newSkus[selectingMaterialForSkuIndex].material as MaterialSelection
-      const currentList = (materialObj[materialType] as string[]) || []
-      
-      // 初始化材质升级价格
-      if (!newSkus[selectingMaterialForSkuIndex].materialUpgradePrices) {
-        newSkus[selectingMaterialForSkuIndex].materialUpgradePrices = {} as Record<string, number>
-      }
-      
-      // 如果已存在，则移除；如果不存在，则添加
-      if (currentList.includes(material.name)) {
-        (materialObj[materialType] as string[]) = currentList.filter(name => name !== material.name)
-        toast.success(`已移除${materialType === 'fabric' ? '面料' : materialType === 'filling' ? '填充' : materialType === 'frame' ? '框架' : '脚架'}：${material.name}`)
-      } else {
-        (materialObj[materialType] as string[]) = [...currentList, material.name]
-        toast.success(`已添加${materialType === 'fabric' ? '面料' : materialType === 'filling' ? '填充' : materialType === 'frame' ? '框架' : '脚架'}：${material.name}`)
-      }
-      
-      setFormData({ ...formData, skus: newSkus })
+      // 使用函数式更新确保状态正确累积
+      setFormData(prev => {
+        const newSkus = [...prev.skus]
+        if (!newSkus[selectingMaterialForSkuIndex].material || typeof newSkus[selectingMaterialForSkuIndex].material === 'string') {
+          newSkus[selectingMaterialForSkuIndex].material = createEmptyMaterialSelection()
+        }
+        const materialObj = newSkus[selectingMaterialForSkuIndex].material as MaterialSelection
+        const currentList = (materialObj[materialType] as string[]) || []
+        
+        // 初始化材质升级价格
+        if (!newSkus[selectingMaterialForSkuIndex].materialUpgradePrices) {
+          newSkus[selectingMaterialForSkuIndex].materialUpgradePrices = {} as Record<string, number>
+        }
+        
+        // 如果已存在，则移除；如果不存在，则添加
+        if (currentList.includes(material.name)) {
+          (materialObj[materialType] as string[]) = currentList.filter(name => name !== material.name)
+          toast.success(`已移除${materialType === 'fabric' ? '面料' : materialType === 'filling' ? '填充' : materialType === 'frame' ? '框架' : '脚架'}：${material.name}`)
+        } else {
+          (materialObj[materialType] as string[]) = [...currentList, material.name]
+          toast.success(`已添加${materialType === 'fabric' ? '面料' : materialType === 'filling' ? '填充' : materialType === 'frame' ? '框架' : '脚架'}：${material.name}`)
+        }
+        
+        return { ...prev, skus: newSkus }
+      })
     }
   }
 
