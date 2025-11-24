@@ -264,7 +264,18 @@ export default function PackageDetailPage() {
     return productIndex >= 0 ? productIndex : 0
   }
 
-  const getOptionPremium = (option: string, basePrice: number) => {
+  const getOptionPremium = (option: string, basePrice: number, product?: PackageProduct) => {
+    // 优先从商品SKU的materialUpgradePrices中读取实际加价
+    if (product && product.skus && product.skus.length > 0) {
+      // 遍历所有SKU，查找是否有materialUpgradePrices包含此材质
+      for (const sku of product.skus) {
+        if (sku.materialUpgradePrices && sku.materialUpgradePrices[option]) {
+          return sku.materialUpgradePrices[option]
+        }
+      }
+    }
+    
+    // 如果没有找到SKU中的加价，则使用默认规则（向后兼容）
     const matchedRule = MATERIAL_PREMIUM_RULES.find((rule) => option.includes(rule.keyword))
     if (matchedRule) return matchedRule.extra
     return Math.round(Math.max(basePrice * 0.08, 300))
@@ -285,7 +296,7 @@ export default function PackageDetailPage() {
       if (!options || !options.length) return sum
       const isUpgrade = option !== options[0]
       if (!isUpgrade) return sum
-      return sum + getOptionPremium(option, product.price)
+      return sum + getOptionPremium(option, product.price, product)
     }, 0)
   }
 
@@ -1125,7 +1136,7 @@ interface ProductPreviewProps {
     product: PackageProductOption,
     selections?: Record<string, string>
   ) => number
-  getOptionPremium: (option: string, basePrice: number) => number
+  getOptionPremium: (option: string, basePrice: number, product?: PackageProduct) => number
 }
 
 function ProductPreviewModal({
@@ -1146,12 +1157,13 @@ function ProductPreviewModal({
   const [localSelections, setLocalSelections] = useState<Record<string, string>>(materialSelections[product.id] || {})
   const [selectedSku, setSelectedSku] = useState<any>(product.skus?.[0] || null)
   const [previewImage, setPreviewImage] = useState(product.image)
-  const [showSpecs, setShowSpecs] = useState(true)
+  const [showAllSpecs, setShowAllSpecs] = useState(false)
   
   useEffect(() => {
     setLocalSelections(materialSelections[product.id] || {})
     setPreviewImage(product.image)
     setSelectedSku(product.skus?.[0] || null)
+    setShowAllSpecs(false)
   }, [product.id, materialSelections, product.image, product.skus])
   
   const surcharge = calculateMaterialSurcharge(product, localSelections)
@@ -1204,22 +1216,12 @@ function ProductPreviewModal({
           <div className="space-y-6">
             {/* 选择规格 */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-base font-semibold text-gray-900">选择规格</h4>
-                <button
-                  type="button"
-                  onClick={() => setShowSpecs(!showSpecs)}
-                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
-                >
-                  {showSpecs ? '收起' : '展开'}
-                  <ChevronRight className={`h-4 w-4 transition-transform ${showSpecs ? 'rotate-90' : ''}`} />
-                </button>
-              </div>
+              <h4 className="text-base font-semibold text-gray-900">选择规格</h4>
               
-              {showSpecs && (
-                <div className="space-y-2">
-                  {product.skus && product.skus.length > 0 ? (
-                    product.skus.map((sku: any, index: number) => {
+              <div className="space-y-2">
+                {product.skus && product.skus.length > 0 ? (
+                  <>
+                    {product.skus.slice(0, showAllSpecs ? undefined : 2).map((sku: any, index: number) => {
                       const isSelected = selectedSku?.code === sku.code
                       const skuPrice = sku.price || sku.discountPrice || 0
                       const dimensions = sku.length && sku.width && sku.height
@@ -1246,20 +1248,30 @@ function ProductPreviewModal({
                           )}
                         </button>
                       )
-                    })
-                  ) : (
-                    <div className="border-2 border-blue-500 rounded-2xl p-4 bg-blue-50">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-gray-900">{product.name}</span>
-                        <span className="text-red-600 font-bold text-lg">¥{(product.basePrice || product.packagePrice || 0).toLocaleString()}</span>
-                      </div>
-                      {product.specs && (
-                        <p className="text-sm text-gray-600">规格：{product.specs}</p>
-                      )}
+                    })}
+                    {product.skus.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllSpecs(!showAllSpecs)}
+                        className="w-full flex items-center justify-center gap-1 py-2 text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        {showAllSpecs ? '收起' : `展开更多(${product.skus.length - 2}个)`}
+                        <ChevronRight className={`h-3 w-3 transition-transform ${showAllSpecs ? 'rotate-90' : ''}`} />
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="border-2 border-blue-500 rounded-2xl p-4 bg-blue-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-gray-900">{product.name}</span>
+                      <span className="text-red-600 font-bold text-lg">¥{(product.basePrice || product.packagePrice || 0).toLocaleString()}</span>
                     </div>
-                  )}
-                </div>
-              )}
+                    {product.specs && (
+                      <p className="text-sm text-gray-600">规格：{product.specs}</p>
+                    )}
+                  </div>
+                )}
+              </div>
               
               {surcharge > 0 && (
                 <div className="text-sm text-gray-600">
@@ -1345,7 +1357,7 @@ function ProductPreviewModal({
                                 const preview = product.materialImages?.[value] || getMaterialPreviewImage(product, value)
                                 // 计算升级价格：如果不是第一个选项，就是升级材质
                                 const isFirstOption = index === 0
-                                const upgradePrice = !isFirstOption ? getOptionPremium(value, product.basePrice || product.packagePrice || 0) : 0
+                                const upgradePrice = !isFirstOption ? getOptionPremium(value, product.basePrice || product.packagePrice || 0, product) : 0
                                 
                                 return (
                                   <button
