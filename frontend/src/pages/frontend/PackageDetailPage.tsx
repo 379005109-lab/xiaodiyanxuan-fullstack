@@ -45,23 +45,41 @@ const MAX_QUANTITY = 5
 const formatCurrency = (value: number) => `¥${value.toLocaleString()}`
 
 const getMaterialPreviewImage = (product: PackageProduct, option: string, materialImageMap: Record<string, string>) => {
-  // 优先从材质管理中获取图片
+  console.log('getMaterialPreviewImage called:', { option, materialImageMapKeys: Object.keys(materialImageMap), product: product.name })
+  
+  // 1. 优先从材质管理中获取图片（完全匹配）
   if (materialImageMap[option]) {
-    return materialImageMap[option]
+    console.log('Found exact match in materialImageMap:', materialImageMap[option])
+    return getFileUrl(materialImageMap[option])
   }
-  // 其次从商品的materialImages中获取
+  
+  // 2. 尝试模糊匹配材质管理中的图片（对于"全青皮-红色"匹配"全青皮"等情况）
+  for (const [materialName, imagePath] of Object.entries(materialImageMap)) {
+    // 检查材质名称是否包含在选项中，或者选项是否包含材质名称
+    if (option.includes(materialName) || materialName.includes(option)) {
+      console.log('Found fuzzy match in materialImageMap:', materialName, '->', imagePath)
+      return getFileUrl(imagePath)
+    }
+  }
+  
+  // 3. 从商品的materialImages中获取
   if (product.materialImages?.[option]) {
-    return product.materialImages[option]
+    console.log('Found in product.materialImages:', product.materialImages[option])
+    return getFileUrl(product.materialImages[option])
   }
-  // 最后尝试从SKU的materialImages中获取
+  
+  // 4. 从SKU的materialImages中获取
   if (product.skus) {
     for (const sku of product.skus) {
       if (sku.materialImages?.[option]) {
-        return sku.materialImages[option]
+        console.log('Found in sku.materialImages:', sku.materialImages[option])
+        return getFileUrl(sku.materialImages[option])
       }
     }
   }
-  return product.image || '/placeholder.svg'
+  
+  console.log('Using fallback image for:', option)
+  return product.image ? getFileUrl(product.image) : '/placeholder.svg'
 }
 
 interface OrderConfirmModalProps {
@@ -265,12 +283,15 @@ export default function PackageDetailPage() {
   const loadMaterialImages = async () => {
     try {
       const materials = await getAllMaterials()
+      console.log('Loaded materials:', materials)
       const imageMap: Record<string, string> = {}
       materials.forEach((material: any) => {
         if (material.name && material.images && material.images.length > 0) {
           imageMap[material.name] = material.images[0]
+          console.log('Added material to map:', material.name, '->', material.images[0])
         }
       })
+      console.log('Final material image map:', imageMap)
       setMaterialImageMap(imageMap)
     } catch (error) {
       console.error('加载材质图片失败:', error)
