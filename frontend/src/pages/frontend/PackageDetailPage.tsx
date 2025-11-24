@@ -1300,17 +1300,43 @@ function ProductPreviewModal({
       [materialKey]: option,
     }))
     
-    // 只有选择材质时才更新预览图，选择规格（如单人位、双人位）时不更新
-    // 规格的materialKey通常是 'spec' 或 'size'，材质的key是 'fabric', 'leather' 等
-    const isMaterialSelection = !['spec', 'size', 'specification', '规格', '尺寸'].includes(materialKey.toLowerCase())
+    // 检查是否是规格选择
+    const isSpecSelection = ['spec', 'size', 'specification', '规格', '尺寸'].includes(materialKey.toLowerCase())
     
-    if (isMaterialSelection) {
-      console.log(`🖼️ [材质选择] materialKey: ${materialKey}, option: ${option}, 更新预览图`)
-      handlePreviewOption(option)
+    if (isSpecSelection) {
+      console.log(`📐 [规格选择] materialKey: ${materialKey}, option: ${option}, 查找SKU图片`)
+      
+      // 查找匹配的SKU
+      if (product.skus && product.skus.length > 0) {
+        const matchingSku = product.skus.find(sku => 
+          sku.spec === option || sku.spec?.includes(option) || option.includes(sku.spec || '')
+        )
+        
+        if (matchingSku) {
+          console.log(`✅ [找到SKU] ${option}:`, matchingSku)
+          setSelectedSku(matchingSku)
+          
+          // 使用SKU的图片或商品默认图片
+          if (matchingSku.images && matchingSku.images.length > 0) {
+            const skuImageUrl = getFileUrl(matchingSku.images[0])
+            console.log(`🖼️ [SKU图片] 使用SKU第一张图片:`, skuImageUrl)
+            setPreviewImage(skuImageUrl)
+          } else {
+            console.log(`🖼️ [SKU图片] SKU无图片，使用商品默认图`)
+            setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+          }
+        } else {
+          console.log(`❌ [未找到SKU] ${option}`)
+          setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+        }
+      } else {
+        console.log(`⚠️ [无SKU] 商品没有SKU数据`)
+        setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+      }
     } else {
-      console.log(`📐 [规格选择] materialKey: ${materialKey}, option: ${option}, 保持商品图`)
-      // 选择规格时，恢复为商品默认图片
-      setPreviewImage(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+      // 材质选择：显示材质图片
+      console.log(`🖼️ [材质选择] materialKey: ${materialKey}, option: ${option}, 更新材质图`)
+      handlePreviewOption(option)
     }
   }
 

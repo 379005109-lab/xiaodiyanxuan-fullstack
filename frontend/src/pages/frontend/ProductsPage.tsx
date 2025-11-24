@@ -85,6 +85,7 @@ export default function ProductsPage() {
       const statuses: Record<string, boolean> = {}
       products.forEach(product => {
         statuses[product._id] = favorites.some(fav => {
+          if (!fav || !fav.product) return false
           const favProductId = typeof fav.product === 'string' ? fav.product : fav.product._id
           return favProductId === product._id
         })
