@@ -336,6 +336,22 @@ export default function ComparePage() {
                         }
                       }
                       
+                      // 获取加价信息
+                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      let fabricUpgradePrice = materialUpgradePrices[fabricDisplay]
+                      if (!fabricUpgradePrice && fabricDisplay !== '-') {
+                        const fabricBase = fabricDisplay.split(/\s+/)[0]
+                        fabricUpgradePrice = materialUpgradePrices[fabricBase]
+                        if (!fabricUpgradePrice) {
+                          for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                            if (fabricDisplay.includes(key) || key.includes(fabricDisplay)) {
+                              fabricUpgradePrice = price as number
+                              break
+                            }
+                          }
+                        }
+                      }
+                      
                       return (
                         <td key={item.compareItemId} className="py-4 px-4 text-center">
                           <div className="flex flex-col items-center gap-2">
@@ -346,7 +362,12 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">{fabricDisplay}</div>
+                            <div className="text-sm text-gray-700">
+                              {fabricDisplay}
+                              {fabricUpgradePrice > 0 && (
+                                <span className="block text-red-600 font-semibold text-xs mt-1">+¥{fabricUpgradePrice}</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                       )
@@ -375,6 +396,22 @@ export default function ComparePage() {
                         }
                       }
                       
+                      // 获取加价信息
+                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      let fillingUpgradePrice = materialUpgradePrices[fillingDisplay]
+                      if (!fillingUpgradePrice && fillingDisplay !== '-') {
+                        const fillingBase = fillingDisplay.split(/\s+/)[0]
+                        fillingUpgradePrice = materialUpgradePrices[fillingBase]
+                        if (!fillingUpgradePrice) {
+                          for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                            if (fillingDisplay.includes(key) || key.includes(fillingDisplay)) {
+                              fillingUpgradePrice = price as number
+                              break
+                            }
+                          }
+                        }
+                      }
+                      
                       return (
                         <td key={item.compareItemId} className="py-4 px-4 text-center">
                           <div className="flex flex-col items-center gap-2">
@@ -385,7 +422,12 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">{fillingDisplay}</div>
+                            <div className="text-sm text-gray-700">
+                              {fillingDisplay}
+                              {fillingUpgradePrice > 0 && (
+                                <span className="block text-red-600 font-semibold text-xs mt-1">+¥{fillingUpgradePrice}</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                       )
@@ -414,6 +456,22 @@ export default function ComparePage() {
                         }
                       }
                       
+                      // 获取加价信息
+                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      let frameUpgradePrice = materialUpgradePrices[frameDisplay]
+                      if (!frameUpgradePrice && frameDisplay !== '-') {
+                        const frameBase = frameDisplay.split(/\s+/)[0]
+                        frameUpgradePrice = materialUpgradePrices[frameBase]
+                        if (!frameUpgradePrice) {
+                          for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                            if (frameDisplay.includes(key) || key.includes(frameDisplay)) {
+                              frameUpgradePrice = price as number
+                              break
+                            }
+                          }
+                        }
+                      }
+                      
                       return (
                         <td key={item.compareItemId} className="py-4 px-4 text-center">
                           <div className="flex flex-col items-center gap-2">
@@ -424,7 +482,12 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">{frameDisplay}</div>
+                            <div className="text-sm text-gray-700">
+                              {frameDisplay}
+                              {frameUpgradePrice > 0 && (
+                                <span className="block text-red-600 font-semibold text-xs mt-1">+¥{frameUpgradePrice}</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                       )
@@ -453,6 +516,22 @@ export default function ComparePage() {
                         }
                       }
                       
+                      // 获取加价信息
+                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      let legUpgradePrice = materialUpgradePrices[legDisplay]
+                      if (!legUpgradePrice && legDisplay !== '-') {
+                        const legBase = legDisplay.split(/\s+/)[0]
+                        legUpgradePrice = materialUpgradePrices[legBase]
+                        if (!legUpgradePrice) {
+                          for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                            if (legDisplay.includes(key) || key.includes(legDisplay)) {
+                              legUpgradePrice = price as number
+                              break
+                            }
+                          }
+                        }
+                      }
+                      
                       return (
                         <td key={item.compareItemId} className="py-4 px-4 text-center">
                           <div className="flex flex-col items-center gap-2">
@@ -463,7 +542,12 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">{legDisplay}</div>
+                            <div className="text-sm text-gray-700">
+                              {legDisplay}
+                              {legUpgradePrice > 0 && (
+                                <span className="block text-red-600 font-semibold text-xs mt-1">+¥{legUpgradePrice}</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                       )
