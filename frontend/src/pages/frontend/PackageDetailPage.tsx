@@ -1487,7 +1487,7 @@ function ProductPreviewModal({
                                       }`}
                                     >
                                       <img 
-                                        src={preview ? getFileUrl(preview) : '/placeholder.svg'} 
+                                        src={preview || '/placeholder.svg'} 
                                         alt={label} 
                                         className="w-full h-full object-cover cursor-pointer"
                                         onError={(e) => {
