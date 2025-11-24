@@ -6,37 +6,18 @@ import { fetchUsers, updateUserProfile } from '@/services/userService'
 import { User } from '@/types'
 import { toast } from 'sonner'
 
-const mockUsers: User[] = Array.from({ length: 20 }, (_, i) => ({
-    _id: `user-${i + 1}`,
-    username: `用户${i + 1}`,
-    email: `user${i + 1}@example.com`,
-    phone: `138****${String(i).padStart(4, '0')}`,
-    role: (['customer', 'designer', 'distributor', 'admin'][i % 4] as User['role']),
-    status: i % 7 === 0 ? 'banned' : 'active',
-    balance: Math.random() * 10000,
-    createdAt: new Date(Date.now() - i * 86400000).toISOString(),
-    updatedAt: new Date().toISOString(),
-    calculatedRole: i % 4 === 0 ? '高价值决策人' : i % 3 === 0 ? '分享达人' : '活跃用户',
-    tags: i % 2 === 0 ? ['高客单', '复购'] : ['内容互动'],
-    metrics: {
-      orderCount: 5 + i,
-      gmv: 8000 + i * 500,
-      shareRate: 5 + (i % 5),
-    },
-  }))
-
 const roleConfig: Record<string, { label: string; color: string }> = {
-    super_admin: { label: '超级管理员', color: 'bg-red-100 text-red-700' },
-    admin: { label: '管理员', color: 'bg-purple-100 text-purple-700' },
-    designer: { label: '设计师', color: 'bg-blue-100 text-blue-700' },
-    distributor: { label: '分销商', color: 'bg-green-100 text-green-700' },
-    customer: { label: '普通用户', color: 'bg-gray-100 text-gray-700' },
-  }
+  super_admin: { label: '超级管理员', color: 'bg-red-100 text-red-700' },
+  admin: { label: '管理员', color: 'bg-purple-100 text-purple-700' },
+  designer: { label: '设计师', color: 'bg-blue-100 text-blue-700' },
+  distributor: { label: '分销商', color: 'bg-green-100 text-green-700' },
+  customer: { label: '普通用户', color: 'bg-gray-100 text-gray-700' },
+}
 
 export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterRole, setFilterRole] = useState('')
-  const [users, setUsers] = useState<User[]>(mockUsers)
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingUser, setEditingUser] = useState<User | null>(null)
@@ -45,19 +26,21 @@ export default function UserManagement() {
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true)
       try {
-        setLoading(true)
         const result = await fetchUsers()
-        if (result?.data?.length) {
+        if (result?.data) {
           setUsers(result.data)
+          setError(null)
         } else {
-          setUsers(mockUsers)
+          setError('未能获取用户数据')
+          setUsers([])
         }
-        setError(null)
       } catch (err: any) {
-        console.warn('获取用户失败，使用本地数据：', err?.message)
-        setError('实时用户接口暂不可用，已显示示例数据。')
-        setUsers(mockUsers)
+        console.error('获取用户失败:', err)
+        setError(`获取用户数据失败: ${err.message}`)
+        setUsers([])
+        toast.error('获取用户列表失败')
       } finally {
         setLoading(false)
       }

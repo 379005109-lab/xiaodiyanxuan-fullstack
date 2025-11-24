@@ -1,3 +1,4 @@
+import React from 'react'
 import { motion } from 'framer-motion'
 import { Users, ShoppingCart, Package, TrendingUp, ArrowUp, ArrowDown, Target, Percent } from 'lucide-react'
 import {
@@ -16,37 +17,69 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { formatPrice } from '@/lib/utils'
+import * as dashboardService from '@/services/dashboardService'
 
 export default function Dashboard() {
-  return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold mb-4">仪表板</h1>
-      <p className="text-gray-600">欢迎来到管理后台！</p>
-    </div>
-  )
+  const [loading, setLoading] = React.useState(true)
+  const [dashboardData, setDashboardData] = React.useState<any>(null)
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await dashboardService.getDashboardData()
+        setDashboardData(data)
+        setError(null)
+      } catch (err: any) {
+        console.error('加载仪表板数据失败:', err)
+        setError(err.message || '加载数据失败')
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <h1 className="text-3xl font-bold mb-4">仪表板</h1>
+        <p className="text-gray-600">数据加载中...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <h1 className="text-3xl font-bold mb-4">仪表板</h1>
+        <p className="text-red-600">加载失败: {error}</p>
+      </div>
+    )
+  }
   
-  // 统计数据 - 核心指标
+  // 统计数据 - 核心指标（使用真实数据）
   const stats = [
     {
       title: '今日订单',
-      value: '156',
-      change: '+12.5%',
+      value: dashboardData?.todayOrders || '0',
+      change: dashboardData?.ordersChange || '+0%',
       trend: 'up',
       icon: ShoppingCart,
       color: 'bg-blue-500',
     },
     {
       title: '新客数',
-      value: '234',
-      change: '+8.3%',
+      value: dashboardData?.newCustomers || '0',
+      change: dashboardData?.customersChange || '+0%',
       trend: 'up',
       icon: Users,
       color: 'bg-green-500',
     },
     {
       title: '转化率',
-      value: '3.8%',
-      change: '+0.5%',
+      value: dashboardData?.conversionRate || '0%',
+      change: dashboardData?.conversionChange || '+0%',
       trend: 'up',
       icon: Percent,
       color: 'bg-purple-500',

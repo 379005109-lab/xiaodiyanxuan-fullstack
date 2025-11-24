@@ -19,6 +19,10 @@ export default function ProductManagement() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
 
   // 商品数据
   const [products, setProducts] = useState<Product[]>([])
@@ -545,7 +549,7 @@ export default function ProductManagement() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((product, index) => (
+              {filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((product, index) => (
                 <Fragment key={product._id}>
                 <motion.tr
                   initial={{ opacity: 0 }}
@@ -797,26 +801,59 @@ export default function ProductManagement() {
         </div>
 
         {/* 分页 */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
-          <p className="text-sm text-gray-600">
-            显示 {filteredProducts.length} 条，共 {products.length} 条
-          </p>
-          <div className="flex space-x-2">
-            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-              上一页
-            </button>
-            <button className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm">1</button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-              2
-            </button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-              3
-            </button>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-              下一页
-            </button>
-          </div>
-        </div>
+        {(() => {
+          const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+          const startIndex = (currentPage - 1) * itemsPerPage
+          const endIndex = Math.min(startIndex + itemsPerPage, filteredProducts.length)
+          
+          return (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+              <p className="text-sm text-gray-600">
+                显示 {startIndex + 1}-{endIndex} 条，共 {filteredProducts.length} 条
+              </p>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  上一页
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-4 py-2 rounded-lg text-sm ${
+                          currentPage === page
+                            ? 'bg-primary-600 text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    )
+                  } else if (page === currentPage - 2 || page === currentPage + 2) {
+                    return <span key={page} className="px-2 text-gray-400">...</span>
+                  }
+                  return null
+                })}
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  下一页
+                </button>
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )
