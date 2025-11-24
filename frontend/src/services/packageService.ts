@@ -63,37 +63,82 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
                 const specsArray: string[] = []
                 
                 product.skus.forEach((sku: any) => {
-                  // 提取材质
+                  // 提取材质（材质是数组）
                   if (sku.material) {
-                    if (sku.material.fabric) fabricSet.add(sku.material.fabric)
-                    if (sku.material.filling) fillingSet.add(sku.material.filling)
-                    if (sku.material.frame) frameSet.add(sku.material.frame)
-                    if (sku.material.leg) legSet.add(sku.material.leg)
+                    if (Array.isArray(sku.material.fabric)) {
+                      sku.material.fabric.forEach((f: string) => fabricSet.add(f))
+                    } else if (sku.material.fabric) {
+                      fabricSet.add(sku.material.fabric)
+                    }
+                    
+                    if (Array.isArray(sku.material.filling)) {
+                      sku.material.filling.forEach((f: string) => fillingSet.add(f))
+                    } else if (sku.material.filling) {
+                      fillingSet.add(sku.material.filling)
+                    }
+                    
+                    if (Array.isArray(sku.material.frame)) {
+                      sku.material.frame.forEach((f: string) => frameSet.add(f))
+                    } else if (sku.material.frame) {
+                      frameSet.add(sku.material.frame)
+                    }
+                    
+                    if (Array.isArray(sku.material.leg)) {
+                      sku.material.leg.forEach((l: string) => legSet.add(l))
+                    } else if (sku.material.leg) {
+                      legSet.add(sku.material.leg)
+                    }
                   }
                   
-                  // 提取规格：尺寸
-                  if (sku.dimensions && sku.dimensions.length && sku.dimensions.width && sku.dimensions.height) {
-                    const size = `${sku.dimensions.length}x${sku.dimensions.width}x${sku.dimensions.height}cm`
+                  // 提取规格：从length/width/height字段（单位mm，转换为cm）
+                  if (sku.length && sku.width && sku.height) {
+                    const l = Math.round(sku.length / 10)
+                    const w = Math.round(sku.width / 10)
+                    const h = Math.round(sku.height / 10)
+                    const size = `${l}x${w}x${h}cm`
                     if (!specsArray.includes(size)) {
                       specsArray.push(size)
                     }
                   }
                   
-                  // 提取材质对应的图片
+                  // 提取材质对应的图片（材质是数组）
                   if (sku.images && sku.images.length > 0) {
                     const skuImage = getFileUrl(sku.images[0])
                     // 为每个材质保存图片
                     if (sku.material) {
-                      if (sku.material.fabric && !materialImages[sku.material.fabric]) {
+                      // fabric
+                      if (Array.isArray(sku.material.fabric)) {
+                        sku.material.fabric.forEach((f: string) => {
+                          if (!materialImages[f]) materialImages[f] = skuImage
+                        })
+                      } else if (sku.material.fabric && !materialImages[sku.material.fabric]) {
                         materialImages[sku.material.fabric] = skuImage
                       }
-                      if (sku.material.filling && !materialImages[sku.material.filling]) {
+                      
+                      // filling
+                      if (Array.isArray(sku.material.filling)) {
+                        sku.material.filling.forEach((f: string) => {
+                          if (!materialImages[f]) materialImages[f] = skuImage
+                        })
+                      } else if (sku.material.filling && !materialImages[sku.material.filling]) {
                         materialImages[sku.material.filling] = skuImage
                       }
-                      if (sku.material.frame && !materialImages[sku.material.frame]) {
+                      
+                      // frame
+                      if (Array.isArray(sku.material.frame)) {
+                        sku.material.frame.forEach((f: string) => {
+                          if (!materialImages[f]) materialImages[f] = skuImage
+                        })
+                      } else if (sku.material.frame && !materialImages[sku.material.frame]) {
                         materialImages[sku.material.frame] = skuImage
                       }
-                      if (sku.material.leg && !materialImages[sku.material.leg]) {
+                      
+                      // leg
+                      if (Array.isArray(sku.material.leg)) {
+                        sku.material.leg.forEach((l: string) => {
+                          if (!materialImages[l]) materialImages[l] = skuImage
+                        })
+                      } else if (sku.material.leg && !materialImages[sku.material.leg]) {
                         materialImages[sku.material.leg] = skuImage
                       }
                     }
