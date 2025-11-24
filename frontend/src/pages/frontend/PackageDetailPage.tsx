@@ -1232,51 +1232,102 @@ function ProductPreviewModal({
                     leg: '脚架',
                   }
                   
+                  // 按材质类型分组（如"全青皮-白色" -> 分组:"全青皮", 显示:"白色"）
+                  const materialGroups: Record<string, Array<{value: string, label: string}>> = {}
+                  const groupOrder: string[] = []
+                  
+                  materialOptions.forEach(material => {
+                    const materialStr = String(material || '')
+                    let groupName = '其他'
+                    let displayLabel = materialStr
+                    
+                    // 检测并提取材质类型和颜色
+                    if (materialStr.includes('全青皮-')) {
+                      groupName = '全青皮'
+                      displayLabel = materialStr.replace('全青皮-', '')
+                    } else if (materialStr === '全青皮') {
+                      groupName = '全青皮'
+                      displayLabel = '默认'
+                    } else if (materialStr.includes('普通皮-')) {
+                      groupName = '普通皮'
+                      displayLabel = materialStr.replace('普通皮-', '')
+                    } else if (materialStr === '普通皮') {
+                      groupName = '普通皮'
+                      displayLabel = '默认'
+                    } else if (materialStr.includes('牛皮-')) {
+                      groupName = '牛皮'
+                      displayLabel = materialStr.replace('牛皮-', '')
+                    } else if (materialStr === '牛皮') {
+                      groupName = '牛皮'
+                      displayLabel = '默认'
+                    } else if (materialStr.includes('半皮-')) {
+                      groupName = '半皮'
+                      displayLabel = materialStr.replace('半皮-', '')
+                    } else if (materialStr === '半皮') {
+                      groupName = '半皮'
+                      displayLabel = '默认'
+                    }
+                    
+                    if (!materialGroups[groupName]) {
+                      materialGroups[groupName] = []
+                      groupOrder.push(groupName)
+                    }
+                    materialGroups[groupName].push({ value: material, label: displayLabel })
+                  })
+                  
                   return (
                     <div key={materialKey} className="space-y-3">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-gray-900">{MATERIAL_NAMES[materialKey] || materialKey.toUpperCase()}</p>
                         <span className="text-xs text-gray-400">{materialOptions.length} 种</span>
                       </div>
-                      <div className="grid grid-cols-4 gap-3">
-                        {materialOptions.map(material => {
-                          const materialStr = String(material || '')
-                          const isSelected = localSelections[materialKey] === material
-                          const preview = product.materialImages?.[material] || getMaterialPreviewImage(product, material)
-                          
-                          return (
-                            <button
-                              key={material}
-                              type="button"
-                              onClick={() => handleSelectMaterial(materialKey, material)}
-                              className="flex flex-col items-center gap-1.5 cursor-pointer"
-                            >
-                              <span
-                                className={`w-16 h-16 rounded-lg border-2 flex items-center justify-center overflow-hidden transition-all ${
-                                  isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                              >
-                                <img 
-                                  src={getFileUrl(preview)} 
-                                  alt={materialStr} 
-                                  className="w-full h-full object-cover"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handlePreviewOption(material)
-                                  }}
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = '/placeholder.svg'
-                                  }}
-                                />
-                              </span>
-                              <span className={`text-xs text-center max-w-[70px] leading-tight ${
-                                isSelected ? 'text-blue-600 font-semibold' : 'text-gray-600'
-                              }`}>
-                                {materialStr}
-                              </span>
-                            </button>
-                          )
-                        })}
+                      
+                      {/* 按分组显示材质 */}
+                      <div className="space-y-4">
+                        {groupOrder.map(groupName => (
+                          <div key={groupName}>
+                            <p className="text-xs font-medium text-gray-500 mb-2">{groupName}</p>
+                            <div className="grid grid-cols-4 gap-3">
+                              {materialGroups[groupName].map(({value, label}) => {
+                                const isSelected = localSelections[materialKey] === value
+                                const preview = product.materialImages?.[value] || getMaterialPreviewImage(product, value)
+                                
+                                return (
+                                  <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => handleSelectMaterial(materialKey, value)}
+                                    className="flex flex-col items-center gap-1.5 cursor-pointer"
+                                  >
+                                    <span
+                                      className={`w-16 h-16 rounded-lg border-2 flex items-center justify-center overflow-hidden transition-all ${
+                                        isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'
+                                      }`}
+                                    >
+                                      <img 
+                                        src={getFileUrl(preview)} 
+                                        alt={label} 
+                                        className="w-full h-full object-cover"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handlePreviewOption(value)
+                                        }}
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src = '/placeholder.svg'
+                                        }}
+                                      />
+                                    </span>
+                                    <span className={`text-xs text-center max-w-[70px] leading-tight ${
+                                      isSelected ? 'text-blue-600 font-semibold' : 'text-gray-600'
+                                    }`}>
+                                      {label}
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )
