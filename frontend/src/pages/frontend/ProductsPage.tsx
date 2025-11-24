@@ -43,9 +43,22 @@ export default function ProductsPage() {
     sort: searchParams.get('sort') || 'newest',
   })
   
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 18
+
   // 价格区间拖拽条状态
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000])
   const [priceRangeInput, setPriceRangeInput] = useState<[number, number]>([0, 500000])
+
+  // 风格筛选选项
+  const styleOptions = [
+    { value: '', label: '全部风格' },
+    { value: '中古风', label: '中古风' },
+    { value: '轻奢风', label: '轻奢风' },
+    { value: '极简风', label: '极简风' },
+    { value: '现代风', label: '现代风' }
+  ]
 
   // 加载商品数据
   useEffect(() => {
@@ -158,6 +171,13 @@ export default function ProductsPage() {
     return true
   })
 
+  // 动态计算价格区间
+  const actualPriceRange = useMemo(() => {
+    if (products.length === 0) return [0, 500000]
+    const prices = products.map(p => p.basePrice)
+    return [Math.min(...prices), Math.max(...prices)]
+  }, [products])
+
   // 排序
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (filters.sort) {
@@ -172,6 +192,18 @@ export default function ProductsPage() {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     }
   })
+
+  // 分页计算
+  const totalPages = Math.ceil(sortedProducts.length / itemsPerPage)
+  const paginatedProducts = sortedProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  // 当筛选条件变化时重置页码
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filters, priceRange])
 
   // 切换收藏
   const handleToggleFavorite = (e: React.MouseEvent, product: Product) => {
@@ -241,36 +273,26 @@ export default function ProductsPage() {
             <div className="card sticky top-24">
               <h3 className="font-semibold text-lg mb-4">筛选</h3>
 
-              {/* 热销商品排行榜 */}
+              {/* 风格筛选 */}
               <div className="mb-6">
-                <h4 className="font-medium mb-3">热销商品</h4>
+                <h4 className="font-medium mb-3">风格</h4>
                 <div className="space-y-2">
-                  {products
-                    .filter(p => p.status !== 'inactive' && (p.sales || 0) > 0)
-                    .sort((a, b) => (b.sales || 0) - (a.sales || 0))
-                    .slice(0, 10)
-                    .map((product, index) => (
-                      <Link
-                        key={product._id}
-                        to={`/products/${product._id}`}
-                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 transition-colors group"
-                      >
-                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-semibold">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-900 group-hover:text-primary-600 line-clamp-1">
-                            {product.name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            已售 {product.sales} 件
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  {products.filter(p => p.status !== 'inactive' && (p.sales || 0) > 0).length === 0 && (
-                    <div className="text-xs text-gray-400 py-4 text-center">暂无热销商品</div>
-                  )}
+                  {styleOptions.map((style) => (
+                    <button
+                      key={style.value}
+                      onClick={() => {
+                        setFilters({ ...filters, style: style.value })
+                        setSearchParams({ ...Object.fromEntries(searchParams), style: style.value })
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                        filters.style === style.value
+                          ? 'bg-primary-100 text-primary-700 font-medium'
+                          : 'hover:bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      {style.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -385,9 +407,9 @@ export default function ProductsPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {[
                 { label: '商品总数', value: products.length, icon: Grid, color: 'text-blue-600' },
-                { label: '热销商品', value: products.filter(p => (p.sales || 0) > 0).length, icon: TrendingUp, color: 'text-red-600' },
-                { label: '新品上架', value: products.filter(p => new Date(p.createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000).length, icon: Zap, color: 'text-yellow-600' },
-                { label: '平均评分', value: '4.8', icon: Star, color: 'text-orange-600' },
+                { label: '中古风', value: products.filter(p => p.style === '中古风').length, icon: TrendingUp, color: 'text-amber-600' },
+                { label: '轻奢风', value: products.filter(p => p.style === '轻奢风').length, icon: Zap, color: 'text-purple-600' },
+                { label: '极简风', value: products.filter(p => p.style === '极简风').length, icon: Star, color: 'text-gray-600' },
               ].map((stat, index) => {
                 const Icon = stat.icon
                 return (
@@ -455,8 +477,9 @@ export default function ProductsPage() {
                 <p className="text-gray-500 text-lg">暂无商品</p>
               </div>
             ) : (
+              <>
               <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-                {sortedProducts.map((product, index) => (
+                {paginatedProducts.map((product, index) => (
                   <motion.div
                     key={product._id}
                     initial={{ opacity: 0, y: 20 }}
@@ -556,9 +579,13 @@ export default function ProductsPage() {
                           )}
                         </div>
 
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>已售 {product.sales} 件</span>
-                          <span>{product.skus.length} 个规格</span>
+                        <div className="flex items-center justify-between text-xs">
+                          {product.style && (
+                            <span className="px-2 py-1 bg-primary-50 text-primary-600 rounded-full font-medium">
+                              {product.style}
+                            </span>
+                          )}
+                          <span className="text-gray-500 ml-auto">{product.skus.length} 个规格</span>
                         </div>
                       </div>
                       </Link>
@@ -566,6 +593,55 @@ export default function ProductsPage() {
                   </motion.div>
                 ))}
               </div>
+
+              {/* 分页控件 */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-8">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    上一页
+                  </button>
+                  
+                  <div className="flex gap-2">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-10 h-10 rounded-lg ${
+                              currentPage === page
+                                ? 'bg-primary-600 text-white'
+                                : 'border hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
+                      } else if (page === currentPage - 2 || page === currentPage + 2) {
+                        return <span key={page} className="w-10 h-10 flex items-center justify-center">...</span>
+                      }
+                      return null
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    下一页
+                  </button>
+                </div>
+              )}
+              </>
             )}
           </main>
         </div>
