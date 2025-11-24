@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Plus, Minus, X, AlertCircle, ChevronLeft, ChevronRight, Check, Sparkles, ShieldCheck, ArrowLeft, ImageIcon, Layers3, Loader2, Maximize2, CheckCircle2 } from 'lucide-react'
 import { PackagePlan, PackageProductMaterial } from '@/types'
 import { getAllPackages } from '@/services/packageService'
+import { getAllMaterials } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
 import { createCustomerOrder } from '@/services/customerOrderService'
@@ -43,8 +44,24 @@ const MAX_QUANTITY = 5
 
 const formatCurrency = (value: number) => `¥${value.toLocaleString()}`
 
-const getMaterialPreviewImage = (product: PackageProduct, option: string) => {
-  return product.materialImages?.[option] || product.image || '/placeholder.svg'
+const getMaterialPreviewImage = (product: PackageProduct, option: string, materialImageMap: Record<string, string>) => {
+  // 优先从材质管理中获取图片
+  if (materialImageMap[option]) {
+    return materialImageMap[option]
+  }
+  // 其次从商品的materialImages中获取
+  if (product.materialImages?.[option]) {
+    return product.materialImages[option]
+  }
+  // 最后尝试从SKU的materialImages中获取
+  if (product.skus) {
+    for (const sku of product.skus) {
+      if (sku.materialImages?.[option]) {
+        return sku.materialImages[option]
+      }
+    }
+  }
+  return product.image || '/placeholder.svg'
 }
 
 interface OrderConfirmModalProps {
@@ -196,64 +213,68 @@ export default function PackageDetailPage() {
   const navigate = useNavigate()
   const [pkg, setPkg] = useState<PackagePlan | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeImage, setActiveImage] = useState(0)
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
-  const [selectedProducts, setSelectedProducts] = useState<SelectionMap>({})
   const [materialSelections, setMaterialSelections] = useState<MaterialSelectionMap>({})
-  const [selectionQuantities, setSelectionQuantities] = useState<QuantityMap>({})
+  const [quantities, setQuantities] = useState<QuantityMap>({})
   const [previewContext, setPreviewContext] = useState<{ categoryKey: string; index: number } | null>(null)
   const [note, setNote] = useState('')
-  const [summaryExpandedCategory, setSummaryExpandedCategory] = useState<string | null>(null)
   const [isOrderConfirmOpen, setIsOrderConfirmOpen] = useState(false)
+  const [materialImageMap, setMaterialImageMap] = useState<Record<string, string>>({})
   const [orderForm, setOrderForm] = useState({ name: '', phone: '', address: '' })
   const [orderSubmitting, setOrderSubmitting] = useState(false)
   const [submitResultHint, setSubmitResultHint] = useState('')
   const { isAuthenticated, token } = useAuthStore()
 
-  const getProductQuantity = (productId: string) => selectionQuantities[productId] || MIN_QUANTITY
+  const loadPackage = async () => {
+    if (!id) return
+    setLoading(true)
+    const data = await getAllPackages()
+    const packageData = data.find((pkg) => pkg.id === id)
+    setPkg(packageData)
+    setLoading(false)
+    if (packageData && packageData.categories.length) {
+      // collapsedCategories默认为空，所有分类都展开
+      const defaults: MaterialSelectionMap = {}
+      packageData.categories.forEach((category) => {
+        category.products.forEach((product) => {
+          if (!product.materials) return
+          const materialEntries = Object.entries(product.materials as PackageProductMaterial)
+          if (!materialEntries.length) return
+          defaults[product.id] = materialEntries.reduce<Record<string, string>>((acc, [key, options]) => {
+            acc[key] = options?.[0] || ''
+            return acc
+          }, {})
+        })
+      })
+      setMaterialSelections(defaults)
 
-  const getCategorySelectedQuantity = (categoryKey: string, excludeProductId?: string) => {
-    const ids = selectedProducts[categoryKey] || []
-    return ids.reduce((sum, id) => {
-      if (excludeProductId && id === excludeProductId) return sum
-      return sum + (selectionQuantities[id] || MIN_QUANTITY)
-    }, 0)
+      const quantityDefaults: QuantityMap = {}
+      packageData.categories.forEach((category) => {
+        category.products.forEach((product) => {
+          quantityDefaults[product.id] = MIN_QUANTITY
+        })
+      })
+      setQuantities(quantityDefaults)
+    }
+  }
+
+  const loadMaterialImages = async () => {
+    try {
+      const materials = await getAllMaterials()
+      const imageMap: Record<string, string> = {}
+      materials.forEach((material: any) => {
+        if (material.name && material.images && material.images.length > 0) {
+          imageMap[material.name] = material.images[0]
+        }
+      })
+      setMaterialImageMap(imageMap)
+    } catch (error) {
+      console.error('加载材质图片失败:', error)
+    }
   }
 
   useEffect(() => {
-    const loadPackage = async () => {
-      if (!id) return
-      setLoading(true)
-      const data = await getAllPackages()
-      const packageData = data.find((pkg) => pkg.id === id)
-      setPkg(packageData)
-      setLoading(false)
-      if (packageData && packageData.categories.length) {
-        // collapsedCategories默认为空，所有分类都展开
-        const defaults: MaterialSelectionMap = {}
-        packageData.categories.forEach((category) => {
-          category.products.forEach((product) => {
-            if (!product.materials) return
-            const materialEntries = Object.entries(product.materials as PackageProductMaterial)
-            if (!materialEntries.length) return
-            defaults[product.id] = materialEntries.reduce<Record<string, string>>((acc, [key, options]) => {
-              acc[key] = options?.[0] || ''
-              return acc
-            }, {})
-          })
-        })
-        setMaterialSelections(defaults)
-
-        const quantityDefaults: QuantityMap = {}
-        packageData.categories.forEach((category) => {
-          category.products.forEach((product) => {
-            quantityDefaults[product.id] = MIN_QUANTITY
-          })
-        })
-        setSelectionQuantities(quantityDefaults)
-      }
-    }
     loadPackage()
+    loadMaterialImages()
   }, [id])
 
   const findProductIndex = (categoryKey: string, productId: string) => {
@@ -265,24 +286,40 @@ export default function PackageDetailPage() {
   }
 
   const getOptionPremium = (option: string, basePrice: number, product?: PackageProduct) => {
-    // 优先从商品SKU的materialUpgradePrices中读取实际加价
+    // 只从商品SKU的materialUpgradePrices中读取实际加价
     if (product && product.skus && product.skus.length > 0) {
       // 遍历所有SKU，查找是否有materialUpgradePrices包含此材质
       for (const sku of product.skus) {
         if (sku.materialUpgradePrices && sku.materialUpgradePrices[option]) {
-          return sku.materialUpgradePrices[option]
+          const price = sku.materialUpgradePrices[option]
+          // 确保返回有效的数字
+          return typeof price === 'number' && !isNaN(price) ? price : 0
         }
       }
     }
     
-    // 如果没有找到SKU中的加价，则使用默认规则（向后兼容）
-    const matchedRule = MATERIAL_PREMIUM_RULES.find((rule) => option.includes(rule.keyword))
-    if (matchedRule) return matchedRule.extra
-    return Math.round(Math.max(basePrice * 0.08, 300))
+    // 如果没有找到SKU中的加价，返回0（用户没有设置加价）
+    return 0
   }
 
   const getMaterialPreviewImage = (product: PackageProduct, option: string) => {
-    return product.materialImages?.[option] || product.image || '/placeholder.svg'
+    // 优先从材质管理中获取图片
+    if (materialImageMap[option]) {
+      return materialImageMap[option]
+    }
+    // 其次从商品的materialImages中获取
+    if (product.materialImages?.[option]) {
+      return product.materialImages[option]
+    }
+    // 最后尝试从SKU的materialImages中获取
+    if (product.skus) {
+      for (const sku of product.skus) {
+        if (sku.materialImages?.[option]) {
+          return sku.materialImages[option]
+        }
+      }
+    }
+    return product.image || '/placeholder.svg'
   }
 
   const calculateMaterialSurcharge = (
@@ -1105,6 +1142,7 @@ export default function PackageDetailPage() {
             onConfirmSelection={handleMaterialModalConfirm}
             calculateMaterialSurcharge={calculateMaterialSurcharge}
             getOptionPremium={getOptionPremium}
+            materialImageMap={materialImageMap}
           />
         )}
         {isOrderConfirmOpen && (
@@ -1137,6 +1175,7 @@ interface ProductPreviewProps {
     selections?: Record<string, string>
   ) => number
   getOptionPremium: (option: string, basePrice: number, product?: PackageProduct) => number
+  materialImageMap: Record<string, string>
 }
 
 function ProductPreviewModal({
@@ -1148,6 +1187,7 @@ function ProductPreviewModal({
   onConfirmSelection,
   calculateMaterialSurcharge,
   getOptionPremium,
+  materialImageMap,
 }: ProductPreviewProps) {
   const category = pkg.categories.find((c) => c.key === previewContext.categoryKey)
   const product = category?.products[previewContext.index]
@@ -1177,7 +1217,9 @@ function ProductPreviewModal({
   }
 
   const handlePreviewOption = (option: string) => {
-    setPreviewImage(getMaterialPreviewImage(product, option))
+    // 使用传入的materialImageMap获取材质图片
+    const newImage = getMaterialPreviewImage(product, option, materialImageMap)
+    setPreviewImage(newImage)
   }
 
   const handleConfirm = () => {
@@ -1297,10 +1339,10 @@ function ProductPreviewModal({
                   }
                   
                   // 按材质类型分组（如"全青皮-白色" -> 分组:"全青皮", 显示:"白色"）
-                  const materialGroups: Record<string, Array<{value: string, label: string}>> = {}
+                  const materialGroups: Record<string, Array<{value: string, label: string, originalIndex: number}>> = {}
                   const groupOrder: string[] = []
                   
-                  materialOptions.forEach(material => {
+                  materialOptions.forEach((material, originalIndex) => {
                     const materialStr = String(material || '')
                     let groupName = '其他'
                     let displayLabel = materialStr
@@ -1336,7 +1378,7 @@ function ProductPreviewModal({
                       materialGroups[groupName] = []
                       groupOrder.push(groupName)
                     }
-                    materialGroups[groupName].push({ value: material, label: displayLabel })
+                    materialGroups[groupName].push({ value: material, label: displayLabel, originalIndex })
                   })
                   
                   return (
@@ -1352,12 +1394,15 @@ function ProductPreviewModal({
                           <div key={groupName}>
                             <p className="text-xs font-medium text-gray-500 mb-2">{groupName}</p>
                             <div className="grid grid-cols-4 gap-3">
-                              {materialGroups[groupName].map(({value, label}, index) => {
+                              {materialGroups[groupName].map(({value, label, originalIndex}) => {
                                 const isSelected = localSelections[materialKey] === value
-                                const preview = product.materialImages?.[value] || getMaterialPreviewImage(product, value)
-                                // 计算升级价格：如果不是第一个选项，就是升级材质
-                                const isFirstOption = index === 0
-                                const upgradePrice = !isFirstOption ? getOptionPremium(value, product.basePrice || product.packagePrice || 0, product) : 0
+                                // 使用getMaterialPreviewImage函数获取材质图片（优先从材质管理中获取）
+                                const preview = getMaterialPreviewImage(product, value, materialImageMap)
+                                // 计算升级价格：只有第一个材质选项（originalIndex === 0）是基础材质，其他都需要加价
+                                const isFirstOption = originalIndex === 0
+                                // 获取正确的产品价格：优先使用 packagePrice，然后是 basePrice
+                                const productPrice = product.packagePrice || product.basePrice || 0
+                                const upgradePrice = !isFirstOption ? getOptionPremium(value, productPrice, product) : 0
                                 
                                 return (
                                   <button
@@ -1377,13 +1422,9 @@ function ProductPreviewModal({
                                       }`}
                                     >
                                       <img 
-                                        src={getFileUrl(preview)} 
+                                        src={preview ? getFileUrl(preview) : '/placeholder.svg'} 
                                         alt={label} 
-                                        className="w-full h-full object-cover"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handlePreviewOption(value)
-                                        }}
+                                        className="w-full h-full object-cover cursor-pointer"
                                         onError={(e) => {
                                           (e.target as HTMLImageElement).src = '/placeholder.svg'
                                         }}
