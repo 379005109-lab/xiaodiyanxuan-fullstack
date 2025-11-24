@@ -334,6 +334,18 @@ const PackageManagementPage: React.FC = () => {
   };
 
   const handleSave = async () => {
+    // 验证：检查套餐名称
+    if (!packageName || !packageName.trim()) {
+      toast.error('请输入套餐名称');
+      return;
+    }
+    
+    // 验证：检查套餐价格
+    if (!packagePrice || packagePrice <= 0) {
+      toast.error('请输入有效的套餐价格');
+      return;
+    }
+    
     // 验证：检查所有已选择的类别是否都有商品
     const emptyCategories = tags.filter(tag => {
       const products = selectedProducts[tag] || [];

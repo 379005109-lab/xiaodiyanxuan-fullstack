@@ -68,7 +68,18 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
       return
     }
 
-    const slug = formData.name.toLowerCase().replace(/\s+/g, '-')
+    // 生成slug：使用拼音或保留原名，确保不为空
+    let slug = formData.name
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\u4e00-\u9fa5-]/g, '') // 保留字母、数字、中文、连字符
+    
+    // 如果slug为空（全是特殊字符），使用时间戳
+    if (!slug) {
+      slug = `category-${Date.now()}`
+    }
+    
     const allCategories = await getAllCategories();
 
     // 检查slug唯一性
