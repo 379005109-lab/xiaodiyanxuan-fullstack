@@ -37,6 +37,7 @@ const productSchema = new mongoose.Schema({
   files: [mongoose.Schema.Types.Mixed],
   category: mongoose.Schema.Types.Mixed, // 支持字符串ID或对象
   style: mongoose.Schema.Types.Mixed,
+  styles: [String], // 多个风格标签（现代风、轻奢风等）
   specifications: mongoose.Schema.Types.Mixed,
   skus: [skuSchema], // SKU数组
   tags: [String],

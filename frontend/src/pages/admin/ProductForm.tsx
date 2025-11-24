@@ -51,6 +51,7 @@ export default function ProductForm() {
     productCode: '',
     category: '',
     basePrice: 0,
+    styles: [] as string[], // 风格标签
     mainImages: [] as string[],
     videos: [] as string[],
     specifications: [
@@ -227,6 +228,7 @@ export default function ProductForm() {
             status: true,
           })),
           description: product.description,
+          styles: (product as any).styles || [], // 加载风格标签
           files: ((product as any).files || []).filter((file: any) => {
             // 过滤掉Base64文件数据
             if (file.url && file.url.startsWith('data:')) {
@@ -358,6 +360,7 @@ export default function ProductForm() {
         description: formData.description,
         category: formData.category as any,
         basePrice: formData.basePrice,
+        styles: formData.styles, // 风格标签
         images: formData.mainImages,
         // 视频和文件
         videos: formData.videos,
@@ -870,6 +873,97 @@ export default function ProductForm() {
                 placeholder="请输入商品价格"
                 className="input"
               />
+            </div>
+          </div>
+          
+          {/* 风格标签 */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium mb-2">风格标签</label>
+            <div className="space-y-3">
+              {/* 默认风格快捷选择 */}
+              <div className="flex flex-wrap gap-2">
+                {['现代风', '轻奢风', '极简风', '中古风'].map((style) => (
+                  <label
+                    key={style}
+                    className={`
+                      px-4 py-2 rounded-lg border-2 cursor-pointer transition-all
+                      ${formData.styles.includes(style)
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-primary-300'
+                      }
+                    `}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.styles.includes(style)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({ ...formData, styles: [...formData.styles, style] })
+                        } else {
+                          setFormData({ ...formData, styles: formData.styles.filter(s => s !== style) })
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <span className="text-sm font-medium">{style}</span>
+                  </label>
+                ))}
+              </div>
+              
+              {/* 已选风格标签显示 */}
+              {formData.styles.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {formData.styles.map((style) => (
+                    <span
+                      key={style}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm"
+                    >
+                      {style}
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, styles: formData.styles.filter(s => s !== style) })}
+                        className="hover:text-primary-900"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              
+              {/* 自定义风格输入 */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="输入自定义风格，按回车添加"
+                  className="input flex-1"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const input = e.currentTarget
+                      const newStyle = input.value.trim()
+                      if (newStyle && !formData.styles.includes(newStyle)) {
+                        setFormData({ ...formData, styles: [...formData.styles, newStyle] })
+                        input.value = ''
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const input = e.currentTarget.previousElementSibling as HTMLInputElement
+                    const newStyle = input.value.trim()
+                    if (newStyle && !formData.styles.includes(newStyle)) {
+                      setFormData({ ...formData, styles: [...formData.styles, newStyle] })
+                      input.value = ''
+                    }
+                  }}
+                  className="btn-secondary px-4 py-2 whitespace-nowrap"
+                >
+                  添加风格
+                </button>
+              </div>
             </div>
           </div>
         </div>

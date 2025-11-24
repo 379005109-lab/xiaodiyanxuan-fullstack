@@ -153,6 +153,7 @@ export interface Product {
   description: string
   category: ProductCategory
   style: ProductStyle
+  styles?: string[]  // 多个风格标签（现代风、轻奢风等）
   basePrice: number
   images: string[]
   skus: ProductSKU[]

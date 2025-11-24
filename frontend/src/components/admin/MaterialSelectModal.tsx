@@ -165,8 +165,12 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
     }
   }
 
-  // 筛选材质
+  // 筛选材质（过滤掉类别，只显示SKU）
   const filteredMaterials = materials.filter(material => {
+    // 排除类别，只显示SKU
+    if (material.isCategory) {
+      return false
+    }
     if (selectedCategoryId && material.categoryId !== selectedCategoryId) {
       return false
     }
