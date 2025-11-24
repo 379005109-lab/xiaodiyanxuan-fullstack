@@ -1402,7 +1402,13 @@ function ProductPreviewModal({
                 <h4 className="text-base font-semibold text-gray-900">选择材质</h4>
                 <span className="text-xs text-gray-400">套装仅能下单，点击即可切换</span>
               </div>
-              {product.materials ? (
+              {(() => {
+                console.log('🔥 Rendering materials for product:', product.name)
+                console.log('🔥 product.materials:', product.materials)
+                console.log('🔥 materials type:', typeof product.materials)
+                console.log('🔥 materials keys:', product.materials ? Object.keys(product.materials) : 'null/undefined')
+                return product.materials
+              })() ? (
                 Object.entries(product.materials as PackageProductMaterial).map(([materialKey, options]) => {
                   const materialOptions = (options ?? []) as string[]
                   const MATERIAL_NAMES: Record<string, string> = {
