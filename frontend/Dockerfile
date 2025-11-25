@@ -1,4 +1,4 @@
-# 构建阶段
+# 构建阶段 - Updated 2024-11-25
 FROM node:18-alpine AS builder
 
 WORKDIR /app
