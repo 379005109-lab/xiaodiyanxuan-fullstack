@@ -1,23 +1,37 @@
 import apiClient from '@/lib/apiClient'
 
 /**
- * 上传文件到云端存储
+ * 上传文件到云端存储（支持进度回调）
  * @param file 要上传的文件
+ * @param onProgress 进度回调函数 (0-100)
  * @returns 包含文件 ID 的响应
  */
-export const uploadFile = async (file: File) => {
+export const uploadFile = async (file: File, onProgress?: (progress: number) => void) => {
   try {
-    console.log(`🔥🔥🔥 [GRIDFS-FIX-v2025-11-23-11-18] 开始上传文件: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`)
+    const sizeKB = (file.size / 1024).toFixed(2)
+    const sizeMB = (file.size / 1024 / 1024).toFixed(2)
+    const sizeText = file.size > 1024 * 1024 ? `${sizeMB}MB` : `${sizeKB}KB`
+    
+    console.log(`🔥 [上传] 开始上传文件: ${file.name} (${sizeText})`)
     console.log(`📍 API 端点: /files/upload`)
     
     const formData = new FormData()
     formData.append('file', file)
 
-    console.log(`🔗 完整请求 URL 将是: ${apiClient.defaults.baseURL}/files/upload`)
+    console.log(`🔗 完整请求 URL: ${apiClient.defaults.baseURL}/files/upload`)
     
     const response = await apiClient.post('/files/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          console.log(`📊 上传进度: ${percentCompleted}% (${(progressEvent.loaded / 1024 / 1024).toFixed(2)}MB / ${(progressEvent.total / 1024 / 1024).toFixed(2)}MB)`)
+          if (onProgress) {
+            onProgress(percentCompleted)
+          }
+        }
       }
     })
 

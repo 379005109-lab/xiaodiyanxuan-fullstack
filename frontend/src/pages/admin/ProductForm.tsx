@@ -833,14 +833,60 @@ export default function ProductForm() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">型号</label>
+              <label className="block text-sm font-medium mb-2">主型号</label>
               <input
                 type="text"
                 value={formData.productCode}
                 onChange={(e) => setFormData({ ...formData, productCode: e.target.value.toUpperCase() })}
-                placeholder="请输入型号"
+                placeholder="请输入主型号，如: SF-2024-001"
                 className="input"
               />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium mb-2">
+                副型号 <span className="text-gray-500 text-xs ml-2">(可选，用于关联其他型号)</span>
+              </label>
+              <div className="space-y-2">
+                {formData.subCodes.length > 0 ? (
+                  formData.subCodes.map((subCode, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={subCode}
+                        onChange={(e) => {
+                          const newSubCodes = [...formData.subCodes]
+                          newSubCodes[index] = e.target.value.toUpperCase()
+                          setFormData({ ...formData, subCodes: newSubCodes })
+                        }}
+                        placeholder={`副型号 ${index + 1}，如: SF-2024-001-A`}
+                        className="input flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newSubCodes = formData.subCodes.filter((_, i) => i !== index)
+                          setFormData({ ...formData, subCodes: newSubCodes })
+                        }}
+                        className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200"
+                      >
+                        删除
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">暂无副型号，点击下方按钮添加</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({ ...formData, subCodes: [...formData.subCodes, ''] })
+                  }}
+                  className="btn-secondary px-4 py-2 flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  添加副型号
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">商品分类</label>
@@ -967,48 +1013,6 @@ export default function ProductForm() {
                   添加风格
                 </button>
               </div>
-            </div>
-          </div>
-          
-          {/* 副编号管理 */}
-          <div className="mt-6">
-            <label className="block text-sm font-medium mb-2">副编号</label>
-            <div className="space-y-2">
-              {formData.subCodes.map((subCode, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={subCode}
-                    onChange={(e) => {
-                      const newSubCodes = [...formData.subCodes]
-                      newSubCodes[index] = e.target.value.toUpperCase()
-                      setFormData({ ...formData, subCodes: newSubCodes })
-                    }}
-                    placeholder={`副编号 ${index + 1}`}
-                    className="input flex-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newSubCodes = formData.subCodes.filter((_, i) => i !== index)
-                      setFormData({ ...formData, subCodes: newSubCodes })
-                    }}
-                    className="btn-secondary px-3 py-2"
-                  >
-                    删除
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData({ ...formData, subCodes: [...formData.subCodes, ''] })
-                }}
-                className="btn-secondary px-4 py-2 flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                添加副编号
-              </button>
             </div>
           </div>
           

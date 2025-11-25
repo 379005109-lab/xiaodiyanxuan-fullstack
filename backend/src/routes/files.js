@@ -5,32 +5,52 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// 配置 multer
+// 配置 multer - 支持大文件和设计文件
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB
+    fileSize: 2 * 1024 * 1024 * 1024, // 2GB - 支持大型设计文件
   },
   fileFilter: (req, file, cb) => {
-    // 允许的文件类型
+    console.log(`📁 接收文件上传: ${file.originalname}, MIME: ${file.mimetype}`);
+    
+    // 允许的文件类型（图片、文档、设计文件）
     const allowedMimes = [
+      // 图片
       'image/jpeg',
       'image/png',
       'image/gif',
       'image/webp',
       'image/svg+xml',
+      // 文档
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      // 视频
+      'video/mp4',
+      'video/webm',
+      'video/ogg',
+      // 设计文件（通常是application/octet-stream）
+      'application/octet-stream',
+      'application/x-dwg',
+      'application/acad',
+      'model/vnd.dwf',
     ];
-
-    if (allowedMimes.includes(file.mimetype)) {
+    
+    // 检查MIME类型或文件扩展名
+    const ext = file.originalname.split('.').pop()?.toLowerCase();
+    const designFileExts = ['dwg', 'max', 'fbx', 'obj', '3ds', 'dxf', 'skp', 'blend', 'ma', 'mb', 'c4d'];
+    
+    if (allowedMimes.includes(file.mimetype) || designFileExts.includes(ext || '')) {
+      console.log(`✅ 文件类型允许: ${file.originalname}`);
       cb(null, true);
     } else {
-      cb(new Error(`不支持的文件类型: ${file.mimetype}`));
+      const error = new Error(`不支持的文件类型: ${file.mimetype} (.${ext})`);
+      console.error(`❌ ${error.message}`);
+      cb(error);
     }
   },
 });

@@ -14,27 +14,31 @@ export default function CartPage() {
   const [conciergePhone, setConciergePhone] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  // 检查sessionStorage中的代客下单数据（用于跨标签页恢复）
+  // 检查localStorage中的代客下单数据（从管理后台跳转过来）
   useEffect(() => {
     console.log('🛒 [CartPage] 检查代客下单模式', { conciergeMode })
-    if (!conciergeMode) {
-      const conciergeData = sessionStorage.getItem('conciergeOrderData')
-      console.log('🛒 [CartPage] sessionStorage数据', conciergeData)
-      if (conciergeData) {
-        try {
-          const data = JSON.parse(conciergeData)
-          console.log('🛒 [CartPage] 解析数据成功', data)
-          enterConciergeMode(data.orderId, data.customerName, data.customerPhone, data.items, data.orderSource)
-          console.log('🛒 [CartPage] enterConciergeMode已调用')
-          sessionStorage.removeItem('conciergeOrderData')
-        } catch (error) {
-          console.error('🛒 [CartPage] 恢复代客下单数据失败:', error)
-        }
-      } else {
-        console.log('🛒 [CartPage] 没有代客下单数据')
+    
+    // 优先检查临时localStorage数据（从管理后台跳转）
+    const tempData = localStorage.getItem('conciergeOrderData_temp')
+    if (tempData) {
+      try {
+        const data = JSON.parse(tempData)
+        console.log('🛒 [CartPage] 从localStorage恢复数据', data)
+        enterConciergeMode(data.orderId, data.customerName, data.customerPhone, data.items, data.orderSource)
+        console.log('🛒 [CartPage] enterConciergeMode已调用')
+        localStorage.removeItem('conciergeOrderData_temp')
+        return
+      } catch (error) {
+        console.error('🛒 [CartPage] localStorage数据解析失败:', error)
+        localStorage.removeItem('conciergeOrderData_temp')
       }
+    }
+    
+    // 检查zustand持久化状态
+    if (conciergeMode && conciergeOrderInfo) {
+      console.log('🛒 [CartPage] 已在代客下单模式', conciergeOrderInfo)
     } else {
-      console.log('🛒 [CartPage] 已在代客下单模式')
+      console.log('🛒 [CartPage] 无代客下单数据')
     }
   }, [])
 

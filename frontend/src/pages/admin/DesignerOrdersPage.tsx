@@ -89,11 +89,7 @@ export default function DesignerOrdersPage() {
     
     console.log('🛒 [代客下单] 商品列表', simpleItems)
 
-    // 进入代客下单模式，传递订单来源（设计师订单默认为'self'）
-    enterConciergeMode(order.id, order.customerName, customerPhone, simpleItems, 'self')
-    console.log('🛒 [代客下单] enterConciergeMode 已调用')
-    
-    // 保存到sessionStorage以便在新标签页中恢复
+    // 保存到localStorage（代替sessionStorage，更可靠）
     const conciergeData = {
       orderId: order.id,
       customerName: order.customerName,
@@ -101,14 +97,22 @@ export default function DesignerOrdersPage() {
       orderSource: 'self',
       items: simpleItems
     }
-    sessionStorage.setItem('conciergeOrderData', JSON.stringify(conciergeData))
-    console.log('🛒 [代客下单] sessionStorage已保存', conciergeData)
+    
+    // 先保存到localStorage，确保数据不丢失
+    localStorage.setItem('conciergeOrderData_temp', JSON.stringify(conciergeData))
+    console.log('🛒 [代客下单] localStorage已保存', conciergeData)
+    
+    // 进入代客下单模式（更新zustand状态）
+    enterConciergeMode(order.id, order.customerName, customerPhone, simpleItems, 'self')
+    console.log('🛒 [代客下单] enterConciergeMode 已调用')
     
     toast.success(`已进入代客下单模式，客户：${order.customerName}`)
     
-    // 跳转到购物车页面（使用当前标签页，保留sessionStorage）
+    // 延迟跳转，确保状态保存完成
     console.log('🛒 [代客下单] 准备跳转到购物车')
-    window.location.href = '/cart'
+    setTimeout(() => {
+      window.location.href = '/cart'
+    }, 100)
   }
 
   if (loading) {
