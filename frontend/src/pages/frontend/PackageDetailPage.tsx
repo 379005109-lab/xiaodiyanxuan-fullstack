@@ -707,11 +707,16 @@ export default function PackageDetailPage() {
       if (token) {
         remoteAttempted = true
         try {
-          await axios.post('/orders', payload, {
+          console.log('📦 [PackageDetail] 提交套餐订单:', JSON.stringify(payload, null, 2));
+          console.log('📦 [PackageDetail] token:', token.substring(0, 20) + '...');
+          
+          const response = await axios.post('/orders', payload, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           })
+          
+          console.log('✅ [PackageDetail] 订单创建成功:', response.data);
           remoteSynced = true
           toast.success('订单提交成功！')
           setSubmitResultHint('订单已提交，您可以在订单中心查看详情。')
