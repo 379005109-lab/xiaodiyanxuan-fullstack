@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ClipboardList, CheckCircle2, Package, TrendingUp, AlertCircle, ChevronRight, Loader2 } from 'lucide-react'
+import { ClipboardList, CheckCircle2, Package, TrendingUp, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import axios from 'axios'
@@ -149,31 +149,62 @@ export default function OrdersPage() {
                       </div>
                     </div>
 
-                    {/* Order Items */}
-                    <div className="space-y-2 mb-3">
-                      {order.items && order.items.slice(0, 3).map((item: any, idx: number) => (
-                        <div key={idx} className="flex items-center gap-3 py-2 border-t border-gray-100">
-                          {item.image && (
-                            <img 
-                              src={item.image.startsWith('http') ? item.image : `/api/files/${item.image}`}
-                              alt={item.productName}
-                              className="w-12 h-12 object-cover rounded"
-                            />
-                          )}
+                    {/* Order Content - 区分普通订单和套餐订单 */}
+                    {order.orderType === 'package' && order.packageInfo ? (
+                      /* 套餐) */
+                      <div className="space-y-2 mb-3">
+                        <div className="flex items-center gap-2 py-2 border-t border-gray-100">
+                          <Package className="h-5 w-5 text-primary-600" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">{item.productName}</p>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {order.packageInfo.packageName}
+                            </p>
                             <p className="text-xs text-gray-500">
-                              数量: {item.quantity} | 单价: {formatPrice(item.price)}
+                              套餐基础价: {formatPrice(order.packageInfo.packagePrice || 0)}
                             </p>
                           </div>
                         </div>
-                      ))}
-                      {order.items && order.items.length > 3 && (
-                        <p className="text-xs text-gray-500 text-center py-1">
-                          还有 {order.items.length - 3} 件商品...
-                        </p>
-                      )}
-                    </div>
+                        {order.packageInfo.selections && order.packageInfo.selections.slice(0, 2).map((selection: any, idx: number) => (
+                          <div key={idx} className="pl-7 py-1">
+                            <p className="text-xs font-medium text-gray-700">{selection.categoryName}:</p>
+                            <p className="text-xs text-gray-500">
+                              {selection.products.map((p: any) => `${p.productName} x${p.quantity}`).join(', ')}
+                            </p>
+                          </div>
+                        ))}
+                        {order.packageInfo.selections && order.packageInfo.selections.length > 2 && (
+                          <p className="text-xs text-gray-500 text-center py-1">
+                            还有 {order.packageInfo.selections.length - 2} 个分...
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      /* 普通订单显示 */
+                      <div className="space-y-2 mb-3">
+                        {order.items && order.items.slice(0, 3).map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-3 py-2 border-t border-gray-100">
+                            {item.image && (
+                              <img 
+                                src={item.image.startsWith('http') ? item.image : `/api/files/${item.image}`}
+                                alt={item.productName}
+                                className="w-12 h-12 object-cover rounded"
+                              />
+                            )}
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-900">{item.productName}</p>
+                              <p className="text-xs text-gray-500">
+                                数量: {item.quantity} | 单价: {formatPrice(item.price)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        {order.items && order.items.length > 3 && (
+                          <p className="text-xs text-gray-500 text-center py-1">
+                            还有 {order.items.length - 3} 件商品...
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Recipient Info */}
                     {order.recipient && (
@@ -190,16 +221,6 @@ export default function OrdersPage() {
                       </div>
                     )}
 
-                    {/* View Details Button */}
-                    <button
-                      onClick={() => {
-                        toast.info('订单详情页开发中，敬请期待')
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                    >
-                      <span className="text-sm font-medium">查看详情</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
                   </div>
                 </div>
               )
