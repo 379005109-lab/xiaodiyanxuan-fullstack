@@ -5,7 +5,8 @@ const { calculatePagination } = require('../utils/helpers')
 const { NotFoundError } = require('../utils/errors')
 
 const getProducts = async (filters = {}) => {
-  const { page = 1, pageSize = 10, search, categoryId, styleId, sortBy = '-createdAt', status } = filters
+  // 默认按order字段升序排序（order值越小越靠前），其次按创建时间降序
+  const { page = 1, pageSize = 10, search, categoryId, styleId, sortBy = 'order -createdAt', status } = filters
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
   // 默认不过滤状态，如果传了status参数才过滤
@@ -67,6 +68,7 @@ const searchProducts = async (keyword, page = 1, pageSize = 10) => {
   
   const total = await Product.countDocuments(query)
   const products = await Product.find(query)
+    .sort('order -createdAt')  // 按order字段排序
     .skip(skip)
     .limit(size)
     .lean()

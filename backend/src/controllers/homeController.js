@@ -6,15 +6,15 @@ const Package = require('../models/Package')
 
 const getHomeData = async (req, res) => {
   try {
-    // Get featured products (top sales)
+    // Get featured products (先按order排序，再按销量排序)
     const featuredProducts = await Product.find({ status: 'active' })
-      .sort('-sales')
+      .sort('order -sales')
       .limit(8)
       .lean()
     
-    // Get hot products (top views)
+    // Get hot products (先按order排序，再按浏览量排序)
     const hotProducts = await Product.find({ status: 'active' })
-      .sort('-views')
+      .sort('order -views')
       .limit(8)
       .lean()
     

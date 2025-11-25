@@ -59,5 +59,6 @@ productSchema.index({ name: 'text', description: 'text' })
 productSchema.index({ category: 1 })
 productSchema.index({ style: 1 })
 productSchema.index({ status: 1 })
+productSchema.index({ order: 1 })  // 排序字段索引
 
 module.exports = mongoose.model('Product', productSchema)
