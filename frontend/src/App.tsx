@@ -164,6 +164,7 @@ function App() {
           </Route>
 
           {/* 认证路由 */}
+          <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/role-select" element={
             <ProtectedRoute>

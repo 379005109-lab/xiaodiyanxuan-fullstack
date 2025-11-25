@@ -44,10 +44,10 @@ export default function Header() {
   }, [items])
 
   useEffect(() => {
-    loadFavorites()
-    loadCompareItems()
     loadCategories()
     if (isAuthenticated) {
+      loadFavorites()
+      loadCompareItems()
       loadOrders()
     }
     
