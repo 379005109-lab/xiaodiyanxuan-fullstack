@@ -6,17 +6,28 @@ const create = async (req, res) => {
   try {
     const { contactName, contactPhone, contactEmail, productType, customizationDetails, dimensions, materials, colors, budget, deadline, images } = req.body
     
-    if (!contactName || !contactPhone || !productType || !customizationDetails) {
-      return res.status(400).json(errorResponse('请填写必填信息', 400))
+    // 只需要至少有一项定制内容
+    if (!dimensions && !materials && !colors && !customizationDetails) {
+      return res.status(400).json(errorResponse('请至少填写一项定制需求', 400))
     }
+    
+    // 使用默认值
+    const finalContactName = contactName || '当前用户'
+    const finalContactPhone = contactPhone || '待补充'
+    const finalProductType = productType || '定制家具'
+    const finalCustomizationDetails = customizationDetails || [
+      dimensions && `尺寸：${dimensions}`,
+      materials && `材质：${materials}`,
+      colors && `颜色：${colors}`,
+    ].filter(Boolean).join(' | ')
     
     const customization = await CustomizationRequest.create({
       userId: req.userId || null,
-      contactName,
-      contactPhone,
+      contactName: finalContactName,
+      contactPhone: finalContactPhone,
       contactEmail,
-      productType,
-      customizationDetails,
+      productType: finalProductType,
+      customizationDetails: finalCustomizationDetails,
       dimensions,
       materials,
       colors,

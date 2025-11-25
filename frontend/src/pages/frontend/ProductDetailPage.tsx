@@ -438,7 +438,7 @@ const ProductDetailPage = () => {
     });
   };
 
-  const handleFileDownload = (file: ProductFile) => {
+  const handleFileDownload = async (file: ProductFile) => {
     if (!user) {
       toast.error('请先登录账号后再下载资料');
       navigate('/login');
@@ -448,11 +448,38 @@ const ProductDetailPage = () => {
       toast.error('文件地址不存在');
       return;
     }
-    // file.url 是 GridFS fileId，需要通过 /api/files/{fileId} 下载
-    const fileUrl = file.url.startsWith('http') 
-      ? file.url 
-      : `/api/files/${file.url}`;
-    window.open(fileUrl, '_blank', 'noopener');
+    
+    try {
+      // 构建下载URL
+      const fileUrl = file.url.startsWith('http') 
+        ? file.url 
+        : `/api/files/${file.url}`;
+      
+      // 构建文件名：商品名.扩展名
+      const fileExt = file.format?.toLowerCase() || 'file';
+      const fileName = `${product.name}.${fileExt}`;
+      
+      // 下载文件
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      
+      // 创建下载链接
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      
+      // 清理
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success(`正在下载 ${fileName}`);
+    } catch (error) {
+      console.error('下载失败:', error);
+      toast.error('下载失败，请稍后重试');
+    }
   };
 
   const handleFilterChange = (filter: SkuFilter) => {
