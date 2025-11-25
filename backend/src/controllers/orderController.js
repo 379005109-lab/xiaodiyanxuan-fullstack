@@ -39,9 +39,11 @@ const create = async (req, res) => {
 
 const list = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, status } = req.query
+    const { page = 1, pageSize = 10, status, admin } = req.query
     
-    const result = await getOrders(req.userId, page, pageSize, status ? parseInt(status) : null)
+    // 如果是管理员查询所有订单，传入null作为userId
+    const userId = admin === 'true' ? null : req.userId
+    const result = await getOrders(userId, page, pageSize, status ? parseInt(status) : null)
     res.json(paginatedResponse(result.orders, result.total, result.page, result.pageSize))
   } catch (err) {
     console.error('List orders error:', err)

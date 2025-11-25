@@ -92,7 +92,11 @@ const getOrders = async (userId, page = 1, pageSize = 10, status = null) => {
   console.log('📋 [OrderService] getOrders called:', { userId, page, pageSize, status });
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
-  const query = { userId }
+  const query = {}
+  // 如果userId为null，查询所有订单（管理员模式）
+  if (userId !== null) {
+    query.userId = userId
+  }
   console.log('📋 [OrderService] query:', query);
   if (status) {
     query.status = status
