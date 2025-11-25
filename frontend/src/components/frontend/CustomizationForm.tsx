@@ -25,6 +25,7 @@ interface CustomizationFormProps {
 }
 
 export default function CustomizationForm({ productId }: CustomizationFormProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
     dimensions: '',
     materials: '',
@@ -40,7 +41,7 @@ export default function CustomizationForm({ productId }: CustomizationFormProps)
       return;
     }
     
-    // 构建提交数据 - 后端需要的必填字段从用户信息获取
+    // 构建提交数据
     const customizationDetails = [
       formData.dimensions && `尺寸：${formData.dimensions}`,
       formData.materials && `材质：${formData.materials}`,
@@ -48,8 +49,9 @@ export default function CustomizationForm({ productId }: CustomizationFormProps)
     ].filter(Boolean).join(' | ');
     
     const submitData = {
-      contactName: '当前登录用户', // 后端会从token获取
-      contactPhone: '从用户信息获取', // 后端会从token获取
+      productId,
+      contactName: '待补充',
+      contactPhone: '待补充',
       productType: '定制家具',
       customizationDetails,
       dimensions: formData.dimensions,
@@ -57,16 +59,21 @@ export default function CustomizationForm({ productId }: CustomizationFormProps)
       colors: formData.colors,
     };
     
+    console.log('📝 [CustomizationForm] 提交数据:', submitData);
+    
     setSubmitting(true);
     try {
-      await submitCustomizationRequest(submitData);
+      const result = await submitCustomizationRequest(submitData);
+      console.log('✅ [CustomizationForm] 提交成功:', result);
       toast.success('您的定制需求已提交！我们将尽快与您联系。');
       setFormData({
         dimensions: '',
         materials: '',
         colors: '',
       });
+      setIsOpen(false);
     } catch (error: any) {
+      console.error('❌ [CustomizationForm] 提交失败:', error);
       toast.error(error.message || '提交失败，请稍后重试');
     } finally {
       setSubmitting(false);
@@ -75,35 +82,52 @@ export default function CustomizationForm({ productId }: CustomizationFormProps)
 
   return (
     <div className="mt-8 p-6 bg-gray-50 rounded-lg border">
-      <h3 className="text-lg font-semibold mb-4">需要个性化定制？</h3>
-      <p className="text-sm text-gray-600 mb-4">告诉我们您期望的尺寸、材质或颜色，我们将为您定制。</p>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input 
-          type="text" 
-          value={formData.dimensions} 
-          onChange={e => setFormData({...formData, dimensions: e.target.value})} 
-          placeholder="期望尺寸（如：长2米 × 宽0.9米 × 高0.8米）" 
-          className="input w-full"
-        />
-        <input 
-          type="text" 
-          value={formData.materials} 
-          onChange={e => setFormData({...formData, materials: e.target.value})} 
-          placeholder="期望材质（如：科技布、真皮、金属）" 
-          className="input w-full"
-        />
-        <input 
-          type="text" 
-          value={formData.colors} 
-          onChange={e => setFormData({...formData, colors: e.target.value})} 
-          placeholder="期望颜色（如：米白色、深灰色）" 
-          className="input w-full"
-        />
-        <button type="submit" className="btn-primary w-full" disabled={submitting}>
-          {submitting ? '提交中...' : '提交定制需求'}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-lg font-semibold">需要个性化定制？</h3>
+          <p className="text-sm text-gray-600 mt-1">告诉我们您期望的尺寸、材质或颜色，我们将为您定制。</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            isOpen 
+              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
+              : 'bg-primary-600 text-white hover:bg-primary-700'
+          }`}
+        >
+          {isOpen ? '收起' : '我要定制'}
         </button>
-      </form>
+      </div>
+      
+      {isOpen && (
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4 pt-4 border-t border-gray-200">
+          <input 
+            type="text" 
+            value={formData.dimensions} 
+            onChange={e => setFormData({...formData, dimensions: e.target.value})} 
+            placeholder="期望尺寸（如：长2米 × 宽0.9米 × 高0.8米）" 
+            className="input w-full"
+          />
+          <input 
+            type="text" 
+            value={formData.materials} 
+            onChange={e => setFormData({...formData, materials: e.target.value})} 
+            placeholder="期望材质（如：科技布、真皮、金属）" 
+            className="input w-full"
+          />
+          <input 
+            type="text" 
+            value={formData.colors} 
+            onChange={e => setFormData({...formData, colors: e.target.value})} 
+            placeholder="期望颜色（如：米白色、深灰色）" 
+            className="input w-full"
+          />
+          <button type="submit" className="btn-primary w-full" disabled={submitting}>
+            {submitting ? '提交中...' : '提交定制需求'}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
