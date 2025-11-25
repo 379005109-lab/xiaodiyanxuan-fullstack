@@ -161,7 +161,55 @@ export default function PackageDetailPageNew() {
     return (selectedProducts[categoryKey] || []).reduce((sum, id) => sum + (quantities[id] || 1), 0)
   }
 
-  const totalPrice = pkg ? pkg.price : 0
+  // 计算单个商品的材质升级费用
+  const getProductSurcharge = (productId: string) => {
+    const materials = materialSelections[productId]
+    if (!materials) return 0
+    
+    const product = pkg?.categories.flatMap(c => c.products).find(p => p.id === productId)
+    if (!product) return 0
+    
+    let surcharge = 0
+    Object.entries(materials).forEach(([key, option]) => {
+      const options = (product.materials as any)?.[key] as string[]
+      if (!options || options[0] === option) return
+      
+      // 从SKU中获取加价
+      const productAny = product as any
+      if (productAny.skus) {
+        for (const sku of productAny.skus) {
+          if (sku.materialUpgradePrices?.[option]) {
+            surcharge += sku.materialUpgradePrices[option]
+            return
+          }
+          for (const [k, price] of Object.entries(sku.materialUpgradePrices || {})) {
+            if (option.includes(k) || k.includes(option)) {
+              surcharge += price as number
+              return
+            }
+          }
+        }
+      }
+    })
+    return surcharge
+  }
+
+  // 计算总材质升级费用
+  const totalMaterialSurcharge = useMemo(() => {
+    if (!pkg) return 0
+    let total = 0
+    pkg.categories.forEach(cat => {
+      const ids = selectedProducts[cat.key] || []
+      ids.forEach(id => {
+        const qty = quantities[id] || 1
+        total += getProductSurcharge(id) * qty
+      })
+    })
+    return total
+  }, [pkg, selectedProducts, materialSelections, quantities])
+
+  const basePrice = pkg ? pkg.price : 0
+  const totalPrice = basePrice + totalMaterialSurcharge
   const progressPercent = pkg ? Math.round(
     (pkg.categories.reduce((sum, cat) => sum + Math.min(getSelectedCount(cat.key), cat.required), 0) /
     pkg.categories.reduce((sum, cat) => sum + cat.required, 0)) * 100
@@ -236,12 +284,12 @@ export default function PackageDetailPageNew() {
       <div className="flex flex-col lg:flex-row min-h-screen">
         {/* 左侧内容区 */}
         <div className="flex-1 overflow-y-auto">
-          {/* Hero */}
-          <div className="relative w-full h-56 md:h-72 overflow-hidden">
+          {/* Hero - 使用固定宽高比避免变形 */}
+          <div className="relative w-full aspect-[21/9] max-h-72 overflow-hidden">
             <img 
               src={pkg.gallery?.[0] || (pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg')}
               alt={pkg.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover object-center"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/50 to-transparent" />
             <div className="absolute bottom-0 left-0 w-full p-8 text-white">
@@ -269,9 +317,17 @@ export default function PackageDetailPageNew() {
                   {/* 分类头部 */}
                   <div className="flex flex-col md:flex-row md:items-end justify-between mb-4 gap-4">
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-3 mb-1">
                         <span className="text-xs font-bold text-stone-300">0{idx + 1}</span>
                         <h3 className="text-xl font-serif font-bold text-primary">{category.name}</h3>
+                        <span className="text-xs font-medium text-white bg-primary/80 px-2 py-0.5 rounded">
+                          {category.products.length}选{category.required}
+                        </span>
+                        {selectedIds.length > 0 && (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded ${selectedIds.length >= category.required ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                            已选 {selectedIds.length}/{category.required}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-stone-500">
                         <span>快速筛选:</span>
@@ -380,18 +436,32 @@ export default function PackageDetailPageNew() {
                 const product = cat.products.find(p => p.id === productId)
                 if (!product) return null
                 const qty = quantities[productId] || 1
+                const surcharge = getProductSurcharge(productId)
+                const itemTotal = ((product.price || 0) + surcharge) * qty
+                const hasSurcharge = surcharge > 0
+                
                 return (
-                  <div key={productId} className="flex gap-3 items-start group">
-                    <div className="w-12 h-12 rounded-lg bg-stone-50 overflow-hidden border border-stone-100 flex-shrink-0">
+                  <div key={productId} className={`flex gap-3 items-start group p-2 rounded-lg ${hasSurcharge ? 'bg-amber-50 border border-amber-200' : ''}`}>
+                    <div className="w-12 h-12 rounded-lg bg-stone-50 overflow-hidden border border-stone-100 flex-shrink-0 relative">
                       <img src={product.image ? getFileUrl(product.image) : '/placeholder.svg'} alt="" className="w-full h-full object-cover" />
+                      {hasSurcharge && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                          <span className="text-[8px] text-white font-bold">↑</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
                         <span className="text-xs font-bold text-stone-700 line-clamp-1">{product.name}</span>
-                        <span className="text-xs font-serif font-bold text-stone-900">¥{((product.price || 0) * qty).toLocaleString()}</span>
+                        <span className="text-xs font-serif font-bold text-stone-900">¥{itemTotal.toLocaleString()}</span>
                       </div>
                       {getMaterialLabel(productId) && (
                         <div className="text-[10px] text-stone-500 mt-0.5 truncate">{getMaterialLabel(productId)}</div>
+                      )}
+                      {hasSurcharge && (
+                        <div className="text-[10px] text-amber-600 font-medium mt-0.5">
+                          材质升级 +¥{(surcharge * qty).toLocaleString()}
+                        </div>
                       )}
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex items-center border border-stone-200 rounded bg-white">
@@ -413,7 +483,13 @@ export default function PackageDetailPageNew() {
           {/* 底部汇总 */}
           <div className="p-6 bg-stone-50 border-t border-stone-200 space-y-4">
             <div className="space-y-2 text-xs text-stone-500">
-              <div className="flex justify-between"><span>商品总额</span><span>¥{totalPrice.toLocaleString()}</span></div>
+              <div className="flex justify-between"><span>套餐基础价</span><span>¥{basePrice.toLocaleString()}</span></div>
+              {totalMaterialSurcharge > 0 && (
+                <div className="flex justify-between text-amber-600">
+                  <span>材质升级费用</span>
+                  <span>+¥{totalMaterialSurcharge.toLocaleString()}</span>
+                </div>
+              )}
             </div>
             <div className="pt-4 border-t border-stone-200">
               <div className="flex justify-between items-end mb-4">
