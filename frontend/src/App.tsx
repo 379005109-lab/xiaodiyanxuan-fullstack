@@ -1,8 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { useAuthStore } from './store/authStore'
+import { useAuthModalStore } from './store/authModalStore'
 import { UserRole } from './types'
 import ErrorBoundary from './components/ErrorBoundary'
+import AuthModal from './components/auth/AuthModal'
 import { useEffect, useState, lazy, Suspense } from 'react'
 // 导入测试工具
 import './utils/testImageSave'
@@ -124,10 +126,18 @@ const LoadingFallback = () => (
 )
 
 function App() {
+  const { isOpen: authModalOpen, mode: authModalMode, close: closeAuthModal } = useAuthModalStore()
+  
   return (
     <ErrorBoundary>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Toaster position="bottom-right" richColors />
+        {/* 全局登录弹窗 */}
+        <AuthModal 
+          isOpen={authModalOpen} 
+          onClose={closeAuthModal} 
+          initialMode={authModalMode} 
+        />
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
           {/* 前台路由 */}

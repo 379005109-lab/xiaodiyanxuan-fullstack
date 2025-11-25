@@ -1,5 +1,6 @@
 const { successResponse, errorResponse } = require('../utils/response')
-const { wxLogin, usernamePasswordLogin, refreshToken } = require('../services/authService')
+const { wxLogin, usernamePasswordLogin, refreshToken, registerWithPhone } = require('../services/authService')
+const { sendVerificationCode, verifyCode } = require('../services/smsService')
 
 const login = async (req, res) => {
   try {
@@ -25,6 +26,57 @@ const login = async (req, res) => {
   }
 }
 
+// 发送短信验证码
+const sendCode = async (req, res) => {
+  try {
+    const { phone } = req.body
+    
+    if (!phone) {
+      return res.status(400).json(errorResponse('手机号不能为空', 400))
+    }
+    
+    const result = await sendVerificationCode(phone)
+    
+    if (result.success) {
+      // 开发环境返回验证码（方便测试）
+      const response = { message: result.message }
+      if (result.code) {
+        response.code = result.code
+      }
+      return res.json(successResponse(response))
+    } else {
+      return res.status(400).json(errorResponse(result.message, 400))
+    }
+  } catch (err) {
+    console.error('Send code error:', err)
+    res.status(500).json(errorResponse('发送验证码失败', 500))
+  }
+}
+
+// 手机号注册
+const register = async (req, res) => {
+  try {
+    const { phone, password, verifyCode: code } = req.body
+    
+    if (!phone || !password || !code) {
+      return res.status(400).json(errorResponse('请填写完整信息', 400))
+    }
+    
+    // 验证短信验证码
+    const isValid = verifyCode(phone, code)
+    if (!isValid) {
+      return res.status(400).json(errorResponse('验证码无效或已过期', 400))
+    }
+    
+    // 注册用户
+    const result = await registerWithPhone(phone, password)
+    return res.json(successResponse(result))
+  } catch (err) {
+    console.error('Register error:', err)
+    res.status(400).json(errorResponse(err.message, 400))
+  }
+}
+
 const refresh = async (req, res) => {
   try {
     const result = await refreshToken(req.userId)
@@ -41,6 +93,8 @@ const logout = (req, res) => {
 
 module.exports = {
   login,
+  sendCode,
+  register,
   refresh,
   logout
 }

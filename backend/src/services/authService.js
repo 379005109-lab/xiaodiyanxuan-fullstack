@@ -130,10 +130,57 @@ const adminLogin = async (username, password) => {
   }
 }
 
+/**
+ * 手机号注册
+ * @param {string} phone 手机号
+ * @param {string} password 密码
+ */
+const registerWithPhone = async (phone, password) => {
+  // 检查手机号是否已注册
+  const existingUser = await User.findOne({ 
+    $or: [
+      { phone },
+      { username: phone }
+    ]
+  })
+  
+  if (existingUser) {
+    throw new AuthenticationError('该手机号已注册')
+  }
+  
+  // 加密密码
+  const hashedPassword = await bcryptjs.hash(password, 10)
+  
+  // 创建用户
+  const user = await User.create({
+    phone,
+    username: phone, // 默认用手机号作为用户名
+    password: hashedPassword,
+    role: 'customer',
+    userType: 'customer',
+    status: 'active'
+  })
+  
+  // 生成 token
+  const token = generateToken(user._id)
+  
+  return {
+    token,
+    user: {
+      id: user._id,
+      phone: user.phone,
+      username: user.username,
+      role: user.role,
+      userType: user.userType
+    }
+  }
+}
+
 module.exports = {
   generateToken,
   wxLogin,
   usernamePasswordLogin,
+  registerWithPhone,
   verifyToken,
   refreshToken
 }
