@@ -3,64 +3,66 @@ import { Toaster } from 'sonner'
 import { useAuthStore } from './store/authStore'
 import { UserRole } from './types'
 import ErrorBoundary from './components/ErrorBoundary'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 // 导入测试工具
 import './utils/testImageSave'
 
-// 前台页面
+// 首页和布局直接导入（首屏必需）
 import HomePage from './pages/frontend/HomePage'
-import ProductsPage from './pages/frontend/ProductsPage'
-import ProductDetailPage from './pages/frontend/ProductDetailPage'
-import ProductSharePage from './pages/frontend/ProductSharePage'
-import CartPage from './pages/frontend/CartPage'
-import CheckoutPage from './pages/frontend/CheckoutPage'
-import ComparePage from './pages/frontend/ComparePage'
-import FavoritesPage from './pages/frontend/FavoritesPage'
-import DesignServicePage from './pages/frontend/DesignServicePage'
-import PackagesPage from './pages/frontend/PackagesPage'
-import PackageDetailPage from './pages/frontend/PackageDetailPage'
-import OrdersPage from './pages/frontend/OrdersPage'
-import LoginPage from './pages/auth/LoginPage'
-import RegisterPage from '@/pages/auth/RegisterPage'
-import RoleSelectPage from '@/pages/auth/RoleSelectPage'
-import UserProfilePage from './pages/frontend/UserProfilePage'
-import BargainListPage from './pages/frontend/BargainListPage'
-import BargainDetailPage from './pages/frontend/BargainDetailPage'
-
-// 后台页面
 import AdminLayout from './layouts/AdminLayout'
-import Dashboard from './pages/admin/Dashboard'
-import ProductManagement from './pages/admin/ProductManagement'
-import ProductForm from './pages/admin/ProductForm'
-import ProductDashboard from './pages/admin/ProductDashboard'
-import OrderManagement from './pages/admin/OrderManagement'
-import UserManagement from './pages/admin/UserManagement'
-import ImageManagement from './pages/admin/ImageManagement'
-import SiteImageManagement from './pages/admin/SiteImageManagement'
-import CategoryManagement from './pages/admin/CategoryManagement'
-import MaterialManagement from './pages/admin/MaterialManagement'
-import OrderAnalysis from './pages/admin/OrderAnalysis'
-import RefundManagement from './pages/admin/RefundManagement'
-import PackageManagementPage from './pages/admin/PackageManagementPage'
-import PackageListPage from './pages/admin/PackageListPage';
-import AdminBargainListPage from './pages/admin/AdminBargainListPage';
-import AdminBargainFormPage from './pages/admin/AdminBargainFormPage';
-import BargainDashboardPage from './pages/admin/BargainDashboardPage';
-import AdminDashboardPage from './pages/admin/AdminDashboardPage';
-import DesignerProductEditPage from './pages/admin/DesignerProductEditPage';
-import DesignerPackageEditPage from './pages/admin/DesignerPackageEditPage';
-import PackageProfitPage from './pages/admin/PackageProfitPage';
-import OrderDashboard from './pages/admin/OrderDashboard';
-import DesignerOrdersPage from './pages/admin/DesignerOrdersPage';
-import DesignerReferredOrdersPage from './pages/admin/DesignerReferredOrdersPage';
-import TestConciergeOrderPage from './pages/admin/TestConciergeOrderPage';
-import UserUnbanPage from './pages/admin/UserUnbanPage';
-import NotificationTestPage from './pages/admin/NotificationTestPage';
-import NotificationManagementPage from './pages/admin/NotificationManagementPage';
-import DesignManagement from './pages/admin/DesignManagement';
 
-// 前台布局
-import FrontendLayout from './layouts/FrontendLayout'
+// 前台页面 - 懒加载
+const ProductsPage = lazy(() => import('./pages/frontend/ProductsPage'))
+const ProductDetailPage = lazy(() => import('./pages/frontend/ProductDetailPage'))
+const ProductSharePage = lazy(() => import('./pages/frontend/ProductSharePage'))
+const CartPage = lazy(() => import('./pages/frontend/CartPage'))
+const CheckoutPage = lazy(() => import('./pages/frontend/CheckoutPage'))
+const ComparePage = lazy(() => import('./pages/frontend/ComparePage'))
+const FavoritesPage = lazy(() => import('./pages/frontend/FavoritesPage'))
+const DesignServicePage = lazy(() => import('./pages/frontend/DesignServicePage'))
+const PackagesPage = lazy(() => import('./pages/frontend/PackagesPage'))
+const PackageDetailPage = lazy(() => import('./pages/frontend/PackageDetailPage'))
+const OrdersPage = lazy(() => import('./pages/frontend/OrdersPage'))
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
+const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'))
+const RoleSelectPage = lazy(() => import('@/pages/auth/RoleSelectPage'))
+const UserProfilePage = lazy(() => import('./pages/frontend/UserProfilePage'))
+const BargainListPage = lazy(() => import('./pages/frontend/BargainListPage'))
+const BargainDetailPage = lazy(() => import('./pages/frontend/BargainDetailPage'))
+
+// 后台页面 - 懒加载
+const Dashboard = lazy(() => import('./pages/admin/Dashboard'))
+const ProductManagement = lazy(() => import('./pages/admin/ProductManagement'))
+const ProductForm = lazy(() => import('./pages/admin/ProductForm'))
+const ProductDashboard = lazy(() => import('./pages/admin/ProductDashboard'))
+const OrderManagement = lazy(() => import('./pages/admin/OrderManagement'))
+const UserManagement = lazy(() => import('./pages/admin/UserManagement'))
+const ImageManagement = lazy(() => import('./pages/admin/ImageManagement'))
+const SiteImageManagement = lazy(() => import('./pages/admin/SiteImageManagement'))
+const CategoryManagement = lazy(() => import('./pages/admin/CategoryManagement'))
+const MaterialManagement = lazy(() => import('./pages/admin/MaterialManagement'))
+const OrderAnalysis = lazy(() => import('./pages/admin/OrderAnalysis'))
+const RefundManagement = lazy(() => import('./pages/admin/RefundManagement'))
+const PackageManagementPage = lazy(() => import('./pages/admin/PackageManagementPage'))
+const PackageListPage = lazy(() => import('./pages/admin/PackageListPage'))
+const AdminBargainListPage = lazy(() => import('./pages/admin/AdminBargainListPage'))
+const AdminBargainFormPage = lazy(() => import('./pages/admin/AdminBargainFormPage'))
+const BargainDashboardPage = lazy(() => import('./pages/admin/BargainDashboardPage'))
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
+const DesignerProductEditPage = lazy(() => import('./pages/admin/DesignerProductEditPage'))
+const DesignerPackageEditPage = lazy(() => import('./pages/admin/DesignerPackageEditPage'))
+const PackageProfitPage = lazy(() => import('./pages/admin/PackageProfitPage'))
+const OrderDashboard = lazy(() => import('./pages/admin/OrderDashboard'))
+const DesignerOrdersPage = lazy(() => import('./pages/admin/DesignerOrdersPage'))
+const DesignerReferredOrdersPage = lazy(() => import('./pages/admin/DesignerReferredOrdersPage'))
+const TestConciergeOrderPage = lazy(() => import('./pages/admin/TestConciergeOrderPage'))
+const UserUnbanPage = lazy(() => import('./pages/admin/UserUnbanPage'))
+const NotificationTestPage = lazy(() => import('./pages/admin/NotificationTestPage'))
+const NotificationManagementPage = lazy(() => import('./pages/admin/NotificationManagementPage'))
+const DesignManagement = lazy(() => import('./pages/admin/DesignManagement'))
+
+// 前台布局 - 懒加载
+const FrontendLayout = lazy(() => import('./layouts/FrontendLayout'))
 
 // 路由守卫
 interface ProtectedRouteProps {
@@ -113,12 +115,20 @@ const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles, fallback
   return <>{children}</>
 }
 
+// 加载组件
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+  </div>
+)
+
 function App() {
   return (
     <ErrorBoundary>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Toaster position="top-right" richColors />
-        <Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
           {/* 前台路由 */}
           <Route path="/" element={<FrontendLayout />}>
             <Route index element={<HomePage />} />
@@ -214,6 +224,7 @@ function App() {
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </Router>
     </ErrorBoundary>
   )

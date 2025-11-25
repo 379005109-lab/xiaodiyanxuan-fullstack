@@ -7,14 +7,15 @@ const Hero: React.FC = () => {
   const navigate = useNavigate();
   const icons = [Sofa, Bed, Armchair, Lamp, Table2, Tv2, Box, Layers, Monitor, Component];
   
-  const particles = Array.from({ length: 32 }).map((_, i) => {
+  // 减少粒子数量：32 → 12，提升性能
+  const particles = Array.from({ length: 12 }).map((_, i) => {
     const Icon = icons[i % icons.length];
-    const angle = (i / 32) * Math.PI * 2;
-    const radius = 350 + Math.random() * 150; 
+    const angle = (i / 12) * Math.PI * 2;
+    const radius = 300; // 固定半径，减少计算
     const startX = Math.cos(angle) * radius;
     const startY = Math.sin(angle) * radius;
-    const duration = 4 + Math.random() * 4; 
-    const delay = Math.random() * 5; 
+    const duration = 6; // 固定时长，减少计算
+    const delay = i * 0.5; // 固定延迟，减少计算
 
     return { Icon, startX, startY, duration, delay };
   });
