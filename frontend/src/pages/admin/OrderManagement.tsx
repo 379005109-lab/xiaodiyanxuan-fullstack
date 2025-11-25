@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Search, Filter, Eye, Download, ShoppingCart, Sparkles, ChevronDown, MoreVertical, Truck, Clock, CheckCircle2, AlertCircle, DollarSign, MessageSquare, Copy, Printer, Phone, MapPin } from 'lucide-react'
 import { formatPrice, formatDateTime } from '@/lib/utils'
@@ -9,6 +10,7 @@ import { mapAdminOrderToCartItems } from '@/utils/conciergeHelper'
 import { getFileUrl } from '@/services/uploadService'
 
 export default function OrderManagement() {
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [orders, setOrders] = useState<Order[]>([])
@@ -39,11 +41,9 @@ export default function OrderManagement() {
       console.log('[OrderManagement] Loading orders, token exists:', !!token)
       
       if (!token) {
-        console.warn('[OrderManagement] No token found, user may need to login')
-        setOrders([])
-        setTotal(0)
-        setTotalPages(1)
-        setLoading(false)
+        console.warn('[OrderManagement] No token found, redirecting to login')
+        toast.error('请先登录')
+        navigate('/login')
         return
       }
       
@@ -55,6 +55,14 @@ export default function OrderManagement() {
       })
       
       console.log('[OrderManagement] API response status:', response.status)
+      
+      if (response.status === 401) {
+        console.warn('[OrderManagement] Token invalid, redirecting to login')
+        localStorage.removeItem('token')
+        toast.error('登录已过期，请重新登录')
+        navigate('/login')
+        return
+      }
       
       if (!response.ok) {
         const errorText = await response.text()
