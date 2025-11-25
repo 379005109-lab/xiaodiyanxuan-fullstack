@@ -127,7 +127,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Toaster position="top-right" richColors />
+        <Toaster position="bottom-right" richColors />
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
           {/* 前台路由 */}

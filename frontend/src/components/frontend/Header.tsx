@@ -261,8 +261,18 @@ export default function Header() {
               )}
             </Link>
 
-            {/* 订单下拉菜单 */}
+            {/* 订单图标 - 直接跳转到订单中心 */}
             {isAuthenticated && (
+              <Link 
+                to="/orders"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative hidden md:block"
+              >
+                <ClipboardList className="h-6 w-6 text-gray-700" />
+              </Link>
+            )}
+            
+            {/* 旧的悬浮订单菜单 - 已禁用 */}
+            {false && isAuthenticated && (
               <div 
                 className="relative hidden md:block"
                 onMouseEnter={() => {

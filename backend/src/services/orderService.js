@@ -7,6 +7,12 @@ const { ORDER_STATUS } = require('../config/constants')
 const { NotFoundError, ValidationError } = require('../utils/errors')
 
 const createOrder = async (userId, items, recipient, couponCode = null) => {
+  console.log('🛒 [OrderService] createOrder called');
+  console.log('🛒 [OrderService] userId:', userId);
+  console.log('🛒 [OrderService] userId type:', typeof userId);
+  console.log('🛒 [OrderService] items count:', items?.length);
+  console.log('🛒 [OrderService] recipient:', recipient);
+  
   if (!items || items.length === 0) {
     throw new ValidationError('Order must contain at least one item')
   }
@@ -14,8 +20,9 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
   // Calculate totals
   let subtotal = 0
   items.forEach(item => {
-    subtotal += item.subtotal || 0
+    subtotal += item.subtotal || (item.price * item.quantity) || 0
   })
+  console.log('🛒 [OrderService] subtotal:', subtotal);
   
   let discountAmount = 0
   if (couponCode) {
@@ -47,8 +54,11 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
   
   const totalAmount = subtotal - discountAmount
   
+  const orderNo = generateOrderNo();
+  console.log('🛒 [OrderService] Generated orderNo:', orderNo);
+  
   const order = await Order.create({
-    orderNo: generateOrderNo(),
+    orderNo,
     userId,
     items,
     subtotal,
@@ -58,6 +68,11 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
     status: ORDER_STATUS.PENDING_PAYMENT,
     couponCode
   })
+  
+  console.log('✅ [OrderService] Order created successfully!');
+  console.log('✅ [OrderService] Order ID:', order._id);
+  console.log('✅ [OrderService] Order userId:', order.userId);
+  console.log('✅ [OrderService] Order status:', order.status);
   
   // Update user stats
   const user = await User.findById(userId)

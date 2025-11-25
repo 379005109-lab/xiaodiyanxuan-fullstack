@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import axios from 'axios'
+import { useAuthStore } from '@/store/authStore'
 
 interface CustomizationRequest {
   _id: string
@@ -18,6 +19,7 @@ interface CustomizationRequest {
 export default function CustomizationManagement() {
   const [requests, setRequests] = useState<CustomizationRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const { token } = useAuthStore()
 
   useEffect(() => {
     loadRequests()
@@ -25,14 +27,20 @@ export default function CustomizationManagement() {
 
   const loadRequests = async () => {
     try {
-      const token = localStorage.getItem('token')
+      if (!token) {
+        toast.error('请先登录')
+        return
+      }
+      console.log('📋 [CustomizationManagement] 加载定制需求...')
       const response = await axios.get('/api/customization', {
         headers: { Authorization: `Bearer ${token}` }
       })
+      console.log('✅ [CustomizationManagement] 加载成功:', response.data)
       setRequests(response.data.data || [])
-    } catch (error) {
-      console.error('加载定制需求失败:', error)
-      toast.error('加载定制需求失败')
+    } catch (error: any) {
+      console.error('❌ [CustomizationManagement] 加载失败:', error)
+      console.error('错误详情:', error.response?.data)
+      toast.error('加载定制需求失败: ' + (error.response?.data?.message || error.message))
     } finally {
       setLoading(false)
     }
@@ -40,7 +48,10 @@ export default function CustomizationManagement() {
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      const token = localStorage.getItem('token')
+      if (!token) {
+        toast.error('请先登录')
+        return
+      }
       await axios.put(`/api/customization/${id}`, { status }, {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -56,7 +67,10 @@ export default function CustomizationManagement() {
     if (!confirm('确定要删除这条定制需求吗？')) return
     
     try {
-      const token = localStorage.getItem('token')
+      if (!token) {
+        toast.error('请先登录')
+        return
+      }
       await axios.delete(`/api/customization/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
