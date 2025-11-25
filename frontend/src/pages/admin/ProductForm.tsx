@@ -49,11 +49,12 @@ export default function ProductForm() {
   const [formData, setFormData] = useState({
     name: '',
     productCode: '',
+    subCodes: [] as string[], // 副编号数组
     category: '',
     basePrice: 0,
     styles: [] as string[], // 风格标签
     mainImages: [] as string[],
-    videos: [] as string[],
+    videos: [] as string[], // 视频URL数组
     specifications: [
       { name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' },
     ],
@@ -135,6 +136,7 @@ export default function ProductForm() {
           setFormData({
           name: product.name,
           productCode: ((product as any).productCode || product._id || '').toString().toUpperCase(),
+          subCodes: ((product as any).subCodes || []) as string[], // 副编号
           category: typeof product.category === 'string'
             ? product.category
             : (product.category as any)?._id || '',
@@ -357,14 +359,15 @@ export default function ProductForm() {
       const productData: any = {
         name: formData.name,
         productCode: normalizedProductCode || formData.productCode,
+        subCodes: formData.subCodes, // 副编号数组
         description: formData.description,
         category: formData.category as any,
         basePrice: formData.basePrice,
         styles: formData.styles, // 风格标签
         images: formData.mainImages,
         // 视频和文件
-        videos: formData.videos,
-        files: formData.files,
+        videos: formData.videos, // 视频URL数组
+        files: formData.files, // 设计文件数组
         skus: formData.skus.map((sku) => ({
           // 只有在编辑模式且SKU ID不是临时ID（不以"sku-"开头）时才包含_id
           ...(isEdit && sku.id && !sku.id.startsWith('sku-') && { _id: sku.id }),
@@ -965,6 +968,93 @@ export default function ProductForm() {
                 </button>
               </div>
             </div>
+          </div>
+          
+          {/* 副编号管理 */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium mb-2">副编号</label>
+            <div className="space-y-2">
+              {formData.subCodes.map((subCode, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={subCode}
+                    onChange={(e) => {
+                      const newSubCodes = [...formData.subCodes]
+                      newSubCodes[index] = e.target.value.toUpperCase()
+                      setFormData({ ...formData, subCodes: newSubCodes })
+                    }}
+                    placeholder={`副编号 ${index + 1}`}
+                    className="input flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newSubCodes = formData.subCodes.filter((_, i) => i !== index)
+                      setFormData({ ...formData, subCodes: newSubCodes })
+                    }}
+                    className="btn-secondary px-3 py-2"
+                  >
+                    删除
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData({ ...formData, subCodes: [...formData.subCodes, ''] })
+                }}
+                className="btn-secondary px-4 py-2 flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                添加副编号
+              </button>
+            </div>
+          </div>
+          
+          {/* 视频URL管理 */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium mb-2">视频演示URL</label>
+            <div className="space-y-2">
+              {formData.videos.map((video, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={video}
+                    onChange={(e) => {
+                      const newVideos = [...formData.videos]
+                      newVideos[index] = e.target.value
+                      setFormData({ ...formData, videos: newVideos })
+                    }}
+                    placeholder="https://example.com/video.mp4"
+                    className="input flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newVideos = formData.videos.filter((_, i) => i !== index)
+                      setFormData({ ...formData, videos: newVideos })
+                    }}
+                    className="btn-secondary px-3 py-2"
+                  >
+                    删除
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData({ ...formData, videos: [...formData.videos, ''] })
+                }}
+                className="btn-secondary px-4 py-2 flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                添加视频URL
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              支持各大视频平台链接或直链，添加后会在商品详情页"视频演示"中显示
+            </p>
           </div>
         </div>
 

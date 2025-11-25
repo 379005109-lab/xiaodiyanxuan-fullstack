@@ -28,13 +28,14 @@ const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   productCode: String,
   code: { type: String, unique: true, sparse: true },
+  subCodes: [String], // 副编号数组
   description: String,
   basePrice: { type: Number, required: true },
   stock: { type: Number, default: 0 },
   thumbnail: String,
   images: [String],
-  videos: [String],
-  files: [mongoose.Schema.Types.Mixed],
+  videos: [String], // 视频URL数组
+  files: [mongoose.Schema.Types.Mixed], // 设计文件数组 {name, url, size}
   category: mongoose.Schema.Types.Mixed, // 支持字符串ID或对象
   style: mongoose.Schema.Types.Mixed,
   styles: [String], // 多个风格标签（现代风、轻奢风等）

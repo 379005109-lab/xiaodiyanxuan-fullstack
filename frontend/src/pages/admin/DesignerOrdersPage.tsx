@@ -106,9 +106,9 @@ export default function DesignerOrdersPage() {
     
     toast.success(`已进入代客下单模式，客户：${order.customerName}`)
     
-    // 打开购物车页面
-    console.log('🛒 [代客下单] 准备打开新标签页到/cart')
-    window.open('/cart', '_blank')
+    // 跳转到购物车页面（使用当前标签页，保留sessionStorage）
+    console.log('🛒 [代客下单] 准备跳转到购物车')
+    window.location.href = '/cart'
   }
 
   if (loading) {
