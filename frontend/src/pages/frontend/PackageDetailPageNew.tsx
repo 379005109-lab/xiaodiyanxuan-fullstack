@@ -17,7 +17,9 @@ export default function PackageDetailPageNew() {
   const [loading, setLoading] = useState(true)
   const [selectedProducts, setSelectedProducts] = useState<Record<string, string[]>>({})
   const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [materialSelections, setMaterialSelections] = useState<Record<string, Record<string, string>>>({})
   const [previewProduct, setPreviewProduct] = useState<PackageProduct | null>(null)
+  const [selectingProduct, setSelectingProduct] = useState<{ categoryKey: string; product: PackageProduct } | null>(null)
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
   const [orderForm, setOrderForm] = useState({ name: '', phone: '', address: '' })
   const [submitting, setSubmitting] = useState(false)
@@ -42,21 +44,53 @@ export default function PackageDetailPageNew() {
     if (el) el.scrollBy({ left: dir === 'left' ? -350 : 350, behavior: 'smooth' })
   }
 
-  const toggleProduct = (categoryKey: string, product: PackageProduct, maxRequired: number) => {
-    setSelectedProducts(prev => {
-      const current = prev[categoryKey] || []
-      if (current.includes(product.id)) {
-        return { ...prev, [categoryKey]: current.filter(id => id !== product.id) }
-      }
-      if (current.length >= maxRequired) {
-        toast.error(`最多选择 ${maxRequired} 件`)
-        return prev
-      }
-      return { ...prev, [categoryKey]: [...current, product.id] }
-    })
+  // 打开商品选择窗口（选择规格材质）
+  const openProductSelector = (categoryKey: string, product: PackageProduct) => {
+    const isSelected = (selectedProducts[categoryKey] || []).includes(product.id)
+    if (isSelected) {
+      // 已选中，点击取消选择
+      setSelectedProducts(prev => ({
+        ...prev,
+        [categoryKey]: prev[categoryKey].filter(id => id !== product.id)
+      }))
+      toast.success('已移除')
+    } else {
+      // 未选中，打开选择窗口
+      setSelectingProduct({ categoryKey, product })
+    }
+  }
+
+  // 确认添加商品
+  const confirmAddProduct = (categoryKey: string, product: PackageProduct, materials: Record<string, string>) => {
+    const category = pkg?.categories.find(c => c.key === categoryKey)
+    if (!category) return
+    
+    const current = selectedProducts[categoryKey] || []
+    if (current.length >= category.required) {
+      toast.error(`最多选择 ${category.required} 件`)
+      return
+    }
+    
+    setSelectedProducts(prev => ({
+      ...prev,
+      [categoryKey]: [...(prev[categoryKey] || []), product.id]
+    }))
+    setMaterialSelections(prev => ({
+      ...prev,
+      [product.id]: materials
+    }))
     if (!quantities[product.id]) {
       setQuantities(prev => ({ ...prev, [product.id]: 1 }))
     }
+    setSelectingProduct(null)
+    toast.success('已添加到清单')
+  }
+
+  // 获取商品材质标签
+  const getMaterialLabel = (productId: string) => {
+    const selections = materialSelections[productId]
+    if (!selections || Object.keys(selections).length === 0) return null
+    return Object.values(selections).join(' / ')
   }
 
   const updateQty = (productId: string, delta: number) => {
@@ -238,7 +272,7 @@ export default function PackageDetailPageNew() {
                             <div className="text-accent font-serif font-bold text-lg mb-2">¥{(product.price || 0).toLocaleString()}</div>
                             <div className="text-[10px] text-stone-400 mb-3">可选规格: {product.materials ? Object.keys(product.materials).length : 0} 款</div>
                             <button 
-                              onClick={() => !isDisabled && toggleProduct(category.key, product, category.required)}
+                              onClick={() => !isDisabled && openProductSelector(category.key, product)}
                               disabled={isDisabled}
                               className={`w-full py-2.5 rounded-lg text-sm font-bold transition-colors ${
                                 isDisabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
@@ -258,8 +292,9 @@ export default function PackageDetailPageNew() {
           </div>
         </div>
 
-        {/* 右侧清单 */}
-        <div className="hidden lg:flex lg:flex-col w-96 bg-white border-l border-stone-100 shadow-2xl">
+        {/* 右侧悬浮清单 */}
+        <div className="hidden lg:block w-96 flex-shrink-0">
+          <div className="sticky top-4 m-4 bg-white rounded-2xl border border-stone-200 shadow-2xl overflow-hidden">
           <div className="p-6 border-b border-stone-100 bg-stone-50/50">
             <div className="flex justify-between items-start">
               <div>
@@ -289,8 +324,8 @@ export default function PackageDetailPageNew() {
                 if (!product) return null
                 const qty = quantities[productId] || 1
                 return (
-                  <div key={productId} className="flex gap-3 items-start">
-                    <div className="w-12 h-12 rounded-lg bg-stone-50 overflow-hidden border border-stone-100">
+                  <div key={productId} className="flex gap-3 items-start group">
+                    <div className="w-12 h-12 rounded-lg bg-stone-50 overflow-hidden border border-stone-100 flex-shrink-0">
                       <img src={product.image ? getFileUrl(product.image) : '/placeholder.svg'} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -298,6 +333,9 @@ export default function PackageDetailPageNew() {
                         <span className="text-xs font-bold text-stone-700 line-clamp-1">{product.name}</span>
                         <span className="text-xs font-serif font-bold text-stone-900">¥{((product.price || 0) * qty).toLocaleString()}</span>
                       </div>
+                      {getMaterialLabel(productId) && (
+                        <div className="text-[10px] text-stone-500 mt-0.5 truncate">{getMaterialLabel(productId)}</div>
+                      )}
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex items-center border border-stone-200 rounded bg-white">
                           <button onClick={() => updateQty(productId, -1)} className="p-1 hover:bg-stone-50"><Minus className="w-3 h-3 text-stone-400" /></button>
@@ -334,6 +372,7 @@ export default function PackageDetailPageNew() {
               </button>
               <p className="text-[10px] text-center text-stone-400 mt-2">* 最终报价以销售顾问确认为准</p>
             </div>
+          </div>
           </div>
         </div>
 
@@ -406,6 +445,127 @@ export default function PackageDetailPageNew() {
           </div>
         </div>
       )}
+
+      {/* 商品选择弹窗 - 选择规格材质 */}
+      {selectingProduct && (
+        <ProductSelectorModal
+          product={selectingProduct.product}
+          categoryKey={selectingProduct.categoryKey}
+          onConfirm={confirmAddProduct}
+          onClose={() => setSelectingProduct(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// 材质名称映射
+const MATERIAL_NAMES: Record<string, string> = {
+  fabric: '面料',
+  filling: '填充',
+  frame: '框架',
+  leg: '脚架',
+  leather: '皮质',
+  wood: '木材',
+}
+
+// 商品选择弹窗组件
+function ProductSelectorModal({ 
+  product, 
+  categoryKey, 
+  onConfirm, 
+  onClose 
+}: { 
+  product: PackageProduct
+  categoryKey: string
+  onConfirm: (categoryKey: string, product: PackageProduct, materials: Record<string, string>) => void
+  onClose: () => void
+}) {
+  const [selections, setSelections] = useState<Record<string, string>>(() => {
+    // 初始化默认选择第一个选项
+    const defaults: Record<string, string> = {}
+    if (product.materials) {
+      Object.entries(product.materials).forEach(([key, options]) => {
+        if (Array.isArray(options) && options.length > 0) {
+          defaults[key] = options[0]
+        }
+      })
+    }
+    return defaults
+  })
+
+  const hasMaterials = product.materials && Object.keys(product.materials).length > 0
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        {/* 头部 */}
+        <div className="relative h-48 bg-stone-100 flex-shrink-0">
+          <img 
+            src={product.image ? getFileUrl(product.image) : '/placeholder.svg'} 
+            alt={product.name}
+            className="w-full h-full object-cover" 
+          />
+          <button onClick={onClose} className="absolute top-4 right-4 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* 商品信息 */}
+        <div className="p-6 border-b border-stone-100">
+          <h3 className="text-xl font-serif font-bold text-primary mb-1">{product.name}</h3>
+          <div className="text-2xl font-serif font-bold text-accent">¥{(product.price || 0).toLocaleString()}</div>
+        </div>
+
+        {/* 材质选择 */}
+        {hasMaterials && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <h4 className="text-sm font-bold text-stone-700">选择规格材质</h4>
+            {Object.entries(product.materials!).map(([key, options]) => (
+              <div key={key}>
+                <label className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2 block">
+                  {MATERIAL_NAMES[key] || key}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(options as string[]).map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => setSelections(prev => ({ ...prev, [key]: opt }))}
+                      className={`text-sm border px-4 py-2 rounded-lg transition-all ${
+                        selections[key] === opt 
+                          ? 'border-primary bg-primary/5 text-primary font-medium ring-1 ring-primary' 
+                          : 'border-stone-200 hover:border-primary/50 text-stone-600'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 无材质时的提示 */}
+        {!hasMaterials && (
+          <div className="p-6 text-center text-stone-500">
+            <p>该商品暂无可选规格</p>
+          </div>
+        )}
+
+        {/* 底部按钮 */}
+        <div className="p-4 border-t border-stone-100 bg-stone-50 flex gap-3 flex-shrink-0">
+          <button onClick={onClose} className="flex-1 py-3 rounded-xl font-bold bg-stone-200 text-stone-600 hover:bg-stone-300">
+            取消
+          </button>
+          <button 
+            onClick={() => onConfirm(categoryKey, product, selections)}
+            className="flex-1 py-3 rounded-xl font-bold bg-primary text-white hover:bg-green-900 flex items-center justify-center gap-2"
+          >
+            <Check className="w-4 h-4" /> 确认添加
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
