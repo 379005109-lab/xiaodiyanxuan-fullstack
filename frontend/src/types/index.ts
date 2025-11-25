@@ -203,6 +203,11 @@ export interface PackageProductOption {
   sales?: number
   status?: string
   isDeleted?: boolean  // 商品是否已从商品库删除
+  // 套餐订单相关字段
+  quantity?: number  // 选择的数量
+  materialUpgrade?: number  // 材质升级费用
+  productId?: string  // 兼容字段
+  productName?: string  // 兼容字段
 }
 
 export interface PackageCategoryOption {

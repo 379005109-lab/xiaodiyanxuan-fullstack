@@ -4,6 +4,11 @@ const { ORDER_STATUS } = require('../config/constants')
 const orderSchema = new mongoose.Schema({
   orderNo: { type: String, unique: true, required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  
+  // 订单类型：product=普通商品订单, package=套餐订单
+  orderType: { type: String, enum: ['product', 'package'], default: 'product' },
+  
+  // 普通商品订单的items
   items: [{
     productId: String,
     productName: String,
@@ -12,6 +17,26 @@ const orderSchema = new mongoose.Schema({
     specifications: { size: String, material: String, color: String, fill: String, frame: String, leg: String },
     subtotal: Number
   }],
+  
+  // 套餐订单专用字段
+  packageInfo: {
+    packageId: String,
+    packageName: String,
+    packagePrice: Number,
+    selections: [{
+      categoryKey: String,
+      categoryName: String,
+      required: Number,  // 该分类需要选择的数量
+      products: [{
+        productId: String,
+        productName: String,
+        quantity: Number,
+        materials: mongoose.Schema.Types.Mixed,  // 材质选择 { fabric: '半青皮-蓝色' }
+        materialUpgrade: Number  // 材质升级费用
+      }]
+    }]
+  },
+  
   subtotal: Number,
   discountAmount: { type: Number, default: 0 },
   totalAmount: Number,

@@ -651,96 +651,74 @@ export default function PackageDetailPage() {
 
     setOrderSubmitting(true)
     setSubmitResultHint('')
+    
     try {
-      const date = new Date()
-      const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-      const orderNo = `PKG${dateStr}${random}`
-
-      const selectionSummary = selectionGroups.reduce<Record<string, string>>((acc, group) => {
-        acc[group.name] = group.products
-          .map((item) => {
-            const materialText = item.materials
-              ? Object.entries(item.materials)
-                  .map(([key, value]) => `${key.toUpperCase()}·${value}`)
-                  .join(' / ')
-              : '默认配置'
-            return `${item.productName} ×${item.quantity}${materialText ? ` (${materialText})` : ''}`
-          })
-          .join(' | ')
-        return acc
-      }, {})
-
-      // 后端期望的格式: { items, recipient }
-      const payload = {
-        items: [
-          {
-            productId: pkg.id,
-            productName: pkg.name,
-            skuId: pkg.id,
-            quantity: 1,
-            price: totalPrice,
-            image: pkg.thumbnail || '',
-            selections: selectionSummary,
-          },
-        ],
-        recipient: {
-          name: orderForm.name,
-          phone: orderForm.phone,
-          address: orderForm.address,
-        },
-        // 额外字段用于本地存储
-        orderNo,
-        title: `「${pkg.name}」套餐订单`,
-        status: 'pending' as any,
-        source: 'self' as const,
-        totalAmount: totalPrice,
-        note,
-        packageId: pkg.id,
-        packageName: pkg.name,
-        packageSelections: selectionGroups,
-      }
-      let remoteSynced = false
-      let remoteAttempted = false
-      let remoteError = ''
-
-      if (token) {
-        remoteAttempted = true
-        try {
-          console.log('📦 [PackageDetail] 提交套餐订单:', JSON.stringify(payload, null, 2));
-          console.log('📦 [PackageDetail] token:', token.substring(0, 20) + '...');
-          
-          const response = await axios.post('/orders', payload, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          })
-          
-          console.log('✅ [PackageDetail] 订单创建成功:', response.data);
-          remoteSynced = true
-          toast.success('订单提交成功！')
-          setSubmitResultHint('订单已提交，您可以在订单中心查看详情。')
-        } catch (error: any) {
-          remoteError = error?.response?.data?.message || error?.message || '云端同步失败'
-          console.error('云端创建套餐订单失败', error)
-          toast.error(`订单提交失败：${remoteError}`)
-          setSubmitResultHint(`订单提交失败：${remoteError}`)
-          // 云端失败时不保存本地，要求用户重试
-          setOrderSubmitting(false)
-          return
-        }
-      } else {
+      // 验证登录状态
+      if (!token) {
         toast.error('请先登录后再提交订单')
         navigate('/login')
         setOrderSubmitting(false)
         return
       }
 
+      // 构建套餐订单数据
+      const packageData = {
+        packageId: pkg.id,
+        packageName: pkg.name,
+        packagePrice: pkg.price,
+        selections: selectionGroups.map(group => ({
+          categoryKey: group.key,
+          categoryName: group.name,
+          required: group.required,
+          products: group.products.map((product: any) => ({
+            productId: product.id || product.productId,
+            productName: product.name || product.productName,
+            quantity: product.quantity || 1,
+            materials: product.materials || {},
+            materialUpgrade: product.materialUpgrade || 0
+          }))
+        }))
+      }
+
+      const recipient = {
+        name: orderForm.name,
+        phone: orderForm.phone,
+        address: orderForm.address
+      }
+
+      const payload = {
+        packageData,
+        recipient,
+        notes: note
+      }
+
+      console.log('📦 [PackageDetail] 提交套餐订单:', JSON.stringify(payload, null, 2))
+      console.log('📦 [PackageDetail] 总价:', totalPrice)
+      
+      // 调用新的套餐订单API
+      const response = await axios.post('/orders/package', payload, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      
+      console.log('✅ [PackageDetail] 套餐订单创建成功:', response.data)
+      toast.success('套餐订单提交成功！')
+      setSubmitResultHint('订单已提交，您可以在订单中心查看详情。')
+      
+      // 关闭弹窗并跳转到订单中心
       setIsOrderConfirmOpen(false)
-      navigate('/orders')
+      setTimeout(() => {
+        navigate('/orders')
+      }, 500)
+      
     } catch (error: any) {
-      console.error('创建套餐订单失败', error)
-      toast.error(error?.message || '提交订单失败，请稍后重试')
+      console.error('❗ [PackageDetail] 创建套餐订单失败:', error)
+      console.error('❗ [PackageDetail] 错误详情:', error.response?.data)
+      
+      const errorMsg = error?.response?.data?.message || error?.message || '提交订单失败，请稍后重试'
+      toast.error(`订单提交失败：${errorMsg}`)
+      setSubmitResultHint(`订单提交失败：${errorMsg}`)
     } finally {
       setOrderSubmitting(false)
     }
