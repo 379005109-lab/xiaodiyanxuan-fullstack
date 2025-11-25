@@ -14,24 +14,38 @@ export default function CartPage() {
   const [conciergePhone, setConciergePhone] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  // 检查localStorage中的代客下单数据（从管理后台跳转过来）
+  // 检查URL中的代客下单session token（云端方案）
   useEffect(() => {
     console.log('🛒 [CartPage] 检查代客下单模式', { conciergeMode })
     
-    // 优先检查临时localStorage数据（从管理后台跳转）
-    const tempData = localStorage.getItem('conciergeOrderData_temp')
-    if (tempData) {
-      try {
-        const data = JSON.parse(tempData)
-        console.log('🛒 [CartPage] 从localStorage恢复数据', data)
-        enterConciergeMode(data.orderId, data.customerName, data.customerPhone, data.items, data.orderSource)
-        console.log('🛒 [CartPage] enterConciergeMode已调用')
-        localStorage.removeItem('conciergeOrderData_temp')
-        return
-      } catch (error) {
-        console.error('🛒 [CartPage] localStorage数据解析失败:', error)
-        localStorage.removeItem('conciergeOrderData_temp')
-      }
+    // 从URL获取session token
+    const urlParams = new URLSearchParams(window.location.search)
+    const sessionToken = urlParams.get('concierge')
+    
+    if (sessionToken) {
+      // 从云端API获取会话数据
+      console.log('☁️ [CartPage] 获取云端会话', { sessionToken })
+      
+      fetch(`/api/concierge/session/${sessionToken}`)
+        .then(response => response.json())
+        .then(result => {
+          if (result.success) {
+            const data = result.data
+            console.log('✅ [CartPage] 云端会话数据', data)
+            enterConciergeMode(data.orderId, data.customerName, data.customerPhone, data.items, data.orderSource)
+            console.log('🛒 [CartPage] enterConciergeMode已调用')
+            
+            // 清除URL参数（避免刷新时重复请求）
+            window.history.replaceState({}, '', '/cart')
+          } else {
+            console.error('⚠️ [CartPage] 会话无效或已过期')
+          }
+        })
+        .catch(error => {
+          console.error('❌ [CartPage] 获取会话失败:', error)
+        })
+      
+      return
     }
     
     // 检查zustand持久化状态

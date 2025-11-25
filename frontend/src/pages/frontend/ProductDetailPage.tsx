@@ -1046,47 +1046,6 @@ const ProductDetailPage = () => {
                 </div>
               </div>
 
-              {/* Videos from backend */}
-              {videoList.length > 0 && (
-                <div className="border border-gray-200 rounded-2xl bg-white mt-4">
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">产品视频</p>
-                      <p className="text-xs text-gray-400 mt-0.5">后台上传的视频链接</p>
-                    </div>
-                    <Video className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <div className="p-4 space-y-4">
-                    {videoList.map((videoUrl, index) => {
-                      const embedUrl = buildVideoEmbedUrl(videoUrl);
-                      const isEmbeddable = /youtube|youtu\.be|vimeo/.test(embedUrl);
-                      return (
-                        <div key={index} className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
-                          {isEmbeddable ? (
-                            <iframe
-                              src={embedUrl}
-                              title={`product-video-${index}`}
-                              className="w-full h-60"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                              allowFullScreen
-                            />
-                          ) : (
-                            <a
-                              href={videoUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-2 px-4 py-3 text-primary-600 hover:text-primary-800"
-                            >
-                              <Video className="h-4 w-4" />
-                              {videoUrl}
-                            </a>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Files from backend */}
               {fileList.length > 0 && (
@@ -1164,15 +1123,21 @@ const ProductDetailPage = () => {
             {videoList.length > 0 ? (
               <div className="space-y-4">
                 {videoList.map((video, index) => (
-                  <div key={index} className="w-full aspect-video rounded-xl overflow-hidden bg-black">
+                  <div key={index} className="w-full aspect-video rounded-xl overflow-hidden bg-gray-100">
                     {isVideoFile(video) ? (
-                      <video src={video} controls className="w-full h-full object-contain bg-black" />
+                      <video 
+                        src={video} 
+                        controls 
+                        controlsList="nodownload"
+                        className="w-full h-full object-contain bg-black"
+                        preload="metadata"
+                      />
                     ) : (
                       <iframe
-                        src={buildVideoEmbedUrl(video)}
+                        src={`${buildVideoEmbedUrl(video)}?autoplay=0`}
                         title={`video-${index}`}
                         className="w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
                       />
                     )}

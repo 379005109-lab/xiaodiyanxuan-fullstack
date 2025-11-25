@@ -72,7 +72,7 @@ export default function DesignerOrdersPage() {
     )
   }
 
-  const handleConciergeOrder = (order: Order) => {
+  const handleConciergeOrder = async (order: Order) => {
     console.log('🛒 [代客下单] 开始处理订单', order)
     
     // 获取客户电话（从订单中提取或使用默认值）
@@ -89,30 +89,43 @@ export default function DesignerOrdersPage() {
     
     console.log('🛒 [代客下单] 商品列表', simpleItems)
 
-    // 保存到localStorage（代替sessionStorage，更可靠）
-    const conciergeData = {
-      orderId: order.id,
-      customerName: order.customerName,
-      customerPhone: customerPhone,
-      orderSource: 'self',
-      items: simpleItems
+    try {
+      // 调用云端API创建临时会话
+      console.log('☁️ [代客下单] 创建云端会话...')
+      const response = await fetch('/api/concierge/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          customerName: order.customerName,
+          customerPhone: customerPhone,
+          orderSource: 'self',
+          items: simpleItems
+        })
+      })
+
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.message || '创建会话失败')
+      }
+
+      const sessionToken = result.data.sessionToken
+      console.log('✅ [代客下单] 云端会话已创建', { sessionToken })
+      
+      toast.success(`已进入代客下单模式，客户：${order.customerName}`)
+      
+      // 跳转到购物车，带上session token
+      console.log('🛒 [代客下单] 跳转到购物车（云端方案）')
+      window.location.href = `/cart?concierge=${sessionToken}`
+      
+    } catch (error: any) {
+      console.error('❌ [代客下单] 创建会话失败:', error)
+      toast.error('进入代客下单模式失败，请重试')
     }
-    
-    // 先保存到localStorage，确保数据不丢失
-    localStorage.setItem('conciergeOrderData_temp', JSON.stringify(conciergeData))
-    console.log('🛒 [代客下单] localStorage已保存', conciergeData)
-    
-    // 进入代客下单模式（更新zustand状态）
-    enterConciergeMode(order.id, order.customerName, customerPhone, simpleItems, 'self')
-    console.log('🛒 [代客下单] enterConciergeMode 已调用')
-    
-    toast.success(`已进入代客下单模式，客户：${order.customerName}`)
-    
-    // 延迟跳转，确保状态保存完成
-    console.log('🛒 [代客下单] 准备跳转到购物车')
-    setTimeout(() => {
-      window.location.href = '/cart'
-    }, 100)
   }
 
   if (loading) {
