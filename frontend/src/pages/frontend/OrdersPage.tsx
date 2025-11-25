@@ -53,20 +53,25 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     setLoading(true)
     try {
+      console.log('🔍 [Orders] Loading orders with token:', token?.slice(0, 20) + '...')
       const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       })
       
+      console.log('🔍 [Orders] Response status:', response.status)
+      
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
       const data = await response.json()
+      console.log('🔍 [Orders] Response data:', JSON.stringify(data, null, 2))
+      console.log('🔍 [Orders] Orders count:', data.data?.length || 0)
       setOrders(data.data || [])
     } catch (error: any) {
-      console.error('加载订单失败', error)
+      console.error('❌ [Orders] 加载订单失败', error)
       toast.error(error?.message || '加载订单失败')
     } finally {
       setLoading(false)
