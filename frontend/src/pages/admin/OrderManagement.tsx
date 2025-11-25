@@ -35,18 +35,35 @@ export default function OrderManagement() {
     try {
       setLoading(true)
       
+      const token = localStorage.getItem('token')
+      console.log('[OrderManagement] Loading orders, token exists:', !!token)
+      
+      if (!token) {
+        console.warn('[OrderManagement] No token found, user may need to login')
+        setOrders([])
+        setTotal(0)
+        setTotalPages(1)
+        setLoading(false)
+        return
+      }
+      
       // 从API获取订单数据
       const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?page=' + page + '&pageSize=10', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       })
       
+      console.log('[OrderManagement] API response status:', response.status)
+      
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[OrderManagement] API error:', errorText)
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
       const data = await response.json()
+      console.log('[OrderManagement] Orders loaded:', data.data?.length, 'total:', data.pagination?.total)
       let allOrders: Order[] = data.data || []
       
       // 应用搜索
