@@ -103,15 +103,10 @@ export default function PackageDetailPage() {
   const loadPackage = async () => {
     if (!id) return
     setLoading(true)
-    console.log('🔥 PackageDetailPage - Loading packages - v20251124-1300')
     const data = await getAllPackages()
-    console.log('🔥 PackageDetailPage - Loaded packages:', data)
     const packageData = data.find((pkg) => pkg.id === id)
-    console.log('🔥 PackageDetailPage - Found package:', packageData)
     if (packageData && packageData.categories) {
-      console.log('🔥 PackageDetailPage - Categories:', packageData.categories)
       if (packageData.categories[0] && packageData.categories[0].products) {
-        console.log('🔥 PackageDetailPage - First product:', packageData.categories[0].products[0])
       }
     }
     setPkg(packageData)
@@ -145,16 +140,13 @@ export default function PackageDetailPage() {
   const loadMaterialImages = async () => {
     try {
       const materials = await getAllMaterials()
-      console.log('🔥 Loaded materials:', materials)
       const imageMap: Record<string, string> = {}
       materials.forEach((material: any) => {
         // 修复：Material模型中是image（单数），不是images（复数）
         if (material.name && material.image) {
           imageMap[material.name] = material.image
-          console.log('🔥 Added material to map:', material.name, '->', material.image)
         }
       })
-      console.log('🔥 Final material image map:', imageMap)
       setMaterialImageMap(imageMap)
     } catch (error) {
       console.error('❌ 加载材质图片失败:', error)
@@ -180,7 +172,6 @@ export default function PackageDetailPage() {
       // 遍历所有SKU，查找是否有materialUpgradePrices包含此材质
       for (const sku of product.skus) {
         if (sku.materialUpgradePrices) {
-          console.log(`🔥 [加价检查] 商品: ${product.name}, 材质: ${option}`)
           console.log(`📋 [SKU加价规则详情]:`, JSON.stringify(sku.materialUpgradePrices, null, 2))
           
           // 1. 首先查找完全匹配的材质名称
@@ -244,10 +235,8 @@ export default function PackageDetailPage() {
       const isUpgrade = option !== options[0]
       if (!isUpgrade) return sum
       const premium = getOptionPremium(option, product.price, product)
-      console.log(`💰 [材质加价计算] 商品: ${product.name}, 材质Key: ${materialKey}, 选项: ${option}, 加价: ${premium}`)
       return sum + premium
     }, 0)
-    console.log(`💰 [总材质加价] 商品: ${product.name}, 总加价: ${total}`)
     return total
   }
 
@@ -1149,11 +1138,6 @@ export default function PackageDetailPage() {
                 <span className="text-xs text-gray-400">套装仅能下单，点击即可切换</span>
               </div>
               {(() => {
-                console.log('🔥 Rendering materials for product:', product.name)
-                console.log('🔥 product.materials:', product.materials)
-                console.log('🔥 materials type:', typeof product.materials)
-                console.log('🔥 materials keys:', product.materials ? Object.keys(product.materials) : 'null/undefined')
-                console.log('📋 materials详细内容:', JSON.stringify(product.materials, null, 2))
                 return product.materials
               })() ? (
                 Object.entries(product.materials as PackageProductMaterial).map(([materialKey, options]) => {

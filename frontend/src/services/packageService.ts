@@ -96,9 +96,6 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
                   if (fillingSet.size > 0) materials['filling'] = Array.from(fillingSet)
                   if (frameSet.size > 0) materials['frame'] = Array.from(frameSet)
                   if (legSet.size > 0) materials['leg'] = Array.from(legSet)
-                  
-                  console.log('🔥 [PackageService] 提取材质 for', product.name, ':', materials)
-                  console.log('🔥 [PackageService] 材质图片:', materialImages)
                 }
                 
                 return {
