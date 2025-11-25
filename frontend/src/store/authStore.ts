@@ -20,10 +20,14 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       
       login: (user, token) => {
+        // 同时保存token到localStorage，确保其他组件可以读取
+        localStorage.setItem('token', token)
         set({ user, token, isAuthenticated: true })
       },
       
       logout: () => {
+        // 清除localStorage中的token
+        localStorage.removeItem('token')
         set({ user: null, token: null, isAuthenticated: false })
       },
       
