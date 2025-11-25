@@ -28,12 +28,27 @@ export default function OrdersPageNew() {
   const loadOrders = async () => {
     try {
       setLoading(true)
-      // 这里应该调用真实的API
-      // const response = await getCustomerOrders()
-      // setOrders(response.data)
-      setOrders([]) // 暂时设为空数组
+      console.log('🔍 [Orders] Loading orders with token:', token?.slice(0, 20) + '...')
+      
+      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      
+      console.log('🔍 [Orders] Response status:', response.status)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('🔍 [Orders] Response data:', JSON.stringify(data, null, 2))
+      console.log('🔍 [Orders] Orders count:', data.data?.length || 0)
+      
+      setOrders(data.data || [])
     } catch (error) {
-      console.error('加载订单失败:', error)
+      console.error('❌ [Orders] 加载订单失败:', error)
       toast.error('加载订单失败')
     } finally {
       setLoading(false)

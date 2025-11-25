@@ -60,6 +60,8 @@ export default function PackageDetailPageNew() {
   const [orderForm, setOrderForm] = useState({ name: '', phone: '', address: '' })
   const [submitting, setSubmitting] = useState(false)
   const [materialImageMap, setMaterialImageMap] = useState<Record<string, string>>({})
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([])
+  const [loadingAddresses, setLoadingAddresses] = useState(false)
   const scrollRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const { isAuthenticated, token } = useAuthStore()
 
@@ -93,6 +95,40 @@ export default function PackageDetailPageNew() {
   const scrollCategory = (key: string, dir: 'left' | 'right') => {
     const el = scrollRefs.current[key]
     if (el) el.scrollBy({ left: dir === 'left' ? -350 : 350, behavior: 'smooth' })
+  }
+
+  // 加载用户地址列表
+  const loadAddresses = async () => {
+    if (!isAuthenticated || !token) return
+    setLoadingAddresses(true)
+    try {
+      const res = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/addresses', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setSavedAddresses(data.data || [])
+      }
+    } catch (e) {
+      console.error('加载地址失败', e)
+    } finally {
+      setLoadingAddresses(false)
+    }
+  }
+
+  // 打开订单弹窗时加载地址
+  const openOrderModal = () => {
+    setIsOrderModalOpen(true)
+    loadAddresses()
+  }
+
+  // 选择地址
+  const selectAddress = (addr: any) => {
+    setOrderForm({
+      name: addr.name,
+      phone: addr.phone,
+      address: addr.address
+    })
   }
 
   // 打开商品选择窗口（选择规格材质）
@@ -285,6 +321,27 @@ export default function PackageDetailPageNew() {
 
       if (response.ok) {
         toast.success('订单提交成功！')
+        
+        // 自动保存地址到地址簿
+        try {
+          await fetch('https://pkochbpmcgaa.sealoshzh.site/api/addresses', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json', 
+              'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({
+              name: orderForm.name,
+              phone: orderForm.phone,
+              address: orderForm.address,
+              isDefault: false
+            })
+          })
+          console.log('✅ 地址已保存到地址簿')
+        } catch (addrError) {
+          console.warn('⚠️ 保存地址失败（不影响订单）:', addrError)
+        }
+        
         setIsOrderModalOpen(false)
         navigate('/orders')
       } else {
@@ -548,7 +605,7 @@ export default function PackageDetailPageNew() {
                     useAuthModalStore.getState().openLogin()
                     return
                   }
-                  setIsOrderModalOpen(true)
+                  openOrderModal()
                 }}
                 disabled={progressPercent < 100}
                 className="w-full bg-primary text-white py-3.5 rounded-xl font-bold hover:bg-green-900 shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
@@ -567,7 +624,18 @@ export default function PackageDetailPageNew() {
             <div className="text-[10px] text-stone-400 uppercase">Total Estimate</div>
             <div className="font-serif font-bold text-xl text-accent">¥{totalPrice.toLocaleString()}</div>
           </div>
-          <button onClick={() => setIsOrderModalOpen(true)} disabled={progressPercent < 100} className="bg-primary text-white px-6 py-3 rounded-xl font-bold shadow-lg disabled:opacity-50">
+          <button 
+            onClick={() => {
+              if (!isAuthenticated) {
+                toast.error('请先登录')
+                useAuthModalStore.getState().openLogin()
+                return
+              }
+              openOrderModal()
+            }} 
+            disabled={progressPercent < 100} 
+            className="bg-primary text-white px-6 py-3 rounded-xl font-bold shadow-lg disabled:opacity-50"
+          >
             提交意向
           </button>
         </div>
@@ -602,6 +670,27 @@ export default function PackageDetailPageNew() {
               <h3 className="text-xl font-serif font-bold text-primary">确认订单</h3>
             </div>
             <div className="p-6 space-y-4">
+              {/* 地址选择 */}
+              {savedAddresses.length > 0 && (
+                <div>
+                  <label className="text-xs font-bold text-stone-400 uppercase mb-2 block">选择已保存的地址</label>
+                  <select 
+                    onChange={(e) => {
+                      const addr = savedAddresses.find(a => a._id === e.target.value)
+                      if (addr) selectAddress(addr)
+                    }}
+                    className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:border-primary outline-none bg-white"
+                  >
+                    <option value="">-- 或手动填写新地址 --</option>
+                    {savedAddresses.map(addr => (
+                      <option key={addr._id} value={addr._id}>
+                        {addr.name} - {addr.phone} - {addr.address.slice(0, 20)}...
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              
               <div>
                 <label className="text-xs font-bold text-stone-400 uppercase">联系人</label>
                 <input type="text" value={orderForm.name} onChange={e => setOrderForm(f => ({ ...f, name: e.target.value }))} className="w-full mt-1 px-4 py-2 border border-stone-200 rounded-lg focus:border-primary outline-none" placeholder="您的姓名" />
