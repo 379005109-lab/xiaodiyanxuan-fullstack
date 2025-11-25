@@ -620,7 +620,7 @@ export default function PackageDetailPage() {
       const current = prev[productId] || MIN_QUANTITY
       const next = Math.min(MAX_QUANTITY, Math.max(MIN_QUANTITY, current + delta))
       if (next === current) return prev
-      const otherTotal = getCategorySelectedQuantity(categoryKey, productId)
+      const otherTotal = getCategorySelectedQuantity(categoryKey)
       if (otherTotal + next > category.required) {
         toast.error(`「${category.name}」最多选择 ${category.required} 件`)
         return prev
@@ -878,7 +878,7 @@ export default function PackageDetailPage() {
                           {category.products.map((product, productIndex) => {
                             const isSelected = selectedIds.includes(product.id)
                             const productQuantity = getProductQuantity(product.id)
-                            const otherSelectedTotal = getCategorySelectedQuantity(category.key, product.id)
+                            const otherSelectedTotal = getCategorySelectedQuantity(category.key)
                             const canIncreaseQuantity = isSelected && productQuantity < MAX_QUANTITY && (otherSelectedTotal + productQuantity) < category.required
                             const isDeleted = product.isDeleted || product.status === 'inactive'
                             
@@ -1342,7 +1342,7 @@ function ProductPreviewModal({
           sku.spec?.includes(option) || 
           option.includes(sku.spec || '') ||
           sku.code === option ||
-          sku.dimensions === option
+          sku._id === option
         )
         
         if (matchingSku) {
@@ -1354,9 +1354,9 @@ function ProductPreviewModal({
             const skuImageUrl = getFileUrl(matchingSku.images[0])
             console.log(`🖼️ [SKU图片] 使用SKU第一张图片:`, skuImageUrl)
             setPreviewImage(skuImageUrl)
-          } else if (matchingSku.image) {
+          } else if (matchingSku.images && matchingSku.images.length > 0) {
             // 尝试使用SKU的单张图片字段
-            const skuImageUrl = getFileUrl(matchingSku.image)
+            const skuImageUrl = getFileUrl(matchingSku.images[0])
             console.log(`🖼️ [SKU图片] 使用SKU图片:`, skuImageUrl)
             setPreviewImage(skuImageUrl)
           } else if (product.images && product.images.length > 0) {
