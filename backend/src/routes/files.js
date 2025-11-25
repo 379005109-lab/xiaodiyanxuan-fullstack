@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const FileController = require('../controllers/fileController');
-const { auth } = require('../middleware/auth');
+const { auth, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -60,8 +60,9 @@ const upload = multer({
  * POST /api/upload 或 POST /api/files/upload
  * Query: storage=gridfs|oss (默认 gridfs)
  */
-router.post('/', auth, upload.single('file'), FileController.uploadFile);
-router.post('/upload', auth, upload.single('file'), FileController.uploadFile);
+// 使用optionalAuth而不是auth，允许未登录用户上传
+router.post('/', optionalAuth, upload.single('file'), FileController.uploadFile);
+router.post('/upload', optionalAuth, upload.single('file'), FileController.uploadFile);
 
 /**
  * 上传多个文件

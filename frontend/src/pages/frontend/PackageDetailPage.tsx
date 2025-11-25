@@ -671,26 +671,31 @@ export default function PackageDetailPage() {
         return acc
       }, {})
 
+      // 后端期望的格式: { items, recipient }
       const payload = {
+        items: [
+          {
+            productId: pkg.id,
+            productName: pkg.name,
+            skuId: pkg.id,
+            quantity: 1,
+            price: totalPrice,
+            image: pkg.thumbnail || '',
+            selections: selectionSummary,
+          },
+        ],
+        recipient: {
+          name: orderForm.name,
+          phone: orderForm.phone,
+          address: orderForm.address,
+        },
+        // 额外字段用于本地存储
         orderNo,
         title: `「${pkg.name}」套餐订单`,
         status: 'pending' as any,
         source: 'self' as const,
         totalAmount: totalPrice,
-        items: [
-          {
-            id: pkg.id,
-            name: pkg.name,
-            type: 'package' as const,
-            quantity: 1,
-            price: totalPrice,
-            selections: selectionSummary,
-          },
-        ],
         note,
-        address: orderForm.address,
-        phone: orderForm.phone,
-        contactName: orderForm.name,
         packageId: pkg.id,
         packageName: pkg.name,
         packageSelections: selectionGroups,

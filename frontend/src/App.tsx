@@ -60,6 +60,7 @@ const UserUnbanPage = lazy(() => import('./pages/admin/UserUnbanPage'))
 const NotificationTestPage = lazy(() => import('./pages/admin/NotificationTestPage'))
 const NotificationManagementPage = lazy(() => import('./pages/admin/NotificationManagementPage'))
 const DesignManagement = lazy(() => import('./pages/admin/DesignManagement'))
+const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationManagement'))
 
 // 前台布局 - 懒加载
 const FrontendLayout = lazy(() => import('./layouts/FrontendLayout'))
@@ -219,6 +220,7 @@ function App() {
             <Route path="notification-test" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><NotificationTestPage /></ProtectedRoute>} />
             <Route path="notification-management" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><NotificationManagementPage /></ProtectedRoute>} />
             <Route path="designs" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><DesignManagement /></ProtectedRoute>} />
+            <Route path="customization" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
           </Route>
 
           {/* 404 */}
