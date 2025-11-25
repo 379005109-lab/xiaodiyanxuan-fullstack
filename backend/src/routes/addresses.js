@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const { auth } = require('../middleware/auth')
-const { list, create, update, remove } = require('../controllers/addressController')
+const { list, create, update, remove, setDefault } = require('../controllers/addressController')
 
 // 所有地址路由都需要认证
 router.use(auth)
@@ -11,6 +11,9 @@ router.get('/', list)
 
 // POST /api/addresses - 创建地址
 router.post('/', create)
+
+// PUT /api/addresses/:id/default - 设置默认地址
+router.put('/:id/default', setDefault)
 
 // PUT /api/addresses/:id - 更新地址
 router.put('/:id', update)

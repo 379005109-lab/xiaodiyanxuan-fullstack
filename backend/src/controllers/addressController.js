@@ -23,9 +23,14 @@ const list = async (req, res) => {
 
 const create = async (req, res) => {
   try {
+    console.log('📍 [Address] Create address request')
+    console.log('📍 [Address] userId:', req.userId)
+    console.log('📍 [Address] body:', JSON.stringify(req.body, null, 2))
+    
     const { name, phone, province, city, district, address, isDefault } = req.body
     
     if (!name || !phone || !address) {
+      console.error('❌ [Address] Missing required fields')
       return res.status(400).json(errorResponse('Name, phone, and address are required', 400))
     }
     
@@ -45,9 +50,10 @@ const create = async (req, res) => {
       isDefault: isDefault || false
     })
     
+    console.log('✅ [Address] Address created:', newAddress._id)
     res.status(201).json(successResponse(newAddress))
   } catch (err) {
-    console.error('Create address error:', err)
+    console.error('❌ [Address] Create address error:', err)
     res.status(500).json(errorResponse(err.message, 500))
   }
 }
@@ -95,9 +101,35 @@ const remove = async (req, res) => {
   }
 }
 
+const setDefault = async (req, res) => {
+  try {
+    const { id } = req.params
+    
+    // Unset all defaults for this user
+    await Address.updateMany({ userId: req.userId }, { isDefault: false })
+    
+    // Set this address as default
+    const address = await Address.findOneAndUpdate(
+      { _id: id, userId: req.userId },
+      { isDefault: true, updatedAt: new Date() },
+      { new: true }
+    )
+    
+    if (!address) {
+      return res.status(404).json(errorResponse('Address not found', 404))
+    }
+    
+    res.json(successResponse(address))
+  } catch (err) {
+    console.error('Set default address error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
 module.exports = {
   list,
   create,
   update,
-  remove
+  remove,
+  setDefault
 }
