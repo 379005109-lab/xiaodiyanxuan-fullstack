@@ -6,7 +6,13 @@ import { useAuthStore } from '@/store/authStore'
 import axios from '@/lib/axios'
 import { formatPrice } from '@/lib/utils'
 
-const STATUS_LABELS: Record<string, string> = {
+// 后端使用数字状态: 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
+const STATUS_LABELS: Record<string | number, string> = {
+  1: '待付款',
+  2: '待发货',
+  3: '待收货',
+  4: '已完成',
+  5: '已取消',
   pending: '待处理',
   processing: '处理中',
   paid: '已支付',
@@ -15,7 +21,12 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: '已取消',
 }
 
-const STATUS_COLORS: Record<string, string> = {
+const STATUS_COLORS: Record<string | number, string> = {
+  1: 'bg-amber-100 text-amber-700',
+  2: 'bg-blue-100 text-blue-700',
+  3: 'bg-indigo-100 text-indigo-700',
+  4: 'bg-emerald-100 text-emerald-700',
+  5: 'bg-gray-200 text-gray-500',
   pending: 'bg-amber-100 text-amber-700',
   processing: 'bg-blue-100 text-blue-700',
   paid: 'bg-teal-100 text-teal-700',
@@ -62,12 +73,12 @@ export default function OrdersPage() {
     }
   }
 
-  // 计算订单统计
+  // 计算订单统计（支持数字和字符串状态）
   const stats = {
     total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    processing: orders.filter(o => o.status === 'processing').length,
-    completed: orders.filter(o => o.status === 'completed').length,
+    pending: orders.filter(o => o.status === 1 || o.status === 'pending').length,
+    processing: orders.filter(o => o.status === 2 || o.status === 'processing').length,
+    completed: orders.filter(o => o.status === 4 || o.status === 'completed').length,
     totalAmount: orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0),
   }
 

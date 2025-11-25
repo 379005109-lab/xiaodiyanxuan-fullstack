@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, Minus, Check, Loader2, X, Maximize2, AlertCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Minus, Check, Loader2, X, Maximize2, AlertCircle, ShoppingCart } from 'lucide-react'
 import { PackagePlan, PackageProductMaterial } from '@/types'
 import { getAllPackages } from '@/services/packageService'
 import { getAllMaterials } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
+import { useAuthModalStore } from '@/store/authModalStore'
 
 type PackageCategory = PackagePlan['categories'][number]
 type PackageProduct = PackageCategory['products'][number]
@@ -96,18 +97,17 @@ export default function PackageDetailPageNew() {
 
   // 打开商品选择窗口（选择规格材质）
   const openProductSelector = (categoryKey: string, product: PackageProduct) => {
-    const isSelected = (selectedProducts[categoryKey] || []).includes(product.id)
-    if (isSelected) {
-      // 已选中，点击取消选择
-      setSelectedProducts(prev => ({
-        ...prev,
-        [categoryKey]: prev[categoryKey].filter(id => id !== product.id)
-      }))
-      toast.success('已移除')
-    } else {
-      // 未选中，打开选择窗口
-      setSelectingProduct({ categoryKey, product })
-    }
+    // 直接打开选择窗口，不管是否已选中
+    setSelectingProduct({ categoryKey, product })
+  }
+
+  // 移除商品
+  const removeProduct = (categoryKey: string, productId: string) => {
+    setSelectedProducts(prev => ({
+      ...prev,
+      [categoryKey]: (prev[categoryKey] || []).filter(id => id !== productId)
+    }))
+    toast.success('已移除')
   }
 
   // 确认添加商品
@@ -116,15 +116,27 @@ export default function PackageDetailPageNew() {
     if (!category) return
     
     const current = selectedProducts[categoryKey] || []
-    if (current.length >= category.required) {
+    const isAlreadySelected = current.includes(product.id)
+    
+    // 如果已经选中，只更新材质选择
+    if (isAlreadySelected) {
+      // 不需要添加，只更新材质和SKU
+    } else if (category.required === 1) {
+      // 只能选1，直接替换
+      setSelectedProducts(prev => ({
+        ...prev,
+        [categoryKey]: [product.id]
+      }))
+    } else if (current.length >= category.required) {
       toast.error(`最多选择 ${category.required} 件`)
       return
+    } else {
+      // 可以多选，添加
+      setSelectedProducts(prev => ({
+        ...prev,
+        [categoryKey]: [...(prev[categoryKey] || []), product.id]
+      }))
     }
-    
-    setSelectedProducts(prev => ({
-      ...prev,
-      [categoryKey]: [...(prev[categoryKey] || []), product.id]
-    }))
     setMaterialSelections(prev => ({
       ...prev,
       [product.id]: materials
@@ -454,8 +466,8 @@ export default function PackageDetailPageNew() {
               </div>
             </div>
 
-            {/* 已选商品 */}
-            <div className="space-y-4">
+            {/* 已选商品 - 加大显示 */}
+            <div className="space-y-3">
               {pkg.categories.map(cat => (selectedProducts[cat.key] || []).map(productId => {
                 const product = cat.products.find(p => p.id === productId)
                 if (!product) return null
@@ -465,33 +477,39 @@ export default function PackageDetailPageNew() {
                 const hasSurcharge = surcharge > 0
                 
                 return (
-                  <div key={productId} className={`flex gap-3 items-start group p-2 rounded-lg ${hasSurcharge ? 'bg-amber-50 border border-amber-200' : ''}`}>
-                    <div className="w-12 h-12 rounded-lg bg-stone-50 overflow-hidden border border-stone-100 flex-shrink-0 relative">
+                  <div key={productId} className={`flex gap-4 items-start p-3 rounded-xl border ${hasSurcharge ? 'bg-amber-50 border-amber-200' : 'bg-white border-stone-100'}`}>
+                    <div className="w-20 h-20 rounded-xl bg-stone-100 overflow-hidden border border-stone-200 flex-shrink-0 relative">
                       <img src={product.image ? getFileUrl(product.image) : '/placeholder.svg'} alt="" className="w-full h-full object-cover" />
                       {hasSurcharge && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
-                          <span className="text-[8px] text-white font-bold">↑</span>
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center shadow">
+                          <span className="text-[10px] text-white font-bold">↑</span>
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <span className="text-xs font-bold text-stone-700 line-clamp-1">{product.name}</span>
-                        <span className="text-xs font-serif font-bold text-stone-900">¥{itemTotal.toLocaleString()}</span>
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="text-sm font-bold text-stone-800 line-clamp-2">{product.name}</span>
+                        <button 
+                          onClick={() => removeProduct(cat.key, productId)}
+                          className="p-1 rounded hover:bg-red-100 text-stone-400 hover:text-red-500 ml-2 flex-shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
+                      <div className="text-lg font-serif font-bold text-red-600">¥{itemTotal.toLocaleString()}</div>
                       {getMaterialLabel(productId) && (
-                        <div className="text-[10px] text-stone-500 mt-0.5 truncate">{getMaterialLabel(productId)}</div>
+                        <div className="text-xs text-stone-500 mt-1">{getMaterialLabel(productId)}</div>
                       )}
                       {hasSurcharge && (
-                        <div className="text-[10px] text-amber-600 font-medium mt-0.5">
-                          材质升级 +¥{(surcharge * qty).toLocaleString()}
+                        <div className="text-xs text-amber-600 font-medium mt-1">
+                          含材质升级 +¥{(surcharge * qty).toLocaleString()}
                         </div>
                       )}
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className="flex items-center border border-stone-200 rounded bg-white">
-                          <button onClick={() => updateQty(productId, -1)} className="p-1 hover:bg-stone-50"><Minus className="w-3 h-3 text-stone-400" /></button>
-                          <span className="text-[10px] w-5 text-center">{qty}</span>
-                          <button onClick={() => updateQty(productId, 1)} className="p-1 hover:bg-stone-50"><Plus className="w-3 h-3 text-stone-400" /></button>
+                      <div className="flex items-center gap-3 mt-2">
+                        <div className="flex items-center border border-stone-300 rounded-lg bg-white">
+                          <button onClick={() => updateQty(productId, -1)} className="px-2 py-1 hover:bg-stone-50"><Minus className="w-4 h-4 text-stone-500" /></button>
+                          <span className="text-sm w-6 text-center font-medium">{qty}</span>
+                          <button onClick={() => updateQty(productId, 1)} className="px-2 py-1 hover:bg-stone-50"><Plus className="w-4 h-4 text-stone-500" /></button>
                         </div>
                       </div>
                     </div>
@@ -499,7 +517,10 @@ export default function PackageDetailPageNew() {
                 )
               }))}
               {Object.values(selectedProducts).every(arr => arr.length === 0) && (
-                <div className="text-center py-8 text-stone-400 text-sm">还未选择任何商品</div>
+                <div className="text-center py-10 text-stone-400">
+                  <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                  <p>还未选择任何商品</p>
+                </div>
               )}
             </div>
           </div>
@@ -517,11 +538,18 @@ export default function PackageDetailPageNew() {
             </div>
             <div className="pt-4 border-t border-stone-200">
               <div className="flex justify-between items-end mb-4">
-                <span className="font-bold text-primary">预估总价</span>
-                <span className="font-serif font-bold text-2xl text-accent">¥{totalPrice.toLocaleString()}</span>
+                <span className="font-bold text-stone-700">预估总价</span>
+                <span className="font-serif font-bold text-3xl text-red-600">¥{totalPrice.toLocaleString()}</span>
               </div>
               <button 
-                onClick={() => setIsOrderModalOpen(true)}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    toast.error('请先登录')
+                    useAuthModalStore.getState().openLogin()
+                    return
+                  }
+                  setIsOrderModalOpen(true)
+                }}
                 disabled={progressPercent < 100}
                 className="w-full bg-primary text-white py-3.5 rounded-xl font-bold hover:bg-green-900 shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
