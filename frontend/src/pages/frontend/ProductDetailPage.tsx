@@ -1049,37 +1049,6 @@ const ProductDetailPage = () => {
                   <button onClick={() => handleQuantityChange(1)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-r-md"><Plus className="h-4 w-4" /></button>
                 </div>
               </div>
-
-
-              {/* Files from backend */}
-              {fileList.length > 0 && (
-                <div className="border border-gray-200 rounded-2xl bg-white mt-4">
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">资料下载</p>
-                      <p className="text-xs text-gray-400 mt-0.5">后台上传的文件</p>
-                    </div>
-                    <FileText className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <div className="p-4 space-y-3">
-                    {fileList.map((file, index) => (
-                      <a
-                        key={index}
-                        href={file.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 hover:border-primary-400 hover:bg-primary-50"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{file.name || `资料文件 ${index + 1}`}</p>
-                          <p className="text-xs text-gray-500">{file.format || '未知格式'} · {file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : '未知大小'}</p>
-                        </div>
-                        <Download className="h-4 w-4 text-gray-400" />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Action Buttons */}
@@ -1130,25 +1099,33 @@ const ProductDetailPage = () => {
                 {videoList.map((video, index) => {
                   const videoTitle = (product as any).videoTitles?.[index] || `${product.name} - 视频${index + 1}`
                   const videoId = `video-${index}`
+                  const isLocal = isVideoFile(video)
+                  
                   return (
                     <button
                       key={index}
                       type="button"
                       onClick={() => {
-                        const videoEl = document.getElementById(videoId) as HTMLVideoElement
-                        if (videoEl && isVideoFile(video)) {
-                          if (document.pictureInPictureElement) {
-                            document.exitPictureInPicture()
+                        if (isLocal) {
+                          // 本地视频：画中画模式
+                          const videoEl = document.getElementById(videoId) as HTMLVideoElement
+                          if (videoEl) {
+                            if (document.pictureInPictureElement) {
+                              document.exitPictureInPicture()
+                            }
+                            videoEl.play()
+                            videoEl.requestPictureInPicture?.().catch((err: Error) => {
+                              console.log('画中画模式不支持:', err)
+                              // 如果不支持画中画，就全屏播放
+                              videoEl.requestFullscreen?.()
+                            })
                           }
-                          videoEl.play()
-                          videoEl.requestPictureInPicture?.().catch((err: Error) => {
-                            console.log('画中画模式不支持:', err)
-                            // 如果不支持画中画，就全屏播放
-                            videoEl.requestFullscreen?.()
-                          })
+                        } else {
+                          // 外部链接：新窗口打开
+                          window.open(video, '_blank', 'noopener,noreferrer')
                         }
                       }}
-                      className="relative group aspect-video rounded-lg overflow-hidden bg-gray-900 hover:ring-2 hover:ring-primary-500 transition-all"
+                      className="relative group aspect-video rounded-lg overflow-hidden bg-gray-900 hover:ring-2 hover:ring-primary-500 transition-all cursor-pointer"
                     >
                       {/* 缩略图/封面 */}
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -1159,11 +1136,11 @@ const ProductDetailPage = () => {
                             </svg>
                           </div>
                           <p className="text-white text-sm font-medium px-2">{videoTitle}</p>
-                          <p className="text-white/70 text-xs mt-1">点击播放画中画</p>
+                          <p className="text-white/70 text-xs mt-1">{isLocal ? '点击播放画中画' : '点击跳转观看'}</p>
                         </div>
                       </div>
-                      {/* 隐藏的video元素 */}
-                      {isVideoFile(video) && (
+                      {/* 隐藏的video元素（仅本地视频） */}
+                      {isLocal && (
                         <video 
                           id={videoId}
                           src={video}
@@ -1229,23 +1206,30 @@ const ProductDetailPage = () => {
                         <span className="text-xs text-gray-500 ml-2">({files.length})</span>
                       </div>
                       <div className="divide-y divide-gray-100">
-                        {files.map((file, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => handleFileDownload(file)}
-                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary-50 text-left"
-                          >
-                            <div>
-                              <p className="font-medium text-gray-900 text-sm">{file.name || `文件 ${idx + 1}`}</p>
-                              <p className="text-xs text-gray-400">
-                                {file.format?.toUpperCase() || '未知'} · {file.size ? `${(file.size / 1024 / 1024).toFixed(1)}MB` : '大小待定'}
-                                {file.uploadTime && ` · ${file.uploadTime}`}
-                              </p>
-                            </div>
-                            <span className="text-sm text-primary-600 font-medium">下载</span>
-                          </button>
-                        ))}
+                        {files.map((file, idx) => {
+                          // 文件名默认使用商品名+扩展名
+                          const fileExt = file.format?.toLowerCase() || 'file'
+                          const defaultFileName = `${product.name}.${fileExt}`
+                          const fileName = file.name || defaultFileName
+                          
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleFileDownload(file)}
+                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary-50 text-left"
+                            >
+                              <div>
+                                <p className="font-medium text-gray-900 text-sm">{fileName}</p>
+                                <p className="text-xs text-gray-400">
+                                  {file.format?.toUpperCase() || '未知'} · {file.size ? `${(file.size / 1024 / 1024).toFixed(1)}MB` : '大小待定'}
+                                  {file.uploadTime && ` · ${file.uploadTime}`}
+                                </p>
+                              </div>
+                              <span className="text-sm text-primary-600 font-medium">下载</span>
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   ))
