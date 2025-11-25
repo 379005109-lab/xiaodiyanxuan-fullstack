@@ -7,33 +7,51 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#f0f5ff',
-          100: '#e0ebff',
-          200: '#c1d7ff',
-          300: '#a2c3ff',
-          400: '#6fa5ff',
-          500: '#1F64FF',
-          600: '#1a52cc',
-          700: '#154099',
-          800: '#102e66',
-          900: '#0b1c33',
+        stone: {
+          50: '#F2F4F3',
+          100: '#E6EBE9',
+          200: '#D1DCD9',
+          300: '#B0C4BF',
+          800: '#2A3C36',
+          900: '#14452F',
         },
-        secondary: {
-          50: '#fdf4ff',
-          100: '#fae8ff',
-          200: '#f5d0fe',
-          300: '#f0abfc',
-          400: '#e879f9',
-          500: '#d946ef',
-          600: '#c026d3',
-          700: '#a21caf',
-          800: '#86198f',
-          900: '#701a75',
+        primary: {
+          DEFAULT: '#14452F',
+          50: '#F0FDF4',
+          100: '#DCFCE7',
+          800: '#166534',
+          900: '#14452F',
+        },
+        accent: {
+          DEFAULT: '#D6AD60',
+          light: '#E8C98D',
+          dark: '#B89248',
         },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        serif: ['Playfair Display', 'serif'],
+      },
+      animation: {
+        'fade-in-up': 'fadeInUp 0.5s ease-out',
+        'float': 'float 3s ease-in-out infinite',
+        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'implode': 'implode 3s ease-in-out infinite',
+      },
+      keyframes: {
+        fadeInUp: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5px)' },
+        },
+        implode: {
+          '0%': { transform: 'translate(var(--start-x), var(--start-y)) scale(0.5)', opacity: '0' },
+          '20%': { opacity: '1' },
+          '100%': { transform: 'translate(0, 0) scale(0.2)', opacity: '0' }
+        }
       },
     },
   },

@@ -156,183 +156,183 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in-up">
       {/* 蒙版背景 */}
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60"
         onClick={onClose}
       />
       
       {/* 弹窗内容 */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8 animate-in fade-in zoom-in duration-200">
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
         {/* 关闭按钮 */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-4 right-4 p-2 hover:bg-stone-100 rounded-full transition-colors z-10"
         >
-          <X className="w-5 h-5" />
+          <X className="w-5 h-5 text-stone-400" />
         </button>
 
-        {mode === 'login' ? (
-          // 登录表单
-          <form onSubmit={handleLogin}>
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-green-800">欢迎回来</h2>
-              <p className="text-gray-500 mt-2">登录以访问您的定制需求和订单</p>
-            </div>
-
-            <div className="space-y-5">
-              {/* 手机号 */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">手机号码</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="tel"
-                    placeholder="请输入手机号"
-                    value={loginForm.phone}
-                    onChange={(e) => setLoginForm({ ...loginForm, phone: e.target.value })}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                  />
-                </div>
+        <div className="p-8 pt-12">
+          {mode === 'login' ? (
+            // 登录表单
+            <form onSubmit={handleLogin}>
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-serif font-bold text-primary mb-2">欢迎回来</h2>
+                <p className="text-stone-500 text-sm">登录以访问您的定制需求和订单</p>
               </div>
 
-              {/* 密码 */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">密码</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="password"
-                    placeholder="请输入密码"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                  />
+              <div className="space-y-4">
+                {/* 手机号 */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 ml-1">手机号码</label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      placeholder="请输入手机号"
+                      value={loginForm.phone}
+                      onChange={(e) => setLoginForm({ ...loginForm, phone: e.target.value })}
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 pl-10 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                    />
+                    <User className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
                 </div>
+
+                {/* 密码 */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 ml-1">密码</label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      placeholder="请输入密码"
+                      value={loginForm.password}
+                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 pl-10 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                    />
+                    <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
+                {/* 登录按钮 */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-primary text-white py-3.5 rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-green-900 transition-all flex items-center justify-center gap-2 mt-6 disabled:opacity-70"
+                >
+                  {loading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      登 录
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
               </div>
 
-              {/* 登录按钮 */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    登录
-                    <ArrowRight className="w-5 h-5" />
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* 切换到注册 */}
-            <div className="text-center mt-6">
-              <span className="text-gray-500">还没有账号？</span>
-              <button
-                type="button"
-                onClick={() => setMode('register')}
-                className="text-green-700 hover:text-green-800 font-medium ml-1"
-              >
-                立即注册
-              </button>
-            </div>
-          </form>
-        ) : (
-          // 注册表单
-          <form onSubmit={handleRegister}>
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-green-800">注册账号</h2>
-              <p className="text-gray-500 mt-2">加入小迪严选，开启高端家居之旅</p>
-            </div>
-
-            <div className="space-y-4">
-              {/* 手机号 */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">手机号码</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="tel"
-                    placeholder="请输入手机号"
-                    value={registerForm.phone}
-                    onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                  />
-                </div>
+              {/* 切换到注册 */}
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => setMode('register')}
+                  className="text-sm text-stone-400 hover:text-primary transition-colors"
+                >
+                  还没有账号？立即注册
+                </button>
+              </div>
+            </form>
+          ) : (
+            // 注册表单
+            <form onSubmit={handleRegister}>
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-serif font-bold text-primary mb-2">注册账号</h2>
+                <p className="text-stone-500 text-sm">加入小迪严选，开启高端家居之旅</p>
               </div>
 
-              {/* 密码 */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">密码</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="password"
-                    placeholder="请输入密码"
-                    value={registerForm.password}
-                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                  />
+              <div className="space-y-4">
+                {/* 手机号 */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 ml-1">手机号码</label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      placeholder="请输入手机号"
+                      value={registerForm.phone}
+                      onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 pl-10 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                    />
+                    <User className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
                 </div>
+
+                {/* 密码 */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 ml-1">密码</label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      placeholder="请输入密码"
+                      value={registerForm.password}
+                      onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 pl-10 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all"
+                    />
+                    <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
+                {/* 验证码 */}
+                <div className="space-y-1 animate-fade-in-up">
+                  <label className="text-xs font-bold text-stone-500 ml-1">验证码</label>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      placeholder="0000"
+                      maxLength={6}
+                      value={registerForm.verifyCode}
+                      onChange={(e) => setRegisterForm({ ...registerForm, verifyCode: e.target.value })}
+                      className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all text-center tracking-widest"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendCode}
+                      disabled={countdown > 0 || loading}
+                      className="px-4 py-3 bg-stone-100 text-stone-600 rounded-xl text-sm font-bold hover:bg-stone-200 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {countdown > 0 ? `${countdown}s` : '获取验证码'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 注册按钮 */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-primary text-white py-3.5 rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-green-900 transition-all flex items-center justify-center gap-2 mt-6 disabled:opacity-70"
+                >
+                  {loading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      立即注册
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
               </div>
 
-              {/* 验证码 */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">验证码</label>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    placeholder="0000"
-                    maxLength={6}
-                    value={registerForm.verifyCode}
-                    onChange={(e) => setRegisterForm({ ...registerForm, verifyCode: e.target.value })}
-                    className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-center tracking-widest"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSendCode}
-                    disabled={countdown > 0 || loading}
-                    className="px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {countdown > 0 ? `${countdown}s` : '获取验证码'}
-                  </button>
-                </div>
+              {/* 切换到登录 */}
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => setMode('login')}
+                  className="text-sm text-stone-400 hover:text-primary transition-colors"
+                >
+                  已有账号？去登录
+                </button>
               </div>
-
-              {/* 注册按钮 */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-green-700 hover:bg-green-800 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    立即注册
-                    <ArrowRight className="w-5 h-5" />
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* 切换到登录 */}
-            <div className="text-center mt-6">
-              <span className="text-gray-500">已有账号？</span>
-              <button
-                type="button"
-                onClick={() => setMode('login')}
-                className="text-green-700 hover:text-green-800 font-medium ml-1"
-              >
-                去登录
-              </button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
+        </div>
       </div>
     </div>
   )
