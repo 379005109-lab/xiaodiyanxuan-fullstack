@@ -6,6 +6,9 @@ import { getAllPackages } from '@/services/packageService'
 import { getAllMaterials } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
+import { createCustomerOrder } from '@/services/customerOrderService'
+import axios from '@/lib/axios'
+import { useAuthStore } from '@/store/authStore'
 
 // 从PackagePlan中提取Category和Product类型
 type PackageCategory = PackagePlan['categories'][number]
@@ -83,6 +86,150 @@ const getMaterialPreviewImage = (product: PackageProduct, option: string, materi
   return '/placeholder.svg'
 }
 
+interface OrderConfirmModalProps {
+  pkg: PackagePlan
+  selectionGroups: PackageCategory[]
+  totalPrice: number
+  note: string
+  contact: { name: string; phone: string; address: string }
+  onChange: (field: 'name' | 'phone' | 'address', value: string) => void
+  onClose: () => void
+  onSubmit: () => void
+  submitting: boolean
+}
+
+function OrderConfirmModal({
+  pkg,
+  selectionGroups,
+  totalPrice,
+  note,
+  contact,
+  onChange,
+  onClose,
+  onSubmit,
+  submitting,
+}: OrderConfirmModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4 py-8">
+      <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <div>
+            <p className="text-xs text-gray-400">确认套餐订单</p>
+            <h3 className="text-2xl font-semibold text-gray-900">{pkg.name}</h3>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+        <div className="grid md:grid-cols-2 gap-6 p-6">
+          <div className="space-y-4">
+            <h4 className="text-lg font-semibold text-gray-900">联系信息</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">联系人</label>
+                <input
+                  type="text"
+                  value={contact.name}
+                  onChange={(e) => onChange('name', e.target.value)}
+                  className="input w-full"
+                  placeholder="请输入姓名"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">联系电话</label>
+                <input
+                  type="tel"
+                  value={contact.phone}
+                  onChange={(e) => onChange('phone', e.target.value)}
+                  className="input w-full"
+                  placeholder="请输入手机号码"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-500 mb-1 block">联系地址</label>
+                <textarea
+                  value={contact.address}
+                  onChange={(e) => onChange('address', e.target.value)}
+                  className="input w-full"
+                  rows={3}
+                  placeholder="请输入项目地址"
+                />
+              </div>
+            </div>
+            {note && (
+              <div className="p-4 rounded-2xl bg-gray-50 text-sm text-gray-600">
+                <p className="font-semibold text-gray-800 mb-1">备注</p>
+                {note}
+              </div>
+            )}
+          </div>
+          <div className="space-y-4">
+            <h4 className="text-lg font-semibold text-gray-900">配置确认</h4>
+            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-2">
+              {selectionGroups.map((group) => (
+                <div key={group.key} className="border border-gray-100 rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-semibold text-gray-900">{group.name}</p>
+                    <span className="text-xs text-gray-500">需 {group.required}</span>
+                  </div>
+                  {group.products.length === 0 ? (
+                    <p className="text-xs text-gray-400">未选择</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {group.products.map((item) => (
+                        <div key={item.id} className="text-sm text-gray-600">
+                          <p className="font-semibold text-gray-900">
+                            {item.name} <span className="text-xs text-gray-500">× {item.quantity}</span>
+                          </p>
+                          {item.materials && (
+                            <p className="text-xs text-gray-500">
+                              {Object.entries(item.materials)
+                                .map(([key, value]) => `${key.toUpperCase()}·${value}`)
+                                .join(' / ')}
+                            </p>
+                          )}
+                          {item.materialUpgrade ? (
+                            <p className="text-xs text-red-600">材质升级 +{formatCurrency(item.materialUpgrade)}</p>
+                          ) : (
+                            <p className="text-xs text-green-600">基础配置</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex items-center justify-between text-sm text-gray-500">
+                <span>套餐基础价</span>
+                <span className="font-semibold text-red-600">{formatCurrency(pkg.price)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm text-gray-500">
+                <span>材质升级</span>
+                <span className="font-semibold text-red-600">{formatCurrency(totalPrice - pkg.price)}</span>
+              </div>
+              <div className="flex items-center justify-between text-xl font-bold text-red-600">
+                <span>预计合计</span>
+                <span>{formatCurrency(totalPrice)}</span>
+              </div>
+            </div>
+            <button
+              onClick={onSubmit}
+              disabled={submitting}
+              className={`w-full py-3 rounded-2xl font-semibold ${
+                submitting ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-[#3E76FF] text-white hover:bg-[#2f5cd9]'
+              }`}
+            >
+              {submitting ? '提交中...' : '确认提交'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PackageDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -97,16 +244,25 @@ export default function PackageDetailPage() {
   const [activeImage, setActiveImage] = useState<number>(0)
   const [previewContext, setPreviewContext] = useState<{ categoryKey: string; index: number } | null>(null)
   const [note, setNote] = useState('')
-
+  const [isOrderConfirmOpen, setIsOrderConfirmOpen] = useState(false)
   const [materialImageMap, setMaterialImageMap] = useState<Record<string, string>>({})
+  const [orderForm, setOrderForm] = useState({ name: '', phone: '', address: '' })
+  const [orderSubmitting, setOrderSubmitting] = useState(false)
+  const [submitResultHint, setSubmitResultHint] = useState('')
+  const { isAuthenticated, token } = useAuthStore()
 
   const loadPackage = async () => {
     if (!id) return
     setLoading(true)
+    console.log('🔥 PackageDetailPage - Loading packages - v20251124-1300')
     const data = await getAllPackages()
+    console.log('🔥 PackageDetailPage - Loaded packages:', data)
     const packageData = data.find((pkg) => pkg.id === id)
+    console.log('🔥 PackageDetailPage - Found package:', packageData)
     if (packageData && packageData.categories) {
+      console.log('🔥 PackageDetailPage - Categories:', packageData.categories)
       if (packageData.categories[0] && packageData.categories[0].products) {
+        console.log('🔥 PackageDetailPage - First product:', packageData.categories[0].products[0])
       }
     }
     setPkg(packageData)
@@ -140,13 +296,16 @@ export default function PackageDetailPage() {
   const loadMaterialImages = async () => {
     try {
       const materials = await getAllMaterials()
+      console.log('🔥 Loaded materials:', materials)
       const imageMap: Record<string, string> = {}
       materials.forEach((material: any) => {
         // 修复：Material模型中是image（单数），不是images（复数）
         if (material.name && material.image) {
           imageMap[material.name] = material.image
+          console.log('🔥 Added material to map:', material.name, '->', material.image)
         }
       })
+      console.log('🔥 Final material image map:', imageMap)
       setMaterialImageMap(imageMap)
     } catch (error) {
       console.error('❌ 加载材质图片失败:', error)
@@ -172,6 +331,7 @@ export default function PackageDetailPage() {
       // 遍历所有SKU，查找是否有materialUpgradePrices包含此材质
       for (const sku of product.skus) {
         if (sku.materialUpgradePrices) {
+          console.log(`🔥 [加价检查] 商品: ${product.name}, 材质: ${option}`)
           console.log(`📋 [SKU加价规则详情]:`, JSON.stringify(sku.materialUpgradePrices, null, 2))
           
           // 1. 首先查找完全匹配的材质名称
@@ -223,6 +383,7 @@ export default function PackageDetailPage() {
     return match ? match[0] : materialName
   }
 
+
   const calculateMaterialSurcharge = (
     product: PackageProduct,
     selections?: Record<string, string>
@@ -235,8 +396,10 @@ export default function PackageDetailPage() {
       const isUpgrade = option !== options[0]
       if (!isUpgrade) return sum
       const premium = getOptionPremium(option, product.price, product)
+      console.log(`💰 [材质加价计算] 商品: ${product.name}, 材质Key: ${materialKey}, 选项: ${option}, 加价: ${premium}`)
       return sum + premium
     }, 0)
+    console.log(`💰 [总材质加价] 商品: ${product.name}, 总加价: ${total}`)
     return total
   }
 
@@ -317,7 +480,10 @@ export default function PackageDetailPage() {
     })
   }, [pkg, selectedProducts, materialSelections, selectionQuantities, productLookup])
 
-  
+  const isSubmitDisabled = useMemo(() => {
+    if (!pkg) return true
+    return pkg.categories.some((category) => getCategorySelectedQuantity(category.key) < category.required)
+  }, [pkg, selectedProducts, selectionQuantities])
 
   const selectionProgress = useMemo(() => {
     if (!pkg) return { totalRequired: 0, totalSelected: 0 }
@@ -390,7 +556,26 @@ export default function PackageDetailPage() {
     })
   }
 
-  
+  const handleSubmitRequest = () => {
+    if (!pkg) return
+    const incomplete = pkg.categories.find((category) => {
+      const picked = getCategorySelectedQuantity(category.key)
+      return picked < category.required
+    })
+
+    if (incomplete) {
+      toast.error(`请完成「${incomplete.name}」的 ${incomplete.required} 选 1 选择`)
+      // 展开未完成的分类
+      setCollapsedCategories(prev => {
+        const next = new Set(prev)
+        next.delete(incomplete.key)
+        return next
+      })
+      return
+    }
+
+    setIsOrderConfirmOpen(true)
+  }
 
   const handleMaterialModalConfirm = (categoryKey: string, product: PackageProduct, selections: Record<string, string>) => {
     setMaterialSelections((prev) => ({
@@ -444,9 +629,100 @@ export default function PackageDetailPage() {
     })
   }
 
-  
+  const handleOrderFormChange = (field: 'name' | 'phone' | 'address', value: string) => {
+    setOrderForm((prev) => ({ ...prev, [field]: value }))
+  }
 
-  
+  const handleOrderSubmit = async () => {
+    if (!pkg) return
+    if (!orderForm.name || !orderForm.phone || !orderForm.address) {
+      toast.error('请填写完整的联系人、电话和地址')
+      return
+    }
+    const phoneRegex = /^1[3-9]\d{9}$/
+    if (!phoneRegex.test(orderForm.phone)) {
+      toast.error('请输入正确的手机号码')
+      return
+    }
+    if (selectionGroups.some((group) => group.products.length === 0)) {
+      toast.error('请先完成所有类别的选择')
+      return
+    }
+
+    setOrderSubmitting(true)
+    setSubmitResultHint('')
+    
+    try {
+      // 验证登录状态
+      if (!token) {
+        toast.error('请先登录后再提交订单')
+        navigate('/login')
+        setOrderSubmitting(false)
+        return
+      }
+
+      // 构建套餐订单数据
+      const packageData = {
+        packageId: pkg.id,
+        packageName: pkg.name,
+        packagePrice: pkg.price,
+        selections: selectionGroups.map(group => ({
+          categoryKey: group.key,
+          categoryName: group.name,
+          required: group.required,
+          products: group.products.map((product: any) => ({
+            productId: product.id || product.productId,
+            productName: product.name || product.productName,
+            quantity: product.quantity || 1,
+            materials: product.materials || {},
+            materialUpgrade: product.materialUpgrade || 0
+          }))
+        }))
+      }
+
+      const recipient = {
+        name: orderForm.name,
+        phone: orderForm.phone,
+        address: orderForm.address
+      }
+
+      const payload = {
+        packageData,
+        recipient,
+        notes: note
+      }
+
+      console.log('📦 [PackageDetail] 提交套餐订单:', JSON.stringify(payload, null, 2))
+      console.log('📦 [PackageDetail] 总价:', totalPrice)
+      
+      // 调用新的套餐订单API
+      const response = await axios.post('/orders/package', payload, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      
+      console.log('✅ [PackageDetail] 套餐订单创建成功:', response.data)
+      toast.success('套餐订单提交成功！')
+      setSubmitResultHint('订单已提交，您可以在订单中心查看详情。')
+      
+      // 关闭弹窗并跳转到订单中心
+      setIsOrderConfirmOpen(false)
+      setTimeout(() => {
+        navigate('/orders')
+      }, 500)
+      
+    } catch (error: any) {
+      console.error('❗ [PackageDetail] 创建套餐订单失败:', error)
+      console.error('❗ [PackageDetail] 错误详情:', error.response?.data)
+      
+      const errorMsg = error?.response?.data?.message || error?.message || '提交订单失败，请稍后重试'
+      toast.error(`订单提交失败：${errorMsg}`)
+      setSubmitResultHint(`订单提交失败：${errorMsg}`)
+    } finally {
+      setOrderSubmitting(false)
+    }
+  }
 
   const openPreview = (categoryKey: string, index: number) => {
     setPreviewContext({ categoryKey, index })
@@ -920,7 +1196,91 @@ export default function PackageDetailPage() {
                 placeholder="备注期待的风格、预算或交付时间..."
                 className="input w-full min-h-[120px]"
               />
-              
+              <button
+                onClick={handleSubmitRequest}
+                disabled={isSubmitDisabled}
+                className={`w-full py-3 text-lg rounded-2xl font-semibold transition ${
+                  isSubmitDisabled
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-[#3E76FF] text-white hover:bg-[#2f5cd9]'
+                }`}
+              >
+                提交套餐订单
+              </button>
+              {!isAuthenticated && (
+                <p className="text-xs text-center text-gray-500">
+                  登录后可同步到云端订单中心，<Link to="/login" className="text-[#3E76FF] hover:underline">立即登录</Link>
+                </p>
+              )}
+              {submitResultHint && (
+                <p className="text-xs text-center text-gray-400">{submitResultHint}</p>
+              )}
+            </div>
+          </aside>
+        </div>
+        {previewContext && (
+          <ProductPreviewModal
+            pkg={pkg}
+            previewContext={previewContext}
+            onClose={closePreview}
+            onNavigate={handlePreviewNavigate}
+            materialSelections={materialSelections}
+            onConfirmSelection={handleMaterialModalConfirm}
+            calculateMaterialSurcharge={calculateMaterialSurcharge}
+            getOptionPremium={getOptionPremium}
+            materialImageMap={materialImageMap}
+          />
+        )}
+        {isOrderConfirmOpen && (
+          <OrderConfirmModal
+            pkg={pkg}
+            selectionGroups={selectionGroups}
+            totalPrice={totalPrice}
+            note={note}
+            contact={orderForm}
+            onChange={handleOrderFormChange}
+            onClose={() => setIsOrderConfirmOpen(false)}
+            onSubmit={handleOrderSubmit}
+            submitting={orderSubmitting}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface ProductPreviewProps {
+  pkg: PackagePlan
+  previewContext: { categoryKey: string; index: number }
+  onClose: () => void
+  onNavigate: (direction: 'prev' | 'next') => void
+  materialSelections: MaterialSelectionMap
+  onConfirmSelection: (categoryKey: string, product: PackageProductOption, selections: Record<string, string>) => void
+  calculateMaterialSurcharge: (
+    product: PackageProductOption,
+    selections?: Record<string, string>
+  ) => number
+  getOptionPremium: (option: string, basePrice: number, product?: PackageProduct) => number
+  materialImageMap: Record<string, string>
+}
+
+function ProductPreviewModal({
+  pkg,
+  previewContext,
+  onClose,
+  onNavigate,
+  materialSelections,
+  onConfirmSelection,
+  calculateMaterialSurcharge,
+  getOptionPremium,
+  materialImageMap,
+}: ProductPreviewProps) {
+  const category = pkg.categories.find((c) => c.key === previewContext.categoryKey)
+  const product = category?.products[previewContext.index]
+
+  if (!category || !product) return null
+
+  const [localSelections, setLocalSelections] = useState<Record<string, string>>(materialSelections[product.id] || {})
   const [selectedSku, setSelectedSku] = useState<any>(product.skus?.[0] || null)
   const [previewImage, setPreviewImage] = useState(product.image)
   const [showAllSpecs, setShowAllSpecs] = useState(false)
@@ -1138,6 +1498,11 @@ export default function PackageDetailPage() {
                 <span className="text-xs text-gray-400">套装仅能下单，点击即可切换</span>
               </div>
               {(() => {
+                console.log('🔥 Rendering materials for product:', product.name)
+                console.log('🔥 product.materials:', product.materials)
+                console.log('🔥 materials type:', typeof product.materials)
+                console.log('🔥 materials keys:', product.materials ? Object.keys(product.materials) : 'null/undefined')
+                console.log('📋 materials详细内容:', JSON.stringify(product.materials, null, 2))
                 return product.materials
               })() ? (
                 Object.entries(product.materials as PackageProductMaterial).map(([materialKey, options]) => {
