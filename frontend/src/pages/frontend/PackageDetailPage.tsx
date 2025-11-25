@@ -6,8 +6,6 @@ import { getAllPackages } from '@/services/packageService'
 import { getAllMaterials } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
-import axios from '@/lib/axios'
-import { useAuthStore } from '@/store/authStore'
 
 // 从PackagePlan中提取Category和Product类型
 type PackageCategory = PackagePlan['categories'][number]
@@ -101,8 +99,6 @@ export default function PackageDetailPage() {
   const [note, setNote] = useState('')
 
   const [materialImageMap, setMaterialImageMap] = useState<Record<string, string>>({})
-
-  const { isAuthenticated, token } = useAuthStore()
 
   const loadPackage = async () => {
     if (!id) return
@@ -332,10 +328,7 @@ export default function PackageDetailPage() {
     })
   }, [pkg, selectedProducts, materialSelections, selectionQuantities, productLookup])
 
-  const isSubmitDisabled = useMemo(() => {
-    if (!pkg) return true
-    return pkg.categories.some((category) => getCategorySelectedQuantity(category.key) < category.required)
-  }, [pkg, selectedProducts, selectionQuantities])
+  
 
   const selectionProgress = useMemo(() => {
     if (!pkg) return { totalRequired: 0, totalSelected: 0 }
@@ -408,25 +401,7 @@ export default function PackageDetailPage() {
     })
   }
 
-  const handleSubmitRequest = () => {
-    if (!pkg) return
-    const incomplete = pkg.categories.find((category) => {
-      const picked = getCategorySelectedQuantity(category.key)
-      return picked < category.required
-    })
-
-    if (incomplete) {
-      toast.error(`请完成「${incomplete.name}」的 ${incomplete.required} 选 1 选择`)
-      // 展开未完成的分类
-      setCollapsedCategories(prev => {
-        const next = new Set(prev)
-        next.delete(incomplete.key)
-        return next
-      })
-      return
-    }
-
-  }
+  
 
   const handleMaterialModalConfirm = (categoryKey: string, product: PackageProduct, selections: Record<string, string>) => {
     setMaterialSelections((prev) => ({
