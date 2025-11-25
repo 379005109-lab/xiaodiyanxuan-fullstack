@@ -16,17 +16,25 @@ export default function CartPage() {
 
   // 检查sessionStorage中的代客下单数据（用于跨标签页恢复）
   useEffect(() => {
+    console.log('🛒 [CartPage] 检查代客下单模式', { conciergeMode })
     if (!conciergeMode) {
       const conciergeData = sessionStorage.getItem('conciergeOrderData')
+      console.log('🛒 [CartPage] sessionStorage数据', conciergeData)
       if (conciergeData) {
         try {
           const data = JSON.parse(conciergeData)
+          console.log('🛒 [CartPage] 解析数据成功', data)
           enterConciergeMode(data.orderId, data.customerName, data.customerPhone, data.items, data.orderSource)
+          console.log('🛒 [CartPage] enterConciergeMode已调用')
           sessionStorage.removeItem('conciergeOrderData')
         } catch (error) {
-          console.error('恢复代客下单数据失败:', error)
+          console.error('🛒 [CartPage] 恢复代客下单数据失败:', error)
         }
+      } else {
+        console.log('🛒 [CartPage] 没有代客下单数据')
       }
+    } else {
+      console.log('🛒 [CartPage] 已在代客下单模式')
     }
   }, [])
 

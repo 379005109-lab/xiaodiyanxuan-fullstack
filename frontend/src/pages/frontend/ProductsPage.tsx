@@ -39,6 +39,28 @@ export default function ProductsPage() {
   const { isFavorited, toggleFavorite, loadFavorites, favorites } = useFavoriteStore()
   const { isInCompare, addToCompare: addToCompareStore, loadCompareItems } = useCompareStore()
   const { isAuthenticated } = useAuthStore()
+  
+  // 恢复滚动位置
+  useEffect(() => {
+    const savedScrollPosition = sessionStorage.getItem('productsPageScrollPosition')
+    if (savedScrollPosition) {
+      setTimeout(() => {
+        window.scrollTo(0, parseInt(savedScrollPosition))
+        sessionStorage.removeItem('productsPageScrollPosition')
+      }, 100)
+    }
+  }, [])
+  
+  // 保存滚动位置（在离开页面前）
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem('productsPageScrollPosition', window.scrollY.toString())
+    }
+    
+    return () => {
+      handleBeforeUnload()
+    }
+  }, [])
 
   // 筛选条件
   const [filters, setFilters] = useState({
