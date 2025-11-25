@@ -222,30 +222,53 @@ export default function PackageDetailPageNew() {
     }
     setSubmitting(true)
     try {
-      // 构建订单数据
-      const items = pkg.categories.flatMap(cat => {
-        const ids = selectedProducts[cat.key] || []
-        return ids.map(id => {
-          const product = cat.products.find(p => p.id === id)
-          return product ? {
-            productId: id,
-            productName: product.name,
-            quantity: quantities[id] || 1,
-            price: product.price || 0
-          } : null
-        }).filter(Boolean)
-      })
+      // 构建套餐订单数据（与原API格式一致）
+      const packageData = {
+        packageId: pkg.id,
+        packageName: pkg.name,
+        packagePrice: pkg.price,
+        selections: pkg.categories.map(cat => {
+          const ids = selectedProducts[cat.key] || []
+          return {
+            categoryKey: cat.key,
+            categoryName: cat.name,
+            required: cat.required,
+            products: ids.map(id => {
+              const product = cat.products.find(p => p.id === id)
+              if (!product) return null
+              const qty = quantities[id] || 1
+              const materials = materialSelections[id] || {}
+              const surcharge = getProductSurcharge(id)
+              return {
+                productId: id,
+                productName: product.name,
+                quantity: qty,
+                materials: materials,
+                materialUpgrade: surcharge * qty
+              }
+            }).filter(Boolean)
+          }
+        })
+      }
+
+      const recipient = {
+        name: orderForm.name,
+        phone: orderForm.phone,
+        address: orderForm.address
+      }
+
+      const payload = {
+        packageData,
+        recipient,
+        notes: ''
+      }
+
+      console.log('📦 提交套餐订单:', JSON.stringify(payload, null, 2))
 
       const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders/package', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          packageId: pkg.id,
-          packageName: pkg.name,
-          items,
-          totalAmount: totalPrice,
-          customer: orderForm
-        })
+        body: JSON.stringify(payload)
       })
 
       if (response.ok) {
@@ -253,10 +276,11 @@ export default function PackageDetailPageNew() {
         setIsOrderModalOpen(false)
         navigate('/orders')
       } else {
-        throw new Error('提交失败')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || '提交失败')
       }
-    } catch (e) {
-      toast.error('提交失败，请重试')
+    } catch (e: any) {
+      toast.error(`提交失败: ${e.message}`)
     } finally {
       setSubmitting(false)
     }
@@ -284,8 +308,8 @@ export default function PackageDetailPageNew() {
       <div className="flex flex-col lg:flex-row min-h-screen">
         {/* 左侧内容区 */}
         <div className="flex-1 overflow-y-auto">
-          {/* Hero - 缩小高度 */}
-          <div className="relative w-full h-44 md:h-52 overflow-hidden">
+          {/* Hero - 更紧凑 */}
+          <div className="relative w-full h-36 md:h-44 overflow-hidden">
             <img 
               src={pkg.gallery?.[0] || (pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg')}
               alt={pkg.name}
@@ -405,9 +429,9 @@ export default function PackageDetailPageNew() {
           </div>
         </div>
 
-        {/* 右侧悬浮清单 - 加宽 */}
-        <div className="hidden lg:block w-[420px] flex-shrink-0">
-          <div className="sticky top-4 m-4 bg-white rounded-2xl border border-stone-200 shadow-2xl overflow-hidden max-h-[calc(100vh-2rem)]">
+        {/* 右侧悬浮清单 - 更宽 */}
+        <div className="hidden lg:block w-[480px] flex-shrink-0">
+          <div className="sticky top-4 m-4 bg-white rounded-2xl border border-stone-200 shadow-2xl overflow-hidden max-h-[calc(100vh-2rem)] flex flex-col">
           <div className="p-6 border-b border-stone-100 bg-stone-50/50">
             <div className="flex justify-between items-start">
               <div>
