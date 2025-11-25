@@ -26,14 +26,28 @@ export default function OrderManagement() {
   const [orderNotes, setOrderNotes] = useState<Record<string, string>>({})
   const [editingNote, setEditingNote] = useState<string | null>(null)
 
-  // 从localStorage获取本地订单列表（完全本地化方案）
+  // 从API获取订单列表
   useEffect(() => {
+    loadOrders()
+  }, [searchQuery, filterStatus, page])
+
+  const loadOrders = async () => {
     try {
       setLoading(true)
       
-      // 直接从localStorage读取本地订单
-      const stored = localStorage.getItem('local_orders')
-      let allOrders: Order[] = stored ? JSON.parse(stored) : []
+      // 从API获取订单数据
+      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?page=' + page + '&pageSize=10', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      let allOrders: Order[] = data.data || []
       
       // 应用搜索
       if (searchQuery) {
@@ -52,14 +66,9 @@ export default function OrderManagement() {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       })
       
-      // 分页
-      const startIndex = (page - 1) * 10
-      const endIndex = startIndex + 10
-      const paginatedOrders = allOrders.slice(startIndex, endIndex)
-      
-      setOrders(paginatedOrders)
-      setTotal(allOrders.length)
-      setTotalPages(Math.ceil(allOrders.length / 10))
+      setOrders(allOrders)
+      setTotal(data.total || allOrders.length)
+      setTotalPages(Math.ceil((data.total || allOrders.length) / 10))
       
       // 初始化代客下单和一口价草稿
       setConciergeDrafts((prev) => {
@@ -79,14 +88,14 @@ export default function OrderManagement() {
       })
       
     } catch (error: any) {
-      console.error('读取本地订单失败:', error)
+      console.error('加载订单失败:', error)
       setOrders([])
       setTotal(0)
       setTotalPages(1)
     } finally {
       setLoading(false)
     }
-  }, [page, filterStatus, searchQuery])
+  }
 
   const statusConfig: Record<OrderStatus, { label: string; color: string }> = {
     pending: { label: '待付款', color: 'bg-yellow-100 text-yellow-700' },
