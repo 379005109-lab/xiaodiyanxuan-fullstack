@@ -1121,26 +1121,49 @@ const ProductDetailPage = () => {
               </span>
             </div>
             {videoList.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {videoList.map((video, index) => (
-                  <div key={index} className="w-full aspect-video rounded-xl overflow-hidden bg-gray-100">
-                    {isVideoFile(video) ? (
-                      <video 
-                        src={video} 
-                        controls 
-                        controlsList="nodownload"
-                        className="w-full h-full object-contain bg-black"
-                        preload="metadata"
-                      />
-                    ) : (
-                      <iframe
-                        src={`${buildVideoEmbedUrl(video)}?autoplay=0`}
-                        title={`video-${index}`}
-                        className="w-full h-full"
-                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    )}
+                  <div key={index} className="space-y-2">
+                    {/* 视频标题 */}
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-gray-900">
+                        视频 {index + 1}
+                      </h4>
+                      <span className="text-xs text-gray-500">
+                        {isVideoFile(video) ? '直接播放' : '嵌入视频'}
+                      </span>
+                    </div>
+                    
+                    {/* 视频播放器 */}
+                    <div className="w-full aspect-video rounded-xl overflow-hidden bg-black shadow-lg">
+                      {isVideoFile(video) ? (
+                        <video 
+                          src={video} 
+                          controls 
+                          controlsList="nodownload"
+                          className="w-full h-full object-contain"
+                          preload="metadata"
+                          playsInline
+                          onPlay={(e) => {
+                            // 暂停其他视频
+                            const videos = document.querySelectorAll('video')
+                            videos.forEach(v => {
+                              if (v !== e.currentTarget && !v.paused) {
+                                v.pause()
+                              }
+                            })
+                          }}
+                        />
+                      ) : (
+                        <iframe
+                          src={`${buildVideoEmbedUrl(video)}?autoplay=0&rel=0&modestbranding=1`}
+                          title={`产品视频 ${index + 1}`}
+                          className="w-full h-full"
+                          allow="clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

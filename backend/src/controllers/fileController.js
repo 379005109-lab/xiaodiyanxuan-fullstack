@@ -6,11 +6,17 @@ const { sendResponse, sendError } = require('../utils/response');
  */
 const uploadFile = async (req, res) => {
   try {
+    console.log('📁 [Upload] 开始处理文件上传');
+    
     if (!req.file) {
+      console.error('❌ [Upload] 未找到上传的文件');
       return sendError(res, '未找到上传的文件', 400);
     }
 
+    console.log(`📁 [Upload] 文件信息: ${req.file.originalname}, 大小: ${(req.file.size / 1024 / 1024).toFixed(2)}MB, MIME: ${req.file.mimetype}`);
+
     const storage = req.query.storage || 'gridfs';
+    console.log(`📁 [Upload] 使用存储方式: ${storage}`);
     
     const result = await FileService.upload(
       req.file.buffer,
@@ -19,6 +25,8 @@ const uploadFile = async (req, res) => {
       storage
     );
     
+    console.log(`✅ [Upload] 上传成功: fileId=${result.fileId}`);
+    
     // 确保返回的是GridFS fileId，而不是Base64
     if (!result.fileId || result.fileId.startsWith('data:')) {
       throw new Error('GridFS上传失败，返回了Base64数据');
@@ -26,7 +34,8 @@ const uploadFile = async (req, res) => {
     
     sendResponse(res, result, '文件上传成功（GridFS）', 201);
   } catch (err) {
-    console.error('文件上传错误:', err);
+    console.error('❌ [Upload] 文件上传错误:', err);
+    console.error('❌ [Upload] 错误堆栈:', err.stack);
     sendError(res, err.message, 500);
   }
 };

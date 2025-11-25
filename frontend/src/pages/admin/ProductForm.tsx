@@ -82,6 +82,10 @@ export default function ProductForm() {
     files: [] as { name: string; url: string; format: string; size: number; uploadTime: string }[],
   })
 
+  // 文件上传进度状态
+  const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({})
+  const [isUploading, setIsUploading] = useState(false)
+
   // 加载分类数据
   useEffect(() => {
     const loadCategories = async () => {
@@ -1745,26 +1749,42 @@ export default function ProductForm() {
                   const files = Array.from(e.target.files || [])
                   if (files.length === 0) return
 
-                  toast.info(`正在上传 ${files.length} 个文件到GridFS...`)
+                  setIsUploading(true)
+                  toast.info(`正在上传 ${files.length} 个文件...`)
                   
                   try {
                     for (const file of files) {
-                      // 上传到GridFS
-                      const result = await uploadFile(file)
+                      const fileName = file.name
+                      
+                      // 上传到GridFS，带进度回调
+                      const result = await uploadFile(file, (progress) => {
+                        setUploadProgress(prev => ({
+                          ...prev,
+                          [fileName]: progress
+                        }))
+                      })
+                      
                       if (result.success) {
                         const fileId = result.data.fileId
                         const newFile = {
                           name: file.name,
-                          url: fileId, // 保存fileId而不是Base64
+                          url: fileId,
                           format: file.name.split('.').pop()?.toUpperCase() || '',
                           size: file.size,
                           uploadTime: new Date().toLocaleString('zh-CN')
                         }
-                        setFormData({
-                          ...formData,
-                          files: [...formData.files, newFile]
-                        })
+                        setFormData(prev => ({
+                          ...prev,
+                          files: [...prev.files, newFile]
+                        }))
                         console.log(`✅ 文件上传成功: ${file.name} -> ${fileId}`)
+                        
+                        // 清除进度
+                        setUploadProgress(prev => {
+                          const newProgress = { ...prev }
+                          delete newProgress[fileName]
+                          return newProgress
+                        })
                       } else {
                         toast.error(`${file.name} 上传失败`)
                       }
@@ -1772,7 +1792,10 @@ export default function ProductForm() {
                     toast.success(`${files.length} 个文件上传成功`)
                   } catch (error: any) {
                     console.error('❌ 文件上传失败:', error)
-                    toast.error('文件上传失败，请重试')
+                    toast.error(`文件上传失败: ${error.message || '请重试'}`)
+                  } finally {
+                    setIsUploading(false)
+                    setUploadProgress({})
                   }
                   
                   // 重置文件输入
@@ -1781,6 +1804,27 @@ export default function ProductForm() {
               />
             </label>
           </div>
+          
+          {/* 上传进度显示 */}
+          {Object.keys(uploadProgress).length > 0 && (
+            <div className="mt-4 space-y-2">
+              {Object.entries(uploadProgress).map(([fileName, progress]) => (
+                <div key={fileName} className="bg-blue-50 p-3 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">{fileName}</span>
+                    <span className="text-sm font-semibold text-blue-600">{progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
           {formData.files.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full border border-gray-200 rounded-lg">
