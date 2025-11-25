@@ -36,10 +36,10 @@ const MATERIAL_NAMES: Record<string, string> = {
   leg: '脚架',
 }
 
-const PRIMARY_BLUE = '#3E76FF'
-const PRIMARY_BLUE_LIGHT = '#E8F0FF'
-const PRIMARY_BLUE_HOVER = '#315cd1'
-const PRIMARY_BLUE_BUTTON_HOVER = '#2f5cd9'
+// 新UI配色方案
+const PRIMARY_COLOR = '#14452F' // 深森林绿
+const PRIMARY_LIGHT = '#E8F5E9' // 浅绿
+const ACCENT_COLOR = '#D6AD60' // 复古金
 const MIN_QUANTITY = 1
 const MAX_QUANTITY = 5
 
@@ -219,7 +219,7 @@ function OrderConfirmModal({
               onClick={onSubmit}
               disabled={submitting}
               className={`w-full py-3 rounded-2xl font-semibold ${
-                submitting ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-[#3E76FF] text-white hover:bg-[#2f5cd9]'
+                submitting ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-primary text-white hover:bg-[#2f5cd9]'
               }`}
             >
               {submitting ? '提交中...' : '确认提交'}
@@ -795,7 +795,7 @@ export default function PackageDetailPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-400">整套基础价</p>
-                  <p className="text-4xl font-bold text-[#3E76FF]">¥{pkg.price.toLocaleString()}</p>
+                  <p className="text-4xl font-bold text-primary">¥{pkg.price.toLocaleString()}</p>
                 </div>
               </div>
               <div className="rounded-3xl overflow-hidden relative">
@@ -818,7 +818,7 @@ export default function PackageDetailPage() {
                     key={image}
                     onClick={() => setActiveImage(index)}
                     className={`rounded-2xl overflow-hidden border-2 ${
-                      activeImage === index ? 'border-[#3E76FF]' : 'border-transparent'
+                      activeImage === index ? 'border-primary' : 'border-transparent'
                     }`}
                   >
                     <img src={image} alt="视角" className="w-28 h-20 object-cover" />
@@ -888,7 +888,7 @@ export default function PackageDetailPage() {
                                 key={product.id}
                                 className={`rounded-2xl border-2 overflow-hidden transition shadow-sm ${
                                   isSelected
-                                    ? 'border-[#3E76FF] shadow-[#E8F0FF]'
+                                    ? 'border-primary shadow-[#E8F0FF]'
                                     : 'border-transparent'
                                 } ${isDeleted ? 'opacity-50' : ''}`}
                               >
@@ -957,7 +957,7 @@ export default function PackageDetailPage() {
                                   </div>
 
                                   {getSelectedMaterialLabel(product) && (
-                                    <div className="rounded-2xl bg-[#E8F0FF] text-[#3E76FF] text-xs px-4 py-2">
+                                    <div className="rounded-2xl bg-[#E8F0FF] text-primary text-xs px-4 py-2">
                                       当前材质：{getSelectedMaterialLabel(product)}
                                     </div>
                                   )}
@@ -990,7 +990,7 @@ export default function PackageDetailPage() {
                                       isDeleted
                                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                         : isSelected
-                                        ? 'bg-[#3E76FF] text-white'
+                                        ? 'bg-primary text-white'
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                                   >
@@ -1025,7 +1025,7 @@ export default function PackageDetailPage() {
                                         onClick={() => handleQuantityChange(category.key, product.id, 1)}
                                         disabled={!canIncreaseQuantity}
                                         className={`w-8 h-8 rounded-full border flex items-center justify-center ${
-                                          !canIncreaseQuantity ? 'border-gray-200 text-gray-300' : 'border-[#3E76FF] text-[#3E76FF] hover:bg-[#E8F0FF]'
+                                          !canIncreaseQuantity ? 'border-gray-200 text-gray-300' : 'border-primary text-primary hover:bg-[#E8F0FF]'
                                         }`}
                                       >
                                         <Plus className="h-4 w-4" />
@@ -1053,7 +1053,7 @@ export default function PackageDetailPage() {
               <div className="relative flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs text-gray-400 flex items-center gap-1">
-                    <Sparkles className="h-3.5 w-3.5 text-[#3E76FF]" /> 智能配单进度
+                    <Sparkles className="h-3.5 w-3.5 text-primary" /> 智能配单进度
                   </p>
                   <p className="text-lg font-semibold text-gray-900">已完成 {selectionProgress.totalSelected}/{selectionProgress.totalRequired}</p>
                 </div>
@@ -1069,7 +1069,7 @@ export default function PackageDetailPage() {
               </div>
               <div className="relative z-[1] h-2 rounded-full bg-white/60 border border-white shadow-inner overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#3E76FF] to-[#6A8BFF] transition-all"
+                  className="h-full rounded-full bg-primary transition-all"
                   style={{ width: `${Math.min(progressPercent, 100)}%` }}
                 />
               </div>
@@ -1089,7 +1089,7 @@ export default function PackageDetailPage() {
                       key={category.key}
                       className={`rounded-2xl border transition shadow-sm backdrop-blur ${
                         categoryComplete
-                          ? 'border-[#3E76FF]/30 bg-white/90'
+                          ? 'border-primary/30 bg-white/90'
                           : 'border-white/70 bg-white/70'
                       }`}
                     >
@@ -1099,7 +1099,7 @@ export default function PackageDetailPage() {
                       >
                         <div className="text-left">
                           <p className="font-medium text-gray-800 flex items-center gap-2">
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#E8F0FF] text-[#3E76FF] text-sm font-semibold">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#E8F0FF] text-primary text-sm font-semibold">
                               {category.name.slice(0, 1)}
                             </span>
                             <span className="flex items-center gap-2">
@@ -1165,7 +1165,7 @@ export default function PackageDetailPage() {
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={() => openPreview(product.categoryKey, findProductIndex(product.categoryKey, productId))}
-                                    className="text-xs text-[#3E76FF] hover:text-[#315cd1]"
+                                    className="text-xs text-primary hover:text-[#315cd1]"
                                   >
                                     查看
                                   </button>
@@ -1212,14 +1212,14 @@ export default function PackageDetailPage() {
                 className={`w-full py-3 text-lg rounded-2xl font-semibold transition ${
                   isSubmitDisabled
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : 'bg-[#3E76FF] text-white hover:bg-[#2f5cd9]'
+                    : 'bg-primary text-white hover:bg-[#2f5cd9]'
                 }`}
               >
                 提交套餐订单
               </button>
               {!isAuthenticated && (
                 <p className="text-xs text-center text-gray-500">
-                  登录后可同步到云端订单中心，<Link to="/login" className="text-[#3E76FF] hover:underline">立即登录</Link>
+                  登录后可同步到云端订单中心，<Link to="/login" className="text-primary hover:underline">立即登录</Link>
                 </p>
               )}
               {submitResultHint && (
