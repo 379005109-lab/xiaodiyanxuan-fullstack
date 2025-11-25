@@ -41,9 +41,9 @@ export default function OrderManagement() {
       console.log('[OrderManagement] Loading orders, token exists:', !!token)
       
       if (!token) {
-        console.warn('[OrderManagement] No token found, redirecting to login')
+        console.warn('[OrderManagement] No token found, redirecting to home')
         toast.error('请先登录')
-        navigate('/login')
+        navigate('/')
         return
       }
       
@@ -57,10 +57,10 @@ export default function OrderManagement() {
       console.log('[OrderManagement] API response status:', response.status)
       
       if (response.status === 401) {
-        console.warn('[OrderManagement] Token invalid, redirecting to login')
+        console.warn('[OrderManagement] Token invalid, redirecting to home')
         localStorage.removeItem('token')
         toast.error('登录已过期，请重新登录')
-        navigate('/login')
+        navigate('/')
         return
       }
       

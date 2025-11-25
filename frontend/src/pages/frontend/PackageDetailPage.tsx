@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { createCustomerOrder } from '@/services/customerOrderService'
 import axios from '@/lib/axios'
 import { useAuthStore } from '@/store/authStore'
+import { useAuthModalStore } from '@/store/authModalStore'
 
 // 从PackagePlan中提取Category和Product类型
 type PackageCategory = PackagePlan['categories'][number]
@@ -656,7 +657,7 @@ export default function PackageDetailPage() {
       // 验证登录状态
       if (!token) {
         toast.error('请先登录后再提交订单')
-        navigate('/login')
+        useAuthModalStore.getState().openLogin()
         setOrderSubmitting(false)
         return
       }

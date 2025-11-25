@@ -7,6 +7,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useFavoriteStore } from '@/store/favoriteStore';
 import { useCompareStore } from '@/store/compareStore';
 import { useAuthStore } from '@/store/authStore';
+import { useAuthModalStore } from '@/store/authModalStore';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, ChevronDown, Share2, Heart, Minus, Plus, FileText, Video, AlertCircle, X, Maximize2, Download, Check, Info } from 'lucide-react';
 import { cn, formatPrice } from '@/lib/utils';
@@ -441,7 +442,7 @@ const ProductDetailPage = () => {
   const handleFileDownload = async (file: ProductFile) => {
     if (!user) {
       toast.error('请先登录账号后再下载资料');
-      navigate('/login');
+      useAuthModalStore.getState().openLogin();
       return;
     }
     if (!file.url) {
@@ -645,7 +646,7 @@ const ProductDetailPage = () => {
     }
     if (!user) {
       toast.error('请先登录账号后再下载图片');
-      navigate('/login');
+      useAuthModalStore.getState().openLogin();
       return;
     }
     toast.success(`开始下载 ${selectedDownloadImages.length} 张图片`);
@@ -785,7 +786,7 @@ const ProductDetailPage = () => {
                     const { isAuthenticated } = useAuthStore.getState();
                     if (!isAuthenticated) {
                       toast.error('请先登录后再收藏商品');
-                      navigate('/login');
+                      useAuthModalStore.getState().openLogin();
                       return;
                     }
                     

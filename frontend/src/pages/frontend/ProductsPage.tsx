@@ -10,6 +10,7 @@ import { getAllCategories } from '@/services/categoryService'
 import { useFavoriteStore } from '@/store/favoriteStore'
 import { useCompareStore } from '@/store/compareStore'
 import { useAuthStore } from '@/store/authStore'
+import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
 
 import { getFileUrl } from '@/services/uploadService'
@@ -376,7 +377,7 @@ export default function ProductsPage() {
     // 检查是否登录
     if (!isAuthenticated) {
       toast.error('请先登录后再收藏商品')
-      navigate('/login')
+      useAuthModalStore.getState().openLogin()
       return
     }
     

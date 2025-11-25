@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Briefcase, Home, Hammer, ArrowRight } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/store/authStore'
+import { useAuthModalStore } from '@/store/authModalStore';
 import { toast } from 'sonner';
 import type { UserRole } from '@/types';
 
@@ -50,7 +51,8 @@ export default function RoleSelectPage() {
 
   // 检查用户是否已登录
   if (!user) {
-    navigate('/login');
+    useAuthModalStore.getState().openLogin();
+    navigate('/');
     return null;
   }
 

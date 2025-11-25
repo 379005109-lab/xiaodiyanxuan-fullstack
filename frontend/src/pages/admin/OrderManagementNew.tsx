@@ -48,7 +48,7 @@ export default function OrderManagementNew() {
       const token = localStorage.getItem('token')
       if (!token) {
         toast.error('请先登录')
-        navigate('/login')
+        navigate('/')
         return
       }
       
@@ -66,7 +66,7 @@ export default function OrderManagementNew() {
       if (response.status === 401) {
         localStorage.removeItem('token')
         toast.error('登录已过期，请重新登录')
-        navigate('/login')
+        navigate('/')
         return
       }
       

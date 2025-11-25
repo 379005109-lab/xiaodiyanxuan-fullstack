@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
+import { useAuthModalStore } from '@/store/authModalStore'
 import { formatPrice } from '@/lib/utils'
 import { toast } from 'sonner'
 import axios from '@/lib/axios'
@@ -18,7 +19,8 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!isAuthenticated) {
       toast.error('请先登录')
-      navigate('/login')
+      useAuthModalStore.getState().openLogin()
+      navigate('/')
     }
   }, [isAuthenticated, navigate])
   
