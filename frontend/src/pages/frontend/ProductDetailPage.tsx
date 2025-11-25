@@ -1135,25 +1135,36 @@ const ProductDetailPage = () => {
                     </div>
                     
                     {/* 视频播放器 */}
-                    <div className="w-full aspect-video rounded-xl overflow-hidden bg-black shadow-lg">
+                    <div className="w-full aspect-video rounded-xl overflow-hidden bg-black shadow-lg relative group">
                       {isVideoFile(video) ? (
-                        <video 
-                          src={video} 
-                          controls 
-                          controlsList="nodownload"
-                          className="w-full h-full object-contain"
-                          preload="metadata"
-                          playsInline
-                          onPlay={(e) => {
-                            // 暂停其他视频
-                            const videos = document.querySelectorAll('video')
-                            videos.forEach(v => {
-                              if (v !== e.currentTarget && !v.paused) {
-                                v.pause()
-                              }
-                            })
-                          }}
-                        />
+                        <>
+                          <video 
+                            src={video} 
+                            controls 
+                            controlsList="nodownload"
+                            className="w-full h-full object-contain"
+                            preload="auto"
+                            playsInline
+                            poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%23000'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='24' fill='%23fff'%3E点击播放视频%3C/text%3E%3C/svg%3E"
+                            onPlay={(e) => {
+                              // 暂停其他视频
+                              const videos = document.querySelectorAll('video')
+                              videos.forEach(v => {
+                                if (v !== e.currentTarget && !v.paused) {
+                                  v.pause()
+                                }
+                              })
+                            }}
+                          />
+                          {/* 播放按钮覆盖层 */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                              <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                              </svg>
+                            </div>
+                          </div>
+                        </>
                       ) : (
                         <iframe
                           src={`${buildVideoEmbedUrl(video)}?autoplay=0&rel=0&modestbranding=1`}

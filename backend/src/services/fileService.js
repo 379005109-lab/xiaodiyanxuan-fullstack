@@ -46,14 +46,18 @@ class FileService {
    */
   static async uploadToGridFS(fileBuffer, originalName, mimeType) {
     return new Promise((resolve, reject) => {
+      console.log(`📁 [GridFS] 开始上传: ${originalName}, 大小: ${(fileBuffer.length / 1024 / 1024).toFixed(2)}MB`);
+      
       const gridFSBucket = ensureGridFSBucket();
       if (!gridFSBucket) {
+        console.error('❌ [GridFS] Bucket未初始化');
         return reject(new Error('GridFSBucket 未初始化，请确保 MongoDB 已连接'));
       }
 
       // 生成唯一的文件名
       const ext = path.extname(originalName);
       const filename = `${uuidv4()}${ext}`;
+      console.log(`📁 [GridFS] 生成文件名: ${filename}`);
 
       const uploadStream = gridFSBucket.openUploadStream(filename, {
         metadata: {
@@ -63,8 +67,17 @@ class FileService {
         },
       });
 
+      // 设置超时（120秒）
+      const timeout = setTimeout(() => {
+        console.error('❌ [GridFS] 上传超时');
+        uploadStream.destroy();
+        reject(new Error('文件上传超时（120秒）'));
+      }, 120000);
+
       uploadStream.on('finish', () => {
+        clearTimeout(timeout);
         const fileId = uploadStream.id.toString();
+        console.log(`✅ [GridFS] 上传成功: fileId=${fileId}`);
         resolve({
           fileId: fileId,
           filename: filename,
@@ -77,10 +90,20 @@ class FileService {
       });
 
       uploadStream.on('error', (err) => {
+        clearTimeout(timeout);
+        console.error('❌ [GridFS] 上传错误:', err);
+        console.error('❌ [GridFS] 错误堆栈:', err.stack);
         reject(err);
       });
 
-      uploadStream.end(fileBuffer);
+      try {
+        uploadStream.end(fileBuffer);
+        console.log(`📁 [GridFS] 数据已写入stream`);
+      } catch (err) {
+        clearTimeout(timeout);
+        console.error('❌ [GridFS] 写入stream失败:', err);
+        reject(err);
+      }
     });
   }
 
