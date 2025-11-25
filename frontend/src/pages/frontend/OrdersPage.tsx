@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ClipboardList, CheckCircle2, Package, TrendingUp, AlertCircle, ChevronRight, Loader2 } from 'lucide-react'
+import { ClipboardList, CheckCircle2, Package, TrendingUp, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import axios from 'axios'
 import { formatPrice } from '@/lib/utils'
 
-const STATUS_LABELS: Record<string, string> = {
+// 后端使用数字状态码：1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
+const STATUS_LABELS: Record<number | string, string> = {
+  1: '待付款',
+  2: '待发货',
+  3: '待收货',
+  4: '已完成',
+  5: '已取消',
+Display change:
   pending: '待处理',
   processing: '处理中',
   paid: '已支付',
@@ -15,7 +22,13 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: '已取消',
 }
 
-const STATUS_COLORS: Record<string, string> = {
+const STATUS_COLORS: Record<number | string, string> = {
+  1: 'bg-amber-100 text-amber-700',
+  2: 'bg-blue-100 text-blue-700',
+  3: 'bg-indigo-100 text-indigo-700',
+  4: 'bg-emerald-100 text-emerald-700',
+  5: 'bg-gray-200 text-gray-500',
+  // 兼容字符串格式
   pending: 'bg-amber-100 text-amber-700',
   processing: 'bg-blue-100 text-blue-700',
   paid: 'bg-teal-100 text-teal-700',
@@ -44,7 +57,7 @@ export default function OrdersPage() {
     try {
       const response = await axios.get('/orders', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: \`Bearer \${token}\`,
         },
       })
       setOrders(response.data.data || [])
@@ -56,12 +69,12 @@ export default function OrdersPage() {
     }
   }
 
-  // 计算订单统计
+Display change:
   const stats = {
     total: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    processing: orders.filter(o => o.status === 'processing').length,
-    completed: orders.filter(o => o.status === 'completed').length,
+    pending: orders.filter(o => o.status === 1 || o.status === 2 || o.status === 'pending' || o.status === 'processing').length,
+    processing: orders.filter(o => o.status === 2 || o.status === 'processing').length,
+    completed: orders.filter(o => o.status === 4 || o.status === 'completed').length,
     totalAmount: orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0),
   }
 
@@ -132,7 +145,7 @@ export default function OrdersPage() {
                     {/* Order Header */}
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor}`}>
+                        <span className={\`px-3 py-1 rounded-full text-xs font-medium \${statusColor}\`}>
                           {statusLabel}
                         </span>
                         <span className="text-sm text-gray-600">
@@ -155,7 +168,7 @@ export default function OrdersPage() {
                         <div key={idx} className="flex items-center gap-3 py-2 border-t border-gray-100">
                           {item.image && (
                             <img 
-                              src={item.image.startsWith('http') ? item.image : `/api/files/${item.image}`}
+                              src={item.image.startsWith('http') ? item.image : \`/api/files/\${item.image}\`}
                               alt={item.productName}
                               className="w-12 h-12 object-cover rounded"
                             />
@@ -177,7 +190,7 @@ export default function OrdersPage() {
 
                     {/* Recipient Info */}
                     {order.recipient && (
-                      <div className="border-t border-gray-100 pt-3 mb-3">
+                      <div className="border-t border-gray-100 pt-3">
                         <p className="text-sm text-gray-700">
                           <span className="font-medium">收货人:</span> {order.recipient.name}
                         </p>
@@ -189,17 +202,6 @@ export default function OrdersPage() {
                         </p>
                       </div>
                     )}
-
-                    {/* View Details Button */}
-                    <button
-                      onClick={() => {
-                        toast.info('订单详情页开发中，敬请期待')
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                    >
-                      <span className="text-sm font-medium">查看详情</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
                   </div>
                 </div>
               )
