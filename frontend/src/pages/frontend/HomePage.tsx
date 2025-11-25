@@ -1,190 +1,112 @@
-import { motion } from 'framer-motion'
-import { Factory, Shield, Zap, Award, Download, MessageSquare, Lightbulb, Ruler, Image as ImageIcon, ArrowRight } from 'lucide-react'
-import Hero from '@/components/Hero'
+import { ArrowRight, Layers, Palette, Armchair, Sofa, Lamp, Box, Truck, Gem, Ruler } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 export default function HomePage() {
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Hero 部分 */}
-      <Hero />
+  const navigate = useNavigate()
 
-      {/* 强大供应链体系 */}
-      <section className="py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-4xl font-bold mb-4">强大供应链体系</h2>
-          <p className="text-gray-600 mb-12">不仅仅是平台，更是您直连工厂的桥梁。</p>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* 左侧大图 */}
-            <div className="lg:col-span-1">
-              <div className="bg-gradient-to-br from-gray-200 to-gray-300 rounded-2xl h-80 flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <p className="text-sm">深入源头、剔除溢价</p>
-                  <p className="text-xs mt-2">我们与佛山顶级工厂合作，南海等核心产业带，为您精选最具性价比的产品</p>
+  // 生成粒子动画
+  const particles = Array.from({ length: 12 }).map((_, i) => {
+    const angle = (i / 12) * 2 * Math.PI
+    const distance = 400
+    const startX = Math.cos(angle) * distance
+    const startY = Math.sin(angle) * distance
+    const delay = Math.random() * 2
+    const Icon = [Armchair, Sofa, Lamp, Box, Palette, Truck, Gem, Ruler][i % 8]
+    
+    return (
+      <div 
+        key={i}
+        className="absolute top-1/2 left-1/2 animate-implode drop-shadow-2xl" 
+        style={{ 
+          '--start-x': `${startX}px`, 
+          '--start-y': `${startY}px`,
+          animationDelay: `${delay}s`,
+          animationDuration: '3.5s',
+          opacity: 1
+        } as React.CSSProperties}
+      >
+        <Icon className="w-24 h-24 stroke-[2] drop-shadow-xl text-white opacity-100" /> 
+      </div>
+    )
+  })
+
+  // 优势数据
+  const advantages = [
+    {
+      title: '源头工厂',
+      subtitle: 'FACTORY DIRECT',
+      desc: '深入佛山家具产业带，200+优质工厂直供，剔除中间商加价'
+    },
+    {
+      title: '品质保证',
+      subtitle: 'QUALITY ASSURED',
+      desc: '严格质检标准，每件产品都经过专业团队实地验厂和品控'
+    }
+  ]
+
+  return (
+    <div className="animate-fade-in-up font-sans">
+      {/* 全屏Hero - 重力聚合效果 */}
+      <div className="relative h-[90vh] w-full overflow-hidden bg-stone-900 flex items-center justify-center">
+        
+        {/* 动态背景 */}
+        <div className="absolute inset-0 bg-stone-900 z-0">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/30 rounded-full blur-[100px] animate-pulse-slow"></div>
+        </div>
+
+        {/* 聚合粒子 */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
+          {particles}
+        </div>
+
+        {/* 重力核心内容 */}
+        <div className="relative z-30 text-center text-white space-y-8 max-w-4xl mx-auto px-6 flex flex-col items-center">
+          <div className="w-32 h-32 md:w-40 md:h-40 bg-white rounded-full flex items-center justify-center shadow-[0_0_60px_rgba(255,255,255,0.2)] relative z-20 mb-8 border-4 border-primary/20">
+            <div className="text-center">
+              <h1 className="text-3xl font-serif font-bold text-primary tracking-tighter leading-none">XIAODI</h1>
+              <span className="text-[8px] font-sans font-bold text-accent tracking-[0.2em] uppercase block mt-1">Supply Chain</span>
+            </div>
+          </div>
+
+          <h2 className="text-5xl md:text-7xl font-serif font-bold leading-none tracking-tight animate-fade-in-up">
+            源头好货<br/>一件也是出厂价
+          </h2>
+
+          <p className="text-lg md:text-xl font-light text-stone-300 leading-relaxed max-w-2xl mx-auto animate-fade-in-up">
+            万物归一，以小迪为核心的家居供应链生态。<br/>
+            <span className="text-sm opacity-60 mt-2 block">Factory Direct, Wholesale Price for One.</span>
+          </p>
+
+          <div className="flex justify-center gap-6 mt-8 animate-fade-in-up">
+            <button 
+              onClick={() => navigate('/products')}
+              className="bg-accent text-stone-900 px-10 py-4 rounded-full hover:bg-white transition-all duration-300 font-bold tracking-wide flex items-center gap-2 group shadow-lg shadow-accent/20"
+            >
+              进入选品中心 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 优势展示网格 */}
+      <div className="py-24 bg-[#F2F4F3]">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+            {advantages.map((adv, idx) => (
+              <div key={idx} className="bg-white p-10 rounded-2xl shadow-sm border border-stone-100 flex items-start gap-6 hover:shadow-xl transition-all">
+                <div className="w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center flex-shrink-0 text-primary">
+                  {idx === 0 ? <Layers className="w-8 h-8" /> : <Palette className="w-8 h-8" />}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-serif font-bold text-primary mb-2">{adv.title}</h3>
+                  <p className="text-xs font-bold text-accent uppercase tracking-wider mb-3">{adv.subtitle}</p>
+                  <p className="text-stone-500">{adv.desc}</p>
                 </div>
               </div>
-            </div>
-
-            {/* 右侧三个卡片 */}
-            <div className="lg:col-span-2 space-y-4">
-              {[
-                { icon: Factory, title: '200+ 源头工厂', desc: '深入佛山家具产业带，实地考察、户户筛选' },
-                { icon: Shield, title: '全品类覆盖', desc: '沙发、床、餐桌等，一站式采购解决方案' },
-                { icon: Zap, title: '厂家直发', desc: '没有层层加价，直接从工厂发货到您家' }
-              ].map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: 20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  viewport={{ once: true }}
-                  className="bg-blue-50 p-6 rounded-xl flex items-start gap-4"
-                >
-                  <item.icon className="w-8 h-8 text-blue-600 flex-shrink-0 mt-1" />
-                  <div>
-                    <h3 className="font-bold text-gray-900">{item.title}</h3>
-                    <p className="text-sm text-gray-600">{item.desc}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* 覆盖全屋品类 */}
-          <div className="mt-16">
-            <h3 className="text-2xl font-bold mb-8">覆盖全屋品类</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {['沙发', '床', '餐桌椅', '茶几'].map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  viewport={{ once: true }}
-                  className="bg-gray-100 rounded-lg h-32 flex items-center justify-center font-semibold text-gray-700 hover:bg-gray-200 transition-colors"
-                >
-                  {item}
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 品质透明、价格公开 */}
-      <section className="py-20 bg-black text-white">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4">品质透明、价格公开</h2>
-            <p className="text-gray-400">无中间商差价，工厂直销价格。每件产品都有质检报告，价格构成透明。</p>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-8 items-center justify-center mb-12">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="px-8 py-3 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors"
-            >
-              甄选款 (¥2,999)
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="px-8 py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
-            >
-              大师款 PRO (¥5,999)
-            </motion.button>
-          </div>
-
-          {/* 大师款展示 */}
-          <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-8 flex flex-col md:flex-row gap-8 items-center">
-            <div className="md:w-1/2">
-              <h3 className="text-2xl font-bold mb-4">大师款 PRO</h3>
-              <ul className="space-y-2 text-gray-300">
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  进口材料，手工定制
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  设计师1对1服务
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  终身质保、专业维护
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  免费送装、上门安装
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  专属设计师团队
-                </li>
-              </ul>
-              <p className="text-3xl font-bold mt-6 text-blue-400">¥6,899</p>
-            </div>
-            <div className="md:w-1/2 bg-gray-700 rounded-lg h-64 flex items-center justify-center text-gray-500">
-              产品图片
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 设计师专属资源库 */}
-      <section className="py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-12">
-            <div>
-              <h2 className="text-4xl font-bold mb-2">设计师专属资源库</h2>
-              <p className="text-gray-600">150+ 设计师、1200+ 灵感、450+ 色彩方案、CAD 尺寸库</p>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="px-6 py-3 bg-black text-white rounded-full flex items-center gap-2"
-            >
-              进入资源库 <ArrowRight size={18} />
-            </motion.button>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { icon: Lightbulb, title: '3D 模型库', desc: '11+ 设计风格库' },
-              { icon: ImageIcon, title: '高清样板图', desc: '6+ 风格、真实场景' },
-              { icon: Download, title: '白色产品库', desc: '全品类、可下载' },
-              { icon: Ruler, title: 'CAD 尺寸库', desc: '标准、可定制' }
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                viewport={{ once: true }}
-                className="bg-gray-50 p-6 rounded-xl text-center hover:bg-gray-100 transition-colors"
-              >
-                <item.icon className="w-10 h-10 text-blue-600 mx-auto mb-3" />
-                <h3 className="font-bold text-gray-900 mb-1">{item.title}</h3>
-                <p className="text-sm text-gray-600">{item.desc}</p>
-              </motion.div>
             ))}
           </div>
         </div>
-      </section>
-
-      {/* 找不到想要的模型 */}
-      <section className="py-20 bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-12 text-white">
-            <h2 className="text-3xl font-bold mb-4">找不到想要的模型？</h2>
-            <p className="text-gray-300 mb-8">联系我们的设计师团队，为您定制专属方案</p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="px-8 py-3 bg-white text-gray-900 rounded-full font-semibold hover:bg-gray-100 transition-colors inline-flex items-center gap-2"
-            >
-              <MessageSquare size={18} />
-              立即咨询
-            </motion.button>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
   )
 }
