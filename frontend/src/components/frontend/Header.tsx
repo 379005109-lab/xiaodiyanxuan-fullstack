@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, ShoppingBag, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown } from 'lucide-react'
+import { Search, ShoppingBag, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useCartStore } from '@/store/cartStore'
@@ -172,6 +172,26 @@ export default function Header() {
                     <p className="text-sm font-medium text-primary">{user?.phone || '用户'}</p>
                     <p className="text-xs text-stone-400">{user?.role === 'admin' || user?.role === 'super_admin' ? '管理员' : '普通用户'}</p>
                   </div>
+                  
+                  {/* 我的订单 */}
+                  <Link
+                    to="/orders"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                    我的订单
+                  </Link>
+                  
+                  {/* 我的地址 */}
+                  <Link
+                    to="/addresses"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    我的地址
+                  </Link>
                   
                   {/* 管理后台入口 - 仅管理员可见 */}
                   {(user?.role === 'admin' || user?.role === 'super_admin') && (

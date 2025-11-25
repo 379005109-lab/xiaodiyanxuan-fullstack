@@ -25,6 +25,7 @@ const DesignServicePage = lazy(() => import('./pages/frontend/DesignServicePage'
 const PackagesPage = lazy(() => import('./pages/frontend/PackagesPage'))
 const PackageDetailPage = lazy(() => import('./pages/frontend/PackageDetailPageNew'))
 const OrdersPage = lazy(() => import('./pages/frontend/OrdersPageNew'))
+const AddressesPage = lazy(() => import('./pages/frontend/AddressesPage'))
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'))
 const RoleSelectPage = lazy(() => import('@/pages/auth/RoleSelectPage'))
 const UserProfilePage = lazy(() => import('./pages/frontend/UserProfilePage'))
@@ -152,6 +153,7 @@ function App() {
             <Route path="compare" element={<ComparePage />} />
             <Route path="favorites" element={<FavoritesPage />} />
             <Route path="orders" element={<OrdersPage />} />
+            <Route path="addresses" element={<AddressesPage />} />
             <Route path="design-service" element={<DesignServicePage />} />
             <Route path="design" element={<DesignServicePage />} />
             <Route path="bargain" element={<BargainListPage />} />
