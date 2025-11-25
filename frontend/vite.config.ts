@@ -17,6 +17,7 @@ const disableTypeCheckPlugin: any = {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: process.env.NODE_ENV === 'production' ? '/xiaodiyanxuan-fullstack/' : '/',
   plugins: [react(), disableTypeCheckPlugin],
   resolve: {
     alias: {

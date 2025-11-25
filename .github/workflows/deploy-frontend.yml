@@ -34,7 +34,6 @@ jobs:
     - name: Deploy to Netlify
       uses: netlify/actions/cli@master
       with:
-        args: deploy --prod --dir=frontend/dist --message="Auto deploy from GitHub Actions"
+        args: deploy --prod --dir=frontend/dist --message="Auto deploy from GitHub Actions" --site=${{ secrets.NETLIFY_SITE_ID || 'xiaodiyanxuan-furniture' }}
       env:
         NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
