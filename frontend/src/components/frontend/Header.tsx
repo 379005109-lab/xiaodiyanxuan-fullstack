@@ -1,11 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, ShoppingBag, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard } from 'lucide-react'
+import { Search, ShoppingBag, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useCartStore } from '@/store/cartStore'
 import { useFavoriteStore } from '@/store/favoriteStore'
 import { useCompareStore } from '@/store/compareStore'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function Header() {
   const { isAuthenticated, user, logout } = useAuthStore()
@@ -15,6 +15,19 @@ export default function Header() {
   const { getCount: getCompareCount, loadCompareItems } = useCompareStore()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
+  // 点击外部关闭菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -74,19 +87,6 @@ export default function Header() {
         {/* Right: Actions */}
         <div className="flex items-center space-x-3 md:space-x-5">
           
-          {/* Admin Entry - Only for admin users */}
-          {user?.role === 'admin' || user?.role === 'super_admin' ? (
-            <Link
-              to="/admin"
-              className="flex items-center gap-1 bg-stone-900 text-white text-[10px] font-bold px-3 py-1.5 rounded hover:bg-stone-700 transition-colors shadow-sm"
-              title="进入管理后台"
-            >
-              <LayoutDashboard className="w-3 h-3" />
-              <span className="hidden md:inline">管理后台</span>
-            </Link>
-          ) : null}
-
-          <div className="h-4 w-px bg-stone-300 mx-1"></div>
 
           {/* Search */}
           <form onSubmit={handleSearch} className="hidden lg:flex items-center bg-stone-100/50 rounded-full px-4 py-1.5 focus-within:ring-1 focus-within:ring-primary/30 transition-all border border-transparent focus-within:border-primary/20">
@@ -154,10 +154,50 @@ export default function Header() {
 
           {/* Login / User Status */}
           {isAuthenticated ? (
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 cursor-pointer">
-                <User className="w-4 h-4 text-primary" />
-              </div>
+            <div className="relative" ref={userMenuRef}>
+              <button 
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-1 hover:text-primary transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <ChevronDown className={`w-3 h-3 text-stone-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {/* 用户下拉菜单 */}
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-stone-100 py-2 z-50">
+                  <div className="px-4 py-2 border-b border-stone-100">
+                    <p className="text-sm font-medium text-primary">{user?.phone || '用户'}</p>
+                    <p className="text-xs text-stone-400">{user?.role === 'admin' || user?.role === 'super_admin' ? '管理员' : '普通用户'}</p>
+                  </div>
+                  
+                  {/* 管理后台入口 - 仅管理员可见 */}
+                  {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      管理后台
+                    </Link>
+                  )}
+                  
+                  <button
+                    onClick={() => {
+                      logout()
+                      setUserMenuOpen(false)
+                      navigate('/')
+                    }}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-red-500 transition-colors w-full"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    退出登录
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <button 

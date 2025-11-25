@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Grid, List, SlidersHorizontal, Heart, Scale, TrendingUp, Star, Zap } from 'lucide-react'
+import { Grid, List, SlidersHorizontal, Heart, Scale, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
 import { Product } from '@/types'
 import { formatPrice } from '@/lib/utils'
 // 使用真实API服务
@@ -443,25 +443,27 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container-custom">
-        {/* 面包屑 */}
-        <div className="flex items-center gap-2 text-sm mb-6">
-          <Link to="/" className="text-gray-600 hover:text-primary-600">首页</Link>
-          <span className="text-gray-400">/</span>
-          <span className="text-gray-900 font-medium">商城</span>
-        </div>
+    <div className="min-h-screen bg-[#F2F4F3]">
+      {/* 深绿色头部 */}
+      <div className="bg-primary py-16 text-center">
+        <h1 className="text-4xl font-serif font-bold text-white mb-2">产品目录</h1>
+        <p className="text-white/60 uppercase tracking-[0.3em] text-sm">PRODUCT CATALOG 2024</p>
+      </div>
 
+      <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex gap-8">
           {/* 侧边栏筛选 */}
           <aside className="w-64 flex-shrink-0">
-            <div className="card sticky top-24">
-              <h3 className="font-semibold text-lg mb-4">筛选</h3>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 sticky top-24">
+              <div className="flex items-center gap-2 mb-6">
+                <SlidersHorizontal className="w-5 h-5 text-primary" />
+                <h3 className="font-serif font-bold text-lg text-primary">目录筛选 Catalog</h3>
+              </div>
 
               {/* 风格筛选 */}
               <div className="mb-6">
-                <h4 className="font-medium mb-3">风格</h4>
-                <div className="space-y-2">
+                <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">设计风格 STYLE</h4>
+                <div className="space-y-1">
                   {styleOptions.map((style) => (
                     <button
                       key={style.value}
@@ -469,12 +471,13 @@ export default function ProductsPage() {
                         setFilters({ ...filters, style: style.value })
                         setSearchParams({ ...Object.fromEntries(searchParams), style: style.value })
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                      className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors flex items-center gap-2 ${
                         filters.style === style.value
-                          ? 'bg-primary-100 text-primary-700 font-medium'
-                          : 'hover:bg-gray-50 text-gray-700'
+                          ? 'bg-primary text-white font-medium'
+                          : 'hover:bg-stone-50 text-stone-600'
                       }`}
                     >
+                      <div className={`w-2 h-2 rounded-full ${filters.style === style.value ? 'bg-white' : 'border border-stone-300'}`}></div>
                       {style.label}
                     </button>
                   ))}
@@ -590,13 +593,13 @@ export default function ProductsPage() {
 
           {/* 主内容区 */}
           <main className="flex-1">
-            {/* 商城统计卡片 - 风格展示（宽卡片带图片） */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {/* 风格卡片 - 参考新设计 */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {[
-                { label: '现代风', value: products.filter(p => (p as any).styles?.includes('现代风')).length, icon: Grid, color: 'text-blue-600', bgColor: 'from-blue-500 to-blue-600', image: styleCardImages['现代风'] },
-                { label: '中古风', value: products.filter(p => (p as any).styles?.includes('中古风')).length, icon: TrendingUp, color: 'text-amber-600', bgColor: 'from-amber-500 to-amber-600', image: styleCardImages['中古风'] },
-                { label: '轻奢风', value: products.filter(p => (p as any).styles?.includes('轻奢风')).length, icon: Zap, color: 'text-purple-600', bgColor: 'from-purple-500 to-purple-600', image: styleCardImages['轻奢风'] },
-                { label: '极简风', value: products.filter(p => (p as any).styles?.includes('极简风')).length, icon: Star, color: 'text-gray-600', bgColor: 'from-gray-500 to-gray-600', image: styleCardImages['极简风'] },
+                { label: '现代风', enLabel: 'MODERN GREEN', value: products.filter(p => (p as any).styles?.includes('现代风')).length, icon: Sofa, image: styleCardImages['现代风'] },
+                { label: '中古风', enLabel: 'VINTAGE ERA', value: products.filter(p => (p as any).styles?.includes('中古风')).length, icon: Armchair, image: styleCardImages['中古风'] },
+                { label: '轻奢风', enLabel: 'SILK EMERALD', value: products.filter(p => (p as any).styles?.includes('轻奢风')).length, icon: Gem, image: styleCardImages['轻奢风'] },
+                { label: '极简风', enLabel: 'MINIMALIST', value: products.filter(p => (p as any).styles?.includes('极简风')).length, icon: Sparkles, image: styleCardImages['极简风'] },
               ].map((stat, index) => {
                 const Icon = stat.icon
                 return (
@@ -610,30 +613,35 @@ export default function ProductsPage() {
                       setSearchParams({ ...Object.fromEntries(searchParams), style: stat.label })
                       setCurrentPage(1)
                     }}
-                    className="relative overflow-hidden rounded-xl cursor-pointer group h-32 shadow-md hover:shadow-xl transition-all"
+                    className="relative overflow-hidden rounded-2xl cursor-pointer group aspect-[4/3] shadow-lg hover:shadow-xl transition-all"
                   >
                     {/* 背景图片 */}
                     {stat.image ? (
                       <div 
-                        className="absolute inset-0 bg-cover bg-center transition-transform group-hover:scale-110"
+                        className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
                         style={{ backgroundImage: `url(${getFileUrl(stat.image)})` }}
-                      >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${stat.bgColor} opacity-60`} />
-                      </div>
+                      />
                     ) : (
-                      <div className={`absolute inset-0 bg-gradient-to-br ${stat.bgColor}`} />
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary to-green-800" />
                     )}
                     
-                    {/* 内容 */}
-                    <div className="relative h-full flex flex-col justify-between p-5 text-white">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-bold tracking-wide">{stat.label}</h3>
-                        <Icon className="h-6 w-6 opacity-80" />
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black">{stat.value}</span>
-                        <span className="text-sm opacity-90">件商品</span>
-                      </div>
+                    {/* 深色遮罩 */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                    
+                    {/* 左上角图标 */}
+                    <div className="absolute top-4 left-4 w-10 h-10 bg-primary/80 backdrop-blur rounded-lg flex items-center justify-center">
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    
+                    {/* 右上角数量 */}
+                    <div className="absolute top-4 right-4 w-7 h-7 bg-accent rounded-full flex items-center justify-center">
+                      <span className="text-xs font-bold text-white">{stat.value}</span>
+                    </div>
+                    
+                    {/* 底部文字 */}
+                    <div className="absolute bottom-4 left-4 right-4 text-white">
+                      <h3 className="text-xl font-serif font-bold mb-1">{stat.label}</h3>
+                      <p className="text-xs text-white/60 uppercase tracking-wider">{stat.enLabel}</p>
                     </div>
                   </motion.div>
                 )
@@ -641,9 +649,9 @@ export default function ProductsPage() {
             </div>
 
             {/* 工具栏 */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="text-sm text-gray-600">
-                共 <span className="font-semibold text-gray-900">{sortedProducts.length}</span> 个商品
+            <div className="flex items-center justify-between mb-6 bg-white rounded-xl p-4 shadow-sm border border-stone-100">
+              <div className="text-sm text-stone-600">
+                共 <span className="font-bold text-primary">{sortedProducts.length}</span> 个商品
               </div>
 
               <div className="flex items-center gap-4">
