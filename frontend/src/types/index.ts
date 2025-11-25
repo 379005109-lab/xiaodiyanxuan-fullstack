@@ -262,20 +262,49 @@ export interface Order {
   _id: string
   orderNo: string
   user: User | string
+  userId?: string
   items: OrderItem[]
   totalAmount: number
-  status: OrderStatus
-  shippingAddress: {
+  subtotal?: number
+  discountAmount?: number
+  status: OrderStatus | number
+  // 收货人信息（新格式）
+  recipient?: {
     name: string
     phone: string
-    address?: string  // 新格式：直接填写地址
-    // 旧格式：保留以支持向后兼容
+    address: string
+  }
+  // 收货地址（旧格式）
+  shippingAddress?: {
+    name: string
+    phone: string
+    address?: string
     province?: string
     city?: string
     district?: string
     detail?: string
   }
-  paymentMethod: 'alipay' | 'wechat' | 'card'
+  // 套餐订单相关
+  orderType?: 'normal' | 'package'
+  packageInfo?: {
+    packageId: string
+    packageName: string
+    packagePrice: number
+    selections?: Array<{
+      categoryKey: string
+      categoryName: string
+      required: number
+      products: Array<{
+        productId: string
+        productName: string
+        quantity: number
+        materials?: Record<string, string>
+        materialUpgrade?: number
+        image?: string
+      }>
+    }>
+  }
+  paymentMethod?: 'alipay' | 'wechat' | 'card'
   paidAt?: string
   shippedAt?: string
   completedAt?: string
