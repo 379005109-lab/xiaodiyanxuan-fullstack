@@ -35,6 +35,7 @@ const productSchema = new mongoose.Schema({
   thumbnail: String,
   images: [String],
   videos: [String], // 视频URL数组
+  videoTitles: [String], // 视频标题数组，与videos一一对应
   files: [mongoose.Schema.Types.Mixed], // 设计文件数组 {name, url, size}
   category: mongoose.Schema.Types.Mixed, // 支持字符串ID或对象
   style: mongoose.Schema.Types.Mixed,

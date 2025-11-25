@@ -74,6 +74,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
             { name: '订单分析', path: '/admin/order-analysis' },
           ]
     },
+    { name: '定制需求', path: '/admin/customization', icon: Pencil },
   ]
 
   const menuItems = role === 'designer'

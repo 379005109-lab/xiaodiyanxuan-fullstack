@@ -218,13 +218,13 @@ class FileService {
    */
   static async upload(fileBuffer, originalName, mimeType, storage = 'gridfs') {
     try {
-      // 验证文件大小（最大 50MB）
-      const maxSize = 50 * 1024 * 1024;
+      // 验证文件大小（最大 2GB - 支持大型设计文件）
+      const maxSize = 2 * 1024 * 1024 * 1024;
       if (fileBuffer.length > maxSize) {
-        throw new Error('文件过大，最大允许 50MB');
+        throw new Error('文件过大，最大允许 2GB');
       }
 
-      // 验证文件类型
+      // 验证文件类型 - 支持设计文件
       const allowedMimes = [
         'image/jpeg',
         'image/png',
@@ -236,11 +236,30 @@ class FileService {
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        // 视频文件
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
+        'video/x-msvideo',
+        // 设计文件通常是 application/octet-stream
+        'application/octet-stream',
+        'application/x-dwg',
+        'application/acad',
+        'model/vnd.dwf',
       ];
 
-      if (!allowedMimes.includes(mimeType)) {
+      // 设计文件扩展名白名单
+      const designFileExts = ['dwg', 'max', 'fbx', 'obj', '3ds', 'dxf', 'skp', 'blend', 'ma', 'mb', 'c4d'];
+      const ext = originalName.split('.').pop()?.toLowerCase();
+      
+      // 如果是设计文件扩展名，允许通过
+      const isDesignFile = designFileExts.includes(ext || '');
+      
+      if (!allowedMimes.includes(mimeType) && !isDesignFile) {
         throw new Error(`不支持的文件类型: ${mimeType}`);
       }
+      
+      console.log(`📁 [FileService] 文件类型检查通过: ${originalName}, MIME: ${mimeType}, 扩展名: ${ext}`);
 
       // 选择存储方式
       if (storage === 'oss' && process.env.OSS_REGION) {

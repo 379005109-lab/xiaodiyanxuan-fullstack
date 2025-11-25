@@ -1113,107 +1113,142 @@ const ProductDetailPage = () => {
         </div>
 
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 视频演示 - 默认收纳 */}
           <div className="card p-6 min-h-[280px]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold flex items-center gap-2"><Video className="h-5 w-5" /> 视频演示</h3>
               <span className="text-xs text-gray-400">
-                {videoList.length > 0 ? `${videoList.length} 个资源` : '可插入任意链接'}
+                {videoList.length > 0 ? `${videoList.length} 个视频` : '暂无视频'}
               </span>
             </div>
             {videoList.length > 0 ? (
-              <div className="space-y-6">
-                {videoList.map((video, index) => (
-                  <div key={index} className="space-y-2">
-                    {/* 视频标题 */}
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">
-                        视频 {index + 1}
-                      </h4>
-                      <span className="text-xs text-gray-500">
-                        {isVideoFile(video) ? '直接播放' : '嵌入视频'}
-                      </span>
-                    </div>
-                    
-                    {/* 视频播放器 */}
-                    <div className="w-full aspect-video rounded-xl overflow-hidden bg-black shadow-lg relative group">
-                      {isVideoFile(video) ? (
-                        <>
-                          <video 
-                            src={video} 
-                            controls 
-                            controlsList="nodownload"
-                            className="w-full h-full object-contain"
-                            preload="auto"
-                            playsInline
-                            poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%23000'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='24' fill='%23fff'%3E点击播放视频%3C/text%3E%3C/svg%3E"
-                            onPlay={(e) => {
-                              // 暂停其他视频
-                              const videos = document.querySelectorAll('video')
-                              videos.forEach(v => {
-                                if (v !== e.currentTarget && !v.paused) {
-                                  v.pause()
-                                }
-                              })
-                            }}
-                          />
-                          {/* 播放按钮覆盖层 */}
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                              <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M8 5v14l11-7z"/>
-                              </svg>
-                            </div>
+              <div className="space-y-3">
+                {videoList.map((video, index) => {
+                  const videoTitle = (product as any).videoTitles?.[index] || `${product.name} - 视频${index + 1}`
+                  return (
+                    <details key={index} className="group border border-gray-200 rounded-xl overflow-hidden">
+                      <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 list-none">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
                           </div>
-                        </>
-                      ) : (
-                        <iframe
-                          src={`${buildVideoEmbedUrl(video)}?autoplay=0&rel=0&modestbranding=1`}
-                          title={`产品视频 ${index + 1}`}
-                          className="w-full h-full"
-                          allow="clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      )}
-                    </div>
-                  </div>
-                ))}
+                          <div>
+                            <p className="font-medium text-gray-900">{videoTitle}</p>
+                            <p className="text-xs text-gray-500">{isVideoFile(video) ? '本地视频' : '在线视频'}</p>
+                          </div>
+                        </div>
+                        <svg className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </summary>
+                      <div className="p-4 pt-0">
+                        <div className="w-full aspect-video rounded-lg overflow-hidden bg-black">
+                          {isVideoFile(video) ? (
+                            <video 
+                              src={video} 
+                              controls 
+                              controlsList="nodownload"
+                              className="w-full h-full object-contain"
+                              preload="metadata"
+                              playsInline
+                              onPlay={(e) => {
+                                const videos = document.querySelectorAll('video')
+                                videos.forEach(v => {
+                                  if (v !== e.currentTarget && !v.paused) v.pause()
+                                })
+                              }}
+                            />
+                          ) : (
+                            <iframe
+                              src={`${buildVideoEmbedUrl(video)}?autoplay=0&rel=0&modestbranding=1`}
+                              title={videoTitle}
+                              className="w-full h-full"
+                              allow="clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </details>
+                  )
+                })}
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400">
                 <Video className="h-10 w-10 mb-3" />
-                <p>暂未添加视频，可在后台上传或粘贴链接</p>
+                <p>暂未添加视频</p>
               </div>
             )}
           </div>
 
+          {/* 设计文件下载 - 按类型分区 */}
           <div className="card p-6 min-h-[280px]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold flex items-center gap-2"><FileText className="h-5 w-5" /> 设计文件下载</h3>
               <span className="text-xs text-gray-400">
-                {fileList.length > 0 ? `${fileList.length} 个文件` : '支持上传 CAD / PDF / PPT'} · 登录后下载
+                {fileList.length > 0 ? `${fileList.length} 个文件` : '暂无文件'} · 登录后下载
               </span>
             </div>
             {fileList.length > 0 ? (
-              <div className="space-y-3">
-                {fileList.map((file, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => handleFileDownload(file)}
-                    className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 hover:border-primary-200 hover:bg-primary-50 text-left"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-900">{file.name || `文件 ${index + 1}`}</p>
-                      <p className="text-xs text-gray-400">{file.format || '未知格式'} · {file.size ? `${file.size}MB` : '大小待定'}</p>
+              <div className="space-y-4">
+                {/* 按文件类型分组 */}
+                {(() => {
+                  const fileGroups: Record<string, typeof fileList> = {}
+                  const categoryNames: Record<string, string> = {
+                    'dwg': 'CAD专区',
+                    'dxf': 'CAD专区',
+                    'max': '3DMAX专区',
+                    'fbx': 'FBX专区',
+                    'obj': 'OBJ专区',
+                    'skp': 'SketchUp专区',
+                    'blend': 'Blender专区',
+                    '3ds': '3DS专区',
+                    'pdf': 'PDF文档',
+                    'other': '其他文件'
+                  }
+                  
+                  fileList.forEach(file => {
+                    const ext = (file.format || file.name?.split('.').pop() || 'other').toLowerCase()
+                    const category = categoryNames[ext] ? ext : 'other'
+                    if (!fileGroups[category]) fileGroups[category] = []
+                    fileGroups[category].push(file)
+                  })
+                  
+                  return Object.entries(fileGroups).map(([category, files]) => (
+                    <div key={category} className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                        <span className="text-sm font-medium text-gray-700">{categoryNames[category] || '其他文件'}</span>
+                        <span className="text-xs text-gray-500 ml-2">({files.length})</span>
+                      </div>
+                      <div className="divide-y divide-gray-100">
+                        {files.map((file, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleFileDownload(file)}
+                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-primary-50 text-left"
+                          >
+                            <div>
+                              <p className="font-medium text-gray-900 text-sm">{file.name || `文件 ${idx + 1}`}</p>
+                              <p className="text-xs text-gray-400">
+                                {file.format?.toUpperCase() || '未知'} · {file.size ? `${(file.size / 1024 / 1024).toFixed(1)}MB` : '大小待定'}
+                                {file.uploadTime && ` · ${file.uploadTime}`}
+                              </p>
+                            </div>
+                            <span className="text-sm text-primary-600 font-medium">下载</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <span className="text-sm text-primary-600">下载</span>
-                  </button>
-                ))}
+                  ))
+                })()}
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400">
                 <FileText className="h-10 w-10 mb-3" />
-                <p>暂未上传设计文件，支持上传多种格式供客户下载</p>
+                <p>暂未上传设计文件</p>
               </div>
             )}
           </div>

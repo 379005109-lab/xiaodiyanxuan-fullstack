@@ -55,6 +55,7 @@ export default function ProductForm() {
     styles: [] as string[], // 风格标签
     mainImages: [] as string[],
     videos: [] as string[], // 视频URL数组
+    videoTitles: [] as string[], // 视频标题数组
     specifications: [
       { name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' },
     ],
@@ -154,6 +155,7 @@ export default function ProductForm() {
             return true;
           }),
           videos: ((product as any).videos || []) as string[],
+          videoTitles: ((product as any).videoTitles || []) as string[],
           specifications: product.specifications ? 
             (() => {
               // 检查specifications格式
@@ -371,6 +373,7 @@ export default function ProductForm() {
         images: formData.mainImages,
         // 视频和文件
         videos: formData.videos, // 视频URL数组
+        videoTitles: formData.videoTitles, // 视频标题数组
         files: formData.files, // 设计文件数组
         skus: formData.skus.map((sku) => ({
           // 只有在编辑模式且SKU ID不是临时ID（不以"sku-"开头）时才包含_id
@@ -1701,35 +1704,78 @@ export default function ProductForm() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">视频演示</h2>
+            <button
+              type="button"
+              onClick={() => {
+                setFormData({
+                  ...formData,
+                  videos: [...formData.videos, ''],
+                  videoTitles: [...formData.videoTitles, `${formData.name} - 视频${formData.videos.length + 1}`]
+                })
+              }}
+              className="btn-secondary text-sm"
+            >
+              + 添加视频
+            </button>
           </div>
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                视频URL
-              </label>
-              <input
-                type="text"
-                placeholder="输入视频URL (支持 YouTube, Vimeo, 优酷等视频链接)"
-                value={formData.videos[0] || ''}
-                onChange={(e) => {
-                  const newVideos = [...formData.videos]
-                  newVideos[0] = e.target.value
-                  setFormData({ ...formData, videos: newVideos })
-                }}
-                className="input w-full"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                💡 输入视频链接，将在商品详情页中显示视频播放器
-              </p>
-            </div>
-            {formData.videos[0] && (
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <p className="text-sm font-medium text-gray-700 mb-2">预览</p>
-                <div className="aspect-video bg-black rounded-lg flex items-center justify-center">
-                  <p className="text-gray-400 text-sm">视频预览 (商品详情页显示)</p>
-                </div>
+            {formData.videos.length === 0 ? (
+              <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                <p className="text-sm text-gray-500">暂无视频，点击"添加视频"按钮添加</p>
               </div>
+            ) : (
+              formData.videos.map((video, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-gray-700">视频 {index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVideos = formData.videos.filter((_, i) => i !== index)
+                        const newTitles = formData.videoTitles.filter((_, i) => i !== index)
+                        setFormData({ ...formData, videos: newVideos, videoTitles: newTitles })
+                      }}
+                      className="text-red-500 hover:text-red-700 text-sm"
+                    >
+                      删除
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">视频标题（显示在详情页）</label>
+                      <input
+                        type="text"
+                        placeholder={`${formData.name} - 视频${index + 1}`}
+                        value={formData.videoTitles[index] || ''}
+                        onChange={(e) => {
+                          const newTitles = [...formData.videoTitles]
+                          newTitles[index] = e.target.value
+                          setFormData({ ...formData, videoTitles: newTitles })
+                        }}
+                        className="input w-full text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">视频URL</label>
+                      <input
+                        type="text"
+                        placeholder="输入视频URL (支持 YouTube, Vimeo, 优酷等)"
+                        value={video}
+                        onChange={(e) => {
+                          const newVideos = [...formData.videos]
+                          newVideos[index] = e.target.value
+                          setFormData({ ...formData, videos: newVideos })
+                        }}
+                        className="input w-full text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))
             )}
+            <p className="text-xs text-gray-500">
+              💡 视频将在商品详情页以收纳列表形式展示，点击展开播放
+            </p>
           </div>
         </div>
 
@@ -1825,7 +1871,76 @@ export default function ProductForm() {
             </div>
           )}
           
-          {formData.files.length > 0 ? (
+          {/* 可点击上传区域 */}
+          <label className="block cursor-pointer mb-4">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-primary-400 hover:bg-primary-50/50 transition-colors text-center">
+              <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-600 mb-1">点击此处上传设计文件</p>
+              <p className="text-xs text-gray-400">支持 DWG、MAX、FBX、OBJ、3DS、DXF、SKP、BLEND、MA、MB、C4D 等格式</p>
+              <p className="text-xs text-gray-400 mt-1">最大支持 2GB</p>
+            </div>
+            <input
+              type="file"
+              accept=".dwg,.max,.fbx,.obj,.3ds,.dxf,.skp,.blend,.ma,.mb,.c4d,.pdf"
+              multiple
+              className="hidden"
+              onChange={async (e) => {
+                const files = Array.from(e.target.files || [])
+                if (files.length === 0) return
+
+                setIsUploading(true)
+                toast.info(`正在上传 ${files.length} 个文件...`)
+                
+                try {
+                  for (const file of files) {
+                    const fileName = file.name
+                    
+                    const result = await uploadFile(file, (progress) => {
+                      setUploadProgress(prev => ({
+                        ...prev,
+                        [fileName]: progress
+                      }))
+                    })
+                    
+                    if (result.success) {
+                      const fileId = result.data.fileId
+                      const newFile = {
+                        name: file.name,
+                        url: fileId,
+                        format: file.name.split('.').pop()?.toUpperCase() || '',
+                        size: file.size,
+                        uploadTime: new Date().toLocaleString('zh-CN')
+                      }
+                      setFormData(prev => ({
+                        ...prev,
+                        files: [...prev.files, newFile]
+                      }))
+                      console.log(`✅ 文件上传成功: ${file.name} -> ${fileId}`)
+                      
+                      setUploadProgress(prev => {
+                        const newProgress = { ...prev }
+                        delete newProgress[fileName]
+                        return newProgress
+                      })
+                    } else {
+                      toast.error(`${file.name} 上传失败`)
+                    }
+                  }
+                  toast.success(`${files.length} 个文件上传成功`)
+                } catch (error: any) {
+                  console.error('❌ 文件上传失败:', error)
+                  toast.error(`文件上传失败: ${error.message || '请重试'}`)
+                } finally {
+                  setIsUploading(false)
+                  setUploadProgress({})
+                }
+                
+                e.target.value = ''
+              }}
+            />
+          </label>
+          
+          {formData.files.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full border border-gray-200 rounded-lg">
                 <thead className="bg-gray-50">
@@ -1852,7 +1967,7 @@ export default function ProductForm() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
-                        {(file.size / 1024).toFixed(2)} KB
+                        {file.size > 1024 * 1024 ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : `${(file.size / 1024).toFixed(2)} KB`}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
                         {file.uploadTime}
@@ -1873,12 +1988,6 @@ export default function ProductForm() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          ) : (
-            <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
-              <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-500 mb-1">暂无文件</p>
-              <p className="text-xs text-gray-400">支持 DWG、MAX、FBX、OBJ、3DS、DXF、SKP、BLEND、MA、MB、C4D 等格式</p>
             </div>
           )}
         </div>
