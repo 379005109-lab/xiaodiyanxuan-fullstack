@@ -31,9 +31,9 @@ export default function FavoritesPage() {
     load()
   }, [user])
 
-  const handleRemove = async (favoriteId: string) => {
+  const handleRemove = async (productId: string) => {
     try {
-      await removeFavorite(favoriteId)
+      await removeFavorite(productId)
       toast.success('已取消收藏')
     } catch (error) {
       toast.error('操作失败')
@@ -49,6 +49,10 @@ export default function FavoritesPage() {
         toast.error('操作失败')
       }
     }
+  }
+
+  const getProductId = (favorite: any) => {
+    return typeof favorite.product === 'string' ? favorite.product : favorite.product?._id
   }
 
   if (loading) {
@@ -90,46 +94,49 @@ export default function FavoritesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {favorites.map((favorite) => (
-              <div key={favorite._id} className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all group overflow-hidden">
-                <div className="relative">
-                  <Link to={`/products/${favorite.product._id}`}>
-                    <img
-                      src={favorite.product.images?.[0] ? getFileUrl(favorite.product.images[0]) : '/placeholder.svg'}
-                      alt={favorite.product.name}
-                      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
-                    />
-                  </Link>
-                  <button
-                    onClick={() => handleRemove(favorite._id)}
-                    className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-red-500 hover:bg-white hover:scale-110 transition-all shadow-sm"
-                  >
-                    <Heart className="w-4 h-4 fill-current" />
-                  </button>
-                </div>
-                
-                <div className="p-4">
-                  <Link to={`/products/${favorite.product._id}`}>
-                    <h3 className="font-bold text-primary hover:text-green-900 transition-colors line-clamp-2 mb-2">
-                      {favorite.product.name}
-                    </h3>
-                  </Link>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="font-serif font-bold text-accent">
-                      {formatPrice(favorite.product.skus?.[0]?.price || 0)}
-                    </div>
-                    <Link
-                      to={`/products/${favorite.product._id}`}
-                      className="text-xs bg-stone-100 hover:bg-primary hover:text-white px-3 py-1 rounded-full transition-colors"
-                    >
-                      查看详情
+            {favorites.map((favorite) => {
+              const productId = getProductId(favorite)
+              return (
+                <div key={favorite._id} className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all group overflow-hidden">
+                  <div className="relative">
+                    <Link to={`/products/${productId}`}>
+                      <img
+                        src={favorite.productImage ? getFileUrl(favorite.productImage) : '/placeholder.svg'}
+                        alt={favorite.productName}
+                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
+                      />
                     </Link>
+                    <button
+                      onClick={() => handleRemove(productId)}
+                      className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-red-500 hover:bg-white hover:scale-110 transition-all shadow-sm"
+                    >
+                      <Heart className="w-4 h-4 fill-current" />
+                    </button>
+                  </div>
+                  
+                  <div className="p-4">
+                    <Link to={`/products/${productId}`}>
+                      <h3 className="font-bold text-primary hover:text-green-900 transition-colors line-clamp-2 mb-2">
+                        {favorite.productName}
+                      </h3>
+                    </Link>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="font-serif font-bold text-accent">
+                        {formatPrice(favorite.productPrice || 0)}
+                      </div>
+                      <Link
+                        to={`/products/${productId}`}
+                        className="text-xs bg-stone-100 hover:bg-primary hover:text-white px-3 py-1 rounded-full transition-colors"
+                      >
+                        查看详情
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
