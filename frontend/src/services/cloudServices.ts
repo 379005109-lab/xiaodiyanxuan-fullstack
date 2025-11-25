@@ -65,9 +65,9 @@ export const apiRequest = async (
     })
 
     if (response.status === 401) {
-      // 令牌过期，清除并重定向到登录
+      // 令牌过期，清除并重定向到首页
       clearAuthToken()
-      window.location.href = '/login'
+      window.location.href = '/'
       return null
     }
 

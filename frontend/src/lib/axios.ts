@@ -82,7 +82,7 @@ const setupInterceptors = (instance: AxiosInstance) => {
       // 处理401错误
       if (error.response?.status === 401) {
         localStorage.removeItem('token')
-        window.location.href = '/login'
+        window.location.href = '/'
         return Promise.reject(error)
       }
       

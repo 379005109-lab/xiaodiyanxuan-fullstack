@@ -71,7 +71,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token 过期或无效
       useAuthStore.getState().logout();
-      window.location.href = '/login';
+      window.location.href = '/';
     }
     return Promise.reject(error);
   }
