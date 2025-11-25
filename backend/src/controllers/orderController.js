@@ -41,8 +41,10 @@ const list = async (req, res) => {
   try {
     const { page = 1, pageSize = 10, status } = req.query
     
-    // 临时方案：所有认证用户都能查看所有订单
-    const result = await getOrders(null, page, pageSize, status ? parseInt(status) : null)
+    // 使用当前登录用户的ID查询订单
+    console.log('📋 [OrderController] list orders for userId:', req.userId)
+    const result = await getOrders(req.userId, page, pageSize, status ? parseInt(status) : null)
+    console.log('📋 [OrderController] found orders:', result.total)
     res.json(paginatedResponse(result.orders, result.total, result.page, result.pageSize))
   } catch (err) {
     console.error('List orders error:', err)
