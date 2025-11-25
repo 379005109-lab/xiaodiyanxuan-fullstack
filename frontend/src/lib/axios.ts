@@ -2,7 +2,8 @@ import axios, { AxiosInstance, AxiosError } from 'axios'
 
 // 多个可用的API地址（按优先级排序）
 const API_URLS = [
-  'https://lgpzubdtdxjf.sealoshzh.site/api', // 主域名（原公网地址）
+  'https://pkochbpmcgaa.sealoshzh.site/api', // 后端API地址
+  'https://lgpzubdtdxjf.sealoshzh.site/api', // 前端代理地址
   'https://xiaodiyanxuan.com/api',            // 备用域名
   '/api'                                       // 相对路径（最后降级）
 ]
