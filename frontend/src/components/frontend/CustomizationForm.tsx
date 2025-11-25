@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 // This would be in a service file
 const submitCustomizationRequest = async (data: any) => {
   const API_URL = import.meta.env.VITE_API_URL || 'https://bcvriiezbpza.sealoshzh.site/api';
-  const response = await fetch(`${API_URL}/custom-requests`, {
+  const response = await fetch(`${API_URL}/customization`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

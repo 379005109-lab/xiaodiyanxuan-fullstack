@@ -144,6 +144,7 @@ export interface ProductFile {
   url?: string
   format?: string
   size?: number
+  uploadTime?: string
 }
 
 export interface Product {

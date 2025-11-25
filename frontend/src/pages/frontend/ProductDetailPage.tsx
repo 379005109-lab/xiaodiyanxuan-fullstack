@@ -448,7 +448,11 @@ const ProductDetailPage = () => {
       toast.error('文件地址不存在');
       return;
     }
-    window.open(file.url, '_blank', 'noopener');
+    // file.url 是 GridFS fileId，需要通过 /api/files/{fileId} 下载
+    const fileUrl = file.url.startsWith('http') 
+      ? file.url 
+      : `/api/files/${file.url}`;
+    window.open(fileUrl, '_blank', 'noopener');
   };
 
   const handleFilterChange = (filter: SkuFilter) => {
@@ -1122,56 +1126,58 @@ const ProductDetailPage = () => {
               </span>
             </div>
             {videoList.length > 0 ? (
-              <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 {videoList.map((video, index) => {
                   const videoTitle = (product as any).videoTitles?.[index] || `${product.name} - 视频${index + 1}`
+                  const videoId = `video-${index}`
                   return (
-                    <details key={index} className="group border border-gray-200 rounded-xl overflow-hidden">
-                      <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 list-none">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
-                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => {
+                        const videoEl = document.getElementById(videoId) as HTMLVideoElement
+                        if (videoEl && isVideoFile(video)) {
+                          if (document.pictureInPictureElement) {
+                            document.exitPictureInPicture()
+                          }
+                          videoEl.play()
+                          videoEl.requestPictureInPicture?.().catch((err: Error) => {
+                            console.log('画中画模式不支持:', err)
+                            // 如果不支持画中画，就全屏播放
+                            videoEl.requestFullscreen?.()
+                          })
+                        }
+                      }}
+                      className="relative group aspect-video rounded-lg overflow-hidden bg-gray-900 hover:ring-2 hover:ring-primary-500 transition-all"
+                    >
+                      {/* 缩略图/封面 */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-2 group-hover:bg-white/30 transition-colors">
+                            <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M8 5v14l11-7z"/>
                             </svg>
                           </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{videoTitle}</p>
-                            <p className="text-xs text-gray-500">{isVideoFile(video) ? '本地视频' : '在线视频'}</p>
-                          </div>
-                        </div>
-                        <svg className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </summary>
-                      <div className="p-4 pt-0">
-                        <div className="w-full aspect-video rounded-lg overflow-hidden bg-black">
-                          {isVideoFile(video) ? (
-                            <video 
-                              src={video} 
-                              controls 
-                              controlsList="nodownload"
-                              className="w-full h-full object-contain"
-                              preload="metadata"
-                              playsInline
-                              onPlay={(e) => {
-                                const videos = document.querySelectorAll('video')
-                                videos.forEach(v => {
-                                  if (v !== e.currentTarget && !v.paused) v.pause()
-                                })
-                              }}
-                            />
-                          ) : (
-                            <iframe
-                              src={`${buildVideoEmbedUrl(video)}?autoplay=0&rel=0&modestbranding=1`}
-                              title={videoTitle}
-                              className="w-full h-full"
-                              allow="clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                            />
-                          )}
+                          <p className="text-white text-sm font-medium px-2">{videoTitle}</p>
+                          <p className="text-white/70 text-xs mt-1">点击播放画中画</p>
                         </div>
                       </div>
-                    </details>
+                      {/* 隐藏的video元素 */}
+                      {isVideoFile(video) && (
+                        <video 
+                          id={videoId}
+                          src={video}
+                          className="hidden"
+                          preload="metadata"
+                          controls
+                          onEnded={() => {
+                            if (document.pictureInPictureElement) {
+                              document.exitPictureInPicture()
+                            }
+                          }}
+                        />
+                      )}
+                    </button>
                   )
                 })}
               </div>

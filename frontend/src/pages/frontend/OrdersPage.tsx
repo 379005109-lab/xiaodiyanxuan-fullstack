@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ClipboardList, Clock, CheckCircle2, MapPin, Phone, Package, MessageSquare, ChevronDown, Sparkles, ShoppingCart, Copy, Printer, TrendingUp, AlertCircle } from 'lucide-react'
+import { ClipboardList, Clock, CheckCircle2, MapPin, Phone, Package, MessageSquare, ChevronDown, Sparkles, ShoppingCart, Copy, Printer, TrendingUp, AlertCircle, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { CustomerOrder, OrderStatus, PackageSelectionGroup } from '@/types'
-import { getCustomerOrders, updateOrderStatus, updateCustomerOrder, deleteCustomerOrder } from '@/services/customerOrderService'
 import { toast } from 'sonner'
-import { useCartStore } from '@/store/cartStore'
-import { mapCustomerOrderToCartItems } from '@/utils/conciergeHelper'
+import { useAuthStore } from '@/store/authStore'
+import axios from 'axios'
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'pending', label: '待确认' },
@@ -30,43 +29,33 @@ const ALLOWED_STATUS_SET: Set<OrderStatus> = new Set(['pending', 'processing', '
 const formatCurrency = (value: number) => `¥${value.toLocaleString()}`
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<CustomerOrder[]>([])
+  const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'self' | 'backend'>('all')
-  const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
-  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
-  const [conciergeDrafts, setConciergeDrafts] = useState<Record<string, string>>({})
-  const [conciergeLoading, setConciergeLoading] = useState<string | null>(null)
-  const [editingNote, setEditingNote] = useState<string | null>(null)
   const navigate = useNavigate()
-  const loadCartFromSimpleItems = useCartStore((state) => state.loadFromSimpleItems)
-  const enterConciergeMode = useCartStore((state) => state.enterConciergeMode)
+  const { user, token } = useAuthStore()
 
   useEffect(() => {
+    if (!user || !token) {
+      toast.error('请先登录')
+      navigate('/login')
+      return
+    }
     loadOrders()
-  }, [])
+  }, [user, token])
 
   const loadOrders = async () => {
     setLoading(true)
     try {
-      const list = await getCustomerOrders()
-      setOrders(list)
-      setNoteDrafts(
-        list.reduce<Record<string, string>>((acc, order) => {
-          acc[order.id] = order.note || ''
-          return acc
-        }, {})
-      )
-      setConciergeDrafts(
-        list.reduce<Record<string, string>>((acc, order) => {
-          acc[order.id] = order.conciergePhone || ''
-          return acc
-        }, {})
-      )
-    } catch (error) {
+      const response = await axios.get('/orders', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      setOrders(response.data.data || [])
+    } catch (error: any) {
       console.error('加载订单失败', error)
-      toast.error('加载订单失败，请稍后再试')
+      toast.error(error?.response?.data?.message || '加载订单失败')
     } finally {
       setLoading(false)
     }

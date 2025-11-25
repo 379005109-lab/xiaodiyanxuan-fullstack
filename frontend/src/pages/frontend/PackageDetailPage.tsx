@@ -713,26 +713,22 @@ export default function PackageDetailPage() {
             },
           })
           remoteSynced = true
+          toast.success('订单提交成功！')
+          setSubmitResultHint('订单已提交，您可以在订单中心查看详情。')
         } catch (error: any) {
           remoteError = error?.response?.data?.message || error?.message || '云端同步失败'
           console.error('云端创建套餐订单失败', error)
-          toast.error(remoteError)
+          toast.error(`订单提交失败：${remoteError}`)
+          setSubmitResultHint(`订单提交失败：${remoteError}`)
+          // 云端失败时不保存本地，要求用户重试
+          setOrderSubmitting(false)
+          return
         }
       } else {
-        toast.info('当前未登录，本次订单将暂存于本地订单中心')
-      }
-
-      await createCustomerOrder(payload)
-
-      if (remoteSynced) {
-        toast.success('套餐订单已同步至云端并保存本地')
-        setSubmitResultHint('已同步至云端，后台与本地订单中心均可查看。')
-      } else if (remoteAttempted) {
-        toast.success('云端暂不可用，已保存到本地订单中心，可稍后重试')
-        setSubmitResultHint(`云端同步失败：${remoteError}`)
-      } else {
-        toast.success('订单已保存到本地订单中心，可登录后再次同步')
-        setSubmitResultHint('未登录状态，仅保存在本地。')
+        toast.error('请先登录后再提交订单')
+        navigate('/login')
+        setOrderSubmitting(false)
+        return
       }
 
       setIsOrderConfirmOpen(false)
