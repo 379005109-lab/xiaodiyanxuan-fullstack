@@ -73,6 +73,8 @@ export default function DesignerOrdersPage() {
   }
 
   const handleConciergeOrder = (order: Order) => {
+    console.log('🛒 [代客下单] 开始处理订单', order)
+    
     // 获取客户电话（从订单中提取或使用默认值）
     const customerPhone = (order as any).customerPhone || '13800138000'
     
@@ -84,22 +86,28 @@ export default function DesignerOrdersPage() {
       quantity: item.quantity,
       image: '/placeholder.svg'
     }))
+    
+    console.log('🛒 [代客下单] 商品列表', simpleItems)
 
     // 进入代客下单模式，传递订单来源（设计师订单默认为'self'）
     enterConciergeMode(order.id, order.customerName, customerPhone, simpleItems, 'self')
+    console.log('🛒 [代客下单] enterConciergeMode 已调用')
     
     // 保存到sessionStorage以便在新标签页中恢复
-    sessionStorage.setItem('conciergeOrderData', JSON.stringify({
+    const conciergeData = {
       orderId: order.id,
       customerName: order.customerName,
       customerPhone: customerPhone,
       orderSource: 'self',
       items: simpleItems
-    }))
+    }
+    sessionStorage.setItem('conciergeOrderData', JSON.stringify(conciergeData))
+    console.log('🛒 [代客下单] sessionStorage已保存', conciergeData)
     
     toast.success(`已进入代客下单模式，客户：${order.customerName}`)
     
     // 打开购物车页面
+    console.log('🛒 [代客下单] 准备打开新标签页到/cart')
     window.open('/cart', '_blank')
   }
 
