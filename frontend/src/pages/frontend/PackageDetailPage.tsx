@@ -696,13 +696,22 @@ export default function PackageDetailPage() {
       console.log('📦 [PackageDetail] 总价:', totalPrice)
       
       // 调用新的套餐订单API
-      const response = await axios.post('/orders/package', payload, {
+      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders/package', {
+        method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`
-        }
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
       })
       
-      console.log('✅ [PackageDetail] 套餐订单创建成功:', response.data)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      
+      console.log('✅ [PackageDetail] 套餐订单创建成功:', data)
       toast.success('套餐订单提交成功！')
       setSubmitResultHint('订单已提交，您可以在订单中心查看详情。')
       
