@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ClipboardList, CheckCircle2, Package, TrendingUp, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
-import axios from 'axios'
+import axios from '@/lib/axios'
 import { formatPrice } from '@/lib/utils'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -42,15 +42,21 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/orders', {
+      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       })
-      setOrders(response.data.data || [])
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      setOrders(data.data || [])
     } catch (error: any) {
       console.error('加载订单失败', error)
-      toast.error(error?.response?.data?.message || '加载订单失败')
+      toast.error(error?.message || '加载订单失败')
     } finally {
       setLoading(false)
     }
