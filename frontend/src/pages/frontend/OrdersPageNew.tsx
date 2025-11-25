@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Package, User, Phone, MapPin, ChevronRight, Clock, CheckCircle2, Truck, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
@@ -35,6 +36,7 @@ const statusOptions = [
 export default function OrdersPageNew() {
   const navigate = useNavigate()
   const { user, token } = useAuthStore()
+  const { openLogin } = useAuthModalStore()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('')
@@ -52,7 +54,8 @@ export default function OrdersPageNew() {
   useEffect(() => {
     if (!user || !token) {
       toast.error('请先登录')
-      navigate('/login')
+      openLogin()
+      navigate('/')
       return
     }
     loadOrders()

@@ -84,7 +84,8 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
 
   const handleLogout = () => {
     logout()
-    navigate('/login')
+    navigate('/')
+    toast.success('已退出登录')
   }
 
   const handleChangePassword = () => {

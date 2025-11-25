@@ -25,7 +25,6 @@ const DesignServicePage = lazy(() => import('./pages/frontend/DesignServicePage'
 const PackagesPage = lazy(() => import('./pages/frontend/PackagesPage'))
 const PackageDetailPage = lazy(() => import('./pages/frontend/PackageDetailPage'))
 const OrdersPage = lazy(() => import('./pages/frontend/OrdersPageNew'))
-const LoginPage = lazy(() => import('./pages/auth/LoginPage'))
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'))
 const RoleSelectPage = lazy(() => import('@/pages/auth/RoleSelectPage'))
 const UserProfilePage = lazy(() => import('./pages/frontend/UserProfilePage'))
@@ -165,7 +164,6 @@ function App() {
           </Route>
 
           {/* 认证路由 */}
-          <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/role-select" element={
             <ProtectedRoute>
