@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, AlertCircle } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { formatPrice } from '@/lib/utils'
@@ -12,7 +12,7 @@ interface CheckoutModalProps {
 }
 
 export default function CheckoutModal({ onClose }: CheckoutModalProps) {
-  const { items, getTotalPrice, clearCart } = useCartStore()
+  const { items, getTotalPrice, clearCart, conciergeMode, conciergeOrderInfo } = useCartStore()
   const { user, isAuthenticated } = useAuthStore()
   
   const [formData, setFormData] = useState({
@@ -21,6 +21,18 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
     address: '',
     notes: ''
   })
+  
+  // 代客下单模式自动填充客户信息
+  useEffect(() => {
+    if (conciergeMode && conciergeOrderInfo) {
+      setFormData({
+        name: conciergeOrderInfo.customerName,
+        phone: conciergeOrderInfo.customerPhone,
+        address: '', // 地址留空，由客服填写
+        notes: `代客下单 - 订单ID: ${conciergeOrderInfo.orderId}`
+      })
+    }
+  }, [conciergeMode, conciergeOrderInfo])
   
   const [submitting, setSubmitting] = useState(false)
 
@@ -324,6 +336,21 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
 
         {/* 内容 */}
         <div className="p-6">
+          {/* 代客下单模式提示 */}
+          {conciergeMode && conciergeOrderInfo && (
+            <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-amber-900">代客下单模式</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    您正在为客户 <span className="font-bold">{conciergeOrderInfo.customerName}</span> ({conciergeOrderInfo.customerPhone}) 代客下单
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* 左侧：收货信息 */}
             <div className="lg:col-span-2">

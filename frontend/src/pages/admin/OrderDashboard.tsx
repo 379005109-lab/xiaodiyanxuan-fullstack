@@ -48,13 +48,19 @@ export default function OrderDashboard() {
 
   const loadDashboardData = async () => {
     setLoading(true)
+    console.log('📊 [OrderDashboard] 开始加载数据...')
     try {
       let allOrders: Order[] = []
 
       // 从本地存储读取订单（管理后台使用本地存储）
-      const stored = localStorage.getItem('orders') || localStorage.getItem('local_orders')
-      allOrders = stored ? JSON.parse(stored) : []
-      console.log('📊 订单数据看板：从本地存储读取', allOrders.length, '个订单')
+      try {
+        const stored = localStorage.getItem('orders') || localStorage.getItem('local_orders')
+        allOrders = stored ? JSON.parse(stored) : []
+        console.log('📊 [OrderDashboard] 从本地存储读取', allOrders.length, '个订单')
+      } catch (parseError) {
+        console.error('📊 [OrderDashboard] 解析localStorage失败', parseError)
+        allOrders = []
+      }
 
       // 计算统计数据
       const totalOrders = allOrders.length
