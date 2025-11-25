@@ -74,19 +74,28 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
 }
 
 const getOrders = async (userId, page = 1, pageSize = 10, status = null) => {
+  console.log('📋 [OrderService] getOrders called:', { userId, page, pageSize, status });
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
   const query = { userId }
+  console.log('📋 [OrderService] query:', query);
   if (status) {
     query.status = status
   }
   
   const total = await Order.countDocuments(query)
+  console.log('📋 [OrderService] total orders found:', total);
+  
   const orders = await Order.find(query)
     .sort('-createdAt')
     .skip(skip)
     .limit(size)
     .lean()
+  
+  console.log('📋 [OrderService] orders returned:', orders.length);
+  if (orders.length > 0) {
+    console.log('📋 [OrderService] first order:', orders[0]._id, orders[0].status);
+  }
   
   return { orders, total, page, pageSize: size }
 }
