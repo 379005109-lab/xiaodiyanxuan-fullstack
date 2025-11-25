@@ -1,14 +1,48 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, Minus, Check, Loader2, X, Maximize2 } from 'lucide-react'
-import { PackagePlan } from '@/types'
+import { ChevronLeft, ChevronRight, Plus, Minus, Check, Loader2, X, Maximize2, AlertCircle } from 'lucide-react'
+import { PackagePlan, PackageProductMaterial } from '@/types'
 import { getAllPackages } from '@/services/packageService'
+import { getAllMaterials } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 
 type PackageCategory = PackagePlan['categories'][number]
 type PackageProduct = PackageCategory['products'][number]
+
+// 材质加价规则
+const MATERIAL_PREMIUM_RULES = [
+  { keyword: '进口', extra: 1200 },
+  { keyword: '真皮', extra: 1500 },
+  { keyword: '航空铝', extra: 900 },
+  { keyword: '高密度', extra: 800 },
+  { keyword: '实木', extra: 700 },
+]
+
+// 材质名称映射
+const MATERIAL_NAMES: Record<string, string> = {
+  fabric: '面料',
+  filling: '填充',
+  frame: '框架',
+  leg: '脚架',
+  leather: '皮质',
+  wood: '木材',
+}
+
+// 获取材质图片
+const getMaterialPreviewImage = (product: PackageProduct, option: string, materialImageMap: Record<string, string>) => {
+  // 1. 从材质管理中获取
+  if (materialImageMap[option]) return getFileUrl(materialImageMap[option])
+  // 2. 模糊匹配
+  for (const [name, path] of Object.entries(materialImageMap)) {
+    if (option.includes(name) || name.includes(option)) return getFileUrl(path)
+  }
+  // 3. 从商品中获取
+  if ((product as any).materialImages?.[option]) return getFileUrl((product as any).materialImages[option])
+  // 4. 默认
+  return product.image ? getFileUrl(product.image) : '/placeholder.svg'
+}
 
 export default function PackageDetailPageNew() {
   const { id } = useParams()
@@ -18,17 +52,33 @@ export default function PackageDetailPageNew() {
   const [selectedProducts, setSelectedProducts] = useState<Record<string, string[]>>({})
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [materialSelections, setMaterialSelections] = useState<Record<string, Record<string, string>>>({})
+  const [skuSelections, setSkuSelections] = useState<Record<string, any>>({})
   const [previewProduct, setPreviewProduct] = useState<PackageProduct | null>(null)
   const [selectingProduct, setSelectingProduct] = useState<{ categoryKey: string; product: PackageProduct } | null>(null)
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
   const [orderForm, setOrderForm] = useState({ name: '', phone: '', address: '' })
   const [submitting, setSubmitting] = useState(false)
+  const [materialImageMap, setMaterialImageMap] = useState<Record<string, string>>({})
   const scrollRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const { isAuthenticated, token } = useAuthStore()
 
   useEffect(() => {
     loadPackage()
+    loadMaterialImages()
   }, [id])
+
+  const loadMaterialImages = async () => {
+    try {
+      const materials = await getAllMaterials()
+      const imageMap: Record<string, string> = {}
+      materials.forEach((m: any) => {
+        if (m.name && m.image) imageMap[m.name] = m.image
+      })
+      setMaterialImageMap(imageMap)
+    } catch (e) {
+      console.error('加载材质图片失败:', e)
+    }
+  }
 
   const loadPackage = async () => {
     if (!id) return
@@ -61,7 +111,7 @@ export default function PackageDetailPageNew() {
   }
 
   // 确认添加商品
-  const confirmAddProduct = (categoryKey: string, product: PackageProduct, materials: Record<string, string>) => {
+  const confirmAddProduct = (categoryKey: string, product: PackageProduct, materials: Record<string, string>, sku: any) => {
     const category = pkg?.categories.find(c => c.key === categoryKey)
     if (!category) return
     
@@ -79,6 +129,13 @@ export default function PackageDetailPageNew() {
       ...prev,
       [product.id]: materials
     }))
+    // 保存选择的SKU
+    if (sku) {
+      setSkuSelections(prev => ({
+        ...prev,
+        [product.id]: sku
+      }))
+    }
     if (!quantities[product.id]) {
       setQuantities(prev => ({ ...prev, [product.id]: 1 }))
     }
@@ -451,6 +508,7 @@ export default function PackageDetailPageNew() {
         <ProductSelectorModal
           product={selectingProduct.product}
           categoryKey={selectingProduct.categoryKey}
+          materialImageMap={materialImageMap}
           onConfirm={confirmAddProduct}
           onClose={() => setSelectingProduct(null)}
         />
@@ -459,111 +517,244 @@ export default function PackageDetailPageNew() {
   )
 }
 
-// 材质名称映射
-const MATERIAL_NAMES: Record<string, string> = {
-  fabric: '面料',
-  filling: '填充',
-  frame: '框架',
-  leg: '脚架',
-  leather: '皮质',
-  wood: '木材',
-}
-
-// 商品选择弹窗组件
+// 商品选择弹窗组件 - 包含规格、材质选择、图片预览、加价逻辑
 function ProductSelectorModal({ 
   product, 
   categoryKey, 
+  materialImageMap,
   onConfirm, 
   onClose 
 }: { 
   product: PackageProduct
   categoryKey: string
-  onConfirm: (categoryKey: string, product: PackageProduct, materials: Record<string, string>) => void
+  materialImageMap: Record<string, string>
+  onConfirm: (categoryKey: string, product: PackageProduct, materials: Record<string, string>, sku: any) => void
   onClose: () => void
 }) {
-  const [selections, setSelections] = useState<Record<string, string>>(() => {
-    // 初始化默认选择第一个选项
+  const productAny = product as any
+  const [selectedSku, setSelectedSku] = useState<any>(productAny.skus?.[0] || null)
+  const [materialSelections, setMaterialSelections] = useState<Record<string, string>>(() => {
     const defaults: Record<string, string> = {}
     if (product.materials) {
       Object.entries(product.materials).forEach(([key, options]) => {
-        if (Array.isArray(options) && options.length > 0) {
-          defaults[key] = options[0]
-        }
+        if (Array.isArray(options) && options.length > 0) defaults[key] = options[0]
       })
     }
     return defaults
   })
+  const [previewImage, setPreviewImage] = useState(product.image ? getFileUrl(product.image) : '/placeholder.svg')
+  const [showAllSpecs, setShowAllSpecs] = useState(false)
 
+  const hasSkus = productAny.skus && productAny.skus.length > 0
   const hasMaterials = product.materials && Object.keys(product.materials).length > 0
 
+  // 计算材质加价
+  const getOptionPremium = (option: string) => {
+    if (productAny.skus) {
+      for (const sku of productAny.skus) {
+        if (sku.materialUpgradePrices?.[option]) {
+          return sku.materialUpgradePrices[option]
+        }
+        // 模糊匹配
+        for (const [key, price] of Object.entries(sku.materialUpgradePrices || {})) {
+          if (option.includes(key) || key.includes(option)) return price as number
+        }
+      }
+    }
+    return 0
+  }
+
+  // 计算总加价
+  const totalSurcharge = Object.entries(materialSelections).reduce((sum, [key, option]) => {
+    const options = (product.materials as any)?.[key] as string[]
+    if (!options || options[0] === option) return sum
+    return sum + getOptionPremium(option)
+  }, 0)
+
+  // 选择材质时更新图片
+  const handleSelectMaterial = (materialKey: string, option: string) => {
+    setMaterialSelections(prev => ({ ...prev, [materialKey]: option }))
+    const newImage = getMaterialPreviewImage(product, option, materialImageMap)
+    setPreviewImage(newImage)
+  }
+
+  // 选择规格
+  const handleSelectSku = (sku: any) => {
+    setSelectedSku(sku)
+    if (sku.images?.[0]) {
+      setPreviewImage(getFileUrl(sku.images[0]))
+    }
+  }
+
+  const currentPrice = selectedSku?.price || selectedSku?.discountPrice || product.price || 0
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* 头部 */}
-        <div className="relative h-48 bg-stone-100 flex-shrink-0">
-          <img 
-            src={product.image ? getFileUrl(product.image) : '/placeholder.svg'} 
-            alt={product.name}
-            className="w-full h-full object-cover" 
-          />
-          <button onClick={onClose} className="absolute top-4 right-4 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full">
-            <X className="w-5 h-5" />
+        <div className="flex items-center justify-between border-b px-6 py-4 flex-shrink-0">
+          <div>
+            <p className="text-xs text-stone-400">选择规格材质</p>
+            <h3 className="text-xl font-serif font-bold text-primary">{product.name}</h3>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-stone-100">
+            <X className="h-5 w-5 text-stone-500" />
           </button>
         </div>
 
-        {/* 商品信息 */}
-        <div className="p-6 border-b border-stone-100">
-          <h3 className="text-xl font-serif font-bold text-primary mb-1">{product.name}</h3>
-          <div className="text-2xl font-serif font-bold text-accent">¥{(product.price || 0).toLocaleString()}</div>
-        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid md:grid-cols-2 gap-6 p-6">
+            {/* 左侧图片 */}
+            <div className="relative aspect-square bg-stone-100 rounded-2xl overflow-hidden">
+              <img src={previewImage} alt={product.name} className="w-full h-full object-cover" />
+            </div>
 
-        {/* 材质选择 */}
-        {hasMaterials && (
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            <h4 className="text-sm font-bold text-stone-700">选择规格材质</h4>
-            {Object.entries(product.materials!).map(([key, options]) => (
-              <div key={key}>
-                <label className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2 block">
-                  {MATERIAL_NAMES[key] || key}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {(options as string[]).map(opt => (
-                    <button
-                      key={opt}
-                      onClick={() => setSelections(prev => ({ ...prev, [key]: opt }))}
-                      className={`text-sm border px-4 py-2 rounded-lg transition-all ${
-                        selections[key] === opt 
-                          ? 'border-primary bg-primary/5 text-primary font-medium ring-1 ring-primary' 
-                          : 'border-stone-200 hover:border-primary/50 text-stone-600'
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
+            {/* 右侧选择 */}
+            <div className="space-y-6">
+              {/* 规格选择 */}
+              {hasSkus && (
+                <div>
+                  <h4 className="text-sm font-bold text-stone-700 mb-3">选择规格</h4>
+                  <div className="space-y-2">
+                    {productAny.skus.slice(0, showAllSpecs ? undefined : 3).map((sku: any, idx: number) => {
+                      const isSelected = selectedSku?.code === sku.code
+                      const skuPrice = sku.price || sku.discountPrice || 0
+                      const dims = sku.length && sku.width && sku.height
+                        ? `${Math.round(sku.length/10)}×${Math.round(sku.width/10)}×${Math.round(sku.height/10)}cm`
+                        : ''
+                      return (
+                        <button
+                          key={sku.code || idx}
+                          onClick={() => handleSelectSku(sku)}
+                          className={`w-full border-2 rounded-xl p-3 text-left transition ${
+                            isSelected ? 'border-primary bg-primary/5' : 'border-stone-200 hover:border-stone-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-stone-800">{sku.spec || `规格${idx+1}`}</span>
+                            <span className="text-accent font-bold">¥{skuPrice.toLocaleString()}</span>
+                          </div>
+                          {dims && <p className="text-xs text-stone-500 mt-1">尺寸：{dims}</p>}
+                        </button>
+                      )
+                    })}
+                    {productAny.skus.length > 3 && (
+                      <button onClick={() => setShowAllSpecs(!showAllSpecs)} className="w-full text-xs text-stone-500 py-2 hover:text-primary">
+                        {showAllSpecs ? '收起' : `展开更多 (${productAny.skus.length - 3}个)`}
+                        <ChevronRight className={`inline w-3 h-3 ml-1 transition ${showAllSpecs ? 'rotate-90' : ''}`} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              )}
 
-        {/* 无材质时的提示 */}
-        {!hasMaterials && (
-          <div className="p-6 text-center text-stone-500">
-            <p>该商品暂无可选规格</p>
-          </div>
-        )}
+              {/* 无规格时显示商品信息 */}
+              {!hasSkus && (
+                <div className="border-2 border-primary rounded-xl p-4 bg-primary/5">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-stone-800">{product.name}</span>
+                    <span className="text-accent font-bold text-lg">¥{(product.price || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
 
-        {/* 底部按钮 */}
-        <div className="p-4 border-t border-stone-100 bg-stone-50 flex gap-3 flex-shrink-0">
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl font-bold bg-stone-200 text-stone-600 hover:bg-stone-300">
-            取消
-          </button>
-          <button 
-            onClick={() => onConfirm(categoryKey, product, selections)}
-            className="flex-1 py-3 rounded-xl font-bold bg-primary text-white hover:bg-green-900 flex items-center justify-center gap-2"
-          >
-            <Check className="w-4 h-4" /> 确认添加
-          </button>
+              {/* 材质选择 */}
+              {hasMaterials && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-bold text-stone-700">选择材质</h4>
+                    <span className="text-[10px] text-stone-400">点击材质可切换</span>
+                  </div>
+                  {Object.entries(product.materials as PackageProductMaterial).map(([materialKey, options]) => {
+                    const materialOptions = (options ?? []) as string[]
+                    
+                    // 按材质类型分组
+                    const groups: Record<string, Array<{value: string, label: string, idx: number}>> = {}
+                    const groupOrder: string[] = []
+                    
+                    materialOptions.forEach((mat, idx) => {
+                      let group = '其他', label = mat
+                      if (mat.includes('-')) {
+                        const parts = mat.split('-')
+                        group = parts[0]
+                        label = parts.slice(1).join('-')
+                      } else if (['全青皮','真皮','普通皮','牛皮','半皮'].some(s => mat.includes(s))) {
+                        group = mat
+                        label = '默认'
+                      }
+                      if (!groups[group]) { groups[group] = []; groupOrder.push(group) }
+                      groups[group].push({ value: mat, label, idx })
+                    })
+
+                    return (
+                      <div key={materialKey} className="mb-4">
+                        <p className="text-xs font-medium text-stone-500 mb-2">{MATERIAL_NAMES[materialKey] || materialKey}</p>
+                        {groupOrder.map(groupName => (
+                          <div key={groupName} className="mb-3">
+                            <p className="text-[10px] text-stone-400 mb-1.5">{groupName}</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {groups[groupName].map(({ value, label, idx }) => {
+                                const isSelected = materialSelections[materialKey] === value
+                                const preview = getMaterialPreviewImage(product, value, materialImageMap)
+                                const upgradePrice = idx > 0 ? getOptionPremium(value) : 0
+                                
+                                return (
+                                  <button
+                                    key={value}
+                                    onClick={() => handleSelectMaterial(materialKey, value)}
+                                    className="flex flex-col items-center gap-1 relative"
+                                  >
+                                    {upgradePrice > 0 && (
+                                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] px-1 py-0.5 rounded-full z-10">
+                                        +¥{upgradePrice}
+                                      </span>
+                                    )}
+                                    <span className={`w-12 h-12 rounded-lg border-2 overflow-hidden ${
+                                      isSelected ? 'border-primary ring-2 ring-primary/30' : 'border-stone-200'
+                                    }`}>
+                                      <img src={preview} alt={label} className="w-full h-full object-cover" onError={e => (e.target as HTMLImageElement).src = '/placeholder.svg'} />
+                                    </span>
+                                    <span className={`text-[10px] text-center leading-tight ${isSelected ? 'text-primary font-medium' : 'text-stone-600'}`}>
+                                      {label.length > 4 ? label.slice(0,4) + '..' : label}
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* 价格汇总 */}
+              {totalSurcharge > 0 && (
+                <div className="flex items-center gap-2 text-sm bg-amber-50 text-amber-700 px-3 py-2 rounded-lg">
+                  <AlertCircle className="w-4 h-4" />
+                  材质升级费用：<span className="font-bold">+¥{totalSurcharge.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 底部 */}
+        <div className="border-t border-stone-100 p-4 flex items-center justify-between flex-shrink-0 bg-stone-50">
+          <div>
+            <span className="text-sm text-stone-500">合计：</span>
+            <span className="text-2xl font-serif font-bold text-accent ml-2">¥{(currentPrice + totalSurcharge).toLocaleString()}</span>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="px-6 py-2.5 rounded-xl border border-stone-300 text-stone-600 font-medium hover:bg-stone-100">取消</button>
+            <button 
+              onClick={() => onConfirm(categoryKey, product, materialSelections, selectedSku)}
+              className="px-6 py-2.5 rounded-xl bg-primary text-white font-bold hover:bg-green-900 flex items-center gap-2"
+            >
+              <Check className="w-4 h-4" /> 确认添加
+            </button>
+          </div>
         </div>
       </div>
     </div>
