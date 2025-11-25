@@ -35,8 +35,8 @@ export default function OrderManagement() {
     try {
       setLoading(true)
       
-      // 从API获取订单数据（管理员模式）
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?page=' + page + '&pageSize=10&admin=true', {
+      // 从API获取订单数据
+      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?page=' + page + '&pageSize=10', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
