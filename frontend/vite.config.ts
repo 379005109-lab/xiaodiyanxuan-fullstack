@@ -30,9 +30,17 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: (id) => {
+          // 将node_modules的包合并到vendor chunk
+          if (id.includes('node_modules')) {
+            return 'vendor'
+          }
+          // 将所有其他代码合并到main chunk
+          return 'main'
+        },
       },
     },
+    chunkSizeWarningLimit: 1000,
   },
   define: {
     'process.env.NODE_ENV': '"production"',
