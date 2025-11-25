@@ -284,8 +284,8 @@ export default function PackageDetailPageNew() {
       <div className="flex flex-col lg:flex-row min-h-screen">
         {/* 左侧内容区 */}
         <div className="flex-1 overflow-y-auto">
-          {/* Hero - 使用固定宽高比避免变形 */}
-          <div className="relative w-full aspect-[21/9] max-h-72 overflow-hidden">
+          {/* Hero - 缩小高度 */}
+          <div className="relative w-full h-44 md:h-52 overflow-hidden">
             <img 
               src={pkg.gallery?.[0] || (pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg')}
               alt={pkg.name}
@@ -297,8 +297,8 @@ export default function PackageDetailPageNew() {
                 <span className="bg-accent text-stone-900 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Collection</span>
                 <span className="text-white/60 text-[10px] uppercase tracking-widest">NORDIC SERIES</span>
               </div>
-              <h1 className="text-3xl font-serif font-bold mb-2">{pkg.name}</h1>
-              <p className="opacity-90 text-sm max-w-2xl">{pkg.description}</p>
+              <h1 className="text-2xl font-serif font-bold mb-1">{pkg.name}</h1>
+              <p className="opacity-90 text-xs max-w-2xl line-clamp-2">{pkg.description}</p>
             </div>
             <button 
               onClick={() => navigate('/packages')} 
@@ -323,9 +323,9 @@ export default function PackageDetailPageNew() {
                         <span className="text-xs font-medium text-white bg-primary/80 px-2 py-0.5 rounded">
                           {category.products.length}选{category.required}
                         </span>
-                        {selectedIds.length > 0 && (
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded ${selectedIds.length >= category.required ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                            已选 {selectedIds.length}/{category.required}
+                        {selectedIds.length >= category.required && (
+                          <span className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
                           </span>
                         )}
                       </div>
@@ -405,9 +405,9 @@ export default function PackageDetailPageNew() {
           </div>
         </div>
 
-        {/* 右侧悬浮清单 */}
-        <div className="hidden lg:block w-96 flex-shrink-0">
-          <div className="sticky top-4 m-4 bg-white rounded-2xl border border-stone-200 shadow-2xl overflow-hidden">
+        {/* 右侧悬浮清单 - 加宽 */}
+        <div className="hidden lg:block w-[420px] flex-shrink-0">
+          <div className="sticky top-4 m-4 bg-white rounded-2xl border border-stone-200 shadow-2xl overflow-hidden max-h-[calc(100vh-2rem)]">
           <div className="p-6 border-b border-stone-100 bg-stone-50/50">
             <div className="flex justify-between items-start">
               <div>
