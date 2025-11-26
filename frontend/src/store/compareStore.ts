@@ -11,46 +11,48 @@ import {
 
 interface CompareStore {
   compareItems: CompareItem[]
-  loadCompareItems: () => void
-  addToCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => { success: boolean; message: string }
-  removeFromCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => void
-  isInCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => boolean
-  clearAll: () => void
+  loadCompareItems: () => Promise<void>
+  addToCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => Promise<{ success: boolean; message: string }>
+  removeFromCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => Promise<void>
+  isInCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => Promise<boolean>
+  clearAll: () => Promise<void>
   getCount: () => number
 }
 
 export const useCompareStore = create<CompareStore>((set, get) => ({
   compareItems: [],
   
-  loadCompareItems: () => {
-    const compareItems = getAllCompareItems()
-    set({ compareItems })
+  loadCompareItems: async () => {
+    try {
+      const compareItems = await getAllCompareItems()
+      set({ compareItems })
+    } catch (error) {
+      console.error('加载对比列表失败:', error)
+      set({ compareItems: [] })
+    }
   },
   
-  addToCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
-    const result = addToCompareApi(productId, skuId, selectedMaterials)
+  addToCompare: async (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
+    const result = await addToCompareApi(productId, skuId, selectedMaterials)
     if (result.success) {
-      get().loadCompareItems()
+      await get().loadCompareItems()
     }
     return result
   },
   
-  removeFromCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
-    removeFromCompareApi(productId, skuId, selectedMaterials)
-    get().loadCompareItems()
+  removeFromCompare: async (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
+    await removeFromCompareApi(productId, skuId, selectedMaterials)
+    await get().loadCompareItems()
   },
   
-  isInCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
-    return isInCompareApi(productId, skuId, selectedMaterials)
+  isInCompare: async (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
+    return await isInCompareApi(productId, skuId, selectedMaterials)
   },
   
-  clearAll: () => {
-    clearCompare()
+  clearAll: async () => {
+    await clearCompare()
     set({ compareItems: [] })
   },
   
-  getCount: () => {
-    return getCompareCount()
-  }
+  getCount: () => get().compareItems.length // return getCompareCount()
 }))
-

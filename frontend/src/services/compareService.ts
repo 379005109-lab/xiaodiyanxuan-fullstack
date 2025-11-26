@@ -1,6 +1,9 @@
-// 对比服务
+import apiClient from '@/lib/apiClient'
+
+// 对比服务 - 使用云端API
 export interface CompareItem {
   _id: string
+  userId?: string
   productId: string
   skuId?: string
   selectedMaterials?: {
@@ -9,102 +12,77 @@ export interface CompareItem {
     frame?: string
     leg?: string
   }
+  addedAt?: string
 }
 
-const compareItems: CompareItem[] = []
-
-// 初始化：从localStorage加载对比项
-const initCompareItems = () => {
+// 获取对比列表
+export const getAllCompareItems = async (): Promise<CompareItem[]> => {
   try {
-    const stored = localStorage.getItem('compare_items')
-    if (stored) {
-      const items = JSON.parse(stored)
-      if (Array.isArray(items)) {
-        compareItems.length = 0
-        compareItems.push(...items)
-      }
+    const response = await apiClient.get('/compare')
+    return response.data.data.items || []
+  } catch (error: any) {
+    console.error('获取对比列表失败:', error)
+    // 如果未登录，返回空数组
+    if (error.response?.status === 401) {
+      return []
     }
+    throw new Error(error.response?.data?.message || '获取对比列表失败')
+  }
+}
+
+// 添加到对比
+export const addToCompare = async (productId: string, skuId?: string, selectedMaterials?: any) => {
+  try {
+    const response = await apiClient.post('/compare', {
+      productId,
+      skuId,
+      selectedMaterials
+    })
+    return { success: true, message: response.data.message || '已添加到对比' }
+  } catch (error: any) {
+    const message = error.response?.data?.message || '添加对比失败'
+    return { success: false, message }
+  }
+}
+
+// 移除对比
+export const removeFromCompare = async (productId: string, skuId?: string, selectedMaterials?: any) => {
+  try {
+    await apiClient.delete(`/compare/${productId}`, {
+      data: { skuId, selectedMaterials }
+    })
+  } catch (error: any) {
+    console.error('移除对比失败:', error)
+    throw new Error(error.response?.data?.message || '移除对比失败')
+  }
+}
+
+// 检查是否在对比列表中
+export const isInCompare = async (productId: string, skuId?: string, selectedMaterials?: any): Promise<boolean> => {
+  try {
+    const items = await getAllCompareItems()
+    return items.some(item => item.productId === productId)
   } catch (error) {
-    console.error('加载对比项失败:', error)
+    return false
   }
 }
 
-// 页面加载时初始化
-if (typeof window !== 'undefined') {
-  initCompareItems()
-}
-
-export const getAllCompareItems = () => {
-  // 每次获取时从localStorage刷新
-  initCompareItems()
-  return compareItems
-}
-
-export const addToCompare = (productId: string, skuId?: string, selectedMaterials?: any) => {
-  // 检查是否已存在相同商品+SKU+材质的组合
-  const materialKey = selectedMaterials
-    ? `${selectedMaterials.fabric || ''}|${selectedMaterials.filling || ''}|${selectedMaterials.frame || ''}|${selectedMaterials.leg || ''}`
-    : ''
-  
-  const existingIndex = compareItems.findIndex(item => {
-    if (item.productId !== productId) return false
-    if (item.skuId !== skuId) return false
-    
-    const itemMaterialKey = item.selectedMaterials
-      ? `${item.selectedMaterials.fabric || ''}|${item.selectedMaterials.filling || ''}|${item.selectedMaterials.frame || ''}|${item.selectedMaterials.leg || ''}`
-      : ''
-    
-    return itemMaterialKey === materialKey
-  })
-  
-  if (existingIndex > -1) {
-    return { success: false, message: '该商品（相同规格和材质）已在对比列表中' }
-  }
-  
-  // 限制最多4个商品
-  if (compareItems.length >= 4) {
-    return { success: false, message: '最多只能对比4件商品' }
-  }
-  
-  const item = { 
-    _id: `${productId}_${skuId || 'default'}_${materialKey}`, // 使用组合ID
-    productId, 
-    skuId, 
-    selectedMaterials 
-  }
-  compareItems.push(item)
-  // 保存到localStorage
-  localStorage.setItem('compare_items', JSON.stringify(compareItems))
-  return { success: true, message: '已添加到对比' }
-}
-
-export const removeFromCompare = (productId: string, skuId?: string, selectedMaterials?: any) => {
-  // 生成材质组合键
-  const fabric = selectedMaterials?.fabric || ''
-  const filling = selectedMaterials?.filling || ''
-  const frame = selectedMaterials?.frame || ''
-  const leg = selectedMaterials?.leg || ''
-  const materialKey = `${fabric}|${filling}|${frame}|${leg}`
-  
-  // 使用组合键匹配对比项
-  const compositeId = `${productId}_${skuId || ''}_${materialKey}`
-  
-  const index = compareItems.findIndex(item => item._id === compositeId)
-  if (index > -1) {
-    compareItems.splice(index, 1)
-    // 保存到localStorage
-    localStorage.setItem('compare_items', JSON.stringify(compareItems))
+// 清空对比列表
+export const clearCompare = async () => {
+  try {
+    await apiClient.delete('/compare')
+  } catch (error: any) {
+    console.error('清空对比列表失败:', error)
+    throw new Error(error.response?.data?.message || '清空对比列表失败')
   }
 }
 
-export const isInCompare = (productId: string, skuId?: string, selectedMaterials?: any) => {
-  return compareItems.some(item => item.productId === productId)
+// 获取对比数量
+export const getCompareCount = async (): Promise<number> => {
+  try {
+    const response = await apiClient.get('/compare/stats')
+    return response.data.data.total || 0
+  } catch (error) {
+    return 0
+  }
 }
-
-export const clearCompare = () => {
-  compareItems.length = 0
-  // 保存到localStorage
-  localStorage.setItem('compare_items', JSON.stringify(compareItems))
-}
-
-export const getCompareCount = () => compareItems.length
