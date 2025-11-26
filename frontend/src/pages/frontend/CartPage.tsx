@@ -51,7 +51,7 @@ export default function CartPage() {
   const selectedTotal = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
   return (
-    <div className="animate-fade-in-up min-h-screen">
+    <div className="animate-fade-in-up">
       <div className="max-w-5xl mx-auto px-6 py-12 pb-4">
         <div className="flex justify-between items-end mb-8">
           <div>

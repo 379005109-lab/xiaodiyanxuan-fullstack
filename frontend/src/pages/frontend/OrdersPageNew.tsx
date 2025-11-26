@@ -258,8 +258,16 @@ export default function OrdersPageNew() {
                           className="flex gap-4 cursor-pointer hover:bg-stone-50 -m-2 p-2 rounded-lg transition-colors"
                         >
                           <div className="w-20 h-20 bg-stone-100 rounded-lg flex-shrink-0 overflow-hidden">
-                            {item.image || item.productImage ? (
-                              <img src={item.image || item.productImage} alt={item.name || item.productName} className="w-full h-full object-cover" />
+                            {(item.image || item.productImage) ? (
+                              <img 
+                                src={item.image || item.productImage} 
+                                alt={item.name || item.productName} 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.currentTarget as HTMLImageElement
+                                  target.style.display = 'none'
+                                }}
+                              />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-stone-400">
                                 <Package className="w-8 h-8" />
