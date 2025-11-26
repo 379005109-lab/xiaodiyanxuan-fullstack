@@ -43,11 +43,11 @@ export default function BuyingServicePage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       {/* Green Section - 上部1/3绿色 */}
-      <div className="bg-gradient-to-b from-[#2d5a42] to-[#2d5a42] pt-20 pb-16">
+      <div className="bg-gradient-to-b from-[#2d5a42] to-[#2d5a42] pt-20 pb-20" style={{ minHeight: '33.33vh' }}>
         {/* Hero Section */}
-        <div className="text-center text-white py-12 px-4">
+        <div className="text-center text-white py-8 px-4">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">佛山源头陪买服务</h1>
           <p className="text-base md:text-lg mb-2">
             深入佛山家具产地，专车接送，资深买手带您逛遍 200+ 源头展厅，
@@ -82,7 +82,7 @@ export default function BuyingServicePage() {
 
                 <div className="text-center mb-6">
                   <div className="text-5xl font-bold text-[#D4A574] mb-2">¥1,000</div>
-                  <p className="text-sm text-gray-600">* 购满 5 万元全额抵扣陪买服务费</p>
+                  <p className="text-sm text-gray-600">* 购满 5000 元全额抵扣陪买服务费</p>
                 </div>
 
                 <ul className="space-y-3 mb-6">
@@ -133,6 +133,7 @@ export default function BuyingServicePage() {
 
               <div className="text-center mb-6">
                 <div className="text-5xl font-bold text-gray-700 mb-2">¥5,000</div>
+                <p className="text-sm text-gray-600">* 购满 1 万元全额抵扣陪买服务费</p>
               </div>
 
               <ul className="space-y-3 mb-6">
@@ -174,7 +175,7 @@ export default function BuyingServicePage() {
       </div>
 
       {/* Gray Section - 下部2/3浅灰色 */}
-      <div className="bg-gray-100 py-16 px-4">
+      <div className="bg-gray-100 py-16 px-4 flex-1" style={{ minHeight: '66.67vh' }}>
         {/* Why Choose Us */}
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl font-bold text-gray-900 text-center mb-10">为什么选择小迪陪买？</h2>
