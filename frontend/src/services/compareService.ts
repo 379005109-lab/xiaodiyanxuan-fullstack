@@ -13,7 +13,32 @@ export interface CompareItem {
 
 const compareItems: CompareItem[] = []
 
-export const getAllCompareItems = () => compareItems
+// 初始化：从localStorage加载对比项
+const initCompareItems = () => {
+  try {
+    const stored = localStorage.getItem('compare_items')
+    if (stored) {
+      const items = JSON.parse(stored)
+      if (Array.isArray(items)) {
+        compareItems.length = 0
+        compareItems.push(...items)
+      }
+    }
+  } catch (error) {
+    console.error('加载对比项失败:', error)
+  }
+}
+
+// 页面加载时初始化
+if (typeof window !== 'undefined') {
+  initCompareItems()
+}
+
+export const getAllCompareItems = () => {
+  // 每次获取时从localStorage刷新
+  initCompareItems()
+  return compareItems
+}
 
 export const addToCompare = (productId: string, skuId?: string, selectedMaterials?: any) => {
   // 检查是否已存在相同商品+SKU+材质的组合
@@ -65,6 +90,8 @@ export const removeFromCompare = (productId: string, skuId?: string, selectedMat
   const index = compareItems.findIndex(item => item._id === compositeId)
   if (index > -1) {
     compareItems.splice(index, 1)
+    // 保存到localStorage
+    localStorage.setItem('compare_items', JSON.stringify(compareItems))
   }
 }
 

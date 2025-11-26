@@ -222,35 +222,44 @@ export default function OrdersPageNew() {
                 <div className="p-6">
                   <div className="space-y-4">
                     {order.orderType === 'package' && order.packageInfo ? (
-                      // 套餐订单
-                      order.packageInfo.selections?.map((selection: any, idx: number) => (
-                        selection.products?.map((product: any, pIdx: number) => (
-                          <div key={`${idx}-${pIdx}`} className="flex gap-4">
-                            <div className="w-20 h-20 bg-stone-100 rounded-lg flex-shrink-0 overflow-hidden">
-                              {product.image ? (
-                                <img src={product.image} alt={product.productName} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-stone-400">
-                                  <Package className="w-8 h-8" />
-                                </div>
-                              )}
+                      // 套餐订单 - 点击跳转到套餐详情页
+                      <div 
+                        onClick={() => navigate(`/packages/${order.packageInfo.packageId || order.packageId || ''}`)}
+                        className="cursor-pointer hover:bg-stone-50 -m-2 p-2 rounded-lg transition-colors"
+                      >
+                        {order.packageInfo.selections?.map((selection: any, idx: number) => (
+                          selection.products?.map((product: any, pIdx: number) => (
+                            <div key={`${idx}-${pIdx}`} className="flex gap-4 mb-3 last:mb-0">
+                              <div className="w-20 h-20 bg-stone-100 rounded-lg flex-shrink-0 overflow-hidden">
+                                {product.image ? (
+                                  <img src={product.image} alt={product.productName} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-stone-400">
+                                    <Package className="w-8 h-8" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-base font-medium text-stone-800 truncate hover:text-primary">{product.productName}</h4>
+                                <p className="text-sm text-stone-500 mt-1">
+                                  {selection.categoryName} / {product.materials ? Object.entries(product.materials).map(([k, v]) => `${v}`).join(' / ') : '标准款'} × {product.quantity || 1}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-base font-medium text-stone-800 truncate">{product.productName}</h4>
-                              <p className="text-sm text-stone-500 mt-1">
-                                {selection.categoryName} / {product.materials ? Object.entries(product.materials).map(([k, v]) => `${v}`).join(' / ') : '标准款'} × {product.quantity || 1}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      ))
+                          ))
+                        ))}
+                      </div>
                     ) : (
-                      // 普通商品订单
+                      // 普通商品订单 - 点击跳转到商品详情页
                       order.items?.map((item: any, idx: number) => (
-                        <div key={idx} className="flex gap-4">
+                        <div 
+                          key={idx} 
+                          onClick={() => navigate(`/products/${item.product || item.productId || ''}`)}
+                          className="flex gap-4 cursor-pointer hover:bg-stone-50 -m-2 p-2 rounded-lg transition-colors"
+                        >
                           <div className="w-20 h-20 bg-stone-100 rounded-lg flex-shrink-0 overflow-hidden">
-                            {item.image ? (
-                              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                            {item.image || item.productImage ? (
+                              <img src={item.image || item.productImage} alt={item.name || item.productName} className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-stone-400">
                                 <Package className="w-8 h-8" />
@@ -258,7 +267,7 @@ export default function OrdersPageNew() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-base font-medium text-stone-800 truncate">{item.name}</h4>
+                            <h4 className="text-base font-medium text-stone-800 truncate hover:text-primary">{item.name || item.productName}</h4>
                             <p className="text-sm text-stone-500 mt-1">× {item.quantity || 1}</p>
                           </div>
                         </div>

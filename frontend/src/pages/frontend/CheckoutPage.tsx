@@ -284,27 +284,35 @@ export default function CheckoutPage() {
       return
     }
     
-    // 尝试提交到API（如果失败也不影响，因为已经保存到本地）
+    // 尝试提交到API
     try {
+      console.log('🚀 提交订单到API...')
       const response = await axios.post('/orders', orderData)
       
+      console.log('✅ API提交成功:', response)
       // axios拦截器返回的是response.data，所以response已经是数据本身
       if (response && (response as any).success) {
-        console.log('✅ API提交成功')
         toast.success('订单提交成功！')
       } else {
-        console.log('⚠️ API返回失败，但已保存到本地')
-        toast.success(`订单已保存到本地！订单号：${orderNo}`)
+        toast.success('订单提交成功！订单号：' + orderNo)
       }
     } catch (error: any) {
-      console.log('⚠️ API提交失败，但已保存到本地')
+      console.error('❌ API提交失败:', error)
       console.error('API错误详情:', {
         message: error.message,
         code: error.code,
-        response: error.response,
-        request: error.request
+        response: error.response?.data,
+        status: error.response?.status,
       })
-      toast.success(`订单已保存到本地！订单号：${orderNo}`)
+      
+      // 如果API失败，显示错误信息
+      if (error.response?.status === 401) {
+        toast.error('请先登录后再提交订单')
+      } else if (error.response?.data?.message) {
+        toast.error('订单提交失败：' + error.response.data.message)
+      } else {
+        toast.error('订单提交失败，但已保存到本地')
+      }
     }
     
     // 清空购物车并跳转
