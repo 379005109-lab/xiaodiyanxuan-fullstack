@@ -55,7 +55,13 @@ export default function OrdersPageNew() {
     }
   }
 
-  const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  // 后端使用数字状态: 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
+  const statusConfig: Record<string | number, { label: string; color: string; icon: React.ReactNode }> = {
+    1: { label: '待付款', color: 'text-orange-600 bg-orange-50', icon: <Clock className="w-4 h-4" /> },
+    2: { label: '待发货', color: 'text-blue-600 bg-blue-50', icon: <Package className="w-4 h-4" /> },
+    3: { label: '待收货', color: 'text-purple-600 bg-purple-50', icon: <Truck className="w-4 h-4" /> },
+    4: { label: '已完成', color: 'text-green-600 bg-green-50', icon: <CheckCircle2 className="w-4 h-4" /> },
+    5: { label: '已取消', color: 'text-red-600 bg-red-50', icon: <X className="w-4 h-4" /> },
     pending: { label: '待付款', color: 'text-orange-600 bg-orange-50', icon: <Clock className="w-4 h-4" /> },
     paid: { label: '已付款', color: 'text-blue-600 bg-blue-50', icon: <Package className="w-4 h-4" /> },
     shipped: { label: '已发货', color: 'text-purple-600 bg-purple-50', icon: <Truck className="w-4 h-4" /> },
@@ -123,26 +129,50 @@ export default function OrdersPageNew() {
         ) : (
           <div className="space-y-6">
             {orders.map((order) => (
-              <div key={order.id} className="bg-white p-6 rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
+              <div key={order._id || order.id} className="bg-white p-6 rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="font-bold text-lg text-primary">订单 #{order.orderNumber}</h3>
-                    <p className="text-sm text-stone-500">{new Date(order.createdAt).toLocaleString()}</p>
+                    <h3 className="font-bold text-lg text-primary">订单 #{order.orderNo || order.orderNumber}</h3>
+                    <p className="text-sm text-stone-500">{new Date(order.createdAt).toLocaleString('zh-CN')}</p>
+                    {order.orderType === 'package' && order.packageInfo && (
+                      <p className="text-xs text-stone-400 mt-1">套餐：{order.packageInfo.packageName}</p>
+                    )}
                   </div>
                   <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${statusConfig[order.status]?.color || 'text-stone-600 bg-stone-50'}`}>
                     {statusConfig[order.status]?.icon}
-                    {statusConfig[order.status]?.label || '未知状态'}
+                    {statusConfig[order.status]?.label || `未知状态(${order.status})`}
                   </div>
+                </div>
+
+                {/* 订单商品信息 */}
+                <div className="border-t border-stone-100 pt-4 mb-4">
+                  {order.orderType === 'package' && order.packageInfo ? (
+                    <div className="space-y-2">
+                      {order.packageInfo.selections?.map((selection: any, idx: number) => (
+                        <div key={idx} className="text-sm">
+                          <span className="text-stone-600">{selection.categoryName}：</span>
+                          <span className="text-stone-500">
+                            {selection.products?.map((p: any) => p.productName).join(', ') || '无'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-stone-600">
+                      共 {order.items?.length || 0} 件商品
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-stone-100 pt-4">
                   <div className="flex justify-between items-center">
-                    <div className="text-sm text-stone-600">
-                      共 {order.items?.length || 0} 件商品
+                    <div className="text-sm">
+                      <p className="text-stone-600">收货人：{order.recipient?.name || '未填写'}</p>
+                      <p className="text-stone-500 text-xs mt-1">{order.recipient?.phone}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-stone-500">订单金额</p>
-                      <p className="font-serif font-bold text-xl text-accent">{formatPrice(order.totalAmount || 0)}</p>
+                      <p className="font-serif font-bold text-xl text-accent">¥{(order.totalAmount || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </div>

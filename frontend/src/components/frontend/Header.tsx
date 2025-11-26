@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, ShoppingBag, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin } from 'lucide-react'
+import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useCartStore } from '@/store/cartStore'
@@ -64,6 +64,9 @@ export default function Header() {
           <Link to="/products" className={getLinkClass('/products')}>
             商城
           </Link>
+          <Link to="/categories" className={getLinkClass('/categories')}>
+            商品分类
+          </Link>
           <Link to="/packages" className={getLinkClass('/packages')}>
             套餐专区
           </Link>
@@ -100,29 +103,6 @@ export default function Header() {
             />
           </form>
           
-          {/* Compare */}
-          <Link
-            to="/compare"
-            className={`hover:text-primary transition-colors flex items-center gap-1 ${location.pathname === '/compare' ? 'text-primary' : 'text-stone-500'}`}
-            title="商品对比"
-          >
-            <Scale className="w-5 h-5" />
-            {getCompareCount() > 0 && (
-              <span className="absolute -top-1 -right-1 bg-accent text-white text-[9px] w-3.5 h-3.5 flex items-center justify-center rounded-full">
-                {getCompareCount()}
-              </span>
-            )}
-          </Link>
-
-          {/* Orders */}
-          <Link
-            to="/orders"
-            className={`hover:text-primary transition-colors flex items-center gap-1 ${location.pathname === '/orders' ? 'text-primary' : 'text-stone-500'}`}
-            title="订单管理"
-          >
-            <ClipboardList className="w-5 h-5" />
-          </Link>
-
           {/* Favorites */}
           <Link
             to="/favorites"
@@ -136,18 +116,42 @@ export default function Header() {
               </span>
             )}
           </Link>
+
+          {/* Compare */}
+          <Link
+            to="/compare"
+            className={`hover:text-primary transition-colors flex items-center gap-1 ${location.pathname === '/compare' ? 'text-primary' : 'text-stone-500'}`}
+            title="商品对比"
+          >
+            <Scale className="w-5 h-5" />
+            {getCompareCount() > 0 && (
+              <span className="absolute -top-1 -right-1 bg-accent text-white text-[9px] w-3.5 h-3.5 flex items-center justify-center rounded-full">
+                {getCompareCount()}
+              </span>
+            )}
+          </Link>
           
           {/* Cart */}
           <Link
             to="/cart"
             className={`hover:text-primary transition-colors relative ${location.pathname === '/cart' ? 'text-primary' : 'text-stone-500'}`}
+            title="购物车"
           >
-            <ShoppingBag className="w-5 h-5" />
+            <ShoppingCart className="w-5 h-5" />
             {getTotalItems() > 0 && (
               <span className="absolute -top-1 -right-1 bg-accent text-white text-[9px] w-3.5 h-3.5 flex items-center justify-center rounded-full">
                 {getTotalItems()}
               </span>
             )}
+          </Link>
+
+          {/* Orders */}
+          <Link
+            to="/orders"
+            className={`hover:text-primary transition-colors flex items-center gap-1 ${location.pathname === '/orders' ? 'text-primary' : 'text-stone-500'}`}
+            title="订单管理"
+          >
+            <ClipboardList className="w-5 h-5" />
           </Link>
           
           <div className="h-4 w-px bg-stone-300 mx-2"></div>
