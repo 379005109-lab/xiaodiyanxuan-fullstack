@@ -10,6 +10,18 @@ export default function CartPage() {
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore()
   const [selectedItems, setSelectedItems] = useState<string[]>([])
 
+  // 调试：打印购物车数据
+  console.log('🛒 购物车数据:', items)
+  items.forEach((item, idx) => {
+    console.log(`商品${idx + 1}:`, {
+      name: item.product?.name,
+      spec: item.sku?.spec,
+      selectedMaterials: item.selectedMaterials,
+      materialUpgradePrices: item.materialUpgradePrices,
+      price: item.price
+    })
+  })
+
   const toggleSelect = (id: string) => {
     setSelectedItems(prev => 
       prev.includes(id) 
@@ -51,7 +63,7 @@ export default function CartPage() {
   const selectedTotal = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
   return (
-    <div className="animate-fade-in-up pb-24">
+    <div className="animate-fade-in-up pb-32">
       <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="flex justify-between items-end mb-8">
           <div>

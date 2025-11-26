@@ -81,10 +81,15 @@ export default function OrderCard({ order, isSelected, onClick }: OrderCardProps
     >
       {/* 头部：状态、日期、价格 */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={`px-2 py-0.5 rounded text-xs font-medium ${status.color} ${status.bgColor}`}>
             {status.label}
           </span>
+          {(order as any).cancelRequest && (
+            <span className="px-2 py-0.5 rounded text-xs font-medium text-orange-600 bg-orange-100">
+              客户请求取消
+            </span>
+          )}
           <span className="text-gray-400 text-xs">{createdAt}</span>
         </div>
         <span className="text-green-600 font-bold">¥{formatPrice(order.totalAmount)}</span>
