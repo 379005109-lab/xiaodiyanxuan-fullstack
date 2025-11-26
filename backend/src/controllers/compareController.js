@@ -42,9 +42,18 @@ const stats = async (req, res) => {
 const add = async (req, res) => {
   try {
     const { productId, skuId, selectedMaterials } = req.body
-    
+
+    console.log(' [Compare] Add request:', { productId, skuId, userId: req.userId })
+
     if (!productId) {
+      console.error(' [Compare] Missing productId')
       return res.status(400).json(errorResponse('缺少产品ID', 400))
+    }
+
+    // 验证productId是否是有效的字符串
+    if (typeof productId !== 'string' || productId.trim() === '') {
+      console.error(' [Compare] Invalid productId:', productId)
+      return res.status(400).json(errorResponse('无效的产品ID', 400))
     }
     
     // 检查是否已存在

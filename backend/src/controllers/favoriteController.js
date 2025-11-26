@@ -45,48 +45,62 @@ const add = async (req, res) => {
   try {
     // 额外的安全检查：确保userId存在
     if (!req.userId) {
+      console.error('Favorite add: userId not found')
       return res.status(401).json(errorResponse('User not authenticated', 401))
     }
     
-    const { productId, productName, thumbnail, price } = req.body
+    const { productId } = req.body
+    
+    console.log('Add favorite request:', { userId: req.userId, productId })
     
     if (!productId) {
       return res.status(400).json(errorResponse('Product ID is required', 400))
     }
     
+    // 验证productId格式
+    if (typeof productId !== 'string' || productId.trim() === '') {
+      console.error('Invalid productId:', productId)
+      return res.status(400).json(errorResponse('Invalid product ID', 400))
+    }
+    
     // Check if already favorited
     const existing = await Favorite.findOne({ userId: req.userId, productId })
     if (existing) {
+      console.log('Product already favorited:', productId)
       return res.status(400).json(errorResponse('Product already in favorites', 400))
     }
     
-    // 尝试从数据库获取商品信息，如果不存在则使用传入的数据
-    let favoriteData = {
+    // 查找产品（可选，如果不存在也允许添加）
+    let productName = 'Unknown Product'
+    let thumbnail = ''
+    let price = 0
+    
+    try {
+      const product = await Product.findById(productId)
+      if (product) {
+        productName = product.name
+        thumbnail = product.thumbnail || (product.images && product.images[0]) || ''
+        price = product.basePrice || product.price || 0
+      } else {
+        console.warn('Product not found, but allowing favorite:', productId)
+      }
+    } catch (productError) {
+      console.warn('Error finding product, continuing with default values:', productError.message)
+    }
+    
+    const favorite = await Favorite.create({
       userId: req.userId,
-      productId
-    }
+      productId,
+      productName,
+      thumbnail,
+      price
+    })
     
-    const product = await Product.findById(productId).catch(() => null)
-    if (product) {
-      favoriteData.productName = product.name
-      favoriteData.thumbnail = product.thumbnail
-      favoriteData.price = product.basePrice
-    } else if (productName) {
-      // 如果商品不存在但提供了商品信息，使用传入的数据
-      favoriteData.productName = productName
-      favoriteData.thumbnail = thumbnail
-      favoriteData.price = price
-    } else {
-      // 商品不存在且没有提供信息
-      return res.status(404).json(errorResponse('Product not found', 404))
-    }
-    
-    const favorite = await Favorite.create(favoriteData)
-    
+    console.log('Favorite created successfully:', favorite._id)
     res.status(201).json(successResponse(favorite))
   } catch (err) {
     console.error('Add favorite error:', err)
-    console.error('Add favorite error stack:', err.stack)
+    console.error('Error stack:', err.stack)
     res.status(500).json(errorResponse(err.message, 500))
   }
 }

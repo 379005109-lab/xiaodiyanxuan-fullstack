@@ -212,11 +212,6 @@ export default function OrdersPageNew() {
                       {statusConfig[order.status]?.icon}
                       <span>{statusConfig[order.status]?.label || '未知状态'}</span>
                     </div>
-                    {order.cancelRequest && (
-                      <span className="px-3 py-1 text-xs rounded-full bg-orange-100 text-orange-600 font-semibold">
-                        客户已申请取消订单
-                      </span>
-                    )}
                   </div>
                   <div className="text-2xl font-bold text-red-600">¥{order.totalAmount?.toLocaleString() || 0}</div>
                 </div>
@@ -349,23 +344,20 @@ export default function OrdersPageNew() {
                   
                   {/* 操作按钮 */}
                   <div className="mt-4 flex gap-3 justify-end">
-                    {order.status === 1 && !order.cancelRequest && (
+                    {(order.status === 1 || order.status === 'pending' || order.status === 2 || order.status === 'paid') && !order.cancelRequest && (
                       <button
-                        onClick={() => handleCancelOrder(order._id)}
-                        className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 border border-red-600 rounded-lg transition-colors"
+                        onClick={() => handleCancelOrder(order._id || order.id)}
+                        className="px-4 py-2 text-sm border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
                       >
                         申请取消订单
                       </button>
                     )}
                     {order.cancelRequest && (
-                      <button
-                        onClick={() => handleDeleteOrder(order._id)}
-                        className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 border border-gray-600 rounded-lg transition-colors"
-                      >
-                        删除订单
-                      </button>
+                      <span className="px-4 py-2 text-sm text-orange-600 bg-orange-50 rounded-lg">
+                        已申请取消订单
+                      </span>
                     )}
-                    {(order.status === 5 || order.status === 'cancelled' || order.status === 4 || order.status === 'completed') && (
+                    {(order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed' || order.cancelRequest) && (
                       <button
                         onClick={() => handleDeleteOrder(order._id || order.id)}
                         className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"

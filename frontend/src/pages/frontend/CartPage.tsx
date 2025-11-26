@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Minus, Plus, Trash2, ArrowRight, Package, TrendingUp, Wallet, Tag } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
@@ -9,32 +9,19 @@ export default function CartPage() {
   const navigate = useNavigate()
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore()
   const [selectedItems, setSelectedItems] = useState<string[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  // 等待购物车数据加载完成
-  useEffect(() => {
-    // 给persist一点时间加载数据
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [])
+  const [renderKey, setRenderKey] = useState(0)
 
   // 调试：打印购物车详细数据
-  console.log('🛒 购物车数量:', items.length)
-  console.log('🛒 购物车完整数据:', JSON.stringify(items, null, 2))
-  items.forEach((item, idx) => {
-    console.log(`📦 商品${idx + 1}:`, {
-      name: item.product?.name,
-      spec: item.sku?.spec,
-      selectedMaterials: item.selectedMaterials,
-      materialUpgradePrices: item.materialUpgradePrices,
-      hasUpgradePrices: !!item.materialUpgradePrices && Object.keys(item.materialUpgradePrices).length > 0,
-      price: item.price,
-      _debugSku: item.sku
-    })
-  })
-  console.log('📊 结算按钮应该显示:', items.length > 0 && !isLoading)
+  console.log('🛒 [CartPage] 渲染次数:', renderKey)
+  console.log('🛒 [CartPage] 购物车数量:', items.length)
+  console.log('🛒 [CartPage] 购物车items引用:', items)
+  console.log('🛒 [CartPage] 结算按钮显示条件:', items.length > 0)
+  
+  // 强制重新渲染的效果
+  useEffect(() => {
+    console.log('🔄 [CartPage] items变化，强制更新')
+    setRenderKey(prev => prev + 1)
+  }, [items])
 
   const toggleSelect = (id: string) => {
     setSelectedItems(prev => 
@@ -272,7 +259,7 @@ export default function CartPage() {
       </div>
       
       {/* Bottom Checkout Bar */}
-      {!isLoading && items.length > 0 && (
+      {items.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-6 shadow-lg z-50">
           <div className="max-w-5xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-4">

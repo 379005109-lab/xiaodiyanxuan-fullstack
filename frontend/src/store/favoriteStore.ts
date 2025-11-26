@@ -34,12 +34,7 @@ export const useFavoriteStore = create<FavoriteStore>((set, get) => ({
   
   addFavorite: async (product: Product) => {
     try {
-      // 传递完整的商品信息以防商品不存在
-      await addFavoriteApi(product._id, {
-        productName: product.name,
-        thumbnail: product.images?.[0] || '',
-        price: product.basePrice
-      })
+      await addFavoriteApi(product._id)
       await get().loadFavorites()
       return true
     } catch (err) {
