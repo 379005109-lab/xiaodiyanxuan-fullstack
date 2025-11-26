@@ -105,6 +105,107 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+
+          {/* 佛山200+源头项目 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-stone-100">
+              <p className="text-stone-400 text-sm mb-2">7 months ago</p>
+              <h3 className="text-2xl font-bold text-stone-800 mb-4">佛山200+源头项目<br/>Online Showrooms</h3>
+              <p className="text-stone-600 mb-6">
+                线上展示200+佛山源头工厂优质产品，涵盖客厅、卧室、餐厅等全品类。每个展厅都配有专业顾问，帮您快速找到心仪商品，一件也是出厂价。
+              </p>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <p className="text-3xl font-bold text-stone-800">¥1,000</p>
+                  <p className="text-sm text-stone-500">起步价格</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-stone-800">¥5,000</p>
+                  <p className="text-sm text-stone-500">平均订单</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => navigate('/products')}
+                className="w-full bg-primary text-white py-3 rounded-xl font-bold hover:bg-primary/90 transition-colors"
+              >
+                在线浏览展厅
+              </button>
+            </div>
+
+            <div className="bg-stone-800 p-8 rounded-2xl shadow-sm overflow-hidden relative">
+              <img 
+                src="https://images.unsplash.com/photo-1595428774223-ef52624120d2?w=600&h=400&fit=crop" 
+                alt="线下展示" 
+                className="absolute inset-0 w-full h-full object-cover opacity-30"
+              />
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold text-white mb-2">线下展示</h3>
+                <p className="text-white/80 text-sm">实体展厅，亲临体验</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 场景化Catalog */}
+          <div className="mt-16">
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                <h3 className="text-3xl font-bold text-stone-800 mb-2">场景化Catalog</h3>
+                <p className="text-stone-500">实景搭配，风格多样</p>
+              </div>
+              <button 
+                onClick={() => navigate('/products')}
+                className="text-primary hover:text-primary/80 transition-colors flex items-center gap-2"
+              >
+                查看全部 <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 hover:shadow-lg transition-all cursor-pointer group" onClick={() => navigate('/products')}>
+                <div className="relative">
+                  <span className="absolute top-4 left-4 bg-green-500 text-white text-xs px-3 py-1 rounded-full font-bold z-10">新品</span>
+                  <img 
+                    src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop" 
+                    alt="现代简约" 
+                    className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <div className="p-6">
+                  <h4 className="text-xl font-bold text-stone-800 mb-2">现代简约风</h4>
+                  <p className="text-stone-500 text-sm">时尚简洁，年轻人的首选</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 hover:shadow-lg transition-all cursor-pointer group" onClick={() => navigate('/products')}>
+                <div className="relative">
+                  <span className="absolute top-4 left-4 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-bold z-10">热销</span>
+                  <img 
+                    src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop" 
+                    alt="轻奢风格" 
+                    className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <div className="p-6">
+                  <h4 className="text-xl font-bold text-stone-800 mb-2">轻奢风格</h4>
+                  <p className="text-stone-500 text-sm">高端品质，优雅生活</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 hover:shadow-lg transition-all cursor-pointer group" onClick={() => navigate('/products')}>
+                <div className="relative">
+                  <img 
+                    src="https://images.unsplash.com/photo-1540574163026-643ea20ade25?w=400&h=300&fit=crop" 
+                    alt="北欧风格" 
+                    className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <div className="p-6">
+                  <h4 className="text-xl font-bold text-stone-800 mb-2">北欧原木</h4>
+                  <p className="text-stone-500 text-sm">自然温馨，舒适宜居</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -41,15 +41,6 @@ export default function ProductsPage() {
   const { isInCompare, addToCompare: addToCompareStore, loadCompareItems } = useCompareStore()
   const { isAuthenticated } = useAuthStore()
   
-  // 登录检查
-  useEffect(() => {
-    if (!isAuthenticated) {
-      toast.error('请先登录')
-      navigate('/')
-      return
-    }
-  }, [isAuthenticated, navigate])
-  
   // 恢复滚动位置
   useEffect(() => {
     const savedScrollPosition = sessionStorage.getItem('productsPageScrollPosition')

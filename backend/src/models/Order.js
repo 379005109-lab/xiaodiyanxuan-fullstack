@@ -12,6 +12,7 @@ const orderSchema = new mongoose.Schema({
   items: [{
     productId: String,
     productName: String,
+    image: String,  // 商品图片
     price: Number,
     quantity: Number,
     specifications: { size: String, material: String, color: String, fill: String, frame: String, leg: String },
@@ -30,6 +31,7 @@ const orderSchema = new mongoose.Schema({
       products: [{
         productId: String,
         productName: String,
+        image: String,  // 商品图片
         quantity: Number,
         materials: mongoose.Schema.Types.Mixed,  // 材质选择 { fabric: '半青皮-蓝色' }
         materialUpgrade: Number  // 材质升级费用
