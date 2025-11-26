@@ -139,7 +139,7 @@ export default function CheckoutPage() {
             : item.sku.price)
         })),
         totalAmount: getTotalPrice(),
-        shippingAddress: {
+        recipient: {
           name: formData.name,
           phone: formData.phone,
           address: formData.address
@@ -172,7 +172,7 @@ export default function CheckoutPage() {
       })),
       totalAmount: orderData.totalAmount,
       status: 'pending',
-      shippingAddress: orderData.shippingAddress,
+      recipient: orderData.recipient,
       paymentMethod: orderData.paymentMethod,
       notes: orderData.notes || '',
       createdAt: new Date().toISOString(),
@@ -224,7 +224,7 @@ export default function CheckoutPage() {
         })),
         totalAmount: localOrder.totalAmount || 0,
         status: localOrder.status || 'pending',
-        shippingAddress: localOrder.shippingAddress || {},
+        recipient: localOrder.recipient || {},
         paymentMethod: localOrder.paymentMethod || 'alipay',
         notes: localOrder.notes || '',
         createdAt: localOrder.createdAt,

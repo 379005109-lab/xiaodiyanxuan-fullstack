@@ -202,7 +202,8 @@ function App() {
             <Route path="favorites" element={<FavoritesPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="addresses" element={<AddressesPage />} />
-            <Route path="design-service" element={<BuyingServicePage />} />
+            <Route path="buying-service" element={<BuyingServicePage />} />
+            <Route path="design-service" element={<DesignServicePage />} />
             <Route path="design" element={<DesignServicePage />} />
             <Route path="bargain" element={<BargainListPage />} />
             <Route path="bargain/:id" element={<BargainDetailPage />} />

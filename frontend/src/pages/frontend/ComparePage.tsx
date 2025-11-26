@@ -123,6 +123,14 @@ export default function ComparePage() {
 
   const handleRemove = (item: CompareItemDetail) => {
     removeFromCompare(item.product._id, item.sku._id, item.selectedMaterials)
+    // 立即重新加载对比列表
+    loadCompareItems()
+    // 立即从本地状态中移除
+    setCompareItems(prev => prev.filter(i => 
+      !(i.product._id === item.product._id && 
+        i.sku._id === item.sku._id && 
+        JSON.stringify(i.selectedMaterials) === JSON.stringify(item.selectedMaterials))
+    ))
     toast.success('已移除')
   }
 
