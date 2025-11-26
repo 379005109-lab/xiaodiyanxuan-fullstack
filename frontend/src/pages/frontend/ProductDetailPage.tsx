@@ -273,13 +273,15 @@ const ProductDetailPage = () => {
   const { addItem } = useCartStore();
   const { favorites, toggleFavorite, loadFavorites } = useFavoriteStore();
   const { addToCompare, loadCompareItems } = useCompareStore();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadFavorites();
+    if (isAuthenticated) {
+      loadFavorites();
+    }
     loadCompareItems();
-  }, [loadFavorites, loadCompareItems]);
+  }, [isAuthenticated, loadFavorites, loadCompareItems]);
 
   useEffect(() => {
     const loadMaterials = async () => {
