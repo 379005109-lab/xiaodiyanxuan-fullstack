@@ -16,6 +16,8 @@ const orderSchema = new mongoose.Schema({
     price: Number,
     quantity: Number,
     specifications: { size: String, material: String, color: String, fill: String, frame: String, leg: String },
+    selectedMaterials: { fabric: String, filling: String, frame: String, leg: String },  // 用户选择的材质
+    materialUpgradePrices: mongoose.Schema.Types.Mixed,  // 材质升级价格 { '半青皮-蓝色': 500 }
     subtotal: Number
   }],
   

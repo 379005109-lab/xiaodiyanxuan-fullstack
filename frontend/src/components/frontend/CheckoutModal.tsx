@@ -99,6 +99,7 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
         productId: item.product._id, // 同时传递productId，确保后端能识别
         productName: item.product.name,
         productImage: item.sku.images?.[0] || item.product.images[0],
+        image: item.sku.images?.[0] || item.product.images[0], // 添加image字段
         skuId: item.sku._id, // 传递skuId
         sku: {
           _id: item.sku._id, // 同时传递sku._id
@@ -107,6 +108,15 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
             ? item.sku.material 
             : JSON.stringify(item.sku.material)
         },
+        specifications: {
+          size: item.sku.spec || '',
+          material: item.selectedMaterials?.fabric || '',
+          fill: item.selectedMaterials?.filling || '',
+          frame: item.selectedMaterials?.frame || '',
+          leg: item.selectedMaterials?.leg || ''
+        },
+        selectedMaterials: item.selectedMaterials || {},  // 保存材质选择
+        materialUpgradePrices: item.materialUpgradePrices || {},  // 保存升级价格
         quantity: item.quantity,
         price: item.price !== undefined ? item.price : getItemPrice(item)
       })),
@@ -137,14 +147,19 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
       items: orderData.items.map((item: any) => ({
         product: item.product || item.productId,
         productName: item.productName || '',
-        productImage: item.productImage || '',
+        productImage: item.productImage || item.image || '',
+        image: item.image || item.productImage || '',
         sku: item.sku || { color: '', material: '' },
+        specifications: item.specifications || {},  // 保存规格信息
+        selectedMaterials: item.selectedMaterials || {},  // 保存材质选择
+        materialUpgradePrices: item.materialUpgradePrices || {},  // 保存升级价格
         quantity: item.quantity,
         price: item.price
       })),
       totalAmount: orderData.totalAmount,
       status: 'pending',
       shippingAddress: orderData.shippingAddress,
+      recipient: orderData.shippingAddress,  // 添加recipient字段以兼容
       paymentMethod: orderData.paymentMethod,
       notes: orderData.notes || '',
       createdAt: new Date().toISOString(),
@@ -186,17 +201,22 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
           productId: item.product || item.productId,
           productName: item.productName || '',
           productImage: item.productImage || '',
+          image: item.image || item.productImage || '',
           sku: {
             _id: typeof item.sku === 'object' && item.sku?._id ? item.sku._id : '',
             color: typeof item.sku === 'object' ? item.sku?.color || '' : '',
             material: typeof item.sku === 'object' ? item.sku?.material || '' : ''
           },
+          specifications: item.specifications || {},
+          selectedMaterials: item.selectedMaterials || {},
+          materialUpgradePrices: item.materialUpgradePrices || {},
           quantity: item.quantity || 1,
           price: item.price || 0
         })),
         totalAmount: localOrder.totalAmount || 0,
         status: localOrder.status || 'pending',
         shippingAddress: localOrder.shippingAddress || {},
+        recipient: localOrder.recipient || localOrder.shippingAddress || {},
         paymentMethod: localOrder.paymentMethod || 'alipay',
         notes: localOrder.notes || '',
         createdAt: localOrder.createdAt,

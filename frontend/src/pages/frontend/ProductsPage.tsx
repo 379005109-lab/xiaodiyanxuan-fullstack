@@ -405,20 +405,34 @@ export default function ProductsPage() {
   }
 
   // 添加到对比
-  const handleAddToCompare = (e: React.MouseEvent, product: Product) => {
+  const handleAddToCompare = async (e: React.MouseEvent, product: Product) => {
     e.preventDefault()
     e.stopPropagation()
+    
+    // 检查是否登录
+    if (!isAuthenticated) {
+      toast.error('请先登录后再使用对比功能')
+      useAuthModalStore.getState().openLogin()
+      return
+    }
+    
     // 添加产品的第一个SKU到对比列表
     const firstSku = product.skus && product.skus[0]
     if (!firstSku) {
       toast.error('该商品暂无可选规格')
       return
     }
-    const result = addToCompareStore(product._id, firstSku._id)
-    if (result.success) {
-      toast.success(result.message)
-    } else {
-      toast.error(result.message)
+    
+    try {
+      const result = await addToCompareStore(product._id, firstSku._id)
+      if (result.success) {
+        toast.success(result.message)
+      } else {
+        toast.error(result.message)
+      }
+    } catch (error) {
+      console.error('添加对比失败:', error)
+      toast.error('添加对比失败，请重试')
     }
   }
 

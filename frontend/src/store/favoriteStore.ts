@@ -45,10 +45,24 @@ export const useFavoriteStore = create<FavoriteStore>((set, get) => ({
   
   removeFavorite: async (productId: string) => {
     try {
-      await removeFavoriteApi(productId)
+      // 先找到对应的favorite记录获取favoriteId
+      const favorites = get().favorites
+      const favorite = favorites.find(fav => {
+        if (!fav || !fav.product) return false
+        const favProductId = typeof fav.product === 'string' ? fav.product : fav.product._id
+        return favProductId === productId
+      })
+      
+      if (!favorite) {
+        throw new Error('未找到该收藏记录')
+      }
+      
+      // 使用favoriteId删除
+      await removeFavoriteApi(favorite._id)
       await get().loadFavorites()
     } catch (err) {
       console.error('删除收藏失败:', err)
+      throw err
     }
   },
   
