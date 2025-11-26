@@ -639,7 +639,7 @@ const ProductDetailPage = () => {
     );
   };
 
-  const handleDownloadImages = () => {
+  const handleDownloadImages = async () => {
     if (!selectedDownloadImages.length) {
       toast.error('请先选择需要下载的图片');
       return;
@@ -649,15 +649,36 @@ const ProductDetailPage = () => {
       useAuthModalStore.getState().openLogin();
       return;
     }
+    
     toast.success(`开始下载 ${selectedDownloadImages.length} 张图片`);
-    selectedDownloadImages.forEach((img, index) => {
-      const link = document.createElement('a');
-      link.href = img;
-      link.download = `gallery-image-${index + 1}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    });
+    
+    for (let index = 0; index < selectedDownloadImages.length; index++) {
+      const img = selectedDownloadImages[index];
+      try {
+        // 通过fetch获取图片数据，避免跨域问题
+        const response = await fetch(img);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `product-image-${index + 1}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // 释放blob URL
+        setTimeout(() => window.URL.revokeObjectURL(url), 100);
+        
+        // 添加延迟避免浏览器阻止多个下载
+        if (index < selectedDownloadImages.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      } catch (error) {
+        console.error('下载图片失败:', error);
+        toast.error(`图片 ${index + 1} 下载失败`);
+      }
+    }
   };
 
   const formatSpecificationValue = (spec: any) => {
@@ -1332,7 +1353,11 @@ const ProductDetailPage = () => {
                 </button>
                 <button
                   type="button"
-                  className="px-6 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-bold flex items-center gap-2 hover:bg-primary-700 transition-colors shadow-lg"
+                  className="px-6 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ 
+                    backgroundColor: selectedDownloadImages.length > 0 ? '#1F64FF' : '#e5e7eb',
+                    color: selectedDownloadImages.length > 0 ? 'white' : '#9ca3af'
+                  }}
                   onClick={handleDownloadImages}
                   disabled={selectedDownloadImages.length === 0}
                 >

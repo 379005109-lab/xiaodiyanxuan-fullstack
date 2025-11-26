@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
@@ -31,7 +31,49 @@ export default function CheckoutPage() {
     notes: ''
   })
   
+  const [addresses, setAddresses] = useState<any[]>([])
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
+  
+  // 加载用户地址
+  useEffect(() => {
+    const loadAddresses = async () => {
+      if (!isAuthenticated) return
+      
+      try {
+        const response = await axios.get('/addresses')
+        const addressList = response.data || []
+        setAddresses(addressList)
+        
+        // 自动选择默认地址
+        const defaultAddr = addressList.find((addr: any) => addr.isDefault)
+        if (defaultAddr) {
+          setSelectedAddressId(defaultAddr._id)
+          setFormData({
+            name: defaultAddr.name || '',
+            phone: defaultAddr.phone || '',
+            address: `${defaultAddr.province || ''}${defaultAddr.city || ''}${defaultAddr.district || ''}${defaultAddr.address || ''}`,
+            notes: formData.notes
+          })
+        }
+      } catch (error) {
+        console.error('加载地址失败:', error)
+      }
+    }
+    
+    loadAddresses()
+  }, [isAuthenticated])
+  
+  // 选择地址
+  const handleSelectAddress = (address: any) => {
+    setSelectedAddressId(address._id)
+    setFormData({
+      name: address.name || '',
+      phone: address.phone || '',
+      address: `${address.province || ''}${address.city || ''}${address.district || ''}${address.address || ''}`,
+      notes: formData.notes
+    })
+  }
 
   if (items.length === 0) {
     return (
@@ -304,6 +346,47 @@ export default function CheckoutPage() {
                 <h2 className="text-xl font-semibold text-gray-900">收货信息</h2>
                 <span className="text-xs text-gray-400">请确认信息准确</span>
               </div>
+              
+              {/* 地址选择器 */}
+              {addresses.length > 0 && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    选择收货地址
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {addresses.map((addr) => (
+                      <div
+                        key={addr._id}
+                        onClick={() => handleSelectAddress(addr)}
+                        className={`relative cursor-pointer border-2 rounded-lg p-4 transition-all ${
+                          selectedAddressId === addr._id
+                            ? 'border-primary-600 bg-primary-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        {addr.isDefault && (
+                          <span className="absolute top-2 right-2 text-xs bg-red-500 text-white px-2 py-0.5 rounded">
+                            默认
+                          </span>
+                        )}
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-4 h-4 mt-1 text-gray-400" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900">{addr.name} {addr.phone}</p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {addr.province}{addr.city}{addr.district}{addr.address}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 text-sm text-gray-500">
+                    或手动填写新地址
+                  </div>
+                </div>
+              )}
+              
               <form onSubmit={handleSubmit}>
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
