@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Grid, ChevronRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/store/authStore'
 
 interface Category {
   _id: string
@@ -16,6 +17,16 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuthStore()
+
+  // 登录检查
+  useEffect(() => {
+    if (!isAuthenticated) {
+      toast.error('请先登录')
+      navigate('/')
+      return
+    }
+  }, [isAuthenticated, navigate])
 
   useEffect(() => {
     loadCategories()

@@ -290,6 +290,7 @@ export default function PackageDetailPageNew() {
               return {
                 productId: id,
                 productName: product.name,
+                image: product.image,
                 quantity: qty,
                 materials: materials,
                 materialUpgrade: surcharge * qty

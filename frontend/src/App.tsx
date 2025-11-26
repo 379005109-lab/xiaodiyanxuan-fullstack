@@ -129,6 +129,50 @@ const LoadingFallback = () => (
 function App() {
   const { isOpen: authModalOpen, mode: authModalMode, close: closeAuthModal } = useAuthModalStore()
   
+  // 全局禁止图片右键保存和拖拽
+  useEffect(() => {
+    // 禁止右键菜单
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'IMG') {
+        e.preventDefault()
+        return false
+      }
+    }
+    
+    // 禁止拖拽
+    const handleDragStart = (e: DragEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'IMG') {
+        e.preventDefault()
+        return false
+      }
+    }
+    
+    // 添加全局样式禁止选择和拖拽
+    const style = document.createElement('style')
+    style.textContent = `
+      img {
+        user-select: none;
+        -webkit-user-drag: none;
+        -moz-user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select: none;
+        pointer-events: auto;
+      }
+    `
+    document.head.appendChild(style)
+    
+    document.addEventListener('contextmenu', handleContextMenu)
+    document.addEventListener('dragstart', handleDragStart)
+    
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu)
+      document.removeEventListener('dragstart', handleDragStart)
+      document.head.removeChild(style)
+    }
+  }, [])
+  
   return (
     <ErrorBoundary>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
