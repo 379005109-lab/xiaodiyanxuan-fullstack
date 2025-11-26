@@ -27,8 +27,7 @@ const getApiUrl = () => {
     }
     
     // 如果在公网，使用相对路径（需要配置代理）或使用当前协议
-    const protocol = window.location.protocol; // https: or http:
-    const apiUrl = `${protocol}//lgpzubdtdxjf.sealoshzh.site/api`;
+    const apiUrl = 'https://pkochbpmcgaa.sealoshzh.site/api';
     console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
     return apiUrl;
   }

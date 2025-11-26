@@ -276,6 +276,11 @@ const ProductDetailPage = () => {
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
+  // 滚动到页面顶部
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
   useEffect(() => {
     if (isAuthenticated) {
       loadFavorites();

@@ -210,9 +210,9 @@ export default function ComparePage() {
                   <th key={item.compareItemId} className="py-4 px-4 text-center relative min-w-[240px]">
                     <button
                       onClick={() => handleRemove(item)}
-                      className="absolute top-2 right-2 p-1 bg-primary-500 text-white rounded-full hover:bg-primary-600"
+                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg transition-all hover:scale-110 z-20"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-5 w-5" />
                     </button>
                     <Link to={`/products/${item.product._id}`}>
                       <img
