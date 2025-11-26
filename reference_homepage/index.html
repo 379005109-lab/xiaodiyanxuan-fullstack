@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>小迪严选 | XiaoDi Select</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Importing Inter (Sans) and Playfair Display (Serif) for luxury feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              serif: ['Playfair Display', 'serif'],
+            },
+            colors: {
+              stone: {
+                50: '#F2F4F3',  // Minty white
+                100: '#E6EBE9', // Very light sage
+                200: '#D1DCD9',
+                300: '#B0C4BF',
+                800: '#2A3C36',
+                900: '#14452F', // Deep Forest Green (Same as primary)
+              },
+              primary: '#14452F', // Deep Forest Green
+              accent: '#D6AD60', // Vintage Gold
+              green: {
+                 50: '#F0FDF4',
+                100: '#DCFCE7',
+                800: '#166534',
+                900: '#14532D',
+              }
+            },
+            animation: {
+              'fade-in-up': 'fadeInUp 0.5s ease-out',
+              'float': 'float 3s ease-in-out infinite',
+              'gravitate': 'gravitate 10s linear infinite',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'spin-slow': 'spin 12s linear infinite',
+              'converge': 'converge 1s ease-out forwards',
+              'implode': 'implode 3s ease-in-out infinite',
+            },
+            keyframes: {
+              fadeInUp: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-5px)' },
+              },
+              gravitate: {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' },
+              },
+              converge: {
+                '0%': { opacity: '0', transform: 'scale(1.5) translateY(20px)' },
+                '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+              },
+              implode: {
+                  '0%': { transform: 'translate(var(--start-x), var(--start-y)) scale(0.5)', opacity: '0' },
+                  '20%': { opacity: '1' },
+                  '100%': { transform: 'translate(0, 0) scale(0.2)', opacity: '0' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #F2F4F3; /* New stone-50 */
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+      }
+      .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
+      .glass {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(20, 69, 47, 0.05);
+      }
+      .comparison-table td {
+        vertical-align: top;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="text-stone-900 antialiased selection:bg-primary selection:text-white">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

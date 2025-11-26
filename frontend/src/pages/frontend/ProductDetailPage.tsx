@@ -657,30 +657,51 @@ const ProductDetailPage = () => {
     for (let index = 0; index < selectedDownloadImages.length; index++) {
       const img = selectedDownloadImages[index];
       try {
-        // 通过fetch获取图片数据，避免跨域问题
-        const response = await fetch(img);
+        // 获取图片文件名
+        const urlParts = img.split('/');
+        const fileName = urlParts[urlParts.length - 1] || `image-${index + 1}`;
+        const fileExt = fileName.includes('.') ? fileName.split('.').pop() : 'jpg';
+        
+        // 通过fetch获取图片数据
+        const response = await fetch(img, {
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
         const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+        
+        // 确保blob类型正确
+        const imageBlob = new Blob([blob], { type: `image/${fileExt}` });
+        const url = window.URL.createObjectURL(imageBlob);
         
         const link = document.createElement('a');
         link.href = url;
-        link.download = `product-image-${index + 1}.jpg`;
+        link.download = `product-${product?.name || 'image'}-${index + 1}.${fileExt}`;
+        link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
         
-        // 释放blob URL
-        setTimeout(() => window.URL.revokeObjectURL(url), 100);
+        // 清理
+        setTimeout(() => {
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }, 100);
         
         // 添加延迟避免浏览器阻止多个下载
         if (index < selectedDownloadImages.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       } catch (error) {
         console.error('下载图片失败:', error);
-        toast.error(`图片 ${index + 1} 下载失败`);
+        toast.error(`图片 ${index + 1} 下载失败: ${error}`);
       }
     }
+    
+    toast.success('所有图片下载完成');
   };
 
   const formatSpecificationValue = (spec: any) => {

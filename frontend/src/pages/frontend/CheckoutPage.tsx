@@ -522,6 +522,21 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {/* 生产周期提醒 */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-amber-900 mb-1">生产周期提醒</p>
+                      <p className="text-xs text-amber-700 leading-relaxed">
+                        所有产品均为定制生产，<span className="font-bold">生产周期为6-8周</span>。我们将在发货前与您确认，感谢您的耐心等待！
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-3 text-sm text-gray-600">
                   <div className="flex justify-between">
                     <span>商品总计</span>

@@ -16,7 +16,12 @@ const compareItems: CompareItem[] = []
 export const getAllCompareItems = () => compareItems
 
 export const addToCompare = (productId: string, skuId?: string, selectedMaterials?: any) => {
-  const item = { _id: Math.random().toString(), productId, skuId, selectedMaterials }
+  const item = { 
+    _id: `compare_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, 
+    productId, 
+    skuId, 
+    selectedMaterials 
+  }
   compareItems.push(item)
   return { success: true, message: '已添加到对比' }
 }
