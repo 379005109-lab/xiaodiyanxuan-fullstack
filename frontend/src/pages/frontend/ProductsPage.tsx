@@ -100,10 +100,12 @@ export default function ProductsPage() {
   useEffect(() => {
     loadProducts()
     loadCategories()
-    loadFavorites()
+    if (isAuthenticated) {
+      loadFavorites()
+    }
     loadCompareItems()
     loadStyleImages()
-  }, [])
+  }, [isAuthenticated])
   
   // 当商品或收藏列表变化时，更新收藏状态
   useEffect(() => {

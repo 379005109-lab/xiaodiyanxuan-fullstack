@@ -1315,12 +1315,14 @@ const ProductDetailPage = () => {
                 );
               })}
             </div>
-            <div className="p-4 border-t flex items-center justify-between">
-              <div className="text-xs text-gray-500">已选 {selectedDownloadImages.length} 张</div>
+            <div className="p-4 border-t bg-gray-50 flex items-center justify-between sticky bottom-0">
+              <div className="text-sm font-medium text-gray-700">
+                已选 <span className="text-primary-600 font-bold">{selectedDownloadImages.length}</span> 张
+              </div>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium"
                   onClick={() => {
                     setSelectedDownloadImages([]);
                     setAllImageModalOpen(false);
@@ -1330,10 +1332,11 @@ const ProductDetailPage = () => {
                 </button>
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-semibold flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-bold flex items-center gap-2 hover:bg-primary-700 transition-colors shadow-lg"
                   onClick={handleDownloadImages}
+                  disabled={selectedDownloadImages.length === 0}
                 >
-                  <Download className="h-4 w-4" /> 下载所选
+                  <Download className="h-4 w-4" /> 下载所选 ({selectedDownloadImages.length})
                 </button>
               </div>
             </div>
