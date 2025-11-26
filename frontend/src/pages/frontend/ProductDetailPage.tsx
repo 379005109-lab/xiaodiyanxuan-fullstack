@@ -537,15 +537,21 @@ const ProductDetailPage = () => {
     toast.success('已添加到购物车');
   };
 
-  const handleAddToCompare = () => {
+  const handleAddToCompare = async () => {
     if (!product || !selectedSku) {
       toast.error('请选择商品规格');
       return;
     }
     const chosenMaterials = resolveSelectedMaterials();
     if (!chosenMaterials) return;
-    const result = addToCompare(product._id, selectedSku._id, chosenMaterials);
-    toast[result.success ? 'success' : 'error'](result.message);
+    
+    try {
+      const result = await addToCompare(product._id, selectedSku._id, chosenMaterials);
+      toast[result.success ? 'success' : 'error'](result.message);
+    } catch (error) {
+      console.error('添加对比失败:', error);
+      toast.error('添加对比失败，请重试');
+    }
   };
 
   const handleBuyNow = () => {

@@ -210,13 +210,8 @@ export default function OrdersPageNew() {
                   <div className="flex items-center gap-2">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[order.status]?.color || 'text-stone-600 bg-stone-50'}`}>
                       {statusConfig[order.status]?.icon}
-                      <span>{statusConfig[order.status]?.label || '未知状态'}</span>
+                      <span>{order.cancelRequest ? '客户已申请取消订单' : (statusConfig[order.status]?.label || '未知状态')}</span>
                     </div>
-                    {order.cancelRequest && (
-                      <span className="px-3 py-1 text-xs rounded-full bg-orange-100 text-orange-600 font-semibold">
-                        客户请求取消
-                      </span>
-                    )}
                   </div>
                   <div className="text-2xl font-bold text-red-600">¥{order.totalAmount?.toLocaleString() || 0}</div>
                 </div>
@@ -349,7 +344,7 @@ export default function OrdersPageNew() {
                   
                   {/* 操作按钮 */}
                   <div className="mt-4 flex gap-3 justify-end">
-                    {(order.status === 1 || order.status === 'pending') && (
+                    {(order.status === 1 || order.status === 'pending') && !order.cancelRequest && (
                       <button
                         onClick={() => handleCancelOrder(order._id || order.id)}
                         className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
@@ -357,7 +352,7 @@ export default function OrdersPageNew() {
                         取消订单
                       </button>
                     )}
-                    {(order.status === 5 || order.status === 'cancelled' || order.status === 4 || order.status === 'completed') && (
+                    {(order.cancelRequest || order.status === 5 || order.status === 'cancelled' || order.status === 4 || order.status === 'completed') && (
                       <button
                         onClick={() => handleDeleteOrder(order._id || order.id)}
                         className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"
