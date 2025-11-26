@@ -137,9 +137,12 @@ const cancelOrder = async (orderId, userId) => {
     throw new ValidationError('Cannot cancel order in current status')
   }
   
-  order.status = ORDER_STATUS.CANCELLED
-  order.cancelledAt = new Date()
+  // 修改为提交取消请求，需要管理后台确认
+  order.cancelRequest = true
+  order.cancelRequestedAt = new Date()
   await order.save()
+  
+  console.log('📝 用户提交取消请求，订单ID:', orderId)
   
   return order
 }

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
 import { formatPrice } from '@/lib/utils'
+import { getFileUrl } from '@/services/uploadService'
 
 export default function OrdersPageNew() {
   const navigate = useNavigate()
@@ -87,7 +88,7 @@ export default function OrdersPageNew() {
   }
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!confirm('确定要取消这个订单吗？')) return
+    if (!confirm('确定要取消这个订单吗？提交后需要等待管理后台确认。')) return
     
     try {
       const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/cancel`, {
@@ -100,7 +101,7 @@ export default function OrdersPageNew() {
       
       if (!response.ok) throw new Error('取消订单失败')
       
-      toast.success('订单已取消')
+      toast.success('取消请求已提交，请等待管理后台确认')
       loadOrders()
     } catch (error) {
       console.error('取消订单失败:', error)
@@ -260,7 +261,7 @@ export default function OrdersPageNew() {
                           <div className="w-20 h-20 bg-stone-100 rounded-lg flex-shrink-0 overflow-hidden">
                             {(item.image || item.productImage) ? (
                               <img 
-                                src={item.image || item.productImage} 
+                                src={getFileUrl(item.image || item.productImage)} 
                                 alt={item.name || item.productName} 
                                 className="w-full h-full object-cover"
                                 onError={(e) => {

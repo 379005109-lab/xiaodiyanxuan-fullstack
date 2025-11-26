@@ -51,8 +51,8 @@ export default function CartPage() {
   const selectedTotal = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
   return (
-    <div className="animate-fade-in-up">
-      <div className="max-w-5xl mx-auto px-6 py-12 pb-4">
+    <div className="animate-fade-in-up pb-24">
+      <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="flex justify-between items-end mb-8">
           <div>
             <h1 className="text-3xl font-serif font-bold text-primary mb-2">购物车</h1>
@@ -238,7 +238,7 @@ export default function CartPage() {
       
       {/* Bottom Checkout Bar */}
       {items.length > 0 && (
-        <div className="bg-white border-t border-stone-200 p-6">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-6 shadow-lg z-10">
           <div className="max-w-5xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-4">
               <span className="text-stone-500 text-sm hidden md:inline">已选 {selectedItems.length} 件商品</span>

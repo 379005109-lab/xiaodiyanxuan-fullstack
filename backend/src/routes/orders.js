@@ -31,7 +31,7 @@ router.put('/:id/cancel', cancel)  // 支持PUT方法
 // POST /api/orders/:id/confirm - 确认收货
 router.post('/:id/confirm', confirm)
 
-// DELETE /api/orders/:id - 删除订单
+// DELETE /api/orders/:id - 删除订单（软删除）
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params
@@ -53,7 +53,12 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: '只能删除已取消或已完成的订单' })
     }
     
-    await Order.findByIdAndDelete(id)
+    // 软删除：标记为已删除，不实际删除数据
+    order.isDeleted = true
+    order.deletedAt = new Date()
+    order.deletedBy = req.userId
+    await order.save()
+    
     res.json({ success: true, message: '订单已删除' })
   } catch (error) {
     console.error('删除订单失败:', error)

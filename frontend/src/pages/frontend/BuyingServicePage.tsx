@@ -17,16 +17,17 @@ export default function BuyingServicePage() {
     setSelectedService(serviceType)
   }
 
-  const handleBookingClick = () => {
+  const handleBookingClick = (serviceType?: 'standard' | 'expert') => {
     if (!isAuthenticated) {
       toast.error('请先登录账号')
       openLogin()
       return
     }
-    if (!selectedService) {
-      toast.error('请先选择陪买服务类型')
-      return
+    // 如果传入了serviceType，自动选择
+    if (serviceType) {
+      setSelectedService(serviceType)
     }
+    // 不再检查selectedService，直接打开对话框
     setShowBookingModal(true)
   }
 
@@ -44,8 +45,8 @@ export default function BuyingServicePage() {
         scheduledDate: bookingDate,
         notes: bookingNotes,
         user: user?._id || user,
-        userName: user?.name || user?.username || '未知用户',
-        userPhone: user?.phone || '',
+        userName: (user as any)?.name || (user as any)?.username || '未知用户',
+        userPhone: (user as any)?.phone || '',
         status: 'pending',
       }
       
@@ -125,8 +126,7 @@ export default function BuyingServicePage() {
               <button 
                 onClick={(e) => {
                   e.stopPropagation()
-                  handleServiceSelect('standard')
-                  handleBookingClick()
+                  handleBookingClick('standard')  // 直接传入服务类型
                 }}
                 className="w-full bg-[#2d5a42] text-white py-3 rounded-lg font-bold hover:bg-[#234433] transition-all"
               >
@@ -179,8 +179,7 @@ export default function BuyingServicePage() {
               <button 
                 onClick={(e) => {
                   e.stopPropagation()
-                  handleServiceSelect('expert')
-                  handleBookingClick()
+                  handleBookingClick('expert')  // 直接传入服务类型
                 }}
                 className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-300 transition-all"
               >

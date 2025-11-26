@@ -51,7 +51,14 @@ const orderSchema = new mongoose.Schema({
   shippedAt: Date,
   completedAt: Date,
   cancelledAt: Date,
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
+  // 软删除字段
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: Date,
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  // 取消请求字段（需要管理后台确认）
+  cancelRequest: { type: Boolean, default: false },
+  cancelRequestedAt: Date
 })
 
 orderSchema.index({ userId: 1 })
