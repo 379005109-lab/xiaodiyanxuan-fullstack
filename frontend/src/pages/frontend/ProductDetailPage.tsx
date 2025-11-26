@@ -272,7 +272,7 @@ const ProductDetailPage = () => {
 
   const { addItem } = useCartStore();
   const { favorites, toggleFavorite, loadFavorites } = useFavoriteStore();
-  const { addToCompare, loadCompareItems } = useCompareStore();
+  const { compareItems, addToCompare, loadCompareItems } = useCompareStore();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
@@ -1118,10 +1118,15 @@ const ProductDetailPage = () => {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={handleAddToCompare}
-                  className="py-2.5 rounded-lg border font-medium transition-all duration-200 text-sm"
+                  className="py-2.5 rounded-lg border font-medium transition-all duration-200 text-sm relative"
                   style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR, backgroundColor: '#f0fdf4' }}
                 >
                   加入对比
+                  {compareItems.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full font-bold">
+                      {compareItems.length}
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={handleBuyNow}

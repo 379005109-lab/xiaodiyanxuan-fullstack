@@ -55,6 +55,49 @@ export default function OrdersPageNew() {
     }
   }
 
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm('确定要取消这个订单吗？')) return
+    
+    try {
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/cancel`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!response.ok) throw new Error('取消订单失败')
+      
+      toast.success('订单已取消')
+      loadOrders()
+    } catch (error) {
+      console.error('取消订单失败:', error)
+      toast.error('取消订单失败')
+    }
+  }
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm('确定要删除这个订单吗？删除后无法恢复。')) return
+    
+    try {
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      
+      if (!response.ok) throw new Error('删除订单失败')
+      
+      toast.success('订单已删除')
+      loadOrders()
+    } catch (error) {
+      console.error('删除订单失败:', error)
+      toast.error('删除订单失败')
+    }
+  }
+
   // 后端使用数字状态: 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
   const statusConfig: Record<string | number, { label: string; color: string; icon: React.ReactNode }> = {
     1: { label: '待付款', color: 'text-orange-600 bg-orange-50', icon: <Clock className="w-4 h-4" /> },
@@ -204,6 +247,26 @@ export default function OrdersPageNew() {
                     <p className="text-sm text-stone-800 mt-1">
                       <span className="text-stone-600">地址：</span>{order.recipient?.address || '未填写'}
                     </p>
+                  </div>
+                  
+                  {/* 操作按钮 */}
+                  <div className="mt-4 flex gap-3 justify-end">
+                    {(order.status === 1 || order.status === 'pending') && (
+                      <button
+                        onClick={() => handleCancelOrder(order._id || order.id)}
+                        className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        取消订单
+                      </button>
+                    )}
+                    {(order.status === 5 || order.status === 'cancelled' || order.status === 4 || order.status === 'completed') && (
+                      <button
+                        onClick={() => handleDeleteOrder(order._id || order.id)}
+                        className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"
+                      >
+                        删除订单
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

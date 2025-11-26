@@ -14,31 +14,32 @@ export default function HomePage() {
   const icons = [Armchair, Sofa, Lamp, Box, Palette, Truck, Gem, Ruler, ShoppingBag, Layers, MapPin]
   const particles = icons.map((Icon, i) => {
     const angle = (i / icons.length) * 2 * Math.PI
-    const distance = 400
+    const distance = 450
     const startX = Math.cos(angle) * distance
     const startY = Math.sin(angle) * distance
-    const delay = i * 0.15
+    const delay = i * 0.12
 
-    // 最终围绕Logo的位置（半径160px）
-    const orbitRadius = 160
+    // 最终围绕Logo的位置（半径200px，避免遮挡文字）
+    const orbitRadius = 200
     const orbitX = Math.cos(angle) * orbitRadius
     const orbitY = Math.sin(angle) * orbitRadius
 
     return (
       <div 
         key={i}
-        className="absolute top-1/2 left-1/2 drop-shadow-2xl pointer-events-none" 
+        className="absolute top-1/2 left-1/2 drop-shadow-lg pointer-events-none" 
         style={{ 
           '--start-x': `${startX}px`, 
           '--start-y': `${startY}px`,
           '--orbit-x': `${orbitX}px`,
           '--orbit-y': `${orbitY}px`,
-          '--delay': `${delay}s`,
-          animation: 'implodeOrbit 4s ease-out forwards',
-          animationDelay: `${delay}s`,
+          '--angle': `${angle}rad`,
+          animation: 'implodeOrbit 3s ease-out forwards, continuousOrbit 20s linear infinite',
+          animationDelay: `${delay}s, ${3 + delay}s`,
+          zIndex: 10,
         } as any}
       >
-        <Icon className="w-16 h-16 md:w-20 md:h-20 stroke-[2] text-white opacity-100" />
+        <Icon className="w-14 h-14 md:w-16 md:h-16 stroke-[1.5] text-white/90" />
       </div>
     )
   })
@@ -202,38 +203,29 @@ export default function HomePage() {
       <style>{`
         @keyframes implodeOrbit {
           0% { 
-            transform: translate(var(--start-x), var(--start-y)) scale(0.5); 
+            transform: translate(var(--start-x), var(--start-y)) scale(0.3); 
             opacity: 0;
           }
-          30% { 
-            transform: translate(0, 0) scale(0.8); 
+          40% { 
+            transform: translate(0, 0) scale(0.7); 
             opacity: 1;
           }
-          50% { 
+          70% { 
             transform: translate(var(--orbit-x), var(--orbit-y)) scale(1); 
             opacity: 1;
           }
           100% { 
-            transform: translate(var(--orbit-x), var(--orbit-y)) scale(1) rotate(360deg); 
+            transform: translate(var(--orbit-x), var(--orbit-y)) scale(1); 
             opacity: 1;
           }
         }
         
-        @keyframes orbit {
-          from {
+        @keyframes continuousOrbit {
+          0% {
             transform: translate(var(--orbit-x), var(--orbit-y)) rotate(0deg);
           }
-          to {
+          100% {
             transform: translate(var(--orbit-x), var(--orbit-y)) rotate(360deg);
-          }
-        }
-        
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
           }
         }
         

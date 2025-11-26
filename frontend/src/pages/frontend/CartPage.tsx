@@ -32,7 +32,7 @@ export default function CartPage() {
   }
 
   const handleCheckout = () => {
-    const selected = items.filter(item => selectedItems.includes(item.id))
+    const selected = items.filter(item => selectedItems.includes(`${item.product._id}-${item.sku._id}`))
     if (selected.length === 0) {
       alert('请选择要结算的商品')
       return
@@ -68,40 +68,6 @@ export default function CartPage() {
           )}
         </div>
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-          <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-3">
-              <Package className="w-4 h-4 text-blue-500" />
-              <span className="text-xs font-bold text-stone-500">商品种类</span>
-            </div>
-            <div className="text-2xl font-bold text-blue-600">{totalTypes}</div>
-          </div>
-          
-          <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="w-4 h-4 text-emerald-500" />
-              <span className="text-xs font-bold text-stone-500">商品总数</span>
-            </div>
-            <div className="text-2xl font-bold text-emerald-600">{totalCount}</div>
-          </div>
-
-          <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-3">
-              <Wallet className="w-4 h-4 text-red-500" />
-              <span className="text-xs font-bold text-stone-500">合计金额</span>
-            </div>
-            <div className="text-2xl font-bold text-red-600">{formatPrice(allTotalValue)}</div>
-          </div>
-
-          <div className="bg-white p-5 rounded-xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-3">
-              <Tag className="w-4 h-4 text-purple-500" />
-              <span className="text-xs font-bold text-stone-500">平均价格</span>
-            </div>
-            <div className="text-2xl font-bold text-purple-600">{formatPrice(avgPrice)}</div>
-          </div>
-        </div>
 
         {items.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-stone-100">

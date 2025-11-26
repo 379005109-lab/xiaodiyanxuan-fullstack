@@ -44,7 +44,7 @@ export default function BuyingServicePage() {
 
             <div className="text-center mb-8">
               <div className="text-5xl font-bold text-[#D6AD60] mb-2">¥1,000</div>
-              <p className="text-sm text-gray-600">* 购物满 ¥5,000 即全额抵扣</p>
+              <p className="text-sm text-gray-600">* 购物满 5000 元以上即全额抵扣</p>
             </div>
 
             <ul className="space-y-4 mb-8">
