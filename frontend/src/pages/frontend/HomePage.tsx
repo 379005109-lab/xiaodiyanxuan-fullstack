@@ -10,17 +10,13 @@ export default function HomePage() {
     setMounted(true)
   }, [])
 
-  // 生成向心汇聚并围绕旋转的粒子图标
+  // 生成行星式聚集旋转的粒子图标
   const icons = [Armchair, Sofa, Lamp, Box, Palette, Truck, Gem, Ruler, ShoppingBag, Layers, MapPin]
   const particles = icons.map((Icon, i) => {
     const angle = (i / icons.length) * 2 * Math.PI
-    const distance = 450
-    const startX = Math.cos(angle) * distance
-    const startY = Math.sin(angle) * distance
-    const delay = i * 0.12
-
-    // 最终围绕Logo的位置（半径200px，避免遮挡文字）
-    const orbitRadius = 200
+    
+    // 行星轨道半径（逐渐缩小到Logo周围）
+    const orbitRadius = 180
     const orbitX = Math.cos(angle) * orbitRadius
     const orbitY = Math.sin(angle) * orbitRadius
 
@@ -29,17 +25,16 @@ export default function HomePage() {
         key={i}
         className="absolute top-1/2 left-1/2 drop-shadow-lg pointer-events-none" 
         style={{ 
-          '--start-x': `${startX}px`, 
-          '--start-y': `${startY}px`,
           '--orbit-x': `${orbitX}px`,
           '--orbit-y': `${orbitY}px`,
           '--angle': `${angle}rad`,
-          animation: 'implodeOrbit 3s ease-out forwards, continuousOrbit 20s linear infinite',
-          animationDelay: `${delay}s, ${3 + delay}s`,
+          '--delay': `${i * 0.1}s`,
+          animation: 'planetOrbit 25s linear infinite',
+          animationDelay: `${i * 0.1}s`,
           zIndex: 10,
         } as any}
       >
-        <Icon className="w-14 h-14 md:w-16 md:h-16 stroke-[1.5] text-white/90" />
+        <Icon className="w-12 h-12 md:w-14 md:h-14 stroke-[1.5] text-white/95" />
       </div>
     )
   })
@@ -96,7 +91,7 @@ export default function HomePage() {
                 <Layers className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="text-2xl font-serif font-bold text-primary mb-2">源头「家直供</h3>
+                <h3 className="text-2xl font-serif font-bold text-primary mb-2">源头「工厂直供</h3>
                 <p className="text-xs font-bold text-accent uppercase tracking-wider mb-3">FACTORY DIRECT</p>
                 <p className="text-stone-500">品牌平台仓·价格官方保</p>
               </div>
@@ -201,31 +196,29 @@ export default function HomePage() {
       </div>
 
       <style>{`
-        @keyframes implodeOrbit {
-          0% { 
-            transform: translate(var(--start-x), var(--start-y)) scale(0.3); 
-            opacity: 0;
-          }
-          40% { 
-            transform: translate(0, 0) scale(0.7); 
-            opacity: 1;
-          }
-          70% { 
-            transform: translate(var(--orbit-x), var(--orbit-y)) scale(1); 
-            opacity: 1;
-          }
-          100% { 
-            transform: translate(var(--orbit-x), var(--orbit-y)) scale(1); 
-            opacity: 1;
-          }
-        }
-        
-        @keyframes continuousOrbit {
+        @keyframes planetOrbit {
           0% {
-            transform: translate(var(--orbit-x), var(--orbit-y)) rotate(0deg);
+            transform: translate(calc(var(--orbit-x) * 1.8), calc(var(--orbit-y) * 1.8)) rotate(0deg) scale(0.6);
+            opacity: 0.3;
+          }
+          10% {
+            opacity: 0.8;
+          }
+          25% {
+            transform: translate(calc(var(--orbit-x) * 1.2), calc(var(--orbit-y) * 1.2)) rotate(90deg) scale(0.85);
+            opacity: 1;
+          }
+          50% {
+            transform: translate(var(--orbit-x), var(--orbit-y)) rotate(180deg) scale(1);
+            opacity: 1;
+          }
+          75% {
+            transform: translate(calc(var(--orbit-x) * 0.8), calc(var(--orbit-y) * 0.8)) rotate(270deg) scale(0.9);
+            opacity: 1;
           }
           100% {
-            transform: translate(var(--orbit-x), var(--orbit-y)) rotate(360deg);
+            transform: translate(calc(var(--orbit-x) * 1.8), calc(var(--orbit-y) * 1.8)) rotate(360deg) scale(0.6);
+            opacity: 0.3;
           }
         }
         
