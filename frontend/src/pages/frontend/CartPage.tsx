@@ -51,8 +51,8 @@ export default function CartPage() {
   const selectedTotal = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
   return (
-    <div className="animate-fade-in-up pb-4 min-h-screen">
-      <div className="max-w-5xl mx-auto px-6 py-12">
+    <div className="animate-fade-in-up min-h-screen">
+      <div className="max-w-5xl mx-auto px-6 py-12 pb-4">
         <div className="flex justify-between items-end mb-8">
           <div>
             <h1 className="text-3xl font-serif font-bold text-primary mb-2">购物车</h1>
@@ -130,7 +130,15 @@ export default function CartPage() {
                   </div>
                   <div className="space-y-1 text-sm text-stone-500 mb-4">
                     <p>规格: <span className="text-stone-800">{item.sku?.spec || '标准规格'}</span></p>
-                    {item.selectedMaterials && (() => {
+                    {(() => {
+                      // 调试日志
+                      console.log('购物车商品:', item.product.name)
+                      console.log('SKU:', item.sku)
+                      console.log('选择的材质:', item.selectedMaterials)
+                      console.log('材质升级价格:', (item.sku as any).materialUpgradePrices)
+                      
+                      if (!item.selectedMaterials) return null
+                      
                       const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
                       const materialParts: React.ReactNode[] = []
                       
@@ -214,9 +222,9 @@ export default function CartPage() {
         )}
       </div>
 
-      {/* Floating Bottom Bar */}
+      {/* Bottom Checkout Bar */}
       {items.length > 0 && (
-        <div className="sticky bottom-0 left-0 w-full bg-white/95 backdrop-blur-xl border-t border-stone-200 p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] mt-8">
+        <div className="bg-white border-t border-stone-200 p-6 mt-6">
           <div className="max-w-5xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-4">
               <span className="text-stone-500 text-sm hidden md:inline">已选 {selectedItems.length} 件商品</span>

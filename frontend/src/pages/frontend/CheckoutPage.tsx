@@ -92,6 +92,17 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // 获取用户信息和token
+    const authState = useAuthStore.getState()
+    console.log('🔐 当前用户:', authState.user)
+    console.log('🔑 Token:', authState.token ? '存在' : '不存在')
+    
+    // 验证用户登录
+    if (!authState.user || !authState.token) {
+      toast.error('请先登录后再提交订单')
+      return
+    }
+    
     // 验证必填字段
     if (!formData.name || !formData.phone || !formData.address) {
       toast.error('请填写完整的收货信息')

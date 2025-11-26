@@ -3,6 +3,7 @@ import { Check, MapPin, Car, Users, Shield, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
+import axios from '@/lib/apiClient'
 
 export default function BuyingServicePage() {
   const { isAuthenticated } = useAuthStore()
@@ -29,17 +30,44 @@ export default function BuyingServicePage() {
     setShowBookingModal(true)
   }
 
-  const handleSubmitBooking = () => {
+  const handleSubmitBooking = async () => {
     if (!bookingDate) {
       toast.error('请选择预约时间')
       return
     }
-    // TODO: 提交预约到后端
-    toast.success('预约成功！我们将尽快与您联系')
-    setShowBookingModal(false)
-    setBookingDate('')
-    setBookingNotes('')
-    setSelectedService(null)
+    
+    try {
+      const { user } = useAuthStore.getState()
+      
+      const bookingData = {
+        serviceType: selectedService,
+        scheduledDate: bookingDate,
+        notes: bookingNotes,
+        user: user?._id || user,
+        userName: user?.name || user?.username || '未知用户',
+        userPhone: user?.phone || '',
+        status: 'pending',
+      }
+      
+      console.log('📤 提交陪买预约:', bookingData)
+      
+      const response = await axios.post('/buying-service-requests', bookingData)
+      
+      console.log('✅ 预约提交成功:', response)
+      toast.success('预约成功！我们将尽快与您联系')
+      
+      setShowBookingModal(false)
+      setBookingDate('')
+      setBookingNotes('')
+      setSelectedService(null)
+    } catch (error: any) {
+      console.error('❌ 预约提交失败:', error)
+      if (error.response?.data?.message) {
+        toast.error('预约失败：' + error.response.data.message)
+      } else {
+        toast.error('预约失败，请稍后重试')
+      }
+    }
   }
 
   return (

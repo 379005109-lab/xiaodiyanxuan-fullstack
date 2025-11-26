@@ -73,6 +73,7 @@ app.use('/api/concierge', require('./routes/concierge'))
 app.use('/api/files', require('./routes/files'))
 app.use('/api/bargains', require('./routes/bargains'))
 app.use('/api/packages', require('./routes/packages'))
+app.use('/api/buying-service-requests', require('./routes/buyingService'))
 
 // 404 处理
 app.use((req, res) => {

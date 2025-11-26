@@ -73,6 +73,8 @@ export const addToCompare = (productId: string, skuId?: string, selectedMaterial
     selectedMaterials 
   }
   compareItems.push(item)
+  // 保存到localStorage
+  localStorage.setItem('compare_items', JSON.stringify(compareItems))
   return { success: true, message: '已添加到对比' }
 }
 
@@ -101,6 +103,8 @@ export const isInCompare = (productId: string, skuId?: string, selectedMaterials
 
 export const clearCompare = () => {
   compareItems.length = 0
+  // 保存到localStorage
+  localStorage.setItem('compare_items', JSON.stringify(compareItems))
 }
 
 export const getCompareCount = () => compareItems.length
