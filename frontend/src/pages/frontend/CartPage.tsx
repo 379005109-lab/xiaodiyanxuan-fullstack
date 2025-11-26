@@ -132,63 +132,63 @@ export default function CartPage() {
                     <p>规格: <span className="text-stone-800">{item.sku?.spec || '标准规格'}</span></p>
                     {item.selectedMaterials && (() => {
                       const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
-                      const selectedMaterialList: string[] = []
-                      let upgradePrice = 0
+                      const materialParts: React.ReactNode[] = []
                       
+                      // 面料
                       if (item.selectedMaterials.fabric) {
-                        selectedMaterialList.push(item.selectedMaterials.fabric)
-                        upgradePrice += materialUpgradePrices[item.selectedMaterials.fabric] || 0
+                        const fabricPrice = materialUpgradePrices[item.selectedMaterials.fabric] || 0
+                        materialParts.push(
+                          <span key="fabric">
+                            {item.selectedMaterials.fabric}
+                            {fabricPrice > 0 && <span className="text-red-600 font-semibold ml-1">+¥{fabricPrice}</span>}
+                          </span>
+                        )
                       }
+                      
+                      // 填充
                       if (item.selectedMaterials.filling) {
-                        selectedMaterialList.push(item.selectedMaterials.filling)
-                        upgradePrice += materialUpgradePrices[item.selectedMaterials.filling] || 0
+                        const fillingPrice = materialUpgradePrices[item.selectedMaterials.filling] || 0
+                        if (materialParts.length > 0) materialParts.push(<span key="sep1">, </span>)
+                        materialParts.push(
+                          <span key="filling">
+                            {item.selectedMaterials.filling}
+                            {fillingPrice > 0 && <span className="text-red-600 font-semibold ml-1">+¥{fillingPrice}</span>}
+                          </span>
+                        )
                       }
+                      
+                      // 框架
                       if (item.selectedMaterials.frame) {
-                        selectedMaterialList.push(item.selectedMaterials.frame)
-                        upgradePrice += materialUpgradePrices[item.selectedMaterials.frame] || 0
+                        const framePrice = materialUpgradePrices[item.selectedMaterials.frame] || 0
+                        if (materialParts.length > 0) materialParts.push(<span key="sep2">, </span>)
+                        materialParts.push(
+                          <span key="frame">
+                            {item.selectedMaterials.frame}
+                            {framePrice > 0 && <span className="text-red-600 font-semibold ml-1">+¥{framePrice}</span>}
+                          </span>
+                        )
                       }
+                      
+                      // 脚架
                       if (item.selectedMaterials.leg) {
-                        selectedMaterialList.push(item.selectedMaterials.leg)
-                        upgradePrice += materialUpgradePrices[item.selectedMaterials.leg] || 0
+                        const legPrice = materialUpgradePrices[item.selectedMaterials.leg] || 0
+                        if (materialParts.length > 0) materialParts.push(<span key="sep3">, </span>)
+                        materialParts.push(
+                          <span key="leg">
+                            {item.selectedMaterials.leg}
+                            {legPrice > 0 && <span className="text-red-600 font-semibold ml-1">+¥{legPrice}</span>}
+                          </span>
+                        )
                       }
                       
                       return (
-                        <>
-                          <p>材质: <span className="text-stone-800">
-                            {selectedMaterialList.join(', ') || '默认材质'}
-                          </span></p>
-                          {upgradePrice > 0 && (
-                            <p className="text-red-600 font-medium">
-                              材质加价: +{formatPrice(upgradePrice)}
-                            </p>
-                          )}
-                        </>
+                        <p>材质: <span className="text-stone-800">{materialParts.length > 0 ? materialParts : '默认材质'}</span></p>
                       )
                     })()}
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-serif font-bold text-xl text-accent">{formatPrice(item.price)}</div>
-                      {(() => {
-                        const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
-                        let upgradePrice = 0
-                        if (item.selectedMaterials) {
-                          if (item.selectedMaterials.fabric) upgradePrice += materialUpgradePrices[item.selectedMaterials.fabric] || 0
-                          if (item.selectedMaterials.filling) upgradePrice += materialUpgradePrices[item.selectedMaterials.filling] || 0
-                          if (item.selectedMaterials.frame) upgradePrice += materialUpgradePrices[item.selectedMaterials.frame] || 0
-                          if (item.selectedMaterials.leg) upgradePrice += materialUpgradePrices[item.selectedMaterials.leg] || 0
-                        }
-                        if (upgradePrice > 0) {
-                          return (
-                            <div className="text-xs text-stone-500 mt-1">
-                              (基础价 + 材质加价)
-                            </div>
-                          )
-                        }
-                        return null
-                      })()}
-                    </div>
+                    <div className="font-serif font-bold text-xl text-accent">{formatPrice(item.price)}</div>
                     
                     <div className="flex items-center bg-stone-50 border border-stone-200 rounded-lg">
                       <button 
