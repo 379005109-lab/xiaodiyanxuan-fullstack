@@ -1350,8 +1350,8 @@ const ProductDetailPage = () => {
         </div>
       )}
       {materialInfoModal.open && materialInfoModal.section && materialInfoModal.material && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 relative">
             <button
               type="button"
               className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
@@ -1359,25 +1359,29 @@ const ProductDetailPage = () => {
             >
               <X className="h-5 w-5" />
             </button>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+            <h3 className="text-3xl font-bold text-gray-900 mb-4">
               {materialInfoModal.material}
             </h3>
-            <div className="rounded-xl overflow-hidden border border-gray-100 mb-3">
+            <div className="rounded-2xl overflow-hidden border-2 border-gray-200 mb-6 shadow-lg">
               <img
                 src={getFileUrl(getMaterialPreviewImage(materialInfoModal.material))}
                 alt={materialInfoModal.material}
-                className="w-full h-48 object-cover"
+                className="w-full h-96 object-cover"
               />
             </div>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              {selectedSku?.materialDescriptions?.[materialInfoModal.material] || '该材质暂未提供详细说明，可在后台补充图文信息以提升展示效果。'}
-            </p>
+            <div className="bg-gray-50 rounded-2xl p-6 mb-4">
+              <h4 className="text-xl font-semibold text-gray-900 mb-3">材质说明</h4>
+              <p className="text-base text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {selectedSku?.materialDescriptions?.[materialInfoModal.material] || '该材质暂未提供详细说明。'}
+              </p>
+            </div>
             <button
               type="button"
-              className="mt-6 w-full py-2 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700"
+              className="w-full py-4 rounded-xl text-white font-semibold text-lg shadow-lg hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: PRIMARY_COLOR }}
               onClick={closeMaterialIntro}
             >
-              知道了
+              关闭
             </button>
           </div>
         </div>

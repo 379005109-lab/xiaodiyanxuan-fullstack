@@ -16,8 +16,19 @@ const compareItems: CompareItem[] = []
 export const getAllCompareItems = () => compareItems
 
 export const addToCompare = (productId: string, skuId?: string, selectedMaterials?: any) => {
+  // 检查是否已存在
+  const existingIndex = compareItems.findIndex(item => item.productId === productId)
+  if (existingIndex > -1) {
+    return { success: false, message: '该商品已在对比列表中' }
+  }
+  
+  // 限制最多4个商品
+  if (compareItems.length >= 4) {
+    return { success: false, message: '最多只能对比4件商品' }
+  }
+  
   const item = { 
-    _id: `compare_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, 
+    _id: productId, // 直接使用productId作为_id
     productId, 
     skuId, 
     selectedMaterials 
