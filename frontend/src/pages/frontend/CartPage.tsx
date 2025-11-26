@@ -132,12 +132,18 @@ export default function CartPage() {
                     <p>规格: <span className="text-stone-800">{item.sku?.spec || '标准规格'}</span></p>
                     {(() => {
                       // 调试日志 - 显示材质和加价信息
-                      console.log('📦 购物车商品:', item.product.name)
-                      console.log('📐 SKU:', item.sku)
-                      console.log('🎨 选择的材质:', item.selectedMaterials)
-                      console.log('💰 材质升级价格:', (item.sku as any).materialUpgradePrices)
+                      console.log('====== 购物车商品调试 ======')
+                      console.log('📦 商品名称:', item.product.name)
+                      console.log('📐 SKU完整数据:', JSON.stringify(item.sku, null, 2))
+                      console.log('🎨 选择的材质:', JSON.stringify(item.selectedMaterials, null, 2))
+                      console.log('💰 材质升级价格配置:', JSON.stringify((item.sku as any).materialUpgradePrices, null, 2))
+                      console.log('💵 商品价格:', item.price)
+                      console.log('============================')
                       
-                      if (!item.selectedMaterials) return null
+                      if (!item.selectedMaterials) {
+                        console.log('⚠️ 未选择材质，不显示材质信息')
+                        return null
+                      }
                       
                       const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
                       const materialParts: React.ReactNode[] = []
@@ -221,10 +227,10 @@ export default function CartPage() {
           </div>
         )}
       </div>
-
+      
       {/* Bottom Checkout Bar */}
       {items.length > 0 && (
-        <div className="bg-white border-t border-stone-200 p-6 mt-6">
+        <div className="bg-white border-t border-stone-200 p-6">
           <div className="max-w-5xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-4">
               <span className="text-stone-500 text-sm hidden md:inline">已选 {selectedItems.length} 件商品</span>

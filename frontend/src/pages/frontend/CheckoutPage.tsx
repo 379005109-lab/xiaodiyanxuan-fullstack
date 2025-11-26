@@ -124,7 +124,7 @@ export default function CheckoutPage() {
           product: item.product._id,
           productId: item.product._id, // 同时传递productId，确保后端能识别
           productName: item.product.name,
-          productImage: item.sku.images?.[0] || item.product.images[0],
+          image: item.sku.images?.[0] || item.product.images[0],
           skuId: item.sku._id, // 传递skuId
           sku: {
             _id: item.sku._id, // 同时传递sku._id
@@ -165,7 +165,7 @@ export default function CheckoutPage() {
       items: orderData.items.map((item: any) => ({
         product: item.product || item.productId,
         productName: item.productName || '',
-        productImage: item.productImage || '',
+        image: item.image || '',
         sku: item.sku || { color: '', material: '' },
         quantity: item.quantity,
         price: item.price
@@ -213,7 +213,7 @@ export default function CheckoutPage() {
           product: typeof item.product === 'object' ? (item.product as any)?._id : item.product,
           productId: item.product || item.productId,
           productName: item.productName || '',
-          productImage: item.productImage || '',
+          image: item.image || '',
           sku: {
             _id: typeof item.sku === 'object' && item.sku?._id ? item.sku._id : '',
             color: typeof item.sku === 'object' ? item.sku?.color || '' : '',
