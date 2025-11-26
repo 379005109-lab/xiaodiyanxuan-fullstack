@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Package, User, Calendar, Phone, Mail, MessageSquare, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { toast } from 'sonner'
+import axios from '@/lib/apiClient'
 
 interface BuyingServiceRequest {
   _id: string
@@ -29,17 +30,22 @@ export default function BuyingServiceRequestsPage() {
   const loadRequests = async () => {
     try {
       setLoading(true)
-      // TODO: 实际调用API获取陪买服务请求
-      // const response = await fetch('/api/admin/buying-service-requests')
-      // const data = await response.json()
-      // setRequests(data.data || [])
+      const params: any = {}
+      if (filterStatus) {
+        params.status = filterStatus
+      }
       
-      // 模拟数据
-      setRequests([])
-      toast.success('陪买服务请求列表已加载')
-    } catch (error) {
-      console.error('加载陪买服务请求失败:', error)
-      toast.error('加载失败')
+      const response = await axios.get('/buying-service-requests', { params })
+      console.log('✅ 陪买服务请求列表:', response.data)
+      
+      setRequests(response.data || [])
+    } catch (error: any) {
+      console.error('❌ 加载陪买服务请求失败:', error)
+      if (error.response?.data?.message) {
+        toast.error('加载失败：' + error.response.data.message)
+      } else {
+        toast.error('加载失败')
+      }
     } finally {
       setLoading(false)
     }
@@ -47,12 +53,8 @@ export default function BuyingServiceRequestsPage() {
 
   const handleStatusUpdate = async (requestId: string, newStatus: string) => {
     try {
-      // TODO: 实际调用API更新状态
-      // await fetch(`/api/admin/buying-service-requests/${requestId}`, {
-      //   method: 'PUT',
-      //   body: JSON.stringify({ status: newStatus })
-      // })
-      toast.success('状态已更新')
+      await axios.put(`/buying-service-requests/${requestId}/status`, { status: newStatus })
+      toast.success('状态更新成功')
       loadRequests()
     } catch (error) {
       console.error('更新状态失败:', error)
