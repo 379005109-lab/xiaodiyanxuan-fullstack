@@ -277,7 +277,33 @@ export default function OrdersPageNew() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-base font-medium text-stone-800 truncate hover:text-primary">{item.name || item.productName}</h4>
-                            <p className="text-sm text-stone-500 mt-1">× {item.quantity || 1}</p>
+                            <div className="text-sm text-stone-500 mt-1 space-y-0.5">
+                              {item.specifications?.size && (
+                                <p>规格: <span className="text-stone-700">{item.specifications.size}</span></p>
+                              )}
+                              {/* 显示材质信息 */}
+                              {(() => {
+                                const specs = item.specifications || {}
+                                const materialParts: string[] = []
+                                if (specs.material) materialParts.push(specs.material)
+                                if (specs.color) materialParts.push(specs.color)
+                                if (specs.fill) materialParts.push(specs.fill)
+                                if (specs.frame) materialParts.push(specs.frame)
+                                if (specs.leg) materialParts.push(specs.leg)
+                                
+                                if (materialParts.length > 0) {
+                                  return <p>材质: <span className="text-stone-700">{materialParts.join(', ')}</span></p>
+                                }
+                                return null
+                              })()}
+                              {/* 显示材质升级价格 */}
+                              {item.materialUpgrade && item.materialUpgrade > 0 && (
+                                <p className="text-red-600 font-semibold">
+                                  材质升级: +¥{item.materialUpgrade}
+                                </p>
+                              )}
+                              <p>× {item.quantity || 1}</p>
+                            </div>
                           </div>
                         </div>
                       ))

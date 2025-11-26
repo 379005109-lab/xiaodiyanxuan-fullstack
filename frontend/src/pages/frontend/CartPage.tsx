@@ -210,7 +210,34 @@ export default function CartPage() {
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <div className="font-serif font-bold text-xl text-accent">{formatPrice(item.price)}</div>
+                    <div>
+                      <div className="font-serif font-bold text-xl text-accent">{formatPrice(item.price)}</div>
+                      {(() => {
+                        // 计算材质升级总价
+                        const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                        let totalUpgradePrice = 0
+                        if (item.selectedMaterials) {
+                          const selectedMaterialList: string[] = []
+                          if (item.selectedMaterials.fabric) selectedMaterialList.push(item.selectedMaterials.fabric)
+                          if (item.selectedMaterials.filling) selectedMaterialList.push(item.selectedMaterials.filling)
+                          if (item.selectedMaterials.frame) selectedMaterialList.push(item.selectedMaterials.frame)
+                          if (item.selectedMaterials.leg) selectedMaterialList.push(item.selectedMaterials.leg)
+                          
+                          totalUpgradePrice = selectedMaterialList.reduce((sum, matName) => {
+                            return sum + (materialUpgradePrices[matName] || 0)
+                          }, 0)
+                        }
+                        
+                        if (totalUpgradePrice > 0) {
+                          return (
+                            <div className="text-xs text-gray-500 mt-1">
+                              (含材质升级 +{formatPrice(totalUpgradePrice)})
+                            </div>
+                          )
+                        }
+                        return null
+                      })()}
+                    </div>
                     
                     <div className="flex items-center bg-stone-50 border border-stone-200 rounded-lg">
                       <button 

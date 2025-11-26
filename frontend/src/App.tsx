@@ -66,6 +66,7 @@ const NotificationManagementPage = lazy(() => import('./pages/admin/Notification
 const DesignManagement = lazy(() => import('./pages/admin/DesignManagement'))
 const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationManagement'))
 const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingServiceRequestsPage'))
+const OrderCancelRequestsPage = lazy(() => import('./pages/admin/OrderCancelRequestsPage'))
 
 // 前台布局 - 懒加载
 const FrontendLayout = lazy(() => import('./layouts/FrontendLayout'))
@@ -282,6 +283,7 @@ function App() {
             <Route path="designs" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><DesignManagement /></ProtectedRoute>} />
             <Route path="customization" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
+            <Route path="order-cancel-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderCancelRequestsPage /></ProtectedRoute>} />
           </Route>
 
           {/* 404 */}
