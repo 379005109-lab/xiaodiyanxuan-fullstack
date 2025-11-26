@@ -9,11 +9,15 @@ export default function CartPage() {
   const navigate = useNavigate()
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore()
   const [selectedItems, setSelectedItems] = useState<string[]>([])
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // 确保数据加载完成后才显示内容
+  // 等待购物车数据加载完成
   useEffect(() => {
-    setIsLoaded(true)
+    // 给persist一点时间加载数据
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 100)
+    return () => clearTimeout(timer)
   }, [])
 
   // 调试：打印购物车详细数据
@@ -30,7 +34,7 @@ export default function CartPage() {
       _debugSku: item.sku
     })
   })
-  console.log('📊 结算按钮应该显示:', items.length > 0 && isLoaded)
+  console.log('📊 结算按钮应该显示:', items.length > 0 && !isLoading)
 
   const toggleSelect = (id: string) => {
     setSelectedItems(prev => 
@@ -268,7 +272,7 @@ export default function CartPage() {
       </div>
       
       {/* Bottom Checkout Bar */}
-      {isLoaded && items.length > 0 && (
+      {!isLoading && items.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-6 shadow-lg z-50">
           <div className="max-w-5xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-4">

@@ -45,46 +45,49 @@ const add = async (req, res) => {
   try {
     // 额外的安全检查：确保userId存在
     if (!req.userId) {
-      console.error('❌ [Favorite] userId不存在')
       return res.status(401).json(errorResponse('User not authenticated', 401))
     }
     
-    const { productId } = req.body
+    const { productId, productName, thumbnail, price } = req.body
     
     if (!productId) {
-      console.error('❌ [Favorite] productId不存在')
       return res.status(400).json(errorResponse('Product ID is required', 400))
-    }
-    
-    console.log('📝 [Favorite] 查找商品:', productId)
-    const product = await Product.findById(productId).lean()
-    if (!product) {
-      console.error('❌ [Favorite] 商品不存在:', productId)
-      return res.status(404).json(errorResponse('Product not found', 404))
     }
     
     // Check if already favorited
     const existing = await Favorite.findOne({ userId: req.userId, productId })
     if (existing) {
-      console.log('⚠️  [Favorite] 商品已在收藏列表')
       return res.status(400).json(errorResponse('Product already in favorites', 400))
     }
     
-    console.log('📝 [Favorite] 创建收藏记录')
-    const favorite = await Favorite.create({
+    // 尝试从数据库获取商品信息，如果不存在则使用传入的数据
+    let favoriteData = {
       userId: req.userId,
-      productId,
-      productName: product.name || '未知商品',
-      thumbnail: product.thumbnail || product.images?.[0] || '',
-      price: product.basePrice || 0
-    })
+      productId
+    }
     
-    console.log('✅ [Favorite] 收藏成功:', favorite._id)
+    const product = await Product.findById(productId).catch(() => null)
+    if (product) {
+      favoriteData.productName = product.name
+      favoriteData.thumbnail = product.thumbnail
+      favoriteData.price = product.basePrice
+    } else if (productName) {
+      // 如果商品不存在但提供了商品信息，使用传入的数据
+      favoriteData.productName = productName
+      favoriteData.thumbnail = thumbnail
+      favoriteData.price = price
+    } else {
+      // 商品不存在且没有提供信息
+      return res.status(404).json(errorResponse('Product not found', 404))
+    }
+    
+    const favorite = await Favorite.create(favoriteData)
+    
     res.status(201).json(successResponse(favorite))
   } catch (err) {
-    console.error('❌ [Favorite] 添加收藏错误:', err)
-    console.error('❌ [Favorite] 错误详情:', err.stack)
-    res.status(500).json(errorResponse(err.message || '添加收藏失败', 500))
+    console.error('Add favorite error:', err)
+    console.error('Add favorite error stack:', err.stack)
+    res.status(500).json(errorResponse(err.message, 500))
   }
 }
 

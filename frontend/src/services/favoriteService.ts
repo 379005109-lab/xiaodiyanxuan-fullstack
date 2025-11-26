@@ -25,11 +25,15 @@ export const getFavorites = async (page = 1, limit = 10) => {
 }
 
 // 添加收藏
-export const addFavorite = async (productId: string) => {
+export const addFavorite = async (productId: string, productInfo?: { productName?: string; thumbnail?: string; price?: number }) => {
   try {
-    const response = await apiClient.post('/favorites', { productId })
-    return response.data.data
+    const response = await apiClient.post('/favorites', { 
+      productId,
+      ...productInfo
+    })
+    return response.data
   } catch (error: any) {
+    console.error('添加收藏失败:', error)
     throw new Error(error.response?.data?.message || '添加收藏失败')
   }
 }

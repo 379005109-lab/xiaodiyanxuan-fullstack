@@ -75,6 +75,9 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, showF
         name: item.productName,
         quantity: item.quantity,
         materials: item.materials,
+        specifications: item.specifications,
+        selectedMaterials: item.selectedMaterials,
+        materialUpgradePrices: item.materialUpgradePrices,
         image: item.image || item.productImage
       }))
     }
@@ -183,6 +186,42 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, showF
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-gray-800 font-medium">{product.name}</div>
+                  {/* 规格信息 */}
+                  {product.specifications?.size && (
+                    <div className="text-xs text-gray-500 mt-1">规格: {product.specifications.size}</div>
+                  )}
+                  {product.specifications?.material && (
+                    <div className="text-xs text-gray-500">
+                      面料: {product.specifications.material}
+                      {product.materialUpgradePrices?.[product.specifications.material] > 0 && (
+                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices[product.specifications.material]}</span>
+                      )}
+                    </div>
+                  )}
+                  {product.specifications?.fill && (
+                    <div className="text-xs text-gray-500">
+                      填充: {product.specifications.fill}
+                      {product.materialUpgradePrices?.[product.specifications.fill] > 0 && (
+                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices[product.specifications.fill]}</span>
+                      )}
+                    </div>
+                  )}
+                  {product.specifications?.frame && (
+                    <div className="text-xs text-gray-500">
+                      框架: {product.specifications.frame}
+                      {product.materialUpgradePrices?.[product.specifications.frame] > 0 && (
+                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices[product.specifications.frame]}</span>
+                      )}
+                    </div>
+                  )}
+                  {product.specifications?.leg && (
+                    <div className="text-xs text-gray-500">
+                      脚架: {product.specifications.leg}
+                      {product.materialUpgradePrices?.[product.specifications.leg] > 0 && (
+                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices[product.specifications.leg]}</span>
+                      )}
+                    </div>
+                  )}
                   {product.materials?.fabric && (
                     <div className="text-xs text-gray-500 mt-1">{product.materials.fabric}</div>
                   )}
