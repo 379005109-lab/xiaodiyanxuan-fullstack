@@ -310,9 +310,9 @@ export default function CheckoutPage() {
     // 清空购物车并跳转
     clearCart()
     
-    // 跳转到订单管理页面
+    // 跳转到我的订单页面
     setTimeout(() => {
-      navigate('/admin/orders')
+      navigate('/orders')
     }, 500)
     
     setSubmitting(false)
