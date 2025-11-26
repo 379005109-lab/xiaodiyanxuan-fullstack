@@ -30,43 +30,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // 优化分包策略，减少单个chunk大小
-          if (id.includes('node_modules')) {
-            // React核心库单独打包
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor'
-            }
-            // 路由库单独打包
-            if (id.includes('react-router')) {
-              return 'router-vendor'
-            }
-            // UI组件库单独打包
-            if (id.includes('framer-motion') || id.includes('lucide-react') || id.includes('@headlessui')) {
-              return 'ui-vendor'
-            }
-            // 图表库单独打包（按需加载）
-            if (id.includes('recharts')) {
-              return 'charts-vendor'
-            }
-            // 工具库单独打包
-            if (id.includes('axios') || id.includes('date-fns') || id.includes('xlsx')) {
-              return 'utils-vendor'
-            }
-            // 其他库
-            return 'vendor'
-          }
-        },
+        manualChunks: undefined, // 暂时禁用手动分包，使用Vite默认策略
       },
     },
-    chunkSizeWarningLimit: 1000,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-    },
+    chunkSizeWarningLimit: 1500,
+    minify: 'esbuild', // 改回esbuild，更稳定
   },
   define: {
     'process.env.NODE_ENV': '"production"',
