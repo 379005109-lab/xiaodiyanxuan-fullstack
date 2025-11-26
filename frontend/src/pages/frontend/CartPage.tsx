@@ -107,9 +107,12 @@ export default function CartPage() {
                     onChange={() => toggleSelect(itemKey)}
                     className="w-5 h-5 rounded border-stone-300 text-primary focus:ring-primary cursor-pointer accent-primary"
                   />
-                  <div className="w-24 h-24 md:w-32 md:h-32 bg-stone-50 rounded-xl overflow-hidden border border-stone-200">
+                  <div 
+                    onClick={() => window.location.href = `/products/${item.product._id}`}
+                    className="w-24 h-24 md:w-32 md:h-32 bg-stone-50 rounded-xl overflow-hidden border border-stone-200 cursor-pointer hover:border-primary transition-colors"
+                  >
                     <img 
-                      src={item.product?.images?.[0] ? getFileUrl(item.product.images[0]) : '/placeholder.svg'} 
+                      src={(item.sku?.images?.[0] || item.product?.images?.[0]) ? getFileUrl(item.sku?.images?.[0] || item.product.images[0]) : '/placeholder.svg'} 
                       alt={item.product?.name || '商品'} 
                       className="w-full h-full object-cover"
                       onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
@@ -120,7 +123,12 @@ export default function CartPage() {
                 {/* Info */}
                 <div className="flex-1 w-full md:w-auto text-left">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg text-primary">{item.product?.name || '商品名称'}</h3>
+                    <h3 
+                      onClick={() => window.location.href = `/products/${item.product._id}`}
+                      className="font-bold text-lg text-primary cursor-pointer hover:text-accent transition-colors"
+                    >
+                      {item.product?.name || '商品名称'}
+                    </h3>
                     <button 
                       onClick={() => removeItem(item.product._id, item.sku._id, item.selectedMaterials)} 
                       className="text-stone-400 hover:text-red-500 transition-colors p-1"

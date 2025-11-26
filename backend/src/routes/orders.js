@@ -26,8 +26,39 @@ router.get('/:id', getOrder)
 
 // POST /api/orders/:id/cancel - 取消订单
 router.post('/:id/cancel', cancel)
+router.put('/:id/cancel', cancel)  // 支持PUT方法
 
 // POST /api/orders/:id/confirm - 确认收货
 router.post('/:id/confirm', confirm)
+
+// DELETE /api/orders/:id - 删除订单
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    
+    // 查找订单
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    // 验证订单所有者
+    if (order.user.toString() !== req.userId.toString()) {
+      return res.status(403).json({ success: false, message: '无权删除此订单' })
+    }
+    
+    // 只能删除已取消或已完成的订单
+    if (order.status !== 5 && order.status !== 4 && order.status !== 'cancelled' && order.status !== 'completed') {
+      return res.status(400).json({ success: false, message: '只能删除已取消或已完成的订单' })
+    }
+    
+    await Order.findByIdAndDelete(id)
+    res.json({ success: true, message: '订单已删除' })
+  } catch (error) {
+    console.error('删除订单失败:', error)
+    res.status(500).json({ success: false, message: '删除订单失败' })
+  }
+})
 
 module.exports = router

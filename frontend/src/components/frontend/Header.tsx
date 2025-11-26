@@ -70,7 +70,7 @@ export default function Header() {
           <Link to="/packages" className={getLinkClass('/packages')}>
             套餐专区
           </Link>
-          <Link to="/design-service" className={getLinkClass('/design-service')}>
+          <Link to="/buying-service" className={getLinkClass('/buying-service')}>
             陪买服务
           </Link>
         </nav>

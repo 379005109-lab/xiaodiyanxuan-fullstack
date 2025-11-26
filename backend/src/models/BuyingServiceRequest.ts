@@ -15,8 +15,7 @@ export interface IBuyingServiceRequest extends Document {
 const buyingServiceRequestSchema = new Schema<IBuyingServiceRequest>(
   {
     user: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
+      type: Schema.Types.Mixed,  // 兼容ObjectId和string
       required: true,
     },
     userName: {

@@ -24,6 +24,7 @@ export default function OrderManagementNew() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)  // 增加默认页面大小
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
@@ -39,7 +40,7 @@ export default function OrderManagementNew() {
   // 加载订单
   useEffect(() => {
     loadOrders()
-  }, [filterStatus, page])
+  }, [filterStatus, page, pageSize])
 
   const loadOrders = async () => {
     try {
@@ -52,7 +53,7 @@ export default function OrderManagementNew() {
         return
       }
       
-      let url = `https://pkochbpmcgaa.sealoshzh.site/api/orders?page=${page}&pageSize=20`
+      let url = `https://pkochbpmcgaa.sealoshzh.site/api/orders?page=${page}&pageSize=${pageSize}`
       if (filterStatus) {
         url += `&status=${filterStatus}`
       }
