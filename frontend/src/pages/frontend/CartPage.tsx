@@ -131,11 +131,11 @@ export default function CartPage() {
                   <div className="space-y-1 text-sm text-stone-500 mb-4">
                     <p>规格: <span className="text-stone-800">{item.sku?.spec || '标准规格'}</span></p>
                     {(() => {
-                      // 调试日志
-                      console.log('购物车商品:', item.product.name)
-                      console.log('SKU:', item.sku)
-                      console.log('选择的材质:', item.selectedMaterials)
-                      console.log('材质升级价格:', (item.sku as any).materialUpgradePrices)
+                      // 调试日志 - 显示材质和加价信息
+                      console.log('📦 购物车商品:', item.product.name)
+                      console.log('📐 SKU:', item.sku)
+                      console.log('🎨 选择的材质:', item.selectedMaterials)
+                      console.log('💰 材质升级价格:', (item.sku as any).materialUpgradePrices)
                       
                       if (!item.selectedMaterials) return null
                       
