@@ -52,7 +52,17 @@ export const addToCompare = (productId: string, skuId?: string, selectedMaterial
 }
 
 export const removeFromCompare = (productId: string, skuId?: string, selectedMaterials?: any) => {
-  const index = compareItems.findIndex(item => item.productId === productId)
+  // 生成材质组合键
+  const fabric = selectedMaterials?.fabric || ''
+  const filling = selectedMaterials?.filling || ''
+  const frame = selectedMaterials?.frame || ''
+  const leg = selectedMaterials?.leg || ''
+  const materialKey = `${fabric}|${filling}|${frame}|${leg}`
+  
+  // 使用组合键匹配对比项
+  const compositeId = `${productId}_${skuId || ''}_${materialKey}`
+  
+  const index = compareItems.findIndex(item => item._id === compositeId)
   if (index > -1) {
     compareItems.splice(index, 1)
   }

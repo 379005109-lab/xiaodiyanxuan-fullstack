@@ -10,34 +10,38 @@ export default function HomePage() {
     setMounted(true)
   }, [])
 
-  // 生成行星式聚集旋转的粒子图标
+  // 生成宇宙聚拢效果的大量家具图标
   const icons = [Armchair, Sofa, Lamp, Box, Palette, Truck, Gem, Ruler, ShoppingBag, Layers, MapPin]
-  const particles = icons.map((Icon, i) => {
-    const angle = (i / icons.length) * 2 * Math.PI
+  
+  // 生成3层轨道，每层有更多图标
+  const particles = []
+  for (let layer = 0; layer < 3; layer++) {
+    const iconsInLayer = icons.length
+    const layerRadius = 200 + layer * 120 // 3层轨道：200px, 320px, 440px
+    const duration = 15 + layer * 5 // 不同速度：15s, 20s, 25s
     
-    // 行星轨道半径（逐渐缩小到Logo周围）
-    const orbitRadius = 180
-    const orbitX = Math.cos(angle) * orbitRadius
-    const orbitY = Math.sin(angle) * orbitRadius
-
-    return (
-      <div 
-        key={i}
-        className="absolute top-1/2 left-1/2 drop-shadow-lg pointer-events-none" 
-        style={{ 
-          '--orbit-x': `${orbitX}px`,
-          '--orbit-y': `${orbitY}px`,
-          '--angle': `${angle}rad`,
-          '--delay': `${i * 0.1}s`,
-          animation: 'planetOrbit 25s linear infinite',
-          animationDelay: `${i * 0.1}s`,
-          zIndex: 10,
-        } as any}
-      >
-        <Icon className="w-12 h-12 md:w-14 md:h-14 stroke-[1.5] text-white/95" />
-      </div>
-    )
-  })
+    for (let i = 0; i < iconsInLayer; i++) {
+      const Icon = icons[i]
+      const angle = (i / iconsInLayer) * 2 * Math.PI + (layer * Math.PI / 6) // 每层错开角度
+      const delay = (layer * iconsInLayer + i) * 0.2
+      
+      particles.push(
+        <div 
+          key={`${layer}-${i}`}
+          className="absolute top-1/2 left-1/2 drop-shadow-lg pointer-events-none" 
+          style={{ 
+            '--layer-radius': `${layerRadius}px`,
+            '--angle': `${angle}rad`,
+            animation: `universeConverge ${duration}s ease-in-out infinite`,
+            animationDelay: `${delay}s`,
+            zIndex: 10 - layer,
+          } as any}
+        >
+          <Icon className="w-10 h-10 md:w-12 md:h-12 stroke-[1.5] text-white/90" />
+        </div>
+      )
+    }
+  }
 
   return (
     <div className={`animate-fade-in-up font-sans ${mounted ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}>
@@ -196,29 +200,44 @@ export default function HomePage() {
       </div>
 
       <style>{`
-        @keyframes planetOrbit {
+        @keyframes universeConverge {
           0% {
-            transform: translate(calc(var(--orbit-x) * 1.8), calc(var(--orbit-y) * 1.8)) rotate(0deg) scale(0.6);
-            opacity: 0.3;
+            transform: translate(
+              calc(cos(var(--angle)) * var(--layer-radius) * 2.5),
+              calc(sin(var(--angle)) * var(--layer-radius) * 2.5)
+            ) rotate(0deg) scale(0.5);
+            opacity: 0;
           }
-          10% {
+          20% {
+            opacity: 0.6;
+          }
+          40% {
+            transform: translate(
+              calc(cos(var(--angle)) * var(--layer-radius) * 1.5),
+              calc(sin(var(--angle)) * var(--layer-radius) * 1.5)
+            ) rotate(180deg) scale(0.8);
+            opacity: 1;
+          }
+          60% {
+            transform: translate(
+              calc(cos(var(--angle)) * var(--layer-radius) * 0.8),
+              calc(sin(var(--angle)) * var(--layer-radius) * 0.8)
+            ) rotate(270deg) scale(1);
+            opacity: 1;
+          }
+          80% {
+            transform: translate(
+              calc(cos(var(--angle)) * var(--layer-radius) * 0.3),
+              calc(sin(var(--angle)) * var(--layer-radius) * 0.3)
+            ) rotate(340deg) scale(0.7);
             opacity: 0.8;
           }
-          25% {
-            transform: translate(calc(var(--orbit-x) * 1.2), calc(var(--orbit-y) * 1.2)) rotate(90deg) scale(0.85);
-            opacity: 1;
-          }
-          50% {
-            transform: translate(var(--orbit-x), var(--orbit-y)) rotate(180deg) scale(1);
-            opacity: 1;
-          }
-          75% {
-            transform: translate(calc(var(--orbit-x) * 0.8), calc(var(--orbit-y) * 0.8)) rotate(270deg) scale(0.9);
-            opacity: 1;
-          }
           100% {
-            transform: translate(calc(var(--orbit-x) * 1.8), calc(var(--orbit-y) * 1.8)) rotate(360deg) scale(0.6);
-            opacity: 0.3;
+            transform: translate(
+              calc(cos(var(--angle)) * var(--layer-radius) * 2.5),
+              calc(sin(var(--angle)) * var(--layer-radius) * 2.5)
+            ) rotate(360deg) scale(0.5);
+            opacity: 0;
           }
         }
         

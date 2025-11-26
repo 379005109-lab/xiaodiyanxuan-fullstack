@@ -22,7 +22,6 @@ const CheckoutPage = lazy(() => import('./pages/frontend/CheckoutPage'))
 const ComparePage = lazy(() => import('./pages/frontend/ComparePage'))
 const FavoritesPage = lazy(() => import('./pages/frontend/FavoritesPage'))
 const DesignServicePage = lazy(() => import('./pages/frontend/DesignServicePage'))
-const BuyingServicePage = lazy(() => import('./pages/frontend/BuyingServicePage'))
 const PackagesPage = lazy(() => import('./pages/frontend/PackagesPage'))
 const PackageDetailPage = lazy(() => import('./pages/frontend/PackageDetailPageNew'))
 const CategoriesPage = lazy(() => import('./pages/frontend/CategoriesPage'))
@@ -201,7 +200,7 @@ function App() {
             <Route path="favorites" element={<FavoritesPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="addresses" element={<AddressesPage />} />
-            <Route path="design-service" element={<BuyingServicePage />} />
+            <Route path="design-service" element={<DesignServicePage />} />
             <Route path="design" element={<DesignServicePage />} />
             <Route path="bargain" element={<BargainListPage />} />
             <Route path="bargain/:id" element={<BargainDetailPage />} />
