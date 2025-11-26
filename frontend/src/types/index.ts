@@ -234,13 +234,14 @@ export interface CartItem {
   product: Product
   sku: ProductSKU
   quantity: number
-  price: number  // 保存添加时的最终价格（包括材质升级价格）
-  selectedMaterials?: {  // 保存材质选择信息
+  price: number
+  selectedMaterials?: {
     fabric?: string
     filling?: string
     frame?: string
     leg?: string
   }
+  materialUpgradePrices?: Record<string, number> // 材质升级价格表
 }
 
 // 订单类型

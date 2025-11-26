@@ -139,7 +139,7 @@ export default function CartPage() {
                   <div className="space-y-1 text-sm mb-4">
                     <p className="text-stone-500">规格: <span className="text-stone-800">{item.sku?.spec || '标准规格'}</span></p>
                     {(() => {
-                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      const materialUpgradePrices = item.materialUpgradePrices || {}  // 使用保存的升级价格
                       const materialRows: React.ReactNode[] = []
                       
                       // 面料
@@ -195,7 +195,7 @@ export default function CartPage() {
                       <div className="text-2xl font-bold text-red-600">{formatPrice(item.price)}</div>
                       {(() => {
                         // 计算材质升级总价
-                        const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                        const materialUpgradePrices = item.materialUpgradePrices || {}  // 使用保存的升级价格
                         let totalUpgradePrice = 0
                         if (item.selectedMaterials) {
                           const selectedMaterialList: string[] = []

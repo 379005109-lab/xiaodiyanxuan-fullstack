@@ -122,17 +122,26 @@ export default function CheckoutPage() {
     const orderData = {
         items: items.map(item => ({
           product: item.product._id,
-          productId: item.product._id, // 同时传递productId，确保后端能识别
+          productId: item.product._id,
           productName: item.product.name,
           image: item.sku.images?.[0] || item.product.images[0],
-          skuId: item.sku._id, // 传递skuId
+          skuId: item.sku._id,
           sku: {
-            _id: item.sku._id, // 同时传递sku._id
+            _id: item.sku._id,
             color: item.sku.color || '',
             material: typeof item.sku.material === 'string' 
               ? item.sku.material 
               : JSON.stringify(item.sku.material)
           },
+          specifications: {
+            size: item.sku.spec || '',
+            material: item.selectedMaterials?.fabric || '',
+            fill: item.selectedMaterials?.filling || '',
+            frame: item.selectedMaterials?.frame || '',
+            leg: item.selectedMaterials?.leg || ''
+          },
+          selectedMaterials: item.selectedMaterials,  // 保存材质选择
+          materialUpgradePrices: item.materialUpgradePrices || {},  // 保存升级价格
           quantity: item.quantity,
           price: item.price !== undefined ? item.price : (item.sku.discountPrice && item.sku.discountPrice < item.sku.price
             ? item.sku.discountPrice
@@ -167,6 +176,9 @@ export default function CheckoutPage() {
         productName: item.productName || '',
         image: item.image || '',
         sku: item.sku || { color: '', material: '' },
+        specifications: item.specifications || {},  // 保存规格信息
+        selectedMaterials: item.selectedMaterials,  // 保存材质选择
+        materialUpgradePrices: item.materialUpgradePrices || {},  // 保存升级价格
         quantity: item.quantity,
         price: item.price
       })),

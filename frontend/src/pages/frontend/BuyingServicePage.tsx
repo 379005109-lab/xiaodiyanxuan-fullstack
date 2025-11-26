@@ -44,8 +44,8 @@ export default function BuyingServicePage() {
         serviceType: selectedService,
         scheduledDate: bookingDate,
         notes: bookingNotes,
-        user: user?._id || user,
-        userName: (user as any)?.name || (user as any)?.username || '未知用户',
+        user: (user as any)?.id || user?._id || user, // 修复：使用id字段
+        userName: (user as any)?.username || (user as any)?.name || '未知用户',
         userPhone: (user as any)?.phone || '',
         status: 'pending',
       }

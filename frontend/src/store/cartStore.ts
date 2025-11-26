@@ -99,7 +99,14 @@ export const useCartStore = create<CartState>()(
           }
           
           return {
-            items: [...state.items, { product, sku, quantity, price: itemPrice, selectedMaterials }]
+            items: [...state.items, { 
+              product, 
+              sku, 
+              quantity, 
+              price: itemPrice, 
+              selectedMaterials,
+              materialUpgradePrices: (sku as any).materialUpgradePrices || {} // 保存升级价格
+            }]
           }
         })
       },
