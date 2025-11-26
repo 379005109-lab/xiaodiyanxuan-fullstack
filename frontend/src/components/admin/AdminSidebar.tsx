@@ -73,7 +73,6 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
             { name: '退换货列表', path: '/admin/refunds' },
             { name: '订单分析', path: '/admin/order-analysis' },
             { name: '陪买预约', path: '/admin/buying-service-requests' },
-            { name: '取消请求', path: '/admin/order-cancel-requests' },
           ]
     },
     { name: '定制需求', path: '/admin/customization', icon: Pencil },

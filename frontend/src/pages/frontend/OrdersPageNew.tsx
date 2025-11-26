@@ -207,16 +207,18 @@ export default function OrdersPageNew() {
               <div key={order._id || order.id} className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden">
                 {/* 订单头部 */}
                 <div className="flex justify-between items-center px-6 py-4 bg-stone-50 border-b border-stone-100">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[order.status]?.color || 'text-stone-600 bg-stone-50'}`}>
                       {statusConfig[order.status]?.icon}
-                      {statusConfig[order.status]?.label || `未知状态`}
+                      <span>{statusConfig[order.status]?.label || '未知状态'}</span>
                     </div>
-                    <span className="text-sm text-stone-500">{new Date(order.createdAt).toLocaleDateString('zh-CN')}</span>
+                    {order.cancelRequest && (
+                      <span className="px-3 py-1 text-xs rounded-full bg-orange-100 text-orange-600 font-semibold">
+                        客户请求取消
+                      </span>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-bold text-red-600">¥{(order.totalAmount || 0).toLocaleString()}</span>
-                  </div>
+                  <div className="text-2xl font-bold text-red-600">¥{order.totalAmount?.toLocaleString() || 0}</div>
                 </div>
 
                 {/* 订单商品列表 */}
@@ -277,32 +279,53 @@ export default function OrdersPageNew() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-base font-medium text-stone-800 truncate hover:text-primary">{item.name || item.productName}</h4>
-                            <div className="text-sm text-stone-500 mt-1 space-y-0.5">
+                            <div className="text-sm mt-1 space-y-0.5">
+                              {/* 规格 */}
                               {item.specifications?.size && (
-                                <p>规格: <span className="text-stone-700">{item.specifications.size}</span></p>
+                                <p className="text-stone-500">规格: <span className="text-stone-800">{item.specifications.size}</span></p>
                               )}
-                              {/* 显示材质信息 */}
-                              {(() => {
-                                const specs = item.specifications || {}
-                                const materialParts: string[] = []
-                                if (specs.material) materialParts.push(specs.material)
-                                if (specs.color) materialParts.push(specs.color)
-                                if (specs.fill) materialParts.push(specs.fill)
-                                if (specs.frame) materialParts.push(specs.frame)
-                                if (specs.leg) materialParts.push(specs.leg)
-                                
-                                if (materialParts.length > 0) {
-                                  return <p>材质: <span className="text-stone-700">{materialParts.join(', ')}</span></p>
-                                }
-                                return null
-                              })()}
-                              {/* 显示材质升级价格 */}
-                              {item.materialUpgrade && item.materialUpgrade > 0 && (
-                                <p className="text-red-600 font-semibold">
-                                  材质升级: +¥{item.materialUpgrade}
+                              
+                              {/* 面料 */}
+                              {item.specifications?.material && (
+                                <p className="text-stone-500">
+                                  面料: <span className="text-stone-800">{item.specifications.material}</span>
+                                  {item.materialUpgradePrices?.[item.specifications.material] > 0 && (
+                                    <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications.material]}</span>
+                                  )}
                                 </p>
                               )}
-                              <p>× {item.quantity || 1}</p>
+                              
+                              {/* 填充 */}
+                              {item.specifications?.fill && (
+                                <p className="text-stone-500">
+                                  填充: <span className="text-stone-800">{item.specifications.fill}</span>
+                                  {item.materialUpgradePrices?.[item.specifications.fill] > 0 && (
+                                    <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications.fill]}</span>
+                                  )}
+                                </p>
+                              )}
+                              
+                              {/* 框架 */}
+                              {item.specifications?.frame && (
+                                <p className="text-stone-500">
+                                  框架: <span className="text-stone-800">{item.specifications.frame}</span>
+                                  {item.materialUpgradePrices?.[item.specifications.frame] > 0 && (
+                                    <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications.frame]}</span>
+                                  )}
+                                </p>
+                              )}
+                              
+                              {/* 脚架 */}
+                              {item.specifications?.leg && (
+                                <p className="text-stone-500">
+                                  脚架: <span className="text-stone-800">{item.specifications.leg}</span>
+                                  {item.materialUpgradePrices?.[item.specifications.leg] > 0 && (
+                                    <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications.leg]}</span>
+                                  )}
+                                </p>
+                              )}
+                              
+                              <p className="text-stone-500">× {item.quantity || 1}</p>
                             </div>
                           </div>
                         </div>

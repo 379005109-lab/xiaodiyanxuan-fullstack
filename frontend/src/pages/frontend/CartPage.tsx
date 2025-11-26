@@ -136,82 +136,63 @@ export default function CartPage() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="space-y-1 text-sm text-stone-500 mb-4">
-                    <p>规格: <span className="text-stone-800">{item.sku?.spec || '标准规格'}</span></p>
+                  <div className="space-y-1 text-sm mb-4">
+                    <p className="text-stone-500">规格: <span className="text-stone-800">{item.sku?.spec || '标准规格'}</span></p>
                     {(() => {
-                      // 调试日志 - 显示材质和加价信息
-                      console.log('====== 购物车商品调试 ======')
-                      console.log('📦 商品名称:', item.product.name)
-                      console.log('📐 SKU完整数据:', JSON.stringify(item.sku, null, 2))
-                      console.log('🎨 选择的材质:', JSON.stringify(item.selectedMaterials, null, 2))
-                      console.log('💰 材质升级价格配置:', JSON.stringify((item.sku as any).materialUpgradePrices, null, 2))
-                      console.log('💵 商品价格:', item.price)
-                      console.log('============================')
-                      
-                      if (!item.selectedMaterials) {
-                        console.log('⚠️ 未选择材质，不显示材质信息')
-                        return null
-                      }
-                      
                       const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
-                      const materialParts: React.ReactNode[] = []
+                      const materialRows: React.ReactNode[] = []
                       
                       // 面料
-                      if (item.selectedMaterials.fabric) {
+                      if (item.selectedMaterials?.fabric) {
                         const fabricPrice = materialUpgradePrices[item.selectedMaterials.fabric] || 0
-                        materialParts.push(
-                          <span key="fabric">
-                            {item.selectedMaterials.fabric}
-                            {fabricPrice > 0 && <span className="text-red-600 font-semibold ml-1">+¥{fabricPrice}</span>}
-                          </span>
+                        materialRows.push(
+                          <p key="fabric" className="text-stone-500">
+                            面料: <span className="text-stone-800">{item.selectedMaterials.fabric}</span>
+                            {fabricPrice > 0 && <span className="text-red-600 font-semibold ml-2">+¥{fabricPrice}</span>}
+                          </p>
                         )
                       }
                       
                       // 填充
-                      if (item.selectedMaterials.filling) {
+                      if (item.selectedMaterials?.filling) {
                         const fillingPrice = materialUpgradePrices[item.selectedMaterials.filling] || 0
-                        if (materialParts.length > 0) materialParts.push(<span key="sep1">, </span>)
-                        materialParts.push(
-                          <span key="filling">
-                            {item.selectedMaterials.filling}
-                            {fillingPrice > 0 && <span className="text-red-600 font-semibold ml-1">+¥{fillingPrice}</span>}
-                          </span>
+                        materialRows.push(
+                          <p key="filling" className="text-stone-500">
+                            填充: <span className="text-stone-800">{item.selectedMaterials.filling}</span>
+                            {fillingPrice > 0 && <span className="text-red-600 font-semibold ml-2">+¥{fillingPrice}</span>}
+                          </p>
                         )
                       }
                       
                       // 框架
-                      if (item.selectedMaterials.frame) {
+                      if (item.selectedMaterials?.frame) {
                         const framePrice = materialUpgradePrices[item.selectedMaterials.frame] || 0
-                        if (materialParts.length > 0) materialParts.push(<span key="sep2">, </span>)
-                        materialParts.push(
-                          <span key="frame">
-                            {item.selectedMaterials.frame}
-                            {framePrice > 0 && <span className="text-red-600 font-semibold ml-1">+¥{framePrice}</span>}
-                          </span>
+                        materialRows.push(
+                          <p key="frame" className="text-stone-500">
+                            框架: <span className="text-stone-800">{item.selectedMaterials.frame}</span>
+                            {framePrice > 0 && <span className="text-red-600 font-semibold ml-2">+¥{framePrice}</span>}
+                          </p>
                         )
                       }
                       
                       // 脚架
-                      if (item.selectedMaterials.leg) {
+                      if (item.selectedMaterials?.leg) {
                         const legPrice = materialUpgradePrices[item.selectedMaterials.leg] || 0
-                        if (materialParts.length > 0) materialParts.push(<span key="sep3">, </span>)
-                        materialParts.push(
-                          <span key="leg">
-                            {item.selectedMaterials.leg}
-                            {legPrice > 0 && <span className="text-red-600 font-semibold ml-1">+¥{legPrice}</span>}
-                          </span>
+                        materialRows.push(
+                          <p key="leg" className="text-stone-500">
+                            脚架: <span className="text-stone-800">{item.selectedMaterials.leg}</span>
+                            {legPrice > 0 && <span className="text-red-600 font-semibold ml-2">+¥{legPrice}</span>}
+                          </p>
                         )
                       }
                       
-                      return (
-                        <p>材质: <span className="text-stone-800">{materialParts.length > 0 ? materialParts : '默认材质'}</span></p>
-                      )
+                      return materialRows
                     })()}
                   </div>
                   
                   <div className="flex justify-between items-center">
                     <div>
-                      <div className="font-serif font-bold text-xl text-accent">{formatPrice(item.price)}</div>
+                      <div className="text-2xl font-bold text-red-600">{formatPrice(item.price)}</div>
                       {(() => {
                         // 计算材质升级总价
                         const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
