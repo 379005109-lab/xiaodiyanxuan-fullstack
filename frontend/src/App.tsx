@@ -22,6 +22,7 @@ const CheckoutPage = lazy(() => import('./pages/frontend/CheckoutPage'))
 const ComparePage = lazy(() => import('./pages/frontend/ComparePage'))
 const FavoritesPage = lazy(() => import('./pages/frontend/FavoritesPage'))
 const DesignServicePage = lazy(() => import('./pages/frontend/DesignServicePage'))
+const BuyingServicePage = lazy(() => import('./pages/frontend/BuyingServicePage'))
 const PackagesPage = lazy(() => import('./pages/frontend/PackagesPage'))
 const PackageDetailPage = lazy(() => import('./pages/frontend/PackageDetailPageNew'))
 const CategoriesPage = lazy(() => import('./pages/frontend/CategoriesPage'))
@@ -64,6 +65,7 @@ const NotificationTestPage = lazy(() => import('./pages/admin/NotificationTestPa
 const NotificationManagementPage = lazy(() => import('./pages/admin/NotificationManagementPage'))
 const DesignManagement = lazy(() => import('./pages/admin/DesignManagement'))
 const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationManagement'))
+const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingServiceRequestsPage'))
 
 // 前台布局 - 懒加载
 const FrontendLayout = lazy(() => import('./layouts/FrontendLayout'))
@@ -200,7 +202,7 @@ function App() {
             <Route path="favorites" element={<FavoritesPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="addresses" element={<AddressesPage />} />
-            <Route path="design-service" element={<DesignServicePage />} />
+            <Route path="design-service" element={<BuyingServicePage />} />
             <Route path="design" element={<DesignServicePage />} />
             <Route path="bargain" element={<BargainListPage />} />
             <Route path="bargain/:id" element={<BargainDetailPage />} />
@@ -275,9 +277,10 @@ function App() {
             <Route path="test-concierge" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><TestConciergeOrderPage /></ProtectedRoute>} />
             <Route path="user-unban" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><UserUnbanPage /></ProtectedRoute>} />
             <Route path="notification-test" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><NotificationTestPage /></ProtectedRoute>} />
-            <Route path="notification-management" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><NotificationManagementPage /></ProtectedRoute>} />
+            <Route path="notifications" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><NotificationManagementPage /></ProtectedRoute>} />
             <Route path="designs" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><DesignManagement /></ProtectedRoute>} />
             <Route path="customization" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
+            <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
           </Route>
 
           {/* 404 */}

@@ -130,15 +130,65 @@ export default function CartPage() {
                   </div>
                   <div className="space-y-1 text-sm text-stone-500 mb-4">
                     <p>规格: <span className="text-stone-800">{item.sku?.spec || '标准规格'}</span></p>
-                    {item.selectedMaterials && (
-                      <p>材质: <span className="text-stone-800">
-                        {Object.values(item.selectedMaterials).filter(Boolean).join(', ') || '默认材质'}
-                      </span></p>
-                    )}
+                    {item.selectedMaterials && (() => {
+                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      const selectedMaterialList: string[] = []
+                      let upgradePrice = 0
+                      
+                      if (item.selectedMaterials.fabric) {
+                        selectedMaterialList.push(item.selectedMaterials.fabric)
+                        upgradePrice += materialUpgradePrices[item.selectedMaterials.fabric] || 0
+                      }
+                      if (item.selectedMaterials.filling) {
+                        selectedMaterialList.push(item.selectedMaterials.filling)
+                        upgradePrice += materialUpgradePrices[item.selectedMaterials.filling] || 0
+                      }
+                      if (item.selectedMaterials.frame) {
+                        selectedMaterialList.push(item.selectedMaterials.frame)
+                        upgradePrice += materialUpgradePrices[item.selectedMaterials.frame] || 0
+                      }
+                      if (item.selectedMaterials.leg) {
+                        selectedMaterialList.push(item.selectedMaterials.leg)
+                        upgradePrice += materialUpgradePrices[item.selectedMaterials.leg] || 0
+                      }
+                      
+                      return (
+                        <>
+                          <p>材质: <span className="text-stone-800">
+                            {selectedMaterialList.join(', ') || '默认材质'}
+                          </span></p>
+                          {upgradePrice > 0 && (
+                            <p className="text-red-600 font-medium">
+                              材质加价: +{formatPrice(upgradePrice)}
+                            </p>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <div className="font-serif font-bold text-xl text-accent">{formatPrice(item.price)}</div>
+                    <div>
+                      <div className="font-serif font-bold text-xl text-accent">{formatPrice(item.price)}</div>
+                      {(() => {
+                        const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                        let upgradePrice = 0
+                        if (item.selectedMaterials) {
+                          if (item.selectedMaterials.fabric) upgradePrice += materialUpgradePrices[item.selectedMaterials.fabric] || 0
+                          if (item.selectedMaterials.filling) upgradePrice += materialUpgradePrices[item.selectedMaterials.filling] || 0
+                          if (item.selectedMaterials.frame) upgradePrice += materialUpgradePrices[item.selectedMaterials.frame] || 0
+                          if (item.selectedMaterials.leg) upgradePrice += materialUpgradePrices[item.selectedMaterials.leg] || 0
+                        }
+                        if (upgradePrice > 0) {
+                          return (
+                            <div className="text-xs text-stone-500 mt-1">
+                              (基础价 + 材质加价)
+                            </div>
+                          )
+                        }
+                        return null
+                      })()}
+                    </div>
                     
                     <div className="flex items-center bg-stone-50 border border-stone-200 rounded-lg">
                       <button 
