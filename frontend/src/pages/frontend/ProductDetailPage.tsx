@@ -654,10 +654,11 @@ const ProductDetailPage = () => {
     
     toast.info('图片下载提示：请右键点击图片选择"图片另存为"来保存到本地');
     
-    // 在新窗口中打开所有选中的图片
+    // 在新窗口中打开所有选中的图片，确保使用完整URL
     selectedDownloadImages.forEach((img, index) => {
       setTimeout(() => {
-        window.open(img, `_blank_${index}`);
+        const fullUrl = getFileUrl(img);
+        window.open(fullUrl, `_blank_${index}`);
       }, index * 300);
     });
   };

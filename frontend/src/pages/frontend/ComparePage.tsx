@@ -1,110 +1,169 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { X, ShoppingCart, ArrowLeft } from 'lucide-react'
-import { toast } from 'sonner'
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { X, ShoppingCart, AlertCircle } from 'lucide-react'
+import { Product, ProductSKU } from '@/types'
+import { formatPrice } from '@/lib/utils'
+import { getProductById as getMockProductById } from '@/services/productService.mock'
+import { getProductById as getApiProductById } from '@/services/productService'
+import { getAllMaterials } from '@/services/materialService'
 import { useCompareStore } from '@/store/compareStore'
 import { useCartStore } from '@/store/cartStore'
+import { toast } from 'sonner'
+import cloudServices from '@/services/cloudServices'
+import { getFileUrl } from '@/services/uploadService'
 
-interface Product {
-  _id: string
-  name: string
-  price: number
-  images: string[]
-  category: string
-  style?: string
-  material?: string
+interface CompareItemDetail {
+  product: Product
+  sku: ProductSKU
+  compareItemId: string
+  selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }
 }
 
 export default function ComparePage() {
-  const navigate = useNavigate()
-  const { compareItems, removeFromCompare, clearAll } = useCompareStore()
+  const [compareItems, setCompareItems] = useState<CompareItemDetail[]>([])
+  const [compareStats, setCompareStats] = useState<any>(null)
+  const [materials, setMaterials] = useState<any[]>([])
+  const [materialsLoaded, setMaterialsLoaded] = useState(false)
+  const { compareItems: rawCompareItems, removeFromCompare, loadCompareItems } = useCompareStore()
   const { addItem } = useCartStore()
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadCompareData()
-  }, [compareItems])
-
-  const loadCompareData = async () => {
-    if (!compareItems || compareItems.length === 0) {
-      setProducts([])
-      setLoading(false)
-      return
+    loadCompareItems()
+    updateCompareStats()
+    
+    // 加载材质数据
+    const loadMaterials = async () => {
+      try {
+        const allMaterials = await getAllMaterials()
+        setMaterials(Array.isArray(allMaterials) ? allMaterials : [])
+        setMaterialsLoaded(true)
+      } catch (error) {
+        console.error('加载材质失败:', error)
+        setMaterials([])
+        setMaterialsLoaded(true)
+      }
     }
-
-    setLoading(true)
-    try {
-      const productPromises = compareItems.map(async (item) => {
-        const productId = typeof item === 'string' ? item : item._id
-        const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/products/${productId}`)
-        if (!response.ok) throw new Error('加载商品失败')
-        const data = await response.json()
-        return data.data
-      })
-
-      const loadedProducts = await Promise.all(productPromises)
-      setProducts(loadedProducts.filter(Boolean))
-    } catch (error) {
-      console.error('加载对比商品失败:', error)
-      toast.error('加载对比商品失败')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleRemove = (productId: string) => {
-    removeFromCompare(productId)
-    toast.success('已从对比列表移除')
-  }
-
-  const handleClearAll = () => {
-    clearAll()
-    toast.success('已清空对比列表')
-  }
-
-  const handleAddToCart = (product: Product) => {
-    const defaultSku: any = {
-      _id: 'default',
-      id: 'default',
-      size: '标准',
-      material: product.material || '标准材质',
-      color: '原色',
-      price: product.price,
-      stock: 999,
-      imageIndex: 0,
-      images: product.images || []
+    loadMaterials()
+    
+    // 监听对比列表更新事件
+    const handleCompareListUpdate = () => {
+      loadCompareItems()
+      updateCompareStats()
     }
     
-    addItem(product as any, defaultSku, 1, {}, product.price)
-    toast.success('已加入购物车')
+    window.addEventListener('compareListUpdated', handleCompareListUpdate)
+    return () => {
+      window.removeEventListener('compareListUpdated', handleCompareListUpdate)
+    }
+  }, [])
+
+  const updateCompareStats = async () => {
+    try {
+      const stats = await cloudServices.compareService.getCompareStats()
+      setCompareStats(stats)
+    } catch (error) {
+      console.error('获取对比统计失败:', error)
+    }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">加载中...</p>
-        </div>
-      </div>
-    )
+  useEffect(() => {
+    const loadCompareDetails = async () => {
+      const validItems: CompareItemDetail[] = []
+      const invalidItems: { productId: string; skuId?: string }[] = []
+
+      const mappedProducts = await Promise.all(
+        rawCompareItems.map(async (item) => {
+          const product = (await getMockProductById(item.productId)) || (await getApiProductById(item.productId))
+          if (!product || !product.skus?.length) {
+            invalidItems.push({ productId: item.productId, skuId: item.skuId })
+            return null
+          }
+
+          let sku: ProductSKU | undefined
+          if (item.skuId) {
+            sku = product.skus.find((s) => s._id === item.skuId)
+          }
+          if (!sku && product.skus.length > 0) {
+            sku = product.skus[0]
+          }
+
+          if (!sku) {
+            invalidItems.push({ productId: item.productId, skuId: item.skuId })
+            return
+          }
+
+          const materialKey = item.selectedMaterials
+            ? `${item.selectedMaterials.fabric || ''}|${item.selectedMaterials.filling || ''}|${item.selectedMaterials.frame || ''}|${item.selectedMaterials.leg || ''}`
+            : ''
+
+          validItems.push({
+            product,
+            sku,
+            compareItemId: `${item.productId}-${item.skuId || ''}-${materialKey}`,
+            selectedMaterials: item.selectedMaterials,
+          })
+        })
+      )
+
+      if (invalidItems.length > 0) {
+        invalidItems.forEach((invalid) => {
+          const originalItem = rawCompareItems.find(
+            (item) => item.productId === invalid.productId && item.skuId === invalid.skuId
+          )
+          removeFromCompare(invalid.productId, invalid.skuId, originalItem?.selectedMaterials)
+        })
+      }
+
+      setCompareItems(validItems)
+    }
+
+    loadCompareDetails()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawCompareItems])
+
+  const handleRemove = (item: CompareItemDetail) => {
+    removeFromCompare(item.product._id, item.sku._id, item.selectedMaterials)
+    toast.success('已移除')
   }
 
-  if (products.length === 0) {
+  const handleAddToCart = (item: CompareItemDetail) => {
+    // 计算最终价格（包括材质升级价格）
+    const basePrice = item.sku.discountPrice && item.sku.discountPrice > 0 && item.sku.discountPrice < item.sku.price
+      ? item.sku.discountPrice
+      : item.sku.price
+    
+    // 计算材质升级价格
+    const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+    let upgradePrice = 0
+    if (item.selectedMaterials) {
+      const selectedMaterialList: string[] = []
+      if (item.selectedMaterials.fabric) selectedMaterialList.push(item.selectedMaterials.fabric)
+      if (item.selectedMaterials.filling) selectedMaterialList.push(item.selectedMaterials.filling)
+      if (item.selectedMaterials.frame) selectedMaterialList.push(item.selectedMaterials.frame)
+      if (item.selectedMaterials.leg) selectedMaterialList.push(item.selectedMaterials.leg)
+      
+      upgradePrice = selectedMaterialList.reduce((sum, matName) => {
+        return sum + (materialUpgradePrices[matName] || 0)
+      }, 0)
+    }
+    
+    const finalPrice = basePrice + upgradePrice
+    
+    // 传递计算好的价格和材质选择
+    addItem(item.product, item.sku, 1, item.selectedMaterials, finalPrice)
+    toast.success('已添加到购物车')
+  }
+
+  if (compareItems.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">商品对比</h1>
-            <p className="text-gray-600 mb-8">您还没有添加任何商品到对比列表</p>
-            <button
-              onClick={() => navigate('/products')}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              去选购商品
-            </button>
+      <div className="min-h-screen bg-gray-50 py-16">
+        <div className="container-custom">
+          <div className="card p-12 text-center">
+            <h2 className="text-2xl font-bold mb-4">对比列表为空</h2>
+            <p className="text-gray-600 mb-8">还没有添加任何商品到对比列表</p>
+            <Link to="/products" className="btn-primary inline-block">
+              去选购
+            </Link>
           </div>
         </div>
       </div>
@@ -112,62 +171,496 @@ export default function ComparePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">商品对比</h1>
-            <p className="text-sm text-gray-600 mt-1">对比 {products.length} 件商品</p>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container-custom">
+        {/* 头部信息 */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold">商品对比</h1>
+            {compareStats && (
+              <div className="flex items-center gap-4 text-sm">
+                <div className="bg-white px-4 py-2 rounded-lg border border-gray-200">
+                  <span className="text-gray-600">已对比:</span>
+                  <span className="font-bold text-primary-600 ml-2">{compareItems.length}/{compareStats.maxItems}</span>
+                </div>
+                {compareStats.canAddMore ? (
+                  <div className="bg-green-50 px-4 py-2 rounded-lg border border-green-200 text-green-700">
+                    ✓ 还可添加 {compareStats.maxItems - compareItems.length} 个
+                  </div>
+                ) : (
+                  <div className="bg-orange-50 px-4 py-2 rounded-lg border border-orange-200 text-orange-700 flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    对比列表已满
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-4">
-            <button onClick={handleClearAll} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">清空对比</button>
-            <button onClick={() => navigate('/products')} className="inline-flex items-center gap-2 px-4 py-2 bg-white border rounded-lg">
-              <ArrowLeft className="w-4 h-4" />返回商城
-            </button>
-          </div>
+          <p className="text-gray-600">对比不同商品的规格、材质和价格，帮助您做出最佳选择</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <div className="card overflow-x-auto">
           <table className="w-full">
-            <tbody>
-              <tr className="border-b">
-                <td className="p-4 bg-gray-50 font-medium w-32">商品</td>
-                {products.map((product) => (
-                  <td key={product._id} className="p-4 text-center relative">
-                    <button onClick={() => handleRemove(product._id)} className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full">
-                      <X className="w-4 h-4" />
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="py-4 px-4 text-left text-sm font-semibold bg-gray-50 w-32">
+                  对比项
+                </th>
+                {compareItems.map((item) => (
+                  <th key={item.compareItemId} className="py-4 px-4 text-center relative min-w-[240px]">
+                    <button
+                      onClick={() => handleRemove(item)}
+                      className="absolute top-2 right-2 p-1 bg-primary-500 text-white rounded-full hover:bg-primary-600"
+                    >
+                      <X className="h-4 w-4" />
                     </button>
-                    <div className="w-40 h-40 mx-auto mb-3 rounded-lg overflow-hidden bg-gray-100">
-                      {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">暂无图片</div>
+                    <Link to={`/products/${item.product._id}`}>
+                      <img
+                        src={getFileUrl(item.sku.images?.[0] || item.product.images?.[0] || '/placeholder.png')}
+                        alt={item.product.name}
+                        className="w-full h-48 object-cover rounded-lg mb-3"
+                      />
+                      <h3 className="font-semibold text-sm hover:text-primary-600">
+                        {item.product.name}
+                      </h3>
+                      {item.sku.isPro && (
+                        <span className="inline-block mt-2 px-2 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs rounded">
+                          PRO版
+                        </span>
                       )}
-                    </div>
-                    <h3 className="font-medium text-gray-900 mb-2">{product.name}</h3>
-                    <p className="text-primary-600 font-bold text-lg mb-3">¥{product.price}</p>
-                    <button onClick={() => handleAddToCart(product)} className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm">
-                      <ShoppingCart className="w-4 h-4" />加入购物车
-                    </button>
+                    </Link>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {/* 价格 */}
+              <tr className="border-b border-gray-200">
+                <td className="py-4 px-4 text-sm font-medium bg-gray-50">价格</td>
+                {compareItems.map((item) => {
+                  // 计算基础价格（优先显示折扣价）
+                  const basePrice = item.sku.discountPrice && item.sku.discountPrice > 0 && item.sku.discountPrice < item.sku.price
+                    ? item.sku.discountPrice
+                    : item.sku.price
+                  
+                  // 计算材质升级价格
+                  const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                  let upgradePrice = 0
+                  if (item.selectedMaterials) {
+                    const selectedMaterialList: string[] = []
+                    if (item.selectedMaterials.fabric) selectedMaterialList.push(item.selectedMaterials.fabric)
+                    if (item.selectedMaterials.filling) selectedMaterialList.push(item.selectedMaterials.filling)
+                    if (item.selectedMaterials.frame) selectedMaterialList.push(item.selectedMaterials.frame)
+                    if (item.selectedMaterials.leg) selectedMaterialList.push(item.selectedMaterials.leg)
+                    
+                    upgradePrice = selectedMaterialList.reduce((sum, matName) => {
+                      return sum + (materialUpgradePrices[matName] || 0)
+                    }, 0)
+                  }
+                  
+                  const finalPrice = basePrice + upgradePrice
+                  
+                  return (
+                    <td key={item.compareItemId} className="py-4 px-4 text-center">
+                      <div className="text-2xl font-bold text-red-600">
+                        {formatPrice(finalPrice)}
+                      </div>
+                      {item.sku.discountPrice && item.sku.discountPrice < item.sku.price && (
+                        <div className="text-sm text-gray-400 line-through mt-1">
+                          {formatPrice(item.sku.price + upgradePrice)}
+                        </div>
+                      )}
+                      {upgradePrice > 0 && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          (含材质升级 +{formatPrice(upgradePrice)})
+                        </div>
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+
+              {/* 型号 */}
+              <tr className="border-b border-gray-200">
+                <td className="py-4 px-4 text-sm font-medium bg-gray-50">型号</td>
+                {compareItems.map((item) => (
+                  <td key={item.compareItemId} className="py-4 px-4 text-center">
+                    <div className="text-sm text-gray-700">{item.sku.code}</div>
                   </td>
                 ))}
               </tr>
-              <tr className="border-b">
-                <td className="p-4 bg-gray-50 font-medium">分类</td>
-                {products.map((p) => (<td key={p._id} className="p-4 text-center">{p.category || '-'}</td>))}
+
+              {/* 规格 */}
+              <tr className="border-b border-gray-200">
+                <td className="py-4 px-4 text-sm font-medium bg-gray-50">规格</td>
+                {compareItems.map((item) => (
+                  <td key={item.compareItemId} className="py-4 px-4 text-center">
+                    <div className="text-sm text-gray-700">{item.sku.spec || '-'}</div>
+                  </td>
+                ))}
               </tr>
-              <tr className="border-b">
-                <td className="p-4 bg-gray-50 font-medium">风格</td>
-                {products.map((p) => (<td key={p._id} className="p-4 text-center">{p.style || '-'}</td>))}
+
+              {/* 材质 - 分别显示面料、填充、框架、脚架 */}
+              {compareItems.some(item => {
+                const material = item.sku.material
+                return material && typeof material === 'object' && (
+                  (material as any).fabric || (material as any).filling || (material as any).frame || (material as any).leg
+                )
+              }) && (
+                <>
+                  {/* 面料 */}
+                  <tr className="border-b border-gray-200">
+                    <td className="py-4 px-4 text-sm font-medium bg-gray-50">面料</td>
+                    {compareItems.map((item) => {
+                      const material = item.sku.material
+                      let fabricDisplay = '-'
+                      let fabricImage: string | undefined
+                      
+                      if (item.selectedMaterials?.fabric) {
+                        fabricDisplay = item.selectedMaterials.fabric
+                        const materialInfo = materials.find(m => m.name === item.selectedMaterials?.fabric)
+                        fabricImage = materialInfo?.image
+                      } else if (material) {
+                        if (typeof material === 'string') {
+                          fabricDisplay = material
+                          const materialInfo = materials.find(m => m.name === material)
+                          fabricImage = materialInfo?.image
+                        } else if (typeof material === 'object') {
+                          const materialObj = material as { fabric?: string | string[] }
+                          if (materialObj.fabric) {
+                            const fabricValue = Array.isArray(materialObj.fabric) ? materialObj.fabric[0] : materialObj.fabric
+                            fabricDisplay = fabricValue || '-'
+                            const materialInfo = materials.find(m => m.name === fabricValue)
+                            fabricImage = materialInfo?.image
+                          }
+                        }
+                      }
+                      
+                      // 获取加价信息
+                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      let fabricUpgradePrice = materialUpgradePrices[fabricDisplay]
+                      if (!fabricUpgradePrice && fabricDisplay !== '-') {
+                        const fabricBase = fabricDisplay.split(/\s+/)[0]
+                        fabricUpgradePrice = materialUpgradePrices[fabricBase]
+                        if (!fabricUpgradePrice) {
+                          for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                            if (fabricDisplay.includes(key) || key.includes(fabricDisplay)) {
+                              fabricUpgradePrice = price as number
+                              break
+                            }
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <td key={item.compareItemId} className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center gap-2">
+                            {fabricImage && (
+                              <img
+                                src={getFileUrl(fabricImage)}
+                                alt={fabricDisplay}
+                                className="w-16 h-16 object-cover rounded border border-gray-200"
+                              />
+                            )}
+                            <div className="text-sm text-gray-700">
+                              {fabricDisplay}
+                              {fabricUpgradePrice > 0 && (
+                                <span className="block text-red-600 font-semibold text-xs mt-1">+¥{fabricUpgradePrice}</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                  
+                  {/* 填充 */}
+                  <tr className="border-b border-gray-200">
+                    <td className="py-4 px-4 text-sm font-medium bg-gray-50">填充</td>
+                    {compareItems.map((item) => {
+                      const material = item.sku.material
+                      let fillingDisplay = '-'
+                      let fillingImage: string | undefined
+                      
+                      if (item.selectedMaterials?.filling) {
+                        fillingDisplay = item.selectedMaterials.filling
+                        const materialInfo = materials.find(m => m.name === item.selectedMaterials?.filling)
+                        fillingImage = materialInfo?.image
+                      } else if (material && typeof material === 'object') {
+                        const materialObj = material as { filling?: string | string[] }
+                        if (materialObj.filling) {
+                          const fillingValue = Array.isArray(materialObj.filling) ? materialObj.filling[0] : materialObj.filling
+                          fillingDisplay = fillingValue || '-'
+                          const materialInfo = materials.find(m => m.name === fillingValue)
+                          fillingImage = materialInfo?.image
+                        }
+                      }
+                      
+                      // 获取加价信息
+                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      let fillingUpgradePrice = materialUpgradePrices[fillingDisplay]
+                      if (!fillingUpgradePrice && fillingDisplay !== '-') {
+                        const fillingBase = fillingDisplay.split(/\s+/)[0]
+                        fillingUpgradePrice = materialUpgradePrices[fillingBase]
+                        if (!fillingUpgradePrice) {
+                          for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                            if (fillingDisplay.includes(key) || key.includes(fillingDisplay)) {
+                              fillingUpgradePrice = price as number
+                              break
+                            }
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <td key={item.compareItemId} className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center gap-2">
+                            {fillingImage && (
+                              <img
+                                src={getFileUrl(fillingImage)}
+                                alt={fillingDisplay}
+                                className="w-16 h-16 object-cover rounded border border-gray-200"
+                              />
+                            )}
+                            <div className="text-sm text-gray-700">
+                              {fillingDisplay}
+                              {fillingUpgradePrice > 0 && (
+                                <span className="block text-red-600 font-semibold text-xs mt-1">+¥{fillingUpgradePrice}</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                  
+                  {/* 框架 */}
+                  <tr className="border-b border-gray-200">
+                    <td className="py-4 px-4 text-sm font-medium bg-gray-50">框架</td>
+                    {compareItems.map((item) => {
+                      const material = item.sku.material
+                      let frameDisplay = '-'
+                      let frameImage: string | undefined
+                      
+                      if (item.selectedMaterials?.frame) {
+                        frameDisplay = item.selectedMaterials.frame
+                        const materialInfo = materials.find(m => m.name === item.selectedMaterials?.frame)
+                        frameImage = materialInfo?.image
+                      } else if (material && typeof material === 'object') {
+                        const materialObj = material as { frame?: string | string[] }
+                        if (materialObj.frame) {
+                          const frameValue = Array.isArray(materialObj.frame) ? materialObj.frame[0] : materialObj.frame
+                          frameDisplay = frameValue || '-'
+                          const materialInfo = materials.find(m => m.name === frameValue)
+                          frameImage = materialInfo?.image
+                        }
+                      }
+                      
+                      // 获取加价信息
+                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      let frameUpgradePrice = materialUpgradePrices[frameDisplay]
+                      if (!frameUpgradePrice && frameDisplay !== '-') {
+                        const frameBase = frameDisplay.split(/\s+/)[0]
+                        frameUpgradePrice = materialUpgradePrices[frameBase]
+                        if (!frameUpgradePrice) {
+                          for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                            if (frameDisplay.includes(key) || key.includes(frameDisplay)) {
+                              frameUpgradePrice = price as number
+                              break
+                            }
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <td key={item.compareItemId} className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center gap-2">
+                            {frameImage && (
+                              <img
+                                src={getFileUrl(frameImage)}
+                                alt={frameDisplay}
+                                className="w-16 h-16 object-cover rounded border border-gray-200"
+                              />
+                            )}
+                            <div className="text-sm text-gray-700">
+                              {frameDisplay}
+                              {frameUpgradePrice > 0 && (
+                                <span className="block text-red-600 font-semibold text-xs mt-1">+¥{frameUpgradePrice}</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                  
+                  {/* 脚架 */}
+                  <tr className="border-b border-gray-200">
+                    <td className="py-4 px-4 text-sm font-medium bg-gray-50">脚架</td>
+                    {compareItems.map((item) => {
+                      const material = item.sku.material
+                      let legDisplay = '-'
+                      let legImage: string | undefined
+                      
+                      if (item.selectedMaterials?.leg) {
+                        legDisplay = item.selectedMaterials.leg
+                        const materialInfo = materials.find(m => m.name === item.selectedMaterials?.leg)
+                        legImage = materialInfo?.image
+                      } else if (material && typeof material === 'object') {
+                        const materialObj = material as { leg?: string | string[] }
+                        if (materialObj.leg) {
+                          const legValue = Array.isArray(materialObj.leg) ? materialObj.leg[0] : materialObj.leg
+                          legDisplay = legValue || '-'
+                          const materialInfo = materials.find(m => m.name === legValue)
+                          legImage = materialInfo?.image
+                        }
+                      }
+                      
+                      // 获取加价信息
+                      const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
+                      let legUpgradePrice = materialUpgradePrices[legDisplay]
+                      if (!legUpgradePrice && legDisplay !== '-') {
+                        const legBase = legDisplay.split(/\s+/)[0]
+                        legUpgradePrice = materialUpgradePrices[legBase]
+                        if (!legUpgradePrice) {
+                          for (const [key, price] of Object.entries(materialUpgradePrices)) {
+                            if (legDisplay.includes(key) || key.includes(legDisplay)) {
+                              legUpgradePrice = price as number
+                              break
+                            }
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <td key={item.compareItemId} className="py-4 px-4 text-center">
+                          <div className="flex flex-col items-center gap-2">
+                            {legImage && (
+                              <img
+                                src={getFileUrl(legImage)}
+                                alt={legDisplay}
+                                className="w-16 h-16 object-cover rounded border border-gray-200"
+                              />
+                            )}
+                            <div className="text-sm text-gray-700">
+                              {legDisplay}
+                              {legUpgradePrice > 0 && (
+                                <span className="block text-red-600 font-semibold text-xs mt-1">+¥{legUpgradePrice}</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                </>
+              )}
+              
+              {/* 如果材质是字符串格式，显示为单行 */}
+              {compareItems.some(item => {
+                const material = item.sku.material
+                return !material || typeof material === 'string' || (
+                  typeof material === 'object' && 
+                  !(material as any).fabric && !(material as any).filling && !(material as any).frame && !(material as any).leg
+                )
+              }) && (
+                <tr className="border-b border-gray-200">
+                  <td className="py-4 px-4 text-sm font-medium bg-gray-50">材质</td>
+                  {compareItems.map((item) => {
+                    const material = item.sku.material
+                    let materialDisplay = '-'
+                    
+                    if (material) {
+                      if (typeof material === 'string') {
+                        materialDisplay = material
+                      } else if (typeof material === 'object') {
+                        const materialObj = material as { fabric?: string; filling?: string; frame?: string; leg?: string }
+                        const parts: string[] = []
+                        if (materialObj.fabric) parts.push(`面料: ${materialObj.fabric}`)
+                        if (materialObj.filling) parts.push(`填充: ${materialObj.filling}`)
+                        if (materialObj.frame) parts.push(`框架: ${materialObj.frame}`)
+                        if (materialObj.leg) parts.push(`脚架: ${materialObj.leg}`)
+                        materialDisplay = parts.length > 0 ? parts.join(', ') : '-'
+                      }
+                    }
+                    
+                    return (
+                      <td key={item.compareItemId} className="py-4 px-4 text-center">
+                        <div className="text-sm text-gray-700">{materialDisplay}</div>
+                      </td>
+                    )
+                  })}
+                </tr>
+              )}
+
+              {/* 尺寸 */}
+              <tr className="border-b border-gray-200">
+                <td className="py-4 px-4 text-sm font-medium bg-gray-50">尺寸</td>
+                {compareItems.map((item) => (
+                  <td key={item.compareItemId} className="py-4 px-4 text-center">
+                    {item.sku.length && item.sku.width && item.sku.height ? (
+                      <div className="text-sm text-gray-700">
+                        {item.sku.length}×{item.sku.width}×{item.sku.height} CM
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-sm">-</div>
+                    )}
+                  </td>
+                ))}
               </tr>
-              <tr className="border-b">
-                <td className="p-4 bg-gray-50 font-medium">材质</td>
-                {products.map((p) => (<td key={p._id} className="p-4 text-center">{p.material || '-'}</td>))}
+
+              {/* PRO特性 - 只要有PRO版商品就显示这一行 */}
+              {compareItems.some(item => item.sku.isPro) && (
+                <tr className="border-b border-gray-200">
+                  <td className="py-4 px-4 text-sm font-medium bg-gray-50">PRO特性</td>
+                  {compareItems.map((item) => (
+                    <td key={item.compareItemId} className="py-4 px-4">
+                      {item.sku.isPro && item.sku.proFeature ? (
+                        <div className="text-sm text-gray-700 text-left px-2">
+                          {item.sku.proFeature}
+                        </div>
+                      ) : (
+                        <div className="text-gray-400 text-sm text-center">-</div>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              )}
+
+              {/* 操作 */}
+              <tr>
+                <td className="py-4 px-4 text-sm font-medium bg-gray-50">操作</td>
+                {compareItems.map((item) => (
+                  <td key={item.compareItemId} className="py-4 px-4 text-center">
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => handleAddToCart(item)}
+                        className="w-full btn-primary py-2 text-sm flex items-center justify-center gap-2"
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        加入购物车
+                      </button>
+                      <Link
+                        to={`/products/${item.product._id}`}
+                        className="block w-full btn-secondary py-2 text-sm text-center"
+                      >
+                        查看详情
+                      </Link>
+                    </div>
+                  </td>
+                ))}
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-6 text-center">
+          <Link to="/products" className="btn-secondary inline-block">
+            继续选购
+          </Link>
         </div>
       </div>
     </div>
   )
 }
+

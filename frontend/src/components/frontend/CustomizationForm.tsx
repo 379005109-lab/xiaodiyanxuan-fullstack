@@ -93,8 +93,9 @@ export default function CustomizationForm({ productId }: CustomizationFormProps)
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             isOpen 
               ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
-              : 'bg-primary-600 text-white hover:bg-primary-700'
+              : 'text-white hover:opacity-90'
           }`}
+          style={!isOpen ? { backgroundColor: '#14452F' } : {}}
         >
           {isOpen ? '收起' : '我要定制'}
         </button>
