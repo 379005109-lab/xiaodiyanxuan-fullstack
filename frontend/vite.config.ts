@@ -31,16 +31,42 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // 将node_modules的包合并到vendor chunk
+          // 优化分包策略，减少单个chunk大小
           if (id.includes('node_modules')) {
+            // React核心库单独打包
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react-vendor'
+            }
+            // 路由库单独打包
+            if (id.includes('react-router')) {
+              return 'router-vendor'
+            }
+            // UI组件库单独打包
+            if (id.includes('framer-motion') || id.includes('lucide-react') || id.includes('@headlessui')) {
+              return 'ui-vendor'
+            }
+            // 图表库单独打包（按需加载）
+            if (id.includes('recharts')) {
+              return 'charts-vendor'
+            }
+            // 工具库单独打包
+            if (id.includes('axios') || id.includes('date-fns') || id.includes('xlsx')) {
+              return 'utils-vendor'
+            }
+            // 其他库
             return 'vendor'
           }
-          // 将所有其他代码合并到main chunk
-          return 'main'
         },
       },
     },
     chunkSizeWarningLimit: 1000,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
   },
   define: {
     'process.env.NODE_ENV': '"production"',
