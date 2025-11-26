@@ -30,23 +30,54 @@ export default function OrdersPageNew() {
       setLoading(true)
       console.log('🔍 [Orders] Loading orders with token:', token?.slice(0, 20) + '...')
       
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
+      let apiOrders: any[] = []
+      let localOrders: any[] = []
       
-      console.log('🔍 [Orders] Response status:', response.status)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
+      // 1. 尝试从API加载订单
+      try {
+        const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+        
+        console.log('🔍 [Orders] Response status:', response.status)
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('🔍 [Orders] API orders count:', data.data?.length || 0)
+          apiOrders = data.data || []
+        }
+      } catch (apiError) {
+        console.warn('⚠️ [Orders] API加载失败，将读取本地订单:', apiError)
       }
       
-      const data = await response.json()
-      console.log('🔍 [Orders] Response data:', JSON.stringify(data, null, 2))
-      console.log('🔍 [Orders] Orders count:', data.data?.length || 0)
+      // 2. 从localStorage加载订单
+      try {
+        const stored = localStorage.getItem('local_orders')
+        if (stored) {
+          localOrders = JSON.parse(stored)
+          console.log('🔍 [Orders] Local orders count:', localOrders.length)
+        }
+      } catch (localError) {
+        console.warn('⚠️ [Orders] localStorage读取失败:', localError)
+      }
       
-      setOrders(data.data || [])
+      // 3. 合并订单（API订单优先，本地订单补充）
+      const allOrders = [...apiOrders]
+      
+      // 添加本地订单（排除已经在API中的订单）
+      for (const localOrder of localOrders) {
+        const exists = apiOrders.some(apiOrder => 
+          apiOrder.orderNo === localOrder.orderNo || apiOrder._id === localOrder._id
+        )
+        if (!exists) {
+          allOrders.push(localOrder)
+        }
+      }
+      
+      console.log('🔍 [Orders] Total orders count:', allOrders.length)
+      setOrders(allOrders)
     } catch (error) {
       console.error('❌ [Orders] 加载订单失败:', error)
       toast.error('加载订单失败')

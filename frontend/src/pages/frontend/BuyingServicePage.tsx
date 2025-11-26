@@ -43,100 +43,89 @@ export default function BuyingServicePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Green Section - 上部1/3绿色 */}
-      <div className="bg-gradient-to-b from-[#2d5a42] to-[#2d5a42] pt-20 pb-20" style={{ minHeight: '33.33vh' }}>
+    <div className="min-h-screen">
+      {/* Green Background Section - 绿色背景区域包含标题和服务卡片 */}
+      <div className="bg-[#2d5a42] pb-24">
         {/* Hero Section */}
-        <div className="text-center text-white py-8 px-4">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">佛山源头陪买服务</h1>
-          <p className="text-base md:text-lg mb-2">
-            深入佛山家具产地，专车接送，资深买手带您逛遍 200+ 源头展厅，
-          </p>
-          <p className="text-base md:text-lg">
+        <div className="text-center text-white pt-24 pb-12 px-4">
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">佛山源头陪买服务</h1>
+          <p className="text-sm md:text-base max-w-3xl mx-auto">
+            深入佛山家具产地，专车接送，资深买手带您逛遍 200+ 源头展厅，<br className="hidden md:block" />
             省去中间商差价，享受真正的一手出厂价。
           </p>
         </div>
 
-        {/* Service Cards - 仍在绿色区域 */}
-        <div className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* 基础陪买服务 */}
+        {/* Service Cards - 白色卡片在绿色背景上 */}
+        <div className="max-w-4xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 基础陪买服务 - 左侧卡片，金色边框 */}
           <div 
             onClick={() => handleServiceSelect('standard')}
-            className={`bg-white rounded-2xl shadow-xl overflow-hidden cursor-pointer transition-all transform hover:scale-105 ${
-              selectedService === 'standard' ? 'border-4 border-[#D4A574] ring-4 ring-[#D4A574]/30' : 'border-2 border-gray-200'
-            }`}
-          >
-            <div className="relative">
-              {/* MOST VALUE 标签 */}
-              <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
-                <div className="bg-[#D4A574] text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider shadow-lg">
-                  # MOST VALUE
-                </div>
-              </div>
-              
-              <div className="p-8 pt-16">
-                <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">基础陪买服务</h3>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">STANDARD GUIDE</p>
-                </div>
-
-                <div className="text-center mb-6">
-                  <div className="text-5xl font-bold text-[#D4A574] mb-2">¥1,000</div>
-                  <p className="text-sm text-gray-600">* 购满 5000 元全额抵扣陪买服务费</p>
-                </div>
-
-                <ul className="space-y-3 mb-6">
-                  <li className="flex items-start gap-2 text-sm">
-                    <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">专车接送（广佛区域：含高铁站、飞机场）</span>
-                  </li>
-                  <li className="flex items-start gap-2 text-sm">
-                    <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">1天深度选购行程</span>
-                  </li>
-                  <li className="flex items-start gap-2 text-sm">
-                    <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">专业陪价</span>
-                  </li>
-                  <li className="flex items-start gap-2 text-sm">
-                    <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">购满5000元抵扣服务费</span>
-                  </li>
-                </ul>
-
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleServiceSelect('standard')
-                    handleBookingClick()
-                  }}
-                  className="w-full bg-[#2d5a42] text-white py-3 rounded-lg font-bold hover:bg-[#234433] transition-all shadow-md"
-                >
-                  立即预约
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* 专家定制陪买 */}
-          <div 
-            onClick={() => handleServiceSelect('expert')}
-            className={`bg-white rounded-2xl shadow-xl overflow-hidden cursor-pointer transition-all transform hover:scale-105 ${
-              selectedService === 'expert' ? 'border-4 border-[#D4A574] ring-4 ring-[#D4A574]/30' : 'border-2 border-gray-300'
+            className={`bg-white rounded-2xl shadow-xl overflow-hidden cursor-pointer transition-all ${
+              selectedService === 'standard' ? 'border-4 border-[#D4A574]' : 'border-4 border-[#D4A574]'
             }`}
           >
             <div className="p-8">
+              <div className="text-center mb-4">
+                <h3 className="text-xl font-bold text-gray-900 mb-1">基础陪买服务</h3>
+                <p className="text-xs text-gray-500 uppercase tracking-wider">STANDARD GUIDE</p>
+              </div>
+
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">专家定制陪买</h3>
+                <div className="text-5xl font-bold text-[#D4A574] mb-2">¥1,000</div>
+                <p className="text-xs text-gray-500">* 购满 5000 元全额抵扣陪买服务费</p>
+              </div>
+
+              <ul className="space-y-2.5 mb-6">
+                <li className="flex items-start gap-2 text-sm">
+                  <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">专车接送（广佛区域：高铁站、机场、酒店）</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm">
+                  <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">1天深度选购行程</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm">
+                  <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">专业陪价</span>
+                </li>
+                <li className="flex items-start gap-2 text-sm">
+                  <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">购满5000元抵扣服务费</span>
+                </li>
+              </ul>
+
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleServiceSelect('standard')
+                  handleBookingClick()
+                }}
+                className="w-full bg-[#2d5a42] text-white py-3 rounded-lg font-bold hover:bg-[#234433] transition-all"
+              >
+                立即预约
+              </button>
+            </div>
+          </div>
+
+          {/* 专家定制陪买 - 右侧卡片 */}
+          <div 
+            onClick={() => handleServiceSelect('expert')}
+            className={`bg-white rounded-2xl shadow-xl overflow-hidden cursor-pointer transition-all ${
+              selectedService === 'expert' ? 'border-4 border-[#D4A574]' : 'border-2 border-gray-200'
+            }`}
+          >
+            <div className="p-8">
+              <div className="text-center mb-4">
+                <h3 className="text-xl font-bold text-gray-900 mb-1">专家定制陪买</h3>
                 <p className="text-xs text-gray-500 uppercase tracking-wider">EXPERT GUIDE</p>
               </div>
 
               <div className="text-center mb-6">
                 <div className="text-5xl font-bold text-gray-700 mb-2">¥5,000</div>
-                <p className="text-sm text-gray-600">* 购满 1 万元全额抵扣陪买服务费</p>
+                <p className="text-xs text-gray-500">* 购满 1 万元全额抵扣陪买服务费</p>
               </div>
 
-              <ul className="space-y-3 mb-6">
+              <ul className="space-y-2.5 mb-6">
                 <li className="flex items-start gap-2 text-sm">
                   <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <span className="text-gray-700">包含基础陪买服务所有权益</span>
@@ -165,7 +154,7 @@ export default function BuyingServicePage() {
                   handleServiceSelect('expert')
                   handleBookingClick()
                 }}
-                className="w-full bg-gray-300 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-400 transition-all"
+                className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-300 transition-all"
               >
                 立即预约
               </button>
@@ -174,49 +163,49 @@ export default function BuyingServicePage() {
         </div>
       </div>
 
-      {/* Gray Section - 下部2/3浅灰色 */}
-      <div className="bg-gray-100 py-16 px-4 flex-1" style={{ minHeight: '66.67vh' }}>
+      {/* Gray Background Section - 浅灰色背景区域 */}
+      <div className="bg-gray-50 py-20 px-4">
         {/* Why Choose Us */}
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-10">为什么选择小迪陪买？</h2>
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-12">为什么选择小迪陪买？</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <MapPin className="w-6 h-6 text-gray-700" />
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <MapPin className="w-7 h-7 text-gray-700" />
               </div>
               <h3 className="font-bold text-base mb-2 text-gray-900">源头直达</h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                直达 200+ 工厂，相接中间商渠道差价
+                直达 200+ 工厂，省接中间商渠道差价
               </p>
             </div>
 
-            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Car className="w-6 h-6 text-gray-700" />
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Car className="w-7 h-7 text-gray-700" />
               </div>
               <h3 className="font-bold text-base mb-2 text-gray-900">专车接送</h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                高端私房专车接送，全程轻松随意
+                高端商务专车接送，全程轻松惬意
               </p>
             </div>
 
-            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Users className="w-6 h-6 text-gray-700" />
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-7 h-7 text-gray-700" />
               </div>
-              <h3 className="font-bold text-base mb-2 text-gray-900">专业陪关</h3>
+              <h3 className="font-bold text-base mb-2 text-gray-900">专业陪同</h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                资深行业老手陪同，帮您筛选较优性价比
+                资深行业老手陪同，帮您筛选最优性价比
               </p>
             </div>
 
-            <div className="bg-white rounded-xl p-6 text-center shadow-sm">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Shield className="w-6 h-6 text-gray-700" />
+            <div className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-7 h-7 text-gray-700" />
               </div>
               <h3 className="font-bold text-base mb-2 text-gray-900">售后无忧</h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                平台统一质量客服，出现问题秒前响应
+                平台统一售后客服，出现问题秒级响应
               </p>
             </div>
           </div>

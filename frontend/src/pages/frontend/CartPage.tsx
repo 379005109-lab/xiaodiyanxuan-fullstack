@@ -55,8 +55,8 @@ export default function CartPage() {
       <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="flex justify-between items-end mb-8">
           <div>
-            <h1 className="text-3xl font-serif font-bold text-primary mb-2">购物袋</h1>
-            <p className="text-stone-500 uppercase tracking-widest text-xs">Shopping Bag ({items.length})</p>
+            <h1 className="text-3xl font-serif font-bold text-primary mb-2">购物车</h1>
+            <p className="text-stone-500 uppercase tracking-widest text-xs">Shopping Cart ({items.length})</p>
           </div>
           {items.length > 0 && (
             <button 
@@ -71,7 +71,7 @@ export default function CartPage() {
 
         {items.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-stone-100">
-            <p className="text-stone-400 font-serif italic mb-4">您的购物袋是空的</p>
+            <p className="text-stone-400 font-serif italic mb-4">您的购物车是空的</p>
             <Link 
               to="/products"
               className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-full hover:bg-green-900 transition-colors"
@@ -216,7 +216,7 @@ export default function CartPage() {
 
       {/* Floating Bottom Bar */}
       {items.length > 0 && (
-        <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-xl border-t border-stone-200 p-4 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+        <div className="sticky bottom-0 left-0 w-full bg-white/95 backdrop-blur-xl border-t border-stone-200 p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] mt-8">
           <div className="max-w-5xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-4">
               <span className="text-stone-500 text-sm hidden md:inline">已选 {selectedItems.length} 件商品</span>
