@@ -19,7 +19,7 @@ import CustomizationForm from '@/components/frontend/CustomizationForm';
 type MaterialKey = 'fabric' | 'filling' | 'frame' | 'leg';
 type SkuFilter = 'all' | 'standard' | 'pro';
 
-const PRIMARY_BLUE = '#1F64FF';
+const PRIMARY_COLOR = '#14452F'; // 深绿色主题色
 
 const MATERIAL_SECTIONS: { key: MaterialKey; label: string; badgeClass: string }[] = [
   { key: 'fabric', label: '面料', badgeClass: 'bg-blue-50 text-blue-700 border-blue-100' },
@@ -641,7 +641,7 @@ const ProductDetailPage = () => {
     );
   };
 
-  const handleDownloadImages = async () => {
+  const handleDownloadImages = () => {
     if (!selectedDownloadImages.length) {
       toast.error('请先选择需要下载的图片');
       return;
@@ -652,56 +652,14 @@ const ProductDetailPage = () => {
       return;
     }
     
-    toast.success(`开始下载 ${selectedDownloadImages.length} 张图片`);
+    toast.info('图片下载提示：请右键点击图片选择"图片另存为"来保存到本地');
     
-    for (let index = 0; index < selectedDownloadImages.length; index++) {
-      const img = selectedDownloadImages[index];
-      try {
-        // 获取图片文件名
-        const urlParts = img.split('/');
-        const fileName = urlParts[urlParts.length - 1] || `image-${index + 1}`;
-        const fileExt = fileName.includes('.') ? fileName.split('.').pop() : 'jpg';
-        
-        // 通过fetch获取图片数据
-        const response = await fetch(img, {
-          mode: 'cors',
-          credentials: 'omit'
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const blob = await response.blob();
-        
-        // 确保blob类型正确
-        const imageBlob = new Blob([blob], { type: `image/${fileExt}` });
-        const url = window.URL.createObjectURL(imageBlob);
-        
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `product-${product?.name || 'image'}-${index + 1}.${fileExt}`;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        
-        // 清理
-        setTimeout(() => {
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        }, 100);
-        
-        // 添加延迟避免浏览器阻止多个下载
-        if (index < selectedDownloadImages.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      } catch (error) {
-        console.error('下载图片失败:', error);
-        toast.error(`图片 ${index + 1} 下载失败: ${error}`);
-      }
-    }
-    
-    toast.success('所有图片下载完成');
+    // 在新窗口中打开所有选中的图片
+    selectedDownloadImages.forEach((img, index) => {
+      setTimeout(() => {
+        window.open(img, `_blank_${index}`);
+      }, index * 300);
+    });
   };
 
   const formatSpecificationValue = (spec: any) => {
@@ -883,7 +841,7 @@ const ProductDetailPage = () => {
                             : 'text-gray-600 border-gray-200 hover:border-gray-400'
                         )}
                         style={activeFilter === filter.key
-                          ? { backgroundColor: PRIMARY_BLUE, borderColor: PRIMARY_BLUE }
+                          ? { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }
                           : {}}
                       >
                         {filter.label}
@@ -943,7 +901,7 @@ const ProductDetailPage = () => {
                               'w-full px-5 py-3 rounded-xl border text-left bg-white transition-shadow hover:shadow-md flex flex-col gap-1',
                               isSelected ? 'shadow-[0_8px_24px_rgba(31,100,255,0.12)]' : 'border-gray-200'
                             )}
-                            style={isSelected ? { borderColor: PRIMARY_BLUE, backgroundColor: '#E6EEFF' } : {}}
+                            style={isSelected ? { borderColor: PRIMARY_COLOR, backgroundColor: '#f0fdf4' } : {}}
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-gray-900">
                               <div className="flex items-center gap-2">
@@ -1129,7 +1087,7 @@ const ProductDetailPage = () => {
                 onClick={handleAddToCart}
                 className="w-full py-3 rounded-lg text-white font-semibold text-base hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2"
                 style={{ 
-                  backgroundColor: PRIMARY_BLUE,
+                  backgroundColor: PRIMARY_COLOR,
                 }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1141,7 +1099,7 @@ const ProductDetailPage = () => {
                 <button
                   onClick={handleAddToCompare}
                   className="py-2.5 rounded-lg border font-medium transition-all duration-200 text-sm"
-                  style={{ borderColor: PRIMARY_BLUE, color: PRIMARY_BLUE, backgroundColor: '#f0f5ff' }}
+                  style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR, backgroundColor: '#f0fdf4' }}
                 >
                   加入对比
                 </button>
