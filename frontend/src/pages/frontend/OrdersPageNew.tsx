@@ -129,51 +129,81 @@ export default function OrdersPageNew() {
         ) : (
           <div className="space-y-6">
             {orders.map((order) => (
-              <div key={order._id || order.id} className="bg-white p-6 rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="font-bold text-lg text-primary">订单 #{order.orderNo || order.orderNumber}</h3>
-                    <p className="text-sm text-stone-500">{new Date(order.createdAt).toLocaleString('zh-CN')}</p>
-                    {order.orderType === 'package' && order.packageInfo && (
-                      <p className="text-xs text-stone-400 mt-1">套餐：{order.packageInfo.packageName}</p>
+              <div key={order._id || order.id} className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden">
+                {/* 订单头部 */}
+                <div className="flex justify-between items-center px-6 py-4 bg-stone-50 border-b border-stone-100">
+                  <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[order.status]?.color || 'text-stone-600 bg-stone-50'}`}>
+                      {statusConfig[order.status]?.icon}
+                      {statusConfig[order.status]?.label || `未知状态`}
+                    </div>
+                    <span className="text-sm text-stone-500">{new Date(order.createdAt).toLocaleDateString('zh-CN')}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-bold text-red-600">¥{(order.totalAmount || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* 订单商品列表 */}
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {order.orderType === 'package' && order.packageInfo ? (
+                      // 套餐订单
+                      order.packageInfo.selections?.map((selection: any, idx: number) => (
+                        selection.products?.map((product: any, pIdx: number) => (
+                          <div key={`${idx}-${pIdx}`} className="flex gap-4">
+                            <div className="w-20 h-20 bg-stone-100 rounded-lg flex-shrink-0 overflow-hidden">
+                              {product.image ? (
+                                <img src={product.image} alt={product.productName} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-stone-400">
+                                  <Package className="w-8 h-8" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-base font-medium text-stone-800 truncate">{product.productName}</h4>
+                              <p className="text-sm text-stone-500 mt-1">
+                                {selection.categoryName} / {product.materials ? Object.entries(product.materials).map(([k, v]) => `${v}`).join(' / ') : '标准款'} × {product.quantity || 1}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      ))
+                    ) : (
+                      // 普通商品订单
+                      order.items?.map((item: any, idx: number) => (
+                        <div key={idx} className="flex gap-4">
+                          <div className="w-20 h-20 bg-stone-100 rounded-lg flex-shrink-0 overflow-hidden">
+                            {item.image ? (
+                              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-stone-400">
+                                <Package className="w-8 h-8" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-base font-medium text-stone-800 truncate">{item.name}</h4>
+                            <p className="text-sm text-stone-500 mt-1">× {item.quantity || 1}</p>
+                          </div>
+                        </div>
+                      ))
                     )}
                   </div>
-                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${statusConfig[order.status]?.color || 'text-stone-600 bg-stone-50'}`}>
-                    {statusConfig[order.status]?.icon}
-                    {statusConfig[order.status]?.label || `未知状态(${order.status})`}
-                  </div>
-                </div>
-
-                {/* 订单商品信息 */}
-                <div className="border-t border-stone-100 pt-4 mb-4">
-                  {order.orderType === 'package' && order.packageInfo ? (
-                    <div className="space-y-2">
-                      {order.packageInfo.selections?.map((selection: any, idx: number) => (
-                        <div key={idx} className="text-sm">
-                          <span className="text-stone-600">{selection.categoryName}：</span>
-                          <span className="text-stone-500">
-                            {selection.products?.map((p: any) => p.productName).join(', ') || '无'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-stone-600">
-                      共 {order.items?.length || 0} 件商品
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t border-stone-100 pt-4">
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm">
-                      <p className="text-stone-600">收货人：{order.recipient?.name || '未填写'}</p>
-                      <p className="text-stone-500 text-xs mt-1">{order.recipient?.phone}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-stone-500">订单金额</p>
-                      <p className="font-serif font-bold text-xl text-accent">¥{(order.totalAmount || 0).toLocaleString()}</p>
-                    </div>
+                  
+                  {/* 收货信息 */}
+                  <div className="mt-6 pt-4 border-t border-stone-100">
+                    <p className="text-sm text-stone-500 mb-1">ORD{order.orderNo || order.orderNumber}</p>
+                    <p className="text-sm text-stone-800">
+                      <span className="text-stone-600">收货人：</span>{order.recipient?.name || '未填写'}
+                    </p>
+                    <p className="text-sm text-stone-800 mt-1">
+                      <span className="text-stone-600">电话：</span>{order.recipient?.phone || '未填写'}
+                    </p>
+                    <p className="text-sm text-stone-800 mt-1">
+                      <span className="text-stone-600">地址：</span>{order.recipient?.address || '未填写'}
+                    </p>
                   </div>
                 </div>
               </div>
