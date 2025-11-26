@@ -10,27 +10,35 @@ export default function HomePage() {
     setMounted(true)
   }, [])
 
-  // 生成向心汇聚的粒子图标
-  const icons = [Armchair, Sofa, Lamp, Box, Palette, Truck, Gem, Ruler, ShoppingBag, Layers, MapPin, Ruler]
+  // 生成向心汇聚并围绕旋转的粒子图标
+  const icons = [Armchair, Sofa, Lamp, Box, Palette, Truck, Gem, Ruler, ShoppingBag, Layers, MapPin]
   const particles = icons.map((Icon, i) => {
     const angle = (i / icons.length) * 2 * Math.PI
     const distance = 400
     const startX = Math.cos(angle) * distance
     const startY = Math.sin(angle) * distance
-    const delay = Math.random() * 2
+    const delay = i * 0.15
+
+    // 最终围绕Logo的位置（半径160px）
+    const orbitRadius = 160
+    const orbitX = Math.cos(angle) * orbitRadius
+    const orbitY = Math.sin(angle) * orbitRadius
 
     return (
       <div 
         key={i}
-        className="absolute top-1/2 left-1/2 animate-implode drop-shadow-2xl pointer-events-none" 
+        className="absolute top-1/2 left-1/2 drop-shadow-2xl pointer-events-none" 
         style={{ 
           '--start-x': `${startX}px`, 
           '--start-y': `${startY}px`,
+          '--orbit-x': `${orbitX}px`,
+          '--orbit-y': `${orbitY}px`,
+          '--delay': `${delay}s`,
+          animation: 'implodeOrbit 4s ease-out forwards',
           animationDelay: `${delay}s`,
-          animationDuration: '3.5s',
         } as any}
       >
-        <Icon className="w-20 h-20 md:w-24 md:h-24 stroke-[2] text-white opacity-100" />
+        <Icon className="w-16 h-16 md:w-20 md:h-20 stroke-[2] text-white opacity-100" />
       </div>
     )
   })
@@ -192,22 +200,41 @@ export default function HomePage() {
       </div>
 
       <style>{`
-        @keyframes implode {
+        @keyframes implodeOrbit {
           0% { 
             transform: translate(var(--start-x), var(--start-y)) scale(0.5); 
             opacity: 0;
           }
-          20% { 
+          30% { 
+            transform: translate(0, 0) scale(0.8); 
+            opacity: 1;
+          }
+          50% { 
+            transform: translate(var(--orbit-x), var(--orbit-y)) scale(1); 
             opacity: 1;
           }
           100% { 
-            transform: translate(0, 0) scale(0.2); 
-            opacity: 0;
+            transform: translate(var(--orbit-x), var(--orbit-y)) scale(1) rotate(360deg); 
+            opacity: 1;
           }
         }
         
-        .animate-implode {
-          animation: implode 3.5s ease-in-out infinite;
+        @keyframes orbit {
+          from {
+            transform: translate(var(--orbit-x), var(--orbit-y)) rotate(0deg);
+          }
+          to {
+            transform: translate(var(--orbit-x), var(--orbit-y)) rotate(360deg);
+          }
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
         
         .animate-pulse-slow {

@@ -641,7 +641,7 @@ const ProductDetailPage = () => {
     );
   };
 
-  const handleDownloadImages = () => {
+  const handleDownloadImages = async () => {
     if (!selectedDownloadImages.length) {
       toast.error('请先选择需要下载的图片');
       return;
@@ -652,15 +652,34 @@ const ProductDetailPage = () => {
       return;
     }
     
-    toast.info('图片下载提示：请右键点击图片选择"图片另存为"来保存到本地');
+    toast.success(`开始下载 ${selectedDownloadImages.length} 张图片`);
     
-    // 在新窗口中打开所有选中的图片，确保使用完整URL
-    selectedDownloadImages.forEach((img, index) => {
-      setTimeout(() => {
+    // 下载所有选中的图片到本地
+    for (let index = 0; index < selectedDownloadImages.length; index++) {
+      const img = selectedDownloadImages[index];
+      try {
         const fullUrl = getFileUrl(img);
-        window.open(fullUrl, `_blank_${index}`);
-      }, index * 300);
-    });
+        const fileName = `${product?.name || 'product'}-${index + 1}.jpg`;
+        
+        // 创建隐藏的a标签触发下载
+        const link = document.createElement('a');
+        link.href = fullUrl;
+        link.download = fileName;
+        link.target = '_blank';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // 延迟避免浏览器阻止多个下载
+        if (index < selectedDownloadImages.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error('下载图片失败:', error);
+        toast.error(`图片 ${index + 1} 下载失败`);
+      }
+    }
   };
 
   const formatSpecificationValue = (spec: any) => {
