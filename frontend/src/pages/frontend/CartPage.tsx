@@ -10,17 +10,21 @@ export default function CartPage() {
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore()
   const [selectedItems, setSelectedItems] = useState<string[]>([])
 
-  // 调试：打印购物车数据
-  console.log('🛒 购物车数据:', items)
+  // 调试：打印购物车详细数据
+  console.log('🛒 购物车数量:', items.length)
+  console.log('🛒 购物车完整数据:', JSON.stringify(items, null, 2))
   items.forEach((item, idx) => {
-    console.log(`商品${idx + 1}:`, {
+    console.log(`📦 商品${idx + 1}:`, {
       name: item.product?.name,
       spec: item.sku?.spec,
       selectedMaterials: item.selectedMaterials,
       materialUpgradePrices: item.materialUpgradePrices,
-      price: item.price
+      hasUpgradePrices: !!item.materialUpgradePrices && Object.keys(item.materialUpgradePrices).length > 0,
+      price: item.price,
+      _debugSku: item.sku
     })
   })
+  console.log('📊 结算按钮应该显示:', items.length > 0)
 
   const toggleSelect = (id: string) => {
     setSelectedItems(prev => 
@@ -28,6 +32,7 @@ export default function CartPage() {
         ? prev.filter(itemId => itemId !== id)
         : [...prev, id]
     )
+    console.log('toggleSelect:', id, selectedItems)
   }
 
   const toggleSelectAll = () => {
@@ -258,7 +263,7 @@ export default function CartPage() {
       
       {/* Bottom Checkout Bar */}
       {items.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-6 shadow-lg z-10">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-6 shadow-lg z-50">
           <div className="max-w-5xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-4">
               <span className="text-stone-500 text-sm hidden md:inline">已选 {selectedItems.length} 件商品</span>
