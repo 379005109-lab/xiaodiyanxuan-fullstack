@@ -74,10 +74,21 @@ const pickPremiumMaterial = (options: string[], upgradePrices?: Record<string, n
 // 提取材质系列名称（参考PackageDetailPage的逻辑）
 const extractMaterialSeries = (materialName: string): string => {
   const knownSeries = [
-    '全青皮', '半青皮', '普通皮', '真皮', '牛皮', '半皮',
+    // 皮革类
+    '纳帕A级皮', '纳帕', '全青皮', '半青皮', '普通皮', '真皮', '牛皮', '半皮', '磨砂皮',
+    // 布料类
     '磨砂布', '绒布', '麻布', '棉布', '丝绒',
-    '实木', '橡木', '胡桃木', '榉木', '松木',
-    '不锈钢', '铁艺', '航空铝', '碳钢',
+    // 填充类
+    '高回弹海绵', '高回弹', '高密加硬', '舒软款',
+    // 骨架类
+    '顶级框架', '普通框架', '顶级骨架', '标准骨架',
+    // 脚架类
+    '钛合金脚架', '钛合金', '高级脚架', '普通脚架',
+    // 木材类
+    '实木', '橡木', '胡桃木', '榉木', '松木', '落叶松', '桉木',
+    // 金属类
+    '不锈钢', '铁艺', '航空铝', '碳钢', '锰钢',
+    // 其他
     '大理石', '岩板', '玻璃'
   ];
   
@@ -87,7 +98,13 @@ const extractMaterialSeries = (materialName: string): string => {
     }
   }
   
-  const match = materialName.match(/^[\u4e00-\u9fa5]{1,3}/);
+  // 尝试提取破折号前的部分作为系列名
+  const prefix = materialName.split(/[-–—]/)[0]?.trim();
+  if (prefix && prefix.length > 0) {
+    return prefix;
+  }
+  
+  const match = materialName.match(/^[\u4e00-\u9fa5]{1,5}/);
   return match ? match[0] : materialName;
 };
 
@@ -181,7 +198,7 @@ const getMaterialCategory = (materialName: string): string => {
   return 'other'
 };
 
-// 获取材质升级价格（按具体材质名称累计）
+// 获取材质升级价格（按具体材质名称或类别前缀累计）
 const getUpgradePrice = (sku?: ProductSKU | null, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
   if (!sku || !selectedMaterials) return 0;
   
@@ -195,11 +212,27 @@ const getUpgradePrice = (sku?: ProductSKU | null, selectedMaterials?: { fabric?:
   if (selectedMaterials.frame) selectedMaterialList.push(selectedMaterials.frame);
   if (selectedMaterials.leg) selectedMaterialList.push(selectedMaterials.leg);
   
-  // 累计每个材质的加价（直接使用材质名称查找加价）
+  // 累计每个材质的加价
   selectedMaterialList.forEach(materialName => {
-    // 首先尝试用完整材质名称查找加价
+    // 1. 首先尝试用完整材质名称查找加价
     if (materialUpgradePrices[materialName] !== undefined) {
       totalUpgradePrice += materialUpgradePrices[materialName];
+      return;
+    }
+    
+    // 2. 尝试用材质类别前缀查找（如"纳帕A级皮-纳帕黑" -> "纳帕A级皮"）
+    const prefix = materialName.split(/[-–—]/)[0]?.trim();
+    if (prefix && materialUpgradePrices[prefix] !== undefined) {
+      totalUpgradePrice += materialUpgradePrices[prefix];
+      return;
+    }
+    
+    // 3. 遍历所有加价键，检查材质名称是否包含该键
+    for (const [key, value] of Object.entries(materialUpgradePrices)) {
+      if (materialName.includes(key) && typeof value === 'number') {
+        totalUpgradePrice += value;
+        return;
+      }
     }
   });
   
