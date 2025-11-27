@@ -181,27 +181,25 @@ const getMaterialCategory = (materialName: string): string => {
   return 'other'
 };
 
-// 获取材质升级价格（按类别）
+// 获取材质升级价格（按具体材质名称累计）
 const getUpgradePrice = (sku?: ProductSKU | null, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
   if (!sku || !selectedMaterials) return 0;
   
   const materialUpgradePrices = sku.materialUpgradePrices || {};
   let totalUpgradePrice = 0;
   
-  // 获取所有选中的材质
+  // 获取所有选中的材质并累计加价
   const selectedMaterialList: string[] = [];
   if (selectedMaterials.fabric) selectedMaterialList.push(selectedMaterials.fabric);
   if (selectedMaterials.filling) selectedMaterialList.push(selectedMaterials.filling);
   if (selectedMaterials.frame) selectedMaterialList.push(selectedMaterials.frame);
   if (selectedMaterials.leg) selectedMaterialList.push(selectedMaterials.leg);
   
-  // 计算每个材质所属类别的加价（避免重复计算同一类别）
-  const addedCategories = new Set<string>();
+  // 累计每个材质的加价（直接使用材质名称查找加价）
   selectedMaterialList.forEach(materialName => {
-    const category = getMaterialCategory(materialName);
-    if (!addedCategories.has(category)) {
-      totalUpgradePrice += materialUpgradePrices[category] || 0;
-      addedCategories.add(category);
+    // 首先尝试用完整材质名称查找加价
+    if (materialUpgradePrices[materialName] !== undefined) {
+      totalUpgradePrice += materialUpgradePrices[materialName];
     }
   });
   
@@ -563,20 +561,8 @@ const ProductDetailPage = () => {
     const options = normalizedSelectedMaterials?.[sectionKey] || [];
     if (options.length <= 1) return;
 
-    const upgradePrices = selectedSku?.materialUpgradePrices || {};
-    const premiumOption = pickPremiumMaterial(options, upgradePrices);
-    const isDowngrade =
-      selectedSku?.isPro &&
-      activeFilter === 'pro' &&
-      premiumOption &&
-      materialName !== premiumOption;
-
+    // 直接设置材质选择，不再自动切换版本
     setMaterialSelections(prev => ({ ...prev, [sectionKey]: materialName }));
-
-    if (isDowngrade) {
-      toast.info('已切换到标准版以匹配材质选择');
-      handleFilterChange('standard');
-    }
   };
 
   const openMaterialIntro = (sectionKey: MaterialKey, materialName?: string) => {
