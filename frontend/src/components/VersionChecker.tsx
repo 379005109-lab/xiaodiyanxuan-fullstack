@@ -57,7 +57,7 @@ export default function VersionChecker() {
         fontWeight: 'bold'
       }}
     >
-      🎉 发现新版本！页面将在5秒后自动刷新...
+      🎉 发现新版本！请点击按钮手动刷新
       <button
         onClick={() => window.location.reload()}
         style={{

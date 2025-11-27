@@ -14,12 +14,9 @@ export default function HomePage() {
     loadHotProducts()
   }, [])
 
-  const loadHotProducts = async () => {
-    try {
-      setLoadingProducts(true)
-      
-      // 直接使用真实商品数据，不依赖API
-      const realProducts = [
+  const loadHotProducts = () => {
+    // 直接设置商品数据，无需异步操作
+    const realProducts = [
         {
           _id: '6923a577c6d6fe40ce5d0ca0',
           name: '大黑牛沙发',
@@ -30,7 +27,8 @@ export default function HomePage() {
             images: []
           }],
           images: [],
-          views: 8
+          views: 8,
+          imageUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
         },
         {
           _id: '6923a577c6d6fe40ce5d0c9d',
@@ -42,7 +40,8 @@ export default function HomePage() {
             images: []
           }],
           images: ['6924869a13843fdf14ad85a6'],
-          views: 21
+          views: 21,
+          imageUrl: 'https://images.unsplash.com/photo-1549497538-303791108f95?auto=format&fit=crop&q=80&w=800'
         },
         {
           _id: '6923a577c6d6fe40ce5d0c9a',
@@ -54,7 +53,8 @@ export default function HomePage() {
             images: ['6924d3876e74cd4c3f7e2b17']
           }],
           images: ['6923b07a6ef6d07e8fe2d5a0'],
-          views: 99
+          views: 99,
+          imageUrl: 'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&q=80&w=800'
         },
         {
           _id: '6923a577c6d6fe40ce5d0c97',
@@ -66,23 +66,20 @@ export default function HomePage() {
             images: []
           }],
           images: ['6923a5f6c6d6fe40ce5d0cec'],
-          views: 83
+          views: 83,
+          imageUrl: 'https://images.unsplash.com/photo-1541558869434-2840d308329a?auto=format&fit=crop&q=80&w=800'
         }
       ]
       
       console.log('使用硬编码的真实商品数据:', realProducts.length, '个')
       setHotProducts(realProducts)
-    } catch (error) {
-      console.error('加载商品失败:', error)
-    } finally {
       setLoadingProducts(false)
-    }
   }
 
   const getFileUrl = (path: string) => {
-    if (!path) return '/placeholder.png'
+    if (!path) return 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
     if (path.startsWith('http')) return path
-    return `https://pkochbpmcgaa.sealoshzh.site${path}`
+    return `https://pkochbpmcgaa.sealoshzh.site/api/files/${path}`
   }
 
   const formatPrice = (price: number | undefined) => {
@@ -90,37 +87,22 @@ export default function HomePage() {
     return `¥${price.toLocaleString()}`
   }
 
-  // 生成宇宙聚拢效果的大量家具图标
-  const icons = [Armchair, Sofa, Lamp, Box, Palette, Truck, Gem, Ruler, ShoppingBag, Layers, MapPin]
+  // 简化图标动画，只使用少量图标
+  const icons = [Armchair, Sofa, Lamp, Box]
   
-  // 生成3层轨道，每层有更多图标
+  // 生成简化的图标动画
   const particles = []
-  for (let layer = 0; layer < 3; layer++) {
-    const iconsInLayer = icons.length
-    const layerRadius = 200 + layer * 120 // 3层轨道：200px, 320px, 440px
-    const duration = 15 + layer * 5 // 不同速度：15s, 20s, 25s
-    
-    for (let i = 0; i < iconsInLayer; i++) {
-      const Icon = icons[i]
-      const angle = (i / iconsInLayer) * 2 * Math.PI + (layer * Math.PI / 6) // 每层错开角度
-      const delay = (layer * iconsInLayer + i) * 0.2
-      
-      particles.push(
-        <div 
-          key={`${layer}-${i}`}
-          className="absolute top-1/2 left-1/2 drop-shadow-lg pointer-events-none" 
-          style={{ 
-            '--layer-radius': `${layerRadius}px`,
-            '--angle': `${angle}rad`,
-            animation: `universeConverge ${duration}s ease-in-out infinite`,
-            animationDelay: `${delay}s`,
-            zIndex: 10 - layer,
-          } as any}
-        >
-          <Icon className="w-10 h-10 md:w-12 md:h-12 stroke-[1.5] text-white/90" />
-        </div>
-      )
-    }
+  for (let i = 0; i < 8; i++) { // 减少到8个图标
+    const angle = (i / 8) * 360
+    const IconComponent = icons[i % icons.length]
+    particles.push({
+      id: i,
+      Icon: IconComponent,
+      angle,
+      layer: 0,
+      radius: 200,
+      duration: 15
+    })
   }
 
   return (
@@ -291,15 +273,13 @@ export default function HomePage() {
                 >
                   <div className="relative aspect-square overflow-hidden bg-stone-100">
                     <img 
-                      src={getFileUrl(
-                        product.skus?.[0]?.images?.[0] || 
-                        product.images?.[0] || 
-                        'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
-                      )}
+                      src={product.imageUrl || 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      loading="eager"
+                      onLoad={() => console.log(`${product.name} 图片加载成功`)}
                       onError={(e) => {
-                        // 如果图片加载失败，使用默认图片
+                        console.log(`${product.name} 图片加载失败，使用备用图片`)
                         e.currentTarget.src = 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
                       }}
                     />

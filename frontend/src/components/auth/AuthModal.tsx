@@ -27,8 +27,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   // 注册表单
   const [registerForm, setRegisterForm] = useState({
     phone: '',
-    password: '',
-    confirmPassword: '',
     verifyCode: ''
   })
 
@@ -122,18 +120,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!registerForm.phone || !registerForm.password || !registerForm.verifyCode) {
-      toast.error('请填写完整信息')
-      return
-    }
-    
-    if (registerForm.password !== registerForm.confirmPassword) {
-      toast.error('两次密码不一致')
-      return
-    }
-    
-    if (registerForm.password.length < 6) {
-      toast.error('密码至少6位')
+    if (!registerForm.phone || !registerForm.verifyCode) {
+      toast.error('请填写手机号和验证码')
       return
     }
     
@@ -144,7 +132,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: registerForm.phone,
-          password: registerForm.password,
           verifyCode: registerForm.verifyCode
         })
       })
@@ -286,10 +273,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
             </form>
           ) : (
             // 注册表单
-            <form onSubmit={handleRegister}>
-              <div className="text-center mb-6">
-                <h2 className="text-xl font-semibold text-stone-900 mb-1">注册账号</h2>
-                <p className="text-stone-400 text-xs">加入小迪严选，开启高端家居之旅</p>
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-semibold text-stone-800">立即注册</h3>
+                <p className="text-xs text-stone-500 mt-1">只需手机号+验证码，无需密码</p>
               </div>
 
               <div className="space-y-3">
@@ -301,18 +288,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                     placeholder="请输入手机号"
                     value={registerForm.phone}
                     onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
-                    className="w-full bg-stone-50 border-0 rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
-                  />
-                </div>
-
-                {/* 密码 */}
-                <div>
-                  <label className="text-xs text-stone-600 block mb-1.5">密码</label>
-                  <input
-                    type="password"
-                    placeholder="请输入密码"
-                    value={registerForm.password}
-                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
                     className="w-full bg-stone-50 border-0 rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
                   />
                 </div>
