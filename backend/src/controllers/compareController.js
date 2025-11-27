@@ -86,14 +86,25 @@ const add = async (req, res) => {
       return res.status(400).json(errorResponse('无效的产品ID', 400))
     }
     
-    // 检查是否已存在
-    const existing = await Compare.findOne({
+    // 检查是否已存在（需要比较productId + skuId + selectedMaterials组合）
+    const existingItems = await Compare.find({
       userId: req.userId,
       productId,
       skuId
     })
     
-    if (existing) {
+    // 如果有selectedMaterials，需要精确匹配
+    if (selectedMaterials && Object.keys(selectedMaterials).length > 0) {
+      const materialKey = JSON.stringify(selectedMaterials)
+      const duplicate = existingItems.find(item => {
+        const itemMaterialKey = JSON.stringify(item.selectedMaterials || {})
+        return itemMaterialKey === materialKey
+      })
+      if (duplicate) {
+        return res.status(400).json(errorResponse('该商品配置已在对比列表中', 400))
+      }
+    } else if (existingItems.length > 0 && !existingItems[0].selectedMaterials) {
+      // 如果没有材质选择，且已存在相同的productId+skuId（也没有材质），则视为重复
       return res.status(400).json(errorResponse('该商品已在对比列表中', 400))
     }
     

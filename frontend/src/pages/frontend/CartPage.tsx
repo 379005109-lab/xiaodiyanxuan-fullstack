@@ -15,9 +15,21 @@ export default function CartPage() {
 
   // 同步selectedItems，确保删除商品后状态正确
   useEffect(() => {
+    if (items.length === 0) {
+      setSelectedItems([])
+      return
+    }
+    
     // 过滤掉已经不在购物车中的选中项
     const currentItemKeys = items.map(item => `${item.product._id}-${item.sku._id}`)
-    setSelectedItems(prev => prev.filter(itemId => currentItemKeys.includes(itemId)))
+    setSelectedItems(prev => {
+      const filtered = prev.filter(itemId => currentItemKeys.includes(itemId))
+      // 如果过滤后为空，且购物车有商品，自动选中所有商品
+      if (filtered.length === 0 && items.length > 0) {
+        return currentItemKeys
+      }
+      return filtered
+    })
   }, [items])
 
   const toggleSelect = (id: string) => {
