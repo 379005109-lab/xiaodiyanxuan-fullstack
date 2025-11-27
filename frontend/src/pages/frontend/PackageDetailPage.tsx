@@ -465,21 +465,34 @@ export default function PackageDetailPage() {
           
           // 计算每个材质类型的加价
           const materialUpgradePrices: Record<string, number> = {}
+          console.log(`📦 [构建订单数据] 商品: ${product.name}`)
+          console.log(`📦 materials选择:`, JSON.stringify(materials))
+          console.log(`📦 product.materials定义:`, JSON.stringify(product.materials))
+          
           if (materials && product.materials) {
             Object.entries(materials).forEach(([materialKey, selectedOption]) => {
               if (!selectedOption) return
               const productMaterials = (product.materials as any)?.[materialKey]
-              if (!productMaterials || !Array.isArray(productMaterials)) return
+              console.log(`📦 [${materialKey}] 选择: ${selectedOption}, 可选项: ${JSON.stringify(productMaterials)}`)
+              
+              if (!productMaterials || !Array.isArray(productMaterials)) {
+                console.log(`📦 [${materialKey}] 跳过 - productMaterials不是数组`)
+                return
+              }
               // 检查是否选择了非默认选项
               const isUpgrade = selectedOption !== productMaterials[0]
+              console.log(`📦 [${materialKey}] 默认: ${productMaterials[0]}, 是否升级: ${isUpgrade}`)
+              
               if (isUpgrade) {
                 const premium = getOptionPremium(selectedOption as string, product.basePrice || 0, product)
+                console.log(`📦 [${materialKey}] 加价: ${premium}`)
                 if (premium > 0) {
                   materialUpgradePrices[materialKey] = premium
                 }
               }
             })
           }
+          console.log(`📦 最终materialUpgradePrices:`, JSON.stringify(materialUpgradePrices))
           
           // 获取规格名称
           const skuName = product.skus?.[0]?.spec || ''
