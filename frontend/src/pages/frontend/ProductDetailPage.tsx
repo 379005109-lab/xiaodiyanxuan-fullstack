@@ -973,18 +973,51 @@ const ProductDetailPage = () => {
                         const groupOrder: string[] = [];
                         
                         list.forEach(material => {
-                          // 提取材质类型（如"普通皮"、"全青皮"等）
+                          // 提取材质类型 - 从材质名称中解析出类型前缀
                           let groupKey = 'other';
-                          if (material.includes('普通皮')) {
-                            groupKey = '普通皮';
+                          
+                          // 面料类型识别
+                          if (material.includes('磨砂皮')) {
+                            groupKey = '磨砂皮';
+                          } else if (material.includes('纳帕A级皮') || material.includes('纳帕')) {
+                            groupKey = '纳帕A级皮';
                           } else if (material.includes('全青皮')) {
                             groupKey = '全青皮';
+                          } else if (material.includes('普通皮')) {
+                            groupKey = '普通皮';
                           } else if (material.includes('牛皮')) {
                             groupKey = '牛皮';
                           } else if (material.includes('绒布')) {
                             groupKey = '绒布';
                           } else if (material.includes('麻布')) {
                             groupKey = '麻布';
+                          } 
+                          // 填充类型识别
+                          else if (material.includes('舒软款')) {
+                            groupKey = '舒软款';
+                          } else if (material.includes('高密加硬')) {
+                            groupKey = '高密加硬';
+                          } else if (material.includes('高回弹')) {
+                            groupKey = '高回弹';
+                          }
+                          // 骨架类型识别
+                          else if (material.includes('国产桉木') || material.includes('普通蛇形弹簧') || material.includes('普通弹簧')) {
+                            groupKey = '标准骨架';
+                          } else if (material.includes('落叶松') || material.includes('加厚龙骨') || material.includes('锰钢')) {
+                            groupKey = '顶级骨架';
+                          }
+                          // 脚架类型识别
+                          else if (material.includes('普通脚架') || material.includes('国产脚架')) {
+                            groupKey = '普通脚架';
+                          } else if (material.includes('钛合金')) {
+                            groupKey = '钛合金脚架';
+                          }
+                          // 如果都不匹配，尝试用破折号或短横线分割取第一部分作为分组
+                          else {
+                            const parts = material.split(/[-–—]/);
+                            if (parts.length > 1) {
+                              groupKey = parts[0].trim();
+                            }
                           }
                           
                           if (!materialGroups[groupKey]) {
@@ -1010,11 +1043,20 @@ const ProductDetailPage = () => {
                                 {groupOrder.map(groupKey => {
                                   // 材质分组的介绍信息
                                   const groupDescriptions: Record<string, string> = {
+                                    '磨砂皮': '磨砂皮具有细腻的磨砂质感，手感柔软舒适，外观时尚大气。',
+                                    '纳帕A级皮': '纳帕A级皮是顶级真皮，皮质细腻柔软，触感舒适，高端品质。',
                                     '普通皮': '普通皮革，经济实惠，适合日常使用。具有良好的耐用性和易清洁特性。',
-                                    '全青皮': '全青皮是高级皮革，采用天然植物鞣制工艺，具有独特的质感和气味。随着使用时间增长，颜色会逐渐加深，形成独特的包浆效果。',
+                                    '全青皮': '全青皮是高级皮革，采用天然植物鞣制工艺，具有独特的质感和气味。',
                                     '牛皮': '优质牛皮，纹理自然，质感细腻。具有很好的透气性和耐磨性。',
                                     '绒布': '柔软舒适的绒布面料，触感温暖。易于清洁，适合家庭使用。',
                                     '麻布': '天然麻布，环保透气，具有独特的质感。适合现代简约风格。',
+                                    '舒软款': '舒软填充，坐感柔软舒适，适合长时间休息。',
+                                    '高密加硬': '高密度填充，支撑性强，不易塌陷，适合喜欢硬坐感的用户。',
+                                    '高回弹': '高回弹海绵，弹性好，久坐不变形，舒适耐用。',
+                                    '标准骨架': '标准骨架配置，稳固耐用，性价比高。',
+                                    '顶级骨架': '顶级骨架配置，采用优质材料，更加稳固耐用。',
+                                    '普通脚架': '标准脚架，稳固实用。',
+                                    '钛合金脚架': '钛合金脚架，轻便坚固，美观大方。',
                                   };
                                   return (
                                   <div key={groupKey}>
