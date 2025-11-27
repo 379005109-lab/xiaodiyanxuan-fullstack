@@ -1,109 +1,44 @@
 import { Link } from 'react-router-dom'
-import { Mail, Phone, MapPin } from 'lucide-react'
 
 export default function Footer() {
-  const footerLinks = {
-    company: [
-      { name: '关于我们', path: '/about' },
-      { name: '联系我们', path: '/contact' },
-      { name: '加入我们', path: '/careers' },
-      { name: '新闻资讯', path: '/news' },
-    ],
-    service: [
-      { name: '设计服务', path: '/design-service' },
-      { name: '配送安装', path: '/delivery' },
-      { name: '售后服务', path: '/after-sales' },
-      { name: '常见问题', path: '/faq' },
-    ],
-    help: [
-      { name: '购物指南', path: '/guide' },
-      { name: '支付方式', path: '/payment' },
-      { name: '退换货政策', path: '/refund-policy' },
-      { name: '隐私政策', path: '/privacy' },
-    ],
-  }
-
   return (
-    <footer className="bg-gray-900 text-gray-300 relative z-50">
-      <div className="container-custom py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
-          {/* 公司信息 */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">家</span>
-              </div>
-              <span className="text-xl font-bold text-white">品质家居</span>
-            </div>
-            <p className="text-gray-400 mb-4 leading-relaxed">
-              致力于为每个家庭提供高品质、高性价比的家居产品和专业的设计服务。
-              让每个人都能拥有理想中的家。
+    <footer className="bg-white border-t border-stone-200 relative z-50">
+      <div className="container-custom py-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          {/* 左侧：品牌名称和描述 */}
+          <div className="max-w-md">
+            <h3 className="text-2xl font-serif font-bold text-stone-800 mb-3">
+              XiaoDi Yanxuan
+            </h3>
+            <p className="text-sm text-stone-500 leading-relaxed">
+              我们开始放弃全球端到端的全球化设计中。<br/>
+              打造进一步的线上线下体验。
             </p>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Phone className="h-4 w-4" />
-                <span>400-888-8888</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Mail className="h-4 w-4" />
-                <span>contact@furniture.com</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <MapPin className="h-4 w-4" />
-                <span>广东省深圳市南山区科技园</span>
-              </div>
-            </div>
           </div>
 
-          {/* 公司 */}
-          <div>
-            <h3 className="text-white font-semibold mb-4">公司</h3>
-            <ul className="space-y-2">
-              {footerLinks.company.map((link) => (
-                <li key={link.path}>
-                  <Link to={link.path} className="hover:text-primary-400 transition-colors">
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* 服务 */}
-          <div>
-            <h3 className="text-white font-semibold mb-4">服务</h3>
-            <ul className="space-y-2">
-              {footerLinks.service.map((link) => (
-                <li key={link.path}>
-                  <Link to={link.path} className="hover:text-primary-400 transition-colors">
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* 帮助 */}
-          <div>
-            <h3 className="text-white font-semibold mb-4">帮助</h3>
-            <ul className="space-y-2">
-              {footerLinks.help.map((link) => (
-                <li key={link.path}>
-                  <Link to={link.path} className="hover:text-primary-400 transition-colors">
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* 版权信息 */}
-        <div className="mt-12 pt-8 border-t border-gray-800">
-          <div className="text-center">
-            <p className="text-sm text-gray-400">
-              © 2024 品质家居. All rights reserved.
-            </p>
+          {/* 右侧：链接 */}
+          <div className="flex gap-8 text-sm">
+            <Link 
+              to="/about" 
+              className="text-stone-600 hover:text-primary transition-colors"
+            >
+              关于我们
+            </Link>
+            <Link 
+              to="/buying-service" 
+              className="text-stone-600 hover:text-primary transition-colors"
+            >
+              陪选服务
+            </Link>
+            <Link 
+              to="/contact" 
+              className="text-stone-600 hover:text-primary transition-colors"
+            >
+              版权政策
+            </Link>
+            <span className="text-stone-400">
+              © 2024 XiaoDi Yanxuan.
+            </span>
           </div>
         </div>
       </div>

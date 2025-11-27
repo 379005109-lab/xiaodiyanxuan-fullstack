@@ -1,14 +1,47 @@
 import { ArrowRight, Layers, Palette, MapPin, ShoppingBag, Armchair, Sofa, Lamp, Box, Truck, Gem, Ruler } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import apiClient from '@/lib/apiClient'
 
 export default function HomePage() {
   const navigate = useNavigate()
   const [mounted, setMounted] = useState(false)
+  const [hotProducts, setHotProducts] = useState<any[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(true)
 
   useEffect(() => {
     setMounted(true)
+    loadHotProducts()
   }, [])
+
+  const loadHotProducts = async () => {
+    try {
+      setLoadingProducts(true)
+      const response = await apiClient.get('/products', {
+        params: {
+          page: 1,
+          limit: 4,
+          sort: 'viewCount',
+          order: 'desc'
+        }
+      })
+      setHotProducts(response.data.data || [])
+    } catch (error) {
+      console.error('加载热门商品失败:', error)
+    } finally {
+      setLoadingProducts(false)
+    }
+  }
+
+  const getFileUrl = (path: string) => {
+    if (!path) return '/placeholder.png'
+    if (path.startsWith('http')) return path
+    return `https://pkochbpmcgaa.sealoshzh.site${path}`
+  }
+
+  const formatPrice = (price: number) => {
+    return `¥${price.toLocaleString()}`
+  }
 
   // 生成宇宙聚拢效果的大量家具图标
   const icons = [Armchair, Sofa, Lamp, Box, Palette, Truck, Gem, Ruler, ShoppingBag, Layers, MapPin]
@@ -187,15 +220,49 @@ export default function HomePage() {
             </button>
           </div>
           
-          <div className="text-center text-stone-500 py-12">
-            <p className="text-lg mb-4">正在加载商城商品...</p>
-            <button 
-              onClick={() => navigate('/products')}
-              className="bg-primary text-white px-8 py-3 rounded-full hover:bg-green-900 transition-colors font-semibold"
-            >
-              查看商品列表
-            </button>
-          </div>
+          {loadingProducts ? (
+            <div className="text-center text-stone-500 py-12">
+              <p className="text-lg mb-4">正在加载商城商品...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {hotProducts.map((product) => (
+                <div 
+                  key={product._id}
+                  onClick={() => navigate(`/products/${product._id}`)}
+                  className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                >
+                  <div className="relative aspect-square overflow-hidden">
+                    <img 
+                      src={getFileUrl(product.images?.[0] || product.thumbnail)}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-stone-800 mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+                      {product.name}
+                    </h3>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-2xl font-bold text-red-600">
+                        {formatPrice(product.price)}
+                      </span>
+                      {product.originalPrice && product.originalPrice > product.price && (
+                        <span className="text-sm text-stone-400 line-through">
+                          {formatPrice(product.originalPrice)}
+                        </span>
+                      )}
+                    </div>
+                    {product.viewCount && (
+                      <div className="mt-2 text-xs text-stone-400">
+                        {product.viewCount} 次浏览
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
