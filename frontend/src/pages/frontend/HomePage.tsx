@@ -2,6 +2,7 @@ import { ArrowRight, Layers, Palette, MapPin, ShoppingBag, Armchair, Sofa, Lamp,
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import apiClient from '@/lib/apiClient'
+import { getFileUrl } from '@/services/uploadService'
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -14,72 +15,37 @@ export default function HomePage() {
     loadHotProducts()
   }, [])
 
-  const loadHotProducts = () => {
-    // 直接设置商品数据，无需异步操作
-    const realProducts = [
-        {
-          _id: '6923a577c6d6fe40ce5d0ca0',
-          name: '大黑牛沙发',
-          basePrice: 4400,
-          skus: [{
-            price: 4400,
-            discountPrice: 3960,
-            images: []
-          }],
-          images: [],
-          views: 8,
-          imageUrl: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
-        },
-        {
-          _id: '6923a577c6d6fe40ce5d0c9d',
-          name: '像素沙发',
-          basePrice: 4050,
-          skus: [{
-            price: 4050,
-            discountPrice: 3645,
-            images: []
-          }],
-          images: ['6924869a13843fdf14ad85a6'],
-          views: 21,
-          imageUrl: 'https://images.unsplash.com/photo-1549497538-303791108f95?auto=format&fit=crop&q=80&w=800'
-        },
-        {
-          _id: '6923a577c6d6fe40ce5d0c9a',
-          name: '香奈儿沙发',
-          basePrice: 4400,
-          skus: [{
-            price: 4400,
-            discountPrice: 3960,
-            images: ['6924d3876e74cd4c3f7e2b17']
-          }],
-          images: ['6923b07a6ef6d07e8fe2d5a0'],
-          views: 99,
-          imageUrl: 'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&q=80&w=800'
-        },
-        {
-          _id: '6923a577c6d6fe40ce5d0c97',
-          name: '布雷泽沙发',
-          basePrice: 4400,
-          skus: [{
-            price: 4400,
-            discountPrice: 3960,
-            images: []
-          }],
-          images: ['6923a5f6c6d6fe40ce5d0cec'],
-          views: 83,
-          imageUrl: 'https://images.unsplash.com/photo-1541558869434-2840d308329a?auto=format&fit=crop&q=80&w=800'
-        }
-      ]
+  const loadHotProducts = async () => {
+    try {
+      setLoadingProducts(true)
+      // 从API获取真实商品数据
+      const response = await apiClient.get('/products', { params: { limit: 4, status: 'active' } })
+      const products = response.data?.data || []
       
-      console.log('使用硬编码的真实商品数据:', realProducts.length, '个')
-      setHotProducts(realProducts)
+      // 处理商品图片URL
+      const processedProducts = products.map((product: any) => {
+        // 获取第一张图片
+        let imageUrl = ''
+        if (product.skus?.[0]?.images?.[0]) {
+          imageUrl = getFileUrl(product.skus[0].images[0])
+        } else if (product.images?.[0]) {
+          imageUrl = getFileUrl(product.images[0])
+        }
+        
+        return {
+          ...product,
+          imageUrl: imageUrl || 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
+        }
+      })
+      
+      console.log('从API加载商品:', processedProducts.length, '个')
+      setHotProducts(processedProducts.slice(0, 4))
+    } catch (error) {
+      console.error('加载商品失败:', error)
+      setHotProducts([])
+    } finally {
       setLoadingProducts(false)
-  }
-
-  const getFileUrl = (path: string) => {
-    if (!path) return 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
-    if (path.startsWith('http')) return path
-    return `https://pkochbpmcgaa.sealoshzh.site/api/files/${path}`
+    }
   }
 
   const formatPrice = (price: number | undefined) => {

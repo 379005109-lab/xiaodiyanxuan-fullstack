@@ -43,13 +43,21 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { nickname, avatar, phone, email } = req.body
+    const { nickname, avatar, phone, email, gender } = req.body
+    
+    // 只更新提供的字段
+    const updateData = { updatedAt: new Date() }
+    if (nickname !== undefined) updateData.nickname = nickname
+    if (avatar !== undefined) updateData.avatar = avatar
+    if (phone !== undefined) updateData.phone = phone
+    if (email !== undefined) updateData.email = email
+    if (gender !== undefined) updateData.gender = gender
     
     const user = await User.findByIdAndUpdate(
       req.userId,
-      { nickname, avatar, phone, email, updatedAt: new Date() },
+      updateData,
       { new: true }
-    )
+    ).select('-password -__v')
     
     res.json(successResponse(user))
   } catch (err) {

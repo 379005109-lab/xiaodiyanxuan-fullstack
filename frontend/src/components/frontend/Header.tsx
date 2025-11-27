@@ -182,9 +182,19 @@ export default function Header() {
               {userMenuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-stone-100 py-2 z-50">
                   <div className="px-4 py-2 border-b border-stone-100">
-                    <p className="text-sm font-medium text-primary">{user?.phone || '用户'}</p>
+                    <p className="text-sm font-medium text-primary">{(user as any)?.nickname || user?.phone || '用户'}</p>
                     <p className="text-xs text-stone-400">{user?.role === 'admin' || user?.role === 'super_admin' ? '管理员' : '普通用户'}</p>
                   </div>
+                  
+                  {/* 编辑资料 */}
+                  <Link
+                    to="/profile"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
+                  >
+                    <User className="w-4 h-4" />
+                    编辑资料
+                  </Link>
                   
                   {/* 我的订单 */}
                   <Link
