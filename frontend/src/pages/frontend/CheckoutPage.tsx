@@ -501,11 +501,38 @@ export default function CheckoutPage() {
                     />
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-4">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-semibold text-gray-900 mb-1">{item.product.name}</h3>
                           <div className="text-sm text-gray-600 space-y-1">
-                            {item.sku.color && <p>颜色：{item.sku.color}</p>}
                             {item.sku.spec && <p>规格：{item.sku.spec}</p>}
+                            {item.selectedMaterials?.fabric && (
+                              <p>面料：{item.selectedMaterials.fabric} 
+                                {item.materialUpgradePrices?.[item.selectedMaterials.fabric] > 0 && 
+                                  <span className="text-red-600 ml-1">+¥{item.materialUpgradePrices[item.selectedMaterials.fabric]}</span>
+                                }
+                              </p>
+                            )}
+                            {item.selectedMaterials?.filling && (
+                              <p>填充：{item.selectedMaterials.filling}
+                                {item.materialUpgradePrices?.[item.selectedMaterials.filling] > 0 && 
+                                  <span className="text-red-600 ml-1">+¥{item.materialUpgradePrices[item.selectedMaterials.filling]}</span>
+                                }
+                              </p>
+                            )}
+                            {item.selectedMaterials?.frame && (
+                              <p>框架：{item.selectedMaterials.frame}
+                                {item.materialUpgradePrices?.[item.selectedMaterials.frame] > 0 && 
+                                  <span className="text-red-600 ml-1">+¥{item.materialUpgradePrices[item.selectedMaterials.frame]}</span>
+                                }
+                              </p>
+                            )}
+                            {item.selectedMaterials?.leg && (
+                              <p>脚架：{item.selectedMaterials.leg}
+                                {item.materialUpgradePrices?.[item.selectedMaterials.leg] > 0 && 
+                                  <span className="text-red-600 ml-1">+¥{item.materialUpgradePrices[item.selectedMaterials.leg]}</span>
+                                }
+                              </p>
+                            )}
                           </div>
                         </div>
                         <p className="text-base font-bold text-primary-600 whitespace-nowrap">

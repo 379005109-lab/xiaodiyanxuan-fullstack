@@ -96,13 +96,15 @@ export default function FavoritesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {favorites.map((favorite) => {
               const productId = getProductId(favorite)
+              const favAny = favorite as any
+              const productAny = favAny.product as any
               return (
                 <div key={favorite._id} className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md transition-all group overflow-hidden">
                   <div className="relative">
                     <Link to={`/products/${productId}`}>
                       <img
-                        src={favorite.productImage ? getFileUrl(favorite.productImage) : '/placeholder.svg'}
-                        alt={favorite.productName}
+                        src={favAny.thumbnail ? getFileUrl(favAny.thumbnail) : (productAny?.images?.[0] ? getFileUrl(productAny.images[0]) : '/placeholder.svg')}
+                        alt={favAny.productName || productAny?.name || 'Product'}
                         className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
                       />
@@ -118,13 +120,13 @@ export default function FavoritesPage() {
                   <div className="p-4">
                     <Link to={`/products/${productId}`}>
                       <h3 className="font-bold text-primary hover:text-green-900 transition-colors line-clamp-2 mb-2">
-                        {favorite.productName}
+                        {favAny.productName || productAny?.name || 'Product'}
                       </h3>
                     </Link>
                     
                     <div className="flex items-center justify-between">
                       <div className="font-serif font-bold text-accent">
-                        {formatPrice(favorite.productPrice || 0)}
+                        {formatPrice(favAny.price || productAny?.skus?.[0]?.price || 0)}
                       </div>
                       <Link
                         to={`/products/${productId}`}

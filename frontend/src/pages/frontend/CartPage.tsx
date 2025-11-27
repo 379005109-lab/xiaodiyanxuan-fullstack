@@ -268,7 +268,7 @@ export default function CartPage() {
       
       {/* Bottom Checkout Bar */}
       {showCheckout && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-6 shadow-lg z-50">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-6 shadow-lg z-[100]">
           <div className="max-w-5xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-4">
               <span className="text-stone-500 text-sm hidden md:inline">已选 {selectedItems.length} 件商品</span>
