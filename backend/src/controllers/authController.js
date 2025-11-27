@@ -53,13 +53,13 @@ const sendCode = async (req, res) => {
   }
 }
 
-// 手机号注册
+// 手机号注册（无需密码）
 const register = async (req, res) => {
   try {
-    const { phone, password, verifyCode: code } = req.body
+    const { phone, verifyCode: code } = req.body
     
-    if (!phone || !password || !code) {
-      return res.status(400).json(errorResponse('请填写完整信息', 400))
+    if (!phone || !code) {
+      return res.status(400).json(errorResponse('请填写手机号和验证码', 400))
     }
     
     // 验证短信验证码
@@ -68,8 +68,8 @@ const register = async (req, res) => {
       return res.status(400).json(errorResponse('验证码无效或已过期', 400))
     }
     
-    // 注册用户
-    const result = await registerWithPhone(phone, password)
+    // 注册用户（使用手机号作为默认密码，用户可以后续修改）
+    const result = await registerWithPhone(phone, phone)
     return res.json(successResponse(result))
   } catch (err) {
     console.error('Register error:', err)
