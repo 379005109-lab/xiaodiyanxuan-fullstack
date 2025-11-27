@@ -105,29 +105,21 @@ export default function OrdersPageNew() {
       
       if (response.ok) {
         toast.success('订单已取消')
-        loadOrders() // 重新加载订单列表
-        return
+      } else {
+        // 如果API失败，更新本地localStorage
+        const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+        const updatedOrders = localOrders.map((o: any) => {
+          if ((o._id || o.id) === orderId) {
+            return { ...o, status: 5 } // 5 = 已取消
+          }
+          return o
+        })
+        localStorage.setItem('orders', JSON.stringify(updatedOrders))
+        toast.success('订单已取消')
       }
       
-      // 如果API失败，更新本地localStorage
-      const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-      const updatedOrders = localOrders.map((o: any) => {
-        if ((o._id || o.id) === orderId) {
-          return { ...o, status: 5 } // 5 = 已取消
-        }
-        return o
-      })
-      localStorage.setItem('orders', JSON.stringify(updatedOrders))
-      
-      // 更新显示
-      setOrders(prev => prev.map(o => {
-        if ((o._id || o.id) === orderId) {
-          return { ...o, status: 5 }
-        }
-        return o
-      }))
-      
-      toast.success('订单已取消')
+      // 无论API是否成功，都重新加载订单列表
+      loadOrders()
     } catch (error) {
       console.error('取消订单失败:', error)
       toast.error('取消失败，请重试')

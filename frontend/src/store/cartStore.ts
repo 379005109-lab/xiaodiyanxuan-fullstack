@@ -33,16 +33,28 @@ interface CartState {
   exitConciergeMode: () => void
 }
 
-// 计算商品的最终价格（包括材质升级价格）
-const calculateItemPrice = (sku: ProductSKU, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }): number => {
+// 获取材质类别（与ProductDetailPage保持一致）
+const getMaterialCategory = (materialName: string): string => {
+  if (materialName.includes('普通皮')) return '普通皮'
+  if (materialName.includes('全青皮')) return '全青皮'
+  if (materialName.includes('牛皮')) return '牛皮'
+  if (materialName.includes('绒布')) return '绒布'
+  if (materialName.includes('麻布')) return '麻布'
+  return 'other'
+}
+
+// 计算商品的最终价格和材质价格映射
+const calculateItemPriceAndMaterials = (sku: ProductSKU, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }): { price: number; materialPriceMap: Record<string, number> } => {
   // 计算基础价格（优先显示折扣价）
   const basePrice = sku.discountPrice && sku.discountPrice > 0 && sku.discountPrice < sku.price
     ? sku.discountPrice
     : sku.price
   
-  // 计算材质升级价格
+  // 计算材质升级价格（使用类别匹配）
   const materialUpgradePrices = (sku as any).materialUpgradePrices || {}
   let upgradePrice = 0
+  const materialPriceMap: Record<string, number> = {} // 保存每个材质的实际加价
+  
   if (selectedMaterials) {
     const selectedMaterialList: string[] = []
     if (selectedMaterials.fabric) selectedMaterialList.push(selectedMaterials.fabric)
@@ -50,12 +62,20 @@ const calculateItemPrice = (sku: ProductSKU, selectedMaterials?: { fabric?: stri
     if (selectedMaterials.frame) selectedMaterialList.push(selectedMaterials.frame)
     if (selectedMaterials.leg) selectedMaterialList.push(selectedMaterials.leg)
     
-    upgradePrice = selectedMaterialList.reduce((sum, matName) => {
-      return sum + (materialUpgradePrices[matName] || 0)
-    }, 0)
+    // 使用类别去重计算总价，同时保存每个材质的价格
+    const addedCategories = new Set<string>()
+    selectedMaterialList.forEach(matName => {
+      const category = getMaterialCategory(matName)
+      const price = materialUpgradePrices[category] || 0
+      materialPriceMap[matName] = price // 保存材质名称到价格的映射
+      if (!addedCategories.has(category)) {
+        upgradePrice += price
+        addedCategories.add(category)
+      }
+    })
   }
   
-  return basePrice + upgradePrice
+  return { price: basePrice + upgradePrice, materialPriceMap }
 }
 
 // 生成材质组合的唯一标识
@@ -78,8 +98,10 @@ export const useCartStore = create<CartState>()(
       
       addItem: (product, sku, quantity = 1, selectedMaterials, price) => {
         set((state) => {
-          // 如果没有提供价格，则计算价格
-          const itemPrice = price !== undefined ? price : calculateItemPrice(sku, selectedMaterials)
+          // 计算价格和材质价格映射
+          const calculated = calculateItemPriceAndMaterials(sku, selectedMaterials)
+          const itemPrice = price !== undefined ? price : calculated.price
+          const materialPriceMap = calculated.materialPriceMap
           
           const materialKey = getMaterialKey(selectedMaterials)
           const existingItem = state.items.find(item => {
@@ -105,7 +127,7 @@ export const useCartStore = create<CartState>()(
               quantity, 
               price: itemPrice, 
               selectedMaterials,
-              materialUpgradePrices: (sku as any).materialUpgradePrices || {} // 保存升级价格
+              materialUpgradePrices: materialPriceMap // 保存每个材质的实际加价映射
             }]
           }
         })

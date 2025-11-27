@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Facebook, Instagram, Twitter, Mail, Phone, MapPin } from 'lucide-react'
+import { Mail, Phone, MapPin } from 'lucide-react'
 
 export default function Footer() {
   const footerLinks = {
@@ -98,20 +98,9 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* 社交媒体 */}
+        {/* 版权信息 */}
         <div className="mt-12 pt-8 border-t border-gray-800">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex space-x-6 mb-4 md:mb-0">
-              <a href="#" className="hover:text-primary-400 transition-colors">
-                <Facebook className="h-6 w-6" />
-              </a>
-              <a href="#" className="hover:text-primary-400 transition-colors">
-                <Instagram className="h-6 w-6" />
-              </a>
-              <a href="#" className="hover:text-primary-400 transition-colors">
-                <Twitter className="h-6 w-6" />
-              </a>
-            </div>
+          <div className="text-center">
             <p className="text-sm text-gray-400">
               © 2024 品质家居. All rights reserved.
             </p>
