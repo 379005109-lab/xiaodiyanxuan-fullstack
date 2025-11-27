@@ -25,9 +25,13 @@ export default function HomePage() {
           order: 'desc'
         }
       })
-      setHotProducts(response.data.data || [])
+      // 过滤掉没有价格的商品
+      const products = (response.data.data || []).filter((p: any) => p && p.price != null)
+      setHotProducts(products)
     } catch (error) {
       console.error('加载热门商品失败:', error)
+      // 如果加载失败，设置为空数组
+      setHotProducts([])
     } finally {
       setLoadingProducts(false)
     }
@@ -39,7 +43,8 @@ export default function HomePage() {
     return `https://pkochbpmcgaa.sealoshzh.site${path}`
   }
 
-  const formatPrice = (price: number) => {
+  const formatPrice = (price: number | undefined) => {
+    if (price === undefined || price === null) return '¥0'
     return `¥${price.toLocaleString()}`
   }
 
@@ -223,6 +228,16 @@ export default function HomePage() {
           {loadingProducts ? (
             <div className="text-center text-stone-500 py-12">
               <p className="text-lg mb-4">正在加载商城商品...</p>
+            </div>
+          ) : hotProducts.length === 0 ? (
+            <div className="text-center text-stone-500 py-12">
+              <p className="text-lg mb-4">暂无商品数据</p>
+              <button 
+                onClick={() => navigate('/products')}
+                className="bg-primary text-white px-8 py-3 rounded-full hover:bg-green-900 transition-colors font-semibold"
+              >
+                浏览所有商品
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
