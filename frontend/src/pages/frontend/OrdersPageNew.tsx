@@ -131,12 +131,22 @@ export default function OrdersPageNew() {
         console.log('⚠️ API调用失败，但本地已更新:', apiError)
       }
       
-      // 3. 显示成功提示
-      toast.success('订单已取消')
+      // 3. 立即更新UI状态
+      console.log('🔄 立即更新UI状态')
+      setOrders(prev => prev.map((o: any) => {
+        if ((o._id || o.id) === orderId) {
+          return {
+            ...o,
+            status: 5,
+            cancelReason: 'customer_request',
+            cancelledAt: new Date().toISOString()
+          }
+        }
+        return o
+      }))
       
-      // 4. 重新加载订单列表
-      console.log('🔄 重新加载订单列表')
-      await loadOrders()
+      // 4. 显示成功提示
+      toast.success('订单已取消')
       
     } catch (error) {
       console.error('❌ 取消订单失败:', error)
