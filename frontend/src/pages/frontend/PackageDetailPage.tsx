@@ -460,14 +460,38 @@ export default function PackageDetailPage() {
           const product = productLookup[productId]
           if (!product) return null
           const quantity = getProductQuantity(productId)
-          const materials = materialSelections[productId]
+          const materials = materialSelections[productId] || {}
           const materialUpgrade = calculateMaterialSurcharge(product, materials) * quantity
+          
+          // 计算每个材质类型的加价
+          const materialUpgradePrices: Record<string, number> = {}
+          if (materials && product.materials) {
+            Object.entries(materials).forEach(([materialKey, selectedOption]) => {
+              if (!selectedOption) return
+              const productMaterials = (product.materials as any)?.[materialKey]
+              if (!productMaterials || !Array.isArray(productMaterials)) return
+              // 检查是否选择了非默认选项
+              const isUpgrade = selectedOption !== productMaterials[0]
+              if (isUpgrade) {
+                const premium = getOptionPremium(selectedOption as string, product.basePrice || 0, product)
+                if (premium > 0) {
+                  materialUpgradePrices[materialKey] = premium
+                }
+              }
+            })
+          }
+          
+          // 获取规格名称
+          const skuName = product.skus?.[0]?.spec || ''
+          
           return {
             productId,
             productName: product.name,
             quantity,
             materials,
             materialUpgrade,
+            materialUpgradePrices,
+            skuName,
           }
         })
         .filter((item): item is any => !!item)
@@ -662,15 +686,15 @@ export default function PackageDetailPage() {
         return
       }
 
-      // 计算总加价
+      // 计算总加价 (materialUpgrade已经包含了quantity的乘积)
       let totalUpgradePrice = 0
       selectionGroups.forEach(group => {
         group.products.forEach((product: any) => {
-          totalUpgradePrice += (product.materialUpgrade || 0) * (product.quantity || 1)
+          totalUpgradePrice += (product.materialUpgrade || 0)
         })
       })
 
-      // 构建套餐订单数据
+      // 构建套餐订单数据 - 直接使用selectionGroups中已计算好的数据
       const packageData = {
         packageId: pkg.id,
         packageName: pkg.name,
@@ -690,40 +714,16 @@ export default function PackageDetailPage() {
               leg: materials.leg || materials['脚架'] || ''
             }
             
-            // 从productLookup获取完整产品信息，计算每个材质的加价
-            const fullProduct = productLookup[product.productId]
-            const materialUpgradePrices: Record<string, number> = {}
-            
-            if (fullProduct && materials) {
-              // 计算每个材质类型的加价
-              Object.entries(materials).forEach(([materialKey, selectedOption]) => {
-                if (!selectedOption) return
-                const productMaterials = (fullProduct.materials as any)?.[materialKey]
-                if (!productMaterials || !Array.isArray(productMaterials)) return
-                // 检查是否选择了非默认选项（第一个选项是默认的）
-                const isUpgrade = selectedOption !== productMaterials[0]
-                if (isUpgrade) {
-                  const premium = getOptionPremium(selectedOption as string, fullProduct.basePrice || 0, fullProduct)
-                  if (premium > 0) {
-                    materialUpgradePrices[materialKey] = premium
-                  }
-                }
-              })
-            }
-            
-            // 获取SKU规格名称
-            const skuName = fullProduct?.skus?.[0]?.spec || product.skuName || ''
-            
             return {
               productId: product.productId,
               productName: product.productName,
-              skuName: skuName,
+              skuName: product.skuName || '',
               quantity: product.quantity || 1,
               materials: materials,
               selectedMaterials: selectedMaterials,
               materialUpgrade: product.materialUpgrade || 0,
               upgradePrice: product.materialUpgrade || 0,
-              materialUpgradePrices: materialUpgradePrices
+              materialUpgradePrices: product.materialUpgradePrices || {}
             }
           })
         }))

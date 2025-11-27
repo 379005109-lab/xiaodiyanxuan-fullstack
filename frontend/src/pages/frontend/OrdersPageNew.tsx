@@ -444,8 +444,8 @@ export default function OrdersPageNew() {
                         取消订单
                       </button>
                     )}
-                    {/* 删除订单按钮 - 已完成和已取消状态可删除，取消申请中不能删除 */}
-                    {!order.cancelRequest && (order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed') && (
+                    {/* 删除订单按钮 - 已完成/已取消/申请取消中的订单可删除 */}
+                    {(order.cancelRequest || order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed') && (
                       <button
                         onClick={() => handleDeleteOrder(order._id || order.id)}
                         className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"

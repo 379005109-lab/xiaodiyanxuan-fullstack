@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Package, User, Phone, MapPin, ChevronRight } from 'lucide-react'
+import { Package, User, Phone, MapPin, ChevronRight, AlertCircle } from 'lucide-react'
 import { Order } from '@/types'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
@@ -85,6 +85,13 @@ export default function OrderCard({ order, isSelected, onClick }: OrderCardProps
           <span className={`px-2 py-0.5 rounded text-xs font-medium ${status.color} ${status.bgColor}`}>
             {status.label}
           </span>
+          {/* 取消申请提示 */}
+          {(order as any).cancelRequest && (
+            <span className="px-2 py-0.5 rounded text-xs font-medium text-red-600 bg-red-100 flex items-center gap-1 animate-pulse">
+              <AlertCircle className="w-3 h-3" />
+              申请取消
+            </span>
+          )}
           <span className="text-gray-400 text-xs">{createdAt}</span>
         </div>
         <span className="text-green-600 font-bold">¥{formatPrice(order.totalAmount)}</span>

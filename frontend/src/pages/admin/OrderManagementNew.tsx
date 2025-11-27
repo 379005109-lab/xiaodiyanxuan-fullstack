@@ -263,6 +263,7 @@ export default function OrderManagementNew() {
               order={selectedOrder}
               onClose={() => setSelectedOrder(null)}
               onStatusChange={handleStatusChange}
+              onRefresh={loadOrders}
               showFollowUp={true}
             />
           ) : (

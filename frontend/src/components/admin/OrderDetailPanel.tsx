@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Package, User, Phone, MapPin, FileText, Truck, Clock, CheckCircle2, X } from 'lucide-react'
+import { Package, User, Phone, MapPin, FileText, Truck, Clock, CheckCircle2, X, AlertCircle, Trash2, Check, XCircle } from 'lucide-react'
 import { Order } from '@/types'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
@@ -9,6 +9,7 @@ interface OrderDetailPanelProps {
   order: Order
   onClose: () => void
   onStatusChange?: (orderId: string, newStatus: number) => void
+  onRefresh?: () => void  // 刷新订单列表
   showFollowUp?: boolean  // 是否显示跟进功能
 }
 
@@ -44,9 +45,76 @@ const maskAddress = (address: string) => {
   return address
 }
 
-export default function OrderDetailPanel({ order, onClose, onStatusChange, showFollowUp = true }: OrderDetailPanelProps) {
+export default function OrderDetailPanel({ order, onClose, onStatusChange, onRefresh, showFollowUp = true }: OrderDetailPanelProps) {
   const status = statusConfig[order.status] || statusConfig[1]
   const [followUpNote, setFollowUpNote] = useState('')
+  
+  // 处理删除订单
+  const handleDelete = async () => {
+    if (!window.confirm('确定要删除此订单吗？订单将移至回收站。')) return
+    try {
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        toast.success('订单已移至回收站')
+        onRefresh?.()
+        onClose()
+      } else {
+        toast.error('删除失败')
+      }
+    } catch (error) {
+      toast.error('删除失败')
+    }
+  }
+  
+  // 批准取消
+  const handleApproveCancel = async () => {
+    if (!window.confirm('确定要批准取消此订单吗？')) return
+    try {
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/cancel-approve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        toast.success('已批准取消')
+        onRefresh?.()
+      } else {
+        toast.error('操作失败')
+      }
+    } catch (error) {
+      toast.error('操作失败')
+    }
+  }
+  
+  // 拒绝取消
+  const handleRejectCancel = async () => {
+    if (!window.confirm('确定要拒绝取消请求吗？')) return
+    try {
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/cancel-reject`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        toast.success('已拒绝取消')
+        onRefresh?.()
+      } else {
+        toast.error('操作失败')
+      }
+    } catch (error) {
+      toast.error('操作失败')
+    }
+  }
   
   // 获取收货人信息
   const recipient = order.recipient || order.shippingAddress || { name: '', phone: '', address: '' }
@@ -322,6 +390,43 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, showF
             </div>
           </div>
         )}
+        
+        {/* 取消申请处理 */}
+        {(order as any).cancelRequest && (
+          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-center gap-2 text-red-700 font-medium mb-3">
+              <AlertCircle className="w-4 h-4" />
+              客户申请取消订单
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleApproveCancel}
+                className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm flex items-center justify-center gap-1"
+              >
+                <Check className="w-4 h-4" />
+                批准取消
+              </button>
+              <button
+                onClick={handleRejectCancel}
+                className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm flex items-center justify-center gap-1"
+              >
+                <XCircle className="w-4 h-4" />
+                拒绝
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* 删除订单按钮 */}
+        <div className="pt-3 border-t border-gray-200">
+          <button
+            onClick={handleDelete}
+            className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            删除订单
+          </button>
+        </div>
       </div>
     </div>
   )
