@@ -537,14 +537,14 @@ const ProductDetailPage = () => {
     toast.success('已添加到购物车');
   };
 
-  const handleAddToCompare = () => {
+  const handleAddToCompare = async () => {
     if (!product || !selectedSku) {
       toast.error('请选择商品规格');
       return;
     }
     const chosenMaterials = resolveSelectedMaterials();
     if (!chosenMaterials) return;
-    const result = addToCompare(product._id, selectedSku._id, chosenMaterials);
+    const result = await addToCompare(product._id, selectedSku._id, chosenMaterials);
     toast[result.success ? 'success' : 'error'](result.message);
   };
 

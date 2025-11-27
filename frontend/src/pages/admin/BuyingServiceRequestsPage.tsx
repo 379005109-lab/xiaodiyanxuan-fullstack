@@ -38,8 +38,9 @@ export default function BuyingServiceRequestsPage() {
       const response = await axios.get('/buying-service-requests', { params })
       console.log('✅ 陪买服务请求列表:', response.data)
       
-      // 确保response.data是数组
-      const data = Array.isArray(response.data) ? response.data : []
+      // 后端返回 { success: true, data: requests }，取 data 字段
+      const responseData = response.data?.data || response.data
+      const data = Array.isArray(responseData) ? responseData : []
       setRequests(data)
     } catch (error: any) {
       console.error('❌ 加载陪买服务请求失败:', error)

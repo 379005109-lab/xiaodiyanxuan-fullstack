@@ -231,6 +231,9 @@ export default function CheckoutPage() {
             color: typeof item.sku === 'object' ? item.sku?.color || '' : '',
             material: typeof item.sku === 'object' ? item.sku?.material || '' : ''
           },
+          specifications: item.specifications || {},  // 保存规格信息
+          selectedMaterials: item.selectedMaterials || {},  // 保存材质选择
+          materialUpgradePrices: item.materialUpgradePrices || {},  // 保存材质升级价格
           quantity: item.quantity || 1,
           price: item.price || 0
         })),

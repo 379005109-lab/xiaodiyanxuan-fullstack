@@ -9,22 +9,9 @@ export default function CartPage() {
   const navigate = useNavigate()
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore()
   const [selectedItems, setSelectedItems] = useState<string[]>([])
-  const [showCheckout, setShowCheckout] = useState(false)
-
-  // 检查购物车状态
-  useEffect(() => {
-    console.log('🛒 [CartPage] 购物车数量:', items.length)
-    console.log('🛒 [CartPage] 购物车items:', items)
-    
-    // 如果有商品，显示结算栏
-    if (items.length > 0) {
-      setShowCheckout(true)
-      console.log('✅ [CartPage] 显示结算栏')
-    } else {
-      setShowCheckout(false)
-      console.log('❌ [CartPage] 隐藏结算栏（无商品）')
-    }
-  }, [items])
+  
+  // 直接基于 items.length 决定是否显示结算栏，避免 useEffect 导致的闪烁
+  const showCheckout = items.length > 0
 
   const toggleSelect = (id: string) => {
     setSelectedItems(prev => 

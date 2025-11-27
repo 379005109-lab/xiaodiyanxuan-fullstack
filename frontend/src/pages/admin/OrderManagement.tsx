@@ -513,10 +513,11 @@ export default function OrderManagement() {
                               const productObj = typeof item.product === 'object' ? item.product : null
                               // 优先使用SKU图片，回退到商品图片
                               const skuImages = (item as any).sku?.images
-                              const productImage = skuImages?.[0] || item.productImage || productObj?.images?.[0]
-                              // 从SKU列表中获取材质信息
-                              const targetSku = productObj?.skus?.find((sku: any) => sku._id === (item as any).skuId) || productObj?.skus?.[0]
-                              const skuMaterial = targetSku?.material
+                              const productImage = skuImages?.[0] || item.productImage || (item as any).image || productObj?.images?.[0]
+                              // 直接从订单项获取保存的规格和材质信息
+                              const itemSpecs = (item as any).specifications || {}
+                              const itemMaterials = (item as any).selectedMaterials || {}
+                              const itemUpgradePrices = (item as any).materialUpgradePrices || {}
                               
                               return (
                                 <div key={itemIndex} className="bg-white rounded-lg p-3 border border-gray-100">
@@ -544,59 +545,46 @@ export default function OrderManagement() {
                                       {/* 详细信息 */}
                                       <div className="space-y-1 text-xs text-gray-600">
                                         {/* SKU规格 */}
-                                        {(item as any).spec && (
-                                          <p><span className="text-gray-500 font-medium">规格:</span> {(item as any).spec}</p>
-                                        )}
-                                        {(item as any).length && (item as any).width && (item as any).height && (
-                                          <p><span className="text-gray-500 font-medium">尺寸:</span> {(item as any).length}×{(item as any).width}×{(item as any).height}CM</p>
+                                        {(itemSpecs.size || (item as any).spec) && (
+                                          <p><span className="text-gray-500 font-medium">规格:</span> {itemSpecs.size || (item as any).spec}</p>
                                         )}
                                         
-                                        {/* 材质信息 - 从SKU中获取 */}
-                                        {skuMaterial && (
-                                          <>
-                                            {typeof skuMaterial === 'string' ? (
-                                              <p><span className="text-gray-500 font-medium">材质:</span> {skuMaterial}</p>
-                                            ) : (
-                                              <>
-                                                {(skuMaterial as any)?.fabric && (
-                                                  <p><span className="text-gray-500 font-medium">面料:</span> 
-                                                    {targetSku?.materialUpgradePrices?.[Array.isArray((skuMaterial as any).fabric) ? (skuMaterial as any).fabric[0] : (skuMaterial as any).fabric] ? (
-                                                      <span className="text-red-600 font-bold">{Array.isArray((skuMaterial as any).fabric) ? (skuMaterial as any).fabric.join('/') : (skuMaterial as any).fabric} +¥{targetSku.materialUpgradePrices[Array.isArray((skuMaterial as any).fabric) ? (skuMaterial as any).fabric[0] : (skuMaterial as any).fabric]}</span>
-                                                    ) : (
-                                                      <span>{Array.isArray((skuMaterial as any).fabric) ? (skuMaterial as any).fabric.join('/') : (skuMaterial as any).fabric}</span>
-                                                    )}
-                                                  </p>
-                                                )}
-                                                {(skuMaterial as any)?.filling && (
-                                                  <p><span className="text-gray-500 font-medium">填充:</span> 
-                                                    {targetSku?.materialUpgradePrices?.[Array.isArray((skuMaterial as any).filling) ? (skuMaterial as any).filling[0] : (skuMaterial as any).filling] ? (
-                                                      <span className="text-red-600 font-bold">{Array.isArray((skuMaterial as any).filling) ? (skuMaterial as any).filling.join('/') : (skuMaterial as any).filling} +¥{targetSku.materialUpgradePrices[Array.isArray((skuMaterial as any).filling) ? (skuMaterial as any).filling[0] : (skuMaterial as any).filling]}</span>
-                                                    ) : (
-                                                      <span>{Array.isArray((skuMaterial as any).filling) ? (skuMaterial as any).filling.join('/') : (skuMaterial as any).filling}</span>
-                                                    )}
-                                                  </p>
-                                                )}
-                                                {(skuMaterial as any)?.frame && (
-                                                  <p><span className="text-gray-500 font-medium">框架:</span> 
-                                                    {targetSku?.materialUpgradePrices?.[Array.isArray((skuMaterial as any).frame) ? (skuMaterial as any).frame[0] : (skuMaterial as any).frame] ? (
-                                                      <span className="text-red-600 font-bold">{Array.isArray((skuMaterial as any).frame) ? (skuMaterial as any).frame.join('/') : (skuMaterial as any).frame} +¥{targetSku.materialUpgradePrices[Array.isArray((skuMaterial as any).frame) ? (skuMaterial as any).frame[0] : (skuMaterial as any).frame]}</span>
-                                                    ) : (
-                                                      <span>{Array.isArray((skuMaterial as any).frame) ? (skuMaterial as any).frame.join('/') : (skuMaterial as any).frame}</span>
-                                                    )}
-                                                  </p>
-                                                )}
-                                                {(skuMaterial as any)?.leg && (
-                                                  <p><span className="text-gray-500 font-medium">脚架:</span> 
-                                                    {targetSku?.materialUpgradePrices?.[Array.isArray((skuMaterial as any).leg) ? (skuMaterial as any).leg[0] : (skuMaterial as any).leg] ? (
-                                                      <span className="text-red-600 font-bold">{Array.isArray((skuMaterial as any).leg) ? (skuMaterial as any).leg.join('/') : (skuMaterial as any).leg} +¥{targetSku.materialUpgradePrices[Array.isArray((skuMaterial as any).leg) ? (skuMaterial as any).leg[0] : (skuMaterial as any).leg]}</span>
-                                                    ) : (
-                                                      <span>{Array.isArray((skuMaterial as any).leg) ? (skuMaterial as any).leg.join('/') : (skuMaterial as any).leg}</span>
-                                                    )}
-                                                  </p>
-                                                )}
-                                              </>
-                                            )}
-                                          </>
+                                        {/* 材质信息 - 优先从订单项的 selectedMaterials 和 specifications 获取 */}
+                                        {(itemSpecs.material || itemMaterials.fabric) && (
+                                          <p>
+                                            <span className="text-gray-500 font-medium">面料:</span>{' '}
+                                            <span className={itemUpgradePrices[itemSpecs.material || itemMaterials.fabric] > 0 ? 'text-red-600 font-bold' : ''}>
+                                              {itemSpecs.material || itemMaterials.fabric}
+                                              {itemUpgradePrices[itemSpecs.material || itemMaterials.fabric] > 0 && ` +¥${itemUpgradePrices[itemSpecs.material || itemMaterials.fabric]}`}
+                                            </span>
+                                          </p>
+                                        )}
+                                        {(itemSpecs.fill || itemMaterials.filling) && (
+                                          <p>
+                                            <span className="text-gray-500 font-medium">填充:</span>{' '}
+                                            <span className={itemUpgradePrices[itemSpecs.fill || itemMaterials.filling] > 0 ? 'text-red-600 font-bold' : ''}>
+                                              {itemSpecs.fill || itemMaterials.filling}
+                                              {itemUpgradePrices[itemSpecs.fill || itemMaterials.filling] > 0 && ` +¥${itemUpgradePrices[itemSpecs.fill || itemMaterials.filling]}`}
+                                            </span>
+                                          </p>
+                                        )}
+                                        {(itemSpecs.frame || itemMaterials.frame) && (
+                                          <p>
+                                            <span className="text-gray-500 font-medium">框架:</span>{' '}
+                                            <span className={itemUpgradePrices[itemSpecs.frame || itemMaterials.frame] > 0 ? 'text-red-600 font-bold' : ''}>
+                                              {itemSpecs.frame || itemMaterials.frame}
+                                              {itemUpgradePrices[itemSpecs.frame || itemMaterials.frame] > 0 && ` +¥${itemUpgradePrices[itemSpecs.frame || itemMaterials.frame]}`}
+                                            </span>
+                                          </p>
+                                        )}
+                                        {(itemSpecs.leg || itemMaterials.leg) && (
+                                          <p>
+                                            <span className="text-gray-500 font-medium">脚架:</span>{' '}
+                                            <span className={itemUpgradePrices[itemSpecs.leg || itemMaterials.leg] > 0 ? 'text-red-600 font-bold' : ''}>
+                                              {itemSpecs.leg || itemMaterials.leg}
+                                              {itemUpgradePrices[itemSpecs.leg || itemMaterials.leg] > 0 && ` +¥${itemUpgradePrices[itemSpecs.leg || itemMaterials.leg]}`}
+                                            </span>
+                                          </p>
                                         )}
                                         
                                         {/* 数量和价格 */}
