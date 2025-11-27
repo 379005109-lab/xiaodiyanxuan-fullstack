@@ -133,16 +133,38 @@ const add = async (req, res) => {
 const remove = async (req, res) => {
   try {
     const { productId } = req.params
-    const { skuId } = req.body
+    const { skuId, selectedMaterials } = req.body
     
-    const result = await Compare.deleteOne({
+    console.log('========== [Compare] Remove request ==========')
+    console.log('productId:', productId)
+    console.log('skuId:', skuId)
+    console.log('selectedMaterials:', selectedMaterials)
+    console.log('userId:', req.userId)
+    
+    // 构建查询条件
+    const query = {
       userId: req.userId,
-      productId,
-      skuId
-    })
+      productId
+    }
+    
+    // 如果提供了skuId，添加到查询条件
+    if (skuId) {
+      query.skuId = skuId
+    }
+    
+    // 删除匹配的项目
+    const result = await Compare.deleteOne(query)
+    
+    console.log('Delete result:', result)
+    console.log('==========================================')
     
     if (result.deletedCount === 0) {
-      return res.status(404).json(errorResponse('未找到该对比项', 404))
+      // 尝试删除该productId的所有项目
+      const fallbackResult = await Compare.deleteMany({
+        userId: req.userId,
+        productId
+      })
+      console.log('Fallback delete result:', fallbackResult)
     }
     
     res.json(successResponse(null, '已移除'))

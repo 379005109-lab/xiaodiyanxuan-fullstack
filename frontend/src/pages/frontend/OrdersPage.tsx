@@ -173,7 +173,7 @@ export default function OrdersPage() {
 
                     {/* Order Content - 区分普通订单和套餐订单 */}
                     {order.orderType === 'package' && order.packageInfo ? (
-                      /* 套餐) */
+                      /* 套餐订单显示 */
                       <div className="space-y-2 mb-3">
                         <div className="flex items-center gap-2 py-2 border-t border-gray-100">
                           <Package className="h-5 w-5 text-primary-600" />
@@ -183,22 +183,55 @@ export default function OrdersPage() {
                             </p>
                             <p className="text-xs text-gray-500">
                               套餐基础价: {formatPrice(order.packageInfo.packagePrice || 0)}
+                              {order.packageInfo.totalUpgradePrice > 0 && (
+                                <span className="text-red-600 font-semibold ml-2">
+                                  材质加价: +¥{order.packageInfo.totalUpgradePrice}
+                                </span>
+                              )}
                             </p>
                           </div>
                         </div>
-                        {order.packageInfo.selections && order.packageInfo.selections.slice(0, 2).map((selection: any, idx: number) => (
-                          <div key={idx} className="pl-7 py-1">
-                            <p className="text-xs font-medium text-gray-700">{selection.categoryName}:</p>
-                            <p className="text-xs text-gray-500">
-                              {selection.products.map((p: any) => `${p.productName} x${p.quantity}`).join(', ')}
-                            </p>
+                        {order.packageInfo.selections && order.packageInfo.selections.map((selection: any, idx: number) => (
+                          <div key={idx} className="pl-7 py-1 border-l-2 border-gray-200 ml-2">
+                            <p className="text-xs font-medium text-gray-700 mb-1">{selection.categoryName}:</p>
+                            {selection.products.map((p: any, pIdx: number) => (
+                              <div key={pIdx} className="text-xs text-gray-600 mb-2 bg-gray-50 rounded p-2">
+                                <p className="font-medium text-gray-800">{p.productName} x{p.quantity}</p>
+                                {/* 规格信息 */}
+                                {p.skuName && <p className="text-gray-500">规格: {p.skuName}</p>}
+                                {/* 材质信息 */}
+                                {p.selectedMaterials && (
+                                  <div className="mt-1 space-y-0.5">
+                                    {p.selectedMaterials.fabric && (
+                                      <p>面料: <span className="text-gray-800">{p.selectedMaterials.fabric}</span>
+                                        {p.materialUpgradePrices?.fabric > 0 && <span className="text-red-600 font-semibold ml-1">+¥{p.materialUpgradePrices.fabric}</span>}
+                                      </p>
+                                    )}
+                                    {p.selectedMaterials.filling && (
+                                      <p>填充: <span className="text-gray-800">{p.selectedMaterials.filling}</span>
+                                        {p.materialUpgradePrices?.filling > 0 && <span className="text-red-600 font-semibold ml-1">+¥{p.materialUpgradePrices.filling}</span>}
+                                      </p>
+                                    )}
+                                    {p.selectedMaterials.frame && (
+                                      <p>框架: <span className="text-gray-800">{p.selectedMaterials.frame}</span>
+                                        {p.materialUpgradePrices?.frame > 0 && <span className="text-red-600 font-semibold ml-1">+¥{p.materialUpgradePrices.frame}</span>}
+                                      </p>
+                                    )}
+                                    {p.selectedMaterials.leg && (
+                                      <p>脚架: <span className="text-gray-800">{p.selectedMaterials.leg}</span>
+                                        {p.materialUpgradePrices?.leg > 0 && <span className="text-red-600 font-semibold ml-1">+¥{p.materialUpgradePrices.leg}</span>}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                                {/* 商品小计 */}
+                                {p.upgradePrice > 0 && (
+                                  <p className="text-red-600 font-medium mt-1">商品加价: +¥{p.upgradePrice}</p>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         ))}
-                        {order.packageInfo.selections && order.packageInfo.selections.length > 2 && (
-                          <p className="text-xs text-gray-500 text-center py-1">
-                            还有 {order.packageInfo.selections.length - 2} 个分...
-                          </p>
-                        )}
                       </div>
                     ) : (
                       /* 普通订单显示 */
