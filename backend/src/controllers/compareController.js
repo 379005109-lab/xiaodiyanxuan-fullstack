@@ -7,6 +7,9 @@ const list = async (req, res) => {
     const { page = 1, pageSize = 10 } = req.query
     const skip = (page - 1) * pageSize
     
+    console.log('========== [Compare] List request ==========')
+    console.log('userId:', req.userId)
+    
     const total = await Compare.countDocuments({ userId: req.userId })
     const items = await Compare.find({ userId: req.userId })
       .sort({ addedAt: -1 })
@@ -14,9 +17,21 @@ const list = async (req, res) => {
       .limit(parseInt(pageSize))
       .lean()
     
-    res.json(paginatedResponse(items, total, page, pageSize))
+    console.log(`✅ Found ${items.length} compare items (total: ${total})`)
+    console.log('==========================================')
+    
+    // 返回前端期望的格式: { success: true, data: { items: [...] } }
+    res.json(successResponse({
+      items,
+      total,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(pageSize),
+        totalPages: Math.ceil(total / pageSize)
+      }
+    }))
   } catch (err) {
-    console.error('List compare items error:', err)
+    console.error('❌ List compare items error:', err)
     res.status(500).json(errorResponse(err.message, 500))
   }
 }

@@ -123,14 +123,37 @@ const remove = async (req, res) => {
   try {
     const { id } = req.params
     
+    console.log('========== [Favorite] Remove request ==========')
+    console.log('favoriteId:', id)
+    console.log('userId:', req.userId)
+    
+    // 验证ID格式
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      console.error('❌ Invalid favoriteId:', id)
+      return res.status(400).json(errorResponse('Invalid favorite ID', 400))
+    }
+    
+    // 尝试删除
     const favorite = await Favorite.findOneAndDelete({ _id: id, userId: req.userId })
+    
     if (!favorite) {
+      console.error('❌ Favorite not found:', id, 'for user:', req.userId)
       return res.status(404).json(errorResponse('Favorite not found', 404))
     }
     
+    console.log('✅ Favorite removed successfully:', id)
+    console.log('==========================================')
     res.json(successResponse(null, 'Removed from favorites'))
   } catch (err) {
-    console.error('Remove favorite error:', err)
+    console.error('❌ Remove favorite error:', err.message)
+    console.error('Error name:', err.name)
+    console.error('==========================================')
+    
+    // 特殊处理MongoDB CastError（无效的ObjectId）
+    if (err.name === 'CastError') {
+      return res.status(400).json(errorResponse('Invalid favorite ID format', 400))
+    }
+    
     res.status(500).json(errorResponse(err.message, 500))
   }
 }
