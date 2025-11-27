@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API诊断工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 30px; }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .test-section h2 {
+            color: #444;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        .btn-info {
+            background: #2196F3;
+            color: white;
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #4caf50;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #f44336;
+        }
+        .info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #2196f3;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 API诊断工具</h1>
+        <p class="subtitle">测试所有API功能并查看详细错误信息</p>
+
+        <!-- Token输入 -->
+        <div class="test-section">
+            <h2>🔑 认证信息</h2>
+            <div class="input-group">
+                <label>Token (从localStorage获取):</label>
+                <input type="text" id="token" placeholder="自动获取或手动输入">
+            </div>
+            <button class="btn-info" onclick="loadToken()">从LocalStorage加载</button>
+            <div id="token-result"></div>
+        </div>
+
+        <!-- 对比功能测试 -->
+        <div class="test-section">
+            <h2>📊 对比功能测试</h2>
+            <div class="input-group">
+                <label>Product ID:</label>
+                <input type="text" id="compareProductId" value="6745c22b4f6d7f7885c81f11" placeholder="输入产品ID">
+            </div>
+            <div class="input-group">
+                <label>SKU ID (可选):</label>
+                <input type="text" id="compareSkuId" placeholder="输入SKU ID">
+            </div>
+            <button class="btn-primary" onclick="testAddCompare()">测试添加对比</button>
+            <button class="btn-info" onclick="testGetCompare()">获取对比列表</button>
+            <button class="btn-danger" onclick="testClearCompare()">清空对比</button>
+            <div id="compare-result"></div>
+        </div>
+
+        <!-- 收藏功能测试 -->
+        <div class="test-section">
+            <h2>❤️ 收藏功能测试</h2>
+            <div class="input-group">
+                <label>Product ID:</label>
+                <input type="text" id="favoriteProductId" value="6745c22b4f6d7f7885c81f11" placeholder="输入产品ID">
+            </div>
+            <button class="btn-primary" onclick="testAddFavorite()">测试添加收藏</button>
+            <button class="btn-info" onclick="testGetFavorites()">获取收藏列表</button>
+            <div id="favorite-result"></div>
+        </div>
+
+        <!-- 购物车测试 -->
+        <div class="test-section">
+            <h2>🛒 购物车测试</h2>
+            <button class="btn-info" onclick="testGetCart()">获取购物车</button>
+            <div id="cart-result"></div>
+        </div>
+
+        <!-- 陪买服务测试 -->
+        <div class="test-section">
+            <h2>🤝 陪买服务测试</h2>
+            <button class="btn-primary" onclick="testBuyingService()">测试提交预约</button>
+            <button class="btn-info" onclick="testGetBuyingServices()">获取预约列表</button>
+            <div id="buying-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://pkochbpmcgaa.sealoshzh.site/api';
+        
+        // 加载token
+        function loadToken() {
+            const token = localStorage.getItem('token');
+            document.getElementById('token').value = token || '';
+            showResult('token-result', token ? '✅ Token已加载' : '❌ 未找到Token，请先登录', token ? 'success' : 'error');
+        }
+
+        // 获取token
+        function getToken() {
+            return document.getElementById('token').value || localStorage.getItem('token');
+        }
+
+        // 显示结果
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.textContent = message;
+        }
+
+        // 通用API调用
+        async function callAPI(url, method = 'GET', body = null, resultElementId) {
+            const token = getToken();
+            
+            if (!token) {
+                showResult(resultElementId, '❌ 错误: 缺少Token，请先加载认证信息', 'error');
+                return;
+            }
+
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            };
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            showResult(resultElementId, `⏳ 请求中: ${method} ${url}`, 'info');
+
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: {
+                        'content-type': response.headers.get('content-type'),
+                    },
+                    data: data
+                };
+
+                if (response.ok) {
+                    showResult(resultElementId, 
+                        `✅ 成功 (${response.status})\n\n` +
+                        `请求: ${method} ${url}\n` +
+                        `响应:\n${JSON.stringify(data, null, 2)}`,
+                        'success'
+                    );
+                } else {
+                    showResult(resultElementId, 
+                        `❌ 失败 (${response.status} ${response.statusText})\n\n` +
+                        `请求: ${method} ${url}\n` +
+                        `请求体: ${body ? JSON.stringify(body, null, 2) : '无'}\n\n` +
+                        `响应:\n${JSON.stringify(data, null, 2)}`,
+                        'error'
+                    );
+                }
+            } catch (error) {
+                showResult(resultElementId, 
+                    `❌ 网络错误\n\n` +
+                    `请求: ${method} ${url}\n` +
+                    `错误: ${error.message}`,
+                    'error'
+                );
+            }
+        }
+
+        // 对比功能测试
+        async function testAddCompare() {
+            const productId = document.getElementById('compareProductId').value;
+            const skuId = document.getElementById('compareSkuId').value;
+            
+            if (!productId) {
+                showResult('compare-result', '❌ 请输入Product ID', 'error');
+                return;
+            }
+
+            const body = { productId };
+            if (skuId) body.skuId = skuId;
+
+            await callAPI(`${API_BASE}/compare`, 'POST', body, 'compare-result');
+        }
+
+        async function testGetCompare() {
+            await callAPI(`${API_BASE}/compare`, 'GET', null, 'compare-result');
+        }
+
+        async function testClearCompare() {
+            await callAPI(`${API_BASE}/compare`, 'DELETE', null, 'compare-result');
+        }
+
+        // 收藏功能测试
+        async function testAddFavorite() {
+            const productId = document.getElementById('favoriteProductId').value;
+            
+            if (!productId) {
+                showResult('favorite-result', '❌ 请输入Product ID', 'error');
+                return;
+            }
+
+            await callAPI(`${API_BASE}/favorites`, 'POST', { productId }, 'favorite-result');
+        }
+
+        async function testGetFavorites() {
+            await callAPI(`${API_BASE}/favorites`, 'GET', null, 'favorite-result');
+        }
+
+        // 购物车测试
+        async function testGetCart() {
+            await callAPI(`${API_BASE}/cart`, 'GET', null, 'cart-result');
+        }
+
+        // 陪买服务测试
+        async function testBuyingService() {
+            const token = getToken();
+            if (!token) {
+                showResult('buying-result', '❌ 请先登录', 'error');
+                return;
+            }
+
+            const body = {
+                serviceType: 'standard',
+                scheduledDate: new Date().toISOString(),
+                notes: '测试预约',
+                user: 'test-user-id',
+                userName: '测试用户',
+                userPhone: '13800138000'
+            };
+
+            await callAPI(`${API_BASE}/buying-service-requests`, 'POST', body, 'buying-result');
+        }
+
+        async function testGetBuyingServices() {
+            await callAPI(`${API_BASE}/buying-service-requests`, 'GET', null, 'buying-result');
+        }
+
+        // 页面加载时自动加载token
+        window.onload = function() {
+            loadToken();
+        };
+    </script>
+</body>
+</html>
