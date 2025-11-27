@@ -108,7 +108,7 @@ router.post('/:id/cancel-reject', async (req, res) => {
   }
 })
 
-// DELETE /api/orders/:id - 删除订单（直接删除）
+// DELETE /api/orders/:id - 删除订单（软删除，移至回收站）
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params
@@ -120,24 +120,116 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: '订单不存在' })
     }
     
-    // 验证订单所有者
-    if (order.userId.toString() !== req.userId.toString()) {
+    // 管理员可以删除任何订单，普通用户只能删除自己的
+    const isAdmin = req.userRole === 'admin' || req.userRole === 'superadmin'
+    if (!isAdmin && order.userId.toString() !== req.userId.toString()) {
       return res.status(403).json({ success: false, message: '无权删除此订单' })
     }
     
-    // 只能删除已取消或已完成的订单
-    if (order.status !== 5 && order.status !== 4 && order.status !== 'cancelled' && order.status !== 'completed') {
+    // 普通用户只能删除已取消或已完成的订单
+    if (!isAdmin && order.status !== 5 && order.status !== 4 && order.status !== 'cancelled' && order.status !== 'completed') {
       return res.status(400).json({ success: false, message: '只能删除已取消或已完成的订单' })
     }
     
-    // 直接删除订单
-    await Order.findByIdAndDelete(id)
+    // 软删除订单（移至回收站）
+    order.isDeleted = true
+    order.deletedAt = new Date()
+    order.deletedBy = req.userId
+    await order.save()
     
-    console.log('🗑️ 订单已删除:', id)
-    res.json({ success: true, message: '订单已删除' })
+    console.log('🗑️ 订单已移至回收站:', id)
+    res.json({ success: true, message: '订单已移至回收站' })
   } catch (error) {
     console.error('删除订单失败:', error)
     res.status(500).json({ success: false, message: '删除订单失败' })
+  }
+})
+
+// GET /api/orders/trash - 获取回收站订单列表
+router.get('/trash/list', async (req, res) => {
+  try {
+    const Order = require('../models/Order')
+    const { page = 1, pageSize = 20 } = req.query
+    
+    const skip = (Number(page) - 1) * Number(pageSize)
+    
+    const [orders, total] = await Promise.all([
+      Order.find({ isDeleted: true })
+        .sort({ deletedAt: -1 })
+        .skip(skip)
+        .limit(Number(pageSize))
+        .lean(),
+      Order.countDocuments({ isDeleted: true })
+    ])
+    
+    res.json({
+      success: true,
+      data: {
+        orders,
+        total,
+        page: Number(page),
+        pageSize: Number(pageSize),
+        totalPages: Math.ceil(total / Number(pageSize))
+      }
+    })
+  } catch (error) {
+    console.error('获取回收站订单失败:', error)
+    res.status(500).json({ success: false, message: '获取回收站订单失败' })
+  }
+})
+
+// POST /api/orders/:id/restore - 恢复订单
+router.post('/:id/restore', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (!order.isDeleted) {
+      return res.status(400).json({ success: false, message: '该订单不在回收站中' })
+    }
+    
+    // 恢复订单
+    order.isDeleted = false
+    order.deletedAt = null
+    order.deletedBy = null
+    await order.save()
+    
+    console.log('♻️ 订单已恢复:', id)
+    res.json({ success: true, message: '订单已恢复', data: order })
+  } catch (error) {
+    console.error('恢复订单失败:', error)
+    res.status(500).json({ success: false, message: '恢复订单失败' })
+  }
+})
+
+// DELETE /api/orders/:id/permanent - 永久删除订单
+router.delete('/:id/permanent', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (!order.isDeleted) {
+      return res.status(400).json({ success: false, message: '只能永久删除回收站中的订单' })
+    }
+    
+    // 永久删除
+    await Order.findByIdAndDelete(id)
+    
+    console.log('🗑️ 订单已永久删除:', id)
+    res.json({ success: true, message: '订单已永久删除' })
+  } catch (error) {
+    console.error('永久删除订单失败:', error)
+    res.status(500).json({ success: false, message: '永久删除订单失败' })
   }
 })
 

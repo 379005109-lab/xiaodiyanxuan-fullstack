@@ -58,12 +58,30 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, showF
   const getProducts = () => {
     if (order.orderType === 'package' && order.packageInfo) {
       const products: any[] = []
-      order.packageInfo.selections?.forEach((selection) => {
-        selection.products?.forEach((product) => {
+      order.packageInfo.selections?.forEach((selection: any) => {
+        selection.products?.forEach((product: any) => {
+          // 获取材质信息（兼容中英文键名）
+          const materials = product.selectedMaterials || product.materials || {}
+          const upgradePrices = product.materialUpgradePrices || {}
+          
           products.push({
             name: product.productName,
             quantity: product.quantity,
-            materials: product.materials,
+            skuName: product.skuName,
+            materials: materials,
+            selectedMaterials: {
+              fabric: materials.fabric || materials['面料'] || '',
+              filling: materials.filling || materials['填充'] || '',
+              frame: materials.frame || materials['框架'] || '',
+              leg: materials.leg || materials['脚架'] || ''
+            },
+            materialUpgradePrices: {
+              fabric: upgradePrices.fabric || upgradePrices['面料'] || 0,
+              filling: upgradePrices.filling || upgradePrices['填充'] || 0,
+              frame: upgradePrices.frame || upgradePrices['框架'] || 0,
+              leg: upgradePrices.leg || upgradePrices['脚架'] || 0
+            },
+            upgradePrice: product.upgradePrice || product.materialUpgrade || 0,
             image: product.image,
             category: selection.categoryName
           })
@@ -185,45 +203,47 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, showF
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-gray-800 font-medium">{product.name}</div>
+                  <div className="text-sm text-gray-800 font-medium">{product.name} x{product.quantity}</div>
                   {/* 规格信息 */}
-                  {product.specifications?.size && (
-                    <div className="text-xs text-gray-500 mt-1">规格: {product.specifications.size}</div>
+                  {(product.skuName || product.specifications?.size) && (
+                    <div className="text-xs text-gray-500 mt-1">规格: {product.skuName || product.specifications?.size}</div>
                   )}
-                  {product.specifications?.material && (
+                  {/* 材质信息 - 支持套餐订单和普通订单 */}
+                  {(product.selectedMaterials?.fabric || product.specifications?.material) && (
                     <div className="text-xs text-gray-500">
-                      面料: {product.specifications.material}
-                      {product.materialUpgradePrices?.[product.specifications.material] > 0 && (
-                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices[product.specifications.material]}</span>
+                      面料: {product.selectedMaterials?.fabric || product.specifications?.material}
+                      {(product.materialUpgradePrices?.fabric > 0 || product.materialUpgradePrices?.[product.specifications?.material] > 0) && (
+                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices?.fabric || product.materialUpgradePrices?.[product.specifications?.material]}</span>
                       )}
                     </div>
                   )}
-                  {product.specifications?.fill && (
+                  {(product.selectedMaterials?.filling || product.specifications?.fill) && (
                     <div className="text-xs text-gray-500">
-                      填充: {product.specifications.fill}
-                      {product.materialUpgradePrices?.[product.specifications.fill] > 0 && (
-                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices[product.specifications.fill]}</span>
+                      填充: {product.selectedMaterials?.filling || product.specifications?.fill}
+                      {(product.materialUpgradePrices?.filling > 0 || product.materialUpgradePrices?.[product.specifications?.fill] > 0) && (
+                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices?.filling || product.materialUpgradePrices?.[product.specifications?.fill]}</span>
                       )}
                     </div>
                   )}
-                  {product.specifications?.frame && (
+                  {(product.selectedMaterials?.frame || product.specifications?.frame) && (
                     <div className="text-xs text-gray-500">
-                      框架: {product.specifications.frame}
-                      {product.materialUpgradePrices?.[product.specifications.frame] > 0 && (
-                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices[product.specifications.frame]}</span>
+                      框架: {product.selectedMaterials?.frame || product.specifications?.frame}
+                      {(product.materialUpgradePrices?.frame > 0 || product.materialUpgradePrices?.[product.specifications?.frame] > 0) && (
+                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices?.frame || product.materialUpgradePrices?.[product.specifications?.frame]}</span>
                       )}
                     </div>
                   )}
-                  {product.specifications?.leg && (
+                  {(product.selectedMaterials?.leg || product.specifications?.leg) && (
                     <div className="text-xs text-gray-500">
-                      脚架: {product.specifications.leg}
-                      {product.materialUpgradePrices?.[product.specifications.leg] > 0 && (
-                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices[product.specifications.leg]}</span>
+                      脚架: {product.selectedMaterials?.leg || product.specifications?.leg}
+                      {(product.materialUpgradePrices?.leg > 0 || product.materialUpgradePrices?.[product.specifications?.leg] > 0) && (
+                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices?.leg || product.materialUpgradePrices?.[product.specifications?.leg]}</span>
                       )}
                     </div>
                   )}
-                  {product.materials?.fabric && (
-                    <div className="text-xs text-gray-500 mt-1">{product.materials.fabric}</div>
+                  {/* 商品加价汇总 */}
+                  {product.upgradePrice > 0 && (
+                    <div className="text-xs text-red-600 font-medium mt-1">商品加价: +¥{product.upgradePrice}</div>
                   )}
                   {product.category && (
                     <div className="text-xs text-gray-400 mt-0.5">{product.category}</div>

@@ -847,6 +847,38 @@ export default function OrderManagement() {
                           ))}
                         </div>
                       </div>
+
+                      {/* 删除订单按钮 */}
+                      <div className="p-3 rounded-lg bg-red-50 border border-red-100">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            if (!window.confirm('确定要删除此订单吗？订单将移至回收站。')) return
+                            try {
+                              const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}`, {
+                                method: 'DELETE',
+                                headers: {
+                                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                  'Content-Type': 'application/json'
+                                }
+                              })
+                              if (response.ok) {
+                                toast.success('订单已移至回收站')
+                                loadOrders()
+                              } else {
+                                const data = await response.json()
+                                toast.error(data.message || '删除失败')
+                              }
+                            } catch (error) {
+                              toast.error('删除失败')
+                            }
+                          }}
+                          className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium flex items-center justify-center gap-2"
+                        >
+                          <AlertCircle className="h-4 w-4" />
+                          删除订单
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

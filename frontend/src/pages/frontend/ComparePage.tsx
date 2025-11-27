@@ -277,7 +277,7 @@ export default function ComparePage() {
                       <div className="text-2xl font-bold text-red-600">
                         {formatPrice(finalPrice)}
                       </div>
-                      {item.sku.discountPrice && item.sku.discountPrice < item.sku.price && (
+                      {item.sku.discountPrice && item.sku.discountPrice > 0 && item.sku.discountPrice < item.sku.price && (
                         <div className="text-sm text-gray-400 line-through mt-1">
                           {formatPrice(item.sku.price + upgradePrice)}
                         </div>

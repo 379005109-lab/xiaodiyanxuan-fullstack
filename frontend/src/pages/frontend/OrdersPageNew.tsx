@@ -380,8 +380,8 @@ export default function OrdersPageNew() {
                   
                   {/* 操作按钮 */}
                   <div className="mt-4 flex gap-3 justify-end">
-                    {/* 取消订单按钮 - 待付款和待发货状态可取消 */}
-                    {(order.status === 1 || order.status === 2 || order.status === 'pending' || order.status === 'processing') && (
+                    {/* 取消订单按钮 - 待付款和待发货状态可取消，且没有取消申请中的 */}
+                    {(order.status === 1 || order.status === 2 || order.status === 'pending' || order.status === 'processing') && !order.cancelRequest && (
                       <button
                         onClick={() => handleCancelOrder(order._id || order.id)}
                         className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
@@ -389,8 +389,8 @@ export default function OrdersPageNew() {
                         取消订单
                       </button>
                     )}
-                    {/* 删除订单按钮 - 已完成和已取消状态可删除 */}
-                    {(order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed') && (
+                    {/* 删除订单按钮 - 已完成和已取消状态可删除，取消申请中不能删除 */}
+                    {!order.cancelRequest && (order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed') && (
                       <button
                         onClick={() => handleDeleteOrder(order._id || order.id)}
                         className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"

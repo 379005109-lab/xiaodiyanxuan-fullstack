@@ -98,12 +98,23 @@ export const getAllPackages = async (): Promise<PackagePlan[]> => {
                   if (legSet.size > 0) materials['leg'] = Array.from(legSet)
                 }
                 
+                // 从SKU中获取价格，优先discountPrice，其次price
+                let productPrice = product.basePrice || 0
+                if (product.skus && product.skus.length > 0) {
+                  const firstSku = product.skus[0]
+                  if (firstSku.discountPrice && firstSku.discountPrice > 0) {
+                    productPrice = firstSku.discountPrice
+                  } else if (firstSku.price && firstSku.price > 0) {
+                    productPrice = firstSku.price
+                  }
+                }
+                
                 return {
                   id: product.id,
                   name: product.name,
                   category: cat.name,
-                  basePrice: product.basePrice || 0,
-                  packagePrice: product.packagePrice || product.basePrice,
+                  basePrice: productPrice,
+                  packagePrice: product.packagePrice || productPrice,
                   image: product.image ? getFileUrl(product.image) : '/placeholder.svg',
                   images: product.image ? [getFileUrl(product.image)] : [],
                   specs: specs,

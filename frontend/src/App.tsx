@@ -59,6 +59,7 @@ const DesignerProductEditPage = lazy(() => import('./pages/admin/DesignerProduct
 const DesignerPackageEditPage = lazy(() => import('./pages/admin/DesignerPackageEditPage'))
 const PackageProfitPage = lazy(() => import('./pages/admin/PackageProfitPage'))
 const OrderDashboard = lazy(() => import('./pages/admin/OrderDashboard'))
+const OrderTrashPage = lazy(() => import('./pages/admin/OrderTrashPage'))
 const DesignerOrdersPage = lazy(() => import('./pages/admin/DesignerOrdersPage'))
 const DesignerReferredOrdersPage = lazy(() => import('./pages/admin/DesignerReferredOrdersPage'))
 const TestConciergeOrderPage = lazy(() => import('./pages/admin/TestConciergeOrderPage'))
@@ -294,6 +295,7 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderManagement /></ProtectedRoute>} />
+            <Route path="orders/trash" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderTrashPage /></ProtectedRoute>} />
             <Route path="order-dashboard" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderDashboard /></ProtectedRoute>} />
             <Route path="users" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><UserManagement /></ProtectedRoute>} />
             <Route path="images" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><SiteImageManagement /></ProtectedRoute>} />

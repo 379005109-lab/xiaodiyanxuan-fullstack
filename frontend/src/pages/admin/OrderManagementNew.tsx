@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, Filter, Download, Package } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Search, Filter, Download, Package, Trash2 } from 'lucide-react'
 import { Order } from '@/types'
 import { toast } from 'sonner'
 import OrderCard from '@/components/admin/OrderCard'
@@ -129,9 +129,18 @@ export default function OrderManagementNew() {
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* 页头 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <h1 className="text-xl font-bold text-gray-800">订单中心</h1>
-        <p className="text-sm text-gray-500">ORDER MANAGEMENT</p>
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">订单中心</h1>
+          <p className="text-sm text-gray-500">ORDER MANAGEMENT</p>
+        </div>
+        <Link
+          to="/admin/orders/trash"
+          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <Trash2 className="h-4 w-4" />
+          回收站
+        </Link>
       </div>
 
       {/* 统计栏 */}
