@@ -135,21 +135,31 @@ function App() {
   const { user, isAuthenticated } = useAuthStore()
   const [showProfileModal, setShowProfileModal] = useState(false)
   
-  // 检查用户是否需要完善信息（登录后首次显示）
+  // 检查用户是否需要完善信息（仅第一次注册登录时显示）
   useEffect(() => {
     if (isAuthenticated && user) {
+      const userId = (user as any)._id || (user as any).id
+      const profileCompletedKey = `profile_completed_${userId}`
+      
+      // 检查是否已经完善过信息
+      const hasCompletedBefore = localStorage.getItem(profileCompletedKey) === 'true'
+      if (hasCompletedBefore) return
+      
       // 检查用户是否已完善信息（有nickname和gender）
       const hasNickname = (user as any).nickname && (user as any).nickname.trim() !== ''
       const hasGender = (user as any).gender && ['male', 'female'].includes((user as any).gender)
       
-      // 如果缺少必要信息，显示完善弹窗
-      if (!hasNickname || !hasGender) {
-        // 延迟显示，避免和登录弹窗冲突
-        const timer = setTimeout(() => {
-          setShowProfileModal(true)
-        }, 500)
-        return () => clearTimeout(timer)
+      // 如果已有信息，标记为已完善
+      if (hasNickname && hasGender) {
+        localStorage.setItem(profileCompletedKey, 'true')
+        return
       }
+      
+      // 如果缺少必要信息且未完善过，显示完善弹窗
+      const timer = setTimeout(() => {
+        setShowProfileModal(true)
+      }, 500)
+      return () => clearTimeout(timer)
     }
   }, [isAuthenticated, user])
   

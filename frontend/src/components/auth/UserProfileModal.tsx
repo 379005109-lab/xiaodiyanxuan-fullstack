@@ -56,6 +56,13 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
       if (data.success) {
         // 更新本地用户信息
         updateUser({ ...user, nickname: form.nickname.trim(), gender: form.gender } as any)
+        
+        // 标记已完善信息，下次不再弹窗
+        const userId = (user as any)?._id || (user as any)?.id
+        if (userId) {
+          localStorage.setItem(`profile_completed_${userId}`, 'true')
+        }
+        
         toast.success('信息保存成功！')
         onClose()
       } else {

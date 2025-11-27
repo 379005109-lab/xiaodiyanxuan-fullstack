@@ -121,17 +121,21 @@ export default function ComparePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawCompareItems])
 
-  const handleRemove = (item: CompareItemDetail) => {
-    removeFromCompare(item.product._id, item.sku._id, item.selectedMaterials)
-    // 立即重新加载对比列表
-    loadCompareItems()
-    // 立即从本地状态中移除
+  const handleRemove = async (item: CompareItemDetail) => {
+    // 立即从本地状态中移除（乐观更新）
     setCompareItems(prev => prev.filter(i => 
       !(i.product._id === item.product._id && 
         i.sku._id === item.sku._id && 
         JSON.stringify(i.selectedMaterials) === JSON.stringify(item.selectedMaterials))
     ))
     toast.success('已移除')
+    
+    // 然后异步删除服务器数据
+    try {
+      await removeFromCompare(item.product._id, item.sku._id, item.selectedMaterials)
+    } catch (error) {
+      console.error('删除对比项失败:', error)
+    }
   }
 
   const handleAddToCart = (item: CompareItemDetail) => {
