@@ -194,42 +194,54 @@ export default function OrdersPage() {
                         {order.packageInfo.selections && order.packageInfo.selections.map((selection: any, idx: number) => (
                           <div key={idx} className="pl-7 py-1 border-l-2 border-gray-200 ml-2">
                             <p className="text-xs font-medium text-gray-700 mb-1">{selection.categoryName}:</p>
-                            {selection.products.map((p: any, pIdx: number) => (
-                              <div key={pIdx} className="text-xs text-gray-600 mb-2 bg-gray-50 rounded p-2">
-                                <p className="font-medium text-gray-800">{p.productName} x{p.quantity}</p>
-                                {/* 规格信息 */}
-                                {p.skuName && <p className="text-gray-500">规格: {p.skuName}</p>}
-                                {/* 材质信息 */}
-                                {p.selectedMaterials && (
+                            {selection.products.map((p: any, pIdx: number) => {
+                              // 获取材质信息（兼容中英文键名）
+                              const materials = p.selectedMaterials || p.materials || {}
+                              const fabric = materials.fabric || materials['面料'] || ''
+                              const filling = materials.filling || materials['填充'] || ''
+                              const frame = materials.frame || materials['框架'] || ''
+                              const leg = materials.leg || materials['脚架'] || ''
+                              const upgradePrices = p.materialUpgradePrices || {}
+                              
+                              return (
+                                <div key={pIdx} className="text-xs text-gray-600 mb-2 bg-gray-50 rounded p-2">
+                                  <p className="font-medium text-gray-800">{p.productName} x{p.quantity}</p>
+                                  {/* 规格信息 */}
+                                  {p.skuName && <p className="text-gray-500">规格: {p.skuName}</p>}
+                                  {/* 材质信息 */}
                                   <div className="mt-1 space-y-0.5">
-                                    {p.selectedMaterials.fabric && (
-                                      <p>面料: <span className="text-gray-800">{p.selectedMaterials.fabric}</span>
-                                        {p.materialUpgradePrices?.fabric > 0 && <span className="text-red-600 font-semibold ml-1">+¥{p.materialUpgradePrices.fabric}</span>}
+                                    {fabric && (
+                                      <p>面料: <span className="text-gray-800">{fabric}</span>
+                                        {(upgradePrices.fabric > 0 || upgradePrices['面料'] > 0) && 
+                                          <span className="text-red-600 font-semibold ml-1">+¥{upgradePrices.fabric || upgradePrices['面料']}</span>}
                                       </p>
                                     )}
-                                    {p.selectedMaterials.filling && (
-                                      <p>填充: <span className="text-gray-800">{p.selectedMaterials.filling}</span>
-                                        {p.materialUpgradePrices?.filling > 0 && <span className="text-red-600 font-semibold ml-1">+¥{p.materialUpgradePrices.filling}</span>}
+                                    {filling && (
+                                      <p>填充: <span className="text-gray-800">{filling}</span>
+                                        {(upgradePrices.filling > 0 || upgradePrices['填充'] > 0) && 
+                                          <span className="text-red-600 font-semibold ml-1">+¥{upgradePrices.filling || upgradePrices['填充']}</span>}
                                       </p>
                                     )}
-                                    {p.selectedMaterials.frame && (
-                                      <p>框架: <span className="text-gray-800">{p.selectedMaterials.frame}</span>
-                                        {p.materialUpgradePrices?.frame > 0 && <span className="text-red-600 font-semibold ml-1">+¥{p.materialUpgradePrices.frame}</span>}
+                                    {frame && (
+                                      <p>框架: <span className="text-gray-800">{frame}</span>
+                                        {(upgradePrices.frame > 0 || upgradePrices['框架'] > 0) && 
+                                          <span className="text-red-600 font-semibold ml-1">+¥{upgradePrices.frame || upgradePrices['框架']}</span>}
                                       </p>
                                     )}
-                                    {p.selectedMaterials.leg && (
-                                      <p>脚架: <span className="text-gray-800">{p.selectedMaterials.leg}</span>
-                                        {p.materialUpgradePrices?.leg > 0 && <span className="text-red-600 font-semibold ml-1">+¥{p.materialUpgradePrices.leg}</span>}
+                                    {leg && (
+                                      <p>脚架: <span className="text-gray-800">{leg}</span>
+                                        {(upgradePrices.leg > 0 || upgradePrices['脚架'] > 0) && 
+                                          <span className="text-red-600 font-semibold ml-1">+¥{upgradePrices.leg || upgradePrices['脚架']}</span>}
                                       </p>
                                     )}
                                   </div>
-                                )}
-                                {/* 商品小计 */}
-                                {p.upgradePrice > 0 && (
-                                  <p className="text-red-600 font-medium mt-1">商品加价: +¥{p.upgradePrice}</p>
-                                )}
-                              </div>
-                            ))}
+                                  {/* 商品小计 */}
+                                  {(p.upgradePrice > 0 || p.materialUpgrade > 0) && (
+                                    <p className="text-red-600 font-medium mt-1">商品加价: +¥{p.upgradePrice || p.materialUpgrade}</p>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
                         ))}
                       </div>

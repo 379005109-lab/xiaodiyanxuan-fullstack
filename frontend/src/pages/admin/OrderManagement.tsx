@@ -464,6 +464,12 @@ export default function OrderManagement() {
 
                   {/* 右侧：状态和操作 */}
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* 取消申请标记 */}
+                    {(order as any).cancelRequest && (
+                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 whitespace-nowrap animate-pulse">
+                        ⚠️ 客户申请取消
+                      </span>
+                    )}
                     {/* 状态徽章 */}
                     <span className={`px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap ${statusConfig[order.status]?.color || 'bg-gray-100 text-gray-700'}`}>
                       {statusConfig[order.status]?.label || order.status}
@@ -502,8 +508,63 @@ export default function OrderManagement() {
                   <div className="border-t border-gray-100 px-4 py-4 space-y-4">
                     {/* 商品和地址信息 */}
                     <div className="grid md:grid-cols-2 gap-3">
-                      {/* 订单商品 */}
-                      {order.items && order.items.length > 0 && (
+                      {/* 套餐订单显示 */}
+                      {(order as any).orderType === 'package' && (order as any).packageInfo ? (
+                        <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
+                          <div className="flex items-center gap-2 text-amber-700 font-semibold mb-4 text-base">
+                            <Sparkles className="h-4 w-4" /> 套餐订单: {(order as any).packageInfo.packageName}
+                          </div>
+                          <div className="text-sm text-amber-600 mb-3">
+                            套餐基础价: {formatPrice((order as any).packageInfo.packagePrice || 0)}
+                            {(order as any).packageInfo.totalUpgradePrice > 0 && (
+                              <span className="text-red-600 font-bold ml-2">
+                                材质加价: +¥{(order as any).packageInfo.totalUpgradePrice}
+                              </span>
+                            )}
+                          </div>
+                          <div className="space-y-3">
+                            {(order as any).packageInfo.selections?.map((selection: any, selIdx: number) => (
+                              <div key={selIdx} className="bg-white rounded-lg p-3 border border-amber-100">
+                                <p className="font-semibold text-gray-800 text-sm mb-2">{selection.categoryName}</p>
+                                {selection.products?.map((product: any, pIdx: number) => (
+                                  <div key={pIdx} className="ml-3 mb-2 text-xs text-gray-600 border-l-2 border-amber-200 pl-3">
+                                    <p className="font-medium text-gray-800">{product.productName} x{product.quantity}</p>
+                                    {product.skuName && <p className="text-gray-500">规格: {product.skuName}</p>}
+                                    {/* 材质信息 */}
+                                    {(product.selectedMaterials?.fabric || product.materials?.fabric || product.materials?.['面料']) && (
+                                      <p>面料: {product.selectedMaterials?.fabric || product.materials?.fabric || product.materials?.['面料']}
+                                        {(product.materialUpgradePrices?.fabric > 0 || product.materialUpgradePrices?.['面料'] > 0) && 
+                                          <span className="text-red-600 font-bold ml-1">+¥{product.materialUpgradePrices?.fabric || product.materialUpgradePrices?.['面料']}</span>}
+                                      </p>
+                                    )}
+                                    {(product.selectedMaterials?.filling || product.materials?.filling || product.materials?.['填充']) && (
+                                      <p>填充: {product.selectedMaterials?.filling || product.materials?.filling || product.materials?.['填充']}
+                                        {(product.materialUpgradePrices?.filling > 0 || product.materialUpgradePrices?.['填充'] > 0) && 
+                                          <span className="text-red-600 font-bold ml-1">+¥{product.materialUpgradePrices?.filling || product.materialUpgradePrices?.['填充']}</span>}
+                                      </p>
+                                    )}
+                                    {(product.selectedMaterials?.frame || product.materials?.frame || product.materials?.['框架']) && (
+                                      <p>框架: {product.selectedMaterials?.frame || product.materials?.frame || product.materials?.['框架']}
+                                        {(product.materialUpgradePrices?.frame > 0 || product.materialUpgradePrices?.['框架'] > 0) && 
+                                          <span className="text-red-600 font-bold ml-1">+¥{product.materialUpgradePrices?.frame || product.materialUpgradePrices?.['框架']}</span>}
+                                      </p>
+                                    )}
+                                    {(product.selectedMaterials?.leg || product.materials?.leg || product.materials?.['脚架']) && (
+                                      <p>脚架: {product.selectedMaterials?.leg || product.materials?.leg || product.materials?.['脚架']}
+                                        {(product.materialUpgradePrices?.leg > 0 || product.materialUpgradePrices?.['脚架'] > 0) && 
+                                          <span className="text-red-600 font-bold ml-1">+¥{product.materialUpgradePrices?.leg || product.materialUpgradePrices?.['脚架']}</span>}
+                                      </p>
+                                    )}
+                                    {(product.upgradePrice > 0 || product.materialUpgrade > 0) && (
+                                      <p className="text-red-600 font-medium mt-1">商品加价: +¥{product.upgradePrice || product.materialUpgrade}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : order.items && order.items.length > 0 ? (
                         <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
                           <div className="flex items-center gap-2 text-gray-700 font-semibold mb-4 text-base">
                             <ShoppingCart className="h-4 w-4" /> 商品清单 ({order.items.length})
@@ -599,7 +660,7 @@ export default function OrderManagement() {
                             })}
                           </div>
                         </div>
-                      )}
+                      ) : null}
 
                       {/* 收货地址和金额 */}
                       <div className="p-4 rounded-lg bg-primary-50 border border-primary-100 space-y-3">
@@ -663,6 +724,70 @@ export default function OrderManagement() {
                         代客下单
                       </button>
                     </div>
+
+                    {/* 取消申请处理 */}
+                    {(order as any).cancelRequest && (
+                      <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                        <div className="flex items-center gap-2 text-orange-700 font-semibold mb-3">
+                          <AlertCircle className="h-4 w-4" />
+                          客户申请取消订单
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!window.confirm('确定要批准取消此订单吗？')) return
+                              try {
+                                const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/cancel-approve`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                    'Content-Type': 'application/json'
+                                  }
+                                })
+                                if (response.ok) {
+                                  toast.success('已批准取消')
+                                  loadOrders()
+                                } else {
+                                  toast.error('操作失败')
+                                }
+                              } catch (error) {
+                                toast.error('操作失败')
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+                          >
+                            批准取消
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!window.confirm('确定要拒绝取消请求吗？')) return
+                              try {
+                                const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/cancel-reject`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                    'Content-Type': 'application/json'
+                                  }
+                                })
+                                if (response.ok) {
+                                  toast.success('已拒绝取消请求')
+                                  loadOrders()
+                                } else {
+                                  toast.error('操作失败')
+                                }
+                              } catch (error) {
+                                toast.error('操作失败')
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium"
+                          >
+                            拒绝取消
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* 操作区域 */}
                     <div className="border-t border-gray-100 pt-4 space-y-4">

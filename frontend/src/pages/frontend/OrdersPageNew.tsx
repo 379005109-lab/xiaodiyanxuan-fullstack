@@ -89,68 +89,46 @@ export default function OrdersPageNew() {
 
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!window.confirm('确定要取消这个订单吗？')) {
+    if (!window.confirm('确定要申请取消这个订单吗？提交后需要等待管理员审核。')) {
       return
     }
     
     try {
-      console.log('🔄 取消订单:', orderId)
+      console.log('🔄 提交取消申请:', orderId)
       
-      // 1. 更新localStorage中的订单
-      const localOrders = JSON.parse(localStorage.getItem('local_orders') || '[]')
-      const updatedOrders = localOrders.map((o: any) => {
-        if ((o._id || o.id) === orderId) {
-          console.log('✅ 找到订单，更新状态为已取消')
-          return { 
-            ...o, 
-            status: 5, // 5 = 已取消
-            cancelReason: 'customer_request', // 添加取消原因标记
-            cancelledAt: new Date().toISOString()
-          }
+      // 通过API提交取消申请
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-        return o
       })
-      localStorage.setItem('local_orders', JSON.stringify(updatedOrders))
       
-      // 2. 尝试通过API取消订单（不阻塞）
-      try {
-        const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/cancel`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
+      if (response.ok) {
+        console.log('✅ 取消申请已提交')
         
-        if (response.ok) {
-          console.log('✅ API取消成功')
-        } else {
-          console.log('⚠️ API取消失败，但本地已更新')
-        }
-      } catch (apiError) {
-        console.log('⚠️ API调用失败，但本地已更新:', apiError)
+        // 更新UI状态 - 显示取消申请中
+        setOrders(prev => prev.map((o: any) => {
+          if ((o._id || o.id) === orderId) {
+            return {
+              ...o,
+              cancelRequest: true,
+              cancelRequestedAt: new Date().toISOString()
+            }
+          }
+          return o
+        }))
+        
+        toast.success('取消申请已提交，请等待管理员审核')
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.message || '提交取消申请失败')
       }
       
-      // 3. 立即更新UI状态
-      console.log('🔄 立即更新UI状态')
-      setOrders(prev => prev.map((o: any) => {
-        if ((o._id || o.id) === orderId) {
-          return {
-            ...o,
-            status: 5,
-            cancelReason: 'customer_request',
-            cancelledAt: new Date().toISOString()
-          }
-        }
-        return o
-      }))
-      
-      // 4. 显示成功提示
-      toast.success('订单已取消')
-      
     } catch (error) {
-      console.error('❌ 取消订单失败:', error)
-      toast.error('取消失败，请重试')
+      console.error('❌ 提交取消申请失败:', error)
+      toast.error('提交失败，请重试')
     }
   }
 
@@ -249,27 +227,28 @@ export default function OrdersPageNew() {
           <div className="space-y-6">
             {orders.map((order) => {
               const isCancelled = order.status === 5 || order.status === 'cancelled'
+              const hasCancelRequest = order.cancelRequest === true
               return (
               <div key={order._id || order.id} className={`rounded-2xl border shadow-sm overflow-hidden transition-all ${
-                isCancelled ? 'bg-gray-50 border-gray-200 opacity-75' : 'bg-white border-stone-100'
+                isCancelled ? 'bg-gray-50 border-gray-200 opacity-75' : hasCancelRequest ? 'bg-orange-50 border-orange-200' : 'bg-white border-stone-100'
               }`}>
                 {/* 订单头部 */}
                 <div className={`flex justify-between items-center px-6 py-4 border-b ${
-                  isCancelled ? 'bg-gray-100 border-gray-200' : 'bg-stone-50 border-stone-100'
+                  isCancelled ? 'bg-gray-100 border-gray-200' : hasCancelRequest ? 'bg-orange-100 border-orange-200' : 'bg-stone-50 border-stone-100'
                 }`}>
                   <div className="flex items-center gap-2">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[order.status]?.color || 'text-stone-600 bg-stone-50'}`}>
                       {statusConfig[order.status]?.icon}
                       <span>{statusConfig[order.status]?.label || '未知状态'}</span>
                     </div>
+                    {hasCancelRequest && !isCancelled && (
+                      <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded-full">取消申请中</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <div className={`text-2xl font-bold ${
                       isCancelled ? 'text-gray-400' : 'text-red-600'
                     }`}>¥{order.totalAmount?.toLocaleString() || 0}</div>
-                    {isCancelled && order.cancelReason && (
-                      <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">客户要求取消</span>
-                    )}
                   </div>
                 </div>
 

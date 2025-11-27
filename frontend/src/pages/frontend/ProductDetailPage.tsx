@@ -961,7 +961,9 @@ const ProductDetailPage = () => {
                               </div>
                               <div className="flex items-baseline gap-2">
                                 <span className="text-lg font-bold text-red-600">{formatPrice(skuFinalPrice)}</span>
-                                {sku.discountPrice && <span className="text-xs text-gray-400 line-through">{formatPrice(sku.price)}</span>}
+                                {sku.discountPrice && sku.discountPrice > 0 && sku.discountPrice < sku.price && (
+                                  <span className="text-xs text-gray-400 line-through">{formatPrice(sku.price)}</span>
+                                )}
                               </div>
                             </div>
                             <p className="text-xs text-gray-500 mt-1 leading-relaxed">尺寸：{specDetail}</p>

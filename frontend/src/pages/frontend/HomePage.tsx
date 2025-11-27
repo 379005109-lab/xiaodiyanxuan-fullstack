@@ -233,9 +233,11 @@ export default function HomePage() {
                     </h3>
                     <div className="flex items-baseline gap-2">
                       <span className="text-2xl font-bold text-red-600">
-                        {formatPrice(product.skus?.[0]?.discountPrice || product.basePrice || product.price)}
+                        {formatPrice(product.skus?.[0]?.discountPrice && product.skus[0].discountPrice > 0 
+                          ? product.skus[0].discountPrice 
+                          : product.basePrice || product.price)}
                       </span>
-                      {product.skus?.[0]?.price && product.skus[0].price > (product.skus[0].discountPrice || 0) && (
+                      {product.skus?.[0]?.discountPrice && product.skus[0].discountPrice > 0 && product.skus[0].price > product.skus[0].discountPrice && (
                         <span className="text-sm text-stone-400 line-through">
                           {formatPrice(product.skus[0].price)}
                         </span>
