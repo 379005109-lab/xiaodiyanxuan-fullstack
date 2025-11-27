@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: xiaodiyanxuan-frontend:latest
+        image: ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -81,6 +81,11 @@ kind: Ingress
 metadata:
   name: xiaodiyanxuan-frontend
   namespace: ns-cxxiwxce
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
 spec:
   rules:
   - host: lgpzubdtdxjf.sealoshzh.site

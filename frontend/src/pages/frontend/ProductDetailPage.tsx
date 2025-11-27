@@ -836,31 +836,27 @@ const ProductDetailPage = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm mb-6">
-              <div className="flex flex-col gap-2 mb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-500">当前价格</span>
-                  <span className="text-3xl font-bold text-red-600">{formatPrice(finalSkuPrice)}</span>
-                  {discountPrice && (
-                    <span className="text-sm px-2 py-0.5 rounded-full bg-red-50 text-red-600">限时优惠</span>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-3 text-sm text-gray-600">
-                  {discountPrice && <span>原价：<span className="line-through text-gray-400">{formatPrice(currentPrice)}</span></span>}
-                </div>
-              </div>
-
-              {/* 只有当有多个版本时才显示版本筛选 */}
-              {availableFilters.length > 1 && (
-                <div className="mb-4">
-                  <p className="text-sm text-gray-500 mb-2">选择版本</p>
-                  <div className="flex gap-2">
+            {/* 置顶悬浮价格和版本区域 */}
+            <div className="sticky top-0 z-40 bg-white p-4 rounded-2xl shadow-lg mb-4 border border-gray-100">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-gray-500 text-sm">当前价格</span>
+                <span className="text-2xl font-bold text-red-600">{formatPrice(finalSkuPrice)}</span>
+                {discountPrice && (
+                  <>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">限时优惠</span>
+                    <span className="text-xs text-gray-400 line-through">{formatPrice(currentPrice)}</span>
+                  </>
+                )}
+                {/* 版本选择 */}
+                {availableFilters.length > 1 && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs text-gray-500">版本：</span>
                     {availableFilters.map(filter => (
                       <button
                         key={filter.key}
                         onClick={() => handleFilterChange(filter.key)}
                         className={cn(
-                          'px-4 py-2 rounded-full text-sm border transition-colors',
+                          'px-3 py-1 rounded-full text-xs border transition-colors',
                           activeFilter === filter.key
                             ? 'text-white'
                             : 'text-gray-600 border-gray-200 hover:border-gray-400'
@@ -873,16 +869,17 @@ const ProductDetailPage = () => {
                       </button>
                     ))}
                   </div>
-                  {selectedSku?.isPro && (
-                    <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
-                      <p className="text-sm font-semibold text-yellow-900 mb-1">PRO 专业版特性</p>
-                      <p className="text-xs text-yellow-800">{selectedSku.proFeature || 'PRO 版本提供更高端材质与功能升级。'}</p>
-                    </div>
-                  )}
+                )}
+              </div>
+              {selectedSku?.isPro && (
+                <div className="mt-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2">
+                  <p className="text-xs font-semibold text-yellow-900">PRO 专业版: {selectedSku.proFeature || '更高端材质与功能升级'}</p>
                 </div>
               )}
+            </div>
 
-              {/* Specification & SKU Selection */}
+            {/* Specification & SKU Selection */}
+            <div className="bg-white rounded-2xl shadow-sm mb-6 p-4">
               <div className="border border-gray-200 rounded-2xl bg-white">
                 <button
                   type="button"

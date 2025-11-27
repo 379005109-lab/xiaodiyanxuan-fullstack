@@ -5,6 +5,7 @@ import { useAuthModalStore } from './store/authModalStore'
 import { UserRole } from './types'
 import ErrorBoundary from './components/ErrorBoundary'
 import AuthModal from './components/auth/AuthModal'
+import UserProfileModal from './components/auth/UserProfileModal'
 import VersionChecker from './components/VersionChecker'
 import { useEffect, useState, lazy, Suspense } from 'react'
 // 导入测试工具
@@ -131,6 +132,26 @@ const LoadingFallback = () => (
 
 function App() {
   const { isOpen: authModalOpen, mode: authModalMode, close: closeAuthModal } = useAuthModalStore()
+  const { user, isAuthenticated } = useAuthStore()
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  
+  // 检查用户是否需要完善信息（登录后首次显示）
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // 检查用户是否已完善信息（有nickname和gender）
+      const hasNickname = (user as any).nickname && (user as any).nickname.trim() !== ''
+      const hasGender = (user as any).gender && ['male', 'female'].includes((user as any).gender)
+      
+      // 如果缺少必要信息，显示完善弹窗
+      if (!hasNickname || !hasGender) {
+        // 延迟显示，避免和登录弹窗冲突
+        const timer = setTimeout(() => {
+          setShowProfileModal(true)
+        }, 500)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [isAuthenticated, user])
   
   // 全局禁止图片右键保存和拖拽
   useEffect(() => {
@@ -186,6 +207,11 @@ function App() {
           isOpen={authModalOpen} 
           onClose={closeAuthModal} 
           initialMode={authModalMode} 
+        />
+        {/* 用户信息完善弹窗 */}
+        <UserProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
         />
         <Suspense fallback={<LoadingFallback />}>
           <Routes>

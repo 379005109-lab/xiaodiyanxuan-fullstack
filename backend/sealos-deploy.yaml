@@ -41,6 +41,26 @@ spec:
           value: "https://lgpzubdtdxjf.sealoshzh.site,http://localhost:3000,http://localhost:5173,*"
         - name: LOG_LEVEL
           value: "info"
+        - name: ALIYUN_SMS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: xiaodiyanxuan-sms-config
+              key: ALIYUN_SMS_ACCESS_KEY_ID
+        - name: ALIYUN_SMS_ACCESS_KEY_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: xiaodiyanxuan-sms-config
+              key: ALIYUN_SMS_ACCESS_KEY_SECRET
+        - name: ALIYUN_SMS_SIGN_NAME
+          valueFrom:
+            secretKeyRef:
+              name: xiaodiyanxuan-sms-config
+              key: ALIYUN_SMS_SIGN_NAME
+        - name: ALIYUN_SMS_TEMPLATE_CODE
+          valueFrom:
+            secretKeyRef:
+              name: xiaodiyanxuan-sms-config
+              key: ALIYUN_SMS_TEMPLATE_CODE
         resources:
           requests:
             memory: "256Mi"

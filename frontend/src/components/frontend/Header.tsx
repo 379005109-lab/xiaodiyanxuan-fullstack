@@ -61,9 +61,18 @@ export default function Header() {
           <Link to="/" className={getLinkClass('/')}>
             首页
           </Link>
-          <Link to="/products" className={getLinkClass('/products')}>
+          <span 
+            onClick={() => {
+              if (!isAuthenticated) {
+                openLogin()
+                return
+              }
+              navigate('/products')
+            }}
+            className={`${getLinkClass('/products')} cursor-pointer`}
+          >
             商城
-          </Link>
+          </span>
           <Link to="/categories" className={getLinkClass('/categories')}>
             商品分类
           </Link>
