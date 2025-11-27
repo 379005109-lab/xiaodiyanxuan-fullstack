@@ -707,7 +707,7 @@ export default function PackageDetailPage() {
         })
       })
 
-      // 构建套餐订单数据 - 直接使用selectionGroups中已计算好的数据
+      // 构建套餐订单数据 - 直接从原始数据计算，确保数据完整
       const packageData = {
         packageId: pkg.id,
         packageName: pkg.name,
@@ -718,25 +718,58 @@ export default function PackageDetailPage() {
           categoryName: group.name,
           required: group.required,
           products: group.products.map((product: any) => {
-            // 转换材质数据为统一格式
+            // 从productLookup获取完整产品信息
+            const fullProduct = productLookup[product.productId]
             const materials = product.materials || {}
-            const selectedMaterials = {
-              fabric: materials.fabric || materials['面料'] || '',
-              filling: materials.filling || materials['填充'] || '',
-              frame: materials.frame || materials['框架'] || '',
-              leg: materials.leg || materials['脚架'] || ''
+            
+            console.log(`📦 [订单构建] 处理商品: ${product.productName}`)
+            console.log(`📦 [订单构建] productId: ${product.productId}`)
+            console.log(`📦 [订单构建] fullProduct存在: ${!!fullProduct}`)
+            console.log(`📦 [订单构建] fullProduct.skus:`, fullProduct?.skus?.length || 0, '个SKU')
+            if (fullProduct?.skus?.[0]) {
+              console.log(`📦 [订单构建] SKU materialUpgradePrices:`, JSON.stringify(fullProduct.skus[0].materialUpgradePrices))
             }
+            console.log(`📦 [订单构建] materials选择:`, JSON.stringify(materials))
+            
+            // 计算每个材质的加价
+            const materialUpgradePrices: Record<string, number> = {}
+            if (fullProduct && materials) {
+              Object.entries(materials).forEach(([materialKey, selectedOption]) => {
+                if (!selectedOption) return
+                const productMaterials = (fullProduct.materials as any)?.[materialKey]
+                console.log(`📦 [${materialKey}] 选中: ${selectedOption}, 可选项: ${productMaterials?.length || 0}个`)
+                
+                if (!productMaterials || !Array.isArray(productMaterials)) {
+                  console.log(`📦 [${materialKey}] 跳过 - 没有可选项`)
+                  return
+                }
+                const isUpgrade = selectedOption !== productMaterials[0]
+                console.log(`📦 [${materialKey}] 默认值: ${productMaterials[0]}, 是否升级: ${isUpgrade}`)
+                
+                if (isUpgrade) {
+                  const premium = getOptionPremium(selectedOption as string, fullProduct.basePrice || 0, fullProduct)
+                  console.log(`📦 [${materialKey}] 计算加价: ${premium}`)
+                  if (premium > 0) {
+                    materialUpgradePrices[materialKey] = premium
+                  }
+                }
+              })
+            }
+            
+            // 获取规格名称
+            const skuName = fullProduct?.skus?.[0]?.spec || ''
+            
+            console.log(`📦 [订单构建完成] ${product.productName}: skuName=${skuName}, materialUpgradePrices=`, materialUpgradePrices)
             
             return {
               productId: product.productId,
               productName: product.productName,
-              skuName: product.skuName || '',
+              image: fullProduct?.images?.[0] || '',
+              skuName: skuName,
               quantity: product.quantity || 1,
               materials: materials,
-              selectedMaterials: selectedMaterials,
               materialUpgrade: product.materialUpgrade || 0,
-              upgradePrice: product.materialUpgrade || 0,
-              materialUpgradePrices: product.materialUpgradePrices || {}
+              materialUpgradePrices: materialUpgradePrices
             }
           })
         }))
