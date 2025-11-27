@@ -43,64 +43,57 @@ const list = async (req, res) => {
 
 const add = async (req, res) => {
   try {
+    console.log('========== [Favorite] Add request ==========')
+    console.log('Full request body:', JSON.stringify(req.body, null, 2))
+    console.log('userId:', req.userId)
+    
     // 额外的安全检查：确保userId存在
     if (!req.userId) {
-      console.error('Favorite add: userId not found')
+      console.error('❌ Favorite add: userId not found')
       return res.status(401).json(errorResponse('User not authenticated', 401))
     }
     
     const { productId } = req.body
-    
-    console.log('Add favorite request:', { userId: req.userId, productId })
+    console.log('productId type:', typeof productId)
+    console.log('productId value:', productId)
     
     if (!productId) {
+      console.error('❌ Missing productId')
       return res.status(400).json(errorResponse('Product ID is required', 400))
     }
     
     // 验证productId格式
     if (typeof productId !== 'string' || productId.trim() === '') {
-      console.error('Invalid productId:', productId)
+      console.error('❌ Invalid productId:', typeof productId, productId)
       return res.status(400).json(errorResponse('Invalid product ID', 400))
     }
     
     // Check if already favorited
+    console.log('Checking existing favorite...')
     const existing = await Favorite.findOne({ userId: req.userId, productId })
     if (existing) {
-      console.log('Product already favorited:', productId)
+      console.log('⚠️ Product already favorited:', productId)
       return res.status(400).json(errorResponse('Product already in favorites', 400))
     }
     
-    // 查找产品（可选，如果不存在也允许添加）
-    let productName = 'Unknown Product'
-    let thumbnail = ''
-    let price = 0
-    
-    try {
-      const product = await Product.findById(productId)
-      if (product) {
-        productName = product.name
-        thumbnail = product.thumbnail || (product.images && product.images[0]) || ''
-        price = product.basePrice || product.price || 0
-      } else {
-        console.warn('Product not found, but allowing favorite:', productId)
-      }
-    } catch (productError) {
-      console.warn('Error finding product, continuing with default values:', productError.message)
-    }
-    
+    // 直接创建收藏，不查找产品
+    console.log('Creating favorite record...')
     const favorite = await Favorite.create({
       userId: req.userId,
       productId,
-      productName,
-      thumbnail,
-      price
+      productName: 'Product',
+      thumbnail: '',
+      price: 0
     })
     
-    console.log('Favorite created successfully:', favorite._id)
+    console.log('✅ Favorite created successfully:', favorite._id)
+    console.log('==========================================')
     res.status(201).json(successResponse(favorite))
   } catch (err) {
-    console.error('Add favorite error:', err)
+    console.error('❌ Add favorite error:', err.message)
     console.error('Error stack:', err.stack)
+    console.error('Error name:', err.name)
+    console.error('==========================================')
     res.status(500).json(errorResponse(err.message, 500))
   }
 }

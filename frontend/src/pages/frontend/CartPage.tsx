@@ -9,18 +9,21 @@ export default function CartPage() {
   const navigate = useNavigate()
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore()
   const [selectedItems, setSelectedItems] = useState<string[]>([])
-  const [renderKey, setRenderKey] = useState(0)
+  const [showCheckout, setShowCheckout] = useState(false)
 
-  // 调试：打印购物车详细数据
-  console.log('🛒 [CartPage] 渲染次数:', renderKey)
-  console.log('🛒 [CartPage] 购物车数量:', items.length)
-  console.log('🛒 [CartPage] 购物车items引用:', items)
-  console.log('🛒 [CartPage] 结算按钮显示条件:', items.length > 0)
-  
-  // 强制重新渲染的效果
+  // 检查购物车状态
   useEffect(() => {
-    console.log('🔄 [CartPage] items变化，强制更新')
-    setRenderKey(prev => prev + 1)
+    console.log('🛒 [CartPage] 购物车数量:', items.length)
+    console.log('🛒 [CartPage] 购物车items:', items)
+    
+    // 如果有商品，显示结算栏
+    if (items.length > 0) {
+      setShowCheckout(true)
+      console.log('✅ [CartPage] 显示结算栏')
+    } else {
+      setShowCheckout(false)
+      console.log('❌ [CartPage] 隐藏结算栏（无商品）')
+    }
   }, [items])
 
   const toggleSelect = (id: string) => {
@@ -259,7 +262,7 @@ export default function CartPage() {
       </div>
       
       {/* Bottom Checkout Bar */}
-      {items.length > 0 && (
+      {showCheckout && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-6 shadow-lg z-50">
           <div className="max-w-5xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-4">

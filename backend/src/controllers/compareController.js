@@ -43,16 +43,22 @@ const add = async (req, res) => {
   try {
     const { productId, skuId, selectedMaterials } = req.body
 
-    console.log(' [Compare] Add request:', { productId, skuId, userId: req.userId })
+    console.log('========== [Compare] Add request ==========')
+    console.log('Full request body:', JSON.stringify(req.body, null, 2))
+    console.log('productId type:', typeof productId)
+    console.log('productId value:', productId)
+    console.log('skuId:', skuId)
+    console.log('userId:', req.userId)
+    console.log('==========================================')
 
     if (!productId) {
-      console.error(' [Compare] Missing productId')
+      console.error('❌ [Compare] Missing productId')
       return res.status(400).json(errorResponse('缺少产品ID', 400))
     }
 
     // 验证productId是否是有效的字符串
     if (typeof productId !== 'string' || productId.trim() === '') {
-      console.error(' [Compare] Invalid productId:', productId)
+      console.error('❌ [Compare] Invalid productId type or empty:', typeof productId, productId)
       return res.status(400).json(errorResponse('无效的产品ID', 400))
     }
     
