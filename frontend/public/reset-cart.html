@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>清空购物车 - 材质加价修复工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      max-width: 800px;
+      width: 100%;
+    }
+    h1 {
+      color: #2d3748;
+      font-size: 32px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .subtitle {
+      color: #718096;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 16px;
+    }
+    .warning {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+    }
+    .warning-title {
+      font-weight: bold;
+      color: #856404;
+      margin-bottom: 8px;
+    }
+    .warning-text {
+      color: #856404;
+      line-height: 1.6;
+    }
+    .info {
+      background: #d1ecf1;
+      border-left: 4px solid #17a2b8;
+      padding: 15px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+    }
+    .info-title {
+      font-weight: bold;
+      color: #0c5460;
+      margin-bottom: 8px;
+    }
+    .info-text {
+      color: #0c5460;
+      line-height: 1.6;
+    }
+    .info-text code {
+      background: rgba(0,0,0,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+    }
+    .button-group {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+    button {
+      flex: 1;
+      padding: 15px 30px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(245,87,108,0.3);
+    }
+    .btn-success {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      color: white;
+    }
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(79,172,254,0.3);
+    }
+    .data-display {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .data-title {
+      font-weight: bold;
+      color: #2d3748;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    pre {
+      background: #2d3748;
+      color: #48bb78;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .status {
+      text-align: center;
+      padding: 15px;
+      border-radius: 12px;
+      margin-top: 20px;
+      font-weight: 600;
+    }
+    .status-success {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+    .status-error {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+    .steps {
+      background: #edf2f7;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 30px;
+    }
+    .steps-title {
+      font-weight: bold;
+      color: #2d3748;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    .step {
+      margin-bottom: 12px;
+      padding-left: 25px;
+      position: relative;
+      color: #4a5568;
+      line-height: 1.6;
+    }
+    .step::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #48bb78;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🛒 购物车数据清除工具</h1>
+    <p class="subtitle">修复材质加价显示问题</p>
+
+    <div class="warning">
+      <div class="warning-title">⚠️ 为什么需要清空购物车？</div>
+      <div class="warning-text">
+        购物车中的旧数据使用了旧版本的材质加价逻辑。新版本改进了加价计算方式，使用类别匹配来正确显示"全青皮-橘色"、"全青皮-白色"等材质的加价信息。
+清空购物车后重新添加商品，才能使用新的加价逻辑。
+      </div>
+    </div>
+
+    <div class="info">
+      <div class="info-title">📝 新逻辑说明</div>
+      <div class="info-text">
+        • SKU设置：<code>{ "全青皮": 1000 }</code><br>
+        • 用户选择：<code>"全青皮-橘色"</code><br>
+        • 系统提取类别：<code>"全青皮"</code><br>
+        • 找到加价：<code>1000元</code><br>
+        • 保存映射：<code>{ "全青皮-橘色": 1000 }</code><br>
+        • 显示：<code>面料: 全青皮-橘色 +¥1000</code>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button class="btn-danger" onclick="clearCart()">清空购物车</button>
+      <button class="btn-success" onclick="viewCart()">查看购物车数据</button>
+    </div>
+
+    <div id="dataDisplay" class="data-display" style="display:none;">
+      <div class="data-title">当前购物车数据：</div>
+      <pre id="cartData"></pre>
+    </div>
+
+    <div id="status"></div>
+
+    <div class="steps">
+      <div class="steps-title">📋 修复步骤：</div>
+      <div class="step">点击"清空购物车"按钮</div>
+      <div class="step">回到商品详情页</div>
+      <div class="step">选择材质（例如："全青皮-橘色"）</div>
+      <div class="step">加入购物车</div>
+      <div class="step">查看购物车，应该能看到：<code>面料: 全青皮-橘色 +¥1000</code></div>
+      <div class="step">进入结算页面，检查"商品清单"和"订单摘要"</div>
+      <div class="step">提交订单后，在"我的订单"中也应该能看到材质加价</div>
+    </div>
+  </div>
+
+  <script>
+    function clearCart() {
+      try {
+        localStorage.removeItem('cart-storage')
+        
+        const status = document.getElementById('status')
+        status.className = 'status status-success'
+        status.textContent = '✅ 购物车已清空！现在可以重新添加商品了。'
+        status.style.display = 'block'
+        
+        // 隐藏数据显示
+        document.getElementById('dataDisplay').style.display = 'none'
+        
+        setTimeout(() => {
+          status.style.display = 'none'
+        }, 5000)
+      } catch (error) {
+        const status = document.getElementById('status')
+        status.className = 'status status-error'
+        status.textContent = '❌ 清空失败：' + error.message
+        status.style.display = 'block'
+      }
+    }
+
+    function viewCart() {
+      try {
+        const cartData = localStorage.getItem('cart-storage')
+        const dataDisplay = document.getElementById('dataDisplay')
+        const cartDataPre = document.getElementById('cartData')
+        
+        if (!cartData) {
+          cartDataPre.textContent = '购物车为空'
+        } else {
+          const parsed = JSON.parse(cartData)
+          cartDataPre.textContent = JSON.stringify(parsed, null, 2)
+          
+          // 检查材质加价数据
+          const items = parsed.state?.items || []
+          if (items.length > 0) {
+            const firstItem = items[0]
+            console.log('第一个商品的材质:', firstItem.selectedMaterials)
+            console.log('第一个商品的加价映射:', firstItem.materialUpgradePrices)
+          }
+        }
+        
+        dataDisplay.style.display = 'block'
+        
+        const status = document.getElementById('status')
+        status.className = 'status status-success'
+        status.textContent = '✅ 数据已显示，请检查Console了解更多详情。'
+        status.style.display = 'block'
+        
+        setTimeout(() => {
+          status.style.display = 'none'
+        }, 3000)
+      } catch (error) {
+        const status = document.getElementById('status')
+        status.className = 'status status-error'
+        status.textContent = '❌ 读取失败：' + error.message
+        status.style.display = 'block'
+      }
+    }
+
+    // 页面加载时检查购物车
+    window.addEventListener('load', () => {
+      const cartData = localStorage.getItem('cart-storage')
+      if (cartData) {
+        const parsed = JSON.parse(cartData)
+        const itemCount = parsed.state?.items?.length || 0
+        if (itemCount > 0) {
+          const status = document.getElementById('status')
+          status.className = 'status status-error'
+          status.textContent = `⚠️ 购物车中有 ${itemCount} 件商品使用旧数据格式，建议清空后重新添加。`
+          status.style.display = 'block'
+        }
+      }
+    })
+  </script>
+</body>
+</html>

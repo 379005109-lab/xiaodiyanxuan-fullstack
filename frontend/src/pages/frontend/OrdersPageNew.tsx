@@ -110,7 +110,11 @@ export default function OrdersPageNew() {
         const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
         const updatedOrders = localOrders.map((o: any) => {
           if ((o._id || o.id) === orderId) {
-            return { ...o, status: 5 } // 5 = 已取消
+            return { 
+              ...o, 
+              status: 5, // 5 = 已取消
+              cancelReason: 'customer_request' // 添加取消原因标记
+            }
           }
           return o
         })
@@ -219,17 +223,30 @@ export default function OrdersPageNew() {
           </div>
         ) : (
           <div className="space-y-6">
-            {orders.map((order) => (
-              <div key={order._id || order.id} className="bg-white rounded-2xl border border-stone-100 shadow-sm overflow-hidden">
+            {orders.map((order) => {
+              const isCancelled = order.status === 5 || order.status === 'cancelled'
+              return (
+              <div key={order._id || order.id} className={`rounded-2xl border shadow-sm overflow-hidden transition-all ${
+                isCancelled ? 'bg-gray-50 border-gray-200 opacity-75' : 'bg-white border-stone-100'
+              }`}>
                 {/* 订单头部 */}
-                <div className="flex justify-between items-center px-6 py-4 bg-stone-50 border-b border-stone-100">
+                <div className={`flex justify-between items-center px-6 py-4 border-b ${
+                  isCancelled ? 'bg-gray-100 border-gray-200' : 'bg-stone-50 border-stone-100'
+                }`}>
                   <div className="flex items-center gap-2">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[order.status]?.color || 'text-stone-600 bg-stone-50'}`}>
                       {statusConfig[order.status]?.icon}
                       <span>{statusConfig[order.status]?.label || '未知状态'}</span>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-red-600">¥{order.totalAmount?.toLocaleString() || 0}</div>
+                  <div className="flex items-center gap-3">
+                    <div className={`text-2xl font-bold ${
+                      isCancelled ? 'text-gray-400' : 'text-red-600'
+                    }`}>¥{order.totalAmount?.toLocaleString() || 0}</div>
+                    {isCancelled && order.cancelReason && (
+                      <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">客户要求取消</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* 订单商品列表 */}
@@ -381,7 +398,7 @@ export default function OrdersPageNew() {
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
