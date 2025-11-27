@@ -662,22 +662,56 @@ export default function PackageDetailPage() {
         return
       }
 
+      // 计算总加价
+      let totalUpgradePrice = 0
+      selectionGroups.forEach(group => {
+        group.products.forEach((product: any) => {
+          totalUpgradePrice += (product.materialUpgrade || 0) * (product.quantity || 1)
+        })
+      })
+
       // 构建套餐订单数据
       const packageData = {
         packageId: pkg.id,
         packageName: pkg.name,
         packagePrice: pkg.price,
+        totalUpgradePrice: totalUpgradePrice,
         selections: selectionGroups.map(group => ({
           categoryKey: group.key,
           categoryName: group.name,
           required: group.required,
-          products: group.products.map((product: any) => ({
-            productId: product.id || product.productId,
-            productName: product.name || product.productName,
-            quantity: product.quantity || 1,
-            materials: product.materials || {},
-            materialUpgrade: product.materialUpgrade || 0
-          }))
+          products: group.products.map((product: any) => {
+            // 转换材质数据为统一格式
+            const materials = product.materials || {}
+            const selectedMaterials = {
+              fabric: materials.fabric || materials['面料'] || '',
+              filling: materials.filling || materials['填充'] || '',
+              frame: materials.frame || materials['框架'] || '',
+              leg: materials.leg || materials['脚架'] || ''
+            }
+            
+            // 计算每个材质的加价
+            const materialUpgradePrices: Record<string, number> = {}
+            if (product.materialPrices) {
+              Object.entries(product.materialPrices).forEach(([key, value]) => {
+                if (typeof value === 'number' && value > 0) {
+                  materialUpgradePrices[key] = value
+                }
+              })
+            }
+            
+            return {
+              productId: product.id || product.productId,
+              productName: product.name || product.productName,
+              skuName: product.skuName || product.spec || '',
+              quantity: product.quantity || 1,
+              materials: materials,
+              selectedMaterials: selectedMaterials,
+              materialUpgrade: product.materialUpgrade || 0,
+              upgradePrice: product.materialUpgrade || 0,
+              materialUpgradePrices: materialUpgradePrices
+            }
+          })
         }))
       }
 

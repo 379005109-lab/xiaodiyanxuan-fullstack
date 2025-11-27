@@ -18,6 +18,6 @@ export const fetchUsers = async (params: Record<string, any> = {}): Promise<User
 }
 
 export const updateUserProfile = async (userId: string, payload: Partial<User>) => {
-  const { data } = await apiClient.put(`/api/users/${userId}`, payload)
+  const { data } = await apiClient.put(`/users/${userId}`, payload)
   return data
 }
