@@ -41,7 +41,7 @@ const stats = async (req, res) => {
 // 添加到对比
 const add = async (req, res) => {
   try {
-    const { productId, skuId, selectedMaterials } = req.body
+    let { productId, skuId, selectedMaterials } = req.body
 
     console.log('========== [Compare] Add request ==========')
     console.log('Full request body:', JSON.stringify(req.body, null, 2))
@@ -51,14 +51,23 @@ const add = async (req, res) => {
     console.log('userId:', req.userId)
     console.log('==========================================')
 
+    // 转换 productId 为字符串（处理可能的对象传递）
+    if (productId && typeof productId === 'object' && productId._id) {
+      productId = productId._id
+    }
+    if (productId && typeof productId === 'object' && productId.id) {
+      productId = productId.id
+    }
+
     if (!productId) {
       console.error('❌ [Compare] Missing productId')
       return res.status(400).json(errorResponse('缺少产品ID', 400))
     }
 
     // 验证productId是否是有效的字符串
-    if (typeof productId !== 'string' || productId.trim() === '') {
-      console.error('❌ [Compare] Invalid productId type or empty:', typeof productId, productId)
+    productId = String(productId).trim()
+    if (!productId) {
+      console.error('❌ [Compare] Invalid productId - empty after trim')
       return res.status(400).json(errorResponse('无效的产品ID', 400))
     }
     

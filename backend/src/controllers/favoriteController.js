@@ -46,6 +46,7 @@ const add = async (req, res) => {
     console.log('========== [Favorite] Add request ==========')
     console.log('Full request body:', JSON.stringify(req.body, null, 2))
     console.log('userId:', req.userId)
+    console.log('userId type:', typeof req.userId)
     
     // 额外的安全检查：确保userId存在
     if (!req.userId) {
@@ -53,9 +54,17 @@ const add = async (req, res) => {
       return res.status(401).json(errorResponse('User not authenticated', 401))
     }
     
-    const { productId } = req.body
+    let { productId, productName, thumbnail, price } = req.body
     console.log('productId type:', typeof productId)
     console.log('productId value:', productId)
+    
+    // 转换 productId 为字符串（处理可能的对象传递）
+    if (productId && typeof productId === 'object' && productId._id) {
+      productId = productId._id
+    }
+    if (productId && typeof productId === 'object' && productId.id) {
+      productId = productId.id
+    }
     
     if (!productId) {
       console.error('❌ Missing productId')
@@ -63,8 +72,9 @@ const add = async (req, res) => {
     }
     
     // 验证productId格式
-    if (typeof productId !== 'string' || productId.trim() === '') {
-      console.error('❌ Invalid productId:', typeof productId, productId)
+    productId = String(productId).trim()
+    if (!productId) {
+      console.error('❌ Invalid productId - empty after trim')
       return res.status(400).json(errorResponse('Invalid product ID', 400))
     }
     
@@ -76,15 +86,18 @@ const add = async (req, res) => {
       return res.status(400).json(errorResponse('Product already in favorites', 400))
     }
     
-    // 直接创建收藏，不查找产品
+    // 创建收藏
     console.log('Creating favorite record...')
-    const favorite = await Favorite.create({
+    const favoriteData = {
       userId: req.userId,
       productId,
-      productName: 'Product',
-      thumbnail: '',
-      price: 0
-    })
+      productName: productName || 'Product',
+      thumbnail: thumbnail || '',
+      price: price || 0
+    }
+    
+    console.log('Favorite data to create:', favoriteData)
+    const favorite = await Favorite.create(favoriteData)
     
     console.log('✅ Favorite created successfully:', favorite._id)
     console.log('==========================================')
@@ -93,6 +106,14 @@ const add = async (req, res) => {
     console.error('❌ Add favorite error:', err.message)
     console.error('Error stack:', err.stack)
     console.error('Error name:', err.name)
+    
+    // 特殊处理唯一索引冲突错误
+    if (err.code === 11000) {
+      console.error('Duplicate key error - product already favorited')
+      console.error('==========================================')
+      return res.status(400).json(errorResponse('Product already in favorites', 400))
+    }
+    
     console.error('==========================================')
     res.status(500).json(errorResponse(err.message, 500))
   }

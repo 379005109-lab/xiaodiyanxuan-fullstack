@@ -214,9 +214,56 @@ export default function OrdersPage() {
                             )}
                             <div className="flex-1">
                               <p className="text-sm font-medium text-gray-900">{item.productName}</p>
-                              <p className="text-xs text-gray-500">
-                                数量: {item.quantity} | 单价: {formatPrice(item.price)}
-                              </p>
+                              <div className="text-xs space-y-0.5 mt-1">
+                                {/* 规格 */}
+                                {(item.specifications?.size || item.spec) && (
+                                  <p className="text-gray-500">规格: <span className="text-gray-800">{item.specifications?.size || item.spec}</span></p>
+                                )}
+                                
+                                {/* 面料 */}
+                                {(item.specifications?.material || item.selectedMaterials?.fabric) && (
+                                  <p className="text-gray-500">
+                                    面料: <span className="text-gray-800">{item.specifications?.material || item.selectedMaterials?.fabric}</span>
+                                    {item.materialUpgradePrices?.[item.specifications?.material || item.selectedMaterials?.fabric] > 0 && (
+                                      <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications?.material || item.selectedMaterials?.fabric]}</span>
+                                    )}
+                                  </p>
+                                )}
+                                
+                                {/* 填充 */}
+                                {(item.specifications?.fill || item.selectedMaterials?.filling) && (
+                                  <p className="text-gray-500">
+                                    填充: <span className="text-gray-800">{item.specifications?.fill || item.selectedMaterials?.filling}</span>
+                                    {item.materialUpgradePrices?.[item.specifications?.fill || item.selectedMaterials?.filling] > 0 && (
+                                      <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications?.fill || item.selectedMaterials?.filling]}</span>
+                                    )}
+                                  </p>
+                                )}
+                                
+                                {/* 框架 */}
+                                {(item.specifications?.frame || item.selectedMaterials?.frame) && (
+                                  <p className="text-gray-500">
+                                    框架: <span className="text-gray-800">{item.specifications?.frame || item.selectedMaterials?.frame}</span>
+                                    {item.materialUpgradePrices?.[item.specifications?.frame || item.selectedMaterials?.frame] > 0 && (
+                                      <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications?.frame || item.selectedMaterials?.frame]}</span>
+                                    )}
+                                  </p>
+                                )}
+                                
+                                {/* 脚架 */}
+                                {(item.specifications?.leg || item.selectedMaterials?.leg) && (
+                                  <p className="text-gray-500">
+                                    脚架: <span className="text-gray-800">{item.specifications?.leg || item.selectedMaterials?.leg}</span>
+                                    {item.materialUpgradePrices?.[item.specifications?.leg || item.selectedMaterials?.leg] > 0 && (
+                                      <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications?.leg || item.selectedMaterials?.leg]}</span>
+                                    )}
+                                  </p>
+                                )}
+                                
+                                <p className="text-gray-600 font-medium pt-1">
+                                  数量: {item.quantity} | 单价: {formatPrice(item.price)}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         ))}

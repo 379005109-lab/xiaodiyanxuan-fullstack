@@ -87,27 +87,6 @@ export default function OrdersPageNew() {
     }
   }
 
-  const handleCancelOrder = async (orderId: string) => {
-    if (!confirm('确定要取消这个订单吗？提交后需要等待管理后台确认。')) return
-    
-    try {
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/cancel`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-      
-      if (!response.ok) throw new Error('取消订单失败')
-      
-      toast.success('取消请求已提交，请等待管理后台确认')
-      loadOrders()
-    } catch (error) {
-      console.error('取消订单失败:', error)
-      toast.error('取消订单失败')
-    }
-  }
 
   const handleDeleteOrder = async (orderId: string) => {
     if (!confirm('确定要删除这个订单吗？删除后无法恢复。')) return
@@ -344,20 +323,7 @@ export default function OrdersPageNew() {
                   
                   {/* 操作按钮 */}
                   <div className="mt-4 flex gap-3 justify-end">
-                    {(order.status === 1 || order.status === 'pending' || order.status === 2 || order.status === 'paid') && !order.cancelRequest && (
-                      <button
-                        onClick={() => handleCancelOrder(order._id || order.id)}
-                        className="px-4 py-2 text-sm border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
-                      >
-                        申请取消订单
-                      </button>
-                    )}
-                    {order.cancelRequest && (
-                      <span className="px-4 py-2 text-sm text-orange-600 bg-orange-50 rounded-lg">
-                        已申请取消订单
-                      </span>
-                    )}
-                    {(order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed' || order.cancelRequest) && (
+                    {(order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed') && (
                       <button
                         onClick={() => handleDeleteOrder(order._id || order.id)}
                         className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"
