@@ -87,36 +87,13 @@ export default function HomePage() {
     return `¥${price.toLocaleString()}`
   }
 
-  // 简化图标动画，只使用少量图标
-  const icons = [Armchair, Sofa, Lamp, Box]
-  
-  // 生成简化的图标动画
-  const particles = []
-  for (let i = 0; i < 8; i++) { // 减少到8个图标
-    const angle = (i / 8) * 360
-    const IconComponent = icons[i % icons.length]
-    particles.push({
-      id: i,
-      Icon: IconComponent,
-      angle,
-      layer: 0,
-      radius: 200,
-      duration: 15
-    })
-  }
-
   return (
     <div className={`animate-fade-in-up font-sans ${mounted ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}>
-      {/* Hero区域 - 万物归宗向心汇聚 */}
+      {/* Hero区域 */}
       <div className="relative h-[90vh] w-full overflow-hidden bg-stone-900 flex items-center justify-center">
         {/* 动态背景 */}
         <div className="absolute inset-0 bg-stone-900 z-0">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/30 rounded-full blur-[100px] animate-pulse-slow"></div>
-        </div>
-
-        {/* 向心汇聚粒子 */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
-          {particles}
         </div>
 
         {/* 中心Logo和文案 */}
