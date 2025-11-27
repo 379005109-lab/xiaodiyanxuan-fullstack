@@ -52,6 +52,16 @@ const createPackageOrder = async (userId, packageData, recipient, notes = '') =>
   const orderNo = generateOrderNo()
   console.log('📦 [PackageOrderService] Generated orderNo:', orderNo);
   
+  // 计算总材质加价
+  let totalUpgradePrice = 0
+  packageData.selections.forEach(selection => {
+    selection.products.forEach(product => {
+      if (product.materialUpgrade || product.upgradePrice) {
+        totalUpgradePrice += (product.materialUpgrade || product.upgradePrice || 0) * (product.quantity || 1)
+      }
+    })
+  })
+  
   // 创建订单
   const order = await Order.create({
     orderNo,
@@ -61,6 +71,7 @@ const createPackageOrder = async (userId, packageData, recipient, notes = '') =>
       packageId: packageData.packageId,
       packageName: packageData.packageName,
       packagePrice: packageData.packagePrice,
+      totalUpgradePrice: totalUpgradePrice,
       selections: packageData.selections
     },
     subtotal: totalAmount,

@@ -92,7 +92,7 @@ const getOrders = async (userId, page = 1, pageSize = 10, status = null) => {
   console.log('📋 [OrderService] getOrders called:', { userId, page, pageSize, status });
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
-  const query = {}
+  const query = { isDeleted: { $ne: true } }  // 排除已删除的订单
   // 如果userId为null，查询所有订单（管理员模式）
   if (userId !== null) {
     query.userId = userId
@@ -113,7 +113,7 @@ const getOrders = async (userId, page = 1, pageSize = 10, status = null) => {
   
   console.log('📋 [OrderService] orders returned:', orders.length);
   if (orders.length > 0) {
-    console.log('📋 [OrderService] first order:', orders[0]._id, orders[0].status);
+    console.log('📋 [OrderService] first order:', orders[0]._id, orders[0].status, 'cancelRequest:', orders[0].cancelRequest);
   }
   
   return { orders, total, page, pageSize: size }

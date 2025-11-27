@@ -690,20 +690,34 @@ export default function PackageDetailPage() {
               leg: materials.leg || materials['脚架'] || ''
             }
             
-            // 计算每个材质的加价
+            // 从productLookup获取完整产品信息，计算每个材质的加价
+            const fullProduct = productLookup[product.productId]
             const materialUpgradePrices: Record<string, number> = {}
-            if (product.materialPrices) {
-              Object.entries(product.materialPrices).forEach(([key, value]) => {
-                if (typeof value === 'number' && value > 0) {
-                  materialUpgradePrices[key] = value
+            
+            if (fullProduct && materials) {
+              // 计算每个材质类型的加价
+              Object.entries(materials).forEach(([materialKey, selectedOption]) => {
+                if (!selectedOption) return
+                const productMaterials = (fullProduct.materials as any)?.[materialKey]
+                if (!productMaterials || !Array.isArray(productMaterials)) return
+                // 检查是否选择了非默认选项（第一个选项是默认的）
+                const isUpgrade = selectedOption !== productMaterials[0]
+                if (isUpgrade) {
+                  const premium = getOptionPremium(selectedOption as string, fullProduct.basePrice || 0, fullProduct)
+                  if (premium > 0) {
+                    materialUpgradePrices[materialKey] = premium
+                  }
                 }
               })
             }
             
+            // 获取SKU规格名称
+            const skuName = fullProduct?.skus?.[0]?.spec || product.skuName || ''
+            
             return {
-              productId: product.id || product.productId,
-              productName: product.name || product.productName,
-              skuName: product.skuName || product.spec || '',
+              productId: product.productId,
+              productName: product.productName,
+              skuName: skuName,
               quantity: product.quantity || 1,
               materials: materials,
               selectedMaterials: selectedMaterials,

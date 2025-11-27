@@ -262,25 +262,80 @@ export default function OrdersPageNew() {
                         className="cursor-pointer hover:bg-stone-50 -m-2 p-2 rounded-lg transition-colors"
                       >
                         {order.packageInfo.selections?.map((selection: any, idx: number) => (
-                          selection.products?.map((product: any, pIdx: number) => (
-                            <div key={`${idx}-${pIdx}`} className="flex gap-4 mb-3 last:mb-0">
-                              <div className="w-20 h-20 bg-stone-100 rounded-lg flex-shrink-0 overflow-hidden">
-                                {product.image ? (
-                                  <img src={product.image} alt={product.productName} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-stone-400">
-                                    <Package className="w-8 h-8" />
+                          selection.products?.map((product: any, pIdx: number) => {
+                            // 获取材质信息（兼容中英文键名）
+                            const materials = product.selectedMaterials || product.materials || {}
+                            const fabric = materials.fabric || materials['面料'] || ''
+                            const filling = materials.filling || materials['填充'] || ''
+                            const frame = materials.frame || materials['框架'] || ''
+                            const leg = materials.leg || materials['脚架'] || ''
+                            const upgradePrices = product.materialUpgradePrices || {}
+                            
+                            return (
+                              <div key={`${idx}-${pIdx}`} className="flex gap-4 mb-4 last:mb-0 pb-3 border-b border-stone-100 last:border-0">
+                                <div className="w-20 h-20 bg-stone-100 rounded-lg flex-shrink-0 overflow-hidden">
+                                  {product.image ? (
+                                    <img src={product.image} alt={product.productName} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-stone-400">
+                                      <Package className="w-8 h-8" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-base font-medium text-stone-800 truncate hover:text-primary">
+                                    {product.productName} <span className="text-stone-500">×{product.quantity || 1}</span>
+                                  </h4>
+                                  <p className="text-xs text-stone-400 mt-0.5">{selection.categoryName}</p>
+                                  {/* 规格 */}
+                                  {product.skuName && (
+                                    <p className="text-sm text-stone-600 mt-1">规格: {product.skuName}</p>
+                                  )}
+                                  {/* 材质和加价明细 */}
+                                  <div className="text-sm mt-1 space-y-0.5">
+                                    {fabric && (
+                                      <p className="text-stone-600">
+                                        面料: <span className="text-stone-800">{fabric}</span>
+                                        {(upgradePrices.fabric > 0 || upgradePrices['面料'] > 0) && (
+                                          <span className="text-red-600 font-medium ml-1">+¥{upgradePrices.fabric || upgradePrices['面料']}</span>
+                                        )}
+                                      </p>
+                                    )}
+                                    {filling && (
+                                      <p className="text-stone-600">
+                                        填充: <span className="text-stone-800">{filling}</span>
+                                        {(upgradePrices.filling > 0 || upgradePrices['填充'] > 0) && (
+                                          <span className="text-red-600 font-medium ml-1">+¥{upgradePrices.filling || upgradePrices['填充']}</span>
+                                        )}
+                                      </p>
+                                    )}
+                                    {frame && (
+                                      <p className="text-stone-600">
+                                        框架: <span className="text-stone-800">{frame}</span>
+                                        {(upgradePrices.frame > 0 || upgradePrices['框架'] > 0) && (
+                                          <span className="text-red-600 font-medium ml-1">+¥{upgradePrices.frame || upgradePrices['框架']}</span>
+                                        )}
+                                      </p>
+                                    )}
+                                    {leg && (
+                                      <p className="text-stone-600">
+                                        脚架: <span className="text-stone-800">{leg}</span>
+                                        {(upgradePrices.leg > 0 || upgradePrices['脚架'] > 0) && (
+                                          <span className="text-red-600 font-medium ml-1">+¥{upgradePrices.leg || upgradePrices['脚架']}</span>
+                                        )}
+                                      </p>
+                                    )}
                                   </div>
-                                )}
+                                  {/* 商品加价汇总 */}
+                                  {(product.upgradePrice > 0 || product.materialUpgrade > 0) && (
+                                    <p className="text-red-600 font-medium text-sm mt-1">
+                                      商品加价: +¥{product.upgradePrice || product.materialUpgrade}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-base font-medium text-stone-800 truncate hover:text-primary">{product.productName}</h4>
-                                <p className="text-sm text-stone-500 mt-1">
-                                  {selection.categoryName} / {product.materials ? Object.entries(product.materials).map(([k, v]) => `${v}`).join(' / ') : '标准款'} × {product.quantity || 1}
-                                </p>
-                              </div>
-                            </div>
-                          ))
+                            )
+                          })
                         ))}
                       </div>
                     ) : (

@@ -69,6 +69,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
           ]
         : [
             { name: '订单列表', path: '/admin/orders' },
+            { name: '订单回收站', path: '/admin/orders/trash' },
             { name: '数据看板', path: '/admin/order-dashboard' },
             { name: '退换货列表', path: '/admin/refunds' },
             { name: '订单分析', path: '/admin/order-analysis' },

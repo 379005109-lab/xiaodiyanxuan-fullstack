@@ -41,9 +41,12 @@ const list = async (req, res) => {
   try {
     const { page = 1, pageSize = 10, status } = req.query
     
-    // 使用当前登录用户的ID查询订单
-    console.log('📋 [OrderController] list orders for userId:', req.userId)
-    const result = await getOrders(req.userId, page, pageSize, status ? parseInt(status) : null)
+    // 管理员可以看到所有订单，普通用户只能看到自己的
+    const isAdmin = req.userRole === 'admin' || req.userRole === 'super_admin' || req.userRole === 'superadmin'
+    const userId = isAdmin ? null : req.userId
+    
+    console.log('📋 [OrderController] list orders:', { userId, isAdmin, userRole: req.userRole })
+    const result = await getOrders(userId, page, pageSize, status ? parseInt(status) : null)
     console.log('📋 [OrderController] found orders:', result.total)
     res.json(paginatedResponse(result.orders, result.total, result.page, result.pageSize))
   } catch (err) {
