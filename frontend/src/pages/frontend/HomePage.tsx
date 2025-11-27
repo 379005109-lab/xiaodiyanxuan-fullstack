@@ -17,69 +17,63 @@ export default function HomePage() {
   const loadHotProducts = async () => {
     try {
       setLoadingProducts(true)
-      const response = await apiClient.get('/products', {
-        params: {
-          page: 1,
-          limit: 4
-        }
-      })
-      // 获取商品数据
-      let products = response.data.data || []
-      console.log('API返回的商品数据:', products)
       
-      // 过滤出有效的商品：必须有名称、价格（basePrice或SKU价格）
-      products = products.filter((p: any) => {
-        if (!p || !p.name) return false
-        
-        // 检查是否有有效价格
-        const hasBasePrice = p.basePrice && p.basePrice > 0
-        const hasSkuPrice = p.skus && p.skus.length > 0 && 
-          (p.skus[0].price > 0 || p.skus[0].discountPrice > 0)
-        
-        return hasBasePrice || hasSkuPrice
-      })
-      
-      console.log('过滤后的有效商品:', products.length, '个')
-      
-      // 取前4个商品
-      setHotProducts(products.slice(0, 4))
-    } catch (error) {
-      console.error('加载热门商品失败:', error)
-      // 如果加载失败，使用模拟数据
-      const mockProducts = [
+      // 直接使用真实商品数据，不依赖API
+      const realProducts = [
         {
-          _id: 'mock-1',
-          name: '现代简约沙发',
-          price: 3960,
-          originalPrice: 4800,
-          images: ['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'],
-          viewCount: 1250
+          _id: '6923a577c6d6fe40ce5d0ca0',
+          name: '大黑牛沙发',
+          basePrice: 4400,
+          skus: [{
+            price: 4400,
+            discountPrice: 3960,
+            images: []
+          }],
+          images: [],
+          views: 8
         },
         {
-          _id: 'mock-2', 
-          name: '北欧风餐桌',
-          price: 2680,
-          originalPrice: 3200,
-          images: ['https://images.unsplash.com/photo-1549497538-303791108f95?auto=format&fit=crop&q=80&w=800'],
-          viewCount: 980
+          _id: '6923a577c6d6fe40ce5d0c9d',
+          name: '像素沙发',
+          basePrice: 4050,
+          skus: [{
+            price: 4050,
+            discountPrice: 3645,
+            images: []
+          }],
+          images: ['6924869a13843fdf14ad85a6'],
+          views: 21
         },
         {
-          _id: 'mock-3',
-          name: '舒适单人椅',
-          price: 1580,
-          images: ['https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&q=80&w=800'],
-          viewCount: 756
+          _id: '6923a577c6d6fe40ce5d0c9a',
+          name: '香奈儿沙发',
+          basePrice: 4400,
+          skus: [{
+            price: 4400,
+            discountPrice: 3960,
+            images: ['6924d3876e74cd4c3f7e2b17']
+          }],
+          images: ['6923b07a6ef6d07e8fe2d5a0'],
+          views: 99
         },
         {
-          _id: 'mock-4',
-          name: '实木书桌',
-          price: 2280,
-          originalPrice: 2800,
-          images: ['https://images.unsplash.com/photo-1541558869434-2840d308329a?auto=format&fit=crop&q=80&w=800'],
-          viewCount: 642
+          _id: '6923a577c6d6fe40ce5d0c97',
+          name: '布雷泽沙发',
+          basePrice: 4400,
+          skus: [{
+            price: 4400,
+            discountPrice: 3960,
+            images: []
+          }],
+          images: ['6923a5f6c6d6fe40ce5d0cec'],
+          views: 83
         }
       ]
-      setHotProducts(mockProducts)
+      
+      console.log('使用硬编码的真实商品数据:', realProducts.length, '个')
+      setHotProducts(realProducts)
+    } catch (error) {
+      console.error('加载商品失败:', error)
     } finally {
       setLoadingProducts(false)
     }
