@@ -10,6 +10,8 @@ const favoriteSchema = new mongoose.Schema({
 })
 
 favoriteSchema.index({ userId: 1 })
-favoriteSchema.index({ userId: 1, productId: 1 }, { unique: true })
+// 删除unique索引，允许用户收藏多个商品
+// 注意：如果数据库中已存在unique索引，需要手动删除
+favoriteSchema.index({ userId: 1, productId: 1 })
 
 module.exports = mongoose.model('Favorite', favoriteSchema)

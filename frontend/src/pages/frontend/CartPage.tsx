@@ -13,13 +13,19 @@ export default function CartPage() {
   // 直接基于 items.length 决定是否显示结算栏，避免 useEffect 导致的闪烁
   const showCheckout = items.length > 0
 
+  // 同步selectedItems，确保删除商品后状态正确
+  useEffect(() => {
+    // 过滤掉已经不在购物车中的选中项
+    const currentItemKeys = items.map(item => `${item.product._id}-${item.sku._id}`)
+    setSelectedItems(prev => prev.filter(itemId => currentItemKeys.includes(itemId)))
+  }, [items])
+
   const toggleSelect = (id: string) => {
     setSelectedItems(prev => 
       prev.includes(id) 
         ? prev.filter(itemId => itemId !== id)
         : [...prev, id]
     )
-    console.log('toggleSelect:', id, selectedItems)
   }
 
   const toggleSelectAll = () => {
