@@ -208,6 +208,11 @@ const getUpgradePrice = (sku?: ProductSKU | null, selectedMaterials?: { fabric?:
 
 const getFinalPrice = (sku?: ProductSKU | null, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
   if (!sku) return 0;
+  // PRO版一口价，不加材质加价
+  if (sku.isPro) {
+    return getBasePrice(sku);
+  }
+  // 普通版：基础价 + 材质加价
   return getBasePrice(sku) + getUpgradePrice(sku, selectedMaterials);
 };
 
@@ -822,16 +827,21 @@ const ProductDetailPage = () => {
               </div>
             </div>
 
-            {/* 置顶悬浮价格和版本区域 */}
-            <div className="sticky top-0 z-40 bg-white p-4 rounded-2xl shadow-lg mb-4 border border-gray-100">
+            {/* 置顶悬浮价格和版本区域 - top-20避免Header遮挡 */}
+            <div className="sticky top-20 z-40 bg-white p-4 rounded-2xl shadow-lg mb-4 border border-gray-100">
+              {/* 商品名称 */}
+              <p className="text-sm font-semibold text-gray-900 mb-2 truncate">{product.name}</p>
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-gray-500 text-sm">当前价格</span>
                 <span className="text-2xl font-bold text-red-600">{formatPrice(finalSkuPrice)}</span>
-                {discountPrice && (
+                {!selectedSku?.isPro && discountPrice && (
                   <>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">限时优惠</span>
                     <span className="text-xs text-gray-400 line-through">{formatPrice(currentPrice)}</span>
                   </>
+                )}
+                {selectedSku?.isPro && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">PRO一口价</span>
                 )}
                 {/* 版本选择 */}
                 {availableFilters.length > 1 && (
@@ -1084,8 +1094,8 @@ const ProductDetailPage = () => {
                                             )}
                                             disabled={isSingle}
                                           >
-                                            {/* 加价标签 */}
-                                            {materialUpgrade > 0 && (
+                                            {/* 加价标签 - PRO版不显示 */}
+                                            {!selectedSku?.isPro && materialUpgrade > 0 && (
                                               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium shadow-sm z-10">
                                                 +¥{materialUpgrade}
                                               </span>
