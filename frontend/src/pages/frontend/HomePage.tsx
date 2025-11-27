@@ -291,21 +291,11 @@ export default function HomePage() {
                 >
                   <div className="relative aspect-square overflow-hidden bg-stone-100">
                     <img 
-                      src={
-                        product.skus?.[0]?.images?.[0] ? 
-                          `https://pkochbpmcgaa.sealoshzh.site/api/files/${product.skus[0].images[0]}` :
-                        product.images?.[0] ? 
-                          `https://pkochbpmcgaa.sealoshzh.site/api/files/${product.images[0]}` :
-                        product.name === '大黑牛沙发' ?
-                          'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800' :
-                        product.name === '像素沙发' ?
-                          'https://images.unsplash.com/photo-1549497538-303791108f95?auto=format&fit=crop&q=80&w=800' :
-                        product.name === '香奈儿沙发' ?
-                          'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&q=80&w=800' :
-                        product.name === '布雷泽沙发' ?
-                          'https://images.unsplash.com/photo-1541558869434-2840d308329a?auto=format&fit=crop&q=80&w=800' :
-                          'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
-                      }
+                      src={getFileUrl(
+                        product.skus?.[0]?.images?.[0] || 
+                        product.images?.[0] || 
+                        'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
+                      )}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       onError={(e) => {
