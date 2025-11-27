@@ -27,8 +27,19 @@ export default function HomePage() {
       let products = response.data.data || []
       console.log('API返回的商品数据:', products)
       
-      // 过滤掉没有价格的商品，但保留价格为0的商品
-      products = products.filter((p: any) => p && p.price !== null && p.price !== undefined)
+      // 过滤出有效的商品：必须有名称、价格（basePrice或SKU价格）
+      products = products.filter((p: any) => {
+        if (!p || !p.name) return false
+        
+        // 检查是否有有效价格
+        const hasBasePrice = p.basePrice && p.basePrice > 0
+        const hasSkuPrice = p.skus && p.skus.length > 0 && 
+          (p.skus[0].price > 0 || p.skus[0].discountPrice > 0)
+        
+        return hasBasePrice || hasSkuPrice
+      })
+      
+      console.log('过滤后的有效商品:', products.length, '个')
       
       // 取前4个商品
       setHotProducts(products.slice(0, 4))
@@ -284,11 +295,20 @@ export default function HomePage() {
                   onClick={() => navigate(`/products/${product._id}`)}
                   className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
                 >
-                  <div className="relative aspect-square overflow-hidden">
+                  <div className="relative aspect-square overflow-hidden bg-stone-100">
                     <img 
-                      src={getFileUrl(product.images?.[0] || product.thumbnail)}
+                      src={getFileUrl(
+                        product.skus?.[0]?.images?.[0] || 
+                        product.images?.[0] || 
+                        product.thumbnail ||
+                        'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
+                      )}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      onError={(e) => {
+                        // 如果图片加载失败，使用默认图片
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
+                      }}
                     />
                   </div>
                   <div className="p-4">
