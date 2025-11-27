@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>订单取消测试工具</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #c82333;
+    }
+    .success {
+      background: #28a745;
+    }
+    .success:hover {
+      background: #218838;
+    }
+    pre {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      margin: 20px 0;
+    }
+    .orders {
+      margin-top: 20px;
+    }
+    .order {
+      padding: 15px;
+      margin: 10px 0;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background: #fff;
+    }
+    .order.cancelled {
+      background: #f8f9fa;
+      opacity: 0.7;
+      border-color: #999;
+    }
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .status {
+      padding: 5px 10px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .status-1 { background: #ffc107; color: #000; }
+    .status-2 { background: #17a2b8; color: #fff; }
+    .status-5 { background: #dc3545; color: #fff; }
+    .tag {
+      background: #6c757d;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 订单取消测试工具</h1>
+    
+    <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+      <strong>说明：</strong>这个工具可以直接操作localStorage中的订单数据，帮助测试订单取消功能。
+    </div>
+
+    <div>
+      <button onclick="loadOrders()" class="success">刷新订单列表</button>
+      <button onclick="clearAll()">清空所有订单</button>
+      <button onclick="createTestOrder()">创建测试订单</button>
+    </div>
+
+    <div class="orders" id="ordersList"></div>
+
+    <h3>LocalStorage数据：</h3>
+    <pre id="storageData"></pre>
+  </div>
+
+  <script>
+    function loadOrders() {
+      const orders = JSON.parse(localStorage.getItem('local_orders') || '[]');
+      const ordersDiv = document.getElementById('ordersList');
+      const storageDiv = document.getElementById('storageData');
+      
+      storageDiv.textContent = JSON.stringify(orders, null, 2);
+      
+      if (orders.length === 0) {
+        ordersDiv.innerHTML = '<p style="color: #999;">没有订单数据</p>';
+        return;
+      }
+      
+      let html = '<h3>订单列表：</h3>';
+      orders.forEach((order, index) => {
+        const isCancelled = order.status === 5 || order.status === 'cancelled';
+        const statusText = {
+          1: '待付款',
+          2: '待发货',
+          3: '待收货',
+          4: '已完成',
+          5: '已取消'
+        }[order.status] || '未知';
+        
+        html += `
+          <div class="order ${isCancelled ? 'cancelled' : ''}">
+            <div class="order-header">
+              <div>
+                <span class="status status-${order.status}">${statusText}</span>
+                ${order.cancelReason ? '<span class="tag">客户要求取消</span>' : ''}
+              </div>
+              <div>
+                <strong style="font-size: 18px; ${isCancelled ? 'color: #999' : 'color: #dc3545'}">
+                  ¥${order.totalAmount || 0}
+                </strong>
+              </div>
+            </div>
+            <div>
+              <strong>订单号：</strong>${order.orderNo || order._id || 'N/A'}<br>
+              <strong>状态码：</strong>${order.status}<br>
+              ${order.cancelledAt ? `<strong>取消时间：</strong>${new Date(order.cancelledAt).toLocaleString()}<br>` : ''}
+            </div>
+            <div style="margin-top: 10px;">
+              ${!isCancelled ? `
+                <button onclick="cancelOrder(${index})" style="padding: 8px 15px; font-size: 14px;">
+                  取消这个订单
+                </button>
+              ` : `
+                <button onclick="deleteOrder(${index})" style="padding: 8px 15px; font-size: 14px; background: #6c757d;">
+                  删除这个订单
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      });
+      
+      ordersDiv.innerHTML = html;
+    }
+    
+    function cancelOrder(index) {
+      if (!confirm('确定要取消这个订单吗？')) return;
+      
+      const orders = JSON.parse(localStorage.getItem('local_orders') || '[]');
+      if (orders[index]) {
+        orders[index].status = 5;
+        orders[index].cancelReason = 'customer_request';
+        orders[index].cancelledAt = new Date().toISOString();
+        
+        localStorage.setItem('local_orders', JSON.stringify(orders));
+        alert('✅ 订单已取消！刷新页面查看效果。');
+        loadOrders();
+      }
+    }
+    
+    function deleteOrder(index) {
+      if (!confirm('确定要删除这个订单吗？')) return;
+      
+      const orders = JSON.parse(localStorage.getItem('local_orders') || '[]');
+      orders.splice(index, 1);
+      
+      localStorage.setItem('local_orders', JSON.stringify(orders));
+      alert('✅ 订单已删除！');
+      loadOrders();
+    }
+    
+    function clearAll() {
+      if (!confirm('确定要清空所有订单吗？')) return;
+      
+      localStorage.setItem('local_orders', '[]');
+      alert('✅ 所有订单已清空！');
+      loadOrders();
+    }
+    
+    function createTestOrder() {
+      const orders = JSON.parse(localStorage.getItem('local_orders') || '[]');
+      const newOrder = {
+        _id: 'test_' + Date.now(),
+        orderNo: 'ORDER' + Date.now(),
+        status: 1,
+        totalAmount: 3960,
+        items: [
+          {
+            productName: '测试沙发',
+            quantity: 1,
+            price: 3960
+          }
+        ],
+        createdAt: new Date().toISOString()
+      };
+      
+      orders.push(newOrder);
+      localStorage.setItem('local_orders', JSON.stringify(orders));
+      alert('✅ 测试订单已创建！');
+      loadOrders();
+    }
+    
+    // 页面加载时自动刷新
+    window.addEventListener('load', loadOrders);
+  </script>
+</body>
+</html>
