@@ -221,17 +221,21 @@ export default function HomePage() {
           }
           60% {
             transform: translate(
-              calc(cos(var(--angle)) * var(--layer-radius) * 0.8),
-              calc(sin(var(--angle)) * var(--layer-radius) * 0.8)
-            ) rotate(270deg) scale(1);
+              calc(cos(var(--angle)) * var(--layer-radius) * 0.5),
+              calc(sin(var(--angle)) * var(--layer-radius) * 0.5)
+            ) rotate(270deg) scale(0.6);
             opacity: 1;
           }
           80% {
             transform: translate(
-              calc(cos(var(--angle)) * var(--layer-radius) * 0.3),
-              calc(sin(var(--angle)) * var(--layer-radius) * 0.3)
-            ) rotate(340deg) scale(0.7);
-            opacity: 0.8;
+              calc(cos(var(--angle)) * var(--layer-radius) * 0.1),
+              calc(sin(var(--angle)) * var(--layer-radius) * 0.1)
+            ) rotate(340deg) scale(0.3);
+            opacity: 0.5;
+          }
+          95% {
+            transform: translate(0, 0) rotate(360deg) scale(0.1);
+            opacity: 0.2;
           }
           100% {
             transform: translate(

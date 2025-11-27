@@ -97,7 +97,7 @@ export default function OrdersPageNew() {
       console.log('🔄 取消订单:', orderId)
       
       // 1. 更新localStorage中的订单
-      const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const localOrders = JSON.parse(localStorage.getItem('local_orders') || '[]')
       const updatedOrders = localOrders.map((o: any) => {
         if ((o._id || o.id) === orderId) {
           console.log('✅ 找到订单，更新状态为已取消')
@@ -110,7 +110,7 @@ export default function OrdersPageNew() {
         }
         return o
       })
-      localStorage.setItem('orders', JSON.stringify(updatedOrders))
+      localStorage.setItem('local_orders', JSON.stringify(updatedOrders))
       
       // 2. 尝试通过API取消订单（不阻塞）
       try {
@@ -151,9 +151,9 @@ export default function OrdersPageNew() {
     
     try {
       // 从localStorage删除
-      const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const localOrders = JSON.parse(localStorage.getItem('local_orders') || '[]')
       const updatedOrders = localOrders.filter((o: any) => (o._id || o.id) !== orderId)
-      localStorage.setItem('orders', JSON.stringify(updatedOrders))
+      localStorage.setItem('local_orders', JSON.stringify(updatedOrders))
       
       // 更新显示
       setOrders(prev => prev.filter(o => (o._id || o.id) !== orderId))
