@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import Header from '@/components/frontend/Header'
 import Footer from '@/components/frontend/Footer'
+import ContactFloat from '@/components/frontend/ContactFloat'
 
 export default function FrontendLayout() {
   return (
@@ -10,6 +11,7 @@ export default function FrontendLayout() {
         <Outlet />
       </main>
       <Footer />
+      <ContactFloat />
     </div>
   )
 }

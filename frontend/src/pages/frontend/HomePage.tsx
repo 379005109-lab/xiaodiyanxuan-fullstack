@@ -128,14 +128,14 @@ export default function HomePage() {
             </p>
             
             <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="bg-stone-50 p-6 rounded-xl border border-stone-100 hover:border-accent transition-colors cursor-pointer group" onClick={() => navigate('/design-service')}>
+              <div className="bg-stone-50 p-6 rounded-xl border border-stone-100 hover:border-accent transition-colors cursor-pointer group" onClick={() => navigate('/buying-service')}>
                 <div className="text-2xl font-bold text-primary mb-1">¥1,000</div>
                 <h4 className="font-bold text-stone-700 text-sm mb-2">基础陪买</h4>
                 <p className="text-xs text-stone-400">专车接送 · 1天行程 · 购满抵扣</p>
                 <ArrowRight className="w-4 h-4 text-accent mt-3 group-hover:translate-x-1 transition-transform" />
               </div>
               
-              <div className="bg-stone-50 p-6 rounded-xl border border-stone-100 hover:border-accent transition-colors cursor-pointer group" onClick={() => navigate('/design-service')}>
+              <div className="bg-stone-50 p-6 rounded-xl border border-stone-100 hover:border-accent transition-colors cursor-pointer group" onClick={() => navigate('/buying-service')}>
                 <div className="text-2xl font-bold text-primary mb-1">¥5,000</div>
                 <h4 className="font-bold text-stone-700 text-sm mb-2">专家陪买</h4>
                 <p className="text-xs text-stone-400">设计师陪同 · 深度选品 · 验货</p>
@@ -144,7 +144,7 @@ export default function HomePage() {
             </div>
 
             <button 
-              onClick={() => navigate('/design-service')}
+              onClick={() => navigate('/buying-service')}
               className="w-full bg-primary text-white py-4 rounded-xl font-bold hover:bg-green-900 transition-colors shadow-lg flex items-center justify-center gap-2"
             >
               <ShoppingBag className="w-4 h-4" />
@@ -152,10 +152,10 @@ export default function HomePage() {
             </button>
           </div>
           
-          <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-2xl">
+          <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-2xl cursor-pointer group" onClick={() => navigate('/buying-service')}>
             <img 
               src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200" 
-              className="absolute inset-0 w-full h-full object-cover" 
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
               alt="Showroom" 
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-8">
@@ -188,7 +188,13 @@ export default function HomePage() {
           </div>
           
           <div className="text-center text-stone-500 py-12">
-            <p className="text-lg">正在加载精选商品...</p>
+            <p className="text-lg mb-4">正在加载商城商品...</p>
+            <button 
+              onClick={() => navigate('/products')}
+              className="bg-primary text-white px-8 py-3 rounded-full hover:bg-green-900 transition-colors font-semibold"
+            >
+              查看商品列表
+            </button>
           </div>
         </div>
       </div>
