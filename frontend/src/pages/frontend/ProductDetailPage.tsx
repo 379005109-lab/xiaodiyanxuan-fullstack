@@ -1027,8 +1027,13 @@ const ProductDetailPage = () => {
                           materialGroups[groupKey].push(material);
                         });
                         
+                        const sectionIndex = MATERIAL_SECTIONS.findIndex(s => s.key === section.key);
                         return (
                           <div key={section.key} className="space-y-3">
+                            {/* 分割线 - 除了第一个section */}
+                            {sectionIndex > 0 && (
+                              <div className="border-t border-gray-200 pt-4 mt-4"></div>
+                            )}
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-semibold text-gray-900">{section.label}</p>
                               <span className="text-xs text-gray-400">{list.length ? `${list.length} 种` : '未设置'}</span>
@@ -1073,19 +1078,25 @@ const ProductDetailPage = () => {
                                         </button>
                                       </div>
                                     )}
-                                    <div className="flex flex-wrap gap-3">
+                                    <div className="flex flex-wrap gap-4">
                                       {materialGroups[groupKey].map(materialName => {
                                         const isSelected = selectedOption === materialName;
                                         const isSingle = list.length === 1;
                                         const preview = getMaterialPreviewImage(materialName);
                                         const materialUpgrade = getMaterialUpgradePrice(materialName, selectedSku.materialUpgradePrices);
+                                        
+                                        // 解析材质名称：类别-具体名称
+                                        const nameParts = materialName.split(/[-–—]/);
+                                        const categoryName = nameParts.length > 1 ? nameParts[0].trim() : '';
+                                        const specificName = nameParts.length > 1 ? nameParts.slice(1).join('-').trim() : materialName;
+                                        
                                         return (
                                           <button
                                             key={materialName}
                                             type="button"
                                             onClick={() => !isSingle && handleMaterialChoice(section.key, materialName)}
                                             className={cn(
-                                              'flex flex-col items-center gap-2 relative',
+                                              'flex flex-col items-center gap-1.5 relative w-[72px]',
                                               isSingle ? 'cursor-default' : 'cursor-pointer'
                                             )}
                                             disabled={isSingle}
@@ -1115,9 +1126,13 @@ const ProductDetailPage = () => {
                                                 </span>
                                               )}
                                             </span>
-                                            <span className="text-xs text-gray-600">
-                                              {materialName}
-                                            </span>
+                                            {/* 两行显示：类别在上，名称在下 */}
+                                            <div className="text-center w-full">
+                                              {categoryName && (
+                                                <p className="text-[10px] text-gray-400 truncate">{categoryName}</p>
+                                              )}
+                                              <p className="text-xs text-gray-600 truncate">{specificName}</p>
+                                            </div>
                                           </button>
                                         );
                                       })}
