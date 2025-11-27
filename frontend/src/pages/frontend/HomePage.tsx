@@ -20,61 +20,18 @@ export default function HomePage() {
       const response = await apiClient.get('/products', {
         params: {
           page: 1,
-          limit: 4,
-          sort: 'viewCount',
-          order: 'desc'
+          limit: 4
         }
       })
-      // 过滤掉没有价格的商品
-      const products = (response.data.data || []).filter((p: any) => p && p.price != null)
+      // 获取商品数据
+      let products = response.data.data || []
+      console.log('API返回的商品数据:', products)
       
-      // 如果没有足够的商品，创建模拟商品卡片
-      if (products.length < 4) {
-        const mockProducts = [
-          {
-            _id: 'mock-1',
-            name: '现代简约沙发',
-            price: 3960,
-            originalPrice: 4800,
-            images: ['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'],
-            viewCount: 1250
-          },
-          {
-            _id: 'mock-2', 
-            name: '北欧风餐桌',
-            price: 2680,
-            originalPrice: 3200,
-            images: ['https://images.unsplash.com/photo-1549497538-303791108f95?auto=format&fit=crop&q=80&w=800'],
-            viewCount: 980
-          },
-          {
-            _id: 'mock-3',
-            name: '舒适单人椅',
-            price: 1580,
-            images: ['https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&q=80&w=800'],
-            viewCount: 756
-          },
-          {
-            _id: 'mock-4',
-            name: '实木书桌',
-            price: 2280,
-            originalPrice: 2800,
-            images: ['https://images.unsplash.com/photo-1541558869434-2840d308329a?auto=format&fit=crop&q=80&w=800'],
-            viewCount: 642
-          }
-        ]
-        
-        // 补充到4个商品
-        const finalProducts = [...products]
-        for (let i = products.length; i < 4; i++) {
-          if (mockProducts[i]) {
-            finalProducts.push(mockProducts[i])
-          }
-        }
-        setHotProducts(finalProducts)
-      } else {
-        setHotProducts(products.slice(0, 4))
-      }
+      // 过滤掉没有价格的商品，但保留价格为0的商品
+      products = products.filter((p: any) => p && p.price !== null && p.price !== undefined)
+      
+      // 取前4个商品
+      setHotProducts(products.slice(0, 4))
     } catch (error) {
       console.error('加载热门商品失败:', error)
       // 如果加载失败，使用模拟数据
