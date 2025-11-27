@@ -5,7 +5,7 @@ const Product = require('../models/Product')
 
 const listProducts = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, search, categoryId, styleId, sortBy } = req.query
+    const { page = 1, pageSize = 100, search, categoryId, styleId, sortBy } = req.query
     
     const result = await getProducts({
       page,
