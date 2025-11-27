@@ -59,11 +59,12 @@ export default function HomePage() {
 
         {/* 中心Logo和文案 */}
         <div className="relative z-30 text-center text-white space-y-8 max-w-4xl mx-auto px-6 flex flex-col items-center">
-          <div className="w-32 h-32 md:w-40 md:h-40 bg-white rounded-full flex items-center justify-center shadow-[0_0_60px_rgba(255,255,255,0.2)] relative z-20 mb-8 border-4 border-primary/20">
-            <div className="text-center">
-              <h1 className="text-3xl font-serif font-bold text-primary tracking-tighter leading-none">XIAODI</h1>
-              <span className="text-[8px] font-sans font-bold text-accent tracking-[0.2em] uppercase block mt-1">Supply Chain</span>
-            </div>
+          <div className="w-32 h-32 md:w-40 md:h-40 shadow-[0_0_60px_rgba(255,255,255,0.2)] relative z-20 mb-8">
+            <img 
+              src="/xiaodi-logo.svg" 
+              alt="XIAODI Supply Chain" 
+              className="w-full h-full object-contain drop-shadow-2xl"
+            />
           </div>
 
           <h2 className="text-5xl md:text-7xl font-serif font-bold leading-none tracking-tight animate-fade-in-up">

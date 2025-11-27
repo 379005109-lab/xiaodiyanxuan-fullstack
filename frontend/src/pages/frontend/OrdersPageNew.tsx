@@ -94,38 +94,52 @@ export default function OrdersPageNew() {
     }
     
     try {
-      // 尝试通过API取消订单
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      console.log('🔄 取消订单:', orderId)
       
-      if (response.ok) {
-        toast.success('订单已取消')
-      } else {
-        // 如果API失败，更新本地localStorage
-        const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-        const updatedOrders = localOrders.map((o: any) => {
-          if ((o._id || o.id) === orderId) {
-            return { 
-              ...o, 
-              status: 5, // 5 = 已取消
-              cancelReason: 'customer_request' // 添加取消原因标记
-            }
+      // 1. 更新localStorage中的订单
+      const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const updatedOrders = localOrders.map((o: any) => {
+        if ((o._id || o.id) === orderId) {
+          console.log('✅ 找到订单，更新状态为已取消')
+          return { 
+            ...o, 
+            status: 5, // 5 = 已取消
+            cancelReason: 'customer_request', // 添加取消原因标记
+            cancelledAt: new Date().toISOString()
           }
-          return o
+        }
+        return o
+      })
+      localStorage.setItem('orders', JSON.stringify(updatedOrders))
+      
+      // 2. 尝试通过API取消订单（不阻塞）
+      try {
+        const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/cancel`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         })
-        localStorage.setItem('orders', JSON.stringify(updatedOrders))
-        toast.success('订单已取消')
+        
+        if (response.ok) {
+          console.log('✅ API取消成功')
+        } else {
+          console.log('⚠️ API取消失败，但本地已更新')
+        }
+      } catch (apiError) {
+        console.log('⚠️ API调用失败，但本地已更新:', apiError)
       }
       
-      // 无论API是否成功，都重新加载订单列表
-      loadOrders()
+      // 3. 显示成功提示
+      toast.success('订单已取消')
+      
+      // 4. 重新加载订单列表
+      console.log('🔄 重新加载订单列表')
+      await loadOrders()
+      
     } catch (error) {
-      console.error('取消订单失败:', error)
+      console.error('❌ 取消订单失败:', error)
       toast.error('取消失败，请重试')
     }
   }
