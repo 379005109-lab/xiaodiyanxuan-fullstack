@@ -6,7 +6,7 @@ const { NotFoundError } = require('../utils/errors')
 
 const getProducts = async (filters = {}) => {
   // 默认按order字段升序排序（order值越小越靠前），其次按创建时间降序
-  const { page = 1, pageSize = 10, search, categoryId, styleId, sortBy = 'order -createdAt', status } = filters
+  const { page = 1, pageSize = 100, search, categoryId, styleId, sortBy = 'order -createdAt', status } = filters
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
   // 默认不过滤状态，如果传了status参数才过滤
@@ -58,7 +58,7 @@ const getStyles = async () => {
   return await Style.find({ status: 'active' }).sort('order').lean()
 }
 
-const searchProducts = async (keyword, page = 1, pageSize = 10) => {
+const searchProducts = async (keyword, page = 1, pageSize = 100) => {
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
   const query = {

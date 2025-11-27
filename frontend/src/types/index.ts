@@ -6,6 +6,8 @@ export interface User {
   username: string
   email: string
   phone?: string
+  nickname?: string
+  gender?: 'male' | 'female' | ''
   role: UserRole
   avatar?: string
   createdAt: string
