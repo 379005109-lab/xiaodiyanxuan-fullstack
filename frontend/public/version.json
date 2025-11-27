@@ -1,17 +1,4 @@
 {
-  "version": "2.2.0-CRITICAL-FIXES",
-  "buildTime": "2025-11-27T06:45:00Z",
-  "commit": "EMERGENCY-DEPLOY",
-  "environment": "production",
-  "criticalFixes": [
-    "选配中心4个商品显示不同图片",
-    "注册页面移除密码输入框",
-    "允许未登录用户浏览商品页面"
-  ],
-  "changes": [
-    "修复选配中心图片显示问题",
-    "简化注册流程只需手机号+验证码",
-    "确保商品页面对所有用户开放",
-    "优化用户体验和访问权限"
-  ]
+  "version": "2.3.0",
+  "buildTime": "2025-11-27T07:30:00Z"
 }
