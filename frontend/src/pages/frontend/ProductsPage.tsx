@@ -170,7 +170,7 @@ export default function ProductsPage() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await getAllProducts();
+      const response = await getAllProducts({ pageSize: 200 });
       console.log('[ProductsPage] 加载商品响应:', response);
       if (response.success && response.data) {
         // 只显示上架的商品

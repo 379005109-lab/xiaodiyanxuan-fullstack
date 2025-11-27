@@ -45,7 +45,7 @@ const AdminBargainFormPage: React.FC = () => {
 
   const loadProducts = async () => {
     try {
-      const response = await getProducts();
+      const response = await getProducts({ pageSize: 200 });
       if (response.success) {
         const products = response.data.map((p: any) => ({
           id: p._id ? parseInt(p._id.slice(-4)) : Math.random(),

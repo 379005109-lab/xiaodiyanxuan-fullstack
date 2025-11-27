@@ -61,7 +61,7 @@ export default function ProductManagement() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await getProducts();
+      const response = await getProducts({ pageSize: 200 });
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
         console.log('[ProductManagement] 加载商品数量:', response.data.length);
@@ -197,7 +197,7 @@ export default function ProductManagement() {
       });
 
       let importedCount = 0, updatedCount = 0, totalSkuCount = 0;
-      const response = await getProducts();
+      const response = await getProducts({ pageSize: 200 });
       const allProducts = response.success ? response.data : [];
 
       for (const [productName, productData] of productMap.entries()) {
