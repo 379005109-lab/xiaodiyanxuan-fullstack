@@ -118,7 +118,8 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
         selectedMaterials: item.selectedMaterials || {},  // 保存材质选择
         materialUpgradePrices: item.materialUpgradePrices || {},  // 保存升级价格
         quantity: item.quantity,
-        price: item.price !== undefined ? item.price : getItemPrice(item)
+        price: item.price !== undefined ? item.price : getItemPrice(item),
+        subtotal: (item.price !== undefined ? item.price : getItemPrice(item)) * item.quantity  // 计算小计
       })),
       totalAmount: getTotalPrice(),
       shippingAddress: {

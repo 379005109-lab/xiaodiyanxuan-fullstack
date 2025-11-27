@@ -45,20 +45,39 @@ export const useFavoriteStore = create<FavoriteStore>((set, get) => ({
   
   removeFavorite: async (productId: string) => {
     try {
-      // 先找到对应的favorite记录获取favoriteId
+      // 先重新加载收藏列表，确保有最新数据
+      await get().loadFavorites()
+      
+      // 找到对应的favorite记录获取favoriteId
       const favorites = get().favorites
+      console.log('当前收藏列表:', favorites)
+      console.log('要删除的productId:', productId)
+      
       const favorite = favorites.find(fav => {
-        if (!fav || !fav.product) return false
-        const favProductId = typeof fav.product === 'string' ? fav.product : fav.product._id
+        if (!fav) return false
+        
+        // product可以是字符串ID或Product对象
+        const favProductId = typeof fav.product === 'string' ? fav.product : fav.product?._id
+        
+        console.log('对比:', favProductId, '===', productId)
         return favProductId === productId
       })
       
       if (!favorite) {
+        console.error('未找到收藏记录，productId:', productId)
+        console.error('当前收藏列表:', favorites.map(f => ({
+          _id: f._id,
+          product: typeof f.product === 'string' ? f.product : f.product?._id
+        })))
         throw new Error('未找到该收藏记录')
       }
       
+      console.log('找到收藏记录，favoriteId:', favorite._id)
+      
       // 使用favoriteId删除
       await removeFavoriteApi(favorite._id)
+      
+      // 删除后重新加载
       await get().loadFavorites()
     } catch (err) {
       console.error('删除收藏失败:', err)
