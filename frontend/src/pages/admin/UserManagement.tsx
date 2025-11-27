@@ -50,8 +50,11 @@ export default function UserManagement() {
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
-      if (searchQuery && !user.username.toLowerCase().includes(searchQuery.toLowerCase()) &&
-          !user.email.toLowerCase().includes(searchQuery.toLowerCase())) {
+      if (!user) return false
+      const username = user.username || user.phone || ''
+      const email = user.email || ''
+      if (searchQuery && !username.toLowerCase().includes(searchQuery.toLowerCase()) &&
+          !email.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false
       }
       if (filterRole && user.role !== filterRole) {
@@ -181,17 +184,17 @@ export default function UserManagement() {
                   <td className="py-4 px-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {user.username.charAt(0)}
+                        {(user.username || user.phone || 'U').charAt(0)}
                       </div>
                       <div>
-                        <p className="font-medium">{user.username}</p>
-                        <p className="text-xs text-gray-500">{user.email}</p>
+                        <p className="font-medium">{user.username || user.phone || '未设置'}</p>
+                        <p className="text-xs text-gray-500">{user.email || '-'}</p>
                       </div>
                     </div>
                   </td>
                   <td className="py-4 px-4">
-                    <span className={`px-2 py-1 text-xs rounded-full ${roleConfig[user.role as keyof typeof roleConfig].color}`}>
-                      {roleConfig[user.role as keyof typeof roleConfig].label}
+                    <span className={`px-2 py-1 text-xs rounded-full ${(roleConfig[user.role as keyof typeof roleConfig] || roleConfig.customer).color}`}>
+                      {(roleConfig[user.role as keyof typeof roleConfig] || roleConfig.customer).label}
                     </span>
                   </td>
                   <td className="py-4 px-4 text-sm">{user.phone}</td>
