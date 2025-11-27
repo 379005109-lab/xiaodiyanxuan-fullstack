@@ -88,24 +88,69 @@ export default function OrdersPageNew() {
   }
 
 
-  const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm('确定要删除这个订单吗？删除后无法恢复。')) return
+  const handleCancelOrder = async (orderId: string) => {
+    if (!window.confirm('确定要取消这个订单吗？')) {
+      return
+    }
     
     try {
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}`, {
-        method: 'DELETE',
+      // 尝试通过API取消订单
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/cancel`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-        },
+          'Content-Type': 'application/json'
+        }
       })
       
-      if (!response.ok) throw new Error('删除订单失败')
+      if (response.ok) {
+        toast.success('订单已取消')
+        loadOrders() // 重新加载订单列表
+        return
+      }
       
+      // 如果API失败，更新本地localStorage
+      const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const updatedOrders = localOrders.map((o: any) => {
+        if ((o._id || o.id) === orderId) {
+          return { ...o, status: 5 } // 5 = 已取消
+        }
+        return o
+      })
+      localStorage.setItem('orders', JSON.stringify(updatedOrders))
+      
+      // 更新显示
+      setOrders(prev => prev.map(o => {
+        if ((o._id || o.id) === orderId) {
+          return { ...o, status: 5 }
+        }
+        return o
+      }))
+      
+      toast.success('订单已取消')
+    } catch (error) {
+      console.error('取消订单失败:', error)
+      toast.error('取消失败，请重试')
+    }
+  }
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!window.confirm('确定要删除这个订单吗？')) {
+      return
+    }
+    
+    try {
+      // 从localStorage删除
+      const localOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const updatedOrders = localOrders.filter((o: any) => (o._id || o.id) !== orderId)
+      localStorage.setItem('orders', JSON.stringify(updatedOrders))
+      
+      // 更新显示
+      setOrders(prev => prev.filter(o => (o._id || o.id) !== orderId))
       toast.success('订单已删除')
-      loadOrders()
     } catch (error) {
       console.error('删除订单失败:', error)
-      toast.error('删除订单失败')
+      toast.error('删除失败，请重试')
     }
   }
 
@@ -323,6 +368,16 @@ export default function OrdersPageNew() {
                   
                   {/* 操作按钮 */}
                   <div className="mt-4 flex gap-3 justify-end">
+                    {/* 取消订单按钮 - 待付款和待发货状态可取消 */}
+                    {(order.status === 1 || order.status === 2 || order.status === 'pending' || order.status === 'processing') && (
+                      <button
+                        onClick={() => handleCancelOrder(order._id || order.id)}
+                        className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        取消订单
+                      </button>
+                    )}
+                    {/* 删除订单按钮 - 已完成和已取消状态可删除 */}
                     {(order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed') && (
                       <button
                         onClick={() => handleDeleteOrder(order._id || order.id)}
