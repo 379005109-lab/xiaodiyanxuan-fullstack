@@ -5,6 +5,7 @@ import { useAuthModalStore } from './store/authModalStore'
 import { UserRole } from './types'
 import ErrorBoundary from './components/ErrorBoundary'
 import AuthModal from './components/auth/AuthModal'
+import VersionChecker from './components/VersionChecker'
 import { useEffect, useState, lazy, Suspense } from 'react'
 // 导入测试工具
 import './utils/testImageSave'
@@ -178,6 +179,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <VersionChecker />
         <Toaster position="bottom-right" richColors />
         {/* 全局登录弹窗 */}
         <AuthModal 
