@@ -1,11 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid } from 'lucide-react'
+import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useCartStore } from '@/store/cartStore'
 import { useFavoriteStore } from '@/store/favoriteStore'
 import { useCompareStore } from '@/store/compareStore'
 import { useState, useEffect, useRef } from 'react'
+import { getAllCategories } from '@/services/categoryService'
+import { getFileUrl } from '@/services/uploadService'
 
 export default function Header() {
   const { isAuthenticated, user, logout } = useAuthStore()
@@ -17,6 +19,13 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+  
+  // 分类悬浮窗口状态
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
+  const [categories, setCategories] = useState<any[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const categoryMenuRef = useRef<HTMLDivElement>(null)
+  const categoryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -35,6 +44,44 @@ export default function Header() {
       loadCompareItems()
     }
   }, [isAuthenticated])
+  
+  // 加载分类数据
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await getAllCategories()
+        setCategories(data || [])
+      } catch (error) {
+        console.error('加载分类失败:', error)
+      }
+    }
+    loadCategories()
+  }, [])
+  
+  // 处理分类菜单的鼠标事件
+  const handleCategoryMouseEnter = () => {
+    if (categoryTimeoutRef.current) {
+      clearTimeout(categoryTimeoutRef.current)
+    }
+    setCategoryMenuOpen(true)
+  }
+  
+  const handleCategoryMouseLeave = () => {
+    categoryTimeoutRef.current = setTimeout(() => {
+      setCategoryMenuOpen(false)
+    }, 150)
+  }
+  
+  // 进入分类页面
+  const handleCategoryClick = (categorySlug?: string) => {
+    setCategoryMenuOpen(false)
+    if (categorySlug) {
+      setSelectedCategory(categorySlug)
+      navigate(`/products?category=${categorySlug}`)
+    } else {
+      navigate('/categories')
+    }
+  }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,9 +120,85 @@ export default function Header() {
           >
             商城
           </span>
-          <Link to="/categories" className={getLinkClass('/categories')}>
-            商品分类
-          </Link>
+          <div 
+            className="relative"
+            ref={categoryMenuRef}
+            onMouseEnter={handleCategoryMouseEnter}
+            onMouseLeave={handleCategoryMouseLeave}
+          >
+            <span 
+              className={`${getLinkClass('/categories')} cursor-pointer flex items-center gap-1`}
+            >
+              商品分类
+              <ChevronDown className={`w-3 h-3 transition-transform ${categoryMenuOpen ? 'rotate-180' : ''}`} />
+            </span>
+            
+            {/* 分类悬浮窗口 */}
+            {categoryMenuOpen && (
+              <div 
+                className="absolute left-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-stone-100 z-50 min-w-[600px] p-6"
+                onMouseEnter={handleCategoryMouseEnter}
+                onMouseLeave={handleCategoryMouseLeave}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-serif font-bold text-lg text-primary">商品分类</h3>
+                  <button
+                    onClick={() => handleCategoryClick()}
+                    className="text-sm text-primary hover:text-primary-700 flex items-center gap-1"
+                  >
+                    查看全部 <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                
+                {/* 分类网格 */}
+                <div className="grid grid-cols-4 gap-4">
+                  {categories.slice(0, 8).map((category) => (
+                    <div
+                      key={category._id}
+                      onClick={() => handleCategoryClick(category.slug || category._id)}
+                      className="group cursor-pointer rounded-xl overflow-hidden border border-stone-100 hover:border-primary/30 hover:shadow-lg transition-all"
+                    >
+                      {/* 分类图片 */}
+                      <div className="aspect-square bg-stone-50 overflow-hidden">
+                        {category.image ? (
+                          <img
+                            src={getFileUrl(category.image)}
+                            alt={category.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Grid className="w-12 h-12 text-stone-300" />
+                          </div>
+                        )}
+                      </div>
+                      {/* 分类信息 */}
+                      <div className="p-3 bg-white">
+                        <h4 className="font-medium text-stone-800 group-hover:text-primary transition-colors text-sm truncate">
+                          {category.name}
+                        </h4>
+                        {category.productCount !== undefined && (
+                          <p className="text-xs text-stone-400 mt-1">{category.productCount} 件商品</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* 当前选中提示 */}
+                {selectedCategory && (
+                  <div className="mt-4 pt-4 border-t border-stone-100">
+                    <p className="text-sm text-stone-500">
+                      当前选中：
+                      <span className="text-primary font-medium ml-1">
+                        {categories.find(c => c.slug === selectedCategory || c._id === selectedCategory)?.name || selectedCategory}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <Link to="/packages" className={getLinkClass('/packages')}>
             套餐专区
           </Link>

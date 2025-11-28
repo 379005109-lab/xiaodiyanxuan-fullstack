@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Minus, Plus, Trash2, ArrowRight, Package, TrendingUp, Wallet, Tag } from 'lucide-react'
+import { Minus, Plus, Trash2, ArrowRight, Package, TrendingUp, Wallet, Tag, Image, Download, X } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
+import html2canvas from 'html2canvas'
+import { toast } from 'sonner'
 
 export default function CartPage() {
   const navigate = useNavigate()
@@ -72,6 +74,65 @@ export default function CartPage() {
   const selectedCartItems = items.filter(item => selectedItems.includes(`${item.product._id}-${item.sku._id}`))
   const selectedTotal = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
+  // 生成图片相关状态
+  const [showImagePreview, setShowImagePreview] = useState(false)
+  const [imageOrientation, setImageOrientation] = useState<'landscape' | 'portrait'>('landscape')
+  const previewRef = useRef<HTMLDivElement>(null)
+
+  // 生成商品图片
+  const handleGenerateImage = async () => {
+    if (selectedCartItems.length === 0) {
+      toast.error('请选择要生成图片的商品')
+      return
+    }
+    setShowImagePreview(true)
+  }
+
+  // 下载图片
+  const handleDownloadImage = async () => {
+    if (!previewRef.current) return
+    
+    try {
+      toast.loading('正在生成图片...')
+      
+      const canvas = await html2canvas(previewRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false
+      })
+      
+      const link = document.createElement('a')
+      link.download = `商品清单_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+      
+      toast.dismiss()
+      toast.success('图片已生成并下载')
+    } catch (error) {
+      toast.dismiss()
+      toast.error('生成图片失败')
+      console.error(error)
+    }
+  }
+
+  // 计算图片尺寸和布局
+  const getImageLayout = () => {
+    const count = selectedCartItems.length
+    if (imageOrientation === 'landscape') {
+      // 横版 1280x720
+      if (count <= 3) return { cols: count, width: 1280, height: 720 }
+      if (count <= 6) return { cols: 3, width: 1280, height: 720 }
+      return { cols: 4, width: 1280, height: 900 }
+    } else {
+      // 竖版 720x1280
+      if (count <= 2) return { cols: 1, width: 720, height: 1280 }
+      if (count <= 4) return { cols: 2, width: 720, height: 1280 }
+      return { cols: 2, width: 720, height: 1600 }
+    }
+  }
+
   return (
     <div className="animate-fade-in-up pb-32">
       <div className="max-w-5xl mx-auto px-6 py-12">
@@ -81,12 +142,21 @@ export default function CartPage() {
             <p className="text-stone-500 uppercase tracking-widest text-xs">Shopping Cart ({items.length})</p>
           </div>
           {items.length > 0 && (
-            <button 
-              onClick={handleClearCart}
-              className="text-sm text-stone-400 hover:text-red-500 transition-colors flex items-center gap-1 border-b border-transparent hover:border-red-500 pb-0.5"
-            >
-              <Trash2 className="w-3 h-3" /> 清空购物车
-            </button>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={handleGenerateImage}
+                disabled={selectedItems.length === 0}
+                className="text-sm text-primary hover:text-primary-700 transition-colors flex items-center gap-1 border border-primary rounded-lg px-3 py-1.5 hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Image className="w-4 h-4" /> 生成商品图片
+              </button>
+              <button 
+                onClick={handleClearCart}
+                className="text-sm text-stone-400 hover:text-red-500 transition-colors flex items-center gap-1 border-b border-transparent hover:border-red-500 pb-0.5"
+              >
+                <Trash2 className="w-3 h-3" /> 清空购物车
+              </button>
+            </div>
           )}
         </div>
 
@@ -266,6 +336,97 @@ export default function CartPage() {
         )}
       </div>
       
+      {/* 图片预览弹窗 */}
+      {showImagePreview && (
+        <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 overflow-auto">
+          <div className="bg-white rounded-2xl max-w-full max-h-[95vh] overflow-auto shadow-2xl">
+            {/* 弹窗头部 */}
+            <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-4">
+                <h3 className="font-bold text-lg">商品清单预览</h3>
+                <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setImageOrientation('landscape')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      imageOrientation === 'landscape' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    横版
+                  </button>
+                  <button
+                    onClick={() => setImageOrientation('portrait')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      imageOrientation === 'portrait' ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    竖版
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadImage}
+                  className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" /> 下载图片
+                </button>
+                <button
+                  onClick={() => setShowImagePreview(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            {/* 图片预览内容 */}
+            <div className="p-6 flex justify-center">
+              <div
+                ref={previewRef}
+                style={{
+                  width: getImageLayout().width,
+                  minHeight: getImageLayout().height,
+                  backgroundColor: '#ffffff',
+                  padding: '40px'
+                }}
+              >
+                {/* 标题 */}
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-serif font-bold text-gray-800 mb-2">商品清单</h2>
+                  <p className="text-sm text-gray-400">XIAODI SUPPLY CHAIN</p>
+                </div>
+                
+                {/* 商品网格 */}
+                <div
+                  className="grid gap-6"
+                  style={{ gridTemplateColumns: `repeat(${getImageLayout().cols}, 1fr)` }}
+                >
+                  {selectedCartItems.map((item) => (
+                    <div key={`${item.product._id}-${item.sku._id}`} className="text-center">
+                      {/* 商品图片 */}
+                      <div className="bg-gray-50 rounded-xl overflow-hidden mb-4 aspect-square flex items-center justify-center">
+                        <img
+                          src={(item.sku?.images?.[0] || item.product?.images?.[0]) ? getFileUrl(item.sku?.images?.[0] || item.product.images[0]) : '/placeholder.svg'}
+                          alt={item.product?.name}
+                          className="max-w-full max-h-full object-contain"
+                          crossOrigin="anonymous"
+                        />
+                      </div>
+                      {/* 商品名称 */}
+                      <h3 className="font-bold text-gray-800 text-lg mb-2 line-clamp-2">{item.product?.name}</h3>
+                      {/* 尺寸 */}
+                      <p className="text-gray-500 text-sm mb-2">尺寸：{item.sku?.spec || '标准规格'}</p>
+                      {/* 价格 */}
+                      <p className="text-gray-400 text-xs">Foshan source factory Italian minimalist furniture</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom Checkout Bar */}
       {showCheckout && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-6 shadow-lg z-[100]">
