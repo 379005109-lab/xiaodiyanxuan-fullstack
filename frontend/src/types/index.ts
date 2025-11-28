@@ -118,10 +118,24 @@ export interface Material {
   updatedAt: string
 }
 
+// 动态材质选择结构：key为材质类目名称（如面料、填充等），value为该类目下选中的材质名称数组
+export type DynamicMaterialSelection = Record<string, string[]>
+
+// 旧版固定材质结构（向后兼容）
+export interface LegacyMaterialSelection {
+  fabric?: string[] | string
+  filling?: string[] | string
+  frame?: string[] | string
+  leg?: string[] | string
+}
+
 export interface ProductSKU {
   _id: string
   color?: string
-  material: string | { fabric: string[] | string; filling: string[] | string; frame: string[] | string; leg: string[] | string }
+  // 材质支持动态类目：key为类目名称，value为材质名称数组
+  material: string | DynamicMaterialSelection | LegacyMaterialSelection
+  // 已配置的材质类目列表（用于确定显示顺序和哪些类目已启用）
+  materialCategories?: string[]
   materialId?: string
   materialUpgradePrices?: Record<string, number> // 材质升级价格 { [categoryKey]: price } 例如 { "普通皮": 0, "全青皮": 500 }
   materialImages?: Record<string, string>
@@ -177,12 +191,8 @@ export interface Product {
 }
 
 // 套餐相关类型
-export interface PackageProductMaterial {
-  fabric?: string[]
-  filling?: string[]
-  frame?: string[]
-  leg?: string[]
-}
+// 套餐商品材质：支持动态材质类目
+export type PackageProductMaterial = Record<string, string[]>
 
 export interface PackageProductOption {
   id: string
@@ -232,17 +242,16 @@ export interface PackagePlan {
 }
 
 // 购物车类型
+// 用户选中的材质：key为类目名称，value为选中的材质名称
+export type SelectedMaterials = Record<string, string>
+
 export interface CartItem {
   product: Product
   sku: ProductSKU
   quantity: number
   price: number
-  selectedMaterials?: {
-    fabric?: string
-    filling?: string
-    frame?: string
-    leg?: string
-  }
+  // 选中的材质：支持动态类目
+  selectedMaterials?: SelectedMaterials
   materialUpgradePrices?: Record<string, number> // 材质升级价格表
 }
 

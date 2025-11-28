@@ -3,7 +3,6 @@ import { X, User, Lock, Phone, ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { loginUser } from '@/services/authService'
-import ProfileCompleteModal from './ProfileCompleteModal'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -16,7 +15,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   const [loginMethod, setLoginMethod] = useState<'password' | 'code'>('password') // 登录方式
   const [loading, setLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
-  const [showProfileComplete, setShowProfileComplete] = useState(false)
   const { login } = useAuthStore()
   
   // 登录表单
@@ -107,13 +105,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
       if (response.success && response.data) {
         login(response.data.user, response.data.token)
         toast.success('登录成功！')
-        // 检查用户是否需要完善信息
-        const user = response.data.user
-        if (!user.nickname || !user.gender) {
-          setShowProfileComplete(true)
-        } else {
-          onClose()
-        }
+        onClose() // 由 App.tsx 统一处理用户信息完善弹窗
       } else {
         toast.error(response.message || '登录失败')
       }
@@ -149,8 +141,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         toast.success('注册成功！')
         // 自动登录
         login(data.data.user, data.data.token)
-        // 新注册用户一定需要完善信息
-        setShowProfileComplete(true)
+        onClose() // 由 App.tsx 统一处理用户信息完善弹窗
       } else {
         toast.error(data.message || '注册失败')
       }
@@ -356,15 +347,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
           )}
         </div>
       </div>
-      
-      {/* 完善信息弹窗 */}
-      <ProfileCompleteModal
-        isOpen={showProfileComplete}
-        onClose={() => {
-          setShowProfileComplete(false)
-          onClose()
-        }}
-      />
     </div>
   )
 }

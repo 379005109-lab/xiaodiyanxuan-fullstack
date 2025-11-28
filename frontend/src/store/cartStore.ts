@@ -11,6 +11,9 @@ export interface SimplifiedCartSourceItem {
   description?: string
 }
 
+// 动态材质选择类型
+type SelectedMaterials = Record<string, string | undefined>
+
 interface CartState {
   items: CartItem[]
   // 代客下单模式
@@ -21,9 +24,9 @@ interface CartState {
     customerPhone: string
     orderSource?: string // 订单来源：'backend' 或 'self'
   }
-  addItem: (product: Product, sku: ProductSKU, quantity?: number, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }, price?: number) => void
-  removeItem: (productId: string, skuId: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => void
-  updateQuantity: (productId: string, skuId: string, quantity: number, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => void
+  addItem: (product: Product, sku: ProductSKU, quantity?: number, selectedMaterials?: SelectedMaterials, price?: number) => void
+  removeItem: (productId: string, skuId: string, selectedMaterials?: SelectedMaterials) => void
+  updateQuantity: (productId: string, skuId: string, quantity: number, selectedMaterials?: SelectedMaterials) => void
   clearCart: () => void
   getTotalItems: () => number
   getTotalPrice: () => number
@@ -43,30 +46,27 @@ const getMaterialCategory = (materialName: string): string => {
   return 'other'
 }
 
-// 计算商品的最终价格和材质价格映射
-const calculateItemPriceAndMaterials = (sku: ProductSKU, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }): { price: number; materialPriceMap: Record<string, number> } => {
+// 计算商品的最终价格和材质价格映射（支持动态材质类目）
+const calculateItemPriceAndMaterials = (sku: ProductSKU, selectedMaterials?: SelectedMaterials): { price: number; materialPriceMap: Record<string, number> } => {
   // 计算基础价格（优先显示折扣价）
   const basePrice = sku.discountPrice && sku.discountPrice > 0 && sku.discountPrice < sku.price
     ? sku.discountPrice
     : sku.price
   
-  // 计算材质升级价格（使用类别匹配）
+  // 计算材质升级价格
   const materialUpgradePrices = (sku as any).materialUpgradePrices || {}
   let upgradePrice = 0
   const materialPriceMap: Record<string, number> = {} // 保存每个材质的实际加价
   
   if (selectedMaterials) {
-    const selectedMaterialList: string[] = []
-    if (selectedMaterials.fabric) selectedMaterialList.push(selectedMaterials.fabric)
-    if (selectedMaterials.filling) selectedMaterialList.push(selectedMaterials.filling)
-    if (selectedMaterials.frame) selectedMaterialList.push(selectedMaterials.frame)
-    if (selectedMaterials.leg) selectedMaterialList.push(selectedMaterials.leg)
+    // 动态遍历所有选中的材质
+    const selectedMaterialList: string[] = Object.values(selectedMaterials).filter((v): v is string => !!v)
     
     // 使用类别去重计算总价，同时保存每个材质的价格
     const addedCategories = new Set<string>()
     selectedMaterialList.forEach(matName => {
       const category = getMaterialCategory(matName)
-      const price = materialUpgradePrices[category] || 0
+      const price = materialUpgradePrices[category] || materialUpgradePrices[matName] || 0
       materialPriceMap[matName] = price // 保存材质名称到价格的映射
       if (!addedCategories.has(category)) {
         upgradePrice += price
@@ -78,14 +78,17 @@ const calculateItemPriceAndMaterials = (sku: ProductSKU, selectedMaterials?: { f
   return { price: basePrice + upgradePrice, materialPriceMap }
 }
 
-// 生成材质组合的唯一标识
-const getMaterialKey = (materials?: { fabric?: string; filling?: string; frame?: string; leg?: string }): string => {
+// 生成材质组合的唯一标识（支持动态材质类目）
+const getMaterialKey = (materials?: SelectedMaterials): string => {
   if (!materials) return ''
+  // 按key排序后生成标识，确保一致性
+  const sortedKeys = Object.keys(materials).sort()
   const parts: string[] = []
-  if (materials.fabric) parts.push(`fabric:${materials.fabric}`)
-  if (materials.filling) parts.push(`filling:${materials.filling}`)
-  if (materials.frame) parts.push(`frame:${materials.frame}`)
-  if (materials.leg) parts.push(`leg:${materials.leg}`)
+  sortedKeys.forEach(key => {
+    if (materials[key]) {
+      parts.push(`${key}:${materials[key]}`)
+    }
+  })
   return parts.join('|')
 }
 

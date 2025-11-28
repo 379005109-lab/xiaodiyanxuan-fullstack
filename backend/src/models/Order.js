@@ -48,6 +48,11 @@ const orderSchema = new mongoose.Schema({
   status: { type: Number, enum: Object.values(ORDER_STATUS), default: ORDER_STATUS.PENDING_PAYMENT },
   couponCode: String,
   notes: String,
+  // 支付信息
+  paymentMethod: String, // wechat, alipay, bank
+  // 物流信息
+  shippingCompany: String,
+  trackingNumber: String,
   createdAt: { type: Date, default: Date.now },
   paidAt: Date,
   shippedAt: Date,
@@ -60,7 +65,9 @@ const orderSchema = new mongoose.Schema({
   deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   // 取消请求字段（需要管理后台确认）
   cancelRequest: { type: Boolean, default: false },
-  cancelRequestedAt: Date
+  cancelRequestedAt: Date,
+  // 商家备注
+  adminNote: { type: String, default: '' }
 })
 
 orderSchema.index({ userId: 1 })

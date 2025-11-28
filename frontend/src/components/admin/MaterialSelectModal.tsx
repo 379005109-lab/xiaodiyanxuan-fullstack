@@ -12,7 +12,7 @@ interface MaterialSelectModalProps {
   multiple?: boolean // 是否支持多选
   selectedMaterials?: string[] // 已选择的材质名称列表
   materialUpgradePrices?: Record<string, number> // 材质升级价格 { [categoryKey]: price }
-  materialType?: 'fabric' | 'filling' | 'frame' | 'leg' // 材质类型，用于自动筛选
+  materialType?: string // 材质类型，用于自动筛选（支持动态类目）
   skuIsPro?: boolean // SKU 是否为 PRO 版本
 }
 
@@ -24,15 +24,41 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedMaterials)
   const [categoryPrices, setCategoryPrices] = useState<Record<string, number>>(materialUpgradePrices || {})
 
-  // 根据材质类型获取对应的分类ID映射
-  const getMaterialTypeCategoryId = () => {
-    const categoryMap: Record<string, string> = {
-      'fabric': '7',      // 面料
-      'filling': '8',     // 填充
-      'frame': '9',       // 框架
-      'leg': '10'         // 脚架
+  // 材质类型到分类名称的映射
+  const materialTypeNameMap: Record<string, string> = {
+    'fabric': '面料',
+    'filling': '填充',
+    'frame': '框架',
+    'leg': '脚架',
+    'cushion': '坐垫',
+    'armrest': '扶手',
+    'backrest': '靠背',
+    'hardware': '五金'
+  }
+
+  // 根据材质类型和分类列表获取对应的分类ID
+  const getMaterialTypeCategoryId = (categoryList: MaterialCategory[]) => {
+    if (!materialType || categoryList.length === 0) return ''
+    
+    const targetName = materialTypeNameMap[materialType] || materialType
+    
+    // 递归查找分类
+    const findCategory = (cats: MaterialCategory[]): string => {
+      for (const cat of cats) {
+        // 匹配分类名称
+        if (cat.name === targetName || cat.name.includes(targetName)) {
+          return cat._id
+        }
+        // 递归查找子分类
+        if (cat.children && cat.children.length > 0) {
+          const found = findCategory(cat.children)
+          if (found) return found
+        }
+      }
+      return ''
     }
-    return materialType ? categoryMap[materialType] : ''
+    
+    return findCategory(categoryList)
   }
 
   useEffect(() => {
@@ -40,11 +66,17 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
     loadCategories()
     setSelectedIds(selectedMaterials)
     setCategoryPrices(materialUpgradePrices || {})
-    // 如果指定了材质类型，自动筛选对应分类
-    if (materialType) {
-      setSelectedCategoryId(getMaterialTypeCategoryId())
+  }, [selectedMaterials, materialUpgradePrices])
+
+  // 分类加载完成后，自动选中对应分类
+  useEffect(() => {
+    if (materialType && categories.length > 0) {
+      const categoryId = getMaterialTypeCategoryId(categories)
+      if (categoryId) {
+        setSelectedCategoryId(categoryId)
+      }
     }
-  }, [selectedMaterials, materialUpgradePrices, materialType])
+  }, [materialType, categories])
 
   const loadMaterials = async () => {
     try {

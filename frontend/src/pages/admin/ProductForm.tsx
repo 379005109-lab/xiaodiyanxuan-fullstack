@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, X, Trash2, Upload, FileSpreadsheet, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Plus, X, Trash2, Upload, FileSpreadsheet, RefreshCw, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -14,19 +14,38 @@ import { uploadFile, getFileUrl } from '@/services/uploadService'
 
 const CATEGORY_STORAGE_KEY = 'productForm:lastCategory'
 
-type MaterialSelection = {
-  fabric: string[]
-  filling: string[]
-  frame: string[]
-  leg: string[]
+// 动态材质选择结构：key为类目名称，value为材质名称数组
+type MaterialSelection = Record<string, string[]>
+
+// 预设的材质类目选项
+const PRESET_MATERIAL_CATEGORIES = [
+  { key: 'fabric', name: '面料', color: 'blue' },
+  { key: 'filling', name: '填充', color: 'green' },
+  { key: 'frame', name: '框架', color: 'purple' },
+  { key: 'leg', name: '脚架', color: 'orange' },
+  { key: 'cushion', name: '坐垫', color: 'pink' },
+  { key: 'armrest', name: '扶手', color: 'teal' },
+  { key: 'backrest', name: '靠背', color: 'indigo' },
+  { key: 'hardware', name: '五金', color: 'gray' },
+]
+
+// 获取材质类目的颜色样式
+const getMaterialCategoryColor = (categoryKey: string): { bg: string; text: string; hover: string } => {
+  const category = PRESET_MATERIAL_CATEGORIES.find(c => c.key === categoryKey)
+  const colorMap: Record<string, { bg: string; text: string; hover: string }> = {
+    blue: { bg: 'bg-blue-100', text: 'text-blue-700', hover: 'hover:text-blue-800' },
+    green: { bg: 'bg-green-100', text: 'text-green-700', hover: 'hover:text-green-800' },
+    purple: { bg: 'bg-purple-100', text: 'text-purple-700', hover: 'hover:text-purple-800' },
+    orange: { bg: 'bg-orange-100', text: 'text-orange-700', hover: 'hover:text-orange-800' },
+    pink: { bg: 'bg-pink-100', text: 'text-pink-700', hover: 'hover:text-pink-800' },
+    teal: { bg: 'bg-teal-100', text: 'text-teal-700', hover: 'hover:text-teal-800' },
+    indigo: { bg: 'bg-indigo-100', text: 'text-indigo-700', hover: 'hover:text-indigo-800' },
+    gray: { bg: 'bg-gray-100', text: 'text-gray-700', hover: 'hover:text-gray-800' },
+  }
+  return colorMap[category?.color || 'gray'] || colorMap.gray
 }
 
-const createEmptyMaterialSelection = (): MaterialSelection => ({
-  fabric: [],
-  filling: [],
-  frame: [],
-  leg: [],
-})
+const createEmptyMaterialSelection = (): MaterialSelection => ({})
 
 
 export default function ProductForm() {
@@ -38,11 +57,18 @@ export default function ProductForm() {
   const [categories, setCategories] = useState<Category[]>([])
   const [showMaterialSelectModal, setShowMaterialSelectModal] = useState(false)
   const [selectingMaterialForSkuIndex, setSelectingMaterialForSkuIndex] = useState<number>(-1)
-  const [selectingMaterialType, setSelectingMaterialType] = useState<'fabric' | 'filling' | 'frame' | 'leg'>('fabric')
+  const [selectingMaterialType, setSelectingMaterialType] = useState<string>('fabric') // 支持动态材质类型
+  
+  // 添加材质类目弹窗状态
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
+  const [addCategoryForSkuIndex, setAddCategoryForSkuIndex] = useState<number>(-1)
   
   // 图片管理弹窗状态
   const [showImageManager, setShowImageManager] = useState(false)
   const [managingSkuIndex, setManagingSkuIndex] = useState<number>(-1)
+  
+  // 分类展开状态
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   
   const hasRestoredCategory = useRef(false)
 
@@ -50,7 +76,8 @@ export default function ProductForm() {
     name: '',
     productCode: '',
     subCodes: [] as string[], // 副编号数组
-    category: '',
+    category: '', // 主分类（兼容旧数据）
+    categories: [] as string[], // 多选分类数组
     basePrice: 0,
     styles: [] as string[], // 风格标签
     mainImages: [] as string[],
@@ -69,6 +96,7 @@ export default function ProductForm() {
         width: 90,
         height: 85,
         material: createEmptyMaterialSelection(),
+        materialCategories: [] as string[], // 已启用的材质类目列表
         materialUpgradePrices: {},
         price: 0,
         discountPrice: 0,
@@ -145,6 +173,7 @@ export default function ProductForm() {
           category: typeof product.category === 'string'
             ? product.category
             : (product.category as any)?._id || '',
+          categories: ((product as any).categories || []) as string[], // 多选分类
           basePrice: product.basePrice,
           mainImages: (product.images || []).filter((img: string) => {
             // 过滤掉Base64数据，只保留fileId
@@ -194,47 +223,56 @@ export default function ProductForm() {
                 });
             })() :
             [{ name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' }],
-          skus: product.skus.map((sku) => ({
-            id: sku._id,
-            images: (sku.images || []).filter((img: string) => {
-              // 过滤掉Base64数据，只保留fileId
-              if (img.startsWith('data:')) {
-                console.warn(`SKU ${sku._id} 检测到旧Base64图片数据，已过滤`);
-                return false;
-              }
-              return true;
-            }),
-            code: (sku as any).code || sku._id, // 加载SKU型号
-            spec: (sku as any).spec || sku.color || '', // 加载规格
-            length: (sku as any).length || 0, // 加载长度
-            width: (sku as any).width || 0, // 加载宽度
-            height: (sku as any).height || 0, // 加载高度
-            material: (() => {
+          skus: product.skus.map((sku) => {
+            // 解析材质数据，支持动态类目
+            const parseMaterial = (): MaterialSelection => {
               if (typeof sku.material === 'string') {
-                return { fabric: sku.material ? [sku.material] : [], filling: [], frame: [], leg: [] }
+                return sku.material ? { fabric: [sku.material] } : {}
               }
-              const materialObj = sku.material || { fabric: [], filling: [], frame: [], leg: [] }
-              // 确保每个字段都是数组格式
-              const normalized = {
-                fabric: Array.isArray(materialObj.fabric) ? materialObj.fabric : (materialObj.fabric ? [materialObj.fabric] : []),
-                filling: Array.isArray(materialObj.filling) ? materialObj.filling : (materialObj.filling ? [materialObj.filling] : []),
-                frame: Array.isArray(materialObj.frame) ? materialObj.frame : (materialObj.frame ? [materialObj.frame] : []),
-                leg: Array.isArray(materialObj.leg) ? materialObj.leg : (materialObj.leg ? [materialObj.leg] : []),
-              }
-              // 保留用户选择的材质，不自动填充默认值
-              return normalized
-            })(),
-            materialUpgradePrices: (sku as any).materialUpgradePrices && Object.keys((sku as any).materialUpgradePrices).length > 0 
-              ? (sku as any).materialUpgradePrices 
-              : {} as Record<string, number>,
-            price: sku.price,
-            discountPrice: (sku as any).discountPrice || 0,
-            stock: sku.stock,
-            sales: 0,
-            isPro: (sku as any).isPro || false,
-            proFeature: (sku as any).proFeature || '',
-            status: true,
-          })),
+              if (!sku.material) return {}
+              
+              const result: MaterialSelection = {}
+              // 遍历所有材质类目，只保留有值的
+              Object.entries(sku.material).forEach(([key, value]) => {
+                if (value) {
+                  result[key] = Array.isArray(value) ? value : [value]
+                }
+              })
+              return result
+            }
+            
+            const material = parseMaterial()
+            // 从材质数据中提取已配置的类目列表
+            const materialCategories = (sku as any).materialCategories || Object.keys(material).filter(key => material[key]?.length > 0)
+            
+            return {
+              id: sku._id,
+              images: (sku.images || []).filter((img: string) => {
+                if (img.startsWith('data:')) {
+                  console.warn(`SKU ${sku._id} 检测到旧Base64图片数据，已过滤`);
+                  return false;
+                }
+                return true;
+              }),
+              code: (sku as any).code || sku._id,
+              spec: (sku as any).spec || sku.color || '',
+              length: (sku as any).length || 0,
+              width: (sku as any).width || 0,
+              height: (sku as any).height || 0,
+              material,
+              materialCategories,
+              materialUpgradePrices: (sku as any).materialUpgradePrices && Object.keys((sku as any).materialUpgradePrices).length > 0 
+                ? (sku as any).materialUpgradePrices 
+                : {} as Record<string, number>,
+              price: sku.price,
+              discountPrice: (sku as any).discountPrice || 0,
+              stock: sku.stock,
+              sales: 0,
+              isPro: (sku as any).isPro || false,
+              proFeature: (sku as any).proFeature || '',
+              status: true,
+            }
+          }),
           description: product.description,
           styles: (product as any).styles || [], // 加载风格标签
           files: ((product as any).files || []).filter((file: any) => {
@@ -265,8 +303,14 @@ export default function ProductForm() {
     return 'other'
   }
 
-  // 处理材质选择（支持多选）
-  const handleMaterialSelect = (material: any, materialType: 'fabric' | 'filling' | 'frame' | 'leg', upgradePrice?: number) => {
+  // 获取材质类目的中文名称
+  const getMaterialCategoryName = (categoryKey: string): string => {
+    const category = PRESET_MATERIAL_CATEGORIES.find(c => c.key === categoryKey)
+    return category?.name || categoryKey
+  }
+
+  // 处理材质选择（支持多选，支持动态类目）
+  const handleMaterialSelect = (material: any, materialType: string, upgradePrice?: number) => {
     if (selectingMaterialForSkuIndex >= 0) {
       // 使用函数式更新确保状态正确累积
       setFormData(prev => {
@@ -275,20 +319,22 @@ export default function ProductForm() {
           newSkus[selectingMaterialForSkuIndex].material = createEmptyMaterialSelection()
         }
         const materialObj = newSkus[selectingMaterialForSkuIndex].material as MaterialSelection
-        const currentList = (materialObj[materialType] as string[]) || []
+        const currentList = materialObj[materialType] || []
         
         // 初始化材质升级价格
         if (!newSkus[selectingMaterialForSkuIndex].materialUpgradePrices) {
           newSkus[selectingMaterialForSkuIndex].materialUpgradePrices = {} as Record<string, number>
         }
         
+        const categoryName = getMaterialCategoryName(materialType)
+        
         // 如果已存在，则移除；如果不存在，则添加
         if (currentList.includes(material.name)) {
-          (materialObj[materialType] as string[]) = currentList.filter(name => name !== material.name)
-          toast.success(`已移除${materialType === 'fabric' ? '面料' : materialType === 'filling' ? '填充' : materialType === 'frame' ? '框架' : '脚架'}：${material.name}`)
+          materialObj[materialType] = currentList.filter((name: string) => name !== material.name)
+          toast.success(`已移除${categoryName}：${material.name}`)
         } else {
-          (materialObj[materialType] as string[]) = [...currentList, material.name]
-          toast.success(`已添加${materialType === 'fabric' ? '面料' : materialType === 'filling' ? '填充' : materialType === 'frame' ? '框架' : '脚架'}：${material.name}`)
+          materialObj[materialType] = [...currentList, material.name]
+          toast.success(`已添加${categoryName}：${material.name}`)
         }
         
         return { ...prev, skus: newSkus }
@@ -305,12 +351,17 @@ export default function ProductForm() {
     }
   }
 
-  // 移除材质
-  const handleRemoveMaterial = (skuIndex: number, materialType: 'fabric' | 'filling' | 'frame' | 'leg', materialName: string) => {
+  // 移除材质（支持动态类目）
+  const handleRemoveMaterial = (skuIndex: number, materialType: string, materialName: string) => {
     const newSkus = [...formData.skus]
     const materialObj = newSkus[skuIndex].material as MaterialSelection
     if (materialObj && materialObj[materialType]) {
-      (materialObj[materialType] as string[]) = (materialObj[materialType] as string[]).filter(name => name !== materialName)
+      materialObj[materialType] = materialObj[materialType].filter((name: string) => name !== materialName)
+      // 如果该类目下没有材质了，从 materialCategories 中移除
+      if (materialObj[materialType].length === 0) {
+        delete materialObj[materialType]
+        newSkus[skuIndex].materialCategories = newSkus[skuIndex].materialCategories.filter(cat => cat !== materialType)
+      }
       // 移除材质时，也移除对应的升级价格
       if (newSkus[skuIndex].materialUpgradePrices) {
         delete (newSkus[skuIndex].materialUpgradePrices as Record<string, number>)[materialName]
@@ -319,14 +370,44 @@ export default function ProductForm() {
     }
   }
 
+  // 添加材质类目并直接打开材质选择弹窗
+  const handleAddMaterialCategory = (skuIndex: number, categoryKey: string) => {
+    const newSkus = [...formData.skus]
+    if (!newSkus[skuIndex].materialCategories.includes(categoryKey)) {
+      newSkus[skuIndex].materialCategories = [...newSkus[skuIndex].materialCategories, categoryKey]
+      // 初始化该类目的材质数组
+      if (!newSkus[skuIndex].material[categoryKey]) {
+        newSkus[skuIndex].material[categoryKey] = []
+      }
+      setFormData({ ...formData, skus: newSkus })
+    }
+    setShowAddCategoryModal(false)
+    setAddCategoryForSkuIndex(-1)
+    
+    // 直接打开材质选择弹窗
+    setSelectingMaterialForSkuIndex(skuIndex)
+    setSelectingMaterialType(categoryKey)
+    setShowMaterialSelectModal(true)
+  }
+
+  // 移除材质类目
+  const handleRemoveMaterialCategory = (skuIndex: number, categoryKey: string) => {
+    const newSkus = [...formData.skus]
+    newSkus[skuIndex].materialCategories = newSkus[skuIndex].materialCategories.filter(cat => cat !== categoryKey)
+    // 同时删除该类目下的材质数据
+    delete newSkus[skuIndex].material[categoryKey]
+    setFormData({ ...formData, skus: newSkus })
+    toast.success(`已移除材质类目：${getMaterialCategoryName(categoryKey)}`)
+  }
+
   const handleSubmit = async () => {
     // 必填字段验证
     if (!formData.name) {
       toast.error('请输入商品名称');
       return;
     }
-    if (!formData.category) {
-      toast.error('请选择商品分类');
+    if (formData.categories.length === 0 && !formData.category) {
+      toast.error('请至少选择一个商品分类');
       return;
     }
     if (!formData.description) {
@@ -367,7 +448,8 @@ export default function ProductForm() {
         productCode: normalizedProductCode || formData.productCode,
         subCodes: formData.subCodes, // 副编号数组
         description: formData.description,
-        category: formData.category as any,
+        category: formData.category || formData.categories[0] || '', // 主分类（兼容旧数据）
+        categories: formData.categories, // 多选分类数组
         basePrice: formData.basePrice,
         styles: formData.styles, // 风格标签
         images: formData.mainImages,
@@ -385,20 +467,23 @@ export default function ProductForm() {
           width: sku.width, // 保存宽度
           height: sku.height, // 保存高度
           material: (() => {
-            // 确保材质格式为数组
+            // 确保材质格式为数组，支持动态类目（如面料、填充、框架、脚架等中文键名）
             if (typeof sku.material === 'string') {
-              return { fabric: sku.material ? [sku.material] : [], filling: [], frame: [], leg: [] }
+              return { fabric: sku.material ? [sku.material] : [] }
             }
-            const materialObj = sku.material || { fabric: [], filling: [], frame: [], leg: [] }
-            // 确保每个字段都是数组格式
-            return {
-              fabric: Array.isArray(materialObj.fabric) ? materialObj.fabric : (materialObj.fabric ? [materialObj.fabric] : []),
-              filling: Array.isArray(materialObj.filling) ? materialObj.filling : (materialObj.filling ? [materialObj.filling] : []),
-              frame: Array.isArray(materialObj.frame) ? materialObj.frame : (materialObj.frame ? [materialObj.frame] : []),
-              leg: Array.isArray(materialObj.leg) ? materialObj.leg : (materialObj.leg ? [materialObj.leg] : []),
-            }
+            if (!sku.material) return {}
+            
+            const result: Record<string, string[]> = {}
+            // 遍历所有材质类目，保留所有键（包括中文键名）
+            Object.entries(sku.material).forEach(([key, value]) => {
+              if (value) {
+                result[key] = Array.isArray(value) ? value : [value]
+              }
+            })
+            return result
           })(),
-          materialUpgradePrices: sku.materialUpgradePrices || {} as Record<string, number>, // 保存材质升级价格 { [materialName]: price }
+          materialCategories: sku.materialCategories || [], // 保存已配置的材质类目列表
+          materialUpgradePrices: sku.materialUpgradePrices || {} as Record<string, number>, // 保存材质升级价格 { [categoryKey]: price }
           materialId: undefined,
           stock: sku.stock,
           price: sku.price,
@@ -509,6 +594,7 @@ export default function ProductForm() {
           width: 0,
           height: 0,
           material: createEmptyMaterialSelection(), // 空材质，需手动选择
+          materialCategories: [], // 空材质类目列表
           materialUpgradePrices: {}, // 空升级价格
           price: 0,
           discountPrice: 0,
@@ -597,6 +683,7 @@ export default function ProductForm() {
       width: spec.width,
       height: spec.height,
       material: createEmptyMaterialSelection(), // 空材质，需手动选择
+      materialCategories: [] as string[], // 空材质类目列表
       materialUpgradePrices: {}, // 空升级价格
       price: formData.basePrice || 0,
       discountPrice: 0,
@@ -717,7 +804,7 @@ export default function ProductForm() {
           })
           
           // 根据格式判断读取材质字段（支持多个材质，用逗号或分号分隔）
-          let material: { fabric: string[]; filling: string[]; frame: string[]; leg: string[] }
+          let material: MaterialSelection
           let price: number
           let discountPrice: number
           let stock: number
@@ -731,14 +818,32 @@ export default function ProductForm() {
             return str.split(/[,;，；\s]+/).map(s => s.trim()).filter(s => s.length > 0)
           }
           
-          if (isNewFormat) {
-            // 新格式：G(6):面料 H(7):填充 I(8):框架 J(9):脚架
-            material = {
-              fabric: parseMaterialString(row[6]?.toString() || ''),
-              filling: parseMaterialString(row[7]?.toString() || ''),
-              frame: parseMaterialString(row[8]?.toString() || ''),
-              leg: parseMaterialString(row[9]?.toString() || ''),
+          // 构建动态材质对象
+          const buildMaterial = (): MaterialSelection => {
+            const result: MaterialSelection = {}
+            if (isNewFormat) {
+              // 新格式：G(6):面料 H(7):填充 I(8):框架 J(9):脚架
+              const fabric = parseMaterialString(row[6]?.toString() || '')
+              const filling = parseMaterialString(row[7]?.toString() || '')
+              const frame = parseMaterialString(row[8]?.toString() || '')
+              const leg = parseMaterialString(row[9]?.toString() || '')
+              if (fabric.length > 0) result.fabric = fabric
+              if (filling.length > 0) result.filling = filling
+              if (frame.length > 0) result.frame = frame
+              if (leg.length > 0) result.leg = leg
+            } else {
+              // 旧格式：G(6):材质（作为面料）
+              const fabric = parseMaterialString(row[6]?.toString() || '')
+              if (fabric.length > 0) result.fabric = fabric
             }
+            return result
+          }
+          
+          material = buildMaterial()
+          // 从材质数据中提取已配置的类目列表
+          const materialCategories = Object.keys(material).filter(key => material[key]?.length > 0)
+          
+          if (isNewFormat) {
             price = parseFloat((row[10]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // K列：标价
             discountPrice = parseFloat((row[11]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // L列：折扣价
             stock = parseInt(row[12]) || 0 // M列：库存
@@ -746,13 +851,6 @@ export default function ProductForm() {
             isPro = row[14] === '是' || row[14] === 'PRO' || false // O列：PRO
             proFeature = (row[15]?.toString() || '').trim() // P列：PRO特性
           } else {
-            // 旧格式：G(6):材质（作为面料）
-            material = {
-              fabric: parseMaterialString(row[6]?.toString() || ''),
-              filling: [],
-              frame: [],
-              leg: [],
-            }
             price = parseFloat((row[7]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // H列：标价
             discountPrice = parseFloat((row[8]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // I列：折扣价
             stock = parseInt(row[9]) || 0 // J列：库存
@@ -764,10 +862,8 @@ export default function ProductForm() {
           console.log('材质字段映射:', {
             格式: isNewFormat ? '新格式（4个材质字段）' : '旧格式（单个材质字段）',
             行长度: row.length,
-            面料: material.fabric,
-            填充: material.filling,
-            框架: material.frame,
-            脚架: material.leg,
+            已配置类目: materialCategories,
+            material: material,
             'G列[6]': row[6],
             'H列[7]': row[7],
             'I列[8]': row[8],
@@ -783,6 +879,7 @@ export default function ProductForm() {
             width: width, // 宽
             height: height, // 高
             material: material,
+            materialCategories: materialCategories, // 已配置的材质类目
             materialUpgradePrices: {} as Record<string, number>, // 材质升级价格，导入时默认为0
             price: price,
             discountPrice: discountPrice,
@@ -896,29 +993,101 @@ export default function ProductForm() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">商品分类</label>
-              <select
-                value={formData.category}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                className="input"
-              >
-                <option value="">请选择分类</option>
-                {categories.map(parent => (
-                  <optgroup key={parent._id} label={parent.name}>
-                    {parent.children && parent.children.length > 0 ? (
-                      parent.children.map(child => (
-                        <option key={child._id} value={child._id}>
-                          {child.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option key={parent._id} value={parent._id}>
-                        {parent.name}（无子分类）
-                      </option>
-                    )}
-                  </optgroup>
-                ))}
-              </select>
+              <label className="block text-sm font-medium mb-2">商品分类（可多选）</label>
+              <div className="space-y-2 p-3 border rounded-lg bg-gray-50">
+                {categories.map(parent => {
+                  const isExpanded = expandedCategories.includes(parent._id)
+                  const hasSelectedChild = parent.children?.some(child => formData.categories.includes(child._id)) || formData.categories.includes(parent._id)
+                  return (
+                    <div key={parent._id} className="border rounded-lg bg-white overflow-hidden">
+                      {/* 分类标题栏 - 点击展开/收起 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedCategories(prev => 
+                            prev.includes(parent._id) 
+                              ? prev.filter(id => id !== parent._id)
+                              : [...prev, parent._id]
+                          )
+                        }}
+                        className={`w-full px-4 py-3 flex items-center justify-between text-left transition-colors ${
+                          hasSelectedChild ? 'bg-blue-50' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="font-medium text-gray-800 flex items-center gap-2">
+                          {parent.name}
+                          {hasSelectedChild && (
+                            <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                              已选
+                            </span>
+                          )}
+                        </span>
+                        <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+                      
+                      {/* 展开的子分类 */}
+                      {isExpanded && (
+                        <div className="px-4 py-3 border-t bg-gray-50">
+                          <div className="flex flex-wrap gap-2">
+                            {/* 父分类本身也可选 */}
+                            <label
+                              className={`
+                                px-3 py-1.5 rounded-lg border-2 cursor-pointer transition-all text-sm font-medium
+                                ${formData.categories.includes(parent._id)
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                }
+                              `}
+                            >
+                              <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={formData.categories.includes(parent._id)}
+                                onChange={(e) => {
+                                  const newCategories = e.target.checked
+                                    ? [...formData.categories, parent._id]
+                                    : formData.categories.filter(id => id !== parent._id)
+                                  setFormData({ ...formData, categories: newCategories, category: newCategories[0] || '' })
+                                }}
+                              />
+                              {parent.name}（全部）
+                            </label>
+                            {/* 子分类 */}
+                            {parent.children && parent.children.map(child => (
+                              <label
+                                key={child._id}
+                                className={`
+                                  px-3 py-1.5 rounded-lg border-2 cursor-pointer transition-all text-sm font-medium
+                                  ${formData.categories.includes(child._id)
+                                    ? 'bg-blue-600 text-white border-blue-600'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                  }
+                                `}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={formData.categories.includes(child._id)}
+                                  onChange={(e) => {
+                                    const newCategories = e.target.checked
+                                      ? [...formData.categories, child._id]
+                                      : formData.categories.filter(id => id !== child._id)
+                                    setFormData({ ...formData, categories: newCategories, category: newCategories[0] || '' })
+                                  }}
+                                />
+                                {child.name}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {formData.categories.length === 0 && (
+                <p className="text-xs text-red-500 mt-1">请至少选择一个分类</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">商品价格</label>
@@ -1023,50 +1192,6 @@ export default function ProductForm() {
             </div>
           </div>
           
-          {/* 视频URL管理 */}
-          <div className="mt-6">
-            <label className="block text-sm font-medium mb-2">视频演示URL</label>
-            <div className="space-y-2">
-              {formData.videos.map((video, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="url"
-                    value={video}
-                    onChange={(e) => {
-                      const newVideos = [...formData.videos]
-                      newVideos[index] = e.target.value
-                      setFormData({ ...formData, videos: newVideos })
-                    }}
-                    placeholder="https://example.com/video.mp4"
-                    className="input flex-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newVideos = formData.videos.filter((_, i) => i !== index)
-                      setFormData({ ...formData, videos: newVideos })
-                    }}
-                    className="btn-secondary px-3 py-2"
-                  >
-                    删除
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData({ ...formData, videos: [...formData.videos, ''] })
-                }}
-                className="btn-secondary px-4 py-2 flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                添加视频URL
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              支持各大视频平台链接或直链，添加后会在商品详情页"视频演示"中显示
-            </p>
-          </div>
         </div>
 
         {/* 详情页头图 */}
@@ -1214,7 +1339,7 @@ export default function ProductForm() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1600px]">
+            <table className="w-full min-w-[1200px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left py-3 px-4 text-sm font-medium">图片</th>
@@ -1223,10 +1348,7 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">长(CM)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">宽(CM)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">高(CM)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">面料</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">填充</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">框架</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">脚架</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[300px]">材质配置</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">折扣价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">显示价格</th>
@@ -1372,196 +1494,80 @@ export default function ProductForm() {
                         className="w-20 px-2 py-1 border border-gray-300 rounded"
                       />
                     </td>
-                    {/* 面料 */}
+                    {/* 材质配置 - 动态类目 */}
                     <td className="py-3 px-4">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-col gap-2">
-                          {/* 已选择的材质标签 */}
-                          {(() => {
-                            const materialObj = typeof sku.material === 'string' 
-                              ? { fabric: sku.material ? [sku.material] : [], filling: [], frame: [], leg: [] }
-                              : (sku.material || { fabric: [], filling: [], frame: [], leg: [] })
-                            const fabricList = Array.isArray(materialObj.fabric) ? materialObj.fabric : (materialObj.fabric ? [materialObj.fabric] : [])
-                            return (
-                              <div className="flex flex-wrap gap-1 mb-1">
-                                {fabricList.map((name, idx) => {
-                                  return (
-                                    <div
-                                      key={idx}
-                                      className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded"
-                                    >
-                                      <span className="whitespace-nowrap">{name}</span>
-                                      <div className="flex items-center gap-0.5">
-                                        <button
-                                          type="button"
-                                          title={`${name}：高级皮革材质，提升家具质感`}
-                                          className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                        >
-                                          <span className="text-xs">ℹ️</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveMaterial(index, 'fabric', name)}
-                                          className="text-blue-600 hover:text-blue-800 flex-shrink-0"
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
+                      <div className="space-y-2">
+                        {/* 已配置的材质类目 */}
+                        {sku.materialCategories.map((categoryKey) => {
+                          const colorStyle = getMaterialCategoryColor(categoryKey)
+                          const categoryName = getMaterialCategoryName(categoryKey)
+                          const materialList = sku.material[categoryKey] || []
+                          
+                          // 获取该类目的加价金额
+                          const categoryUpgradePrice = (sku.materialUpgradePrices as Record<string, number>)?.[categoryKey] || 0
+                          
+                          return (
+                            <div key={categoryKey} className={`p-2 rounded-lg border ${colorStyle.bg} border-opacity-50`}>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={`text-xs font-medium ${colorStyle.text}`}>
+                                  {categoryName}
+                                  {categoryUpgradePrice > 0 && (
+                                    <span className="ml-1 text-orange-600 font-semibold">+{categoryUpgradePrice}元</span>
+                                  )}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMaterialCategory(index, categoryKey)}
+                                  className={`${colorStyle.text} ${colorStyle.hover} text-xs`}
+                                  title={`移除${categoryName}类目`}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
                               </div>
-                            )
-                          })()}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectingMaterialForSkuIndex(index)
-                            setSelectingMaterialType('fabric')
-                            setShowMaterialSelectModal(true)
-                          }}
-                            className="px-2 py-1.5 bg-primary-600 text-white text-xs rounded hover:bg-primary-700"
-                        >
-                            + 选择面料
-                        </button>
-                        </div>
-                      </div>
-                    </td>
-                    {/* 填充 */}
-                    <td className="py-3 px-4">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-col gap-2">
-                          {/* 已选择的材质标签 */}
-                          {(() => {
-                            const materialObj = typeof sku.material === 'string' 
-                              ? { fabric: sku.material ? [sku.material] : [], filling: [], frame: [], leg: [] }
-                              : (sku.material || { fabric: [], filling: [], frame: [], leg: [] })
-                            const fillingList = Array.isArray(materialObj.filling) ? materialObj.filling : (materialObj.filling ? [materialObj.filling] : [])
-                            return (
-                              <div className="flex flex-wrap gap-1 mb-1">
-                                {fillingList.map((name, idx) => {
-                                  return (
-                                    <span
-                                      key={idx}
-                                      className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs rounded whitespace-nowrap"
+                              <div className="flex flex-wrap gap-1">
+                                {materialList.map((name: string, idx: number) => (
+                                  <span
+                                    key={idx}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 ${colorStyle.bg} ${colorStyle.text} text-xs rounded`}
+                                  >
+                                    <span className="whitespace-nowrap">{name}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveMaterial(index, categoryKey, name)}
+                                      className={`${colorStyle.text} ${colorStyle.hover}`}
                                     >
-                                      <span className="whitespace-nowrap">{name}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveMaterial(index, 'filling', name)}
-                                        className="text-green-600 hover:text-green-800"
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </button>
-                                    </span>
-                                  )
-                                })}
+                                      <X className="h-2.5 w-2.5" />
+                                    </button>
+                                  </span>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectingMaterialForSkuIndex(index)
+                                    setSelectingMaterialType(categoryKey)
+                                    setShowMaterialSelectModal(true)
+                                  }}
+                                  className={`px-1.5 py-0.5 ${colorStyle.text} text-xs hover:underline`}
+                                >
+                                  + 添加
+                                </button>
                               </div>
-                            )
-                          })()}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectingMaterialForSkuIndex(index)
-                            setSelectingMaterialType('filling')
-                            setShowMaterialSelectModal(true)
-                          }}
-                            className="px-2 py-1.5 bg-primary-600 text-white text-xs rounded hover:bg-primary-700"
-                        >
-                            + 选择填充
-                        </button>
-                        </div>
-                      </div>
-                    </td>
-                    {/* 框架 */}
-                    <td className="py-3 px-4">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-col gap-2">
-                          {/* 已选择的材质标签 */}
-                          {(() => {
-                            const materialObj = typeof sku.material === 'string' 
-                              ? { fabric: sku.material ? [sku.material] : [], filling: [], frame: [], leg: [] }
-                              : (sku.material || { fabric: [], filling: [], frame: [], leg: [] })
-                            const frameList = Array.isArray(materialObj.frame) ? materialObj.frame : (materialObj.frame ? [materialObj.frame] : [])
-                            return (
-                              <div className="flex flex-wrap gap-1 mb-1">
-                                {frameList.map((name, idx) => {
-                                  return (
-                                    <span
-                                      key={idx}
-                                      className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded whitespace-nowrap"
-                                    >
-                                      <span className="whitespace-nowrap">{name}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveMaterial(index, 'frame', name)}
-                                        className="text-purple-600 hover:text-purple-800"
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </button>
-                                    </span>
-                                  )
-                                })}
-                              </div>
-                            )
-                          })()}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectingMaterialForSkuIndex(index)
-                            setSelectingMaterialType('frame')
-                            setShowMaterialSelectModal(true)
-                          }}
-                            className="px-2 py-1.5 bg-primary-600 text-white text-xs rounded hover:bg-primary-700"
-                        >
-                            + 选择框架
-                        </button>
-                        </div>
-                      </div>
-                    </td>
-                    {/* 脚架 */}
-                    <td className="py-3 px-4">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-col gap-2">
-                          {/* 已选择的材质标签 */}
-                          {(() => {
-                            const materialObj = typeof sku.material === 'string' 
-                              ? { fabric: sku.material ? [sku.material] : [], filling: [], frame: [], leg: [] }
-                              : (sku.material || { fabric: [], filling: [], frame: [], leg: [] })
-                            const legList = Array.isArray(materialObj.leg) ? materialObj.leg : (materialObj.leg ? [materialObj.leg] : [])
-                            return (
-                              <div className="flex flex-wrap gap-1 mb-1">
-                                {legList.map((name, idx) => {
-                                  return (
-                                    <span
-                                      key={idx}
-                                      className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded whitespace-nowrap"
-                                    >
-                                      <span className="whitespace-nowrap">{name}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveMaterial(index, 'leg', name)}
-                                        className="text-orange-600 hover:text-orange-800"
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </button>
-                                    </span>
-                                  )
-                                })}
-                              </div>
-                            )
-                          })()}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectingMaterialForSkuIndex(index)
-                            setSelectingMaterialType('leg')
-                            setShowMaterialSelectModal(true)
-                          }}
-                            className="px-2 py-1.5 bg-primary-600 text-white text-xs rounded hover:bg-primary-700"
-                        >
-                            + 选择脚架
-                        </button>
+                            </div>
+                          )
+                        })}
+                        
+                        {/* 添加材质类目按钮 */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAddCategoryForSkuIndex(index)
+                              setShowAddCategoryModal(true)
+                            }}
+                            className="w-full px-2 py-1.5 border-2 border-dashed border-gray-300 text-gray-500 text-xs rounded-lg hover:border-primary-400 hover:text-primary-600 transition-colors"
+                          >
+                            + 添加材质类目
+                          </button>
                         </div>
                       </div>
                     </td>
@@ -2031,9 +2037,7 @@ export default function ProductForm() {
           selectedMaterials={(() => {
             const sku = formData.skus[selectingMaterialForSkuIndex]
             if (!sku) return []
-            const materialObj = typeof sku.material === 'string' 
-              ? { fabric: sku.material ? [sku.material] : [], filling: [], frame: [], leg: [] }
-              : (sku.material || { fabric: [], filling: [], frame: [], leg: [] })
+            const materialObj = sku.material || {}
             const materialList = materialObj[selectingMaterialType] || []
             return Array.isArray(materialList) ? materialList : (materialList ? [materialList] : [])
           })()}
@@ -2050,6 +2054,65 @@ export default function ProductForm() {
             setSelectingMaterialType('fabric')
           }}
         />
+      )}
+
+      {/* 添加材质类目弹窗 */}
+      {showAddCategoryModal && addCategoryForSkuIndex >= 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">添加材质类目</h3>
+              <button
+                onClick={() => {
+                  setShowAddCategoryModal(false)
+                  setAddCategoryForSkuIndex(-1)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">选择要添加的材质类目，添加后可在该类目下配置具体材质和加价规则</p>
+            <div className="grid grid-cols-2 gap-3">
+              {PRESET_MATERIAL_CATEGORIES.map((category) => {
+                const sku = formData.skus[addCategoryForSkuIndex]
+                const isAdded = sku?.materialCategories?.includes(category.key)
+                const colorStyle = getMaterialCategoryColor(category.key)
+                
+                return (
+                  <button
+                    key={category.key}
+                    onClick={() => !isAdded && handleAddMaterialCategory(addCategoryForSkuIndex, category.key)}
+                    disabled={isAdded}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      isAdded 
+                        ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-50' 
+                        : `border-gray-200 hover:border-primary-400 ${colorStyle.bg} hover:shadow-md`
+                    }`}
+                  >
+                    <span className={`text-sm font-medium ${isAdded ? 'text-gray-400' : colorStyle.text}`}>
+                      {category.name}
+                    </span>
+                    {isAdded && (
+                      <span className="ml-2 text-xs text-gray-400">已添加</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <button
+                onClick={() => {
+                  setShowAddCategoryModal(false)
+                  setAddCategoryForSkuIndex(-1)
+                }}
+                className="w-full btn-secondary"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

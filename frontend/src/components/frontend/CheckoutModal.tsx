@@ -60,11 +60,8 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
     const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
     let upgradePrice = 0
     if (item.selectedMaterials) {
-      const selectedMaterialList: string[] = []
-      if (item.selectedMaterials.fabric) selectedMaterialList.push(item.selectedMaterials.fabric)
-      if (item.selectedMaterials.filling) selectedMaterialList.push(item.selectedMaterials.filling)
-      if (item.selectedMaterials.frame) selectedMaterialList.push(item.selectedMaterials.frame)
-      if (item.selectedMaterials.leg) selectedMaterialList.push(item.selectedMaterials.leg)
+      // 动态获取所有选中的材质
+      const selectedMaterialList: string[] = Object.values(item.selectedMaterials).filter((v): v is string => !!v)
       
       upgradePrice = selectedMaterialList.reduce((sum, matName) => {
         return sum + (materialUpgradePrices[matName] || 0)
@@ -110,10 +107,17 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
         },
         specifications: {
           size: item.sku.spec || '',
+          // 动态材质支持：保留向后兼容字段，同时支持新的动态材质
           material: item.selectedMaterials?.fabric || '',
           fill: item.selectedMaterials?.filling || '',
           frame: item.selectedMaterials?.frame || '',
-          leg: item.selectedMaterials?.leg || ''
+          leg: item.selectedMaterials?.leg || '',
+          // 动态材质类目
+          ...Object.fromEntries(
+            Object.entries(item.selectedMaterials || {})
+              .filter(([key]) => !['fabric', 'filling', 'frame', 'leg'].includes(key))
+              .map(([key, value]) => [key, value || ''])
+          )
         },
         selectedMaterials: item.selectedMaterials || {},  // 保存材质选择
         materialUpgradePrices: item.materialUpgradePrices || {},  // 保存升级价格
@@ -468,98 +472,36 @@ export default function CheckoutModal({ onClose }: CheckoutModalProps) {
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-500">
-                          {item.selectedMaterials?.fabric && (() => {
-                            const fabricName = item.selectedMaterials.fabric
+                          {/* 动态渲染材质信息 */}
+                          {item.selectedMaterials && Object.entries(item.selectedMaterials).map(([categoryKey, materialName]) => {
+                            if (!materialName) return null
                             const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
-                            let upgradePrice = materialUpgradePrices[fabricName]
+                            let upgradePrice = materialUpgradePrices[materialName]
                             if (!upgradePrice) {
-                              const fabricBase = fabricName.split(/\s+/)[0]
-                              upgradePrice = materialUpgradePrices[fabricBase]
+                              const materialBase = materialName.split(/\s+/)[0]
+                              upgradePrice = materialUpgradePrices[materialBase]
                               if (!upgradePrice) {
                                 for (const [key, price] of Object.entries(materialUpgradePrices)) {
-                                  if (fabricName.includes(key) || key.includes(fabricName)) {
+                                  if (materialName.includes(key) || key.includes(materialName)) {
                                     upgradePrice = price as number
                                     break
                                   }
                                 }
                               }
                             }
-                            return (
-                              <p>面料：
-                                <span className="text-gray-900">{fabricName}</span>
-                                {upgradePrice > 0 && <span className="text-red-600 font-semibold"> +¥{upgradePrice}</span>}
-                              </p>
-                            )
-                          })()}
-                          {item.selectedMaterials?.filling && (() => {
-                            const fillingName = item.selectedMaterials.filling
-                            const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
-                            let upgradePrice = materialUpgradePrices[fillingName]
-                            if (!upgradePrice) {
-                              const fillingBase = fillingName.split(/\s+/)[0]
-                              upgradePrice = materialUpgradePrices[fillingBase]
-                              if (!upgradePrice) {
-                                for (const [key, price] of Object.entries(materialUpgradePrices)) {
-                                  if (fillingName.includes(key) || key.includes(fillingName)) {
-                                    upgradePrice = price as number
-                                    break
-                                  }
-                                }
-                              }
+                            // 获取类目中文名
+                            const categoryLabels: Record<string, string> = {
+                              fabric: '面料', filling: '填充', frame: '框架', leg: '脚架',
+                              cushion: '坐垫', armrest: '扶手', backrest: '靠背', hardware: '五金'
                             }
+                            const categoryLabel = categoryLabels[categoryKey] || categoryKey
                             return (
-                              <p>填充：
-                                <span className="text-gray-900">{fillingName}</span>
+                              <p key={categoryKey}>{categoryLabel}：
+                                <span className="text-gray-900">{materialName}</span>
                                 {upgradePrice > 0 && <span className="text-red-600 font-semibold"> +¥{upgradePrice}</span>}
                               </p>
                             )
-                          })()}
-                          {item.selectedMaterials?.frame && (() => {
-                            const frameName = item.selectedMaterials.frame
-                            const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
-                            let upgradePrice = materialUpgradePrices[frameName]
-                            if (!upgradePrice) {
-                              const frameBase = frameName.split(/\s+/)[0]
-                              upgradePrice = materialUpgradePrices[frameBase]
-                              if (!upgradePrice) {
-                                for (const [key, price] of Object.entries(materialUpgradePrices)) {
-                                  if (frameName.includes(key) || key.includes(frameName)) {
-                                    upgradePrice = price as number
-                                    break
-                                  }
-                                }
-                              }
-                            }
-                            return (
-                              <p>框架：
-                                <span className="text-gray-900">{frameName}</span>
-                                {upgradePrice > 0 && <span className="text-red-600 font-semibold"> +¥{upgradePrice}</span>}
-                              </p>
-                            )
-                          })()}
-                          {item.selectedMaterials?.leg && (() => {
-                            const legName = item.selectedMaterials.leg
-                            const materialUpgradePrices = (item.sku as any).materialUpgradePrices || {}
-                            let upgradePrice = materialUpgradePrices[legName]
-                            if (!upgradePrice) {
-                              const legBase = legName.split(/\s+/)[0]
-                              upgradePrice = materialUpgradePrices[legBase]
-                              if (!upgradePrice) {
-                                for (const [key, price] of Object.entries(materialUpgradePrices)) {
-                                  if (legName.includes(key) || key.includes(legName)) {
-                                    upgradePrice = price as number
-                                    break
-                                  }
-                                }
-                              }
-                            }
-                            return (
-                              <p>脚架：
-                                <span className="text-gray-900">{legName}</span>
-                                {upgradePrice > 0 && <span className="text-red-600 font-semibold"> +¥{upgradePrice}</span>}
-                              </p>
-                            )
-                          })()}
+                          })}
                         </div>
                         <div className="flex items-center justify-between text-xs text-gray-500">
                           <span>数量：{item.quantity}</span>

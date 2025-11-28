@@ -16,37 +16,37 @@ import { getFileUrl } from '@/services/uploadService';
 import ShareModal from '@/components/frontend/ShareModal';
 import CustomizationForm from '@/components/frontend/CustomizationForm';
 
-type MaterialKey = 'fabric' | 'filling' | 'frame' | 'leg';
 type SkuFilter = 'all' | 'standard' | 'pro';
 
 const PRIMARY_COLOR = '#14452F'; // 深绿色主题色
 
-const MATERIAL_SECTIONS: { key: MaterialKey; label: string; badgeClass: string }[] = [
-  { key: 'fabric', label: '面料', badgeClass: 'bg-blue-50 text-blue-700 border-blue-100' },
-  { key: 'filling', label: '填充', badgeClass: 'bg-green-50 text-green-700 border-green-100' },
-  { key: 'frame', label: '骨架', badgeClass: 'bg-purple-50 text-purple-700 border-purple-100' },
-  { key: 'leg', label: '脚架', badgeClass: 'bg-orange-50 text-orange-700 border-orange-100' },
+// 预设的材质类目配置（支持动态类目）
+const PRESET_MATERIAL_CATEGORIES: { key: string; label: string; badgeClass: string; swatchStyle: string }[] = [
+  { key: 'fabric', label: '面料', badgeClass: 'bg-blue-50 text-blue-700 border-blue-100', swatchStyle: 'from-slate-50 via-slate-100 to-slate-200' },
+  { key: 'filling', label: '填充', badgeClass: 'bg-green-50 text-green-700 border-green-100', swatchStyle: 'from-emerald-50 via-emerald-100 to-emerald-200' },
+  { key: 'frame', label: '骨架', badgeClass: 'bg-purple-50 text-purple-700 border-purple-100', swatchStyle: 'from-indigo-50 via-indigo-100 to-indigo-200' },
+  { key: 'leg', label: '脚架', badgeClass: 'bg-orange-50 text-orange-700 border-orange-100', swatchStyle: 'from-amber-50 via-amber-100 to-amber-200' },
+  { key: 'cushion', label: '坐垫', badgeClass: 'bg-pink-50 text-pink-700 border-pink-100', swatchStyle: 'from-pink-50 via-pink-100 to-pink-200' },
+  { key: 'armrest', label: '扶手', badgeClass: 'bg-teal-50 text-teal-700 border-teal-100', swatchStyle: 'from-teal-50 via-teal-100 to-teal-200' },
+  { key: 'backrest', label: '靠背', badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-100', swatchStyle: 'from-violet-50 via-violet-100 to-violet-200' },
+  { key: 'hardware', label: '五金', badgeClass: 'bg-gray-50 text-gray-700 border-gray-100', swatchStyle: 'from-gray-50 via-gray-100 to-gray-200' },
 ];
+
+// 根据类目key获取配置
+const getMaterialCategoryConfig = (key: string) => {
+  return PRESET_MATERIAL_CATEGORIES.find(c => c.key === key) || {
+    key,
+    label: key,
+    badgeClass: 'bg-gray-50 text-gray-700 border-gray-100',
+    swatchStyle: 'from-gray-50 via-gray-100 to-gray-200',
+  };
+};
 
 const SKU_FILTERS: { key: SkuFilter; label: string }[] = [
   { key: 'all', label: '全部款式' },
   { key: 'standard', label: '标准版' },
   { key: 'pro', label: 'PRO 版' },
 ];
-
-const MATERIAL_SWATCH_STYLES: Record<MaterialKey, string> = {
-  fabric: 'from-slate-50 via-slate-100 to-slate-200',
-  filling: 'from-emerald-50 via-emerald-100 to-emerald-200',
-  frame: 'from-indigo-50 via-indigo-100 to-indigo-200',
-  leg: 'from-amber-50 via-amber-100 to-amber-200',
-};
-
-const EMPTY_SELECTIONS: Record<MaterialKey, string | null> = {
-  fabric: null,
-  filling: null,
-  frame: null,
-  leg: null,
-};
 
 const determineDefaultFilter = (skus: ProductSKU[]): SkuFilter => {
   if (skus.some(sku => !sku.isPro)) return 'standard';
@@ -108,23 +108,30 @@ const extractMaterialSeries = (materialName: string): string => {
   return match ? match[0] : materialName;
 };
 
-// 计算材质加价（支持完全匹配和系列匹配）
+// 计算材质加价（支持完全匹配和前缀匹配）
 const getMaterialUpgradePrice = (materialName: string, upgradePrices?: Record<string, number>): number => {
-  if (!upgradePrices) return 0;
+  if (!upgradePrices || Object.keys(upgradePrices).length === 0) {
+    return 0;
+  }
   
   // 1. 完全匹配
   if (upgradePrices[materialName] !== undefined) {
     return upgradePrices[materialName];
   }
   
-  // 2. 系列匹配
-  const materialSeries = extractMaterialSeries(materialName);
-  if (materialSeries) {
-    for (const [key, price] of Object.entries(upgradePrices)) {
-      const keySeries = extractMaterialSeries(key);
-      if (key.includes(materialSeries) || keySeries === materialSeries) {
-        return price;
-      }
+  // 2. 前缀匹配：检查材质名称是否以加价键开头（如"高级脚架-钛合金"以"高级脚架"开头）
+  for (const [key, price] of Object.entries(upgradePrices)) {
+    if (materialName.startsWith(key + '-') || materialName.startsWith(key + '—')) {
+      console.log(`[加价查找] 前缀匹配: ${materialName} 以 "${key}" 开头 = ${price}`);
+      return price;
+    }
+  }
+  
+  // 3. 包含匹配：检查材质名称是否包含加价键
+  for (const [key, price] of Object.entries(upgradePrices)) {
+    if (materialName.includes(key)) {
+      console.log(`[加价查找] 包含匹配: ${materialName} 包含 "${key}" = ${price}`);
+      return price;
     }
   }
   
@@ -155,31 +162,30 @@ const buildVideoEmbedUrl = (url: string) => {
   }
 };
 
-const normalizeMaterialSelection = (material?: ProductSKU['material']) => {
+// 动态规范化材质选择，返回 Record<string, string[]>
+const normalizeMaterialSelection = (material?: ProductSKU['material']): Record<string, string[]> => {
   const ensureArray = (value?: string[] | string): string[] => {
     if (!value) return [];
     return Array.isArray(value) ? value.filter(Boolean) : value ? [value] : [];
   };
 
   if (!material) {
-    return { fabric: [], filling: [], frame: [], leg: [] };
+    return {};
   }
 
   if (typeof material === 'string') {
-    return {
-      fabric: material ? [material] : [],
-      filling: [],
-      frame: [],
-      leg: [],
-    };
+    return material ? { fabric: [material] } : {};
   }
 
-  return {
-    fabric: ensureArray(material.fabric),
-    filling: ensureArray(material.filling),
-    frame: ensureArray(material.frame),
-    leg: ensureArray(material.leg),
-  };
+  // 动态处理所有材质类目
+  const result: Record<string, string[]> = {};
+  Object.entries(material).forEach(([key, value]) => {
+    const arr = ensureArray(value as string[] | string);
+    if (arr.length > 0) {
+      result[key] = arr;
+    }
+  });
+  return result;
 };
 
 const getBasePrice = (sku?: ProductSKU | null) => {
@@ -198,19 +204,15 @@ const getMaterialCategory = (materialName: string): string => {
   return 'other'
 };
 
-// 获取材质升级价格（按具体材质名称或类别前缀累计）
-const getUpgradePrice = (sku?: ProductSKU | null, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
+// 获取材质升级价格（支持动态材质类目）
+const getUpgradePrice = (sku?: ProductSKU | null, selectedMaterials?: Record<string, string | null>) => {
   if (!sku || !selectedMaterials) return 0;
   
   const materialUpgradePrices = sku.materialUpgradePrices || {};
   let totalUpgradePrice = 0;
   
   // 获取所有选中的材质并累计加价
-  const selectedMaterialList: string[] = [];
-  if (selectedMaterials.fabric) selectedMaterialList.push(selectedMaterials.fabric);
-  if (selectedMaterials.filling) selectedMaterialList.push(selectedMaterials.filling);
-  if (selectedMaterials.frame) selectedMaterialList.push(selectedMaterials.frame);
-  if (selectedMaterials.leg) selectedMaterialList.push(selectedMaterials.leg);
+  const selectedMaterialList: string[] = Object.values(selectedMaterials).filter((v): v is string => !!v);
   
   // 累计每个材质的加价
   selectedMaterialList.forEach(materialName => {
@@ -239,7 +241,7 @@ const getUpgradePrice = (sku?: ProductSKU | null, selectedMaterials?: { fabric?:
   return totalUpgradePrice;
 };
 
-const getFinalPrice = (sku?: ProductSKU | null, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
+const getFinalPrice = (sku?: ProductSKU | null, selectedMaterials?: Record<string, string | null>) => {
   if (!sku) return 0;
   // PRO版一口价，不加材质加价
   if (sku.isPro) {
@@ -300,8 +302,8 @@ const ProductDetailPage = () => {
   const [activeFilter, setActiveFilter] = useState<SkuFilter>('all');
   const [specCollapsed, setSpecCollapsed] = useState(true);
   const [materialCollapsed, setMaterialCollapsed] = useState(true);
-  const [materialSelections, setMaterialSelections] = useState<Record<MaterialKey, string | null>>(EMPTY_SELECTIONS);
-  const [materialInfoModal, setMaterialInfoModal] = useState<{ open: boolean; section?: MaterialKey; material?: string }>({ open: false });
+  const [materialSelections, setMaterialSelections] = useState<Record<string, string | null>>({});
+  const [materialInfoModal, setMaterialInfoModal] = useState<{ open: boolean; section?: string; material?: string }>({ open: false });
   const [isAllImageModalOpen, setAllImageModalOpen] = useState(false);
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
   const [materialAssetMap, setMaterialAssetMap] = useState<Record<string, string>>({});
@@ -420,7 +422,7 @@ const ProductDetailPage = () => {
     // 如果筛选后没有SKU，清空选中的SKU
     if (!filteredSkus.length) {
       setSelectedSku(null);
-      setMaterialSelections(EMPTY_SELECTIONS);
+      setMaterialSelections({});
       return;
     }
     
@@ -442,23 +444,26 @@ const ProductDetailPage = () => {
 
   useEffect(() => {
     if (!selectedSku) {
-      setMaterialSelections(EMPTY_SELECTIONS);
+      setMaterialSelections({});
       return;
     }
     const normalized = normalizeMaterialSelection(selectedSku.material);
     const upgradePrices = selectedSku.materialUpgradePrices || {};
+    // 获取SKU已配置的材质类目列表
+    const materialCategories = (selectedSku as any).materialCategories || Object.keys(normalized);
+    
     setMaterialSelections(prev => {
-      const next: Record<MaterialKey, string | null> = { ...EMPTY_SELECTIONS };
-      MATERIAL_SECTIONS.forEach(({ key }) => {
-        const list = normalized[key];
+      const next: Record<string, string | null> = {};
+      materialCategories.forEach((categoryKey: string) => {
+        const list = normalized[categoryKey] || [];
         if (list.length === 1) {
-          next[key] = list[0];
+          next[categoryKey] = list[0];
         } else if (selectedSku.isPro) {
-          next[key] = pickPremiumMaterial(list, upgradePrices);
-        } else if (list.length > 1 && prev[key] && list.includes(prev[key]!)) {
-          next[key] = prev[key]!;
+          next[categoryKey] = pickPremiumMaterial(list, upgradePrices);
+        } else if (list.length > 1 && prev[categoryKey] && list.includes(prev[categoryKey]!)) {
+          next[categoryKey] = prev[categoryKey]!;
         } else {
-          next[key] = null;
+          next[categoryKey] = null;
         }
       });
       return next;
@@ -541,21 +546,18 @@ const ProductDetailPage = () => {
   const resolveSelectedMaterials = () => {
     if (!selectedSku) return null;
     const normalizedMaterials = normalizeMaterialSelection(selectedSku.material);
-    const chosenMaterials: Record<MaterialKey, string | undefined> = {
-      fabric: undefined,
-      filling: undefined,
-      frame: undefined,
-      leg: undefined,
-    };
+    const materialCategories = (selectedSku as any).materialCategories || Object.keys(normalizedMaterials);
+    const chosenMaterials: Record<string, string | undefined> = {};
 
-    for (const section of MATERIAL_SECTIONS) {
-      const options = normalizedMaterials[section.key];
-      const selectedOption = materialSelections[section.key] || (options.length === 1 ? options[0] : undefined);
+    for (const categoryKey of materialCategories) {
+      const options = normalizedMaterials[categoryKey] || [];
+      const selectedOption = materialSelections[categoryKey] || (options.length === 1 ? options[0] : undefined);
+      const categoryConfig = getMaterialCategoryConfig(categoryKey);
       if (options.length > 1 && !selectedOption) {
-        toast.error(`请选择${section.label}`);
+        toast.error(`请选择${categoryConfig.label}`);
         return undefined;
       }
-      chosenMaterials[section.key] = selectedOption;
+      chosenMaterials[categoryKey] = selectedOption;
     }
     return chosenMaterials;
   };
@@ -595,7 +597,7 @@ const ProductDetailPage = () => {
     navigate('/checkout');
   };
 
-  const handleMaterialChoice = (sectionKey: MaterialKey, materialName: string) => {
+  const handleMaterialChoice = (sectionKey: string, materialName: string) => {
     const options = normalizedSelectedMaterials?.[sectionKey] || [];
     if (options.length <= 1) return;
 
@@ -603,7 +605,7 @@ const ProductDetailPage = () => {
     setMaterialSelections(prev => ({ ...prev, [sectionKey]: materialName }));
   };
 
-  const openMaterialIntro = (sectionKey: MaterialKey, materialName?: string) => {
+  const openMaterialIntro = (sectionKey: string, materialName?: string) => {
     setMaterialInfoModal({ open: true, section: sectionKey, material: materialName });
   };
 
@@ -633,16 +635,19 @@ const ProductDetailPage = () => {
   const normalizedSelectedMaterials = selectedSku ? normalizeMaterialSelection(selectedSku.material) : null;
   const baseSkuPrice = selectedSku ? getBasePrice(selectedSku) : product.basePrice;
   
-  // 获取当前选中的材质
+  // 获取当前选中的材质（支持动态类目）
   const currentSelectedMaterials = (() => {
     if (!selectedSku) return undefined;
     const normalized = normalizeMaterialSelection(selectedSku.material);
-    return {
-      fabric: materialSelections.fabric || (normalized.fabric.length === 1 ? normalized.fabric[0] : undefined),
-      filling: materialSelections.filling || (normalized.filling.length === 1 ? normalized.filling[0] : undefined),
-      frame: materialSelections.frame || (normalized.frame.length === 1 ? normalized.frame[0] : undefined),
-      leg: materialSelections.leg || (normalized.leg.length === 1 ? normalized.leg[0] : undefined),
-    };
+    const materialCategories = (selectedSku as any).materialCategories || Object.keys(normalized);
+    const result: Record<string, string | null> = {};
+    
+    materialCategories.forEach((categoryKey: string) => {
+      const list = normalized[categoryKey] || [];
+      result[categoryKey] = materialSelections[categoryKey] || (list.length === 1 ? list[0] : null);
+    });
+    
+    return result;
   })();
   
   const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : product.basePrice;
@@ -991,16 +996,25 @@ const ProductDetailPage = () => {
                   </button>
                   {!materialCollapsed && (
                     <div className="border-t border-gray-100 p-4 space-y-5">
-                      {MATERIAL_SECTIONS.map(section => {
-                        const list = normalizedSelectedMaterials?.[section.key] || [];
-                        const selectedOption = materialSelections[section.key] || (list.length === 1 ? list[0] : null);
+                      {/* 动态渲染已配置的材质类目 - 只显示有材质的类目 */}
+                      {(() => {
+                        const materialCategories = (selectedSku as any).materialCategories || Object.keys(normalizedSelectedMaterials || {});
+                        // 过滤出有材质的类目
+                        const categoriesWithMaterials = materialCategories.filter((categoryKey: string) => {
+                          const list = normalizedSelectedMaterials?.[categoryKey] || [];
+                          return list.length > 0;
+                        });
+                        return categoriesWithMaterials.map((categoryKey: string, sectionIndex: number) => {
+                        const section = getMaterialCategoryConfig(categoryKey);
+                        const list = normalizedSelectedMaterials?.[categoryKey] || [];
+                        const selectedOption = materialSelections[categoryKey] || (list.length === 1 ? list[0] : null);
                         const selectedUpgrade = selectedOption ? selectedSku.materialUpgradePrices?.[selectedOption] ?? 0 : 0;
                         
                         // 按材质类型分组
                         const materialGroups: Record<string, string[]> = {};
                         const groupOrder: string[] = [];
                         
-                        list.forEach(material => {
+                        list.forEach((material: string) => {
                           // 提取材质类型 - 从材质名称中解析出类型前缀
                           let groupKey = 'other';
                           
@@ -1054,8 +1068,6 @@ const ProductDetailPage = () => {
                           }
                           materialGroups[groupKey].push(material);
                         });
-                        
-                        const sectionIndex = MATERIAL_SECTIONS.findIndex(s => s.key === section.key);
                         return (
                           <div key={section.key} className="space-y-3">
                             {/* 分割线 - 除了第一个section */}
@@ -1071,7 +1083,7 @@ const ProductDetailPage = () => {
                                 </span>
                               )}
                             </div>
-                            {list.length ? (
+                            {list.length > 0 && (
                               <div className="space-y-4">
                                 {groupOrder.map(groupKey => {
                                   // 材质分组的介绍信息
@@ -1147,7 +1159,7 @@ const ProductDetailPage = () => {
                                                 <span
                                                   className={cn(
                                                     'w-full h-full flex items-center justify-center text-[11px] font-medium rounded-md text-gray-700',
-                                                    MATERIAL_SWATCH_STYLES[section.key]
+                                                    `bg-gradient-to-br ${section.swatchStyle}`
                                                   )}
                                                 >
                                                   {materialName.slice(0, 2)}
@@ -1169,12 +1181,11 @@ const ProductDetailPage = () => {
                                   );
                                 })}
                               </div>
-                            ) : (
-                              <p className="text-xs text-gray-400">暂未配置 {section.label}</p>
                             )}
                           </div>
                         );
-                      })}
+                      });
+                      })()}
                     </div>
                   )}
                 </div>

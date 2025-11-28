@@ -68,7 +68,7 @@ export default function ProductsPage() {
     category: searchParams.get('category') || '',
     style: searchParams.get('style') || '',
     priceRange: searchParams.get('priceRange') || '',
-    sort: searchParams.get('sort') || 'newest',
+    sort: searchParams.get('sort') || 'recommend',
   })
   
   // 分页状态
@@ -144,7 +144,7 @@ export default function ProductsPage() {
     const category = searchParams.get('category') || ''
     const style = searchParams.get('style') || ''
     const priceRange = searchParams.get('priceRange') || ''
-    const sort = searchParams.get('sort') || 'newest'
+    const sort = searchParams.get('sort') || 'recommend'
     
     setFilters({
       category,
@@ -596,7 +596,7 @@ export default function ProductsPage() {
               {/* 重置筛选 */}
               <button
                 onClick={() => {
-                  setFilters({ category: '', style: '', priceRange: '', sort: 'newest' })
+                  setFilters({ category: '', style: '', priceRange: '', sort: 'recommend' })
                   setPriceRange(actualPriceRange as [number, number])
                   setPriceRangeInput(actualPriceRange as [number, number])
                 }}

@@ -108,6 +108,111 @@ router.post('/:id/cancel-reject', async (req, res) => {
   }
 })
 
+// PATCH /api/orders/:id/status - 更新订单状态
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { status, paymentMethod, shippingCompany, trackingNumber } = req.body
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    const validStatuses = Object.values(ORDER_STATUS)
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: '无效的订单状态' })
+    }
+    
+    const oldStatus = order.status
+    order.status = status
+    
+    // 根据状态更新时间字段和其他信息
+    if (status === ORDER_STATUS.PENDING_SHIPMENT || status === 2) {
+      order.paidAt = new Date()
+      if (paymentMethod) order.paymentMethod = paymentMethod
+    } else if (status === ORDER_STATUS.PENDING_RECEIPT || status === 3) {
+      order.shippedAt = new Date()
+      if (shippingCompany) order.shippingCompany = shippingCompany
+      if (trackingNumber) order.trackingNumber = trackingNumber
+    } else if (status === 4) {
+      order.shippedAt = new Date()
+      if (shippingCompany) order.shippingCompany = shippingCompany
+      if (trackingNumber) order.trackingNumber = trackingNumber
+    } else if (status === ORDER_STATUS.COMPLETED || status === 5) {
+      order.completedAt = new Date()
+    } else if (status === ORDER_STATUS.CANCELLED || status === 6) {
+      order.cancelledAt = new Date()
+      order.cancelRequest = false
+    }
+    
+    order.updatedAt = new Date()
+    await order.save()
+    
+    console.log('📝 更新订单状态:', id, oldStatus, '->', status)
+    res.json({ success: true, message: '状态更新成功', data: order })
+  } catch (error) {
+    console.error('更新订单状态失败:', error)
+    res.status(500).json({ success: false, message: '更新订单状态失败' })
+  }
+})
+
+// PATCH /api/orders/:id - 更新订单信息（商家备注、状态等）
+router.patch('/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { adminNote, status } = req.body
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    // 更新商家备注
+    if (adminNote !== undefined) {
+      order.adminNote = adminNote
+      console.log('📝 更新商家备注:', id, adminNote)
+    }
+    
+    // 更新订单状态
+    if (status !== undefined) {
+      const validStatuses = Object.values(ORDER_STATUS)
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ success: false, message: '无效的订单状态' })
+      }
+      
+      const oldStatus = order.status
+      order.status = status
+      
+      // 根据状态更新时间字段
+      if (status === ORDER_STATUS.PENDING_SHIPMENT && oldStatus === ORDER_STATUS.PENDING_PAYMENT) {
+        order.paidAt = new Date()
+      } else if (status === ORDER_STATUS.PENDING_RECEIPT && oldStatus === ORDER_STATUS.PENDING_SHIPMENT) {
+        order.shippedAt = new Date()
+      } else if (status === ORDER_STATUS.COMPLETED) {
+        order.completedAt = new Date()
+      } else if (status === ORDER_STATUS.CANCELLED) {
+        order.cancelledAt = new Date()
+        order.cancelRequest = false  // 清除取消请求标记
+      }
+      
+      console.log('📝 更新订单状态:', id, oldStatus, '->', status)
+    }
+    
+    order.updatedAt = new Date()
+    await order.save()
+    
+    res.json({ success: true, message: '订单更新成功', data: order })
+  } catch (error) {
+    console.error('更新订单失败:', error)
+    res.status(500).json({ success: false, message: '更新订单失败' })
+  }
+})
+
 // DELETE /api/orders/:id - 删除订单（软删除，移至回收站）
 router.delete('/:id', async (req, res) => {
   try {
