@@ -146,11 +146,23 @@ const createCategory = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params
-    const { name, description, order, status } = req.body
+    const { name, description, order, status, image, icon, parentId, level, slug } = req.body
+
+    // 构建更新对象，只包含有值的字段
+    const updateData = { updatedAt: new Date() }
+    if (name !== undefined) updateData.name = name
+    if (description !== undefined) updateData.description = description
+    if (order !== undefined) updateData.order = order
+    if (status !== undefined) updateData.status = status
+    if (image !== undefined) updateData.image = image
+    if (icon !== undefined) updateData.icon = icon
+    if (parentId !== undefined) updateData.parentId = parentId || null
+    if (level !== undefined) updateData.level = level
+    if (slug !== undefined) updateData.slug = slug
 
     const category = await Category.findByIdAndUpdate(
       id,
-      { name, description, order, status, updatedAt: new Date() },
+      updateData,
       { new: true, runValidators: true }
     )
 

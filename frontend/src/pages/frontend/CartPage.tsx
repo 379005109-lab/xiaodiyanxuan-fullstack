@@ -133,6 +133,32 @@ export default function CartPage() {
     }
   }
 
+  // 获取商品尺寸字符串
+  const getProductSize = (item: typeof items[0]) => {
+    const sku = item.sku
+    if (sku?.length && sku?.width && sku?.height) {
+      return `${sku.length}*${sku.width}*${sku.height}`
+    }
+    if (sku?.length && sku?.width) {
+      return `${sku.length}*${sku.width}`
+    }
+    return sku?.spec || '标准规格'
+  }
+
+  // 判断是否为沙发类产品（作为主产品大显示）
+  const isSofaProduct = (item: typeof items[0]) => {
+    const name = item.product?.name?.toLowerCase() || ''
+    const category = (item.product as any)?.category?.toLowerCase() || ''
+    return name.includes('沙发') || category.includes('sofa') || category.includes('沙发')
+  }
+
+  // 分离主产品和普通产品
+  const mainProducts = selectedCartItems.filter(isSofaProduct)
+  const otherProducts = selectedCartItems.filter(item => !isSofaProduct(item))
+
+  // 计算总价
+  const totalPriceForImage = selectedCartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+
   return (
     <div className="animate-fade-in-up pb-32">
       <div className="max-w-5xl mx-auto px-6 py-12">
@@ -390,37 +416,112 @@ export default function CartPage() {
                   padding: '40px'
                 }}
               >
-                {/* 标题 */}
+                {/* 标题 - 显示数量和总价 */}
                 <div className="text-center mb-8">
-                  <h2 className="text-2xl font-serif font-bold text-gray-800 mb-2">商品清单</h2>
-                  <p className="text-sm text-gray-400">XIAODI SUPPLY CHAIN</p>
+                  <h1 style={{ fontSize: '48px', fontWeight: 'bold', color: '#1a1a1a', marginBottom: '8px' }}>
+                    {selectedCartItems.length}件套：{totalPriceForImage.toLocaleString()}
+                  </h1>
                 </div>
                 
-                {/* 商品网格 */}
-                <div
-                  className="grid gap-6"
-                  style={{ gridTemplateColumns: `repeat(${getImageLayout().cols}, 1fr)` }}
-                >
-                  {selectedCartItems.map((item) => (
-                    <div key={`${item.product._id}-${item.sku._id}`} className="text-center">
-                      {/* 商品图片 */}
-                      <div className="bg-gray-50 rounded-xl overflow-hidden mb-4 aspect-square flex items-center justify-center">
-                        <img
-                          src={(item.sku?.images?.[0] || item.product?.images?.[0]) ? getFileUrl(item.sku?.images?.[0] || item.product.images[0]) : '/placeholder.svg'}
-                          alt={item.product?.name}
-                          className="max-w-full max-h-full object-contain"
-                          crossOrigin="anonymous"
-                        />
+                {/* 主产品（沙发类）- 大图显示 */}
+                {mainProducts.length > 0 && (
+                  <div className="mb-8">
+                    {mainProducts.map((item) => (
+                      <div key={`main-${item.product._id}-${item.sku._id}`} className="flex items-center gap-8">
+                        {/* 主产品图片 - 占据大部分空间 */}
+                        <div style={{ width: '60%', aspectRatio: '4/3' }} className="bg-gray-50 rounded-xl overflow-hidden flex items-center justify-center">
+                          <img
+                            src={(item.sku?.images?.[0] || item.product?.images?.[0]) ? getFileUrl(item.sku?.images?.[0] || item.product.images[0]) : '/placeholder.svg'}
+                            alt={item.product?.name}
+                            className="max-w-full max-h-full object-contain"
+                            crossOrigin="anonymous"
+                          />
+                        </div>
+                        {/* 主产品信息 */}
+                        <div className="flex-1 text-right">
+                          <h2 style={{ fontSize: '32px', fontWeight: 'bold', color: '#1a1a1a', marginBottom: '12px' }}>
+                            {item.product?.name}
+                          </h2>
+                          <p style={{ fontSize: '20px', color: '#666', marginBottom: '8px' }}>
+                            size: {getProductSize(item)}
+                          </p>
+                          <p style={{ fontSize: '14px', color: '#999', lineHeight: '1.6' }}>
+                            Italian minimalist furniture<br/>
+                            I have everything
+                          </p>
+                        </div>
                       </div>
-                      {/* 商品名称 */}
-                      <h3 className="font-bold text-gray-800 text-lg mb-2 line-clamp-2">{item.product?.name}</h3>
-                      {/* 尺寸 */}
-                      <p className="text-gray-500 text-sm mb-2">尺寸：{item.sku?.spec || '标准规格'}</p>
-                      {/* 价格 */}
-                      <p className="text-gray-400 text-xs">Foshan source factory Italian minimalist furniture</p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* 其他产品 - 小图网格 */}
+                {otherProducts.length > 0 && (
+                  <div
+                    className="grid gap-6"
+                    style={{ gridTemplateColumns: `repeat(${Math.min(otherProducts.length, 5)}, 1fr)` }}
+                  >
+                    {otherProducts.map((item) => (
+                      <div key={`other-${item.product._id}-${item.sku._id}`} className="text-center">
+                        {/* 商品图片 */}
+                        <div className="bg-gray-50 rounded-lg overflow-hidden mb-3" style={{ aspectRatio: '1' }}>
+                          <img
+                            src={(item.sku?.images?.[0] || item.product?.images?.[0]) ? getFileUrl(item.sku?.images?.[0] || item.product.images[0]) : '/placeholder.svg'}
+                            alt={item.product?.name}
+                            className="w-full h-full object-contain"
+                            crossOrigin="anonymous"
+                          />
+                        </div>
+                        {/* 商品名称 */}
+                        <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#1a1a1a', marginBottom: '4px' }}>
+                          {item.product?.name}
+                        </h3>
+                        {/* 尺寸 */}
+                        <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                          size: {getProductSize(item)}
+                        </p>
+                        {/* 底部标识 */}
+                        <p style={{ fontSize: '10px', color: '#999' }}>
+                          xiaodiyanxuan
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 如果没有主产品，全部用网格显示 */}
+                {mainProducts.length === 0 && (
+                  <div
+                    className="grid gap-6"
+                    style={{ gridTemplateColumns: `repeat(${getImageLayout().cols}, 1fr)` }}
+                  >
+                    {selectedCartItems.map((item) => (
+                      <div key={`all-${item.product._id}-${item.sku._id}`} className="text-center">
+                        {/* 商品图片 */}
+                        <div className="bg-gray-50 rounded-lg overflow-hidden mb-3" style={{ aspectRatio: '1' }}>
+                          <img
+                            src={(item.sku?.images?.[0] || item.product?.images?.[0]) ? getFileUrl(item.sku?.images?.[0] || item.product.images[0]) : '/placeholder.svg'}
+                            alt={item.product?.name}
+                            className="w-full h-full object-contain"
+                            crossOrigin="anonymous"
+                          />
+                        </div>
+                        {/* 商品名称 */}
+                        <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#1a1a1a', marginBottom: '4px' }}>
+                          {item.product?.name}
+                        </h3>
+                        {/* 尺寸 */}
+                        <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                          size: {getProductSize(item)}
+                        </p>
+                        {/* 底部标识 */}
+                        <p style={{ fontSize: '10px', color: '#999' }}>
+                          xiaodiyanxuan
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

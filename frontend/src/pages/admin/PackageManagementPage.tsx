@@ -159,7 +159,7 @@ const PackageManagementPage: React.FC = () => {
   // 加载套餐数据（编辑模式）
   useEffect(() => {
     const loadPackageData = async () => {
-      if (!isEditing || !id || allProducts.length === 0) return;
+      if (!isEditing || !id) return;
       
       try {
         console.log('🔄 加载套餐数据:', id);
@@ -168,7 +168,7 @@ const PackageManagementPage: React.FC = () => {
         console.log('📦 套餐数据:', pkg);
         
         // 设置基本信息
-        setPackageName(pkg.name);
+        setPackageName(pkg.name || '');
         setPackagePrice(pkg.basePrice || 0);
         setPackageImage(pkg.thumbnail || '');
         setPackageImages(pkg.images || []);
@@ -185,27 +185,60 @@ const PackageManagementPage: React.FC = () => {
           });
           setOptionalQuantities(quantities);
           
-          // 设置selectedProducts - 从categories.products中加载
-          const productsMap: Record<string, Product[]> = {};
-          pkg.categories.forEach((category: any) => {
-            if (category.products && category.products.length > 0) {
-              const categoryProducts: Product[] = [];
-              category.products.forEach((productId: string) => {
-                const product = allProducts.find((p: Product) => p._id === productId);
-                if (product) {
-                  categoryProducts.push(product);
+          // 如果商品数据已加载，设置selectedProducts
+          if (allProducts.length > 0) {
+            const productsMap: Record<string, Product[]> = {};
+            pkg.categories.forEach((category: any) => {
+              if (category.products && category.products.length > 0) {
+                const categoryProducts: Product[] = [];
+                category.products.forEach((productId: string) => {
+                  // 支持productId是对象或字符串
+                  const id = typeof productId === 'object' ? (productId as any)._id || (productId as any).productId : productId;
+                  const product = allProducts.find((p: Product) => p._id === id);
+                  if (product) {
+                    categoryProducts.push(product);
+                  } else {
+                    console.warn('⚠️ 未找到商品:', id);
+                  }
+                });
+                if (categoryProducts.length > 0) {
+                  productsMap[category.name] = categoryProducts;
                 }
-              });
-              productsMap[category.name] = categoryProducts;
-            }
-          });
-          setSelectedProducts(productsMap);
-          console.log('✅ 已加载商品:', productsMap);
+              }
+            });
+            setSelectedProducts(productsMap);
+            console.log('✅ 已加载商品:', productsMap);
+          }
+          
           toast.success('套餐数据加载成功');
-        } else {
-          // 旧套餐没有categories结构
-          console.warn('⚠️ 该套餐没有categories结构，请删除后重新创建');
-          toast.error('该套餐数据格式过旧，无法编辑。请删除后重新创建套餐。');
+        } else if (pkg.products && pkg.products.length > 0) {
+          // 旧格式：products数组
+          console.log('⚠️ 检测到旧套餐格式，尝试转换...');
+          
+          // 尝试从products中提取商品
+          if (allProducts.length > 0) {
+            const productsMap: Record<string, Product[]> = {};
+            pkg.products.forEach((item: any) => {
+              const productId = item.productId || item._id;
+              const product = allProducts.find((p: Product) => p._id === productId);
+              if (product) {
+                const categoryName = (product as any).categoryName || '其他';
+                if (!productsMap[categoryName]) {
+                  productsMap[categoryName] = [];
+                }
+                productsMap[categoryName].push(product);
+              }
+            });
+            
+            // 设置标签和商品
+            const categoryNames = Object.keys(productsMap);
+            if (categoryNames.length > 0) {
+              setTags(categoryNames);
+              setSelectedProducts(productsMap);
+            }
+          }
+          
+          toast.info('旧格式套餐已加载，请检查商品信息');
         }
       } catch (error) {
         console.error('❌ 加载套餐数据失败:', error);

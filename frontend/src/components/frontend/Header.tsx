@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
@@ -23,9 +23,13 @@ export default function Header() {
   // 分类悬浮窗口状态
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
   const [categories, setCategories] = useState<any[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const categoryMenuRef = useRef<HTMLDivElement>(null)
   const categoryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  // 从URL获取当前选中的分类
+  const [searchParams] = useSearchParams()
+  const location = useLocation()
+  const currentCategory = searchParams.get('category') || ''
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -76,11 +80,17 @@ export default function Header() {
   const handleCategoryClick = (categorySlug?: string) => {
     setCategoryMenuOpen(false)
     if (categorySlug) {
-      setSelectedCategory(categorySlug)
       navigate(`/products?category=${categorySlug}`)
     } else {
       navigate('/categories')
     }
+  }
+  
+  // 获取当前分类名称
+  const getCurrentCategoryName = () => {
+    if (!currentCategory) return null
+    const cat = categories.find(c => c.slug === currentCategory || c._id === currentCategory || c.name === currentCategory)
+    return cat?.name || currentCategory
   }
 
   const handleSearch = (e: React.FormEvent) => {
@@ -130,6 +140,11 @@ export default function Header() {
               className={`${getLinkClass('/categories')} cursor-pointer flex items-center gap-1`}
             >
               商品分类
+              {getCurrentCategoryName() && (
+                <span className="text-primary font-medium text-xs bg-primary/10 px-2 py-0.5 rounded-full ml-1">
+                  {getCurrentCategoryName()}
+                </span>
+              )}
               <ChevronDown className={`w-3 h-3 transition-transform ${categoryMenuOpen ? 'rotate-180' : ''}`} />
             </span>
             
@@ -150,50 +165,74 @@ export default function Header() {
                   </button>
                 </div>
                 
-                {/* 分类网格 */}
-                <div className="grid grid-cols-4 gap-4">
-                  {categories.slice(0, 8).map((category) => (
-                    <div
-                      key={category._id}
-                      onClick={() => handleCategoryClick(category.slug || category._id)}
-                      className="group cursor-pointer rounded-xl overflow-hidden border border-stone-100 hover:border-primary/30 hover:shadow-lg transition-all"
-                    >
-                      {/* 分类图片 */}
-                      <div className="aspect-square bg-stone-50 overflow-hidden">
-                        {category.image ? (
-                          <img
-                            src={getFileUrl(category.image)}
-                            alt={category.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Grid className="w-12 h-12 text-stone-300" />
+                {/* 分类列表 - 支持层级显示 */}
+                <div className="space-y-4">
+                  {categories.filter(c => !c.parentId).slice(0, 6).map((parentCategory) => (
+                    <div key={parentCategory._id} className="border-b border-stone-100 pb-4 last:border-b-0">
+                      {/* 一级分类 */}
+                      <div className="flex items-center gap-4 mb-3">
+                        <div
+                          onClick={() => handleCategoryClick(parentCategory.slug || parentCategory._id)}
+                          className="flex items-center gap-3 cursor-pointer group"
+                        >
+                          {/* 分类图片 */}
+                          <div className="w-12 h-12 rounded-lg bg-stone-50 overflow-hidden flex-shrink-0">
+                            {parentCategory.image ? (
+                              <img
+                                src={getFileUrl(parentCategory.image)}
+                                alt={parentCategory.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Grid className="w-6 h-6 text-stone-300" />
+                              </div>
+                            )}
                           </div>
-                        )}
+                          <div>
+                            <h4 className="font-bold text-stone-800 group-hover:text-primary transition-colors">
+                              {parentCategory.name}
+                            </h4>
+                            {parentCategory.productCount !== undefined && (
+                              <p className="text-xs text-stone-400">{parentCategory.productCount} 件商品</p>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      {/* 分类信息 */}
-                      <div className="p-3 bg-white">
-                        <h4 className="font-medium text-stone-800 group-hover:text-primary transition-colors text-sm truncate">
-                          {category.name}
-                        </h4>
-                        {category.productCount !== undefined && (
-                          <p className="text-xs text-stone-400 mt-1">{category.productCount} 件商品</p>
-                        )}
-                      </div>
+                      
+                      {/* 二级分类 */}
+                      {parentCategory.children && parentCategory.children.length > 0 && (
+                        <div className="flex flex-wrap gap-2 ml-15">
+                          {parentCategory.children.map((child: any) => (
+                            <button
+                              key={child._id}
+                              onClick={() => handleCategoryClick(child.slug || child._id)}
+                              className="px-3 py-1.5 text-sm rounded-full border border-stone-200 text-stone-600 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
+                            >
+                              {child.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
                 
                 {/* 当前选中提示 */}
-                {selectedCategory && (
-                  <div className="mt-4 pt-4 border-t border-stone-100">
+                {currentCategory && (
+                  <div className="mt-4 pt-4 border-t border-stone-100 flex items-center justify-between">
                     <p className="text-sm text-stone-500">
                       当前选中：
                       <span className="text-primary font-medium ml-1">
-                        {categories.find(c => c.slug === selectedCategory || c._id === selectedCategory)?.name || selectedCategory}
+                        {getCurrentCategoryName()}
                       </span>
                     </p>
+                    <button
+                      onClick={() => navigate('/products')}
+                      className="text-xs text-stone-400 hover:text-red-500"
+                    >
+                      清除筛选
+                    </button>
                   </div>
                 )}
               </div>

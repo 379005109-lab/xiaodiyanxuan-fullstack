@@ -224,29 +224,60 @@ export default function ProductsPage() {
     }
   }
 
-  // 筛选商品
-  const filteredProducts = products.filter(product => {
-    // 分类筛选 - 支持多个分类（用逗号分隔）
-    if (filters.category) {
-      const categoryIds = filters.category.split(',').map(id => id.trim())
-      // 如果是大类ID，需要包含该大类及其所有子分类
-      const allCategoryIds = new Set<string>()
-      categoryIds.forEach(catId => {
-        allCategoryIds.add(catId)
-        // 如果是大类，添加所有子分类
-        if (catId === '3') { // 沙发大类
-          ['301', '302', '303', '304', '305', '306', '307', '308'].forEach(id => allCategoryIds.add(id))
-        } else if (catId === '6') { // 床大类
-          ['601', '602', '603', '604', '605', '606'].forEach(id => allCategoryIds.add(id))
-        } else if (catId === '4') { // 桌/几大类
-          ['401', '402', '403'].forEach(id => allCategoryIds.add(id))
-        } else if (catId === '5') { // 椅/凳大类
-          ['501', '502', '503', '504', '505', '506', '507', '508', '509'].forEach(id => allCategoryIds.add(id))
+  // 获取分类及其所有子分类的ID和名称
+  const getCategoryAndChildIds = (categoryId: string): Set<string> => {
+    const result = new Set<string>()
+    result.add(categoryId)
+    
+    // 递归查找子分类
+    const findChildren = (cats: any[], parentId: string) => {
+      cats.forEach(cat => {
+        // 检查是否匹配（通过ID、slug或name）
+        if (cat._id === parentId || cat.slug === parentId || cat.name === parentId) {
+          result.add(cat._id)
+          result.add(cat.slug || '')
+          result.add(cat.name)
+          // 添加所有子分类
+          if (cat.children && cat.children.length > 0) {
+            cat.children.forEach((child: any) => {
+              result.add(child._id)
+              result.add(child.slug || '')
+              result.add(child.name)
+              // 递归添加更深层的子分类
+              if (child.children) {
+                findChildren([child], child._id)
+              }
+            })
+          }
+        }
+        // 也在子分类中查找
+        if (cat.children && cat.children.length > 0) {
+          findChildren(cat.children, parentId)
         }
       })
+    }
+    
+    findChildren(categories, categoryId)
+    return result
+  }
+
+  // 筛选商品
+  const filteredProducts = products.filter(product => {
+    // 分类筛选 - 支持父子分类层级
+    if (filters.category) {
+      const categoryIds = filters.category.split(',').map(id => id.trim())
+      // 获取所有匹配的分类ID（包括子分类）
+      const allCategoryIds = new Set<string>()
+      categoryIds.forEach(catId => {
+        const ids = getCategoryAndChildIds(catId)
+        ids.forEach(id => allCategoryIds.add(id))
+      })
+      
       // 检查商品分类是否匹配
-      const productCategoryId = String(product.category)
-      if (!allCategoryIds.has(productCategoryId)) {
+      const productCategory = String(product.category)
+      const productCategoryName = (product as any).categoryName || ''
+      
+      if (!allCategoryIds.has(productCategory) && !allCategoryIds.has(productCategoryName)) {
         return false
       }
     }
