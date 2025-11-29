@@ -795,9 +795,13 @@ export default function ProductManagement() {
                 }
                 return sku
               })
-              await updateProduct(matchedProduct._id, { skus: updatedSkus })
-              counts.updatedSkuCount++
-              console.log(`✅ 商品 "${productName}" 的第一个SKU 更新了 ${uploadedUrls.length} 张图片, counts.updatedSkuCount=${counts.updatedSkuCount}`)
+              try {
+                await updateProduct(matchedProduct._id, { skus: updatedSkus })
+                counts.updatedSkuCount++
+                console.log(`✅ 商品 "${productName}" 的第一个SKU 更新了 ${uploadedUrls.length} 张图片, counts.updatedSkuCount=${counts.updatedSkuCount}`)
+              } catch (updateErr) {
+                console.error(`❌ 更新商品失败:`, updateErr)
+              }
             }
           }
         }
@@ -861,7 +865,8 @@ export default function ProductManagement() {
       }
       
       toast.dismiss(toastId)
-      console.log(`📊 最终统计: counts.updatedProductCount=${counts.updatedProductCount}, counts.updatedSkuCount=${counts.updatedSkuCount}, counts.uploadedImageCount=${counts.uploadedImageCount}`)
+      console.log(`📊 counts对象:`, counts)
+      console.log(`📊 最终统计: updatedProductCount=${counts.updatedProductCount}, updatedSkuCount=${counts.updatedSkuCount}, uploadedImageCount=${counts.uploadedImageCount}`)
       if (counts.updatedProductCount > 0 || counts.updatedSkuCount > 0) {
         toast.success(`批量上传完成！更新了 ${counts.updatedProductCount} 个商品主图，${counts.updatedSkuCount} 个SKU图片，共 ${counts.uploadedImageCount} 张图片`)
         await loadProducts()
