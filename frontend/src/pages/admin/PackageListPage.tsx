@@ -35,9 +35,12 @@ const PackageListPage: React.FC = () => {
   const loadPackages = async () => {
     try {
       console.log('🔍 [套餐列表] 开始加载套餐数据...');
+      console.log('🔍 [套餐列表] 请求URL: /packages?pageSize=100');
+      
       // 请求所有状态的套餐，不只是active状态
       const response = await apiClient.get('/packages', { params: { pageSize: 100 } });
-      console.log('🔍 [套餐列表] API响应:', response.data);
+      console.log('🔍 [套餐列表] API响应状态:', response.status);
+      console.log('🔍 [套餐列表] API响应数据:', response.data);
       
       if (!response.data.data || !Array.isArray(response.data.data)) {
         console.error('🔍 [套餐列表] API返回数据格式错误:', response.data);
