@@ -855,6 +855,7 @@ export default function ProductManagement() {
       }
       
       toast.dismiss(toastId)
+      console.log(`📊 最终统计: updatedProductCount=${updatedProductCount}, updatedSkuCount=${updatedSkuCount}, uploadedImageCount=${uploadedImageCount}`)
       if (updatedProductCount > 0 || updatedSkuCount > 0) {
         toast.success(`批量上传完成！更新了 ${updatedProductCount} 个商品主图，${updatedSkuCount} 个SKU图片，共 ${uploadedImageCount} 张图片`)
         await loadProducts()
