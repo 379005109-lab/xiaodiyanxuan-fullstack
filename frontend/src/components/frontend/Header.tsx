@@ -8,6 +8,7 @@ import { useCompareStore } from '@/store/compareStore'
 import { useState, useEffect, useRef } from 'react'
 import { getAllCategories } from '@/services/categoryService'
 import { getFileUrl } from '@/services/uploadService'
+import SearchModal from './SearchModal'
 
 export default function Header() {
   const { isAuthenticated, user, logout } = useAuthStore()
@@ -18,6 +19,7 @@ export default function Header() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [showSearchModal, setShowSearchModal] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
   
   // 分类悬浮窗口状态
@@ -252,17 +254,22 @@ export default function Header() {
         <div className="flex items-center space-x-3 md:space-x-5">
           
 
-          {/* Search */}
-          <form onSubmit={handleSearch} className="hidden lg:flex items-center bg-stone-100/50 rounded-full px-4 py-1.5 focus-within:ring-1 focus-within:ring-primary/30 transition-all border border-transparent focus-within:border-primary/20">
+          {/* Search - 点击打开搜索模态框 */}
+          <button 
+            onClick={() => setShowSearchModal(true)}
+            className="hidden lg:flex items-center bg-stone-100/50 rounded-full px-4 py-2 hover:bg-stone-100 transition-all border border-transparent hover:border-primary/20 cursor-pointer"
+          >
             <Search className="text-stone-400 w-4 h-4 mr-2" />
-            <input 
-              type="text" 
-              placeholder="搜索型号/产品..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none text-sm w-20 md:w-28 placeholder:text-stone-400 text-primary"
-            />
-          </form>
+            <span className="text-sm text-stone-400">搜索型号/产品...</span>
+          </button>
+          
+          {/* 移动端搜索图标 */}
+          <button 
+            onClick={() => setShowSearchModal(true)}
+            className="lg:hidden p-2 text-stone-500 hover:text-primary transition-colors"
+          >
+            <Search className="w-5 h-5" />
+          </button>
           
           {/* Favorites */}
           <Link
@@ -412,6 +419,9 @@ export default function Header() {
           </button>
         </div>
       </div>
+      
+      {/* 搜索模态框 */}
+      <SearchModal isOpen={showSearchModal} onClose={() => setShowSearchModal(false)} />
     </header>
   )
 }

@@ -261,8 +261,28 @@ export default function ProductsPage() {
     return result
   }
 
+  // 获取搜索关键词
+  const searchKeyword = searchParams.get('search') || ''
+
   // 筛选商品
   const filteredProducts = products.filter(product => {
+    // 搜索过滤 - 模糊匹配名称、分类、型号
+    if (searchKeyword) {
+      const keyword = searchKeyword.toLowerCase()
+      const name = (product.name || '').toLowerCase()
+      const categoryName = ((product as any).categoryName || '').toLowerCase()
+      const model = ((product as any).model || '').toLowerCase()
+      const specs = ((product as any).specs || '').toLowerCase()
+      
+      // 模糊匹配
+      if (!name.includes(keyword) && 
+          !categoryName.includes(keyword) && 
+          !model.includes(keyword) && 
+          !specs.includes(keyword)) {
+        return false
+      }
+    }
+    
     // 分类筛选 - 支持父子分类层级
     if (filters.category) {
       const categoryIds = filters.category.split(',').map(id => id.trim())
@@ -493,11 +513,15 @@ export default function ProductsPage() {
     <div className="min-h-screen bg-[#F2F4F3]">
       {/* 深绿色头部 */}
       <div className="bg-primary py-16 text-center">
-        <h1 className="text-4xl font-serif font-bold text-white mb-2">产品目录</h1>
-        <p className="text-white/60 uppercase tracking-[0.3em] text-sm">PRODUCT CATALOG 2024</p>
+        <h1 className="text-4xl font-serif font-bold text-white mb-2">
+          {searchKeyword ? `搜索 "${searchKeyword}"` : '产品目录'}
+        </h1>
+        <p className="text-white/60 uppercase tracking-[0.3em] text-sm">
+          {searchKeyword ? `找到 ${filteredProducts.length} 个商品` : 'PRODUCT CATALOG 2024'}
+        </p>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-[1800px] mx-auto px-4 lg:px-8 py-8">
         <div className="flex gap-8">
           {/* 侧边栏筛选 */}
           <aside className="w-64 flex-shrink-0">
@@ -742,7 +766,7 @@ export default function ProductsPage() {
               </div>
             ) : (
               <>
-              <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4' : 'space-y-4'}>
+              <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-5' : 'space-y-4'}>
                 {paginatedProducts.map((product, index) => (
                   <motion.div
                     key={product._id}
