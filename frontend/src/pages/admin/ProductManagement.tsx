@@ -638,16 +638,18 @@ export default function ProductManagement() {
       // - "C100-01_1.jpg", "C100-01 1.jpg"
       const parseFileName = (fileName: string) => {
         // 移除扩展名（支持更多格式）
-        const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp|bmp|tiff|tif|svg|ico|heic|heif|avif|raw)$/i, '')
+        const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp|bmp|tiff|tif|svg|ico|heic|heif|avif|raw)$/i, '').trim()
         
-        // 特殊格式1: "008-01云沙发（1）" -> 商品型号-SKU型号+商品名称+（序号）
-        // 匹配: 数字-数字+中文名称+括号序号
-        const skuFormatMatch = nameWithoutExt.match(/^(\d+[-]\d+)(.+?)\s*[（(](\d+)[）)]$/)
+        console.log(`解析文件名: "${fileName}" -> 去扩展名: "${nameWithoutExt}"`)
+        
+        // 特殊格式1: "008-01云沙发（1）" 或 "008-01云沙发 (2)" -> 商品型号-SKU型号+商品名称+（序号）
+        // 匹配: 数字-数字+任意字符+括号序号（支持括号前有空格）
+        const skuFormatMatch = nameWithoutExt.match(/^(\d+[-]\d+)(.+?)\s*[（(\s]+(\d+)[）)\s]*$/)
         if (skuFormatMatch) {
           const skuCode = skuFormatMatch[1] // "008-01"
           const productName = skuFormatMatch[2].trim() // "云沙发"
           const index = parseInt(skuFormatMatch[3]) // 1
-          console.log(`解析SKU格式: "${fileName}" -> skuCode="${skuCode}", productName="${productName}", index=${index}`)
+          console.log(`✓ 解析SKU格式: skuCode="${skuCode}", productName="${productName}", index=${index}`)
           return { baseName: productName, skuCode, index }
         }
         
@@ -657,7 +659,7 @@ export default function ProductManagement() {
           const skuCode = skuFormatMatch2[1]
           const productName = skuFormatMatch2[2].trim()
           const index = parseInt(skuFormatMatch2[3])
-          console.log(`解析SKU格式2: "${fileName}" -> skuCode="${skuCode}", productName="${productName}", index=${index}`)
+          console.log(`✓ 解析SKU格式2: skuCode="${skuCode}", productName="${productName}", index=${index}`)
           return { baseName: productName, skuCode, index }
         }
         
@@ -722,10 +724,18 @@ export default function ProductManagement() {
       
       // 1. 处理SKU图片组（格式如：008-01云沙发（1）.png）
       for (const [skuCode, imageGroup] of Object.entries(skuImageGroups)) {
+        console.log(`🔍 查找SKU: "${skuCode}"`)
+        let found = false
         // 在所有商品中查找匹配的SKU
         for (const product of products) {
+          // 列出该商品的所有SKU codes用于调试
+          const skuCodes = product.skus?.map(s => s.code).filter(Boolean) || []
+          if (skuCodes.length > 0) {
+            console.log(`  商品 "${product.name}" 的SKU codes: [${skuCodes.join(', ')}]`)
+          }
           const matchedSku = product.skus?.find(sku => sku.code === skuCode)
           if (matchedSku) {
+            found = true
             // 上传图片
             const uploadedUrls: string[] = []
             for (const { file } of imageGroup) {
@@ -750,6 +760,9 @@ export default function ProductManagement() {
             }
             break
           }
+        }
+        if (!found) {
+          console.log(`❌ 未找到匹配的SKU: "${skuCode}"`)
         }
       }
       
