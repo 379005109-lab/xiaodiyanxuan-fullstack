@@ -718,9 +718,8 @@ export default function ProductManagement() {
       console.log('SKU图片分组:', Object.keys(skuImageGroups))
       console.log('商品图片分组:', Object.keys(productImageGroups))
       
-      let updatedProductCount = 0
-      let updatedSkuCount = 0
-      let uploadedImageCount = 0
+      // 使用对象来避免闭包问题
+      const counts = { updatedProductCount: 0, updatedSkuCount: 0, uploadedImageCount: 0 }
       
       // 1. 处理SKU图片组（格式如：008-01云沙发（1）.png）
       for (const [skuCode, imageGroup] of Object.entries(skuImageGroups)) {
@@ -738,7 +737,7 @@ export default function ProductManagement() {
               const result = await uploadFile(file)
               if (result.fileId) {
                 uploadedUrls.push(result.fileId)
-                uploadedImageCount++
+                counts.uploadedImageCount++
               }
             }
             
@@ -750,7 +749,7 @@ export default function ProductManagement() {
                 return sku
               })
               await updateProduct(product._id, { skus: updatedSkus })
-              updatedSkuCount++
+              counts.updatedSkuCount++
               console.log(`✅ SKU "${skuCode}" (商品: ${product.name}) 更新了 ${uploadedUrls.length} 张图片`)
             }
             break
@@ -780,7 +779,7 @@ export default function ProductManagement() {
               const fileId = result?.fileId || result?.data?.fileId || result?.id || result?.data?.id
               if (fileId) {
                 uploadedUrls.push(fileId)
-                uploadedImageCount++
+                counts.uploadedImageCount++
                 console.log(`✓ 获取到fileId: ${fileId}`)
               } else {
                 console.log(`❌ 未获取到fileId, result:`, JSON.stringify(result))
@@ -797,8 +796,8 @@ export default function ProductManagement() {
                 return sku
               })
               await updateProduct(matchedProduct._id, { skus: updatedSkus })
-              updatedSkuCount++
-              console.log(`✅ 商品 "${productName}" 的第一个SKU 更新了 ${uploadedUrls.length} 张图片, updatedSkuCount=${updatedSkuCount}`)
+              counts.updatedSkuCount++
+              console.log(`✅ 商品 "${productName}" 的第一个SKU 更新了 ${uploadedUrls.length} 张图片, counts.updatedSkuCount=${counts.updatedSkuCount}`)
             }
           }
         }
@@ -819,14 +818,14 @@ export default function ProductManagement() {
             const result = await uploadFile(file)
             if (result.fileId) {
               uploadedUrls.push(result.fileId)
-              uploadedImageCount++
+              counts.uploadedImageCount++
             }
           }
           
           if (uploadedUrls.length > 0) {
             const newImages = [...uploadedUrls, ...(matchedProduct.images || [])]
             await updateProduct(matchedProduct._id, { images: newImages })
-            updatedProductCount++
+            counts.updatedProductCount++
             console.log(`✅ 商品 "${baseName}" 更新了 ${uploadedUrls.length} 张主图`)
           }
           continue
@@ -841,7 +840,7 @@ export default function ProductManagement() {
               const result = await uploadFile(file)
               if (result.fileId) {
                 uploadedUrls.push(result.fileId)
-                uploadedImageCount++
+                counts.uploadedImageCount++
               }
             }
             
@@ -853,7 +852,7 @@ export default function ProductManagement() {
                 return sku
               })
               await updateProduct(product._id, { skus: updatedSkus })
-              updatedSkuCount++
+              counts.updatedSkuCount++
               console.log(`✅ SKU "${baseName}" (商品: ${product.name}) 更新了 ${uploadedUrls.length} 张图片`)
             }
             break
@@ -862,9 +861,9 @@ export default function ProductManagement() {
       }
       
       toast.dismiss(toastId)
-      console.log(`📊 最终统计: updatedProductCount=${updatedProductCount}, updatedSkuCount=${updatedSkuCount}, uploadedImageCount=${uploadedImageCount}`)
-      if (updatedProductCount > 0 || updatedSkuCount > 0) {
-        toast.success(`批量上传完成！更新了 ${updatedProductCount} 个商品主图，${updatedSkuCount} 个SKU图片，共 ${uploadedImageCount} 张图片`)
+      console.log(`📊 最终统计: counts.updatedProductCount=${counts.updatedProductCount}, counts.updatedSkuCount=${counts.updatedSkuCount}, counts.uploadedImageCount=${counts.uploadedImageCount}`)
+      if (counts.updatedProductCount > 0 || counts.updatedSkuCount > 0) {
+        toast.success(`批量上传完成！更新了 ${counts.updatedProductCount} 个商品主图，${counts.updatedSkuCount} 个SKU图片，共 ${counts.uploadedImageCount} 张图片`)
         await loadProducts()
       } else {
         toast.warning('未找到匹配的商品或SKU，请检查图片命名是否与商品名称或SKU型号一致')
