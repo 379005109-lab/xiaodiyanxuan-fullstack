@@ -724,19 +724,15 @@ export default function ProductManagement() {
       
       // 1. 处理SKU图片组（格式如：008-01云沙发（1）.png）
       for (const [skuCode, imageGroup] of Object.entries(skuImageGroups)) {
-        console.log(`🔍 查找SKU: "${skuCode}"`)
+        const productName = imageGroup[0]?.productName || ''
+        console.log(`🔍 查找SKU: "${skuCode}", 商品名: "${productName}"`)
         let found = false
-        // 在所有商品中查找匹配的SKU
+        
+        // 方式1: 按SKU code匹配
         for (const product of products) {
-          // 列出该商品的所有SKU codes用于调试
-          const skuCodes = product.skus?.map(s => s.code).filter(Boolean) || []
-          if (skuCodes.length > 0) {
-            console.log(`  商品 "${product.name}" 的SKU codes: [${skuCodes.join(', ')}]`)
-          }
           const matchedSku = product.skus?.find(sku => sku.code === skuCode)
           if (matchedSku) {
             found = true
-            // 上传图片
             const uploadedUrls: string[] = []
             for (const { file } of imageGroup) {
               const result = await uploadFile(file)
@@ -747,7 +743,6 @@ export default function ProductManagement() {
             }
             
             if (uploadedUrls.length > 0) {
-              // 更新SKU的图片
               const updatedSkus = product.skus.map(sku => {
                 if (sku.code === skuCode) {
                   return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
@@ -761,8 +756,38 @@ export default function ProductManagement() {
             break
           }
         }
+        
+        // 方式2: 如果SKU code没匹配到，尝试用商品名称匹配，更新该商品的第一个SKU
+        if (!found && productName) {
+          const matchedProduct = products.find(p => p.name === productName)
+          if (matchedProduct && matchedProduct.skus?.length > 0) {
+            found = true
+            const uploadedUrls: string[] = []
+            for (const { file } of imageGroup) {
+              const result = await uploadFile(file)
+              if (result.fileId) {
+                uploadedUrls.push(result.fileId)
+                uploadedImageCount++
+              }
+            }
+            
+            if (uploadedUrls.length > 0) {
+              // 更新第一个SKU的图片
+              const updatedSkus = matchedProduct.skus.map((sku, idx) => {
+                if (idx === 0) {
+                  return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
+                }
+                return sku
+              })
+              await updateProduct(matchedProduct._id, { skus: updatedSkus })
+              updatedSkuCount++
+              console.log(`✅ 商品 "${productName}" 的第一个SKU 更新了 ${uploadedUrls.length} 张图片`)
+            }
+          }
+        }
+        
         if (!found) {
-          console.log(`❌ 未找到匹配的SKU: "${skuCode}"`)
+          console.log(`❌ 未找到匹配: skuCode="${skuCode}", productName="${productName}"`)
         }
       }
       
