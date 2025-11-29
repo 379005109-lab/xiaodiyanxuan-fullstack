@@ -15,6 +15,7 @@ import { getFileUrl } from '@/services/uploadService';
 
 import ShareModal from '@/components/frontend/ShareModal';
 import CustomizationForm from '@/components/frontend/CustomizationForm';
+import TrackedImage from '@/components/TrackedImage';
 
 type SkuFilter = 'all' | 'standard' | 'pro';
 
@@ -760,7 +761,7 @@ const ProductDetailPage = () => {
                   isVideoFile(mainImage) ? (
                     <video src={getFileUrl(mainImage)} controls className="absolute inset-0 w-full h-full object-contain bg-black" />
                   ) : (
-                    <img src={getFileUrl(mainImage)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" />
+                    <TrackedImage src={getFileUrl(mainImage)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" />
                   )
                 ) : (
                   <div className="absolute inset-0 w-full h-full flex items-center justify-center text-gray-400">暂无图片</div>

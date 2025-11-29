@@ -7,6 +7,145 @@ const packageOrderController = require('../controllers/packageOrderController')
 // 所有订单路由都需要认证
 router.use(auth)
 
+// ========== 订单统计路由 ==========
+// GET /api/orders/stats - 获取订单统计数据（数据看板）
+router.get('/stats', async (req, res) => {
+  try {
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    // 获取日期范围
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    // 本周开始
+    const weekStart = new Date(today)
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+    
+    // 本月开始
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    
+    // 基础统计
+    const [
+      totalOrders,
+      totalRevenue,
+      todayOrders,
+      todayRevenue,
+      weekOrders,
+      weekRevenue,
+      monthOrders,
+      monthRevenue,
+      statusCounts
+    ] = await Promise.all([
+      // 总订单数（排除已删除）
+      Order.countDocuments({ isDeleted: { $ne: true } }),
+      // 总收入
+      Order.aggregate([
+        { $match: { isDeleted: { $ne: true }, status: { $nin: [5, 6, 'cancelled'] } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      // 今日订单
+      Order.countDocuments({ isDeleted: { $ne: true }, createdAt: { $gte: today, $lt: tomorrow } }),
+      // 今日收入
+      Order.aggregate([
+        { $match: { isDeleted: { $ne: true }, createdAt: { $gte: today, $lt: tomorrow }, status: { $nin: [5, 6, 'cancelled'] } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      // 本周订单
+      Order.countDocuments({ isDeleted: { $ne: true }, createdAt: { $gte: weekStart } }),
+      // 本周收入
+      Order.aggregate([
+        { $match: { isDeleted: { $ne: true }, createdAt: { $gte: weekStart }, status: { $nin: [5, 6, 'cancelled'] } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      // 本月订单
+      Order.countDocuments({ isDeleted: { $ne: true }, createdAt: { $gte: monthStart } }),
+      // 本月收入
+      Order.aggregate([
+        { $match: { isDeleted: { $ne: true }, createdAt: { $gte: monthStart }, status: { $nin: [5, 6, 'cancelled'] } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      // 各状态订单数
+      Order.aggregate([
+        { $match: { isDeleted: { $ne: true } } },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ])
+    ])
+    
+    // 构建状态分布
+    const statusBreakdown = {
+      pending: 0,      // 待付款 (1)
+      paid: 0,         // 已付款/待发货 (2)
+      shipped: 0,      // 已发货/待收货 (3)
+      completed: 0,    // 已完成 (4)
+      cancelled: 0,    // 已取消 (5)
+      refunding: 0,    // 退款中
+      refunded: 0,     // 已退款
+    }
+    
+    statusCounts.forEach(item => {
+      const s = item._id
+      if (s === 1 || s === 'pending') statusBreakdown.pending = item.count
+      else if (s === 2 || s === 'paid' || s === 'processing') statusBreakdown.paid = item.count
+      else if (s === 3 || s === 'shipped') statusBreakdown.shipped = item.count
+      else if (s === 4 || s === 'completed') statusBreakdown.completed = item.count
+      else if (s === 5 || s === 6 || s === 'cancelled') statusBreakdown.cancelled = item.count
+      else if (s === 'refunding') statusBreakdown.refunding = item.count
+      else if (s === 'refunded') statusBreakdown.refunded = item.count
+    })
+    
+    // 获取最近7天趋势数据
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+    
+    const dailyTrend = await Order.aggregate([
+      { $match: { isDeleted: { $ne: true }, createdAt: { $gte: sevenDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          orders: { $sum: 1 },
+          revenue: { $sum: { $cond: [{ $in: ['$status', [5, 6, 'cancelled']] }, 0, '$totalAmount'] } }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ])
+    
+    // 获取最近10个订单
+    const recentOrders = await Order.find({ isDeleted: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean()
+    
+    const totalRevenueValue = totalRevenue[0]?.total || 0
+    const avgOrderValue = totalOrders > 0 ? totalRevenueValue / totalOrders : 0
+    
+    res.json({
+      success: true,
+      data: {
+        totalOrders,
+        totalRevenue: totalRevenueValue,
+        avgOrderValue,
+        todayOrders,
+        todayRevenue: todayRevenue[0]?.total || 0,
+        weekOrders,
+        weekRevenue: weekRevenue[0]?.total || 0,
+        monthOrders,
+        monthRevenue: monthRevenue[0]?.total || 0,
+        pendingOrders: statusBreakdown.pending + statusBreakdown.paid,
+        completedOrders: statusBreakdown.completed,
+        statusBreakdown,
+        dailyTrend: dailyTrend.map(d => ({ date: d._id, orders: d.orders, revenue: d.revenue })),
+        recentOrders
+      }
+    })
+  } catch (error) {
+    console.error('获取订单统计失败:', error)
+    res.status(500).json({ success: false, message: '获取订单统计失败' })
+  }
+})
+
 // ========== 套餐订单路由 ==========
 // POST /api/orders/package - 创建套餐订单
 router.post('/package', packageOrderController.create)

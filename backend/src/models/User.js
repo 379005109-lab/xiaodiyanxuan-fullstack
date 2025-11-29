@@ -19,6 +19,15 @@ const userSchema = new mongoose.Schema({
   verifiedAt: Date,
   totalOrders: { type: Number, default: 0 },
   totalSpent: { type: Number, default: 0 },
+  // 用户标签（如：批量下载、高风险等）
+  tags: [{ type: String }],
+  // 图片下载统计
+  downloadStats: {
+    totalDownloads: { type: Number, default: 0 },
+    lastDownloadAt: Date,
+    consecutiveDownloads: { type: Number, default: 0 },  // 连续下载次数
+    lastConsecutiveReset: Date  // 上次重置连续下载计数的时间
+  },
   lastLoginAt: Date,
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }

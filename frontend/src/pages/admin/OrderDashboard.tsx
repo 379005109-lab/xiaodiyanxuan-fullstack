@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingUp, Package, DollarSign, Clock, CheckCircle, AlertCircle, BarChart3 } from 'lucide-react'
+import { TrendingUp, Package, DollarSign, Clock, CheckCircle, AlertCircle, BarChart3, Calendar, RefreshCw } from 'lucide-react'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Order, OrderStatus } from '@/types'
-import axios from '@/lib/axios'
+import apiClient from '@/lib/axios'
+import { toast } from 'sonner'
 
 interface DashboardStats {
   totalOrders: number
@@ -11,7 +12,13 @@ interface DashboardStats {
   pendingOrders: number
   completedOrders: number
   avgOrderValue: number
-  statusBreakdown: Record<OrderStatus, number>
+  todayOrders: number
+  todayRevenue: number
+  weekOrders: number
+  weekRevenue: number
+  monthOrders: number
+  monthRevenue: number
+  statusBreakdown: Record<string, number>
 }
 
 interface ChartData {
@@ -27,9 +34,14 @@ export default function OrderDashboard() {
     pendingOrders: 0,
     completedOrders: 0,
     avgOrderValue: 0,
+    todayOrders: 0,
+    todayRevenue: 0,
+    weekOrders: 0,
+    weekRevenue: 0,
+    monthOrders: 0,
+    monthRevenue: 0,
     statusBreakdown: {
       pending: 0,
-      processing: 0,
       paid: 0,
       shipped: 0,
       completed: 0,
@@ -48,77 +60,30 @@ export default function OrderDashboard() {
 
   const loadDashboardData = async () => {
     setLoading(true)
-    console.log('📊 [OrderDashboard] 开始加载数据...')
     try {
-      let allOrders: Order[] = []
-
-      // 从本地存储读取订单（管理后台使用本地存储）
-      try {
-        const stored = localStorage.getItem('orders') || localStorage.getItem('local_orders')
-        allOrders = stored ? JSON.parse(stored) : []
-        console.log('📊 [OrderDashboard] 从本地存储读取', allOrders.length, '个订单')
-      } catch (parseError) {
-        console.error('📊 [OrderDashboard] 解析localStorage失败', parseError)
-        allOrders = []
+      const response = await apiClient.get('/orders/stats')
+      if (response.data.success) {
+        const data = response.data.data
+        setStats({
+          totalOrders: data.totalOrders || 0,
+          totalRevenue: data.totalRevenue || 0,
+          pendingOrders: data.pendingOrders || 0,
+          completedOrders: data.completedOrders || 0,
+          avgOrderValue: data.avgOrderValue || 0,
+          todayOrders: data.todayOrders || 0,
+          todayRevenue: data.todayRevenue || 0,
+          weekOrders: data.weekOrders || 0,
+          weekRevenue: data.weekRevenue || 0,
+          monthOrders: data.monthOrders || 0,
+          monthRevenue: data.monthRevenue || 0,
+          statusBreakdown: data.statusBreakdown || {},
+        })
+        setRecentOrders(data.recentOrders || [])
+        setChartData(data.dailyTrend || [])
       }
-
-      // 计算统计数据
-      const totalOrders = allOrders.length
-      const totalRevenue = allOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
-
-      // 统计各状态订单
-      const statusBreakdown: Record<OrderStatus, number> = {
-        pending: 0,
-        processing: 0,
-        paid: 0,
-        shipped: 0,
-        completed: 0,
-        cancelled: 0,
-        refunding: 0,
-        refunded: 0,
-      }
-
-      allOrders.forEach((order) => {
-        statusBreakdown[order.status]++
-      })
-
-      const pendingOrders = statusBreakdown.pending + statusBreakdown.processing
-      const completedOrders = statusBreakdown.completed
-
-      setStats({
-        totalOrders,
-        totalRevenue,
-        pendingOrders,
-        completedOrders,
-        avgOrderValue,
-        statusBreakdown,
-      })
-
-      // 获取最近10个订单
-      const recentOrdersList = allOrders
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 10)
-      setRecentOrders(recentOrdersList)
-
-      // 生成图表数据（按日期统计）
-      const dateMap = new Map<string, { orders: number; revenue: number }>()
-      allOrders.forEach((order) => {
-        const date = new Date(order.createdAt).toLocaleDateString('zh-CN')
-        const existing = dateMap.get(date) || { orders: 0, revenue: 0 }
-        existing.orders++
-        existing.revenue += order.totalAmount || 0
-        dateMap.set(date, existing)
-      })
-
-      const chartDataArray = Array.from(dateMap.entries())
-        .map(([date, data]) => ({ date, ...data }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-7) // 只显示最近7天
-
-      setChartData(chartDataArray)
     } catch (error) {
       console.error('加载仪表板数据失败:', error)
+      toast.error('加载数据失败')
     } finally {
       setLoading(false)
     }
