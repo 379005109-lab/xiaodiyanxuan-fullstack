@@ -631,16 +631,34 @@ export default function ProductManagement() {
     
     try {
       // 解析图片文件名，提取名称和序号
-      // 支持格式: "劳伦斯1.jpg", "劳伦斯_1.jpg", "劳伦斯-1.jpg", "C100-01_1.jpg"
+      // 支持格式: 
+      // - "劳伦斯1.jpg", "劳伦斯 1.jpg", "劳伦斯_1.jpg", "劳伦斯-1.jpg"
+      // - "劳伦斯（1）.jpg", "劳伦斯(1).jpg", "劳伦斯 (1).jpg"
+      // - "C100-01_1.jpg", "C100-01 1.jpg"
       const parseFileName = (fileName: string) => {
-        // 移除扩展名
-        const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '')
-        // 匹配末尾的数字（可能有分隔符）
-        const match = nameWithoutExt.match(/^(.+?)[-_]?(\d+)$/)
-        if (match) {
-          return { baseName: match[1].replace(/[-_]$/, ''), index: parseInt(match[2]) }
+        // 移除扩展名（支持更多格式）
+        const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp|bmp|tiff|tif|svg|ico|heic|heif|avif|raw)$/i, '')
+        
+        // 尝试多种数字格式匹配
+        // 1. 括号格式: "名称（1）" 或 "名称(1)" 或 "名称 (1)"
+        const bracketMatch = nameWithoutExt.match(/^(.+?)\s*[（(](\d+)[）)]$/)
+        if (bracketMatch) {
+          return { baseName: bracketMatch[1].trim(), index: parseInt(bracketMatch[2]) }
         }
-        return { baseName: nameWithoutExt, index: 1 }
+        
+        // 2. 分隔符+数字: "名称_1" 或 "名称-1" 或 "名称 1"
+        const separatorMatch = nameWithoutExt.match(/^(.+?)[\s_\-](\d+)$/)
+        if (separatorMatch) {
+          return { baseName: separatorMatch[1].trim(), index: parseInt(separatorMatch[2]) }
+        }
+        
+        // 3. 直接数字结尾: "名称1" (中文/英文后直接跟数字)
+        const directMatch = nameWithoutExt.match(/^(.+?)(\d+)$/)
+        if (directMatch) {
+          return { baseName: directMatch[1].trim(), index: parseInt(directMatch[2]) }
+        }
+        
+        return { baseName: nameWithoutExt.trim(), index: 1 }
       }
       
       // 按基础名称分组图片
@@ -950,7 +968,7 @@ export default function ProductManagement() {
                 {batchImageUploading ? '上传中...' : '批量图片'}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.tif,.svg,.ico,.heic,.heif,.avif,image/*"
                   multiple
                   className="hidden"
                   onChange={handleBatchImageUpload}
