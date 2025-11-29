@@ -742,7 +742,7 @@ export default function ProductsPage() {
               </div>
             ) : (
               <>
-              <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+              <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4' : 'space-y-4'}>
                 {paginatedProducts.map((product, index) => (
                   <motion.div
                     key={product._id}

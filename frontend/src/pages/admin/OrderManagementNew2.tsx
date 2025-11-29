@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { 
   Search, Download, ArrowLeft, User, Phone, MapPin,
   Package, Clock, CheckCircle2, Truck, AlertCircle, FileText, Trash2, Check, XCircle, X,
-  Eye, EyeOff, Edit2, Ban, CreditCard, ChevronDown, MessageSquare, Plus, Tag, Image as ImageIcon
+  Eye, EyeOff, Edit2, Ban, CreditCard, ChevronDown, MessageSquare, Plus, Tag, Image as ImageIcon, Copy, RotateCcw
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Order, OrderStatus } from '@/types'
@@ -1459,15 +1459,36 @@ export default function OrderManagementNew2() {
                   <tr key={order._id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedOrderId(order._id)}>
                     <td className="px-6 py-4">
                       <div>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedOrderId(order._id)
-                          }}
-                          className="font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                        >
-                          {order.orderNo}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedOrderId(order._id)
+                            }}
+                            className="font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                          >
+                            {order.orderNo}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // 复制订单信息
+                              const r = (order.recipient || order.shippingAddress) as any
+                              const address = r?.address || 
+                                [r?.province, r?.city, r?.district, r?.detail].filter(Boolean).join('')
+                              const products = (order.items || (order as any).products || []).map((p: any) => 
+                                `${p.name || p.productName} x${p.quantity || 1}`
+                              ).join('\n')
+                              const orderInfo = `订单号：${order.orderNo}\n收件人：${r?.name || ''}\n电话：${r?.phone || ''}\n地址：${address}\n商品：\n${products}\n总金额：¥${formatPrice(order.totalAmount)}`
+                              navigator.clipboard.writeText(orderInfo)
+                              toast.success('订单信息已复制')
+                            }}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                            title="复制订单信息"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                         <p className="text-sm text-gray-500 mt-1">
                           {new Date(order.createdAt).toLocaleDateString('zh-CN')} · 共 {order.items?.length || 0} 件
                         </p>

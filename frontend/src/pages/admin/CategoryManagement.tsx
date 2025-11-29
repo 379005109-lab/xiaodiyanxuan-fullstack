@@ -14,6 +14,7 @@ import {
   getCategoryStats,
   updateCategory,
 } from '@/services/categoryService'
+import { getFileUrl } from '@/services/uploadService'
 import CategoryFormModal from '@/components/admin/CategoryFormModal'
 import DiscountModal from '@/components/admin/DiscountModal'
 import DiscountSummaryModal from '@/components/admin/DiscountSummaryModal'
@@ -249,9 +250,13 @@ export default function CategoryManagement() {
                 {/* 分类图片 */}
                 {category.image && (
                   <img
-                    src={category.image}
+                    src={getFileUrl(category.image)}
                     alt={category.name}
                     className="w-10 h-10 rounded object-cover mr-3"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                    }}
                   />
                 )}
                 <span 

@@ -48,7 +48,7 @@ const SiteImageManagement = lazy(() => import('./pages/admin/SiteImageManagement
 const CategoryManagement = lazy(() => import('./pages/admin/CategoryManagement'))
 const MaterialManagement = lazy(() => import('./pages/admin/MaterialManagementNew'))
 const OrderAnalysis = lazy(() => import('./pages/admin/OrderAnalysis'))
-const RefundManagement = lazy(() => import('./pages/admin/RefundManagement'))
+const RefundManagement = lazy(() => import('./pages/admin/RefundManagementNew'))
 const PackageManagementPage = lazy(() => import('./pages/admin/PackageManagementPage'))
 const PackageListPage = lazy(() => import('./pages/admin/PackageListPage'))
 const AdminBargainListPage = lazy(() => import('./pages/admin/AdminBargainListPage'))
