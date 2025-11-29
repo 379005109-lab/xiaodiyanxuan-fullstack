@@ -775,12 +775,19 @@ export default function ProductManagement() {
             const uploadedUrls: string[] = []
             for (const { file } of imageGroup) {
               const result = await uploadFile(file)
-              if (result.fileId) {
-                uploadedUrls.push(result.fileId)
+              console.log(`📤 上传结果:`, result)
+              // 兼容多种返回格式: result.fileId 或 result.data.fileId 或 result.id
+              const fileId = result?.fileId || result?.data?.fileId || result?.id || result?.data?.id
+              if (fileId) {
+                uploadedUrls.push(fileId)
                 uploadedImageCount++
+                console.log(`✓ 获取到fileId: ${fileId}`)
+              } else {
+                console.log(`❌ 未获取到fileId, result:`, JSON.stringify(result))
               }
             }
             
+            console.log(`📤 上传完成, uploadedUrls:`, uploadedUrls)
             if (uploadedUrls.length > 0) {
               // 更新第一个SKU的图片
               const updatedSkus = matchedProduct.skus.map((sku, idx) => {
@@ -791,7 +798,7 @@ export default function ProductManagement() {
               })
               await updateProduct(matchedProduct._id, { skus: updatedSkus })
               updatedSkuCount++
-              console.log(`✅ 商品 "${productName}" 的第一个SKU 更新了 ${uploadedUrls.length} 张图片`)
+              console.log(`✅ 商品 "${productName}" 的第一个SKU 更新了 ${uploadedUrls.length} 张图片, updatedSkuCount=${updatedSkuCount}`)
             }
           }
         }
