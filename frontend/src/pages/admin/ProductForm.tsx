@@ -441,6 +441,7 @@ export default function ProductForm() {
       
       console.log(`[ProductForm] 商品图片数量: ${totalImageCount} 张 (SKU: ${formData.skus.reduce((sum, sku) => sum + (sku.images || []).length, 0)}张, 主图: ${formData.mainImages.length}张)`)
       console.log(`[ProductForm] 使用GridFS存储，商品数据大小: < 1KB`)
+      console.log(`[ProductForm] 分类数据: category="${formData.category}", categories=[${formData.categories.join(', ')}]`)
 
       // 构建商品数据
       const productData: any = {
@@ -506,9 +507,13 @@ export default function ProductForm() {
         reviews: 0,
       }
 
+      console.log(`[ProductForm] 最终发送的商品数据:`, JSON.stringify(productData, null, 2))
+      
       if (isEdit && id) {
         // 更新商品
+        console.log(`[ProductForm] 更新商品 ID: ${id}`)
         const result = await updateProduct(id, productData);
+        console.log(`[ProductForm] 更新结果:`, result)
         if (result && result.success) {
           toast.success('商品更新成功');
           navigate('/admin/products');
