@@ -618,6 +618,7 @@ export default function ProductManagement() {
             styles: productData.styleTags || [], // 风格标签（多个）
           };
 
+          console.log(`  📋 分类信息: productData.category="${productData.category}", categoryName="${productData.categoryName}"`);
           console.log(`  最终提交的商品数据:`, JSON.stringify(newProduct, null, 2));
           await createProduct(newProduct);
           importedCount++;

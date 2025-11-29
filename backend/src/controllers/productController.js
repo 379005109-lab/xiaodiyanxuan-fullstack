@@ -210,9 +210,17 @@ const deleteImage = async (req, res) => {
 const createProduct = async (req, res) => {
   try {
     const productData = req.body
+    
+    // 调试日志：检查category字段
+    console.log('🔥 [创建商品] 商品名称:', productData.name)
+    console.log('🔥 [创建商品] 接收到的category:', productData.category)
+    console.log('🔥 [创建商品] 完整数据:', JSON.stringify(productData, null, 2))
 
     // 创建商品
     const product = await Product.create(productData)
+    
+    // 调试日志：确认保存后的category
+    console.log('🔥 [创建商品] 保存后的category:', product.category)
 
     res.status(201).json(successResponse(product, '商品创建成功'))
   } catch (err) {
