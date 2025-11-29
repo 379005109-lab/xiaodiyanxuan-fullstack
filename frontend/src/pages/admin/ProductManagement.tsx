@@ -675,24 +675,34 @@ export default function ProductManagement() {
         
         console.log(`解析文件名: "${fileName}" -> 去扩展名: "${nameWithoutExt}"`)
         
-        // 特殊格式1: "008-01云沙发（1）" 或 "008-01云沙发 (2)" -> 商品型号-SKU型号+商品名称+（序号）
-        // 匹配: 数字-数字+任意字符+括号序号（支持括号前有空格）
-        const skuFormatMatch = nameWithoutExt.match(/^(\d+[-]\d+)(.+?)\s*[（(\s]+(\d+)[）)\s]*$/)
+        // 特殊格式1: "008-SKU2云沙发（1）" 或 "008-01云沙发 (2)" -> 商品型号-SKU型号+商品名称+（序号）
+        // 匹配: 数字-字母数字+任意字符+括号序号（支持括号前有空格）
+        const skuFormatMatch = nameWithoutExt.match(/^(\d+[-][A-Za-z0-9]+)(.+?)\s*[（(\s]+(\d+)[）)\s]*$/)
         if (skuFormatMatch) {
-          const skuCode = skuFormatMatch[1] // "008-01"
+          const skuCode = skuFormatMatch[1] // "008-SKU2"
           const productName = skuFormatMatch[2].trim() // "云沙发"
           const index = parseInt(skuFormatMatch[3]) // 1
           console.log(`✓ 解析SKU格式: skuCode="${skuCode}", productName="${productName}", index=${index}`)
           return { baseName: productName, skuCode, index }
         }
         
-        // 特殊格式2: "008-01云沙发1" 或 "008-01云沙发 1" (无括号)
-        const skuFormatMatch2 = nameWithoutExt.match(/^(\d+[-]\d+)(.+?)[\s_]?(\d+)$/)
+        // 特殊格式2: "008-SKU2云沙发1" 或 "008-01云沙发 1" (无括号)
+        const skuFormatMatch2 = nameWithoutExt.match(/^(\d+[-][A-Za-z0-9]+)(.+?)[\s_]?(\d+)$/)
         if (skuFormatMatch2) {
           const skuCode = skuFormatMatch2[1]
           const productName = skuFormatMatch2[2].trim()
           const index = parseInt(skuFormatMatch2[3])
           console.log(`✓ 解析SKU格式2: skuCode="${skuCode}", productName="${productName}", index=${index}`)
+          return { baseName: productName, skuCode, index }
+        }
+        
+        // 特殊格式3: 兼容纯数字格式 "008-01云沙发（1）"
+        const numericSkuMatch = nameWithoutExt.match(/^(\d+[-]\d+)(.+?)\s*[（(\s]+(\d+)[）)\s]*$/)
+        if (numericSkuMatch) {
+          const skuCode = numericSkuMatch[1] // "008-01"
+          const productName = numericSkuMatch[2].trim() // "云沙发"
+          const index = parseInt(numericSkuMatch[3]) // 1
+          console.log(`✓ 解析数字SKU格式: skuCode="${skuCode}", productName="${productName}", index=${index}`)
           return { baseName: productName, skuCode, index }
         }
         
