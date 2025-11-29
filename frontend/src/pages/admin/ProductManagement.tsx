@@ -630,61 +630,132 @@ export default function ProductManagement() {
     const toastId = toast.loading(`正在处理 ${files.length} 张图片...`)
     
     try {
-      // 解析图片文件名，提取名称和序号
+      // 解析图片文件名，提取名称、SKU型号和序号
       // 支持格式: 
-      // - "劳伦斯1.jpg", "劳伦斯 1.jpg", "劳伦斯_1.jpg", "劳伦斯-1.jpg"
-      // - "劳伦斯（1）.jpg", "劳伦斯(1).jpg", "劳伦斯 (1).jpg"
+      // - "008-01云沙发（1）.png" -> skuCode="008-01", productName="云沙发", index=1
+      // - "劳伦斯1.jpg", "劳伦斯 1.jpg", "劳伦斯_1.jpg"
+      // - "劳伦斯（1）.jpg", "劳伦斯(1).jpg"
       // - "C100-01_1.jpg", "C100-01 1.jpg"
       const parseFileName = (fileName: string) => {
         // 移除扩展名（支持更多格式）
         const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp|bmp|tiff|tif|svg|ico|heic|heif|avif|raw)$/i, '')
         
-        // 尝试多种数字格式匹配
-        // 1. 括号格式: "名称（1）" 或 "名称(1)" 或 "名称 (1)"
+        // 特殊格式1: "008-01云沙发（1）" -> 商品型号-SKU型号+商品名称+（序号）
+        // 匹配: 数字-数字+中文名称+括号序号
+        const skuFormatMatch = nameWithoutExt.match(/^(\d+[-]\d+)(.+?)\s*[（(](\d+)[）)]$/)
+        if (skuFormatMatch) {
+          const skuCode = skuFormatMatch[1] // "008-01"
+          const productName = skuFormatMatch[2].trim() // "云沙发"
+          const index = parseInt(skuFormatMatch[3]) // 1
+          console.log(`解析SKU格式: "${fileName}" -> skuCode="${skuCode}", productName="${productName}", index=${index}`)
+          return { baseName: productName, skuCode, index }
+        }
+        
+        // 特殊格式2: "008-01云沙发1" 或 "008-01云沙发 1" (无括号)
+        const skuFormatMatch2 = nameWithoutExt.match(/^(\d+[-]\d+)(.+?)[\s_]?(\d+)$/)
+        if (skuFormatMatch2) {
+          const skuCode = skuFormatMatch2[1]
+          const productName = skuFormatMatch2[2].trim()
+          const index = parseInt(skuFormatMatch2[3])
+          console.log(`解析SKU格式2: "${fileName}" -> skuCode="${skuCode}", productName="${productName}", index=${index}`)
+          return { baseName: productName, skuCode, index }
+        }
+        
+        // 普通格式1: 括号格式 "名称（1）" 或 "名称(1)"
         const bracketMatch = nameWithoutExt.match(/^(.+?)\s*[（(](\d+)[）)]$/)
         if (bracketMatch) {
-          return { baseName: bracketMatch[1].trim(), index: parseInt(bracketMatch[2]) }
+          return { baseName: bracketMatch[1].trim(), skuCode: undefined, index: parseInt(bracketMatch[2]) }
         }
         
-        // 2. 分隔符+数字: "名称_1" 或 "名称-1" 或 "名称 1"
-        const separatorMatch = nameWithoutExt.match(/^(.+?)[\s_\-](\d+)$/)
+        // 普通格式2: 分隔符+数字 "名称_1" 或 "名称-1" 或 "名称 1"
+        const separatorMatch = nameWithoutExt.match(/^(.+?)[\s_](\d+)$/)
         if (separatorMatch) {
-          return { baseName: separatorMatch[1].trim(), index: parseInt(separatorMatch[2]) }
+          return { baseName: separatorMatch[1].trim(), skuCode: undefined, index: parseInt(separatorMatch[2]) }
         }
         
-        // 3. 直接数字结尾: "名称1" (中文/英文后直接跟数字)
+        // 普通格式3: 直接数字结尾 "名称1"
         const directMatch = nameWithoutExt.match(/^(.+?)(\d+)$/)
         if (directMatch) {
-          return { baseName: directMatch[1].trim(), index: parseInt(directMatch[2]) }
+          return { baseName: directMatch[1].trim(), skuCode: undefined, index: parseInt(directMatch[2]) }
         }
         
-        return { baseName: nameWithoutExt.trim(), index: 1 }
+        return { baseName: nameWithoutExt.trim(), skuCode: undefined, index: 1 }
       }
       
-      // 按基础名称分组图片
-      const imageGroups: Record<string, { file: File, index: number }[]> = {}
+      // 按SKU型号或基础名称分组图片
+      // 优先按skuCode分组，如果没有skuCode则按baseName分组
+      const skuImageGroups: Record<string, { file: File, index: number, productName: string }[]> = {}
+      const productImageGroups: Record<string, { file: File, index: number }[]> = {}
+      
       for (const file of Array.from(files)) {
-        const { baseName, index } = parseFileName(file.name)
-        if (!imageGroups[baseName]) {
-          imageGroups[baseName] = []
+        const { baseName, skuCode, index } = parseFileName(file.name)
+        
+        if (skuCode) {
+          // 有SKU型号的，按SKU分组
+          if (!skuImageGroups[skuCode]) {
+            skuImageGroups[skuCode] = []
+          }
+          skuImageGroups[skuCode].push({ file, index, productName: baseName })
+        } else {
+          // 无SKU型号的，按商品名称分组
+          if (!productImageGroups[baseName]) {
+            productImageGroups[baseName] = []
+          }
+          productImageGroups[baseName].push({ file, index })
         }
-        imageGroups[baseName].push({ file, index })
       }
       
       // 对每组图片按序号排序
-      Object.values(imageGroups).forEach(group => {
+      Object.values(skuImageGroups).forEach(group => {
+        group.sort((a, b) => a.index - b.index)
+      })
+      Object.values(productImageGroups).forEach(group => {
         group.sort((a, b) => a.index - b.index)
       })
       
-      console.log('图片分组:', Object.keys(imageGroups))
+      console.log('SKU图片分组:', Object.keys(skuImageGroups))
+      console.log('商品图片分组:', Object.keys(productImageGroups))
       
       let updatedProductCount = 0
       let updatedSkuCount = 0
       let uploadedImageCount = 0
       
-      // 遍历每个图片组，匹配商品或SKU
-      for (const [baseName, imageGroup] of Object.entries(imageGroups)) {
-        // 1. 先尝试匹配商品名称
+      // 1. 处理SKU图片组（格式如：008-01云沙发（1）.png）
+      for (const [skuCode, imageGroup] of Object.entries(skuImageGroups)) {
+        // 在所有商品中查找匹配的SKU
+        for (const product of products) {
+          const matchedSku = product.skus?.find(sku => sku.code === skuCode)
+          if (matchedSku) {
+            // 上传图片
+            const uploadedUrls: string[] = []
+            for (const { file } of imageGroup) {
+              const result = await uploadFile(file)
+              if (result.fileId) {
+                uploadedUrls.push(result.fileId)
+                uploadedImageCount++
+              }
+            }
+            
+            if (uploadedUrls.length > 0) {
+              // 更新SKU的图片
+              const updatedSkus = product.skus.map(sku => {
+                if (sku.code === skuCode) {
+                  return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
+                }
+                return sku
+              })
+              await updateProduct(product._id, { skus: updatedSkus })
+              updatedSkuCount++
+              console.log(`✅ SKU "${skuCode}" (商品: ${product.name}) 更新了 ${uploadedUrls.length} 张图片`)
+            }
+            break
+          }
+        }
+      }
+      
+      // 2. 处理商品图片组（格式如：劳伦斯1.jpg）
+      for (const [baseName, imageGroup] of Object.entries(productImageGroups)) {
+        // 先尝试匹配商品名称
         const matchedProduct = products.find(p => p.name === baseName)
         if (matchedProduct) {
           // 上传图片并更新商品主图
@@ -698,7 +769,6 @@ export default function ProductManagement() {
           }
           
           if (uploadedUrls.length > 0) {
-            // 合并现有图片和新上传的图片（新图片在前）
             const newImages = [...uploadedUrls, ...(matchedProduct.images || [])]
             await updateProduct(matchedProduct._id, { images: newImages })
             updatedProductCount++
@@ -707,11 +777,10 @@ export default function ProductManagement() {
           continue
         }
         
-        // 2. 尝试匹配SKU型号（code字段）
+        // 再尝试匹配SKU型号
         for (const product of products) {
           const matchedSku = product.skus?.find(sku => sku.code === baseName)
           if (matchedSku) {
-            // 上传图片并更新SKU图片
             const uploadedUrls: string[] = []
             for (const { file } of imageGroup) {
               const result = await uploadFile(file)
@@ -722,7 +791,6 @@ export default function ProductManagement() {
             }
             
             if (uploadedUrls.length > 0) {
-              // 更新SKU的图片
               const updatedSkus = product.skus.map(sku => {
                 if (sku.code === baseName) {
                   return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
