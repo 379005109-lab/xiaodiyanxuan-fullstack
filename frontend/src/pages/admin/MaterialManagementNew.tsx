@@ -204,6 +204,21 @@ export default function MaterialManagement() {
     }
   }
 
+  // 删除整个类别（材质组）- 一次性删除该类别下的所有SKU
+  const handleDeleteCategory = async (groupKey: string, groupMaterials: Material[]) => {
+    if (confirm(`确定要删除整个类别"${groupKey}"吗？\n这将删除该类别下的所有 ${groupMaterials.length} 个SKU。`)) {
+      try {
+        const materialIds = groupMaterials.map(m => m._id)
+        await deleteMaterials(materialIds)
+        toast.success(`类别"${groupKey}"及其 ${groupMaterials.length} 个SKU已删除`)
+        loadMaterials()
+        loadStats()
+      } catch (error) {
+        toast.error('删除类别失败')
+      }
+    }
+  }
+
   const handleBatchDelete = async () => {
     if (selectedIds.length === 0) {
       toast.error('请选择要删除的素材')
@@ -828,7 +843,7 @@ export default function MaterialManagement() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleDelete(representativeMaterial._id, groupKey)
+                              handleDeleteCategory(groupKey, groupMaterials)
                             }}
                             className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="删除"
@@ -942,7 +957,7 @@ export default function MaterialManagement() {
                                       </button>
                                     </div>
                                     <p className="text-base text-gray-900 text-center line-clamp-2 w-full mt-3 font-bold group-hover:text-primary-600 transition-colors">
-                                      {material.name.split('-')[1] || material.name}
+                                      {material.name}
                                     </p>
                                   </div>
                                 ))}
