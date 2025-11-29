@@ -772,30 +772,49 @@ export default function ProductManagement() {
         
         // 方式1: 按SKU code匹配
         for (const product of products) {
-          const matchedSku = product.skus?.find(sku => sku.code === skuCode)
-          if (matchedSku) {
-            found = true
-            const uploadedUrls: string[] = []
-            for (const { file } of imageGroup) {
-              const result = await uploadFile(file)
-              if (result.fileId) {
-                uploadedUrls.push(result.fileId)
-                counts.uploadedImageCount++
-              }
-            }
-            
-            if (uploadedUrls.length > 0) {
-              const updatedSkus = product.skus.map(sku => {
-                if (sku.code === skuCode) {
-                  return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
+          console.log(`  检查商品: "${product.name}"`)
+          if (product.skus && product.skus.length > 0) {
+            console.log(`    SKU列表: [${product.skus.map(s => `"${s.code}"`).join(', ')}]`)
+            const matchedSku = product.skus.find(sku => sku.code === skuCode)
+            if (matchedSku) {
+              console.log(`    ✓ 找到匹配的SKU: "${skuCode}"`)
+              found = true
+              const uploadedUrls: string[] = []
+              for (const { file } of imageGroup) {
+                const result = await uploadFile(file)
+                console.log(`📤 上传结果:`, result)
+                const fileId = result?.fileId || result?.data?.fileId || result?.id || result?.data?.id
+                if (fileId) {
+                  uploadedUrls.push(fileId)
+                  counts.uploadedImageCount++
+                  console.log(`✓ 获取到fileId: ${fileId}`)
+                } else {
+                  console.log(`❌ 未获取到fileId, result:`, JSON.stringify(result))
                 }
-                return sku
-              })
-              await updateProduct(product._id, { skus: updatedSkus })
-              counts.updatedSkuCount++
-              console.log(`✅ SKU "${skuCode}" (商品: ${product.name}) 更新了 ${uploadedUrls.length} 张图片`)
+              }
+              
+              console.log(`📤 SKU匹配上传完成, uploadedUrls:`, uploadedUrls)
+              if (uploadedUrls.length > 0) {
+                const updatedSkus = product.skus.map(sku => {
+                  if (sku.code === skuCode) {
+                    return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
+                  }
+                  return sku
+                })
+                try {
+                  await updateProduct(product._id, { skus: updatedSkus })
+                  counts.updatedSkuCount++
+                  console.log(`✅ SKU "${skuCode}" (商品: ${product.name}) 更新了 ${uploadedUrls.length} 张图片, counts.updatedSkuCount=${counts.updatedSkuCount}`)
+                } catch (updateErr) {
+                  console.error(`❌ 更新SKU失败:`, updateErr)
+                }
+              }
+              break
+            } else {
+              console.log(`    ❌ SKU "${skuCode}" 不匹配任何现有SKU`)
             }
-            break
+          } else {
+            console.log(`    ⚠️ 商品没有SKU`)
           }
         }
         
