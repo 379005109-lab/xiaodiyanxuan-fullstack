@@ -343,15 +343,25 @@ const update = async (req, res) => {
     const { id } = req.params;
     const updateData = { ...req.body, updatedAt: new Date() };
     
+    console.log('🔍 [套餐更新] ID:', id);
+    console.log('🔍 [套餐更新] 更新数据:', updateData);
+    
     const pkg = await Package.findByIdAndUpdate(id, updateData, { new: true });
     
     if (!pkg) {
+      console.log('🔍 [套餐更新] 套餐不存在:', id);
       return res.status(404).json(errorResponse('套餐不存在', 404));
     }
     
+    console.log('🔍 [套餐更新] 更新成功:', {
+      id: pkg._id,
+      name: pkg.name,
+      status: pkg.status
+    });
+    
     res.json(successResponse(pkg, '套餐更新成功'));
   } catch (err) {
-    console.error('Update package error:', err);
+    console.error('🔍 [套餐更新] 更新失败:', err);
     res.status(500).json(errorResponse(err.message, 500));
   }
 };

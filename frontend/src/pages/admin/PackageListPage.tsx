@@ -103,18 +103,34 @@ const PackageListPage: React.FC = () => {
   const handleStatusToggle = async (packageId: string | number) => {
     try {
       const pkg = packages.find(p => p.id === packageId);
-      if (!pkg) return;
+      if (!pkg) {
+        console.error('🔍 [状态切换] 找不到套餐:', packageId);
+        return;
+      }
       
       const newStatus = pkg.status === 'active' ? 'inactive' : 'active';
       const statusText = newStatus === 'active' ? '上架' : '下架';
       
-      await apiClient.put(`/packages/${packageId}`, { status: newStatus });
+      console.log(`🔍 [状态切换] 套餐"${pkg.name}": ${pkg.status} -> ${newStatus}`);
+      
+      const response = await apiClient.put(`/packages/${packageId}`, { status: newStatus });
+      console.log('🔍 [状态切换] 更新响应:', response.data);
+      
+      // 立即更新本地状态，避免等待重新加载
+      setPackages(prevPackages => 
+        prevPackages.map(p => 
+          p.id === packageId ? { ...p, status: newStatus } : p
+        )
+      );
       
       toast.success(`套餐已${statusText}`);
+      
       // 重新加载数据，确保状态更新
+      console.log('🔍 [状态切换] 重新加载套餐数据...');
       await loadPackages();
+      
     } catch (error) {
-      console.error('更新状态失败', error);
+      console.error('🔍 [状态切换] 更新状态失败:', error);
       toast.error('更新状态失败');
     }
   };
