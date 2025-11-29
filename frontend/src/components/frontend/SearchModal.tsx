@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, X, Clock, TrendingUp, ArrowRight, Package } from 'lucide-react'
+import { Search, X, Clock, TrendingUp, ArrowRight, Package, Sparkles } from 'lucide-react'
 import { getProducts } from '@/services/productService'
+import { getAllCategories } from '@/services/categoryService'
 import { getFileUrl } from '@/services/uploadService'
 import { formatPrice } from '@/lib/utils'
 
@@ -19,6 +20,12 @@ interface Product {
   categoryName?: string
 }
 
+interface Category {
+  _id: string
+  name: string
+  slug?: string
+}
+
 // 热门搜索关键词
 const hotKeywords = ['沙发', '茶几', '餐桌', '床', '衣柜', '书柜', '电视柜', '鞋柜']
 
@@ -27,16 +34,34 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<Product[]>([])
+  const [keywordSuggestions, setKeywordSuggestions] = useState<string[]>([])
+  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [allCategories, setAllCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // 加载最近搜索
+  // 加载最近搜索和商品数据
   useEffect(() => {
     const saved = localStorage.getItem('recent_searches')
     if (saved) {
       setRecentSearches(JSON.parse(saved))
     }
+    
+    // 预加载商品和分类数据用于联想
+    const loadData = async () => {
+      try {
+        const [productsRes, categoriesRes] = await Promise.all([
+          getProducts({ pageSize: 200 }),
+          getAllCategories()
+        ])
+        setAllProducts(productsRes.data || [])
+        setAllCategories(categoriesRes || [])
+      } catch (error) {
+        console.error('加载数据失败:', error)
+      }
+    }
+    loadData()
   }, [])
 
   // 打开时聚焦输入框
@@ -46,49 +71,46 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     }
   }, [isOpen])
 
-  // 关联搜索（模糊匹配）
-  const fetchSuggestions = useCallback(async (searchQuery: string) => {
+  // 关联搜索和联想功能
+  const fetchSuggestions = useCallback((searchQuery: string) => {
     if (!searchQuery.trim()) {
       setSuggestions([])
+      setKeywordSuggestions([])
       return
     }
 
     setLoading(true)
-    try {
-      const result = await getProducts({ pageSize: 10 })
-      const allProducts = result.data || []
+    const q = searchQuery.toLowerCase()
+    
+    // 1. 联想关键词 - 从商品名称和分类中提取
+    const keywords = new Set<string>()
+    allProducts.forEach((p: Product) => {
+      const name = p.name || ''
+      // 如果商品名包含搜索词，添加到联想
+      if (name.toLowerCase().includes(q)) {
+        keywords.add(name)
+      }
+    })
+    // 分类联想
+    allCategories.forEach((c: Category) => {
+      if (c.name.toLowerCase().includes(q)) {
+        keywords.add(c.name)
+      }
+    })
+    setKeywordSuggestions(Array.from(keywords).slice(0, 5))
+    
+    // 2. 商品匹配
+    const matched = allProducts.filter((p: Product) => {
+      const name = (p.name || '').toLowerCase()
+      const categoryName = (p.categoryName || '').toLowerCase()
       
-      // 模糊匹配：搜索名称、分类、型号
-      const query = searchQuery.toLowerCase()
-      const matched = allProducts.filter((p: Product) => {
-        const name = (p.name || '').toLowerCase()
-        const category = (p.categoryName || p.category || '').toLowerCase()
-        
-        // 模糊匹配逻辑
-        // 1. 包含完整关键词
-        if (name.includes(query) || category.includes(query)) return true
-        
-        // 2. 拼音首字母匹配（简化版 - 检查每个字是否匹配）
-        const queryChars = query.split('')
-        let nameIndex = 0
-        for (const char of queryChars) {
-          const foundIndex = name.indexOf(char, nameIndex)
-          if (foundIndex === -1) break
-          nameIndex = foundIndex + 1
-          if (nameIndex >= name.length && queryChars.indexOf(char) < queryChars.length - 1) break
-        }
-        if (nameIndex > 0 && queryChars.length > 1) return true
-        
-        return false
-      })
-      
-      setSuggestions(matched.slice(0, 8))
-    } catch (error) {
-      console.error('搜索失败:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      // 模糊匹配
+      return name.includes(q) || categoryName.includes(q)
+    })
+    
+    setSuggestions(matched.slice(0, 6))
+    setLoading(false)
+  }, [allProducts, allCategories])
 
   // 防抖搜索
   useEffect(() => {
@@ -191,7 +213,28 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
         {/* 搜索内容区 */}
         <div className="max-h-[60vh] overflow-y-auto">
-          {/* 搜索建议 */}
+          {/* 联想关键词 */}
+          {query && keywordSuggestions.length > 0 && (
+            <div className="px-4 pt-4">
+              <h3 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                猜你想搜
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {keywordSuggestions.map((keyword, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSearch(keyword)}
+                    className="px-3 py-1.5 bg-primary/5 hover:bg-primary/10 rounded-full text-sm text-primary transition-colors"
+                  >
+                    {keyword}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* 相关商品 */}
           {query && suggestions.length > 0 && (
             <div className="p-4">
               <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
@@ -222,9 +265,10 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                       <p className="font-medium text-gray-900 truncate group-hover:text-primary transition-colors">
                         {product.name}
                       </p>
-                      <p className="text-sm text-gray-500">
-                        {product.categoryName || product.category}
-                      </p>
+                      {/* 只显示分类名称，不显示ID */}
+                      {product.categoryName && (
+                        <p className="text-sm text-gray-500">{product.categoryName}</p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-red-600">¥{formatPrice(product.basePrice)}</p>

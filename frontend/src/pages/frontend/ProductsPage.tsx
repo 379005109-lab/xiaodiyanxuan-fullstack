@@ -721,8 +721,48 @@ export default function ProductsPage() {
 
             {/* 工具栏 */}
             <div className="flex items-center justify-between mb-6 bg-white rounded-xl p-4 shadow-sm border border-stone-100">
-              <div className="text-sm text-stone-600">
-                共 <span className="font-bold text-primary">{sortedProducts.length}</span> 个商品
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm text-stone-600">
+                  共 <span className="font-bold text-primary">{sortedProducts.length}</span> 个商品
+                </span>
+                
+                {/* 筛选条件提示 */}
+                {(filters.category || filters.style || searchKeyword) && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {searchKeyword && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center gap-1">
+                        搜索: {searchKeyword}
+                        <button onClick={() => {
+                          const params = new URLSearchParams(searchParams.toString())
+                          params.delete('search')
+                          setSearchParams(params)
+                        }} className="hover:text-blue-900">×</button>
+                      </span>
+                    )}
+                    {filters.category && (
+                      <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs flex items-center gap-1">
+                        分类: {categories.find(c => c._id === filters.category || c.slug === filters.category || c.name === filters.category)?.name || filters.category}
+                        <button onClick={() => {
+                          setFilters({ ...filters, category: '' })
+                          const params = new URLSearchParams(searchParams.toString())
+                          params.delete('category')
+                          setSearchParams(params)
+                        }} className="hover:text-primary/80">×</button>
+                      </span>
+                    )}
+                    {filters.style && (
+                      <span className="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs flex items-center gap-1">
+                        风格: {filters.style}
+                        <button onClick={() => {
+                          setFilters({ ...filters, style: '' })
+                          const params = new URLSearchParams(searchParams.toString())
+                          params.delete('style')
+                          setSearchParams(params)
+                        }} className="hover:text-amber-900">×</button>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-4">
@@ -766,14 +806,14 @@ export default function ProductsPage() {
               </div>
             ) : (
               <>
-              <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-5' : 'space-y-4'}>
+              <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-5' : 'space-y-3'}>
                 {paginatedProducts.map((product, index) => (
                   <motion.div
                     key={product._id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="card hover:shadow-lg transition-shadow"
+                    className={viewMode === 'grid' ? 'card hover:shadow-lg transition-shadow' : 'bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow border border-stone-100'}
                   >
                     <div
                       onMouseEnter={() => setHoveredProductId(product._id)}
@@ -785,10 +825,11 @@ export default function ProductsPage() {
                           return newState
                         })
                       }}
+                      className={viewMode === 'list' ? 'flex gap-4' : ''}
                     >
-                      <Link to={`/products/${product._id}`}>
+                      <Link to={`/products/${product._id}`} className={viewMode === 'list' ? 'flex gap-4 w-full' : ''}>
                         {/* 商品图片 */}
-                        <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100 group">
+                        <div className={`relative overflow-hidden rounded-lg bg-gray-100 group ${viewMode === 'grid' ? 'aspect-square mb-4' : 'w-24 h-24 flex-shrink-0'}`}>
                           {/* 主图 - 根据预览索引显示 */}
                           <img
                             src={getFileUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png')}
@@ -796,26 +837,28 @@ export default function ProductsPage() {
                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                           />
                           
-                          {/* SKU预览小方块 */}
-                          <div className="absolute bottom-2 left-2 flex gap-1">
-                            {getProductPreviewImages(product).slice(0, 4).map((img, idx) => (
-                              <div
-                                key={idx}
-                                onMouseEnter={() => setPreviewImageIndex(prev => ({ ...prev, [product._id]: idx }))}
-                                className={`w-8 h-8 rounded border-2 shadow-sm overflow-hidden bg-white cursor-pointer transition-all ${
-                                  (previewImageIndex[product._id] === idx) && hoveredProductId === product._id
-                                    ? 'border-red-500 scale-110'
-                                    : 'border-white'
-                                }`}
-                              >
-                                <img
-                                  src={getFileUrl(img)}
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            ))}
-                          </div>
+                          {/* SKU预览小方块 - 只在网格模式显示 */}
+                          {viewMode === 'grid' && (
+                            <div className="absolute bottom-2 left-2 flex gap-1">
+                              {getProductPreviewImages(product).slice(0, 4).map((img, idx) => (
+                                <div
+                                  key={idx}
+                                  onMouseEnter={() => setPreviewImageIndex(prev => ({ ...prev, [product._id]: idx }))}
+                                  className={`w-8 h-8 rounded border-2 shadow-sm overflow-hidden bg-white cursor-pointer transition-all ${
+                                    (previewImageIndex[product._id] === idx) && hoveredProductId === product._id
+                                      ? 'border-red-500 scale-110'
+                                      : 'border-white'
+                                  }`}
+                                >
+                                  <img
+                                    src={getFileUrl(img)}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
                           {/* 操作按钮 - 只在鼠标悬停时显示 */}
                           <div className={`absolute top-2 right-2 flex flex-col gap-2 transition-opacity duration-200 ${
@@ -852,35 +895,45 @@ export default function ProductsPage() {
                         </div>
 
                       {/* 商品信息 */}
-                      <div>
-                        <h3 className="font-semibold text-lg hover:text-primary-600 transition-colors mb-2 line-clamp-2">
-                          {product.name}
-                        </h3>
+                      <div className={viewMode === 'list' ? 'flex-1 min-w-0 flex items-center justify-between' : ''}>
+                        <div className={viewMode === 'list' ? 'flex-1 min-w-0' : ''}>
+                          <h3 className={`font-semibold hover:text-primary-600 transition-colors line-clamp-1 ${viewMode === 'grid' ? 'text-lg mb-2' : 'text-sm'}`}>
+                            {product.name}
+                          </h3>
+                          
+                          {/* 显示尺寸信息 - 列表模式下显示更紧凑 */}
+                          {viewMode === 'grid' && product.skus[0] && (product.skus[0].length || product.skus[0].width || product.skus[0].height) && (
+                            <div className="text-xs text-gray-500 mb-2">
+                              尺寸: {product.skus[0].length || '-'}×{product.skus[0].width || '-'}×{product.skus[0].height || '-'} CM
+                            </div>
+                          )}
+                          {viewMode === 'list' && (
+                            <div className="text-xs text-gray-400">
+                              {product.skus.length} 个规格
+                            </div>
+                          )}
+                        </div>
                         
-                        <div className="flex items-baseline gap-2 mb-2">
-                          <span className="text-2xl font-bold text-red-600">
+                        <div className={viewMode === 'list' ? 'text-right ml-4' : 'flex items-baseline gap-2 mb-2'}>
+                          <span className={`font-bold text-red-600 ${viewMode === 'grid' ? 'text-2xl' : 'text-base'}`}>
                             {formatPrice(product.basePrice)}
                           </span>
                           {product.skus.length > 1 && (
-                            <span className="text-sm text-gray-500">起</span>
+                            <span className="text-xs text-gray-500">起</span>
                           )}
                         </div>
-
-                        {/* 显示尺寸信息 */}
-                        {product.skus[0] && (product.skus[0].length || product.skus[0].width || product.skus[0].height) && (
-                          <div className="text-xs text-gray-500 mb-2">
-                            尺寸: {product.skus[0].length || '-'}×{product.skus[0].width || '-'}×{product.skus[0].height || '-'} CM
+                        
+                        {/* 网格模式下显示风格标签 */}
+                        {viewMode === 'grid' && (
+                          <div className="flex items-center justify-between text-xs">
+                            {product.style && (
+                              <span className="px-2 py-1 bg-primary-50 text-primary-600 rounded-full font-medium">
+                                {product.style}
+                              </span>
+                            )}
+                            <span className="text-gray-500 ml-auto">{product.skus.length} 个规格</span>
                           </div>
                         )}
-
-                        <div className="flex items-center justify-between text-xs">
-                          {product.style && (
-                            <span className="px-2 py-1 bg-primary-50 text-primary-600 rounded-full font-medium">
-                              {product.style}
-                            </span>
-                          )}
-                          <span className="text-gray-500 ml-auto">{product.skus.length} 个规格</span>
-                        </div>
                       </div>
                       </Link>
                     </div>

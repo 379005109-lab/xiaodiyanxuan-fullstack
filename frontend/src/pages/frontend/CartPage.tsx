@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Minus, Plus, Trash2, ArrowRight, Package, TrendingUp, Wallet, Tag, Image, Download, X } from 'lucide-react'
+import { Minus, Plus, Trash2, ArrowRight, Package, TrendingUp, Wallet, Tag, Image, Download, X, Grid, List } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
@@ -11,6 +11,7 @@ export default function CartPage() {
   const navigate = useNavigate()
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore()
   const [selectedItems, setSelectedItems] = useState<string[]>([])
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   
   // 直接基于 items.length 决定是否显示结算栏，避免 useEffect 导致的闪烁
   const showCheckout = items.length > 0
@@ -199,7 +200,7 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* 全选控制 */}
+            {/* 全选控制 + 视图切换 */}
             <div className="bg-white p-4 rounded-xl border border-stone-100 flex items-center justify-between">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input 
@@ -210,10 +211,84 @@ export default function CartPage() {
                 />
                 <span className="font-medium text-stone-700">全选 ({items.length})</span>
               </label>
-              <span className="text-sm text-stone-500">已选择 {selectedItems.length} 件商品</span>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-stone-500">已选择 {selectedItems.length} 件商品</span>
+                {/* 视图切换 */}
+                <div className="flex items-center gap-1 border border-gray-200 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-primary/10 text-primary' : 'text-gray-400 hover:text-gray-600'}`}
+                    title="列表模式"
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-primary/10 text-primary' : 'text-gray-400 hover:text-gray-600'}`}
+                    title="矩阵模式"
+                  >
+                    <Grid className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {items.map((item, index) => {
+            {/* 矩阵模式 */}
+            {viewMode === 'grid' && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {items.map((item) => {
+                  const itemKey = `${item.product._id}-${item.sku._id}`
+                  return (
+                    <div key={itemKey} className="bg-white rounded-xl border border-stone-100 shadow-sm overflow-hidden hover:border-primary/30 transition-all group">
+                      {/* 图片 */}
+                      <div 
+                        onClick={() => window.location.href = `/products/${item.product._id}`}
+                        className="aspect-square bg-stone-50 cursor-pointer relative"
+                      >
+                        <img 
+                          src={(item.sku?.images?.[0] || item.product?.images?.[0]) ? getFileUrl(item.sku?.images?.[0] || item.product.images[0]) : '/placeholder.svg'} 
+                          alt={item.product?.name || '商品'} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
+                        />
+                        {/* 选择框 */}
+                        <div className="absolute top-2 left-2">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedItems.includes(itemKey)} 
+                            onChange={() => toggleSelect(itemKey)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-5 h-5 rounded border-stone-300 text-primary focus:ring-primary cursor-pointer accent-primary bg-white"
+                          />
+                        </div>
+                        {/* 删除 */}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeItem(item.product._id, item.sku._id, item.selectedMaterials)
+                          }} 
+                          className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full text-stone-400 hover:text-red-500 hover:bg-white transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {/* 信息 */}
+                      <div className="p-3">
+                        <h3 className="font-medium text-sm text-primary line-clamp-1 mb-1">{item.product?.name}</h3>
+                        <p className="text-xs text-stone-500 line-clamp-1 mb-2">{item.sku?.spec || '标准规格'}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-red-600 font-bold">¥{formatPrice(item.price)}</span>
+                          <span className="text-xs text-stone-400">×{item.quantity}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* 列表模式 */}
+            {viewMode === 'list' && items.map((item, index) => {
               const itemKey = `${item.product._id}-${item.sku._id}`
               return (
               <div key={itemKey} className="bg-white p-4 md:p-6 rounded-2xl border border-stone-100 shadow-sm flex flex-col md:flex-row gap-6 items-center group hover:border-primary/20 transition-all">
