@@ -235,10 +235,16 @@ const updateProduct = async (req, res) => {
     const { id } = req.params
     const productData = req.body
     
-    // 调试日志：检查styles字段
+    // 调试日志：检查更新数据
     console.log('🔥 [更新商品] ID:', id)
-    console.log('🔥 [更新商品] 接收到的styles:', productData.styles)
     console.log('🔥 [更新商品] 商品名称:', productData.name)
+    console.log('🔥 [更新商品] 接收到的styles:', productData.styles)
+    if (productData.skus) {
+      console.log('🔥 [更新商品] 接收到的SKU数量:', productData.skus.length)
+      productData.skus.forEach((sku, idx) => {
+        console.log(`🔥 [更新商品] SKU${idx + 1}: code="${sku.code}", images数量=${sku.images?.length || 0}`)
+      })
+    }
 
     const product = await Product.findByIdAndUpdate(
       id,
@@ -250,8 +256,17 @@ const updateProduct = async (req, res) => {
       return res.status(404).json(errorResponse('商品不存在', 404))
     }
     
-    // 调试日志：确认保存后的styles
+    // 调试日志：确认保存后的数据
     console.log('🔥 [更新商品] 保存后的styles:', product.styles)
+    if (product.skus) {
+      console.log('🔥 [更新商品] 保存后的SKU数量:', product.skus.length)
+      product.skus.forEach((sku, idx) => {
+        console.log(`🔥 [更新商品] 保存后SKU${idx + 1}: code="${sku.code}", images数量=${sku.images?.length || 0}`)
+        if (sku.images && sku.images.length > 0) {
+          console.log(`🔥 [更新商品] SKU${idx + 1}图片: [${sku.images.slice(0, 2).join(', ')}...]`)
+        }
+      })
+    }
 
     res.json(successResponse(product, '商品更新成功'))
   } catch (err) {
