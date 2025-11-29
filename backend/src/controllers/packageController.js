@@ -17,6 +17,15 @@ const list = async (req, res) => {
     
     console.log('🔍 [套餐API] 查询条件:', query)
     
+    // 先检查数据库中总共有多少套餐
+    const totalInDB = await Package.countDocuments({})
+    const activeCount = await Package.countDocuments({ status: 'active' })
+    const inactiveCount = await Package.countDocuments({ status: 'inactive' })
+    
+    console.log('🔍 [套餐API] 数据库总套餐数:', totalInDB)
+    console.log('🔍 [套餐API] active套餐数:', activeCount)
+    console.log('🔍 [套餐API] inactive套餐数:', inactiveCount)
+    
     const total = await Package.countDocuments(query)
     const packages = await Package.find(query)
       .sort('-createdAt')
@@ -24,7 +33,19 @@ const list = async (req, res) => {
       .limit(size)
       .lean()
     
-    console.log('🔍 [套餐API] 查询到套餐数量:', packages.length)
+    console.log('🔍 [套餐API] 查询条件匹配的套餐数量:', packages.length)
+    
+    // 如果有套餐，打印前几个的基本信息
+    if (packages.length > 0) {
+      packages.slice(0, 3).forEach((pkg, index) => {
+        console.log(`🔍 [套餐API] 套餐${index + 1}:`, {
+          id: pkg._id,
+          name: pkg.name,
+          status: pkg.status,
+          createdAt: pkg.createdAt
+        })
+      })
+    }
     
     // 填充商品详细信息
     for (let pkg of packages) {
