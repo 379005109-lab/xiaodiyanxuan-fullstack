@@ -165,55 +165,45 @@ export default function Header() {
                   </button>
                 </div>
                 
-                {/* 分类列表 - 支持层级显示 */}
-                <div className="space-y-4">
-                  {categories.filter(c => !c.parentId).slice(0, 6).map((parentCategory) => (
-                    <div key={parentCategory._id} className="border-b border-stone-100 pb-4 last:border-b-0">
-                      {/* 一级分类 */}
-                      <div className="flex items-center gap-4 mb-3">
-                        <div
-                          onClick={() => handleCategoryClick(parentCategory.slug || parentCategory._id)}
-                          className="flex items-center gap-3 cursor-pointer group"
-                        >
-                          {/* 分类图片 */}
-                          <div className="w-12 h-12 rounded-lg bg-stone-50 overflow-hidden flex-shrink-0">
-                            {parentCategory.image ? (
-                              <img
-                                src={getFileUrl(parentCategory.image)}
-                                alt={parentCategory.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Grid className="w-6 h-6 text-stone-300" />
-                              </div>
-                            )}
+                {/* 分类网格 - 显示图片 */}
+                <div className="grid grid-cols-4 gap-4">
+                  {categories.filter(c => !c.parentId).slice(0, 8).map((category) => (
+                    <div
+                      key={category._id}
+                      onClick={() => handleCategoryClick(category.slug || category._id)}
+                      className="group cursor-pointer rounded-xl overflow-hidden border border-stone-100 hover:border-primary/30 hover:shadow-lg transition-all"
+                    >
+                      {/* 分类图片 - 放大 */}
+                      <div className="aspect-square bg-stone-50 overflow-hidden">
+                        {category.image ? (
+                          <img
+                            src={getFileUrl(category.image)}
+                            alt={category.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.style.display = 'none'
+                              target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-12 h-12 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div>'
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Grid className="w-12 h-12 text-stone-300" />
                           </div>
-                          <div>
-                            <h4 className="font-bold text-stone-800 group-hover:text-primary transition-colors">
-                              {parentCategory.name}
-                            </h4>
-                            {parentCategory.productCount !== undefined && (
-                              <p className="text-xs text-stone-400">{parentCategory.productCount} 件商品</p>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
-                      
-                      {/* 二级分类 */}
-                      {parentCategory.children && parentCategory.children.length > 0 && (
-                        <div className="flex flex-wrap gap-2 ml-15">
-                          {parentCategory.children.map((child: any) => (
-                            <button
-                              key={child._id}
-                              onClick={() => handleCategoryClick(child.slug || child._id)}
-                              className="px-3 py-1.5 text-sm rounded-full border border-stone-200 text-stone-600 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
-                            >
-                              {child.name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {/* 分类信息 */}
+                      <div className="p-3 bg-white">
+                        <h4 className="font-medium text-stone-800 group-hover:text-primary transition-colors text-sm truncate">
+                          {category.name}
+                        </h4>
+                        {/* 显示子分类数量 */}
+                        {category.children && category.children.length > 0 && (
+                          <p className="text-xs text-stone-400 mt-1">
+                            {category.children.length} 个子分类
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

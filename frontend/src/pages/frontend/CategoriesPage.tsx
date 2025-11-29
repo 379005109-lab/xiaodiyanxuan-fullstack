@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Grid, ChevronRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getFileUrl } from '@/services/uploadService'
 
 interface Category {
   _id: string
@@ -10,6 +11,8 @@ interface Category {
   description?: string
   image?: string
   productCount?: number
+  parentId?: string | null
+  children?: Category[]
 }
 
 export default function CategoriesPage() {
@@ -54,33 +57,72 @@ export default function CategoriesPage() {
         </div>
 
         {/* Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {categories.map((category) => (
-            <button
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {categories.filter(c => !c.parentId).map((category) => (
+            <div
               key={category._id}
-              onClick={() => navigate(`/products?category=${category.slug}`)}
-              className="bg-white rounded-2xl border border-stone-200 p-6 hover:shadow-lg transition-all hover:border-primary group"
+              onClick={() => navigate(`/products?category=${category.slug || category._id}`)}
+              className="bg-white rounded-2xl border border-stone-200 overflow-hidden hover:shadow-lg transition-all hover:border-primary group cursor-pointer"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Grid className="w-8 h-8 text-primary" />
-                </div>
-                <ChevronRight className="w-5 h-5 text-stone-400 group-hover:text-primary transition-colors" />
+              {/* 分类图片 */}
+              <div className="aspect-square bg-stone-100 overflow-hidden">
+                {category.image ? (
+                  <img
+                    src={getFileUrl(category.image)}
+                    alt={category.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      if (target.parentElement) {
+                        target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-16 h-16 text-stone-300" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div>'
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Grid className="w-16 h-16 text-stone-300" />
+                  </div>
+                )}
               </div>
-              <h3 className="text-xl font-serif font-bold text-primary mb-2 text-left">
-                {category.name}
-              </h3>
-              {category.description && (
-                <p className="text-sm text-stone-500 text-left line-clamp-2 mb-3">
-                  {category.description}
-                </p>
-              )}
-              {category.productCount !== undefined && (
-                <p className="text-xs text-stone-400 text-left">
-                  {category.productCount} 件商品
-                </p>
-              )}
-            </button>
+              
+              {/* 分类信息 */}
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-serif font-bold text-primary">
+                    {category.name}
+                  </h3>
+                  <ChevronRight className="w-5 h-5 text-stone-400 group-hover:text-primary transition-colors" />
+                </div>
+                {category.description && (
+                  <p className="text-sm text-stone-500 line-clamp-2 mb-2">
+                    {category.description}
+                  </p>
+                )}
+                {/* 子分类标签 */}
+                {category.children && category.children.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {category.children.slice(0, 3).map((child) => (
+                      <span
+                        key={child._id}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/products?category=${child.slug || child._id}`)
+                        }}
+                        className="text-xs px-2 py-0.5 bg-stone-100 rounded-full text-stone-600 hover:bg-primary/10 hover:text-primary"
+                      >
+                        {child.name}
+                      </span>
+                    ))}
+                    {category.children.length > 3 && (
+                      <span className="text-xs px-2 py-0.5 text-stone-400">
+                        +{category.children.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           ))}
         </div>
 

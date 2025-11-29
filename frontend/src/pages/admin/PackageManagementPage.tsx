@@ -185,30 +185,40 @@ const PackageManagementPage: React.FC = () => {
           });
           setOptionalQuantities(quantities);
           
-          // 如果商品数据已加载，设置selectedProducts
-          if (allProducts.length > 0) {
-            const productsMap: Record<string, Product[]> = {};
-            pkg.categories.forEach((category: any) => {
-              if (category.products && category.products.length > 0) {
-                const categoryProducts: Product[] = [];
-                category.products.forEach((productId: string) => {
-                  // 支持productId是对象或字符串
-                  const id = typeof productId === 'object' ? (productId as any)._id || (productId as any).productId : productId;
-                  const product = allProducts.find((p: Product) => p._id === id);
-                  if (product) {
-                    categoryProducts.push(product);
+          // 设置selectedProducts - 后端返回的products已经是完整对象
+          const productsMap: Record<string, Product[]> = {};
+          pkg.categories.forEach((category: any) => {
+            if (category.products && category.products.length > 0) {
+              const categoryProducts: Product[] = [];
+              category.products.forEach((productData: any) => {
+                // 后端返回的是完整对象，包含id字段
+                if (productData && !productData.isDeleted) {
+                  // 优先从allProducts中找到完整数据
+                  const productId = productData.id || productData._id;
+                  const fullProduct = allProducts.find((p: Product) => p._id === productId);
+                  
+                  if (fullProduct) {
+                    categoryProducts.push(fullProduct);
                   } else {
-                    console.warn('⚠️ 未找到商品:', id);
+                    // 如果allProducts中没有，使用后端返回的数据构造Product对象
+                    categoryProducts.push({
+                      _id: productId,
+                      name: productData.name || '未知商品',
+                      basePrice: productData.basePrice || productData.price || 0,
+                      images: productData.images || (productData.image ? [productData.image] : []),
+                      specs: productData.specs || '',
+                      category: productData.category || '',
+                    } as Product);
                   }
-                });
-                if (categoryProducts.length > 0) {
-                  productsMap[category.name] = categoryProducts;
                 }
+              });
+              if (categoryProducts.length > 0) {
+                productsMap[category.name] = categoryProducts;
               }
-            });
-            setSelectedProducts(productsMap);
-            console.log('✅ 已加载商品:', productsMap);
-          }
+            }
+          });
+          setSelectedProducts(productsMap);
+          console.log('✅ 已加载套餐商品:', productsMap);
           
           toast.success('套餐数据加载成功');
         } else if (pkg.products && pkg.products.length > 0) {

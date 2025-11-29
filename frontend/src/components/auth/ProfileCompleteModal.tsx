@@ -38,10 +38,18 @@ export default function ProfileCompleteModal({ isOpen, onClose }: ProfileComplet
       })
       
       if (response.data.success) {
+        // 更新本地用户状态
         updateUser({
           nickname: form.nickname.trim(),
           gender: form.gender as 'male' | 'female' | ''
         })
+        
+        // 标记用户已完善信息，防止反复弹窗
+        const userId = (user as any)?._id || (user as any)?.id
+        if (userId) {
+          localStorage.setItem(`profile_completed_${userId}`, 'true')
+        }
+        
         toast.success('信息保存成功！')
         onClose()
       } else {
