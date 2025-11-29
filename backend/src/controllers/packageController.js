@@ -6,15 +6,25 @@ const FileService = require('../services/fileService')
 
 const list = async (req, res) => {
   try {
-    const { page = 1, pageSize = 10 } = req.query
+    const { page = 1, pageSize = 10, status } = req.query
     const { skip, pageSize: size } = calculatePagination(page, pageSize)
     
-    const total = await Package.countDocuments({ status: 'active' })
-    const packages = await Package.find({ status: 'active' })
+    // 构建查询条件 - 如果没有指定status，返回所有套餐
+    const query = {}
+    if (status && status !== 'all') {
+      query.status = status
+    }
+    
+    console.log('🔍 [套餐API] 查询条件:', query)
+    
+    const total = await Package.countDocuments(query)
+    const packages = await Package.find(query)
       .sort('-createdAt')
       .skip(skip)
       .limit(size)
       .lean()
+    
+    console.log('🔍 [套餐API] 查询到套餐数量:', packages.length)
     
     // 填充商品详细信息
     for (let pkg of packages) {

@@ -34,8 +34,28 @@ const PackageListPage: React.FC = () => {
 
   const loadPackages = async () => {
     try {
-      const response = await apiClient.get('/packages');
-      const apiPackages = response.data.data.map((pkg: any) => {
+      console.log('🔍 [套餐列表] 开始加载套餐数据...');
+      // 请求所有状态的套餐，不只是active状态
+      const response = await apiClient.get('/packages', { params: { pageSize: 100 } });
+      console.log('🔍 [套餐列表] API响应:', response.data);
+      
+      if (!response.data.data || !Array.isArray(response.data.data)) {
+        console.error('🔍 [套餐列表] API返回数据格式错误:', response.data);
+        toast.error('套餐数据格式错误');
+        return;
+      }
+      
+      console.log('🔍 [套餐列表] 原始套餐数量:', response.data.data.length);
+      
+      const apiPackages = response.data.data.map((pkg: any, index: number) => {
+        console.log(`🔍 [套餐列表] 处理套餐 ${index + 1}:`, {
+          id: pkg._id,
+          name: pkg.name,
+          status: pkg.status,
+          basePrice: pkg.basePrice,
+          products: pkg.products?.length || 0
+        });
+        
         // 计算类别数量
         const categories = new Set();
         if (pkg.products && pkg.products.length > 0) {
@@ -56,9 +76,12 @@ const PackageListPage: React.FC = () => {
           status: pkg.status
         };
       });
+      
+      console.log('🔍 [套餐列表] 处理后套餐数量:', apiPackages.length);
+      console.log('🔍 [套餐列表] 处理后套餐数据:', apiPackages);
       setPackages(apiPackages);
     } catch (error) {
-      console.error('加载套餐失败', error);
+      console.error('🔍 [套餐列表] 加载套餐失败:', error);
       toast.error('加载套餐失败');
     }
   };
@@ -96,8 +119,16 @@ const PackageListPage: React.FC = () => {
   const filteredPackages = packages.filter(pkg => {
     const searchTermMatch = pkg.name.toLowerCase().includes(searchTerm.toLowerCase());
     const statusMatch = statusFilter === 'all' || pkg.status === statusFilter;
-    return searchTermMatch && statusMatch;
+    const result = searchTermMatch && statusMatch;
+    
+    console.log(`🔍 [套餐筛选] 套餐"${pkg.name}": 搜索匹配=${searchTermMatch}, 状态匹配=${statusMatch}(${pkg.status} vs ${statusFilter}), 最终结果=${result}`);
+    
+    return result;
   });
+
+  console.log('🔍 [套餐筛选] 总套餐数:', packages.length);
+  console.log('🔍 [套餐筛选] 当前筛选条件: 搜索词="' + searchTerm + '", 状态筛选="' + statusFilter + '"');
+  console.log('🔍 [套餐筛选] 筛选后套餐数:', filteredPackages.length);
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
