@@ -759,7 +759,17 @@ export default function ProductManagement() {
         
         // 方式2: 如果SKU code没匹配到，尝试用商品名称匹配，更新该商品的第一个SKU
         if (!found && productName) {
-          const matchedProduct = products.find(p => p.name === productName)
+          console.log(`🔍 尝试按商品名称匹配: "${productName}"`)
+          console.log(`📋 系统中所有商品名称: [${products.map(p => p.name).join(', ')}]`)
+          // 精确匹配或包含匹配
+          let matchedProduct = products.find(p => p.name === productName)
+          if (!matchedProduct) {
+            // 尝试模糊匹配：商品名称包含文件名中的商品名，或反过来
+            matchedProduct = products.find(p => p.name.includes(productName) || productName.includes(p.name))
+            if (matchedProduct) {
+              console.log(`✓ 模糊匹配成功: "${productName}" -> "${matchedProduct.name}"`)
+            }
+          }
           if (matchedProduct && matchedProduct.skus?.length > 0) {
             found = true
             const uploadedUrls: string[] = []
