@@ -420,20 +420,52 @@ export default function ProductManagement() {
         const height = dimensionParts[2] ? parseInt(dimensionParts[2].replace(/[^\d]/g, '')) || 0 : 0;
 
         // 自动匹配分类
-        let matchedCategory = 'sofa';
-        categories.forEach(cat => {
-          if (cat.name === categoryName || cat.name.includes(categoryName) || categoryName.includes(cat.name)) {
-            matchedCategory = cat._id;
-          }
-        });
-        // 常见分类名称映射
-        const categoryMapping: Record<string, string> = {
-          '沙发': 'sofa', '床': 'bed', '餐桌': 'table', '椅子': 'chair', '衣柜': 'wardrobe',
-          '书桌': 'desk', '茶几': 'table', '电视柜': 'cabinet', '装饰': 'decoration'
-        };
-        if (categoryMapping[categoryName]) {
-          matchedCategory = categoryMapping[categoryName];
+        let matchedCategory = '';
+        let matchedCategoryName = '';
+        
+        // 1. 精确匹配分类名称
+        const exactMatch = categories.find(cat => cat.name === categoryName);
+        if (exactMatch) {
+          matchedCategory = exactMatch._id;
+          matchedCategoryName = exactMatch.name;
+          console.log(`✓ 分类精确匹配: "${categoryName}" -> "${exactMatch.name}" (${exactMatch._id})`);
         }
+        
+        // 2. 模糊匹配（包含关系）
+        if (!matchedCategory) {
+          const fuzzyMatch = categories.find(cat => 
+            cat.name.includes(categoryName) || categoryName.includes(cat.name)
+          );
+          if (fuzzyMatch) {
+            matchedCategory = fuzzyMatch._id;
+            matchedCategoryName = fuzzyMatch.name;
+            console.log(`✓ 分类模糊匹配: "${categoryName}" -> "${fuzzyMatch.name}" (${fuzzyMatch._id})`);
+          }
+        }
+        
+        // 3. 使用slug匹配
+        if (!matchedCategory) {
+          const slugMatch = categories.find(cat => cat.slug === categoryName.toLowerCase());
+          if (slugMatch) {
+            matchedCategory = slugMatch._id;
+            matchedCategoryName = slugMatch.name;
+            console.log(`✓ 分类slug匹配: "${categoryName}" -> "${slugMatch.name}" (${slugMatch._id})`);
+          }
+        }
+        
+        // 4. 默认使用第一个分类或'sofa'
+        if (!matchedCategory) {
+          if (categories.length > 0) {
+            matchedCategory = categories[0]._id;
+            matchedCategoryName = categories[0].name;
+            console.log(`⚠️ 分类未匹配，使用默认: "${categoryName}" -> "${categories[0].name}" (${categories[0]._id})`);
+          } else {
+            matchedCategory = 'sofa';
+            console.log(`⚠️ 分类列表为空，使用默认: "${categoryName}" -> "sofa"`);
+          }
+        }
+        
+        console.log(`📋 可用分类: [${categories.map(c => c.name).join(', ')}]`);
 
         // 使用 商品名称+主型号 作为合并键
         const productKey = `${productName}|${mainCode}`;
@@ -788,17 +820,23 @@ export default function ProductManagement() {
             
             console.log(`📤 上传完成, uploadedUrls:`, uploadedUrls)
             if (uploadedUrls.length > 0) {
-              // 更新第一个SKU的图片
+              // 同时更新商品主图和第一个SKU的图片
               const updatedSkus = matchedProduct.skus.map((sku, idx) => {
                 if (idx === 0) {
                   return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
                 }
                 return sku
               })
+              // 商品主图也使用这些图片
+              const updatedImages = [...uploadedUrls, ...(matchedProduct.images || [])]
               try {
-                await updateProduct(matchedProduct._id, { skus: updatedSkus })
+                await updateProduct(matchedProduct._id, { 
+                  images: updatedImages,  // 更新商品主图
+                  skus: updatedSkus       // 更新SKU图片
+                })
                 counts.updatedSkuCount++
-                console.log(`✅ 商品 "${productName}" 的第一个SKU 更新了 ${uploadedUrls.length} 张图片, counts.updatedSkuCount=${counts.updatedSkuCount}`)
+                counts.updatedProductCount++
+                console.log(`✅ 商品 "${productName}" 更新了主图和SKU图片，共 ${uploadedUrls.length} 张`)
               } catch (updateErr) {
                 console.error(`❌ 更新商品失败:`, updateErr)
               }
