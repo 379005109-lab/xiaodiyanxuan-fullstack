@@ -3,8 +3,9 @@ import type { DragEvent } from 'react'
 import { motion } from 'framer-motion'
 import {
   Plus, Search, FolderTree, Image, ChevronRight, ChevronDown,
-  Trash2, RotateCcw, Eye, EyeOff, CheckCircle, XCircle, Clock, Edit, X
+  Trash2, RotateCcw, Eye, EyeOff, CheckCircle, XCircle, Clock, Edit, X, Upload, Download
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
 import { Material, MaterialCategory } from '@/types'
 import {
@@ -16,6 +17,8 @@ import {
   updateMaterial,
   getMaterialStats,
   updateMaterialCategory,
+  createMaterial,
+  createMaterialCategory,
 } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
@@ -61,6 +64,11 @@ export default function MaterialManagement() {
   const [showSKUEditModal, setShowSKUEditModal] = useState(false)
   const [editingSKU, setEditingSKU] = useState<Material | null>(null)
   
+  // 批量导入
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importData, setImportData] = useState<any[]>([])
+  const [importing, setImporting] = useState(false)
+  
   // 统计
   const [stats, setStats] = useState({
     total: 0,
@@ -93,6 +101,71 @@ export default function MaterialManagement() {
   const loadStats = async () => {
     const materialStats = await getMaterialStats()
     setStats(materialStats)
+  }
+
+  const handleDownloadTemplate = () => {
+    const template = [
+      { "素材名称": "全青皮", "分类": "皮革", "材质介绍": "进口头层牛皮", "标签": "高端,进口", "SKU名称": "红色" },
+      { "素材名称": "全青皮", "分类": "皮革", "材质介绍": "进口头层牛皮", "标签": "高端,进口", "SKU名称": "黑色" },
+    ]
+    const ws = XLSX.utils.json_to_sheet(template)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "素材导入模板")
+    XLSX.writeFile(wb, "素材批量导入模板.xlsx")
+    toast.success("模板已下载")
+  }
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: "array" })
+        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]])
+        if (jsonData.length === 0) { toast.error("表格内容为空"); return }
+        setImportData(jsonData)
+        setShowImportModal(true)
+        toast.success(`已读取 ${jsonData.length} 条数据`)
+      } catch { toast.error("读取Excel文件失败") }
+    }
+    reader.readAsArrayBuffer(file)
+    e.target.value = ""
+  }
+
+  const handleImportSubmit = async () => {
+    if (importData.length === 0) return
+    setImporting(true)
+    let successCount = 0, errorCount = 0
+    try {
+      const existingCategories = await getAllMaterialCategories()
+      const categoryMap: Record<string, string> = {}
+      existingCategories.forEach((cat: MaterialCategory) => { categoryMap[cat.name] = cat._id })
+      const materialGroups: Record<string, any[]> = {}
+      importData.forEach((row: any) => {
+        const name = row["素材名称"] || row["名称"]
+        if (name) { if (!materialGroups[name]) materialGroups[name] = []; materialGroups[name].push(row) }
+      })
+      for (const [baseName, rows] of Object.entries(materialGroups)) {
+        const categoryName = rows[0]["分类"] || "未分类"
+        if (!categoryMap[categoryName]) {
+          try { const nc = await createMaterialCategory({ name: categoryName, order: 0 }); categoryMap[categoryName] = nc._id } catch {}
+        }
+        for (const row of rows) {
+          try {
+            const skuName = row["SKU名称"] || row["SKU"]
+            const fullName = skuName ? `${baseName}-${skuName}` : baseName
+            const tags = (row["标签"] || "").split(/[,，]/).filter(Boolean).map((t: string) => t.trim())
+            await createMaterial({ name: fullName, type: "texture", image: "", categoryId: categoryMap[categoryName] || "", categoryName, description: row["材质介绍"] || "", tags, properties: {}, status: "approved", uploadBy: "批量导入" })
+            successCount++
+          } catch { errorCount++ }
+        }
+      }
+      toast.success(`导入完成：成功 ${successCount} 条，失败 ${errorCount} 条`)
+      setShowImportModal(false); setImportData([]); loadMaterials(); loadCategories(); loadStats()
+    } catch { toast.error("导入失败") }
+    finally { setImporting(false) }
   }
 
   const handleToggleExpand = (id: string) => {
@@ -581,7 +654,7 @@ export default function MaterialManagement() {
                   onClick={() => setFilterStatus('')}
                   className={`px-4 py-2 text-sm rounded-lg font-semibold transition-colors border-2 ${
                     filterStatus === '' 
-                      ? 'bg-primary-600 text-white border-primary-600 shadow-md' 
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' 
                       : 'bg-white text-gray-800 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                   }`}
                 >
@@ -648,18 +721,20 @@ export default function MaterialManagement() {
                 清除
               </button>
               <button className="btn-secondary flex items-center text-sm px-4 py-2">
-                查重
+                查
               </button>
-              <button
-                onClick={() => {
-                  setEditingMaterial(null)
-                  setShowMaterialModal(true)
-                }}
-                className="btn-primary flex items-center text-sm px-4 py-2 ml-auto"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                新建材质
-              </button>
+              <div className="flex items-center gap-2 ml-auto">
+                <button onClick={handleDownloadTemplate} className="flex items-center text-sm px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">
+                  <Download className="h-4 w-4 mr-1" />模板
+                </button>
+                <label className="flex items-center text-sm px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 cursor-pointer">
+                  <Upload className="h-4 w-4 mr-1" />批量导入
+                  <input type="file" accept=".xlsx,.xls" onChange={handleImportFile} className="hidden" />
+                </label>
+                <button onClick={() => { setEditingMaterial(null); setShowMaterialModal(true) }} className="btn-primary flex items-center text-sm px-4 py-2">
+                  <Plus className="h-4 w-4 mr-2" />新建材质
+                </button>
+              </div>
             </div>
           </div>
 
@@ -758,10 +833,10 @@ export default function MaterialManagement() {
                         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                           <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl">
                             {/* 弹窗头部 */}
-                            <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-primary-500 to-primary-600 text-white">
+                            <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
                               <div>
                                 <h3 className="text-xl font-bold">{groupKey} - SKU管理</h3>
-                                <p className="text-sm opacity-80 mt-1">共 {groupMaterials.length} 个SKU，点击图片可编辑</p>
+                                <p className="text-sm text-indigo-100 mt-1">共 {groupMaterials.length} 个SKU，点击图片可编辑</p>
                               </div>
                               <div className="flex items-center gap-3">
                                 <button
@@ -769,7 +844,7 @@ export default function MaterialManagement() {
                                     setSelectedMaterialForSKU(representativeMaterial)
                                     setShowSKUModal(true)
                                   }}
-                                  className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-md"
                                 >
                                   <Plus className="h-4 w-4" />
                                   添加SKU
@@ -1111,6 +1186,49 @@ export default function MaterialManagement() {
             loadMaterials()
           }}
         />
+      )}
+
+      {/* 批量导入确认弹窗 */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+              <div>
+                <h3 className="text-xl font-bold">确认导入数据</h3>
+                <p className="text-sm text-indigo-100 mt-1">共 {importData.length} 条数据</p>
+              </div>
+              <button onClick={() => { setShowImportModal(false); setImportData([]) }} className="p-2 bg-white/20 hover:bg-white/30 rounded-lg"><X className="h-6 w-6" /></button>
+            </div>
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 180px)' }}>
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">素材名称</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">分类</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">SKU名称</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">标签</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {importData.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium">{row['素材名称'] || '-'}</td>
+                      <td className="px-4 py-3">{row['分类'] || '-'}</td>
+                      <td className="px-4 py-3">{row['SKU名称'] || '-'}</td>
+                      <td className="px-4 py-3">{row['标签'] || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+              <button onClick={() => { setShowImportModal(false); setImportData([]) }} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100" disabled={importing}>取消</button>
+              <button onClick={handleImportSubmit} disabled={importing} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                {importing ? '导入中...' : '确认导入'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
