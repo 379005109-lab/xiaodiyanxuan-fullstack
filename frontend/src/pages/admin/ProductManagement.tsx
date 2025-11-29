@@ -1,7 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Search, Filter, Edit, Trash2, Eye, EyeOff, FileSpreadsheet, Download, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react'
+import { Plus, Search, Filter, Edit, Trash2, Eye, EyeOff, FileSpreadsheet, Download, ChevronDown, ChevronUp, BarChart3, ImageIcon } from 'lucide-react'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Product, UserRole } from '@/types'
 import { toast } from 'sonner'
@@ -13,7 +13,7 @@ import { getAllMaterials, getAllMaterialCategories } from '@/services/materialSe
 import { Material, MaterialCategory } from '@/types'
 import { createCategoryLookup, getRoleDiscountMultiplier } from '@/utils/categoryHelper'
 import { useAuthStore } from '@/store/authStore'
-import { getFileUrl } from '@/services/uploadService'
+import { getFileUrl, uploadFile } from '@/services/uploadService'
 
 export default function ProductManagement() {
   const navigate = useNavigate()
@@ -43,6 +43,9 @@ export default function ProductManagement() {
   // 拖拽状态
   const [draggedProduct, setDraggedProduct] = useState<Product | null>(null)
   const [dragOverProductIndex, setDragOverProductIndex] = useState<number | null>(null)
+  
+  // 批量图片上传状态
+  const [batchImageUploading, setBatchImageUploading] = useState(false)
 
   // 加载商品数据
   useEffect(() => {
@@ -615,6 +618,125 @@ export default function ProductManagement() {
     e.target.value = '';
   };
 
+  // 批量图片上传处理
+  // 图片命名规则：
+  // 1. 商品主图: "商品名称1.jpg", "商品名称2.jpg" 或 "商品名称_1.jpg" -> 匹配商品名称，按序号排列
+  // 2. SKU图片: "型号_1.jpg", "型号_2.jpg" 或 "型号1.jpg" -> 匹配SKU的code字段
+  const handleBatchImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    
+    setBatchImageUploading(true)
+    const toastId = toast.loading(`正在处理 ${files.length} 张图片...`)
+    
+    try {
+      // 解析图片文件名，提取名称和序号
+      // 支持格式: "劳伦斯1.jpg", "劳伦斯_1.jpg", "劳伦斯-1.jpg", "C100-01_1.jpg"
+      const parseFileName = (fileName: string) => {
+        // 移除扩展名
+        const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '')
+        // 匹配末尾的数字（可能有分隔符）
+        const match = nameWithoutExt.match(/^(.+?)[-_]?(\d+)$/)
+        if (match) {
+          return { baseName: match[1].replace(/[-_]$/, ''), index: parseInt(match[2]) }
+        }
+        return { baseName: nameWithoutExt, index: 1 }
+      }
+      
+      // 按基础名称分组图片
+      const imageGroups: Record<string, { file: File, index: number }[]> = {}
+      for (const file of Array.from(files)) {
+        const { baseName, index } = parseFileName(file.name)
+        if (!imageGroups[baseName]) {
+          imageGroups[baseName] = []
+        }
+        imageGroups[baseName].push({ file, index })
+      }
+      
+      // 对每组图片按序号排序
+      Object.values(imageGroups).forEach(group => {
+        group.sort((a, b) => a.index - b.index)
+      })
+      
+      console.log('图片分组:', Object.keys(imageGroups))
+      
+      let updatedProductCount = 0
+      let updatedSkuCount = 0
+      let uploadedImageCount = 0
+      
+      // 遍历每个图片组，匹配商品或SKU
+      for (const [baseName, imageGroup] of Object.entries(imageGroups)) {
+        // 1. 先尝试匹配商品名称
+        const matchedProduct = products.find(p => p.name === baseName)
+        if (matchedProduct) {
+          // 上传图片并更新商品主图
+          const uploadedUrls: string[] = []
+          for (const { file } of imageGroup) {
+            const result = await uploadFile(file)
+            if (result.fileId) {
+              uploadedUrls.push(result.fileId)
+              uploadedImageCount++
+            }
+          }
+          
+          if (uploadedUrls.length > 0) {
+            // 合并现有图片和新上传的图片（新图片在前）
+            const newImages = [...uploadedUrls, ...(matchedProduct.images || [])]
+            await updateProduct(matchedProduct._id, { images: newImages })
+            updatedProductCount++
+            console.log(`✅ 商品 "${baseName}" 更新了 ${uploadedUrls.length} 张主图`)
+          }
+          continue
+        }
+        
+        // 2. 尝试匹配SKU型号（code字段）
+        for (const product of products) {
+          const matchedSku = product.skus?.find(sku => sku.code === baseName)
+          if (matchedSku) {
+            // 上传图片并更新SKU图片
+            const uploadedUrls: string[] = []
+            for (const { file } of imageGroup) {
+              const result = await uploadFile(file)
+              if (result.fileId) {
+                uploadedUrls.push(result.fileId)
+                uploadedImageCount++
+              }
+            }
+            
+            if (uploadedUrls.length > 0) {
+              // 更新SKU的图片
+              const updatedSkus = product.skus.map(sku => {
+                if (sku.code === baseName) {
+                  return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
+                }
+                return sku
+              })
+              await updateProduct(product._id, { skus: updatedSkus })
+              updatedSkuCount++
+              console.log(`✅ SKU "${baseName}" (商品: ${product.name}) 更新了 ${uploadedUrls.length} 张图片`)
+            }
+            break
+          }
+        }
+      }
+      
+      toast.dismiss(toastId)
+      if (updatedProductCount > 0 || updatedSkuCount > 0) {
+        toast.success(`批量上传完成！更新了 ${updatedProductCount} 个商品主图，${updatedSkuCount} 个SKU图片，共 ${uploadedImageCount} 张图片`)
+        await loadProducts()
+      } else {
+        toast.warning('未找到匹配的商品或SKU，请检查图片命名是否与商品名称或SKU型号一致')
+      }
+    } catch (error) {
+      console.error('批量图片上传失败:', error)
+      toast.dismiss(toastId)
+      toast.error('批量图片上传失败')
+    } finally {
+      setBatchImageUploading(false)
+      e.target.value = ''
+    }
+  }
+
   // 执行搜索
   const handleSearch = () => {
     // 搜索功能已通过filteredProducts实现，此函数用于手动触发
@@ -821,6 +943,18 @@ export default function ProductManagement() {
                   accept=".xlsx,.xls"
                   className="hidden"
                   onChange={handleImportTable}
+                />
+              </label>
+              <label className={`btn-primary flex items-center cursor-pointer ${batchImageUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <ImageIcon className="h-5 w-5 mr-2" />
+                {batchImageUploading ? '上传中...' : '批量图片'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleBatchImageUpload}
+                  disabled={batchImageUploading}
                 />
               </label>
               <button
