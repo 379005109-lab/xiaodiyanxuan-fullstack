@@ -801,9 +801,22 @@ export default function ProductManagement() {
                   }
                   return sku
                 })
+                
+                // 如果是SKU1，同时更新商品主图（详情页头图）
+                const updateData: any = { skus: updatedSkus }
+                if (skuCode === '008-SKU1') {
+                  // 使用SKU1的第一张图作为商品主图
+                  const currentMainImages = product.images || []
+                  updateData.images = [uploadedUrls[0], ...currentMainImages]
+                  console.log(`📸 SKU1更新，同时设置商品主图: ${uploadedUrls[0]}`)
+                }
+                
                 try {
-                  await updateProduct(product._id, { skus: updatedSkus })
+                  await updateProduct(product._id, updateData)
                   counts.updatedSkuCount++
+                  if (skuCode === '008-SKU1') {
+                    counts.updatedProductCount++
+                  }
                   console.log(`✅ SKU "${skuCode}" (商品: ${product.name}) 更新了 ${uploadedUrls.length} 张图片, counts.updatedSkuCount=${counts.updatedSkuCount}`)
                 } catch (updateErr) {
                   console.error(`❌ 更新SKU失败:`, updateErr)
