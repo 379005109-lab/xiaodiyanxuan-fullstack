@@ -154,13 +154,22 @@ export default function MaterialManagement() {
           try { const nc = await createMaterialCategory({ name: categoryName, order: 0 }); categoryMap[categoryName] = nc._id } catch {}
         }
         for (const row of rows) {
-          try {
-            const skuName = row["SKU名称"] || row["SKU"]
-            const fullName = skuName ? `${baseName}-${skuName}` : baseName
-            const tags = (row["标签"] || "").split(/[,，]/).filter(Boolean).map((t: string) => t.trim())
-            await createMaterial({ name: fullName, type: "texture", image: "", categoryId: categoryMap[categoryName] || "", categoryName, description: row["材质介绍"] || "", tags, properties: {}, status: "approved", uploadBy: "批量导入" })
-            successCount++
-          } catch { errorCount++ }
+          const skuRaw = (row["SKU名称"] || row["SKU"] || "").toString()
+          const tags = (row["标签"] || "").split(/[,，]/).filter(Boolean).map((t: string) => t.trim())
+          const skuList = skuRaw.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
+          if (skuList.length === 0) {
+            try {
+              await createMaterial({ name: baseName, type: "texture", image: "", categoryId: categoryMap[categoryName] || "", categoryName, description: row[""] || "", tags, properties: {}, status: "approved", uploadBy: "批量导入" })
+              successCount++
+            } catch { errorCount++ }
+          } else {
+            for (const sku of skuList) {
+              try {
+                await createMaterial({ name: `${baseName}-${sku}`, type: "texture", image: "", categoryId: categoryMap[categoryName] || "", categoryName, description: row["材质"] || "", tags, properties: {}, status: "approved", uploadBy: "批量导入" })
+                successCount++
+              } catch { errorCount++ }
+            }
+          }
         }
       }
       toast.success(`导入完成：成功 ${successCount} 条，失败 ${errorCount} 条`)
