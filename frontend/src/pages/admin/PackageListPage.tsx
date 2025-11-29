@@ -80,10 +80,13 @@ const PackageListPage: React.FC = () => {
       if (!pkg) return;
       
       const newStatus = pkg.status === 'active' ? 'inactive' : 'active';
+      const statusText = newStatus === 'active' ? '上架' : '下架';
+      
       await apiClient.put(`/packages/${packageId}`, { status: newStatus });
       
-      toast.success('状态已更新');
-      loadPackages();
+      toast.success(`套餐已${statusText}`);
+      // 重新加载数据，确保状态更新
+      await loadPackages();
     } catch (error) {
       console.error('更新状态失败', error);
       toast.error('更新状态失败');
@@ -126,6 +129,32 @@ const PackageListPage: React.FC = () => {
           <option value="draft">草稿</option>
         </select>
       </div>
+
+      {/* 提示信息 */}
+      {statusFilter === 'all' && filteredPackages.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-blue-700">
+            💡 点击"已上架"按钮可以下架套餐，下架后的套餐可通过上方筛选器选择"已下架"查看
+          </p>
+        </div>
+      )}
+
+      {/* 空状态提示 */}
+      {filteredPackages.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500 mb-2">
+            {statusFilter === 'all' ? '暂无套餐' : `暂无${statusFilter === 'active' ? '已上架' : statusFilter === 'inactive' ? '已下架' : '草稿'}套餐`}
+          </p>
+          {statusFilter !== 'all' && (
+            <button 
+              onClick={() => setStatusFilter('all')}
+              className="text-blue-600 hover:text-blue-800 text-sm"
+            >
+              查看所有套餐
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 卡片网格视图 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
