@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { X, Upload } from 'lucide-react'
+import { X, Upload, Crop } from 'lucide-react'
 import { toast } from 'sonner'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { Material } from '@/types'
 import { createMaterial } from '@/services/materialService'
+import ImageCropper from './ImageCropper'
 
 interface MaterialSKUModalProps {
   material: Material | null
@@ -16,8 +17,56 @@ export default function MaterialSKUModal({ material, onClose, onSuccess }: Mater
     skuName: '',
     image: '',
   })
+  
+  // 图片裁剪状态
+  const [showCropper, setShowCropper] = useState(false)
+  const [cropperFile, setCropperFile] = useState<File | null>(null)
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 选择图片后打开裁剪器
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('请选择图片文件')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('图片大小不能超过10MB')
+      return
+    }
+
+    // 打开裁剪器
+    setCropperFile(file)
+    setShowCropper(true)
+    e.target.value = ''
+  }
+
+  // 裁剪完成后上传
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setShowCropper(false)
+    setCropperFile(null)
+
+    try {
+      toast.info('正在上传到GridFS...')
+      const file = new File([croppedBlob], 'cropped-image.jpg', { type: 'image/jpeg' })
+      const result = await uploadFile(file)
+      
+      if (result.success) {
+        setFormData({ ...formData, image: result.data.fileId })
+        toast.success('图片上传成功')
+      } else {
+        toast.error('图片上传失败')
+      }
+    } catch (error) {
+      console.error('图片上传失败:', error)
+      toast.error('图片上传失败，请重试')
+    }
+  }
+
+  // 直接上传（不裁剪）
+  const handleDirectUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -36,6 +85,7 @@ export default function MaterialSKUModal({ material, onClose, onSuccess }: Mater
     } catch (error) {
       toast.error('图片上传失败')
     }
+    e.target.value = ''
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -108,7 +158,7 @@ export default function MaterialSKUModal({ material, onClose, onSuccess }: Mater
             </label>
             <div className="flex items-start gap-4">
               {formData.image && (
-                <div className="relative w-40 h-40 border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                <div className="relative w-32 h-32 border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                   <img
                     src={getFileUrl(formData.image)}
                     alt="SKU图片"
@@ -124,17 +174,34 @@ export default function MaterialSKUModal({ material, onClose, onSuccess }: Mater
                 </div>
               )}
               
-              <label className={`flex-1 flex flex-col items-center justify-center ${formData.image ? 'h-40' : 'h-40'} border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors`}>
-                <Upload className="h-10 w-10 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-600">点击上传图片</span>
-                <span className="text-xs text-gray-400 mt-1">支持JPG、PNG，不超过5MB</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-              </label>
+              {/* 上传选项 */}
+              <div className="flex-1 flex flex-col gap-3">
+                <label className="flex flex-col items-center justify-center h-16 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Crop className="h-5 w-5 text-gray-400" />
+                    <span className="text-sm text-gray-600">使用取景器上传</span>
+                  </div>
+                  <span className="text-xs text-gray-400 mt-1">支持裁剪和旋转</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                </label>
+                <label className="flex items-center justify-center h-12 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-gray-400" />
+                    <span className="text-sm text-gray-500">直接上传</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleDirectUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
             </div>
           </div>
 
@@ -179,6 +246,18 @@ export default function MaterialSKUModal({ material, onClose, onSuccess }: Mater
           </div>
         </form>
       </div>
+
+      {/* 图片取景器 */}
+      {showCropper && cropperFile && (
+        <ImageCropper
+          imageFile={cropperFile}
+          onCrop={handleCropComplete}
+          onCancel={() => {
+            setShowCropper(false)
+            setCropperFile(null)
+          }}
+        />
+      )}
     </div>
   )
 }

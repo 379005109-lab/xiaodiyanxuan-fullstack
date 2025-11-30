@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { X, Upload, Plus, Trash2 } from 'lucide-react'
+import { X, Upload, Plus, Trash2, Crop } from 'lucide-react'
 import { toast } from 'sonner'
 import { Material } from '@/types'
 import { updateMaterial } from '@/services/materialService'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
+import ImageCropper from './ImageCropper'
 
 interface SKUEditModalProps {
   material: Material
@@ -24,8 +25,59 @@ export default function SKUEditModal({ material, onClose, onSave }: SKUEditModal
   })
   const [tagInput, setTagInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // 图片裁剪状态
+  const [showCropper, setShowCropper] = useState(false)
+  const [cropperFile, setCropperFile] = useState<File | null>(null)
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 选择图片后打开裁剪器
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('请选择图片文件')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('图片大小不能超过10MB')
+      return
+    }
+
+    // 打开裁剪器
+    setCropperFile(file)
+    setShowCropper(true)
+    e.target.value = ''
+  }
+
+  // 裁剪完成后上传
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setShowCropper(false)
+    setCropperFile(null)
+
+    try {
+      toast.loading('正在上传图片...')
+      const file = new File([croppedBlob], 'cropped-image.jpg', { type: 'image/jpeg' })
+      const result = await uploadFile(file)
+      
+      if (result.success) {
+        setFormData({ ...formData, image: result.data.fileId })
+        toast.dismiss()
+        toast.success('图片上传成功')
+      } else {
+        toast.dismiss()
+        toast.error('图片上传失败')
+      }
+    } catch (error) {
+      console.error('图片上传失败:', error)
+      toast.dismiss()
+      toast.error('图片上传失败，请重试')
+    }
+  }
+
+  // 直接上传（不裁剪）
+  const handleDirectUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -55,6 +107,7 @@ export default function SKUEditModal({ material, onClose, onSave }: SKUEditModal
       toast.dismiss()
       toast.error('图片上传失败，请重试')
     }
+    e.target.value = ''
   }
 
   const handleAddTag = () => {
@@ -128,42 +181,61 @@ export default function SKUEditModal({ material, onClose, onSave }: SKUEditModal
 
         {/* 表单内容 */}
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
-          {/* 图片上传 - 点击图片直接更换 */}
+          {/* 图片上传 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              SKU图片 <span className="text-xs text-gray-400 font-normal">（点击图片更换）</span>
+              SKU图片
             </label>
-            <label className="relative block w-32 h-32 mx-auto bg-gray-100 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 cursor-pointer hover:border-primary-400 hover:shadow-lg transition-all group">
-              {formData.image ? (
-                <>
+            <div className="flex items-start gap-4">
+              {/* 图片预览 */}
+              {formData.image && (
+                <div className="relative w-24 h-24 border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                   <img
                     src={getFileUrl(formData.image)}
                     alt="SKU图片"
-                    className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                    className="w-full h-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = '/placeholder.svg'
                     }}
                   />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="text-white text-center">
-                      <Upload className="h-6 w-6 mx-auto mb-1" />
-                      <span className="text-xs">点击更换</span>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 group-hover:text-primary-500 transition-colors">
-                  <Upload className="h-8 w-8 mb-2" />
-                  <span className="text-xs">点击上传</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, image: '' })}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
               )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-            </label>
+              
+              {/* 上传选项 */}
+              <div className="flex-1 flex flex-col gap-2">
+                <label className="flex flex-col items-center justify-center h-14 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Crop className="h-4 w-4 text-gray-400" />
+                    <span className="text-xs text-gray-600">使用取景器上传</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                </label>
+                <label className="flex items-center justify-center h-10 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-gray-400" />
+                    <span className="text-xs text-gray-500">直接上传</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleDirectUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
           </div>
 
           {/* SKU名称 */}
@@ -250,6 +322,18 @@ export default function SKUEditModal({ material, onClose, onSave }: SKUEditModal
           </div>
         </form>
       </div>
+
+      {/* 图片取景器 */}
+      {showCropper && cropperFile && (
+        <ImageCropper
+          imageFile={cropperFile}
+          onCrop={handleCropComplete}
+          onCancel={() => {
+            setShowCropper(false)
+            setCropperFile(null)
+          }}
+        />
+      )}
     </div>
   )
 }
