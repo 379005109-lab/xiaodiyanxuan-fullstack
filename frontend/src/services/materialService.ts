@@ -5,8 +5,13 @@ import { Material, MaterialCategory } from '@/types'
 
 export const getAllMaterials = async (): Promise<Material[]> => {
   try {
+    console.log('🔥 [材质服务] 开始请求材质列表...')
+    console.log('🔥 [材质服务] API baseURL:', apiClient.defaults.baseURL)
     const response = await apiClient.get('/materials')
-    return response.data.data || []
+    const materials = response.data.data || []
+    console.log(`🔥 [材质服务] 获取到 ${materials.length} 条材质`)
+    console.log('🔥 [材质服务] API响应:', response.data)
+    return materials
   } catch (error: any) {
     console.error('获取材质列表失败:', error)
     throw new Error(error.response?.data?.message || '获取材质列表失败')
