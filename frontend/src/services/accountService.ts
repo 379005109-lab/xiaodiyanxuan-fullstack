@@ -14,6 +14,7 @@ export const USER_ROLES = {
 
 export const ROLE_LABELS: Record<string, string> = {
   super_admin: '超级管理员',
+  admin: '管理员',           // 兼容旧角色
   platform_admin: '平台管理员',
   platform_staff: '平台子账号',
   enterprise_admin: '企业管理员',
@@ -21,6 +22,7 @@ export const ROLE_LABELS: Record<string, string> = {
   designer: '设计师',
   special_guest: '特殊账号',
   customer: '普通客户',
+  user: '普通用户',          // 兼容旧角色
 }
 
 export const ORGANIZATION_TYPES = {
@@ -105,6 +107,29 @@ export interface AccountUser {
   status: 'active' | 'inactive' | 'banned' | 'expired'
   createdAt: string
   lastLoginAt?: string
+}
+
+// ==================== 看板统计 API ====================
+
+export interface DashboardData {
+  overview: {
+    totalUsers: number
+    todayNewUsers: number
+    monthNewUsers: number
+    activeUsers: number
+    taggedUsers: number
+    bulkDownloadUsers: number
+  }
+  roleStats: { _id: string; count: number }[]
+  statusStats: { _id: string; count: number }[]
+  orgStats: { _id: string; count: number }[]
+  recentUsers: AccountUser[]
+  recentTaggedUsers: AccountUser[]
+}
+
+export const getDashboard = async (): Promise<DashboardData> => {
+  const response = await apiClient.get('/accounts/dashboard')
+  return response.data.data
 }
 
 // ==================== 组织管理 API ====================

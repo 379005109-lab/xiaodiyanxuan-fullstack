@@ -497,6 +497,81 @@ const getRoleStats = async (req, res) => {
   }
 }
 
+/**
+ * 获取用户看板统计数据
+ */
+const getDashboard = async (req, res) => {
+  try {
+    // 总用户数
+    const totalUsers = await User.countDocuments()
+    
+    // 今日新增用户
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayNewUsers = await User.countDocuments({ createdAt: { $gte: today } })
+    
+    // 本月新增用户
+    const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    const monthNewUsers = await User.countDocuments({ createdAt: { $gte: thisMonth } })
+    
+    // 活跃用户（7天内有登录）
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const activeUsers = await User.countDocuments({ lastLoginAt: { $gte: weekAgo } })
+    
+    // 按角色统计
+    const roleStats = await User.aggregate([
+      { $group: { _id: '$role', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ])
+    
+    // 按状态统计
+    const statusStats = await User.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ])
+    
+    // 被标记的用户（如批量下载）
+    const taggedUsers = await User.countDocuments({ tags: { $exists: true, $ne: [] } })
+    
+    // 批量下载标签用户
+    const bulkDownloadUsers = await User.countDocuments({ tags: '批量下载' })
+    
+    // 组织统计
+    const orgStats = await Organization.aggregate([
+      { $group: { _id: '$type', count: { $sum: 1 } } }
+    ])
+    
+    // 最近注册用户
+    const recentUsers = await User.find()
+      .select('nickname username phone role status createdAt lastLoginAt tags')
+      .sort({ createdAt: -1 })
+      .limit(10)
+    
+    // 最近被标记的用户
+    const recentTaggedUsers = await User.find({ tags: { $exists: true, $ne: [] } })
+      .select('nickname username phone role status tags downloadStats createdAt')
+      .sort({ 'downloadStats.firstTaggedAt': -1 })
+      .limit(10)
+    
+    res.json(successResponse({
+      overview: {
+        totalUsers,
+        todayNewUsers,
+        monthNewUsers,
+        activeUsers,
+        taggedUsers,
+        bulkDownloadUsers,
+      },
+      roleStats,
+      statusStats,
+      orgStats,
+      recentUsers,
+      recentTaggedUsers,
+    }))
+  } catch (err) {
+    res.status(500).json(errorResponse(err.message))
+  }
+}
+
 module.exports = {
   // 组织管理
   getOrganizations,
@@ -514,6 +589,7 @@ module.exports = {
   createSpecialAccount,
   getSpecialAccounts,
   invalidateSpecialAccount,
-  // 统计
+  // 统计与看板
   getRoleStats,
+  getDashboard,
 }

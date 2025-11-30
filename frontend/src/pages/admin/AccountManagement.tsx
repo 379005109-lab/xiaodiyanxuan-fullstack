@@ -3,16 +3,19 @@ import { toast } from 'sonner'
 import { 
   Building2, Users, UserPlus, Key, Search, MoreVertical,
   Edit, Trash2, RefreshCw, Shield, Eye, EyeOff, Copy,
-  ChevronDown, Plus, Settings
+  ChevronDown, Plus, Settings, BarChart3, TrendingUp, AlertTriangle, UserCheck
 } from 'lucide-react'
 import * as accountService from '@/services/accountService'
-import { ROLE_LABELS, ORG_TYPE_LABELS, USER_ROLES } from '@/services/accountService'
+import { ROLE_LABELS, ORG_TYPE_LABELS, USER_ROLES, DashboardData } from '@/services/accountService'
 
-type TabType = 'organizations' | 'users' | 'designers' | 'special'
+type TabType = 'dashboard' | 'organizations' | 'users' | 'designers' | 'special'
 
 export default function AccountManagement() {
-  const [activeTab, setActiveTab] = useState<TabType>('organizations')
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [loading, setLoading] = useState(false)
+  
+  // 看板数据
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null)
   
   // 组织数据
   const [organizations, setOrganizations] = useState<accountService.Organization[]>([])
@@ -35,7 +38,9 @@ export default function AccountManagement() {
 
   // 加载数据
   useEffect(() => {
-    if (activeTab === 'organizations') {
+    if (activeTab === 'dashboard') {
+      loadDashboard()
+    } else if (activeTab === 'organizations') {
       loadOrganizations()
     } else if (activeTab === 'users' || activeTab === 'designers') {
       loadUsers()
@@ -43,6 +48,18 @@ export default function AccountManagement() {
       loadSpecialAccounts()
     }
   }, [activeTab, orgType, userRole])
+
+  const loadDashboard = async () => {
+    setLoading(true)
+    try {
+      const data = await accountService.getDashboard()
+      setDashboard(data)
+    } catch (error: any) {
+      toast.error(error.message || '加载看板数据失败')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const loadOrganizations = async () => {
     setLoading(true)
@@ -126,6 +143,7 @@ export default function AccountManagement() {
   }
 
   const tabs = [
+    { id: 'dashboard', label: '用户看板', icon: BarChart3 },
     { id: 'organizations', label: '平台/企业', icon: Building2 },
     { id: 'users', label: '用户账号', icon: Users },
     { id: 'designers', label: '设计师', icon: UserPlus },
@@ -158,6 +176,152 @@ export default function AccountManagement() {
             </button>
           ))}
         </div>
+
+        {/* 用户看板 */}
+        {activeTab === 'dashboard' && (
+          <div className="p-6">
+            {loading ? (
+              <div className="text-center py-12 text-gray-500">加载中...</div>
+            ) : dashboard ? (
+              <div className="space-y-6">
+                {/* 概览卡片 */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="bg-blue-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-blue-600 mb-2">
+                      <Users className="w-5 h-5" />
+                      <span className="text-sm">总用户数</span>
+                    </div>
+                    <div className="text-2xl font-bold text-blue-700">{dashboard.overview.totalUsers}</div>
+                  </div>
+                  <div className="bg-green-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-green-600 mb-2">
+                      <TrendingUp className="w-5 h-5" />
+                      <span className="text-sm">今日新增</span>
+                    </div>
+                    <div className="text-2xl font-bold text-green-700">{dashboard.overview.todayNewUsers}</div>
+                  </div>
+                  <div className="bg-purple-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-purple-600 mb-2">
+                      <TrendingUp className="w-5 h-5" />
+                      <span className="text-sm">本月新增</span>
+                    </div>
+                    <div className="text-2xl font-bold text-purple-700">{dashboard.overview.monthNewUsers}</div>
+                  </div>
+                  <div className="bg-cyan-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-cyan-600 mb-2">
+                      <UserCheck className="w-5 h-5" />
+                      <span className="text-sm">7日活跃</span>
+                    </div>
+                    <div className="text-2xl font-bold text-cyan-700">{dashboard.overview.activeUsers}</div>
+                  </div>
+                  <div className="bg-orange-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-orange-600 mb-2">
+                      <AlertTriangle className="w-5 h-5" />
+                      <span className="text-sm">被标记用户</span>
+                    </div>
+                    <div className="text-2xl font-bold text-orange-700">{dashboard.overview.taggedUsers}</div>
+                  </div>
+                  <div className="bg-red-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 text-red-600 mb-2">
+                      <AlertTriangle className="w-5 h-5" />
+                      <span className="text-sm">批量下载</span>
+                    </div>
+                    <div className="text-2xl font-bold text-red-700">{dashboard.overview.bulkDownloadUsers}</div>
+                  </div>
+                </div>
+
+                {/* 角色分布 */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-xl border p-4">
+                    <h3 className="font-semibold text-gray-900 mb-4">角色分布</h3>
+                    <div className="space-y-3">
+                      {dashboard.roleStats.map((stat) => (
+                        <div key={stat._id} className="flex items-center justify-between">
+                          <span className="text-gray-600">{ROLE_LABELS[stat._id] || stat._id || '未设置'}</span>
+                          <span className="font-medium">{stat.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl border p-4">
+                    <h3 className="font-semibold text-gray-900 mb-4">被标记用户</h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {dashboard.recentTaggedUsers.length === 0 ? (
+                        <p className="text-gray-400 text-sm">暂无被标记用户</p>
+                      ) : (
+                        dashboard.recentTaggedUsers.map((user) => (
+                          <div key={user._id} className="flex items-center justify-between py-2 border-b last:border-0">
+                            <div>
+                              <div className="font-medium text-sm">{user.nickname || user.username}</div>
+                              <div className="text-xs text-gray-500">{user.phone}</div>
+                            </div>
+                            <div className="flex gap-1">
+                              {user.tags?.map((tag, idx) => (
+                                <span 
+                                  key={idx} 
+                                  className={`px-2 py-0.5 text-xs rounded-full ${
+                                    tag === '批量下载' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                                  }`}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 最近注册用户 */}
+                <div className="bg-white rounded-xl border p-4">
+                  <h3 className="font-semibold text-gray-900 mb-4">最近注册用户</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">用户</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">角色</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">状态</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-600">注册时间</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {dashboard.recentUsers.map((user) => (
+                          <tr key={user._id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2">
+                              <div className="font-medium text-sm">{user.nickname || user.username}</div>
+                              <div className="text-xs text-gray-500">{user.phone}</div>
+                            </td>
+                            <td className="px-4 py-2">
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700">
+                                {ROLE_LABELS[user.role] || user.role}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2">
+                              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                {user.status === 'active' ? '正常' : user.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-sm text-gray-500">
+                              {new Date(user.createdAt).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">暂无数据</div>
+            )}
+          </div>
+        )}
 
         {/* 组织管理 */}
         {activeTab === 'organizations' && (
