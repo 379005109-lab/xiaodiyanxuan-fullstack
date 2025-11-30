@@ -34,7 +34,21 @@ export default defineConfig({
       },
     },
     chunkSizeWarningLimit: 1500,
-    minify: 'esbuild', // 改回esbuild，更稳定
+    minify: 'terser', // 使用terser进行更强的代码混淆
+    terserOptions: {
+      compress: {
+        drop_console: true,      // 移除console.log
+        drop_debugger: true,     // 移除debugger
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+      },
+      mangle: {
+        toplevel: true,          // 混淆顶级变量名
+      },
+      format: {
+        comments: false,         // 移除所有注释
+      },
+    },
+    sourcemap: false,            // 禁用sourcemap，防止源码泄露
   },
   define: {
     'process.env.NODE_ENV': '"production"',
