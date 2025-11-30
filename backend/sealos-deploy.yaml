@@ -38,7 +38,7 @@ spec:
         - name: JWT_EXPIRE
           value: "7d"
         - name: CORS_ORIGIN
-          value: "https://lgpzubdtdxjf.sealoshzh.site,http://localhost:3000,http://localhost:5173,*"
+          value: "https://lgpzubdtdxjf.sealoshzh.site,https://xiaodiyanxuan.com,https://www.xiaodiyanxuan.com,http://localhost:3000,http://localhost:5173,*"
         - name: LOG_LEVEL
           value: "info"
         - name: ALIYUN_SMS_ACCESS_KEY_ID
@@ -105,8 +105,15 @@ kind: Ingress
 metadata:
   name: xiaodiyanxuan-api
   namespace: ns-cxxiwxce
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
+  tls:
+  - hosts:
+    - pkochbpmcgaa.sealoshzh.site
+    - api.xiaodiyanxuan.com
+    secretName: xiaodiyanxuan-api-tls
   rules:
   - host: pkochbpmcgaa.sealoshzh.site
     http:
@@ -118,7 +125,13 @@ spec:
             name: xiaodiyanxuan-api
             port:
               number: 80
-  tls:
-  - hosts:
-    - pkochbpmcgaa.sealoshzh.site
-    secretName: sealos-cert
+  - host: api.xiaodiyanxuan.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: xiaodiyanxuan-api
+            port:
+              number: 80

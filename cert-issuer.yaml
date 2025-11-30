@@ -1,0 +1,45 @@
+# Let's Encrypt 证书颁发者配置
+# 用于自动申请和续期 SSL 证书
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@xiaodiyanxuan.com  # 替换为你的邮箱
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+---
+# 前端域名证书
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: xiaodiyanxuan-tls
+  namespace: ns-cxxiwxce
+spec:
+  secretName: xiaodiyanxuan-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - xiaodiyanxuan.com
+  - www.xiaodiyanxuan.com
+---
+# API 域名证书
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: xiaodiyanxuan-api-tls
+  namespace: ns-cxxiwxce
+spec:
+  secretName: xiaodiyanxuan-api-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - api.xiaodiyanxuan.com
