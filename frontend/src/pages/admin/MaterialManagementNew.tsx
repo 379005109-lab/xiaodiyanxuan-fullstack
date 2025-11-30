@@ -541,6 +541,32 @@ export default function MaterialManagement() {
     setDraggedMaterial(null)
   }
 
+  // 获取分类及其所有子分类的ID列表
+  const getAllCategoryIds = (categoryId: string): string[] => {
+    const ids = [categoryId]
+    const findCategory = (cats: MaterialCategory[]): MaterialCategory | null => {
+      for (const cat of cats) {
+        if (cat._id === categoryId) return cat
+        if (cat.children) {
+          const found = findCategory(cat.children)
+          if (found) return found
+        }
+      }
+      return null
+    }
+    const category = findCategory(categories)
+    if (category?.children) {
+      const collectChildIds = (children: MaterialCategory[]) => {
+        children.forEach(child => {
+          ids.push(child._id)
+          if (child.children) collectChildIds(child.children)
+        })
+      }
+      collectChildIds(category.children)
+    }
+    return ids
+  }
+
   // 筛选素材（排除分类材质，只显示SKU材质）
   const filteredMaterials = materials
     .filter(material => {
@@ -548,8 +574,12 @@ export default function MaterialManagement() {
       if (material.isCategory) {
         return false
       }
-      if (selectedCategoryId && material.categoryId !== selectedCategoryId) {
-        return false
+      // 选中分类时，显示该分类及所有子分类的材质
+      if (selectedCategoryId) {
+        const allowedCategoryIds = getAllCategoryIds(selectedCategoryId)
+        if (!allowedCategoryIds.includes(material.categoryId)) {
+          return false
+        }
       }
       if (searchQuery && !material.name.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false
@@ -943,8 +973,8 @@ export default function MaterialManagement() {
                         <p className="text-xs text-gray-500 truncate">
                           {representativeMaterial.categoryName || '未分类'}
                         </p>
-                        {/* 操作按钮 */}
-                        <div className="flex items-center gap-1 mt-2">
+                        {/* 操作按钮 - 悬停显示 */}
+                        <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
