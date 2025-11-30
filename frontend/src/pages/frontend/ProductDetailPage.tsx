@@ -304,6 +304,7 @@ const ProductDetailPage = () => {
   const [specCollapsed, setSpecCollapsed] = useState(true);
   const [materialCollapsed, setMaterialCollapsed] = useState(true);
   const [materialSelections, setMaterialSelections] = useState<Record<string, string | null>>({});
+  const [expandedMaterialCategory, setExpandedMaterialCategory] = useState<string | null>(null);
   const [materialInfoModal, setMaterialInfoModal] = useState<{ open: boolean; section?: string; material?: string }>({ open: false });
   const [isAllImageModalOpen, setAllImageModalOpen] = useState(false);
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
@@ -602,8 +603,16 @@ const ProductDetailPage = () => {
     const options = normalizedSelectedMaterials?.[sectionKey] || [];
     if (options.length <= 1) return;
 
-    // 直接设置材质选择，不再自动切换版本
-    setMaterialSelections(prev => ({ ...prev, [sectionKey]: materialName }));
+    const currentSelection = materialSelections[sectionKey];
+    
+    // 如果点击的是同一个材质，切换展开/收起状态
+    if (currentSelection === materialName) {
+      setExpandedMaterialCategory(prev => prev === sectionKey ? null : sectionKey);
+    } else {
+      // 选择新材质并展开详情
+      setMaterialSelections(prev => ({ ...prev, [sectionKey]: materialName }));
+      setExpandedMaterialCategory(sectionKey);
+    }
   };
 
   const openMaterialIntro = (sectionKey: string, materialName?: string) => {
@@ -1036,6 +1045,29 @@ const ProductDetailPage = () => {
                           const list = normalizedSelectedMaterials?.[categoryKey] || [];
                           return list.length > 0;
                         });
+                        
+                        // 材质分组的介绍信息（移到外层便于共享）
+                        const groupDescriptions: Record<string, string> = {
+                          '磨砂皮': '磨砂皮具有细腻的磨砂质感，手感柔软舒适，外观时尚大气。',
+                          '纳帕A级皮': '纳帕A级皮是顶级真皮，皮质细腻柔软，触感舒适，高端品质。',
+                          '普通皮': '普通皮革，经济实惠，适合日常使用。具有良好的耐用性和易清洁特性。',
+                          '全青皮': '全青皮是高级皮革，采用天然植物鞣制工艺，具有独特的质感和气味。',
+                          '牛皮': '优质牛皮，纹理自然，质感细腻。具有很好的透气性和耐磨性。',
+                          '绒布': '柔软舒适的绒布面料，触感温暖。易于清洁，适合家庭使用。',
+                          '麻布': '天然麻布，环保透气，具有独特的质感。适合现代简约风格。',
+                          '舒软款': '舒软填充，坐感柔软舒适，适合长时间休息。',
+                          '高密加硬': '高密度填充，支撑性强，不易塌陷，适合喜欢硬坐感的用户。',
+                          '高回弹': '高回弹海绵，弹性好，久坐不变形，舒适耐用。',
+                          '55D高回弹海绵': '采用出口级55D高密度聚氨酯海绵，回弹率>55%，经过72小时疲劳测试，十年坐感如初，提供恰到好处的支撑力，保护脊椎健康。适合喜欢偏硬坐感的用户。',
+                          '70%羽绒+乳胶': '云端包裹感，轻盈柔软，透气性极佳，给您如云端般的舒适体验。',
+                          '标准骨架': '标准骨架配置，稳固耐用，性价比高。',
+                          '顶级骨架': '顶级骨架配置，采用优质材料，更加稳固耐用。',
+                          '俄罗斯落叶松': '采用进口俄罗斯落叶松实木，木质坚硬，纹理清晰，承重力强，使用寿命长。',
+                          '普通脚架': '标准脚架，稳固实用。',
+                          '钛合金脚架': '钛合金脚架，轻便坚固，美观大方。',
+                          '黑钛不锈钢': '采用304不锈钢材质，黑钛电镀工艺，耐腐蚀、耐磨损，外观时尚高端。',
+                        };
+                        
                         return categoriesWithMaterials.map((categoryKey: string, sectionIndex: number) => {
                         const section = getMaterialCategoryConfig(categoryKey);
                         const list = normalizedSelectedMaterials?.[categoryKey] || [];
@@ -1118,23 +1150,6 @@ const ProductDetailPage = () => {
                             {list.length > 0 && (
                               <div className="space-y-4">
                                 {groupOrder.map(groupKey => {
-                                  // 材质分组的介绍信息
-                                  const groupDescriptions: Record<string, string> = {
-                                    '磨砂皮': '磨砂皮具有细腻的磨砂质感，手感柔软舒适，外观时尚大气。',
-                                    '纳帕A级皮': '纳帕A级皮是顶级真皮，皮质细腻柔软，触感舒适，高端品质。',
-                                    '普通皮': '普通皮革，经济实惠，适合日常使用。具有良好的耐用性和易清洁特性。',
-                                    '全青皮': '全青皮是高级皮革，采用天然植物鞣制工艺，具有独特的质感和气味。',
-                                    '牛皮': '优质牛皮，纹理自然，质感细腻。具有很好的透气性和耐磨性。',
-                                    '绒布': '柔软舒适的绒布面料，触感温暖。易于清洁，适合家庭使用。',
-                                    '麻布': '天然麻布，环保透气，具有独特的质感。适合现代简约风格。',
-                                    '舒软款': '舒软填充，坐感柔软舒适，适合长时间休息。',
-                                    '高密加硬': '高密度填充，支撑性强，不易塌陷，适合喜欢硬坐感的用户。',
-                                    '高回弹': '高回弹海绵，弹性好，久坐不变形，舒适耐用。',
-                                    '标准骨架': '标准骨架配置，稳固耐用，性价比高。',
-                                    '顶级骨架': '顶级骨架配置，采用优质材料，更加稳固耐用。',
-                                    '普通脚架': '标准脚架，稳固实用。',
-                                    '钛合金脚架': '钛合金脚架，轻便坚固，美观大方。',
-                                  };
                                   return (
                                   <div key={groupKey}>
                                     {groupKey !== 'other' && (
@@ -1214,6 +1229,53 @@ const ProductDetailPage = () => {
                                 })}
                               </div>
                             )}
+                            
+                            {/* 展开的材质详情面板 */}
+                            {expandedMaterialCategory === section.key && selectedOption && (() => {
+                              const materialImage = getMaterialPreviewImage(selectedOption);
+                              const materialDesc = selectedSku?.materialDescriptions?.[selectedOption] || 
+                                groupDescriptions[selectedOption.split(/[-–—]/)[0]?.trim()] || '';
+                              
+                              // 只有当有图片或描述时才显示详情面板
+                              if (!materialImage && !materialDesc) return null;
+                              
+                              // 解析材质名称
+                              const nameParts = selectedOption.split(/[-–—]/);
+                              const displayName = nameParts.length > 1 ? nameParts.slice(1).join('-').trim() : selectedOption;
+                              const categoryName = nameParts.length > 1 ? nameParts[0].trim() : '';
+                              
+                              return (
+                                <div className="mt-4 bg-gray-50 rounded-xl p-4 border border-gray-200">
+                                  <div className="flex gap-4">
+                                    {/* 左侧图片 */}
+                                    {materialImage && (
+                                      <div className="flex-shrink-0 w-32 h-32 rounded-lg border border-gray-200 bg-white overflow-hidden">
+                                        <img 
+                                          src={getFileUrl(materialImage)} 
+                                          alt={selectedOption}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    )}
+                                    
+                                    {/* 右侧信息 */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <h4 className="font-bold text-gray-900">
+                                          {categoryName ? `${categoryName} ${displayName}` : selectedOption}
+                                        </h4>
+                                        <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">工艺详解</span>
+                                      </div>
+                                      {materialDesc && (
+                                        <p className="text-sm text-gray-600 leading-relaxed">
+                                          {materialDesc}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         );
                       });
