@@ -24,15 +24,36 @@ export default function Dashboard() {
   const [dashboardData, setDashboardData] = React.useState<any>(null)
   const [error, setError] = React.useState<string | null>(null)
 
+  // 示例数据（当API不可用时使用）
+  const fallbackData = {
+    todayOrders: '156',
+    ordersChange: '+12.5%',
+    newCustomers: '48',
+    customersChange: '+8.2%',
+    conversionRate: '3.6%',
+    conversionChange: '+0.6%',
+    todayRevenue: '428000',
+    revenueChange: '+15.3%',
+    totalUsers: 2380,
+    totalOrders: 1560,
+    totalProducts: 145,
+  }
+
   React.useEffect(() => {
     const loadData = async () => {
       try {
         const data = await dashboardService.getDashboardData()
-        setDashboardData(data)
-        setError(null)
+        if (data && (data.todayOrders || data.summary)) {
+          setDashboardData(data)
+          setError(null)
+        } else {
+          setDashboardData(fallbackData)
+          setError('服务器返回空数据，显示示例数据')
+        }
       } catch (err: any) {
         console.error('加载仪表板数据失败:', err)
-        setError(err.message || '加载数据失败')
+        setDashboardData(fallbackData)
+        setError(err.message || '加载数据失败，显示示例数据')
       } finally {
         setLoading(false)
       }
@@ -45,15 +66,6 @@ export default function Dashboard() {
       <div className="p-8">
         <h1 className="text-3xl font-bold mb-4">仪表板</h1>
         <p className="text-gray-600">数据加载中...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold mb-4">仪表板</h1>
-        <p className="text-red-600">加载失败: {error}</p>
       </div>
     )
   }

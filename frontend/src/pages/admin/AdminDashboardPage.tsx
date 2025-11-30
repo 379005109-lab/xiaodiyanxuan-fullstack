@@ -112,10 +112,18 @@ const AdminDashboardPage: React.FC = () => {
       try {
         setLoading(true);
         const result = await getDashboardData();
-        setData(result);
-        setError(null);
+        // 确保返回的数据有效，否则使用fallbackData
+        if (result && (result.summary || result.orderTrend)) {
+          setData(result);
+          setError(null);
+        } else {
+          // 返回空数据，使用fallbackData
+          setData(null);
+          setError('服务器返回空数据，显示示例数据');
+        }
       } catch (err: any) {
-        setError(err.message || '加载数据失败');
+        setError(err.message || '加载数据失败，显示示例数据');
+        setData(null); // 确保使用fallbackData
       } finally {
         setLoading(false);
       }
