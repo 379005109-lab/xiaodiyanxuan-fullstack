@@ -311,6 +311,8 @@ export default function ProductForm() {
 
   // 处理材质选择（支持多选，支持动态类目）
   const handleMaterialSelect = (material: any, materialType: string, upgradePrice?: number) => {
+    console.log('🔥 [材质选择] 选择材质:', material.name, '类型:', materialType, 'SKU索引:', selectingMaterialForSkuIndex)
+    
     if (selectingMaterialForSkuIndex >= 0) {
       // 使用函数式更新确保状态正确累积
       setFormData(prev => {
@@ -336,6 +338,9 @@ export default function ProductForm() {
           materialObj[materialType] = [...currentList, material.name]
           toast.success(`已添加${categoryName}：${material.name}`)
         }
+        
+        console.log('🔥 [材质选择] 更新后的材质数据:', materialObj)
+        console.log('🔥 [材质选择] 更新后的materialCategories:', newSkus[selectingMaterialForSkuIndex].materialCategories)
         
         return { ...prev, skus: newSkus }
       })
@@ -372,6 +377,8 @@ export default function ProductForm() {
 
   // 添加材质类目并直接打开材质选择弹窗
   const handleAddMaterialCategory = (skuIndex: number, categoryKey: string) => {
+    console.log('🔥 [添加材质类目] SKU索引:', skuIndex, '类目:', categoryKey)
+    
     const newSkus = [...formData.skus]
     if (!newSkus[skuIndex].materialCategories.includes(categoryKey)) {
       newSkus[skuIndex].materialCategories = [...newSkus[skuIndex].materialCategories, categoryKey]
@@ -380,6 +387,7 @@ export default function ProductForm() {
         newSkus[skuIndex].material[categoryKey] = []
       }
       setFormData({ ...formData, skus: newSkus })
+      console.log('🔥 [添加材质类目] 更新后的materialCategories:', newSkus[skuIndex].materialCategories)
     }
     setShowAddCategoryModal(false)
     setAddCategoryForSkuIndex(-1)
