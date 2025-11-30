@@ -106,16 +106,19 @@ export default function MaterialManagement() {
 
   const handleDownloadTemplate = () => {
     const template = [
-      { "素材名称": "全青皮", "分类": "皮革", "材质介绍": "进口头层牛皮", "标签": "高端,进口", "SKU名称": "红色,黑色,棕色" },
-      { "素材名称": "全青皮", "分类": "皮革", "材质介绍": "进口头层牛皮", "标签": "高端,进口", "SKU名称": "45D,50D" },
-      { "素材名称": "磨砂布", "分类": "布料", "材质介绍": "柔软透气", "标签": "舒适", "SKU名称": "灰色" },
+      { "素材名称": "全青皮", "父分类": "面料", "分类": "皮革", "材质介绍": "进口头层牛皮", "标签": "高端,进口", "SKU名称": "红色,黑色,棕色" },
+      { "素材名称": "半青皮", "父分类": "面料", "分类": "皮革", "材质介绍": "国产优质牛皮", "标签": "性价比", "SKU名称": "黑色,米色" },
+      { "素材名称": "磨砂布", "父分类": "面料", "分类": "布艺", "材质介绍": "柔软透气", "标签": "舒适", "SKU名称": "灰色,米白" },
+      { "素材名称": "丝绒", "父分类": "面料/布艺", "分类": "高端布料", "材质介绍": "进口丝绒面料", "标签": "高端,进口", "SKU名称": "深蓝,酒红" },
     ]
     const ws = XLSX.utils.json_to_sheet(template)
+    ws['!cols'] = [{ wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 25 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, "素材导入模板")
     XLSX.writeFile(wb, "素材批量导入模板.xlsx")
-    toast.success("模板已下载")
+    toast.success("模板已下载，支持多级分类（用/分隔父分类路径）")
   }
+
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -141,32 +144,75 @@ export default function MaterialManagement() {
     setImporting(true)
     let successCount = 0, errorCount = 0
     try {
-      const existingCategories = await getAllMaterialCategories()
+      let existingCategories = await getAllMaterialCategories()
       const categoryMap: Record<string, string> = {}
-      existingCategories.forEach((cat: MaterialCategory) => { categoryMap[cat.name] = cat._id })
+      const categoryParentMap: Record<string, string | null> = {}
+      existingCategories.forEach((cat: MaterialCategory) => { 
+        categoryMap[cat.name] = cat._id 
+        categoryParentMap[cat._id] = cat.parentId || null
+      })
+      
+      // 辅助函数：根据父分类路径和分类名称获取或创建分类
+      const getOrCreateCategory = async (parentPath: string, categoryName: string): Promise<string> => {
+        const parentParts = parentPath ? parentPath.split('/').map(s => s.trim()).filter(Boolean) : []
+        let parentId: string | null = null
+        
+        // 逐级创建父分类
+        for (const parentName of parentParts) {
+          const existingParent = existingCategories.find((c: MaterialCategory) => 
+            c.name === parentName && c.parentId === parentId
+          )
+          if (existingParent) {
+            parentId = existingParent._id
+          } else {
+            try {
+              const nc = await createMaterialCategory({ name: parentName, parentId, order: 0 })
+              categoryMap[parentName] = nc._id
+              categoryParentMap[nc._id] = parentId
+              existingCategories.push(nc)
+              parentId = nc._id
+            } catch { parentId = categoryMap[parentName] || null }
+          }
+        }
+        
+        // 创建或获取目标分类
+        const existingCat = existingCategories.find((c: MaterialCategory) => 
+          c.name === categoryName && c.parentId === parentId
+        )
+        if (existingCat) return existingCat._id
+        
+        try {
+          const nc = await createMaterialCategory({ name: categoryName, parentId, order: 0 })
+          categoryMap[categoryName] = nc._id
+          existingCategories.push(nc)
+          return nc._id
+        } catch { return categoryMap[categoryName] || '' }
+      }
+      
       const materialGroups: Record<string, any[]> = {}
       importData.forEach((row: any) => {
         const name = row["素材名称"] || row["名称"]
         if (name) { if (!materialGroups[name]) materialGroups[name] = []; materialGroups[name].push(row) }
       })
+      
       for (const [baseName, rows] of Object.entries(materialGroups)) {
+        const parentPath = rows[0]["父分类"] || ""
         const categoryName = rows[0]["分类"] || "未分类"
-        if (!categoryMap[categoryName]) {
-          try { const nc = await createMaterialCategory({ name: categoryName, order: 0 }); categoryMap[categoryName] = nc._id } catch {}
-        }
+        const categoryId = await getOrCreateCategory(parentPath, categoryName)
+        
         for (const row of rows) {
           const skuRaw = (row["SKU名称"] || row["SKU"] || "").toString()
           const tags = (row["标签"] || "").split(/[,，]/).filter(Boolean).map((t: string) => t.trim())
           const skuList = skuRaw.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
           if (skuList.length === 0) {
             try {
-              await createMaterial({ name: baseName, type: "texture", image: "", categoryId: categoryMap[categoryName] || "", categoryName, description: row[""] || "", tags, properties: {}, status: "approved", uploadBy: "批量导入" })
+              await createMaterial({ name: baseName, type: "texture", image: "", categoryId, categoryName, description: row["材质介绍"] || "", tags, properties: {}, status: "approved", uploadBy: "批量导入" })
               successCount++
             } catch { errorCount++ }
           } else {
             for (const sku of skuList) {
               try {
-                await createMaterial({ name: `${baseName}-${sku}`, type: "texture", image: "", categoryId: categoryMap[categoryName] || "", categoryName, description: row["材质"] || "", tags, properties: {}, status: "approved", uploadBy: "批量导入" })
+                await createMaterial({ name: `${baseName}-${sku}`, type: "texture", image: "", categoryId, categoryName, description: row["材质介绍"] || "", tags, properties: {}, status: "approved", uploadBy: "批量导入" })
                 successCount++
               } catch { errorCount++ }
             }
@@ -178,6 +224,7 @@ export default function MaterialManagement() {
     } catch { toast.error("导入失败") }
     finally { setImporting(false) }
   }
+
 
   const handleToggleExpand = (id: string) => {
     setExpandedIds(prev =>
