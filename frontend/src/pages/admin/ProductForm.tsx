@@ -310,8 +310,9 @@ export default function ProductForm() {
   }
 
   // 处理材质选择（支持多选，支持动态类目）
+  // 注意：这个函数现在只是添加材质，不再切换状态
   const handleMaterialSelect = (material: any, materialType: string, upgradePrice?: number) => {
-    console.log('🔥 [材质选择] 选择材质:', material.name, '类型:', materialType, 'SKU索引:', selectingMaterialForSkuIndex)
+    console.log('🔥 [材质选择] 添加材质:', material.name, '类型:', materialType, 'SKU索引:', selectingMaterialForSkuIndex)
     
     if (selectingMaterialForSkuIndex >= 0) {
       // 使用函数式更新确保状态正确累积
@@ -328,19 +329,35 @@ export default function ProductForm() {
           newSkus[selectingMaterialForSkuIndex].materialUpgradePrices = {} as Record<string, number>
         }
         
-        const categoryName = getMaterialCategoryName(materialType)
-        
-        // 如果已存在，则移除；如果不存在，则添加
-        if (currentList.includes(material.name)) {
-          materialObj[materialType] = currentList.filter((name: string) => name !== material.name)
-          toast.success(`已移除${categoryName}：${material.name}`)
-        } else {
+        // 只添加不存在的材质（不再切换状态）
+        if (!currentList.includes(material.name)) {
           materialObj[materialType] = [...currentList, material.name]
-          toast.success(`已添加${categoryName}：${material.name}`)
         }
         
         console.log('🔥 [材质选择] 更新后的材质数据:', materialObj)
         console.log('🔥 [材质选择] 更新后的materialCategories:', newSkus[selectingMaterialForSkuIndex].materialCategories)
+        
+        return { ...prev, skus: newSkus }
+      })
+    }
+  }
+
+  // 批量设置材质（替换整个材质列表）
+  const handleSetMaterials = (materialNames: string[], materialType: string) => {
+    console.log('🔥 [批量设置材质] 材质列表:', materialNames, '类型:', materialType, 'SKU索引:', selectingMaterialForSkuIndex)
+    
+    if (selectingMaterialForSkuIndex >= 0) {
+      setFormData(prev => {
+        const newSkus = [...prev.skus]
+        if (!newSkus[selectingMaterialForSkuIndex].material || typeof newSkus[selectingMaterialForSkuIndex].material === 'string') {
+          newSkus[selectingMaterialForSkuIndex].material = createEmptyMaterialSelection()
+        }
+        const materialObj = newSkus[selectingMaterialForSkuIndex].material as MaterialSelection
+        
+        // 直接设置材质列表（替换而不是切换）
+        materialObj[materialType] = materialNames
+        
+        console.log('🔥 [批量设置材质] 更新后的材质数据:', materialObj)
         
         return { ...prev, skus: newSkus }
       })
@@ -2060,6 +2077,7 @@ export default function ProductForm() {
             return sku.materialUpgradePrices as Record<string, number>
           })()}
           onSelect={(material, upgradePrice) => handleMaterialSelect(material, selectingMaterialType, upgradePrice)}
+          onBatchSelect={(materialNames) => handleSetMaterials(materialNames, selectingMaterialType)}
           onUpdatePrices={handleMaterialCategoryPricesUpdate}
           onClose={() => {
             setShowMaterialSelectModal(false)

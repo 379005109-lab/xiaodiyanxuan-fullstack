@@ -7,6 +7,7 @@ import { getFileUrl } from '@/services/uploadService'
 
 interface MaterialSelectModalProps {
   onSelect: (material: Material, upgradePrice?: number) => void
+  onBatchSelect?: (materialNames: string[]) => void // 批量设置材质（替换整个列表）
   onClose: () => void
   onUpdatePrices?: (prices: Record<string, number>) => void // 更新材质类别价格
   multiple?: boolean // 是否支持多选
@@ -16,7 +17,7 @@ interface MaterialSelectModalProps {
   skuIsPro?: boolean // SKU 是否为 PRO 版本
 }
 
-export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices, multiple = false, selectedMaterials = [], materialUpgradePrices = {}, materialType, skuIsPro = false }: MaterialSelectModalProps) {
+export default function MaterialSelectModal({ onSelect, onBatchSelect, onClose, onUpdatePrices, multiple = false, selectedMaterials = [], materialUpgradePrices = {}, materialType, skuIsPro = false }: MaterialSelectModalProps) {
   const [materials, setMaterials] = useState<Material[]>([])
   const [categories, setCategories] = useState<MaterialCategory[]>([])
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('')
@@ -176,23 +177,29 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
 
 
   const handleConfirm = () => {
-    if (multiple && selectedIds.length > 0) {
-      // 多选模式：批量返回所有选中的材质
-      const selectedMaterialsData = materials.filter(m => selectedIds.includes(m.name))
+    if (multiple) {
+      // 多选模式：批量设置材质列表
+      console.log('🔥 [材质弹窗] 确认选择，选中的材质:', selectedIds)
       
-      // 一次性传递所有材质，避免多次状态更新冲突
-      // 为了保持向后兼容，仍然逐个调用onSelect，但在同一个事件循环中
-      Promise.resolve().then(() => {
-        selectedMaterialsData.forEach(material => {
-          onSelect(material)
+      // 优先使用批量设置函数（替换整个列表）
+      if (onBatchSelect) {
+        onBatchSelect(selectedIds)
+      } else {
+        // 向后兼容：如果没有 onBatchSelect，仍然逐个调用 onSelect
+        const selectedMaterialsData = materials.filter(m => selectedIds.includes(m.name))
+        Promise.resolve().then(() => {
+          selectedMaterialsData.forEach(material => {
+            onSelect(material)
+          })
         })
-      })
+      }
       
-      // 在确认时才调用 onUpdatePrices，避免频繁触发父组件重新渲染
+      // 在确认时才调用 onUpdatePrices
       if (onUpdatePrices) {
         onUpdatePrices(categoryPrices)
       }
-      toast.success(`已选择 ${selectedIds.length} 个材质`)
+      
+      toast.success(`已设置 ${selectedIds.length} 个材质`)
       onClose()
     }
   }
