@@ -20,7 +20,7 @@ import {
   createMaterial,
   createMaterialCategory,
 } from '@/services/materialService'
-import { getFileUrl } from '@/services/uploadService'
+import { getFileUrl, uploadFile } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
 import MaterialReviewModal from '@/components/admin/MaterialReviewModal'
 import CategoryFormModal from '@/components/admin/MaterialCategoryModal'
