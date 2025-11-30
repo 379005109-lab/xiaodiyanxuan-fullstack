@@ -53,6 +53,11 @@ export const uploadFile = async (file: File, onProgress?: (progress: number) => 
  * @returns 文件 URL
  */
 export const getFileUrl = (fileId: string): string => {
+  // 如果fileId为空或无效，返回占位图
+  if (!fileId || fileId.trim() === '') {
+    return '/placeholder.svg'
+  }
+  
   // 如果fileId已经是完整URL，直接返回
   if (fileId.startsWith('http') || fileId.startsWith('/api/')) {
     return fileId
