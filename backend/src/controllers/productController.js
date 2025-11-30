@@ -214,7 +214,16 @@ const createProduct = async (req, res) => {
     // 调试日志：检查category字段
     console.log('🔥 [创建商品] 商品名称:', productData.name)
     console.log('🔥 [创建商品] 接收到的category:', productData.category)
-    console.log('🔥 [创建商品] 完整数据:', JSON.stringify(productData, null, 2))
+
+    // 处理 SKU 数据，确保 materialCategories 正确保存
+    if (productData.skus && Array.isArray(productData.skus)) {
+      productData.skus = productData.skus.map(sku => ({
+        ...sku,
+        materialCategories: sku.materialCategories || [],
+        material: sku.material || {},
+        materialUpgradePrices: sku.materialUpgradePrices || {},
+      }))
+    }
 
     // 创建商品
     const product = await Product.create(productData)
@@ -248,10 +257,21 @@ const updateProduct = async (req, res) => {
       })
     }
 
+    // 处理 SKU 数据，确保 materialCategories 正确保存
+    if (productData.skus && Array.isArray(productData.skus)) {
+      productData.skus = productData.skus.map(sku => ({
+        ...sku,
+        materialCategories: sku.materialCategories || [],
+        material: sku.material || {},
+        materialUpgradePrices: sku.materialUpgradePrices || {},
+      }))
+      console.log('🔥 [更新商品] 处理后的SKU materialCategories:', productData.skus.map(s => s.materialCategories))
+    }
+
     const product = await Product.findByIdAndUpdate(
       id,
       { ...productData, updatedAt: Date.now() },
-      { new: true }
+      { new: true, runValidators: false }
     )
 
     if (!product) {
