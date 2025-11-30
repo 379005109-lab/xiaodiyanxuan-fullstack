@@ -93,3 +93,19 @@
   animation: fadeIn 0.5s ease-out;
 }
 
+/* SKU卡片悬停效果 - 独立悬停 */
+.sku-card:hover .sku-overlay {
+  opacity: 1;
+}
+
+.sku-card:hover .sku-delete-btn {
+  opacity: 1;
+}
+
+.sku-card:hover p {
+  color: #4f46e5;
+}
+
+.sku-card:hover img {
+  transform: scale(1.05);
+}

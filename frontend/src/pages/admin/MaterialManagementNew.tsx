@@ -1036,7 +1036,7 @@ export default function MaterialManagement() {
                                 {groupMaterials.map((material, index) => (
                                   <div 
                                     key={material._id} 
-                                    className="flex flex-col items-center p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:shadow-xl transition-all cursor-pointer group"
+                                    className="sku-card flex flex-col items-center p-4 bg-white rounded-xl border-2 border-gray-200 hover:border-primary-400 hover:shadow-xl transition-all cursor-pointer"
                                     draggable
                                     onDragStart={(e) => {
                                       e.dataTransfer.effectAllowed = 'move'
@@ -1075,17 +1075,17 @@ export default function MaterialManagement() {
                                       setShowSKUEditModal(true)
                                     }}
                                   >
-                                    <div className="relative w-full aspect-square bg-gray-100 rounded-xl overflow-hidden border border-gray-200 group-hover:shadow-lg transition-all">
+                                    <div className="relative w-full aspect-square bg-gray-100 rounded-xl overflow-hidden border border-gray-200 hover:shadow-lg transition-all">
                                       <img
                                         src={getFileUrl(material.image)}
                                         alt={material.name}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                                         onError={(e) => {
                                           (e.target as HTMLImageElement).src = '/placeholder.svg'
                                         }}
                                       />
-                                      {/* 编辑提示遮罩 */}
-                                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      {/* 编辑提示遮罩 - 使用CSS :hover */}
+                                      <div className="sku-overlay absolute inset-0 bg-black/60 opacity-0 transition-opacity flex items-center justify-center">
                                         <div className="text-white text-center">
                                           <Edit className="h-8 w-8 mx-auto mb-1" />
                                           <span className="text-sm font-medium">编辑</span>
@@ -1097,13 +1097,13 @@ export default function MaterialManagement() {
                                           e.stopPropagation()
                                           handleDelete(material._id, material.name)
                                         }}
-                                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 shadow-lg"
+                                        className="sku-delete-btn absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors opacity-0 shadow-lg"
                                         title="删除SKU"
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </button>
                                     </div>
-                                    <p className="text-base text-gray-900 text-center line-clamp-2 w-full mt-3 font-bold group-hover:text-primary-600 transition-colors">
+                                    <p className="text-base text-gray-900 text-center line-clamp-2 w-full mt-3 font-bold transition-colors">
                                       {material.name}
                                     </p>
                                   </div>
@@ -1376,7 +1376,9 @@ export default function MaterialManagement() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">素材名称</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">父分类</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">分类</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600">材质介绍</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">SKU名称</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">标签</th>
                   </tr>
@@ -1385,7 +1387,9 @@ export default function MaterialManagement() {
                   {importData.map((row, idx) => (
                     <tr key={idx} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">{row['素材名称'] || '-'}</td>
+                      <td className="px-4 py-3 text-gray-500">{row['父分类'] || '-'}</td>
                       <td className="px-4 py-3">{row['分类'] || '-'}</td>
+                      <td className="px-4 py-3 text-gray-500 max-w-xs truncate">{row['材质介绍'] || '-'}</td>
                       <td className="px-4 py-3">{row['SKU名称'] || '-'}</td>
                       <td className="px-4 py-3">{row['标签'] || '-'}</td>
                     </tr>

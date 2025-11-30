@@ -246,6 +246,8 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
     }
 
     const category = categories.find(c => c._id === formData.categoryId)
+    // 检查分类是否改变
+    const categoryChanged = material && material.categoryId !== formData.categoryId
 
     try {
       if (isEdit && material) {
@@ -254,14 +256,24 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
           categoryName: category?.name,
         })
         
-        // 保存SKU的排序
-        for (const [index, sku] of skuList.entries()) {
-          await updateMaterial(sku._id, {
-            order: index + 1,
-          })
+        // 如果分类改变了，批量更新同组的所有SKU
+        if (categoryChanged && skuList.length > 0) {
+          for (const sku of skuList) {
+            await updateMaterial(sku._id, {
+              categoryId: formData.categoryId,
+              categoryName: category?.name,
+            })
+          }
+          toast.success(`已将${skuList.length + 1}个材质移动到新分类`)
+        } else {
+          // 保存SKU的排序
+          for (const [index, sku] of skuList.entries()) {
+            await updateMaterial(sku._id, {
+              order: index + 1,
+            })
+          }
+          toast.success('素材已更新')
         }
-        
-        toast.success('素材已更新')
       } else {
         await createMaterial({
           ...formData,
