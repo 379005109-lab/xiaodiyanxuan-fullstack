@@ -8,11 +8,12 @@ const skuSchema = new mongoose.Schema({
   color: String,
   material: mongoose.Schema.Types.Mixed, // 支持字符串或对象 {fabric, filling, frame, leg}
   materialId: String,
+  materialCategories: [String], // 已配置的材质类目列表
   materialUpgradePrices: mongoose.Schema.Types.Mixed,
   materialImages: mongoose.Schema.Types.Mixed,
   materialDescriptions: mongoose.Schema.Types.Mixed,
   stock: { type: Number, default: 0 },
-  price: { type: Number, required: true },
+  price: { type: Number, default: 0 },
   discountPrice: Number,
   images: [String],
   length: Number,
