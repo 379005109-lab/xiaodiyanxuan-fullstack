@@ -93,6 +93,15 @@ export interface AccountUser {
     usedCount: number
     note?: string
   }
+  // 用户标签（如：批量下载、高风险等）
+  tags?: string[]
+  // 下载统计
+  downloadStats?: {
+    totalDownloads: number
+    consecutiveDownloads: number
+    lastDownloadAt?: string
+    firstTaggedAt?: string
+  }
   status: 'active' | 'inactive' | 'banned' | 'expired'
   createdAt: string
   lastLoginAt?: string

@@ -18,7 +18,7 @@ router.put('/profile', updateProfile)
 // PUT /api/users/:id - 更新指定用户信息（管理员）
 router.put('/:id', updateUserById)
 
-// POST /api/users/track-download - 追踪图片下载
+// POST /api/users/track-download - 追踪图片下载（静默监控，不惊动用户）
 router.post('/track-download', async (req, res) => {
   try {
     const User = require('../models/User')
@@ -32,6 +32,7 @@ router.post('/track-download', async (req, res) => {
     const now = new Date()
     const CONSECUTIVE_WINDOW_MS = 5 * 60 * 1000  // 5分钟内算连续下载
     const DOWNLOAD_LIMIT = 10  // 连续下载超过10次则打标签
+    const THROTTLE_DELAY_MS = 3000  // 超过限制后，每次下载延迟3秒
     
     // 初始化 downloadStats
     if (!user.downloadStats) {
@@ -57,34 +58,34 @@ router.post('/track-download', async (req, res) => {
       user.downloadStats.lastConsecutiveReset = now
     }
     
-    // 检查是否超过限制
-    let tagAdded = false
-    if (user.downloadStats.consecutiveDownloads >= DOWNLOAD_LIMIT) {
+    // 检查是否超过限制 - 静默打标签，不通知用户
+    const isOverLimit = user.downloadStats.consecutiveDownloads >= DOWNLOAD_LIMIT
+    if (isOverLimit) {
       // 添加"批量下载"标签
       if (!user.tags) user.tags = []
       if (!user.tags.includes('批量下载')) {
         user.tags.push('批量下载')
-        tagAdded = true
-        console.log(`⚠️ 用户 ${userId} 被标记为批量下载，连续下载次数: ${user.downloadStats.consecutiveDownloads}`)
+        // 同时记录首次标记时间
+        user.downloadStats.firstTaggedAt = now
+        console.log(`🔴 [静默标记] 用户 ${user.nickname || user.username || userId} 被标记为批量下载，连续下载: ${user.downloadStats.consecutiveDownloads}次`)
       }
     }
     
     await user.save()
     
+    // 如果超过限制，延迟响应来限制下载速度（用户无感知）
+    if (isOverLimit) {
+      await new Promise(resolve => setTimeout(resolve, THROTTLE_DELAY_MS))
+    }
+    
+    // 返回简洁响应，不暴露任何监控信息
     res.json({
       success: true,
-      data: {
-        totalDownloads: user.downloadStats.totalDownloads,
-        consecutiveDownloads: user.downloadStats.consecutiveDownloads,
-        tagAdded,
-        warning: user.downloadStats.consecutiveDownloads >= DOWNLOAD_LIMIT - 2 
-          ? `您已连续下载 ${user.downloadStats.consecutiveDownloads} 张图片，接近限制` 
-          : null
-      }
+      data: { downloaded: true }
     })
   } catch (error) {
     console.error('追踪下载失败:', error)
-    res.status(500).json({ success: false, message: '追踪下载失败' })
+    res.status(500).json({ success: false, message: '操作失败' })
   }
 })
 

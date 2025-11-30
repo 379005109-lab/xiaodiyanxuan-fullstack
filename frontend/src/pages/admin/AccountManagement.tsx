@@ -282,6 +282,7 @@ export default function AccountManagement() {
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">用户</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">角色</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">标签</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">组织</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">状态</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">创建时间</th>
@@ -291,11 +292,11 @@ export default function AccountManagement() {
                 <tbody className="divide-y">
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-12 text-gray-500">加载中...</td>
+                      <td colSpan={7} className="text-center py-12 text-gray-500">加载中...</td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-12 text-gray-500">暂无数据</td>
+                      <td colSpan={7} className="text-center py-12 text-gray-500">暂无数据</td>
                     </tr>
                   ) : (
                     users.map((user) => (
@@ -321,6 +322,29 @@ export default function AccountManagement() {
                           <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
                             {ROLE_LABELS[user.role] || user.role}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {user.tags && user.tags.length > 0 ? (
+                              user.tags.map((tag, idx) => (
+                                <span 
+                                  key={idx} 
+                                  className={`px-2 py-0.5 text-xs rounded-full ${
+                                    tag === '批量下载' ? 'bg-red-100 text-red-700' :
+                                    tag === '高风险' ? 'bg-orange-100 text-orange-700' :
+                                    'bg-blue-100 text-blue-700'
+                                  }`}
+                                  title={user.downloadStats?.totalDownloads 
+                                    ? `总下载: ${user.downloadStats.totalDownloads}次` 
+                                    : undefined}
+                                >
+                                  {tag}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {user.organizationId?.name || '-'}
