@@ -370,11 +370,24 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
               required
             >
               <option value="">请选择分类</option>
-              {categories.map(category => (
-                <option key={category._id} value={category._id}>
-                  {category.name}
-                </option>
-              ))}
+              {(() => {
+                // 递归渲染分类选项
+                const renderCategoryOptions = (cats: MaterialCategory[], level: number = 0): JSX.Element[] => {
+                  const options: JSX.Element[] = []
+                  cats.forEach(category => {
+                    options.push(
+                      <option key={category._id} value={category._id}>
+                        {'　'.repeat(level)}{level > 0 ? '└ ' : ''}{category.name}
+                      </option>
+                    )
+                    if (category.children && category.children.length > 0) {
+                      options.push(...renderCategoryOptions(category.children, level + 1))
+                    }
+                  })
+                  return options
+                }
+                return renderCategoryOptions(categories)
+              })()}
             </select>
           </div>
 
