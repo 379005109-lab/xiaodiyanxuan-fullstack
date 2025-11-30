@@ -4,17 +4,22 @@ const MaterialCategory = require('../models/MaterialCategory');
 // 获取所有材质
 exports.list = async (req, res) => {
   try {
-    const { categoryId, status, page = 1, limit = 100 } = req.query;
+    const { categoryId, status, page, limit } = req.query;
     const query = {};
     
     if (categoryId) query.categoryId = categoryId;
     if (status) query.status = status;
     
-    const materials = await Material.find(query)
-      .sort({ order: 1, createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    // 如果没有指定 limit，则返回所有材质（不分页）
+    let materialsQuery = Material.find(query).sort({ order: 1, createdAt: -1 });
     
+    if (limit) {
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit);
+      materialsQuery = materialsQuery.limit(limitNum).skip((pageNum - 1) * limitNum);
+    }
+    
+    const materials = await materialsQuery;
     const total = await Material.countDocuments(query);
     
     res.json({ 
@@ -22,9 +27,9 @@ exports.list = async (req, res) => {
       data: materials,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
+        page: parseInt(page) || 1,
+        limit: limit ? parseInt(limit) : total,
+        pages: limit ? Math.ceil(total / parseInt(limit)) : 1
       }
     });
   } catch (error) {
