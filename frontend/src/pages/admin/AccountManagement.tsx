@@ -8,7 +8,7 @@ import {
 import * as accountService from '@/services/accountService'
 import { ROLE_LABELS, ORG_TYPE_LABELS, USER_ROLES, DashboardData } from '@/services/accountService'
 
-type TabType = 'dashboard' | 'organizations' | 'users' | 'designers' | 'special'
+type TabType = 'dashboard' | 'organizations' | 'users' | 'customers' | 'designers' | 'special'
 
 export default function AccountManagement() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
@@ -42,7 +42,7 @@ export default function AccountManagement() {
       loadDashboard()
     } else if (activeTab === 'organizations') {
       loadOrganizations()
-    } else if (activeTab === 'users' || activeTab === 'designers') {
+    } else if (activeTab === 'users' || activeTab === 'designers' || activeTab === 'customers') {
       loadUsers()
     } else if (activeTab === 'special') {
       loadSpecialAccounts()
@@ -76,7 +76,14 @@ export default function AccountManagement() {
   const loadUsers = async () => {
     setLoading(true)
     try {
-      const role = activeTab === 'designers' ? USER_ROLES.DESIGNER : (userRole || undefined)
+      let role: string | undefined
+      if (activeTab === 'designers') {
+        role = USER_ROLES.DESIGNER
+      } else if (activeTab === 'customers') {
+        role = USER_ROLES.CUSTOMER
+      } else {
+        role = userRole || undefined
+      }
       const data = await accountService.getUsers({ 
         role,
         keyword: userKeyword || undefined 
@@ -145,7 +152,8 @@ export default function AccountManagement() {
   const tabs = [
     { id: 'dashboard', label: '用户看板', icon: BarChart3 },
     { id: 'organizations', label: '平台/企业', icon: Building2 },
-    { id: 'users', label: '用户账号', icon: Users },
+    { id: 'users', label: '管理账号', icon: Shield },
+    { id: 'customers', label: '普通用户', icon: Users },
     { id: 'designers', label: '设计师', icon: UserPlus },
     { id: 'special', label: '特殊账号', icon: Key },
   ]
@@ -399,7 +407,7 @@ export default function AccountManagement() {
         )}
 
         {/* 用户管理 */}
-        {(activeTab === 'users' || activeTab === 'designers') && (
+        {(activeTab === 'users' || activeTab === 'customers' || activeTab === 'designers') && (
           <div className="p-6">
             {/* 工具栏 */}
             <div className="flex items-center justify-between mb-4">
@@ -411,11 +419,12 @@ export default function AccountManagement() {
                     className="px-4 py-2 border rounded-lg"
                   >
                     <option value="">全部角色</option>
+                    <option value="admin">管理员</option>
+                    <option value="super_admin">超级管理员</option>
                     <option value="platform_admin">平台管理员</option>
                     <option value="platform_staff">平台子账号</option>
                     <option value="enterprise_admin">企业管理员</option>
                     <option value="enterprise_staff">企业子账号</option>
-                    <option value="customer">普通客户</option>
                   </select>
                 )}
                 <div className="relative">
@@ -430,13 +439,15 @@ export default function AccountManagement() {
                   />
                 </div>
               </div>
-              <button
-                onClick={() => { setEditingUser(null); setShowUserModal(true) }}
-                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-              >
-                <Plus className="w-4 h-4" />
-                {activeTab === 'designers' ? '添加设计师' : '新建账号'}
-              </button>
+              {activeTab !== 'customers' && (
+                <button
+                  onClick={() => { setEditingUser(null); setShowUserModal(true) }}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  {activeTab === 'designers' ? '添加设计师' : '新建账号'}
+                </button>
+              )}
             </div>
 
             {/* 用户列表 */}
