@@ -630,7 +630,6 @@ export default function MaterialManagement() {
                 handleDeleteCategoryFolder(category)
               }}
               className="p-1 text-red-600 hover:bg-red-50 rounded"
-"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
