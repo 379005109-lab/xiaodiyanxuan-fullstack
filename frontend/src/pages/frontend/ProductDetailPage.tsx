@@ -661,12 +661,43 @@ const ProductDetailPage = () => {
 
   const getMaterialPreviewImage = (materialName?: string) => {
     if (!materialName) return selectedSku?.images?.[0] || product.images?.[0] || '';
+    
+    // 1. 从SKU的材质图片配置中获取
     if (selectedSku?.materialImages && selectedSku.materialImages[materialName]) {
       return selectedSku.materialImages[materialName];
     }
+    
+    // 2. 从材质库中精确匹配
     if (materialAssetMap[materialName]) {
       return materialAssetMap[materialName];
     }
+    
+    // 3. 模糊匹配材质库（处理名称格式差异）
+    for (const [name, image] of Object.entries(materialAssetMap)) {
+      // 检查是否包含关系
+      if (materialName.includes(name) || name.includes(materialName)) {
+        return image;
+      }
+      // 检查材质名称的后半部分（如 "皮质-黑色" 匹配 "头层牛皮-黑色"）
+      const materialParts = materialName.split(/[-–—]/);
+      const assetParts = name.split(/[-–—]/);
+      if (materialParts.length > 1 && assetParts.length > 1) {
+        // 比较具体名称部分（如 "黑色"）
+        if (materialParts[materialParts.length - 1].trim() === assetParts[assetParts.length - 1].trim()) {
+          // 再检查类别是否相关
+          const materialCategory = materialParts[0].trim();
+          const assetCategory = assetParts[0].trim();
+          if (materialCategory.includes(assetCategory) || assetCategory.includes(materialCategory) ||
+              materialCategory.includes('皮') && assetCategory.includes('皮') ||
+              materialCategory.includes('布') && assetCategory.includes('布') ||
+              materialCategory.includes('木') && assetCategory.includes('木')) {
+            return image;
+          }
+        }
+      }
+    }
+    
+    // 4. 返回默认图片
     return selectedSku?.images?.[0] || product.images?.[0] || '';
   };
 
