@@ -3,17 +3,41 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import apiClient from '@/lib/apiClient'
 import { getFileUrl } from '@/services/uploadService'
+import { getAllSiteConfigs } from '@/services/siteConfigService'
+
+// 默认图片URL
+const DEFAULT_IMAGES = {
+  showroom: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200',
+  product: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
+}
 
 export default function HomePage() {
   const navigate = useNavigate()
   const [mounted, setMounted] = useState(false)
   const [hotProducts, setHotProducts] = useState<any[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
+  const [siteImages, setSiteImages] = useState({
+    showroom: DEFAULT_IMAGES.showroom,
+    defaultProduct: DEFAULT_IMAGES.product
+  })
 
   useEffect(() => {
     setMounted(true)
     loadHotProducts()
+    loadSiteImages()
   }, [])
+
+  const loadSiteImages = async () => {
+    try {
+      const configs = await getAllSiteConfigs()
+      setSiteImages({
+        showroom: configs['home.showroom'] ? getFileUrl(configs['home.showroom']) : DEFAULT_IMAGES.showroom,
+        defaultProduct: configs['home.defaultProduct'] ? getFileUrl(configs['home.defaultProduct']) : DEFAULT_IMAGES.product
+      })
+    } catch (error) {
+      console.error('加载网站图片配置失败:', error)
+    }
+  }
 
   const loadHotProducts = async () => {
     try {
@@ -159,7 +183,7 @@ export default function HomePage() {
           
           <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-2xl cursor-pointer group" onClick={() => navigate('/buying-service')}>
             <img 
-              src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200" 
+              src={siteImages.showroom} 
               className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
               alt="Showroom" 
             />
@@ -216,14 +240,12 @@ export default function HomePage() {
                 >
                   <div className="relative aspect-square overflow-hidden bg-stone-100">
                     <img 
-                      src={product.imageUrl || 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'}
+                      src={product.imageUrl || siteImages.defaultProduct}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       loading="eager"
-                      onLoad={() => console.log(`${product.name} 图片加载成功`)}
                       onError={(e) => {
-                        console.log(`${product.name} 图片加载失败，使用备用图片`)
-                        e.currentTarget.src = 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=800'
+                        e.currentTarget.src = siteImages.defaultProduct
                       }}
                     />
                   </div>
