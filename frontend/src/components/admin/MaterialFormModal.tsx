@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { X, Upload, Plus, Trash2 } from 'lucide-react'
+import { X, Upload, Plus, Trash2, Crop } from 'lucide-react'
 import { toast } from 'sonner'
 import { Material, MaterialCategory, MaterialType } from '@/types'
 import { createMaterial, updateMaterial, getAllMaterials, deleteMaterial } from '@/services/materialService'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
+import ImageCropper from './ImageCropper'
 
 interface MaterialFormModalProps {
   material: Material | null
@@ -38,6 +39,11 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
     skuName: '',
     image: '',
   })
+  
+  // 图片裁剪状态
+  const [showCropper, setShowCropper] = useState(false)
+  const [cropperFile, setCropperFile] = useState<File | null>(null)
+  const [cropperTarget, setCropperTarget] = useState<'main' | 'sku'>('main')
 
   // 加载SKU列表
   useEffect(() => {
@@ -69,7 +75,60 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
     }
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 选择图片后打开裁剪器
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>, target: 'main' | 'sku' = 'main') => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('请选择图片文件')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('图片大小不能超过10MB')
+      return
+    }
+
+    // 打开裁剪器
+    setCropperFile(file)
+    setCropperTarget(target)
+    setShowCropper(true)
+    
+    // 清空 input 以便可以重复选择同一文件
+    e.target.value = ''
+  }
+
+  // 裁剪完成后上传
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setShowCropper(false)
+    setCropperFile(null)
+
+    try {
+      toast.info('正在上传到GridFS...')
+      
+      // 将 Blob 转换为 File
+      const file = new File([croppedBlob], 'cropped-image.jpg', { type: 'image/jpeg' })
+      const result = await uploadFile(file)
+      
+      if (result.success) {
+        if (cropperTarget === 'main') {
+          setFormData({ ...formData, image: result.data.fileId })
+        } else {
+          setSkuFormData({ ...skuFormData, image: result.data.fileId })
+        }
+        toast.success('图片上传成功')
+      } else {
+        toast.error('图片上传失败')
+      }
+    } catch (error) {
+      console.error('图片上传失败:', error)
+      toast.error('图片上传失败，请重试')
+    }
+  }
+
+  // 直接上传（不裁剪）
+  const handleDirectUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'main' | 'sku' = 'main') => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -87,7 +146,11 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
       toast.info('正在上传到GridFS...')
       const result = await uploadFile(file)
       if (result.success) {
-        setFormData({ ...formData, image: result.data.fileId })
+        if (target === 'main') {
+          setFormData({ ...formData, image: result.data.fileId })
+        } else {
+          setSkuFormData({ ...skuFormData, image: result.data.fileId })
+        }
         toast.success('图片上传成功')
       } else {
         toast.error('图片上传失败')
@@ -96,6 +159,8 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
       console.error('图片上传失败:', error)
       toast.error('图片上传失败，请重试')
     }
+    
+    e.target.value = ''
   }
 
   const handleAddTag = () => {
@@ -142,35 +207,6 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
         [newKey]: ''
       }
     })
-  }
-
-  const handleSKUImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('请选择图片文件')
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('图片大小不能超过5MB')
-      return
-    }
-
-    try {
-      toast.info('正在上传到GridFS...')
-      const result = await uploadFile(file)
-      if (result.success) {
-        setSkuFormData({ ...skuFormData, image: result.data.fileId })
-        toast.success('图片上传成功')
-      } else {
-        toast.error('图片上传失败')
-      }
-    } catch (error) {
-      console.error('图片上传失败:', error)
-      toast.error('图片上传失败，请重试')
-    }
   }
 
   const handleAddSKU = async () => {
@@ -329,17 +365,33 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
                 </div>
               )}
               
-              <label className={`flex-1 flex flex-col items-center justify-center ${formData.image ? 'h-40' : 'h-40'} border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors`}>
-                <Upload className="h-10 w-10 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-600">点击上传图片</span>
-                <span className="text-xs text-gray-400 mt-1">支持JPG、PNG，不超过5MB</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-              </label>
+              <div className="flex-1 flex flex-col gap-2">
+                <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Crop className="h-5 w-5 text-gray-400" />
+                    <span className="text-sm text-gray-600">使用取景器上传</span>
+                  </div>
+                  <span className="text-xs text-gray-400 mt-1">可裁剪、旋转图片</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleImageSelect(e, 'main')}
+                    className="hidden"
+                  />
+                </label>
+                <label className="flex flex-col items-center justify-center h-14 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-gray-400" />
+                    <span className="text-xs text-gray-600">直接上传（不裁剪）</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleDirectUpload(e, 'main')}
+                    className="hidden"
+                  />
+                </label>
+              </div>
             </div>
           </div>
 
@@ -486,7 +538,7 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
                       {skuFormData.image && (
                         <div className="relative w-24 h-24 border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                           <img
-                            src={skuFormData.image}
+                            src={getFileUrl(skuFormData.image)}
                             alt="SKU图片"
                             className="w-full h-full object-cover"
                           />
@@ -499,16 +551,29 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
                           </button>
                         </div>
                       )}
-                      <label className={`flex-1 flex flex-col items-center justify-center ${skuFormData.image ? 'h-24' : 'h-24'} border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors`}>
-                        <Upload className="h-6 w-6 text-gray-400 mb-1" />
-                        <span className="text-xs text-gray-600">点击上传</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleSKUImageUpload}
-                          className="hidden"
-                        />
-                      </label>
+                      <div className="flex-1 flex flex-col gap-2">
+                        <label className="flex flex-col items-center justify-center h-14 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
+                          <div className="flex items-center gap-1">
+                            <Crop className="h-4 w-4 text-gray-400" />
+                            <span className="text-xs text-gray-600">使用取景器</span>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageSelect(e, 'sku')}
+                            className="hidden"
+                          />
+                        </label>
+                        <label className="flex items-center justify-center h-8 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                          <span className="text-xs text-gray-500">直接上传</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleDirectUpload(e, 'sku')}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
                     </div>
                   </div>
 
@@ -639,6 +704,18 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
           </div>
         </form>
       </div>
+
+      {/* 图片取景器 */}
+      {showCropper && cropperFile && (
+        <ImageCropper
+          imageFile={cropperFile}
+          onCrop={handleCropComplete}
+          onCancel={() => {
+            setShowCropper(false)
+            setCropperFile(null)
+          }}
+        />
+      )}
     </div>
   )
 }
