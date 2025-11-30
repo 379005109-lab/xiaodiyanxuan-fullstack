@@ -25,5 +25,7 @@ export const getDashboardData = async () => {
     throw new Error(errorData.message || 'Failed to fetch dashboard data');
   }
 
-  return await response.json();
+  const result = await response.json();
+  // 后端使用successResponse包装，返回 { success: true, data: ... }
+  return result.data || result;
 };
