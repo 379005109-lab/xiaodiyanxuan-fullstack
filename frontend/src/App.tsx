@@ -43,6 +43,7 @@ const ProductForm = lazy(() => import('./pages/admin/ProductForm'))
 const ProductDashboard = lazy(() => import('./pages/admin/ProductDashboard'))
 const OrderManagement = lazy(() => import('./pages/admin/OrderManagementNew2'))
 const UserManagement = lazy(() => import('./pages/admin/UserManagement'))
+const AccountManagement = lazy(() => import('./pages/admin/AccountManagement'))
 const ImageManagement = lazy(() => import('./pages/admin/ImageManagement'))
 const SiteImageManagement = lazy(() => import('./pages/admin/SiteImageManagement'))
 const CategoryManagement = lazy(() => import('./pages/admin/CategoryManagement'))
@@ -297,7 +298,7 @@ function App() {
             <Route path="orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderManagement /></ProtectedRoute>} />
             <Route path="orders/trash" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderTrashPage /></ProtectedRoute>} />
             <Route path="order-dashboard" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderDashboard /></ProtectedRoute>} />
-            <Route path="users" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><UserManagement /></ProtectedRoute>} />
+            <Route path="users" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><AccountManagement /></ProtectedRoute>} />
             <Route path="images" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><SiteImageManagement /></ProtectedRoute>} />
             <Route path="categories" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CategoryManagement /></ProtectedRoute>} />
             <Route path="materials" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><MaterialManagement /></ProtectedRoute>} />
