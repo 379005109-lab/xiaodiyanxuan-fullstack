@@ -281,7 +281,7 @@ export default function MaterialSelectModal({ onSelect, onClose, onUpdatePrices,
           {filteredMaterials.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <p>暂无可选材质</p>
-              <p className="text-sm mt-2">请先在素材管理中添加并审核材质</p>
+              <p className="text-sm mt-2">请先在材质管理中添加并审核材质</p>
             </div>
           ) : (
             <div className="space-y-6">

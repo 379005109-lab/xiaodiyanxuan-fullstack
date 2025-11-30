@@ -43,7 +43,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
     { name: '网站图片管理', path: '/admin/images', icon: Image },
     { name: '设计管理', path: '/admin/designs', icon: Pencil },
     { name: '账号管理', path: '/admin/users', icon: Users },
-    { name: '素材管理', path: '/admin/materials', icon: Palette },
+    { name: '材质管理', path: '/admin/materials', icon: Palette },
     { name: '商品管理', path: '/admin/products', icon: Package },
     { name: '分类管理', path: '/admin/categories', icon: FolderTree },
     { name: '套餐管理', path: '/admin/packages', icon: Package },

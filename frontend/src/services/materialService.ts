@@ -99,6 +99,30 @@ export const getMaterialStats = async () => {
 export const getMaterialCategoryTree = async (): Promise<MaterialCategory[]> => {
   try {
     const response = await apiClient.get('/materials/categories/list')
+    const flatCategories = response.data.data || []
+    
+    // 将平面分类数据构建成树结构
+    const buildTree = (categories: MaterialCategory[], parentId: string | null = null): MaterialCategory[] => {
+      return categories
+        .filter(cat => cat.parentId === parentId || (!cat.parentId && parentId === null))
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+        .map(cat => ({
+          ...cat,
+          children: buildTree(categories, cat._id)
+        }))
+    }
+    
+    return buildTree(flatCategories)
+  } catch (error: any) {
+    console.error('获取材质分类失败:', error)
+    return []
+  }
+}
+
+// 获取所有分类（平面结构，用于选择器等）
+export const getAllMaterialCategories = async (): Promise<MaterialCategory[]> => {
+  try {
+    const response = await apiClient.get('/materials/categories/list')
     return response.data.data || []
   } catch (error: any) {
     console.error('获取材质分类失败:', error)
@@ -106,13 +130,9 @@ export const getMaterialCategoryTree = async (): Promise<MaterialCategory[]> => 
   }
 }
 
-export const getAllMaterialCategories = async (): Promise<MaterialCategory[]> => {
-  return await getMaterialCategoryTree()
-}
-
 export const getMaterialCategoryById = async (id: string): Promise<MaterialCategory | null> => {
   try {
-    const categories = await getMaterialCategoryTree()
+    const categories = await getAllMaterialCategories()
     return categories.find(c => c._id === id) || null
   } catch (error) {
     return null

@@ -17,21 +17,50 @@ export default function MaterialCategoryModal({ category, onClose }: MaterialCat
     parentId: category?.parentId || null,
   })
 
-  const [parentCategories, setParentCategories] = useState<MaterialCategory[]>([])
+  const [allCategories, setAllCategories] = useState<MaterialCategory[]>([])
 
   useEffect(() => {
     const loadCategories = async () => {
       try {
         const allCats = await getAllMaterialCategories()
-        const topLevelCats = Array.isArray(allCats) ? allCats.filter(cat => !cat.parentId) : []
-        setParentCategories(topLevelCats)
+        // 过滤掉当前正在编辑的分类（避免选择自己作为父分类）
+        const filteredCats = Array.isArray(allCats) 
+          ? allCats.filter(cat => !category || cat._id !== category._id)
+          : []
+        setAllCategories(filteredCats)
       } catch (error) {
         console.error('加载分类失败:', error)
-        setParentCategories([])
+        setAllCategories([])
       }
     }
     loadCategories()
-  }, [])
+  }, [category])
+
+  // 构建分类树结构用于显示层级
+  const buildCategoryOptions = (categories: MaterialCategory[], parentId: string | null = null, level: number = 0): { cat: MaterialCategory; level: number }[] => {
+    const result: { cat: MaterialCategory; level: number }[] = []
+    const children = categories.filter(cat => cat.parentId === parentId)
+    children.sort((a, b) => (a.order || 0) - (b.order || 0))
+    
+    for (const child of children) {
+      // 避免选择当前分类或其子分类作为父分类
+      if (category && isDescendant(categories, category._id, child._id)) {
+        continue
+      }
+      result.push({ cat: child, level })
+      result.push(...buildCategoryOptions(categories, child._id, level + 1))
+    }
+    return result
+  }
+
+  // 检查targetId是否是ancestorId的子孙分类
+  const isDescendant = (categories: MaterialCategory[], ancestorId: string, targetId: string): boolean => {
+    if (ancestorId === targetId) return true
+    const children = categories.filter(cat => cat.parentId === ancestorId)
+    return children.some(child => isDescendant(categories, child._id, targetId))
+  }
+
+  const categoryOptions = buildCategoryOptions(allCategories)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,7 +135,7 @@ export default function MaterialCategoryModal({ category, onClose }: MaterialCat
           {/* 父分类 */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              父分类
+              父分类 <span className="text-gray-400 text-xs">（支持多级分类）</span>
             </label>
             <select
               value={formData.parentId || ''}
@@ -114,12 +143,13 @@ export default function MaterialCategoryModal({ category, onClose }: MaterialCat
               className="input w-full"
             >
               <option value="">无（顶级分类）</option>
-              {parentCategories.map(cat => (
+              {categoryOptions.map(({ cat, level }) => (
                 <option key={cat._id} value={cat._id}>
-                  {cat.name}
+                  {'　'.repeat(level)}{level > 0 ? '└ ' : ''}{cat.name}
                 </option>
               ))}
             </select>
+            <p className="text-xs text-gray-500 mt-1">选择父分类可创建多级子分类</p>
           </div>
 
           {/* 按钮 */}
