@@ -19,6 +19,7 @@ import {
   updateMaterialCategory,
   createMaterial,
   createMaterialCategory,
+  deleteMaterialCategory,
 } from '@/services/materialService'
 import { getFileUrl, uploadFile } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
@@ -282,6 +283,41 @@ export default function MaterialManagement() {
     loadStats()
   }
 
+
+  // 删除分类文件夹
+  const handleDeleteCategoryFolder = async (category: MaterialCategory) => {
+    const categoryMaterialCount = materials.filter(m => m.categoryId === category._id).length
+    const hasChildren = category.children && category.children.length > 0
+    
+    let confirmMsg = `确定要删除分类"${category.name}"吗？`
+    if (categoryMaterialCount > 0) {
+      confirmMsg += `\n该分类下有 ${categoryMaterialCount} 个材质将变为未分类。`
+    }
+    if (hasChildren) {
+      confirmMsg += `\n该分类下有 ${category.children!.length} 个子分类将变为顶级分类。`
+    }
+    
+    if (!confirm(confirmMsg)) return
+    
+    try {
+      const categoryMaterials = materials.filter(m => m.categoryId === category._id)
+      for (const m of categoryMaterials) {
+        await updateMaterial(m._id, { categoryId: '', categoryName: '' })
+      }
+      if (hasChildren) {
+        for (const child of category.children!) {
+          await updateMaterialCategory(child._id, { parentId: null })
+        }
+      }
+      await deleteMaterialCategory(category._id)
+      toast.success('分类已删除')
+      loadMaterials()
+      loadCategories()
+      loadStats()
+    } catch (error) {
+      toast.error('删除分类失败')
+    }
+  }
   // 分类拖拽处理
   const handleCategoryDragStart = (e: DragEvent, category: MaterialCategory) => {
     setDraggedCategory(category)
@@ -301,11 +337,23 @@ export default function MaterialManagement() {
       return
     }
 
+    // 如果是不同层级，询问是否迁移到目标分类下成为子分类
     if (draggedCategory.parentId !== targetCategory.parentId) {
-      toast.error('只能在同级分类之间调整顺序')
+      const shouldMigrate = confirm(`是否将"${draggedCategory.name}"移动到"${targetCategory.name}"下作为子分类？`)
+      if (shouldMigrate) {
+        try {
+          await updateMaterialCategory(draggedCategory._id, { parentId: targetCategory._id })
+          toast.success(`已将"${draggedCategory.name}"移动到"${targetCategory.name}"下`)
+          loadCategories()
+        } catch (error) {
+          toast.error(`迁移失败`)
+        }
+      }
       setDraggedCategory(null)
       return
     }
+
+    // 同级分类之间调整顺序
 
     try {
       const allCategories = await getAllMaterialCategories()
@@ -547,23 +595,46 @@ export default function MaterialManagement() {
             </span>
             <span className="ml-2 text-xs text-gray-500">{categoryMaterialCount}</span>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setEditingCategory({
-                ...category,
-                _id: '',
-                name: '',
-                parentId: category._id,
-                order: (category.children?.length || 0) + 1,
-              } as any)
-              setShowCategoryModal(true)
-            }}
-            className="p-1 text-green-600 hover:bg-green-50 rounded"
-            title="添加子分类"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditingCategory({
+                  ...category,
+                  _id: '',
+                  name: '',
+                  parentId: category._id,
+                  order: (category.children?.length || 0) + 1,
+                } as any)
+                setShowCategoryModal(true)
+              }}
+              className="p-1 text-green-600 hover:bg-green-50 rounded"
+              title="添加子分类"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditingCategory(category)
+                setShowCategoryModal(true)
+              }}
+              className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+              title="编辑分类"
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDeleteCategoryFolder(category)
+              }}
+              className="p-1 text-red-600 hover:bg-red-50 rounded"
+"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         {hasChildren && isExpanded && category.children && (
