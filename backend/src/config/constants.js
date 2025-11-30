@@ -22,6 +22,27 @@ const USER_TYPES = {
   ADMIN: 'admin'
 }
 
+// User roles (账号角色)
+const USER_ROLES = {
+  SUPER_ADMIN: 'super_admin',           // 超级管理员
+  PLATFORM_ADMIN: 'platform_admin',     // 平台管理员
+  PLATFORM_STAFF: 'platform_staff',     // 平台子账号
+  ENTERPRISE_ADMIN: 'enterprise_admin', // 企业管理员
+  ENTERPRISE_STAFF: 'enterprise_staff', // 企业子账号
+  DESIGNER: 'designer',                 // 设计师
+  SPECIAL_GUEST: 'special_guest',       // 特殊账号（一次性）
+  CUSTOMER: 'customer',                 // 普通客户
+}
+
+// Organization types (组织类型)
+const ORGANIZATION_TYPES = {
+  PLATFORM: 'platform',     // 供应链平台
+  ENTERPRISE: 'enterprise', // 企业
+}
+
+// 默认设计师折扣
+const DEFAULT_DESIGNER_DISCOUNT = 0.45  // 4.5折
+
 // Product status
 const PRODUCT_STATUS = {
   ACTIVE: 'active',
@@ -44,6 +65,9 @@ module.exports = {
   ORDER_STATUS,
   ORDER_STATUS_TEXT,
   USER_TYPES,
+  USER_ROLES,
+  ORGANIZATION_TYPES,
+  DEFAULT_DESIGNER_DISCOUNT,
   PRODUCT_STATUS,
   COUPON_TYPES,
   DEFAULT_PAGE,

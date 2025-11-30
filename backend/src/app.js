@@ -69,6 +69,9 @@ app.use('/api/site-config', require('./routes/siteConfig'))
 app.use('/api/customization', require('./routes/customization'))
 app.use('/api/concierge', require('./routes/concierge'))
 
+// 账号管理路由
+app.use('/api/accounts', require('./routes/accounts'))
+
 // 文件上传路由
 app.use('/api/files', require('./routes/files'))
 app.use('/api/bargains', require('./routes/bargains'))
