@@ -290,6 +290,8 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
         await updateMaterial(material._id, {
           ...formData,
           categoryName: category?.name,
+          // 如果是分类编辑模式，传递原始分组名
+          originalGroupName: (material as any).originalGroupName,
         })
         
         // 如果分类改变了，批量更新同组的所有SKU

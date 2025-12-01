@@ -36,7 +36,7 @@ export const createMaterial = async (materialData: Omit<Material, '_id' | 'creat
   }
 }
 
-export const updateMaterial = async (id: string, materialData: Partial<Material>): Promise<Material | null> => {
+export const updateMaterial = async (id: string, materialData: Partial<Material> & { originalGroupName?: string }): Promise<Material | null> => {
   try {
     const response = await apiClient.put(`/materials/${id}`, materialData)
     return response.data.data || null
