@@ -3,17 +3,69 @@ import { Material, MaterialCategory } from '@/types'
 
 // ============ Material API ============
 
+// 全局材质缓存
+let materialCache: Material[] | null = null;
+let materialCachePromise: Promise<Material[]> | null = null;
+
 export const getAllMaterials = async (): Promise<Material[]> => {
-  try {
-    // 传递大 limit 值获取所有材质
-    const response = await apiClient.get('/materials', { params: { limit: 10000 } })
-    const materials = response.data.data || []
-    console.log(`[材质服务] 获取到 ${materials.length} 条材质`)
-    return materials
-  } catch (error: any) {
-    console.error('获取材质列表失败:', error)
-    throw new Error(error.response?.data?.message || '获取材质列表失败')
+  // 如果有缓存，直接返回
+  if (materialCache) {
+    return materialCache;
   }
+  
+  // 如果正在加载，等待加载完成
+  if (materialCachePromise) {
+    return materialCachePromise;
+  }
+  
+  // 发起请求并缓存 Promise
+  materialCachePromise = (async () => {
+    try {
+      const response = await apiClient.get('/materials', { params: { limit: 10000 } })
+      const materials = response.data.data || []
+      console.log(`[材质服务] 获取到 ${materials.length} 条材质`)
+      materialCache = materials;
+      return materials
+    } catch (error: any) {
+      console.error('获取材质列表失败:', error)
+      materialCachePromise = null; // 失败时清除 Promise 缓存
+      throw new Error(error.response?.data?.message || '获取材质列表失败')
+    }
+  })();
+  
+  return materialCachePromise;
+}
+
+// 根据材质名称列表批量获取图片（优化版：只返回名称和图片）
+export const getMaterialImagesByNames = async (names: string[]): Promise<Record<string, string>> => {
+  if (!names || names.length === 0) return {};
+  
+  try {
+    // 优先使用缓存
+    if (materialCache) {
+      const result: Record<string, string> = {};
+      names.forEach(name => {
+        const material = materialCache!.find(m => m.name === name);
+        if (material?.image) {
+          result[name] = material.image;
+        }
+      });
+      return result;
+    }
+    
+    // 如果没有缓存，尝试调用批量 API
+    const response = await apiClient.post('/materials/images-by-names', { names });
+    return response.data.data || {};
+  } catch (error: any) {
+    console.error('批量获取材质图片失败:', error);
+    return {};
+  }
+}
+
+// 清除材质缓存（在材质管理页面更新后调用）
+export const clearMaterialCache = () => {
+  materialCache = null;
+  materialCachePromise = null;
 }
 
 export const getMaterialById = async (id: string): Promise<Material | null> => {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getProductById } from '@/services/productService';
-import { getAllMaterials } from '@/services/materialService';
+import { getMaterialImagesByNames } from '@/services/materialService';
 import { Product, ProductSKU, ProductFile } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoriteStore } from '@/store/favoriteStore';
@@ -11,7 +11,7 @@ import { useAuthModalStore } from '@/store/authModalStore';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, ChevronDown, Share2, Heart, Minus, Plus, FileText, Video, AlertCircle, X, Maximize2, Download, Check, Info } from 'lucide-react';
 import { cn, formatPrice } from '@/lib/utils';
-import { getFileUrl } from '@/services/uploadService';
+import { getFileUrl, getThumbnailUrl } from '@/services/uploadService';
 
 import ShareModal from '@/components/frontend/ShareModal';
 import CustomizationForm from '@/components/frontend/CustomizationForm';
@@ -329,19 +329,63 @@ const ProductDetailPage = () => {
     loadCompareItems();
   }, [isAuthenticated, loadFavorites, loadCompareItems]);
 
+  // 当 SKU 变化时，按需加载材质图片（云端优化方案）
   useEffect(() => {
-    const loadMaterials = async () => {
-      const materials = await getAllMaterials();
-      const assetMap = materials.reduce<Record<string, string>>((acc, material) => {
-        if (material.name && material.image) {
-          acc[material.name] = material.image;
+    if (!selectedSku) return;
+    
+    const loadMaterialImages = async () => {
+      const normalizedMaterials = normalizeMaterialSelection(selectedSku.material);
+      const allMaterialNames = Object.values(normalizedMaterials).flat().filter(Boolean);
+      
+      if (allMaterialNames.length === 0) return;
+      
+      // 过滤出还没有缓存的材质名称
+      const uncachedNames = allMaterialNames.filter(name => !materialAssetMap[name]);
+      
+      if (uncachedNames.length > 0) {
+        // 只请求未缓存的材质图片
+        const newImages = await getMaterialImagesByNames(uncachedNames);
+        setMaterialAssetMap(prev => ({ ...prev, ...newImages }));
+      }
+      
+      // 预加载所有材质图片
+      allMaterialNames.forEach(name => {
+        const imageUrl = selectedSku.materialImages?.[name] || materialAssetMap[name];
+        if (imageUrl) {
+          const img = new Image();
+          img.src = getFileUrl(imageUrl);
         }
-        return acc;
-      }, {});
-      setMaterialAssetMap(assetMap);
+      });
     };
-    loadMaterials();
-  }, []);
+    
+    loadMaterialImages();
+  }, [selectedSku]);
+
+  // 材质图片缓存（合并 SKU 配置和材质库）
+  const materialImageCache = useMemo(() => {
+    const cache: Record<string, string> = {};
+    if (!selectedSku) return cache;
+    
+    const normalizedMaterials = normalizeMaterialSelection(selectedSku.material);
+    const allMaterialNames = Object.values(normalizedMaterials).flat();
+    
+    allMaterialNames.forEach(materialName => {
+      if (!materialName) return;
+      
+      // 1. SKU材质图片配置优先
+      if (selectedSku.materialImages?.[materialName]) {
+        cache[materialName] = selectedSku.materialImages[materialName];
+        return;
+      }
+      
+      // 2. 材质库缓存
+      if (materialAssetMap[materialName]) {
+        cache[materialName] = materialAssetMap[materialName];
+      }
+    });
+    
+    return cache;
+  }, [selectedSku, materialAssetMap]);
 
   const defaultGalleryImages = useMemo(() => {
     if (!product) return [];
@@ -676,45 +720,23 @@ const ProductDetailPage = () => {
     return favProductId === product._id;
   }) : false;
 
+  // 优化：使用缓存直接获取材质图片，避免重复遍历
   const getMaterialPreviewImage = (materialName?: string) => {
     if (!materialName) return selectedSku?.images?.[0] || product.images?.[0] || '';
     
-    // 1. 从SKU的材质图片配置中获取
-    if (selectedSku?.materialImages && selectedSku.materialImages[materialName]) {
-      return selectedSku.materialImages[materialName];
+    // 直接从缓存获取（已预计算）
+    if (materialImageCache[materialName]) {
+      return materialImageCache[materialName];
     }
     
-    // 2. 从材质库中精确匹配
+    // 缓存未命中时的后备方案（直接查找，不做模糊匹配）
+    if (selectedSku?.materialImages?.[materialName]) {
+      return selectedSku.materialImages[materialName];
+    }
     if (materialAssetMap[materialName]) {
       return materialAssetMap[materialName];
     }
     
-    // 3. 模糊匹配材质库（处理名称格式差异）
-    for (const [name, image] of Object.entries(materialAssetMap)) {
-      // 检查是否包含关系
-      if (materialName.includes(name) || name.includes(materialName)) {
-        return image;
-      }
-      // 检查材质名称的后半部分（如 "皮质-黑色" 匹配 "头层牛皮-黑色"）
-      const materialParts = materialName.split(/[-–—]/);
-      const assetParts = name.split(/[-–—]/);
-      if (materialParts.length > 1 && assetParts.length > 1) {
-        // 比较具体名称部分（如 "黑色"）
-        if (materialParts[materialParts.length - 1].trim() === assetParts[assetParts.length - 1].trim()) {
-          // 再检查类别是否相关
-          const materialCategory = materialParts[0].trim();
-          const assetCategory = assetParts[0].trim();
-          if (materialCategory.includes(assetCategory) || assetCategory.includes(materialCategory) ||
-              materialCategory.includes('皮') && assetCategory.includes('皮') ||
-              materialCategory.includes('布') && assetCategory.includes('布') ||
-              materialCategory.includes('木') && assetCategory.includes('木')) {
-            return image;
-          }
-        }
-      }
-    }
-    
-    // 4. 返回默认图片
     return selectedSku?.images?.[0] || product.images?.[0] || '';
   };
 
@@ -889,7 +911,7 @@ const ProductDetailPage = () => {
                   {isVideoFile(img) ? (
                     <div className="w-full h-20 flex items-center justify-center bg-black text-white text-xs">视频</div>
                   ) : (
-                    <img src={getFileUrl(img)} alt={`thumbnail ${idx + 1}`} className="w-full h-20 object-cover" />
+                    <img src={getThumbnailUrl(img, 100)} alt={`thumbnail ${idx + 1}`} className="w-full h-20 object-cover" loading="lazy" />
                   )}
                 </button>
               ))}
@@ -1247,7 +1269,7 @@ const ProductDetailPage = () => {
                                               )}
                                             >
                                               {preview ? (
-                                                <img src={getFileUrl(preview)} alt={materialName} className="w-full h-full object-cover" />
+                                                <img src={getThumbnailUrl(preview, 80)} alt={materialName} className="w-full h-full object-cover" loading="lazy" />
                                               ) : (
                                                 <span
                                                   className={cn(

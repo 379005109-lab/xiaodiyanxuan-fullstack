@@ -1,5 +1,10 @@
 const FileService = require('../services/fileService');
 const { sendResponse, sendError } = require('../utils/response');
+const sharp = require('sharp');
+
+// 缩略图缓存（内存缓存，生产环境建议使用 Redis）
+const thumbnailCache = new Map();
+const THUMBNAIL_CACHE_MAX_SIZE = 500; // 最多缓存500个缩略图
 
 /**
  * 上传单个文件
@@ -69,14 +74,82 @@ const uploadMultiple = async (req, res) => {
 };
 
 /**
- * 下载/访问文件
+ * 下载/访问文件（支持缩略图）
+ * 查询参数：
+ * - w: 缩略图宽度 (如 ?w=200)
+ * - h: 缩略图高度 (如 ?h=200)
+ * - q: 质量 0-100 (如 ?q=80)
  */
 const downloadFile = async (req, res) => {
   try {
     const { fileId } = req.params;
+    const { w, h, q } = req.query;
+    const width = w ? parseInt(w) : null;
+    const height = h ? parseInt(h) : null;
+    const quality = q ? parseInt(q) : 80;
 
     const fileData = await FileService.getFile(fileId);
+    const isImage = fileData.mimeType && fileData.mimeType.startsWith('image/');
 
+    // 如果请求缩略图且是图片文件
+    if (isImage && (width || height)) {
+      const cacheKey = `${fileId}_${width || 'auto'}_${height || 'auto'}_${quality}`;
+      
+      // 检查缓存
+      if (thumbnailCache.has(cacheKey)) {
+        const cached = thumbnailCache.get(cacheKey);
+        res.setHeader('Content-Type', 'image/webp');
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        res.setHeader('X-Thumbnail-Cache', 'HIT');
+        return res.send(cached);
+      }
+
+      // 读取原始图片到 Buffer
+      const chunks = [];
+      for await (const chunk of fileData.stream) {
+        chunks.push(chunk);
+      }
+      const originalBuffer = Buffer.concat(chunks);
+
+      // 使用 sharp 生成缩略图
+      try {
+        let transformer = sharp(originalBuffer);
+        
+        // 调整尺寸
+        if (width || height) {
+          transformer = transformer.resize(width, height, {
+            fit: 'inside',
+            withoutEnlargement: true
+          });
+        }
+        
+        // 转换为 WebP 格式（更小的文件大小）
+        const thumbnailBuffer = await transformer
+          .webp({ quality })
+          .toBuffer();
+
+        // 缓存缩略图
+        if (thumbnailCache.size >= THUMBNAIL_CACHE_MAX_SIZE) {
+          // 删除最早的缓存
+          const firstKey = thumbnailCache.keys().next().value;
+          thumbnailCache.delete(firstKey);
+        }
+        thumbnailCache.set(cacheKey, thumbnailBuffer);
+
+        res.setHeader('Content-Type', 'image/webp');
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        res.setHeader('X-Thumbnail-Cache', 'MISS');
+        return res.send(thumbnailBuffer);
+      } catch (sharpErr) {
+        console.warn('缩略图生成失败，返回原图:', sharpErr.message);
+        // 如果缩略图生成失败，返回原图
+        res.setHeader('Content-Type', fileData.mimeType);
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        return res.send(originalBuffer);
+      }
+    }
+
+    // 返回原始文件
     res.setHeader('Content-Type', fileData.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${fileData.filename}"`);
     res.setHeader('Cache-Control', 'public, max-age=31536000');

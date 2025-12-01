@@ -6,6 +6,7 @@ const materialController = require('../controllers/materialController');
 // 材质路由
 router.get('/', materialController.list);
 router.get('/stats', materialController.stats);
+router.post('/images-by-names', materialController.getImagesByNames); // 批量获取材质图片（无需登录）
 router.get('/:id', materialController.get);
 router.post('/', auth, materialController.create);
 router.put('/:id', auth, materialController.update);

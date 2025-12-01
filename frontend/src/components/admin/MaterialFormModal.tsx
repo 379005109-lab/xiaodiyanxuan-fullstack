@@ -271,11 +271,6 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
       return
     }
 
-    if (!formData.image) {
-      toast.error('请上传素材图片')
-      return
-    }
-
     if (!formData.categoryId) {
       toast.error('请选择分类')
       return
@@ -354,10 +349,10 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
           {/* 素材图片 - 移到最上方 */}
           <div>
             <label className="block text-sm font-medium mb-2">
-              素材图片 <span className="text-red-500">*</span>
+              素材图片 <span className="text-gray-400 text-xs">(可选)</span>
             </label>
             <div className="flex items-start gap-4">
-              {formData.image && (
+              {formData.image ? (
                 <div className="relative w-40 h-40 border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                   <img
                     src={getFileUrl(formData.image)}
@@ -371,6 +366,10 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
                   >
                     <X className="h-3 w-3" />
                   </button>
+                </div>
+              ) : (
+                <div className="w-40 h-40 border border-gray-200 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 flex items-center justify-center">
+                  <span className="text-gray-400 text-sm text-center px-2">{formData.name || '暂无图片'}</span>
                 </div>
               )}
               
@@ -667,14 +666,20 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
                         }}
                       >
                         <div className="relative w-full aspect-square bg-white rounded-lg border border-gray-200 overflow-hidden mb-2">
-                          <img
-                            src={getFileUrl(sku.image)}
-                            alt={sku.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/placeholder.svg'
-                            }}
-                          />
+                          {sku.image ? (
+                            <img
+                              src={getFileUrl(sku.image)}
+                              alt={sku.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/placeholder.svg'
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                              <span className="text-gray-400 text-xs text-center px-1">{sku.name.split('-')[1] || sku.name}</span>
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleDeleteSKU(sku._id)}

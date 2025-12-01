@@ -356,3 +356,32 @@ exports.deleteCategory = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// 批量获取材质图片（根据名称列表）
+exports.getImagesByNames = async (req, res) => {
+  try {
+    const { names } = req.body;
+    
+    if (!names || !Array.isArray(names) || names.length === 0) {
+      return res.json({ success: true, data: {} });
+    }
+    
+    // 只查询名称和图片字段，优化性能
+    const materials = await Material.find(
+      { name: { $in: names } },
+      { name: 1, image: 1, _id: 0 }
+    ).lean();
+    
+    // 转换为 { name: image } 格式
+    const result = materials.reduce((acc, m) => {
+      if (m.name && m.image) {
+        acc[m.name] = m.image;
+      }
+      return acc;
+    }, {});
+    
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

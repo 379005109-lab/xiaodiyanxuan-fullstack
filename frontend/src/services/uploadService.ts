@@ -50,9 +50,10 @@ export const uploadFile = async (file: File, onProgress?: (progress: number) => 
 /**
  * 获取文件 URL
  * @param fileId 文件 ID
+ * @param options 缩略图选项 { width, height, quality }
  * @returns 文件 URL
  */
-export const getFileUrl = (fileId: string): string => {
+export const getFileUrl = (fileId: string, options?: { width?: number; height?: number; quality?: number }): string => {
   // 如果fileId为空或无效，返回占位图
   if (!fileId || fileId.trim() === '') {
     return '/placeholder.svg'
@@ -71,8 +72,33 @@ export const getFileUrl = (fileId: string): string => {
     console.warn('检测到Base64图片数据，已废弃，返回占位图');
     return '/placeholder.svg'; // 返回占位图而不是Base64
   }
-  // 否则构造正确的API路径
-  return `/api/files/${fileId}`
+  
+  // 构造正确的API路径
+  let url = `/api/files/${fileId}`
+  
+  // 添加缩略图参数
+  if (options) {
+    const params = new URLSearchParams()
+    if (options.width) params.append('w', options.width.toString())
+    if (options.height) params.append('h', options.height.toString())
+    if (options.quality) params.append('q', options.quality.toString())
+    const queryString = params.toString()
+    if (queryString) {
+      url += `?${queryString}`
+    }
+  }
+  
+  return url
+}
+
+/**
+ * 获取缩略图 URL（便捷方法）
+ * @param fileId 文件 ID
+ * @param size 缩略图尺寸（宽高相同）
+ * @returns 缩略图 URL
+ */
+export const getThumbnailUrl = (fileId: string, size: number = 200): string => {
+  return getFileUrl(fileId, { width: size, height: size, quality: 80 })
 }
 
 /**

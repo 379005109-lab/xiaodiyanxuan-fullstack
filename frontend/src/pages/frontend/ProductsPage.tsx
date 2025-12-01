@@ -13,7 +13,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
 
-import { getFileUrl } from '@/services/uploadService'
+import { getFileUrl, getThumbnailUrl } from '@/services/uploadService'
 import { getAllSiteConfigs } from '@/services/siteConfigService'
 // 简化价格显示
 const formatPriceSimplified = (price: number): string => {
@@ -832,9 +832,10 @@ export default function ProductsPage() {
                         <div className={`relative overflow-hidden rounded-lg bg-gray-100 group ${viewMode === 'grid' ? 'aspect-square mb-4' : 'w-24 h-24 flex-shrink-0'}`}>
                           {/* 主图 - 根据预览索引显示 */}
                           <img
-                            src={getFileUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png')}
+                            src={getThumbnailUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png', 400)}
                             alt={product.name}
                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
                           />
                           
                           {/* SKU预览小方块 - 只在网格模式显示 */}
@@ -851,9 +852,10 @@ export default function ProductsPage() {
                                   }`}
                                 >
                                   <img
-                                    src={getFileUrl(img)}
+                                    src={getThumbnailUrl(img, 50)}
                                     alt=""
                                     className="w-full h-full object-cover"
+                                    loading="lazy"
                                   />
                                 </div>
                               ))}

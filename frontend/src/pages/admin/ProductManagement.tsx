@@ -1,7 +1,7 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Search, Filter, Edit, Trash2, Eye, EyeOff, FileSpreadsheet, Download, ChevronDown, ChevronUp, BarChart3, ImageIcon } from 'lucide-react'
+import { Plus, Search, Filter, Edit, Trash2, Eye, EyeOff, FileSpreadsheet, Download, ChevronDown, ChevronUp, BarChart3, ImageIcon, FolderOpen } from 'lucide-react'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Product, UserRole } from '@/types'
 import { toast } from 'sonner'
@@ -13,7 +13,7 @@ import { getAllMaterials, getAllMaterialCategories } from '@/services/materialSe
 import { Material, MaterialCategory } from '@/types'
 import { createCategoryLookup, getRoleDiscountMultiplier } from '@/utils/categoryHelper'
 import { useAuthStore } from '@/store/authStore'
-import { getFileUrl, uploadFile } from '@/services/uploadService'
+import { getFileUrl, uploadFile, getThumbnailUrl } from '@/services/uploadService'
 
 export default function ProductManagement() {
   const navigate = useNavigate()
@@ -46,6 +46,9 @@ export default function ProductManagement() {
   
   // 批量图片上传状态
   const [batchImageUploading, setBatchImageUploading] = useState(false)
+  
+  // 文件夹上传选中的商品
+  const [folderUploadProductId, setFolderUploadProductId] = useState<string | null>(null)
 
   // 加载商品数据
   useEffect(() => {
@@ -103,16 +106,16 @@ export default function ProductManagement() {
   // 下载导入模板
   const handleDownloadTemplate = () => {
     // 创建模板数据 - 动态材质列支持
-    // 固定列: 商品名称、型号(主型号)、商品型号(副型号)、类别、规格、长宽高
+    // 固定列: 商品名称、型号(主型号)、商品型号(副型号)、类别、规格、长宽高、颜色
     // 动态材质列: 面料、填充、框架、脚架（可新增座包等其他材质类目，填写材质库中的类别名即可自动关联该类别下所有材质）
     // 后续固定列: 标价、折扣价、PRO、PRO特性、风格标签、商品图片1-7
     const templateData = [
-      ['商品名称', '型号(主型号)', '商品型号(副型号)', '类别', '规格', '长宽高', '面料', '填充', '框架', '脚架', '标价', '折扣价', 'PRO', 'PRO特性', '风格标签', '商品图片1', '商品图片2', '商品图片3', '商品图片4', '商品图片5', '商品图片6', '商品图片7'],
-      ['现代沙发A', 'SF-001', 'MD503-0046A', '沙发', '三人位', '200*115*77', '纳帕A级皮', '高回弹海绵', '实木框架', '金属脚架', 13200, 0, '否', '', '北欧', 'https://example.com/img1.jpg', 'https://example.com/img2.jpg', '', '', '', '', ''],
-      ['现代沙发A', 'SF-001', 'MD503-0046B', '沙发', '四人位', '200*115*77', '纳帕A级皮', '高回弹海绵', '实木框架', '金属脚架', 17940, '', '', '', '', '', '', '', '', '', '', ''],
-      ['现代沙发A', 'SF-001', 'MD503-0046C', '沙发', '五人位', '360*110*67', '纳帕A级皮', '高回弹海绵', '实木框架', '金属脚架', 20940, '', '', '', '', '', '', '', '', '', '', ''],
-      ['北欧床', 'BED-001', 'BD001-A', '床', '1.5米', '150*200*45', '', '高回弹海绵', '实木', '金属', 2999, 2499, '否', '', '简约', '', '', '', '', '', '', ''],
-      ['北欧床', 'BED-001', 'BD001-B', '床', '1.8米', '180*200*45', '', '高回弹海绵', '实木', '金属', 3499, 2999, '是', '加厚床板', '简约', '', '', '', '', '', '', ''],
+      ['商品名称', '型号(主型号)', '商品型号(副型号)', '类别', '规格', '长宽高', '颜色', '面料', '填充', '框架', '脚架', '标价', '折扣价', 'PRO', 'PRO特性', '风格标签', '商品图片1', '商品图片2', '商品图片3', '商品图片4', '商品图片5', '商品图片6', '商品图片7'],
+      ['现代沙发A', 'SF-001', 'MD503-0046A', '沙发', '三人位', '200*115*77', 'A类泰迪绒', '泰迪绒', '高回弹海绵', '实木框架', '金属脚架', 13200, 0, '否', '', '北欧', 'https://example.com/img1.jpg', 'https://example.com/img2.jpg', '', '', '', '', ''],
+      ['现代沙发A', 'SF-001', 'MD503-0046B', '沙发', '四人位', '200*115*77', 'B类雪尼尔绒', '雪尼尔绒', '高回弹海绵', '实木框架', '金属脚架', 17940, '', '', '', '', '', '', '', '', '', '', ''],
+      ['现代沙发A', 'SF-001', 'MD503-0046C', '沙发', '五人位', '360*110*67', 'A泰迪绒', '泰迪绒', '高回弹海绵', '实木框架', '金属脚架', 20940, '', '', '', '', '', '', '', '', '', '', ''],
+      ['北欧床', 'BED-001', 'BD001-A', '床', '1.5米', '150*200*45', '', '', '高回弹海绵', '实木', '金属', 2999, 2499, '否', '', '简约', '', '', '', '', '', '', ''],
+      ['北欧床', 'BED-001', 'BD001-B', '床', '1.8米', '180*200*45', '', '', '高回弹海绵', '实木', '金属', 3499, 2999, '是', '加厚床板', '简约', '', '', '', '', '', '', ''],
     ]
 
     // 创建说明工作表
@@ -121,15 +124,19 @@ export default function ProductManagement() {
       [''],
       ['1. 型号(主型号): 商品的主型号，同一商品的多个SKU使用相同的主型号'],
       ['2. 商品型号(副型号): SKU的副型号/编码，每个SKU可以有不同的副型号'],
-      ['3. 材质列（面料、填充、框架、脚架等）:'],
+      ['3. 颜色字段: 用于筛选材质的类别，格式如"A类泰迪绒"或"A泰迪绒"'],
+      ['   - 系统会从颜色字段中识别材质类别（如A类、B类等）'],
+      ['   - 面料字段填写的材质会根据颜色字段筛选只关联对应类别的材质'],
+      ['   - 例如：颜色填"A类泰迪绒"，面料填"泰迪绒"，则只关联A类泰迪绒下的材质'],
+      ['4. 材质列（面料、填充、框架、脚架等）:'],
       ['   - 填写材质库中的"类别名称"，系统会自动关联该类别下的所有具体材质SKU'],
       ['   - 例如：填写"磨砂皮"，会自动关联该类别下的砂冰蓝、砂米白等所有材质'],
       ['   - 注意：只会匹配具体的材质SKU，不会匹配类别本身'],
       ['   - 支持加价格式：如"高密加硬+1000"，表示该类别所有材质加价1000元'],
       ['   - 可以在"标价"列之前新增其他材质类目列（如座包、靠背等）'],
-      ['4. 风格标签: 支持多个标签，用逗号分隔，如"中古风、现代风"'],
-      ['5. 商品图片: 填写图片的完整URL地址，第一张图片将作为商品头图'],
-      ['6. 同一主型号的多行会自动合并为同一商品的多个SKU'],
+      ['5. 风格标签: 支持多个标签，用逗号分隔，如"中古风、现代风"'],
+      ['6. 商品图片: 填写图片的完整URL地址，第一张图片将作为商品头图'],
+      ['7. 同一主型号的多行会自动合并为同一商品的多个SKU'],
     ]
 
     // 创建工作簿
@@ -171,8 +178,8 @@ export default function ProductManagement() {
   }
 
   // 表格导入 - 新版模板格式（动态材质列支持）
-  // 固定列: 商品名称(0)、型号(1)=主型号、商品型号(2)=副型号、类别(3)、规格(4)、长宽高(5)
-  // 动态材质列: 从第6列开始，直到遇到"标价"列之前都是材质列（如面料、填充、框架、脚架、座包等）
+  // 固定列: 商品名称(0)、型号(1)=主型号、商品型号(2)=副型号、类别(3)、规格(4)、长宽高(5)、颜色(6)
+  // 动态材质列: 从第7列开始，直到遇到"标价"列之前都是材质列（如面料、填充、框架、脚架、座包等）
   // 后续列: 标价、折扣价、PRO、PRO特性、风格标签、商品图片1-7
   const processImportedData = async (jsonData: any[]) => {
     try {
@@ -206,15 +213,200 @@ export default function ProductManagement() {
       
       console.log('前20个材质:', allMaterials.slice(0, 20).map(m => `${m.name}(isCategory:${m.isCategory}, catId:${m.categoryId})`).join('\n  '));
 
+      // 解析颜色字段，提取材质类别筛选信息
+      // 支持格式：A类泰迪绒、A泰迪绒、B类雪尼尔绒等
+      // 过滤掉干扰信息：展厅上样、幻影30等
+      // 返回值：{ categoryPrefix, materialType, skipMaterial }
+      // - skipMaterial=true 表示跳过面料匹配（干扰词）
+      // - skipMaterial=false 表示正常匹配
+      const parseColorField = (colorText: string): { categoryPrefix: string; materialType: string; skipMaterial: boolean } | null => {
+        if (!colorText) return null;
+        
+        // 干扰词列表 - 需要排除的产品信息，且不应该添加任何面料
+        const noiseWords = ['展厅上样', '幻影', '上样', '展厅', '样品', '测试'];
+        
+        // 检查是否包含干扰词 - 如果是干扰词，跳过面料匹配
+        for (const noise of noiseWords) {
+          if (colorText.includes(noise)) {
+            console.log(`  颜色字段包含干扰词"${noise}"，跳过面料匹配: "${colorText}"`);
+            return { categoryPrefix: '', materialType: '', skipMaterial: true };
+          }
+        }
+        
+        // 解析格式支持多种变体：
+        // - B类雪尼尔绒、B雪尼尔绒、B类-雪尼尔绒
+        // - B类布-雪尼尔绒、B布-雪尼尔绒、B类皮-纳帕皮
+        // - A+类泰迪绒、A+泰迪绒、A+布-泰迪绒
+        // - A+类棉麻面料、B类面料-xxx
+        // 匹配规则：前缀(A-E或A+) + 可选(类) + 可选(布/皮/绒/面料等) + 可选(-) + 材质类型
+        const match = colorText.match(/^([A-Ea-e][+]?)(类)?(布|皮|绒|面料)?[-—]?(.+)$/);
+        if (match) {
+          const categoryPrefix = match[1].toUpperCase(); // A、B、C、A+等
+          const categoryType = match[2] || ''; // 类
+          const materialCategory = match[3] || ''; // 布、皮、绒
+          const materialType = match[4]?.trim() || ''; // 雪尼尔绒、泰迪绒等
+          
+          // 构建完整的材质类别前缀，如 "B类布" 或 "B类"
+          let fullPrefix = categoryPrefix;
+          if (categoryType) fullPrefix += categoryType;
+          if (materialCategory) fullPrefix += materialCategory;
+          
+          console.log(`  解析颜色字段: "${colorText}" -> 前缀="${fullPrefix}", 材质类型="${materialType}"`);
+          return { categoryPrefix: fullPrefix, materialType, skipMaterial: false };
+        }
+        
+        // 如果不匹配标准格式，尝试直接使用颜色字段作为材质类别名
+        // 检查材质库中是否有以此开头的材质
+        console.log(`  颜色字段不是标准格式，尝试直接匹配: "${colorText}"`);
+        return { categoryPrefix: '', materialType: colorText, skipMaterial: false };
+      };
+
+      // 从材质库中提取所有可能的类别名称前缀
+      // 例如材质 "B类雪尼尔绒-安博-01" 的类别前缀是 "B类雪尼尔绒"
+      const extractCategoryPrefixes = (): string[] => {
+        const prefixes = new Set<string>();
+        allMaterials.forEach(m => {
+          // 查找第一个 "-" 或 "—" 的位置
+          const dashIndex = Math.min(
+            m.name.indexOf('-') === -1 ? Infinity : m.name.indexOf('-'),
+            m.name.indexOf('—') === -1 ? Infinity : m.name.indexOf('—')
+          );
+          if (dashIndex !== Infinity && dashIndex > 0) {
+            prefixes.add(m.name.substring(0, dashIndex));
+          }
+        });
+        return Array.from(prefixes);
+      };
+      
+      const categoryPrefixes = extractCategoryPrefixes();
+      console.log(`  材质库中的类别前缀(前20): [${categoryPrefixes.slice(0, 20).join(', ')}]`);
+
+      // 根据颜色字段直接在材质库中查找匹配的类别
+      // 支持复杂格式如 "A类真皮头层真皮（古漆皮）"
+      const findMaterialCategoryByColor = (colorInfo: { categoryPrefix: string; materialType: string; skipMaterial?: boolean } | null, originalColorText: string): string | null => {
+        if (!colorInfo || colorInfo.skipMaterial) return null;
+        
+        const { categoryPrefix, materialType } = colorInfo;
+        
+        // 方法1：直接用原始颜色字段在材质库中查找
+        // 如果颜色字段就是一个完整的类别名，直接使用
+        if (originalColorText) {
+          const directMatch = categoryPrefixes.find(prefix => 
+            prefix === originalColorText || 
+            prefix.toLowerCase() === originalColorText.toLowerCase()
+          );
+          if (directMatch) {
+            console.log(`✓ 颜色字段直接匹配类别: "${directMatch}"`);
+            return directMatch;
+          }
+          
+          // 检查是否有以颜色字段开头的材质
+          const startsWithMatch = categoryPrefixes.find(prefix => 
+            prefix.startsWith(originalColorText) || originalColorText.startsWith(prefix)
+          );
+          if (startsWithMatch) {
+            console.log(`✓ 颜色字段部分匹配类别: "${startsWithMatch}"`);
+            return startsWithMatch;
+          }
+        }
+        
+        // 方法2：使用解析后的前缀+类型构建可能的名称
+        if (!materialType && !categoryPrefix) return null;
+        
+        let possibleNames: string[] = [];
+        
+        if (categoryPrefix) {
+          possibleNames = [
+            `${categoryPrefix}-${materialType}`,   // B类布-雪尼尔绒
+            `${categoryPrefix}${materialType}`,    // B类雪尼尔绒
+            `${categoryPrefix}—${materialType}`,   // 中文破折号
+          ];
+          
+          if (categoryPrefix.length <= 2) {
+            possibleNames.push(`${categoryPrefix}类${materialType}`);
+          }
+        } else {
+          possibleNames = [materialType];
+        }
+        
+        possibleNames = [...new Set(possibleNames)].filter(n => n);
+        console.log(`  尝试匹配类别名: [${possibleNames.join(', ')}]`);
+        
+        // 在类别前缀列表中查找匹配
+        for (const name of possibleNames) {
+          const matched = categoryPrefixes.find(prefix => 
+            prefix === name || prefix.toLowerCase() === name.toLowerCase()
+          );
+          if (matched) {
+            console.log(`✓ 颜色筛选匹配类别: "${matched}"`);
+            return matched;
+          }
+        }
+        
+        // 方法3：模糊匹配 - 检查类别前缀是否包含关键词
+        if (materialType) {
+          const fuzzyMatch = categoryPrefixes.find(prefix => {
+            // 检查前缀是否以 A-E 开头且包含材质类型
+            const startsWithGrade = /^[A-Ea-e][+]?/.test(prefix);
+            const containsType = prefix.includes(materialType);
+            return startsWithGrade && containsType;
+          });
+          if (fuzzyMatch) {
+            console.log(`✓ 颜色筛选模糊匹配: "${fuzzyMatch}"`);
+            return fuzzyMatch;
+          }
+        }
+        
+        console.log(`⚠️ 颜色筛选: 未找到匹配的材质类别`);
+        return null;
+      };
+
       // 解析材质文本，支持加价格式如 "类别名+1000" 或 "类别名"
+      // colorFilterCategory: 从颜色字段解析出的材质类别（如"A类泰迪绒"），用于精确筛选
       // 返回 { names: 材质名称列表, upgradePrice: 加价金额, categoryName: 类别名称（用于加价） }
-      const parseMaterialText = (text: string): { names: string[], upgradePrice: number, categoryName: string } => {
+      const parseMaterialText = (text: string, colorFilterCategory: string | null = null): { names: string[], upgradePrice: number, categoryName: string } => {
         if (!text) return { names: [], upgradePrice: 0, categoryName: '' };
         
         const matchedNames: string[] = [];
         let totalUpgradePrice = 0;
         let matchedCategoryName = ''; // 记录匹配到的类别名称
         
+        // 【最优先】如果有颜色筛选类别，直接使用它作为前缀来筛选材质
+        if (colorFilterCategory) {
+          console.log(`  使用颜色筛选: "${colorFilterCategory}"`);
+          matchedCategoryName = colorFilterCategory;
+          
+          // 直接用颜色字段值作为前缀来筛选所有材质
+          // 例如：颜色="B类雪尼尔绒"，则匹配所有以"B类雪尼尔绒-"开头的材质
+          const childSkus = allMaterials
+            .filter(m => m.name.startsWith(colorFilterCategory + '-') || 
+                         m.name.startsWith(colorFilterCategory + '—'))
+            .map(m => m.name);
+          
+          if (childSkus.length > 0) {
+            matchedNames.push(...childSkus);
+            console.log(`✓ 颜色筛选匹配: "${colorFilterCategory}" -> 找到 ${childSkus.length} 个SKU`);
+            console.log(`  前3个: ${childSkus.slice(0, 3).join(', ')}`);
+          } else {
+            console.log(`⚠️ 颜色筛选未找到匹配的SKU: "${colorFilterCategory}"`);
+            console.log(`  可用材质示例: ${allMaterials.slice(0, 5).map(m => m.name).join(', ')}`);
+          }
+          
+          // 解析面料列中的加价信息
+          const entries = text.split(/[\n,，、]/).map(s => s.trim()).filter(s => s);
+          entries.forEach(entry => {
+            const priceMatch = entry.match(/^(.+?)\s*[+＋]\s*(\d+)$/);
+            if (priceMatch) {
+              totalUpgradePrice = parseInt(priceMatch[2]) || 0;
+              console.log(`  解析加价: "${entry}" -> 加价=${totalUpgradePrice}元`);
+            }
+          });
+          
+          // 直接返回颜色筛选结果，不再继续处理
+          return { names: [...new Set(matchedNames)], upgradePrice: totalUpgradePrice, categoryName: matchedCategoryName };
+        }
+        
+        // 如果没有颜色筛选或颜色筛选失败，按原有逻辑处理面料列
         // 按换行符/逗号分割多个材质条目
         const entries = text.split(/[\n,，、]/).map(s => s.trim()).filter(s => s);
         
@@ -301,34 +493,53 @@ export default function ProductManagement() {
 
       const header = jsonData[0] || [];
       console.log('表头:', header);
+      console.log('表头各列:', header.map((h: any, i: number) => `[${i}]${h}`).join(', '));
 
-      // 动态解析表头，找出材质列的位置
+      // 动态解析表头，找出颜色列和材质列的位置
       // 固定列索引: 商品名称(0)、型号(1)、商品型号(2)、类别(3)、规格(4)、长宽高(5)
-      // 从第6列开始查找材质列，直到遇到"标价"列
+      // 颜色列可能在第6列，也可能不存在
+      // 材质列从颜色列之后开始，直到遇到"标价"列
       let materialColumns: { index: number; name: string }[] = [];
       let priceColumnIndex = -1;
+      let colorColumnIndex = -1; // 颜色列索引，-1表示不存在
       
-      for (let i = 6; i < header.length; i++) {
+      // 在表头中查找"颜色"列
+      for (let i = 0; i < header.length; i++) {
+        const colName = (header[i] || '').toString().trim();
+        if (colName === '颜色') {
+          colorColumnIndex = i;
+          console.log(`✓ 找到颜色列: 索引=${i}`);
+          break;
+        }
+      }
+      
+      const hasColorColumn = colorColumnIndex >= 0;
+      // 材质列从颜色列之后开始，或从第6列开始（如果没有颜色列）
+      const materialStartIndex = hasColorColumn ? colorColumnIndex + 1 : 6;
+      
+      console.log('颜色列索引:', colorColumnIndex, '是否有颜色列:', hasColorColumn, '材质起始列:', materialStartIndex);
+      
+      for (let i = materialStartIndex; i < header.length; i++) {
         const colName = (header[i] || '').toString().trim();
         if (colName === '标价') {
           priceColumnIndex = i;
           break;
         }
-        if (colName) {
+        if (colName && colName !== '颜色') { // 排除颜色列
           materialColumns.push({ index: i, name: colName });
         }
       }
 
       // 如果没找到"标价"列，使用默认位置
       if (priceColumnIndex === -1) {
-        // 兼容旧模板：面料(6)、填充(7)、框架(8)、脚架(9)、标价(10)
+        // 兼容旧模板：颜色(6)、面料(7)、填充(8)、框架(9)、脚架(10)、标价(11)
         materialColumns = [
-          { index: 6, name: '面料' },
-          { index: 7, name: '填充' },
-          { index: 8, name: '框架' },
-          { index: 9, name: '脚架' },
+          { index: 7, name: '面料' },
+          { index: 8, name: '填充' },
+          { index: 9, name: '框架' },
+          { index: 10, name: '脚架' },
         ];
-        priceColumnIndex = 10;
+        priceColumnIndex = 11;
       }
 
       console.log('材质列:', materialColumns);
@@ -356,6 +567,22 @@ export default function ProductManagement() {
         const categoryName = (row[3] || '').toString().trim();
         const spec = (row[4] || '').toString().trim();
         const dimensions = (row[5] || '').toString().trim();
+        
+        // 读取颜色字段（如果存在）
+        const colorText = hasColorColumn ? (row[colorColumnIndex] || '').toString().trim() : '';
+        console.log(`===== 行${rowIndex + 2} 颜色字段: "${colorText}" =====`);
+        
+        // 解析颜色字段，获取材质类别筛选信息
+        const colorInfo = parseColorField(colorText);
+        const colorFilterCategory = findMaterialCategoryByColor(colorInfo, colorText);
+        console.log(`  颜色筛选类别: ${colorFilterCategory || '无（使用常规匹配）'}`);
+        
+        // 打印更详细的调试信息
+        if (colorInfo) {
+          console.log(`  颜色解析结果: 前缀="${colorInfo.categoryPrefix}", 类型="${colorInfo.materialType}", 干扰词=${colorInfo.skipMaterial}`);
+        } else {
+          console.log(`  颜色解析结果: null（颜色字段为空或格式不对）`);
+        }
 
         // 动态解析材质列 - 支持加价格式如 "类别名+1000"
         const materialData: Record<string, string[]> = {};
@@ -365,8 +592,21 @@ export default function ProductManagement() {
         materialColumns.forEach(col => {
           const text = (row[col.index] || '').toString().trim();
           console.log(`  ${col.name}列(${col.index}): 原始文本="${text}"`);
+          
+          // 对于面料列，如果有颜色筛选类别则使用；否则使用常规匹配
+          // 注意：干扰词时使用常规匹配，不跳过
+          const useColorFilter = (col.name === '面料' && colorFilterCategory) ? colorFilterCategory : null;
+          
+          if (col.name === '面料') {
+            if (colorFilterCategory) {
+              console.log(`  ${col.name}列: 使用颜色筛选 "${colorFilterCategory}"`);
+            } else {
+              console.log(`  ${col.name}列: 无有效颜色筛选，使用常规匹配`);
+            }
+          }
+          
           // 解析材质文本，获取材质名称和加价
-          const parsed = parseMaterialText(text);
+          const parsed = parseMaterialText(text, useColorFilter);
           materialData[col.name] = parsed.names;
           if (parsed.upgradePrice > 0) {
             // 将加价保存到类别材质名上（如"纳帕A级皮"），而不是列名（如"面料"）
@@ -964,6 +1204,105 @@ export default function ProductManagement() {
     }
   }
 
+  // 文件夹批量图片上传处理（针对单个商品）
+  // 选择文件夹后，自动将图片分配到该商品的所有SKU
+  // 图片排序：正面图 > 侧面图 > 后面图 > 细节展示图 > 其他
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>, productId: string) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    
+    const product = products.find(p => p._id === productId)
+    if (!product) {
+      toast.error('未找到商品')
+      return
+    }
+    
+    setBatchImageUploading(true)
+    const toastId = toast.loading(`正在处理 ${files.length} 张图片...`)
+    
+    try {
+      // 筛选图片文件
+      const imageFiles = Array.from(files).filter(file => 
+        file.type.startsWith('image/') || 
+        /\.(jpg|jpeg|png|gif|webp|bmp|tiff|svg|ico|heic|heif|avif)$/i.test(file.name)
+      )
+      
+      if (imageFiles.length === 0) {
+        toast.dismiss(toastId)
+        toast.warning('文件夹中没有找到图片文件')
+        return
+      }
+      
+      // 图片排序函数：正面图 > 侧面图 > 后面图 > 细节展示图 > 其他
+      const getImagePriority = (fileName: string): number => {
+        const lowerName = fileName.toLowerCase()
+        if (lowerName.includes('正面') || lowerName.includes('front') || lowerName.includes('主图')) return 1
+        if (lowerName.includes('侧面') || lowerName.includes('side')) return 2
+        if (lowerName.includes('后面') || lowerName.includes('back') || lowerName.includes('背面')) return 3
+        if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('展示')) return 4
+        return 5 // 其他图片
+      }
+      
+      // 按优先级和文件名排序
+      const sortedFiles = imageFiles.sort((a, b) => {
+        const priorityA = getImagePriority(a.name)
+        const priorityB = getImagePriority(b.name)
+        if (priorityA !== priorityB) return priorityA - priorityB
+        return a.name.localeCompare(b.name, 'zh-CN', { numeric: true })
+      })
+      
+      console.log('排序后的图片:', sortedFiles.map(f => f.name))
+      
+      // 上传所有图片
+      const uploadedUrls: string[] = []
+      for (const file of sortedFiles) {
+        const result = await uploadFile(file)
+        const fileId = result?.fileId || result?.data?.fileId || result?.id || result?.data?.id
+        if (fileId) {
+          uploadedUrls.push(fileId)
+          console.log(`✓ 上传成功: ${file.name} -> ${fileId}`)
+        } else {
+          console.log(`❌ 上传失败: ${file.name}`)
+        }
+      }
+      
+      if (uploadedUrls.length === 0) {
+        toast.dismiss(toastId)
+        toast.error('图片上传失败')
+        return
+      }
+      
+      // 分配图片到SKU和商品主图
+      // 第一张图作为商品头图
+      const mainImages = [uploadedUrls[0], ...(product.images || []).filter(img => img !== uploadedUrls[0])]
+      
+      // 将所有图片分配到每个SKU
+      const updatedSkus = (product.skus || []).map(sku => ({
+        ...sku,
+        images: [...uploadedUrls] // 每个SKU都获得所有图片
+      }))
+      
+      // 更新商品
+      await updateProduct(productId, {
+        images: mainImages,
+        skus: updatedSkus
+      })
+      
+      toast.dismiss(toastId)
+      toast.success(`上传成功！共 ${uploadedUrls.length} 张图片，已分配到 ${updatedSkus.length} 个SKU`)
+      await loadProducts()
+      
+    } catch (error) {
+      console.error('文件夹上传失败:', error)
+      toast.dismiss(toastId)
+      toast.error('上传失败')
+    } finally {
+      setBatchImageUploading(false)
+      e.target.value = ''
+      setFolderUploadProductId(null)
+    }
+  }
+
   // 执行搜索
   const handleSearch = () => {
     // 搜索功能已通过filteredProducts实现，此函数用于手动触发
@@ -1308,7 +1647,7 @@ export default function ProductManagement() {
                   <td className="py-4 px-4">
                     <div className="flex items-center">
                       <img
-                        src={getFileUrl(product.images[0] || '/placeholder.svg')}
+                        src={product.images[0] ? getThumbnailUrl(product.images[0], 100) : '/placeholder.svg'}
                         alt={product.name}
                         className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
                         loading="lazy"
@@ -1434,6 +1773,23 @@ export default function ProductManagement() {
                           <Eye className="h-4 w-4 text-gray-600" />
                         )}
                       </button>
+                      <label
+                        className={`p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer ${batchImageUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                        title="选择文件夹上传图片"
+                      >
+                        <FolderOpen className="h-4 w-4 text-purple-600" />
+                        <input
+                          type="file"
+                          // @ts-ignore
+                          webkitdirectory=""
+                          // @ts-ignore
+                          directory=""
+                          multiple
+                          className="hidden"
+                          onChange={(e) => handleFolderUpload(e, product._id)}
+                          disabled={batchImageUploading}
+                        />
+                      </label>
                       <button
                         onClick={() => {
                           if (currentRole === 'designer') {

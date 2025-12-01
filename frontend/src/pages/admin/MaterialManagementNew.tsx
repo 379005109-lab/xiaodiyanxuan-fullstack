@@ -21,7 +21,7 @@ import {
   createMaterialCategory,
   deleteMaterialCategory,
 } from '@/services/materialService'
-import { getFileUrl, uploadFile } from '@/services/uploadService'
+import { getFileUrl, uploadFile, getThumbnailUrl } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
 import MaterialReviewModal from '@/components/admin/MaterialReviewModal'
 import CategoryFormModal from '@/components/admin/MaterialCategoryModal'
@@ -310,6 +310,46 @@ export default function MaterialManagement() {
       loadStats()
     } catch (error) {
       toast.error('更新失败')
+    }
+  }
+
+
+  const handleBatchApprove = async (mats: Material[]) => {
+    try {
+      for (const m of mats) {
+        await updateMaterial(m._id, { status: 'approved' })
+      }
+      toast.success('批量审核成功')
+      loadMaterials()
+      loadStats()
+    } catch (error) {
+      toast.error('批量审核失败')
+    }
+  }
+
+  const handleBatchOffline = async (mats: Material[]) => {
+    try {
+      for (const m of mats) {
+        await updateMaterial(m._id, { status: 'offline' })
+      }
+      toast.success('批量下线成功')
+      loadMaterials()
+      loadStats()
+    } catch (error) {
+      toast.error('批量下线失败')
+    }
+  }
+
+  const handleBatchOnline = async (mats: Material[]) => {
+    try {
+      for (const m of mats) {
+        await updateMaterial(m._id, { status: 'approved' })
+      }
+      toast.success('批量上线成功')
+      loadMaterials()
+      loadStats()
+    } catch (error) {
+      toast.error('批量上线失败')
     }
   }
 
@@ -973,8 +1013,44 @@ export default function MaterialManagement() {
                         <p className="text-xs text-gray-500 truncate">
                           {representativeMaterial.categoryName || '未分类'}
                         </p>
-                        {/* 操作按钮 - 悬停显示 */}
-                        <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* 操作按钮 - 始终显示 */}
+                        <div className="flex items-center gap-1 mt-2">
+                          {representativeMaterial.status === 'pending' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleBatchApprove(groupMaterials)
+                              }}
+                              className="flex-1 p-1.5 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs flex items-center justify-center gap-1"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              通过
+                            </button>
+                          )}
+                          {representativeMaterial.status === 'approved' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleBatchOffline(groupMaterials)
+                              }}
+                              className="flex-1 p-1.5 text-white bg-orange-500 hover:bg-orange-600 rounded transition-colors text-xs flex items-center justify-center gap-1"
+                            >
+                              <EyeOff className="h-3.5 w-3.5" />
+                              下线
+                            </button>
+                          )}
+                          {representativeMaterial.status === 'offline' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleBatchOnline(groupMaterials)
+                              }}
+                              className="flex-1 p-1.5 text-white bg-green-600 hover:bg-green-700 rounded transition-colors text-xs flex items-center justify-center gap-1"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              上线
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -982,7 +1058,7 @@ export default function MaterialManagement() {
                               setShowMaterialModal(true)
                             }}
                             className="flex-1 p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors text-xs flex items-center justify-center gap-1"
-                            title="编辑"
+                            title="编"
                           >
                             <Edit className="h-3.5 w-3.5" />
                             编辑
