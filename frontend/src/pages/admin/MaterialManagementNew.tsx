@@ -978,7 +978,7 @@ export default function MaterialManagement() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              setEditingMaterial(representativeMaterial)
+                              const categoryMaterial = { ...representativeMaterial, name: groupKey, isCategory: true }; setEditingMaterial(categoryMaterial as Material)
                               setShowMaterialModal(true)
                             }}
                             className="flex-1 p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors text-xs flex items-center justify-center gap-1"
