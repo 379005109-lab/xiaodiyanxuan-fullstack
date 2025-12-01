@@ -72,6 +72,7 @@ exports.update = async (req, res) => {
     
     const oldName = oldMaterial.name;
     const newName = req.body.name;
+    const isCategory = oldMaterial.isCategory; // 是否是类别
     
     // 更新素材
     const material = await Material.findByIdAndUpdate(
@@ -80,13 +81,54 @@ exports.update = async (req, res) => {
       { new: true, runValidators: true }
     );
     
-    // 如果素材名称发生变化，同步更新所有商品SKU中的材质名称
+    // 如果素材名称发生变化，同步更新
+    let updatedMaterialCount = 0;
     let updatedProductCount = 0;
+    
     if (oldName && newName && oldName !== newName) {
-      console.log(`🔄 [素材更新] 名称变更: "${oldName}" -> "${newName}"，开始同步更新商品...`);
+      console.log(`🔄 [素材更新] 名称变更: "${oldName}" -> "${newName}"，isCategory: ${isCategory}`);
       
-      // 查找所有商品
+      // 如果是类别，需要同时更新该类别下所有SKU的名称前缀
+      if (isCategory) {
+        console.log(`🔄 [类别更新] 开始更新类别下所有SKU的名称前缀...`);
+        
+        // 查找所有以旧类别名开头的素材（子SKU）
+        // 格式: "类别名-SKU名" 如 "A类布-棉麻（粗）-FS地平线-01H"
+        const childMaterials = await Material.find({
+          name: { $regex: `^${oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-` }
+        });
+        
+        for (const child of childMaterials) {
+          const oldChildName = child.name;
+          const newChildName = child.name.replace(oldName, newName);
+          
+          await Material.findByIdAndUpdate(child._id, { name: newChildName });
+          updatedMaterialCount++;
+          console.log(`  ✅ 更新子素材: "${oldChildName}" -> "${newChildName}"`);
+        }
+        
+        console.log(`🔄 [类别更新] 共更新 ${updatedMaterialCount} 个子素材`);
+      }
+      
+      // 同步更新所有商品SKU中的材质名称
+      console.log(`🔄 [商品更新] 开始同步更新商品...`);
       const products = await Product.find({});
+      
+      // 构建需要替换的名称映射（旧名 -> 新名）
+      const nameReplacements = new Map();
+      nameReplacements.set(oldName, newName);
+      
+      // 如果是类别，添加所有子SKU的名称映射
+      if (isCategory) {
+        const childMaterials = await Material.find({
+          name: { $regex: `^${newName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-` }
+        });
+        for (const child of childMaterials) {
+          // 计算对应的旧名称
+          const oldChildName = child.name.replace(newName, oldName);
+          nameReplacements.set(oldChildName, child.name);
+        }
+      }
       
       for (const product of products) {
         let productModified = false;
@@ -97,36 +139,45 @@ exports.update = async (req, res) => {
             if (sku.material && typeof sku.material === 'object') {
               for (const [categoryKey, materials] of Object.entries(sku.material)) {
                 if (Array.isArray(materials)) {
-                  const idx = materials.indexOf(oldName);
-                  if (idx !== -1) {
-                    materials[idx] = newName;
-                    productModified = true;
-                    console.log(`  ✅ 更新商品 "${product.name}" SKU "${sku.code || sku.spec}" 的 ${categoryKey}: "${oldName}" -> "${newName}"`);
+                  for (let i = 0; i < materials.length; i++) {
+                    const materialName = materials[i];
+                    // 精确匹配
+                    if (nameReplacements.has(materialName)) {
+                      const newMaterialName = nameReplacements.get(materialName);
+                      materials[i] = newMaterialName;
+                      productModified = true;
+                      console.log(`  ✅ 更新商品 "${product.name}" 材质: "${materialName}" -> "${newMaterialName}"`);
+                    }
+                    // 前缀匹配（针对类别更新）
+                    else if (isCategory && materialName.startsWith(oldName + '-')) {
+                      const newMaterialName = materialName.replace(oldName, newName);
+                      materials[i] = newMaterialName;
+                      productModified = true;
+                      console.log(`  ✅ 更新商品 "${product.name}" 材质(前缀): "${materialName}" -> "${newMaterialName}"`);
+                    }
                   }
                 }
               }
             }
             
-            // 更新 materialUpgradePrices 中的键名
-            if (sku.materialUpgradePrices && sku.materialUpgradePrices[oldName] !== undefined) {
-              sku.materialUpgradePrices[newName] = sku.materialUpgradePrices[oldName];
-              delete sku.materialUpgradePrices[oldName];
-              productModified = true;
-              console.log(`  ✅ 更新商品 "${product.name}" SKU 的 materialUpgradePrices 键: "${oldName}" -> "${newName}"`);
-            }
-            
-            // 更新 materialImages 中的键名
-            if (sku.materialImages && sku.materialImages[oldName] !== undefined) {
-              sku.materialImages[newName] = sku.materialImages[oldName];
-              delete sku.materialImages[oldName];
-              productModified = true;
-            }
-            
-            // 更新 materialDescriptions 中的键名
-            if (sku.materialDescriptions && sku.materialDescriptions[oldName] !== undefined) {
-              sku.materialDescriptions[newName] = sku.materialDescriptions[oldName];
-              delete sku.materialDescriptions[oldName];
-              productModified = true;
+            // 更新 materialUpgradePrices/materialImages/materialDescriptions 中的键名
+            const fieldsToUpdate = ['materialUpgradePrices', 'materialImages', 'materialDescriptions'];
+            for (const field of fieldsToUpdate) {
+              if (sku[field]) {
+                const keysToUpdate = [];
+                for (const key of Object.keys(sku[field])) {
+                  if (nameReplacements.has(key)) {
+                    keysToUpdate.push({ oldKey: key, newKey: nameReplacements.get(key) });
+                  } else if (isCategory && key.startsWith(oldName + '-')) {
+                    keysToUpdate.push({ oldKey: key, newKey: key.replace(oldName, newName) });
+                  }
+                }
+                for (const { oldKey, newKey } of keysToUpdate) {
+                  sku[field][newKey] = sku[field][oldKey];
+                  delete sku[field][oldKey];
+                  productModified = true;
+                }
+              }
             }
           }
         }
@@ -138,15 +189,23 @@ exports.update = async (req, res) => {
         }
       }
       
-      console.log(`🔄 [素材更新] 同步完成，共更新 ${updatedProductCount} 个商品`);
+      console.log(`🔄 [素材更新] 同步完成，更新 ${updatedMaterialCount} 个子素材，${updatedProductCount} 个商品`);
+    }
+    
+    let message = '素材已更新';
+    if (updatedMaterialCount > 0 || updatedProductCount > 0) {
+      const parts = [];
+      if (updatedMaterialCount > 0) parts.push(`${updatedMaterialCount} 个子素材`);
+      if (updatedProductCount > 0) parts.push(`${updatedProductCount} 个商品`);
+      message = `素材已更新，同时更新了 ${parts.join(' 和 ')} 中的材质名称`;
     }
     
     res.json({ 
       success: true, 
       data: material,
-      message: updatedProductCount > 0 
-        ? `素材已更新，同时更新了 ${updatedProductCount} 个商品中的材质名称` 
-        : '素材已更新'
+      updatedMaterialCount,
+      updatedProductCount,
+      message
     });
   } catch (error) {
     console.error('更新素材失败:', error);
