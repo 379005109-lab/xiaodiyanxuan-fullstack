@@ -39,3 +39,23 @@ process.on('SIGINT', () => {
   mongoose.connection.close()
   process.exit(0)
 })
+
+// 热重载控制器 (SIGUSR2)
+process.on('SIGUSR2', () => {
+  console.log('🔄 收到 SIGUSR2 信号，重新加载控制器...')
+  try {
+    // 清除 materialController 缓存
+    const controllerPath = require.resolve('./src/controllers/materialController')
+    delete require.cache[controllerPath]
+    console.log('✅ materialController 缓存已清除')
+    
+    // 重新加载路由
+    const routerPath = require.resolve('./src/routes/materialRoutes')
+    delete require.cache[routerPath]
+    console.log('✅ materialRoutes 缓存已清除')
+    
+    console.log('🔄 控制器重新加载完成！')
+  } catch (err) {
+    console.error('❌ 重新加载失败:', err.message)
+  }
+})

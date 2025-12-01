@@ -38,7 +38,9 @@ export const createMaterial = async (materialData: Omit<Material, '_id' | 'creat
 
 export const updateMaterial = async (id: string, materialData: Partial<Material> & { originalGroupName?: string }): Promise<Material | null> => {
   try {
+    console.log('🔄 [前端] updateMaterial 调用:', { id, materialData })
     const response = await apiClient.put(`/materials/${id}`, materialData)
+    console.log('🔄 [前端] updateMaterial 响应:', response.data)
     return response.data.data || null
   } catch (error: any) {
     console.error('更新材质失败:', error)

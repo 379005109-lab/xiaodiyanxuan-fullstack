@@ -287,12 +287,19 @@ export default function MaterialFormModal({ material, categories, onClose, onCat
 
     try {
       if (isEdit && material) {
-        await updateMaterial(material._id, {
+        const updateData = {
           ...formData,
           categoryName: category?.name,
           // 如果是分类编辑模式，传递原始分组名
           originalGroupName: (material as any).originalGroupName,
+        }
+        console.log('🔄 [MaterialFormModal] 保存数据:', {
+          materialId: material._id,
+          materialName: material.name,
+          originalGroupName: (material as any).originalGroupName,
+          updateData,
         })
+        await updateMaterial(material._id, updateData)
         
         // 如果分类改变了，批量更新同组的所有SKU
         if (categoryChanged && skuList.length > 0) {
