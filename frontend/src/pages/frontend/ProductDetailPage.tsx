@@ -305,6 +305,7 @@ const ProductDetailPage = () => {
   const [materialCollapsed, setMaterialCollapsed] = useState(true);
   const [materialSelections, setMaterialSelections] = useState<Record<string, string | null>>({});
   const [expandedMaterialCategory, setExpandedMaterialCategory] = useState<string | null>(null);
+  const [previewMaterialImage, setPreviewMaterialImage] = useState<string | null>(null);
   const [materialInfoModal, setMaterialInfoModal] = useState<{ open: boolean; section?: string; material?: string }>({ open: false });
   const [isAllImageModalOpen, setAllImageModalOpen] = useState(false);
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
@@ -605,13 +606,20 @@ const ProductDetailPage = () => {
 
     const currentSelection = materialSelections[sectionKey];
     
-    // 如果点击的是同一个材质，切换展开/收起状态
+    // 如果点击的是同一个材质，切换展开/收起状态和预览图
     if (currentSelection === materialName) {
-      setExpandedMaterialCategory(prev => prev === sectionKey ? null : sectionKey);
+      const shouldClose = expandedMaterialCategory === sectionKey;
+      setExpandedMaterialCategory(shouldClose ? null : sectionKey);
+      // 获取材质预览图片并设置到主图区域
+      const materialImage = getMaterialPreviewImage(materialName);
+      setPreviewMaterialImage(shouldClose ? null : materialImage || null);
     } else {
       // 选择新材质并展开详情
       setMaterialSelections(prev => ({ ...prev, [sectionKey]: materialName }));
       setExpandedMaterialCategory(sectionKey);
+      // 获取材质预览图片并设置到主图区域
+      const materialImage = getMaterialPreviewImage(materialName);
+      setPreviewMaterialImage(materialImage || null);
     }
   };
 
@@ -797,19 +805,49 @@ const ProductDetailPage = () => {
           <div className="lg:sticky lg:top-8 lg:self-start">
             <div className="relative w-full bg-white rounded-3xl shadow-lg overflow-hidden">
               <div className="relative w-full aspect-[4/3]">
-                {mainImage ? (
-                  isVideoFile(mainImage) ? (
-                    <video src={getFileUrl(mainImage)} controls className="absolute inset-0 w-full h-full object-contain bg-black" />
-                  ) : (
-                    <TrackedImage src={getFileUrl(mainImage)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" />
-                  )
+                {/* 根据是否有材质预览图片决定布局 */}
+                {previewMaterialImage ? (
+                  // 左右分栏布局：左侧商品图50%，右侧材质图50%
+                  <div className="absolute inset-0 flex">
+                    {/* 左侧商品图 */}
+                    <div className="w-1/2 h-full border-r border-gray-200 bg-white">
+                      {mainImage ? (
+                        isVideoFile(mainImage) ? (
+                          <video src={getFileUrl(mainImage)} controls className="w-full h-full object-contain" />
+                        ) : (
+                          <TrackedImage src={getFileUrl(mainImage)} alt={product.name} className="w-full h-full object-contain" />
+                        )
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">暂无图片</div>
+                      )}
+                    </div>
+                    {/* 右侧材质预览图 */}
+                    <div className="w-1/2 h-full bg-gray-50 flex items-center justify-center p-4">
+                      <img 
+                        src={getFileUrl(previewMaterialImage)} 
+                        alt="材质预览" 
+                        className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
+                      />
+                    </div>
+                  </div>
                 ) : (
-                  <div className="absolute inset-0 w-full h-full flex items-center justify-center text-gray-400">暂无图片</div>
+                  // 原始单图布局
+                  <>
+                    {mainImage ? (
+                      isVideoFile(mainImage) ? (
+                        <video src={getFileUrl(mainImage)} controls className="absolute inset-0 w-full h-full object-contain bg-black" />
+                      ) : (
+                        <TrackedImage src={getFileUrl(mainImage)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" />
+                      )
+                    ) : (
+                      <div className="absolute inset-0 w-full h-full flex items-center justify-center text-gray-400">暂无图片</div>
+                    )}
+                  </>
                 )}
                 <button
                   type="button"
                   onClick={() => setAllImageModalOpen(true)}
-                  className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-black/70 text-white text-xs px-4 py-2"
+                  className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-black/70 text-white text-xs px-4 py-2 z-10"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />全部图片
                 </button>
@@ -1046,6 +1084,14 @@ const ProductDetailPage = () => {
                           return list.length > 0;
                         });
                         
+                        // 排序：面料(fabric)排在最前面
+                        const sortedCategories = [...categoriesWithMaterials].sort((a: string, b: string) => {
+                          // 面料类目排在最前面
+                          if (a === 'fabric' || a === '面料') return -1;
+                          if (b === 'fabric' || b === '面料') return 1;
+                          return 0;
+                        });
+                        
                         // 材质分组的介绍信息（移到外层便于共享）
                         const groupDescriptions: Record<string, string> = {
                           '磨砂皮': '磨砂皮具有细腻的磨砂质感，手感柔软舒适，外观时尚大气。',
@@ -1068,7 +1114,7 @@ const ProductDetailPage = () => {
                           '黑钛不锈钢': '采用304不锈钢材质，黑钛电镀工艺，耐腐蚀、耐磨损，外观时尚高端。',
                         };
                         
-                        return categoriesWithMaterials.map((categoryKey: string, sectionIndex: number) => {
+                        return sortedCategories.map((categoryKey: string, sectionIndex: number) => {
                         const section = getMaterialCategoryConfig(categoryKey);
                         const list = normalizedSelectedMaterials?.[categoryKey] || [];
                         const selectedOption = materialSelections[categoryKey] || (list.length === 1 ? list[0] : null);
