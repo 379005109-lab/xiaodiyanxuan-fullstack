@@ -72,7 +72,6 @@ exports.update = async (req, res) => {
     
     const oldName = oldMaterial.name;
     const newName = req.body.name;
-    const isCategory = oldMaterial.isCategory; // 是否是类别
     
     // 更新素材
     const material = await Material.findByIdAndUpdate(
@@ -86,17 +85,19 @@ exports.update = async (req, res) => {
     let updatedProductCount = 0;
     
     if (oldName && newName && oldName !== newName) {
-      console.log(`🔄 [素材更新] 名称变更: "${oldName}" -> "${newName}"，isCategory: ${isCategory}`);
+      console.log(`🔄 [素材更新] 名称变更: "${oldName}" -> "${newName}"`);
       
-      // 如果是类别，需要同时更新该类别下所有SKU的名称前缀
-      if (isCategory) {
-        console.log(`🔄 [类别更新] 开始更新类别下所有SKU的名称前缀...`);
-        
-        // 查找所有以旧类别名开头的素材（子SKU）
-        // 格式: "类别名-SKU名" 如 "A类布-棉麻（粗）-FS地平线-01H"
-        const childMaterials = await Material.find({
-          name: { $regex: `^${oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-` }
-        });
+      // 查找所有以旧名称为前缀的素材（子SKU）
+      // 无论当前素材是否标记为类别，只要有子素材就更新
+      // 格式: "三级分类名-SKU型号" 如 "A类新宝马-63"
+      const childMaterials = await Material.find({
+        name: { $regex: `^${oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-` }
+      });
+      
+      const hasChildren = childMaterials.length > 0;
+      
+      if (hasChildren) {
+        console.log(`🔄 [分类更新] 发现 ${childMaterials.length} 个子素材，开始更新名称前缀...`);
         
         for (const child of childMaterials) {
           const oldChildName = child.name;
@@ -107,7 +108,7 @@ exports.update = async (req, res) => {
           console.log(`  ✅ 更新子素材: "${oldChildName}" -> "${newChildName}"`);
         }
         
-        console.log(`🔄 [类别更新] 共更新 ${updatedMaterialCount} 个子素材`);
+        console.log(`🔄 [分类更新] 共更新 ${updatedMaterialCount} 个子素材`);
       }
       
       // 同步更新所有商品SKU中的材质名称
@@ -118,12 +119,12 @@ exports.update = async (req, res) => {
       const nameReplacements = new Map();
       nameReplacements.set(oldName, newName);
       
-      // 如果是类别，添加所有子SKU的名称映射
-      if (isCategory) {
-        const childMaterials = await Material.find({
+      // 如果有子素材，添加所有子SKU的名称映射
+      if (hasChildren) {
+        const updatedChildMaterials = await Material.find({
           name: { $regex: `^${newName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-` }
         });
-        for (const child of childMaterials) {
+        for (const child of updatedChildMaterials) {
           // 计算对应的旧名称
           const oldChildName = child.name.replace(newName, oldName);
           nameReplacements.set(oldChildName, child.name);
@@ -148,8 +149,8 @@ exports.update = async (req, res) => {
                       productModified = true;
                       console.log(`  ✅ 更新商品 "${product.name}" 材质: "${materialName}" -> "${newMaterialName}"`);
                     }
-                    // 前缀匹配（针对类别更新）
-                    else if (isCategory && materialName.startsWith(oldName + '-')) {
+                    // 前缀匹配（针对有子素材的分类更新）
+                    else if (hasChildren && materialName.startsWith(oldName + '-')) {
                       const newMaterialName = materialName.replace(oldName, newName);
                       materials[i] = newMaterialName;
                       productModified = true;
@@ -168,7 +169,7 @@ exports.update = async (req, res) => {
                 for (const key of Object.keys(sku[field])) {
                   if (nameReplacements.has(key)) {
                     keysToUpdate.push({ oldKey: key, newKey: nameReplacements.get(key) });
-                  } else if (isCategory && key.startsWith(oldName + '-')) {
+                  } else if (hasChildren && key.startsWith(oldName + '-')) {
                     keysToUpdate.push({ oldKey: key, newKey: key.replace(oldName, newName) });
                   }
                 }
