@@ -92,16 +92,23 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     
     try {
       setLoading(true)
-      const response = await loginUser({
-        username: loginForm.phone,
-        password: loginMethod === 'password' ? loginForm.password : loginForm.verifyCode,
-        loginType: loginMethod === 'code' ? 'code' : 'password'
-      })
+      
+      let response;
+      if (loginMethod === 'code') {
+        // 验证码登录：使用 register 接口（支持已有用户直接登录）
+        response = await registerWithPhone(loginForm.phone, loginForm.verifyCode)
+      } else {
+        // 密码登录
+        response = await loginUser({
+          username: loginForm.phone,
+          password: loginForm.password,
+        })
+      }
       
       if (response.success && response.data) {
         login(response.data.user, response.data.token)
         toast.success('登录成功！')
-        onClose() // 由 App.tsx 统一处理用户信息完善弹窗
+        onClose()
       } else {
         toast.error(response.message || '登录失败')
       }
