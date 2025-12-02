@@ -407,10 +407,10 @@ const ProductDetailPage = () => {
     }
   };
   
-  // 页面加载 3 秒后自动加载材质图片（如果区域展开）
+  // 页面加载后自动加载材质图片（如果区域展开）
   useEffect(() => {
     if (selectedSku && !materialCollapsed) {
-      const timer = setTimeout(triggerLoadMaterialImages, 3000);
+      const timer = setTimeout(triggerLoadMaterialImages, 500);
       return () => clearTimeout(timer);
     }
   }, [selectedSku, materialCollapsed]);
