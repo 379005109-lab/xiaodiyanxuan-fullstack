@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/xiaodiyanxuan-frontend
+  IMAGE_NAME: 379005109-lab/xiaodiyanxuan-frontend
 
 jobs:
   build:
