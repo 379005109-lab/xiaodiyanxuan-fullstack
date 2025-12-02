@@ -357,12 +357,34 @@ exports.getImagesByNames = async (req, res) => {
         });
       }
       
-      // 8. 匹配末尾数字编号（如 "软椅621" 匹配 "...软银621"）
+      // 8. 匹配末尾数字编号（如 "软皮621" 匹配 "...软银621"）
       if (!match) {
         const numMatch = queryName.match(/(\d{2,})$/);
         if (numMatch) {
           const numPart = numMatch[1];
           match = allMaterials.find(m => m.name.endsWith(numPart) || m.name.includes('-' + numPart));
+        }
+      }
+      
+      // 9. 提取查询名称的文字+数字部分，匹配素材库中相同数字编号（如 "软皮621" 匹配 "软银621"）
+      if (!match) {
+        const textNumMatch = queryName.match(/^(.+?)(\d{2,})$/);
+        if (textNumMatch) {
+          const numPart = textNumMatch[2];
+          // 查找相同数字编号的材质
+          match = allMaterials.find(m => {
+            const mMatch = m.name.match(/(\d{2,})$/);
+            return mMatch && mMatch[1] === numPart;
+          });
+        }
+      }
+      
+      // 10. 提取中文关键词匹配（如 "天鹅22" 匹配包含 "天鹅" 的材质）
+      if (!match) {
+        const chineseMatch = queryName.match(/^([\u4e00-\u9fa5]+)/);
+        if (chineseMatch && chineseMatch[1].length >= 2) {
+          const chinesePart = chineseMatch[1];
+          match = allMaterials.find(m => m.name.includes(chinesePart));
         }
       }
       
