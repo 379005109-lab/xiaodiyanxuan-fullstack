@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getProductById } from '@/services/productService';
-import { getMaterialImagesByNames } from '@/services/materialService';
+import { getMaterialImagesByNames, clearMaterialImageCache } from '@/services/materialService';
 import { Product, ProductSKU, ProductFile } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoriteStore } from '@/store/favoriteStore';
@@ -519,6 +519,8 @@ const ProductDetailPage = () => {
       }
     };
     setMaterialSectionReady(false); // 重置材质区域状态
+    clearMaterialImageCache(); // 清除材质图片缓存，确保获取最新图片
+    setMaterialAssetMap({}); // 清除本地缓存
     fetchProduct();
   }, [id]);
 

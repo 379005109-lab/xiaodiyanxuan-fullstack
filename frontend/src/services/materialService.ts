@@ -86,6 +86,13 @@ export const clearMaterialCache = () => {
   materialCachePromise = null;
 }
 
+// 清除材质图片缓存
+export const clearMaterialImageCache = () => {
+  Object.keys(materialImageLocalCache).forEach(key => {
+    delete materialImageLocalCache[key];
+  });
+}
+
 export const getMaterialById = async (id: string): Promise<Material | null> => {
   try {
     const response = await apiClient.get(`/materials/${id}`)
