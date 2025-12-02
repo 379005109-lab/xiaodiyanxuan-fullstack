@@ -41,6 +41,7 @@ const auth = async (req, res, next) => {
     }
     
     req.user = user
+    req.userRole = user.role || user.userType || 'customer'
     next()
   } catch (err) {
     return res.status(401).json(errorResponse('Invalid token', 401))
