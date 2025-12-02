@@ -38,14 +38,14 @@ const getProducts = async (filters = {}) => {
 }
 
 const getProductById = async (id) => {
-  const product = await Product.findById(id)
+  // 使用 lean() 加速查询，单独更新浏览量
+  const product = await Product.findById(id).lean()
   if (!product) {
     throw new NotFoundError('Product not found')
   }
   
-  // Increment views
-  product.views = (product.views || 0) + 1
-  await product.save()
+  // 异步更新浏览量，不阻塞响应
+  Product.updateOne({ _id: id }, { $inc: { views: 1 } }).exec()
   
   return product
 }

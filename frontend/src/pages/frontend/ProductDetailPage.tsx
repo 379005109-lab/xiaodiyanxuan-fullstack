@@ -242,6 +242,52 @@ const getUpgradePrice = (sku?: ProductSKU | null, selectedMaterials?: Record<str
   return totalUpgradePrice;
 };
 
+// 材质分组的介绍信息（全局共享）
+const MATERIAL_GROUP_DESCRIPTIONS: Record<string, string> = {
+  '磨砂皮': '磨砂皮具有细腻的磨砂质感，手感柔软舒适，外观时尚大气。',
+  '纳帕A级皮': '纳帕A级皮是顶级真皮，皮质细腻柔软，触感舒适，高端品质。',
+  '普通皮': '普通皮革，经济实惠，适合日常使用。具有良好的耐用性和易清洁特性。',
+  '全青皮': '全青皮是高级皮革，采用天然植物鞣制工艺，具有独特的质感和气味。',
+  '牛皮': '优质牛皮，纹理自然，质感细腻。具有很好的透气性和耐磨性。',
+  '绒布': '柔软舒适的绒布面料，触感温暖。易于清洁，适合家庭使用。',
+  '麻布': '天然麻布，环保透气，具有独特的质感。适合现代简约风格。',
+  '舒软款': '舒软填充，坐感柔软舒适，适合长时间休息。',
+  '高密加硬': '高密度填充，支撑性强，不易塌陷，适合喜欢硬坐感的用户。',
+  '高回弹': '高回弹海绵，弹性好，久坐不变形，舒适耐用。',
+  '55D高回弹海绵': '采用出口级55D高密度聚氨酯海绵，回弹率>55%，经过72小时疲劳测试，十年坐感如初，提供恰到好处的支撑力，保护脊椎健康。适合喜欢偏硬坐感的用户。',
+  '70%羽绒+乳胶': '云端包裹感，轻盈柔软，透气性极佳，给您如云端般的舒适体验。',
+  '标准骨架': '标准骨架配置，稳固耐用，性价比高。',
+  '顶级骨架': '顶级骨架配置，采用优质材料，更加稳固耐用。',
+  '俄罗斯落叶松': '采用进口俄罗斯落叶松实木，木质坚硬，纹理清晰，承重力强，使用寿命长。',
+  '普通脚架': '标准脚架，稳固实用。',
+  '钛合金脚架': '钛合金脚架，轻便坚固，美观大方。',
+  '黑钛不锈钢': '采用304不锈钢材质，黑钛电镀工艺，耐腐蚀、耐磨损，外观时尚高端。',
+  '泰迪绒': '泰迪绒面料柔软蓬松，触感细腻，保暖性好，外观时尚可爱。',
+  'A类泰迪绒': 'A类泰迪绒采用优质纤维，柔软亲肤，透气性好，适合家居使用。',
+  'A+泰迪绒': 'A+泰迪绒是顶级泰迪绒面料，更加柔软蓬松，触感极佳。',
+  'B泰迪绒': 'B类泰迪绒性价比高，触感舒适，适合日常使用。',
+};
+
+// 获取材质描述的辅助函数
+const getMaterialDescription = (materialName: string, skuDescriptions?: Record<string, string>) => {
+  // 1. 首先从 SKU 配置获取
+  if (skuDescriptions?.[materialName]) {
+    return skuDescriptions[materialName];
+  }
+  // 2. 尝试用材质类别前缀匹配
+  const prefix = materialName.split(/[-–—]/)[0]?.trim();
+  if (prefix && MATERIAL_GROUP_DESCRIPTIONS[prefix]) {
+    return MATERIAL_GROUP_DESCRIPTIONS[prefix];
+  }
+  // 3. 尝试模糊匹配
+  for (const [key, desc] of Object.entries(MATERIAL_GROUP_DESCRIPTIONS)) {
+    if (materialName.includes(key)) {
+      return desc;
+    }
+  }
+  return '';
+};
+
 const getFinalPrice = (sku?: ProductSKU | null, selectedMaterials?: Record<string, string | null>) => {
   if (!sku) return 0;
   // PRO版一口价，不加材质加价
@@ -302,7 +348,7 @@ const ProductDetailPage = () => {
   const [isShareModalOpen, setShareModalOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<SkuFilter>('all');
   const [specCollapsed, setSpecCollapsed] = useState(true);
-  const [materialCollapsed, setMaterialCollapsed] = useState(true);
+  const [materialCollapsed, setMaterialCollapsed] = useState(false); // 默认展开
   const [materialSelections, setMaterialSelections] = useState<Record<string, string | null>>({});
   const [expandedMaterialCategory, setExpandedMaterialCategory] = useState<string | null>(null);
   const [previewMaterialImage, setPreviewMaterialImage] = useState<string | null>(null);
@@ -310,6 +356,7 @@ const ProductDetailPage = () => {
   const [isAllImageModalOpen, setAllImageModalOpen] = useState(false);
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
   const [materialAssetMap, setMaterialAssetMap] = useState<Record<string, string>>({});
+  const [materialSectionReady, setMaterialSectionReady] = useState(false); // 延迟渲染材质区域
 
   const { addItem } = useCartStore();
   const { favorites, toggleFavorite, loadFavorites } = useFavoriteStore();
@@ -329,37 +376,44 @@ const ProductDetailPage = () => {
     loadCompareItems();
   }, [isAuthenticated, loadFavorites, loadCompareItems]);
 
-  // 当 SKU 变化时，按需加载材质图片（云端优化方案）
-  useEffect(() => {
+  // 材质图片加载函数（按需调用）
+  const loadMaterialImagesIfNeeded = async () => {
     if (!selectedSku) return;
     
-    const loadMaterialImages = async () => {
-      const normalizedMaterials = normalizeMaterialSelection(selectedSku.material);
-      const allMaterialNames = Object.values(normalizedMaterials).flat().filter(Boolean);
-      
-      if (allMaterialNames.length === 0) return;
-      
-      // 过滤出还没有缓存的材质名称
-      const uncachedNames = allMaterialNames.filter(name => !materialAssetMap[name]);
-      
-      if (uncachedNames.length > 0) {
-        // 只请求未缓存的材质图片
-        const newImages = await getMaterialImagesByNames(uncachedNames);
-        setMaterialAssetMap(prev => ({ ...prev, ...newImages }));
-      }
-      
-      // 预加载所有材质图片
-      allMaterialNames.forEach(name => {
-        const imageUrl = selectedSku.materialImages?.[name] || materialAssetMap[name];
-        if (imageUrl) {
-          const img = new Image();
-          img.src = getFileUrl(imageUrl);
-        }
-      });
-    };
+    const normalizedMaterials = normalizeMaterialSelection(selectedSku.material);
+    const allMaterialNames = Object.values(normalizedMaterials).flat().filter(Boolean);
     
-    loadMaterialImages();
+    if (allMaterialNames.length === 0) return;
+    
+    const uncachedNames = allMaterialNames.filter(name => !materialAssetMap[name]);
+    
+    if (uncachedNames.length > 0) {
+      const newImages = await getMaterialImagesByNames(uncachedNames);
+      setMaterialAssetMap(prev => ({ ...prev, ...newImages }));
+    }
+  };
+  
+  // 材质图片加载状态
+  const [materialImagesLoaded, setMaterialImagesLoaded] = useState(false);
+  
+  useEffect(() => {
+    setMaterialImagesLoaded(false);
   }, [selectedSku]);
+  
+  const triggerLoadMaterialImages = () => {
+    if (!materialImagesLoaded && selectedSku) {
+      loadMaterialImagesIfNeeded();
+      setMaterialImagesLoaded(true);
+    }
+  };
+  
+  // 页面加载 3 秒后自动加载材质图片（如果区域展开）
+  useEffect(() => {
+    if (selectedSku && !materialCollapsed) {
+      const timer = setTimeout(triggerLoadMaterialImages, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedSku, materialCollapsed]);
 
   // 材质图片缓存（合并 SKU 配置和材质库）
   const materialImageCache = useMemo(() => {
@@ -460,8 +514,11 @@ const ProductDetailPage = () => {
         }
       } finally {
         setLoading(false);
+        // 立即渲染材质选择区域
+        setMaterialSectionReady(true);
       }
     };
+    setMaterialSectionReady(false); // 重置材质区域状态
     fetchProduct();
   }, [id]);
 
@@ -685,7 +742,29 @@ const ProductDetailPage = () => {
   };
 
   if (loading) {
-    return <div className="container-custom py-12 text-center">加载中...</div>;
+    return (
+      <div className="container-custom py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 左侧图片骨架 */}
+          <div className="space-y-4">
+            <div className="aspect-square bg-gray-200 rounded-2xl animate-pulse" />
+            <div className="flex gap-2">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="w-20 h-20 bg-gray-200 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          </div>
+          {/* 右侧信息骨架 */}
+          <div className="space-y-4">
+            <div className="h-8 bg-gray-200 rounded w-3/4 animate-pulse" />
+            <div className="h-6 bg-gray-200 rounded w-1/2 animate-pulse" />
+            <div className="h-10 bg-gray-200 rounded w-1/3 animate-pulse" />
+            <div className="h-24 bg-gray-200 rounded animate-pulse" />
+            <div className="h-12 bg-gray-200 rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!product) {
@@ -815,9 +894,22 @@ const ProductDetailPage = () => {
     <div className="bg-gray-50">
       <div className="container-custom max-w-[1440px] mx-auto px-6 py-8">
         <div className="flex items-center gap-2 text-sm mb-6">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="text-gray-600 hover:text-primary-600 flex items-center gap-1"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            返回
+          </button>
+          <span className="text-gray-300">|</span>
           <Link to="/" className="text-gray-600 hover:text-primary-600">首页</Link>
           <ChevronRight className="h-4 w-4 text-gray-400" />
-          <Link to="/products" className="text-gray-600 hover:text-primary-600">商城</Link>
+          <span 
+            onClick={() => navigate(-1)} 
+            className="text-gray-600 hover:text-primary-600 cursor-pointer"
+          >
+            商城
+          </span>
           <ChevronRight className="h-4 w-4 text-gray-400" />
           <span className="text-gray-900 font-medium">{product.name}</span>
         </div>
@@ -837,7 +929,7 @@ const ProductDetailPage = () => {
                         isVideoFile(mainImage) ? (
                           <video src={getFileUrl(mainImage)} controls className="w-full h-full object-contain" />
                         ) : (
-                          <TrackedImage src={getFileUrl(mainImage)} alt={product.name} className="w-full h-full object-contain" />
+                          <TrackedImage src={getThumbnailUrl(mainImage, 800)} alt={product.name} className="w-full h-full object-contain" loading="eager" />
                         )
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">暂无图片</div>
@@ -859,7 +951,7 @@ const ProductDetailPage = () => {
                       isVideoFile(mainImage) ? (
                         <video src={getFileUrl(mainImage)} controls className="absolute inset-0 w-full h-full object-contain bg-black" />
                       ) : (
-                        <TrackedImage src={getFileUrl(mainImage)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" />
+                        <TrackedImage src={getThumbnailUrl(mainImage, 800)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" loading="eager" />
                       )
                     ) : (
                       <div className="absolute inset-0 w-full h-full flex items-center justify-center text-gray-400">暂无图片</div>
@@ -1087,7 +1179,10 @@ const ProductDetailPage = () => {
                   <button
                     type="button"
                     className="w-full flex items-center justify-between px-4 py-3 text-left"
-                    onClick={() => setMaterialCollapsed(prev => !prev)}
+                    onClick={() => {
+                      setMaterialCollapsed(prev => !prev);
+                      triggerLoadMaterialImages(); // 展开时加载材质图片
+                    }}
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-900">选择材质</p>
@@ -1097,6 +1192,16 @@ const ProductDetailPage = () => {
                   </button>
                   {!materialCollapsed && (
                     <div className="border-t border-gray-100 p-4 space-y-5">
+                      {/* 材质区域延迟渲染，优先保证图片轮播可用 */}
+                      {!materialSectionReady ? (
+                        <div className="space-y-4 animate-pulse">
+                          <div className="h-4 bg-gray-200 rounded w-1/3" />
+                          <div className="flex gap-2">
+                            {[1,2,3,4].map(i => <div key={i} className="w-14 h-14 bg-gray-200 rounded-lg" />)}
+                          </div>
+                        </div>
+                      ) : (
+                      <>
                       {/* 动态渲染已配置的材质类目 - 只显示有材质的类目 */}
                       {(() => {
                         const materialCategories = (selectedSku as any).materialCategories || Object.keys(normalizedSelectedMaterials || {});
@@ -1114,27 +1219,8 @@ const ProductDetailPage = () => {
                           return 0;
                         });
                         
-                        // 材质分组的介绍信息（移到外层便于共享）
-                        const groupDescriptions: Record<string, string> = {
-                          '磨砂皮': '磨砂皮具有细腻的磨砂质感，手感柔软舒适，外观时尚大气。',
-                          '纳帕A级皮': '纳帕A级皮是顶级真皮，皮质细腻柔软，触感舒适，高端品质。',
-                          '普通皮': '普通皮革，经济实惠，适合日常使用。具有良好的耐用性和易清洁特性。',
-                          '全青皮': '全青皮是高级皮革，采用天然植物鞣制工艺，具有独特的质感和气味。',
-                          '牛皮': '优质牛皮，纹理自然，质感细腻。具有很好的透气性和耐磨性。',
-                          '绒布': '柔软舒适的绒布面料，触感温暖。易于清洁，适合家庭使用。',
-                          '麻布': '天然麻布，环保透气，具有独特的质感。适合现代简约风格。',
-                          '舒软款': '舒软填充，坐感柔软舒适，适合长时间休息。',
-                          '高密加硬': '高密度填充，支撑性强，不易塌陷，适合喜欢硬坐感的用户。',
-                          '高回弹': '高回弹海绵，弹性好，久坐不变形，舒适耐用。',
-                          '55D高回弹海绵': '采用出口级55D高密度聚氨酯海绵，回弹率>55%，经过72小时疲劳测试，十年坐感如初，提供恰到好处的支撑力，保护脊椎健康。适合喜欢偏硬坐感的用户。',
-                          '70%羽绒+乳胶': '云端包裹感，轻盈柔软，透气性极佳，给您如云端般的舒适体验。',
-                          '标准骨架': '标准骨架配置，稳固耐用，性价比高。',
-                          '顶级骨架': '顶级骨架配置，采用优质材料，更加稳固耐用。',
-                          '俄罗斯落叶松': '采用进口俄罗斯落叶松实木，木质坚硬，纹理清晰，承重力强，使用寿命长。',
-                          '普通脚架': '标准脚架，稳固实用。',
-                          '钛合金脚架': '钛合金脚架，轻便坚固，美观大方。',
-                          '黑钛不锈钢': '采用304不锈钢材质，黑钛电镀工艺，耐腐蚀、耐磨损，外观时尚高端。',
-                        };
+                        // 使用全局材质描述常量
+                        const groupDescriptions = MATERIAL_GROUP_DESCRIPTIONS;
                         
                         return sortedCategories.map((categoryKey: string, sectionIndex: number) => {
                         const section = getMaterialCategoryConfig(categoryKey);
@@ -1268,16 +1354,21 @@ const ProductDetailPage = () => {
                                                 isSelected ? 'border-[#1F64FF] shadow-[0_4px_12px_rgba(31,100,255,0.25)]' : 'border-transparent hover:border-gray-300'
                                               )}
                                             >
-                                              {preview ? (
-                                                <img src={getThumbnailUrl(preview, 80)} alt={materialName} className="w-full h-full object-cover" loading="lazy" />
+                                              {/* 使用统一的图片获取函数 */}
+                                              {preview && preview !== (selectedSku?.images?.[0] || product?.images?.[0]) ? (
+                                                <img 
+                                                  src={getThumbnailUrl(preview, 80)} 
+                                                  alt={materialName} 
+                                                  className="w-full h-full object-cover" 
+                                                  loading="lazy" 
+                                                />
                                               ) : (
                                                 <span
                                                   className={cn(
-                                                    'w-full h-full flex items-center justify-center text-[11px] font-medium rounded-md text-gray-700',
-                                                    `bg-gradient-to-br ${section.swatchStyle}`
+                                                    'w-full h-full flex items-center justify-center text-[10px] font-medium rounded-md text-gray-600 bg-gray-100 p-1 text-center leading-tight',
                                                   )}
                                                 >
-                                                  {materialName.slice(0, 2)}
+                                                  {specificName.slice(0, 6)}
                                                 </span>
                                               )}
                                             </span>
@@ -1348,6 +1439,8 @@ const ProductDetailPage = () => {
                         );
                       });
                       })()}
+                      </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1652,12 +1745,13 @@ const ProductDetailPage = () => {
                 src={getFileUrl(getMaterialPreviewImage(materialInfoModal.material))}
                 alt={materialInfoModal.material}
                 className="w-full h-96 object-cover"
+                loading="eager"
               />
             </div>
             <div className="bg-gray-50 rounded-2xl p-6 mb-4">
               <h4 className="text-xl font-semibold text-gray-900 mb-3">材质说明</h4>
               <p className="text-base text-gray-700 leading-relaxed whitespace-pre-wrap">
-                {selectedSku?.materialDescriptions?.[materialInfoModal.material] || '该材质暂未提供详细说明。'}
+                {getMaterialDescription(materialInfoModal.material, selectedSku?.materialDescriptions) || '该材质暂未提供详细说明。'}
               </p>
             </div>
             <button

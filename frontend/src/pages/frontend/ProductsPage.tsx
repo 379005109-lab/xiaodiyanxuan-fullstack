@@ -170,38 +170,10 @@ export default function ProductsPage() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await getAllProducts({ pageSize: 200 });
-      console.log('[ProductsPage] 加载商品响应:', response);
+      const response = await getAllProducts({ pageSize: 100 });
       if (response.success && response.data) {
         // 只显示上架的商品
         const activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');
-        
-        // 调试：检查商品的风格数据
-        console.log('🔥 [ProductsPage] 加载商品数量:', activeProducts.length);
-        console.log('🔥 [ProductsPage] 前3个商品详情:', 
-          activeProducts.slice(0, 3).map((p: any) => ({ 
-            id: p._id,
-            name: p.name, 
-            styles: p.styles,
-            style: p.style,
-            views: p.views,
-            sales: p.sales,
-            createdAt: p.createdAt
-          }))
-        );
-        
-        // 检查有风格标签的商品
-        const productsWithStyles = activeProducts.filter((p: any) => p.styles && p.styles.length > 0)
-        console.log('🔥 [ProductsPage] 有风格标签的商品数量:', productsWithStyles.length);
-        if (productsWithStyles.length > 0) {
-          console.log('🔥 [ProductsPage] 有风格标签的商品示例:', 
-            productsWithStyles.slice(0, 3).map((p: any) => ({ 
-              name: p.name, 
-              styles: p.styles 
-            }))
-          );
-        }
-        
         setProducts(activeProducts);
       } else {
         setProducts([]);

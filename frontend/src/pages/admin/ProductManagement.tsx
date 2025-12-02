@@ -1,11 +1,12 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Search, Filter, Edit, Trash2, Eye, EyeOff, FileSpreadsheet, Download, ChevronDown, ChevronUp, BarChart3, ImageIcon, FolderOpen } from 'lucide-react'
+import { Plus, Search, Filter, Edit, Trash2, Eye, EyeOff, FileSpreadsheet, Download, ChevronDown, ChevronUp, BarChart3, ImageIcon, FolderOpen, Archive } from 'lucide-react'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Product, UserRole } from '@/types'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
+import JSZip from 'jszip'
 // 使用后端 API 服务
 import { getProducts, deleteProduct, toggleProductStatus, createProduct, updateProduct, getProductById } from '@/services/productService'
 import { getAllCategories, Category } from '@/services/categoryService'
@@ -46,9 +47,21 @@ export default function ProductManagement() {
   
   // 批量图片上传状态
   const [batchImageUploading, setBatchImageUploading] = useState(false)
+  const [showZipDropZone, setShowZipDropZone] = useState(false)
+  const [isDraggingZip, setIsDraggingZip] = useState(false)
   
   // 文件夹上传选中的商品
   const [folderUploadProductId, setFolderUploadProductId] = useState<string | null>(null)
+  
+  // 批量图片匹配确认弹框状态
+  interface PendingImageMatch {
+    files: File[]
+    keyword: string
+    matchedProducts: Product[]
+    selectedProductIds: string[]
+  }
+  const [pendingMatches, setPendingMatches] = useState<PendingImageMatch[]>([])
+  const [showMatchConfirmModal, setShowMatchConfirmModal] = useState(false)
 
   // 加载商品数据
   useEffect(() => {
@@ -891,11 +904,497 @@ export default function ProductManagement() {
     e.target.value = '';
   };
 
-  // 批量图片上传处理
+  // 批量图片上传处理 - 支持文件夹上传
+  // 按文件夹名称匹配商品，图片按顺序排列
+  const handleBatchImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    
+    setBatchImageUploading(true)
+    const toastId = toast.loading(`正在分析 ${files.length} 张图片...`)
+    
+    try {
+      // 图片排序函数：正视图(1) > 侧视图(2) > 背面图(3) > 4宫格细节图(4-7) > 其他
+      const getImageSortOrder = (fileName: string): number => {
+        const lowerName = fileName.toLowerCase()
+        // 正视图
+        if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front') || lowerName.includes('主图')) return 1
+        // 侧视图
+        if (lowerName.includes('侧视') || lowerName.includes('侧面') || lowerName.includes('side')) return 2
+        // 背面图
+        if (lowerName.includes('背面') || lowerName.includes('背视') || lowerName.includes('back') || lowerName.includes('后面')) return 3
+        // 4宫格细节图
+        if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('4宫格') || lowerName.includes('宫格')) return 4
+        // 按文件名中的序号排序
+        const numMatch = fileName.match(/[_-]?(\d+)\./);
+        if (numMatch) return 10 + parseInt(numMatch[1])
+        return 100
+      }
+      
+      // 对文件列表按图片类型排序
+      const sortImageFiles = (files: File[]): File[] => {
+        return [...files].sort((a, b) => getImageSortOrder(a.name) - getImageSortOrder(b.name))
+      }
+      
+      // 按文件夹分组图片（支持文件夹上传）
+      const imageGroups: Record<string, File[]> = {}
+      
+      for (const file of Array.from(files)) {
+        // 获取文件夹名称（从 webkitRelativePath 提取）
+        const relativePath = (file as any).webkitRelativePath || file.name
+        const pathParts = relativePath.split('/')
+        
+        // 如果有文件夹路径，使用文件夹名称；否则从文件名提取关键词
+        let folderName: string
+        if (pathParts.length > 1) {
+          // 使用第一级文件夹名称作为商品匹配关键词
+          folderName = pathParts[0].trim()
+        } else {
+          // 兼容直接选择图片的情况，从文件名提取
+          const nameWithoutExt = file.name.replace(/\.(jpg|jpeg|png|gif|webp|bmp|tiff|tif|svg|ico|heic|heif|avif|raw)$/i, '').trim()
+          folderName = nameWithoutExt
+            .replace(/[\s_-]*[（(]?\d+[）)]?$/, '')
+            .replace(/[\s_-]*多角度图?$/i, '')
+            .replace(/[\s_-]*效果图?$/i, '')
+            .replace(/[\s_-]*[LlRr][型形]?沙发$/i, '')
+            .replace(/[\s_-]*[a-zA-Z]级?$/i, '')
+            .trim()
+          
+          // 如果包含"沙发"且后面还有内容，截取到沙发
+          const sofaIndex = folderName.indexOf('沙发')
+          if (sofaIndex > 0 && sofaIndex < folderName.length - 2) {
+            folderName = folderName.substring(0, sofaIndex + 2)
+          }
+        }
+        
+        if (!imageGroups[folderName]) {
+          imageGroups[folderName] = []
+        }
+        imageGroups[folderName].push(file)
+      }
+      
+      console.log('📁 文件夹分组:', Object.keys(imageGroups).map(k => `${k} (${imageGroups[k].length}张)`))
+      
+      // 匹配商品
+      const autoImportList: { keyword: string, files: File[], product: Product }[] = []
+      const pendingList: PendingImageMatch[] = []
+      const notFoundList: string[] = []
+      
+      for (const [keyword, groupFiles] of Object.entries(imageGroups)) {
+        // 在商品库中搜索匹配的商品（优先精确匹配）
+        let matchedProducts: Product[] = []
+        
+        // 1. 精确匹配：商品名完全等于关键词
+        matchedProducts = products.filter(p => p.name === keyword)
+        
+        // 2. 商品名包含关键词（关键词是商品名的一部分）
+        if (matchedProducts.length === 0) {
+          matchedProducts = products.filter(p => p.name.includes(keyword))
+        }
+        
+        // 3. 关键词包含商品名（商品名是关键词的一部分）- 但要求商品名至少4个字符，避免匹配太短的名称
+        if (matchedProducts.length === 0) {
+          matchedProducts = products.filter(p => 
+            p.name.length >= 4 && keyword.includes(p.name)
+          )
+        }
+        
+        console.log(`关键词 "${keyword}" 匹配到 ${matchedProducts.length} 个商品:`, matchedProducts.map(p => p.name))
+        
+        if (matchedProducts.length === 0) {
+          // 没有匹配
+          notFoundList.push(keyword)
+        } else if (matchedProducts.length === 1) {
+          // 唯一匹配，自动导入
+          autoImportList.push({ keyword, files: groupFiles, product: matchedProducts[0] })
+        } else {
+          // 多个匹配，需要手动确认
+          pendingList.push({
+            keyword,
+            files: groupFiles,
+            matchedProducts,
+            selectedProductIds: [] // 默认不选中任何商品
+          })
+        }
+      }
+      
+      toast.dismiss(toastId)
+      
+      // 自动导入唯一匹配的图片
+      if (autoImportList.length > 0) {
+        const uploadToastId = toast.loading(`正在上传 ${autoImportList.length} 组图片...`)
+        let uploadedCount = 0
+        
+        for (const { keyword, files: groupFiles, product } of autoImportList) {
+          const uploadedUrls: string[] = []
+          // 按图片类型排序：正视图 > 侧视图 > 背面图 > 细节图 > 其他
+          const sortedFiles = sortImageFiles(groupFiles)
+          for (const file of sortedFiles) {
+            const result = await uploadFile(file)
+            const fileId = result?.fileId || result?.data?.fileId || result?.id
+            if (fileId) {
+              uploadedUrls.push(fileId)
+              uploadedCount++
+            }
+          }
+          
+          if (uploadedUrls.length > 0) {
+            // 更新商品主图
+            const newImages = [...uploadedUrls, ...(product.images || [])]
+            
+            // 同时更新所有 SKU 的图片
+            const updatedSkus = (product.skus || []).map(sku => ({
+              ...sku,
+              images: [...uploadedUrls, ...(sku.images || [])]
+            }))
+            
+            await updateProduct(product._id, { 
+              images: newImages,
+              skus: updatedSkus
+            })
+            console.log(`✅ 商品 "${product.name}" 导入了 ${uploadedUrls.length} 张图片到主图和 ${updatedSkus.length} 个SKU`)
+          }
+        }
+        
+        toast.dismiss(uploadToastId)
+        toast.success(`自动导入完成！${autoImportList.length} 个商品，${uploadedCount} 张图片`)
+        await loadProducts()
+      }
+      
+      // 显示未匹配的提示
+      if (notFoundList.length > 0) {
+        toast.warning(`${notFoundList.length} 组图片未找到匹配商品: ${notFoundList.slice(0, 3).join(', ')}${notFoundList.length > 3 ? '...' : ''}`)
+      }
+      
+      // 如果有需要确认的，显示弹框
+      if (pendingList.length > 0) {
+        setPendingMatches(pendingList)
+        setShowMatchConfirmModal(true)
+      }
+      
+    } catch (error) {
+      console.error('批量图片上传失败:', error)
+      toast.dismiss(toastId)
+      toast.error('批量图片上传失败')
+    } finally {
+      setBatchImageUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  // ZIP压缩包批量图片上传
+  // 压缩包结构：每个文件夹对应一个商品，文件夹名称用于匹配商品
+  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      toast.error('请上传 ZIP 格式的压缩包')
+      return
+    }
+    
+    setBatchImageUploading(true)
+    const toastId = toast.loading('正在解压压缩包...')
+    
+    // 从压缩包文件名提取商品名（如 "范思哲A级.zip" -> "范思哲A级"）
+    const zipFileName = file.name.replace(/\.zip$/i, '').trim()
+    console.log('📦 压缩包文件名:', zipFileName)
+    
+    try {
+      const zip = await JSZip.loadAsync(file)
+      
+      // 图片排序函数：正视图(1) > 侧视图(2) > 背面图(3) > 4宫格细节图(4) > 其他
+      const getImageSortOrder = (fileName: string): number => {
+        const lowerName = fileName.toLowerCase()
+        if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front') || lowerName.includes('主图')) return 1
+        if (lowerName.includes('侧视') || lowerName.includes('侧面') || lowerName.includes('side')) return 2
+        if (lowerName.includes('背面') || lowerName.includes('背视') || lowerName.includes('back') || lowerName.includes('后面')) return 3
+        if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('4宫格') || lowerName.includes('宫格')) return 4
+        const numMatch = fileName.match(/[_-]?(\d+)\./);
+        if (numMatch) return 10 + parseInt(numMatch[1])
+        return 100
+      }
+      
+      // 按文件夹分组图片
+      const folderGroups: Record<string, { name: string, blob: Promise<Blob> }[]> = {}
+      
+      // 先收集所有文件路径用于调试
+      const allPaths = Object.keys(zip.files).filter(p => !zip.files[p].dir)
+      console.log('📦 压缩包内容:', allPaths.slice(0, 10), allPaths.length > 10 ? `...共${allPaths.length}个文件` : '')
+      
+      // 检查是否所有图片都在根目录（没有子文件夹）
+      const hasSubfolders = allPaths.some(p => p.includes('/') && !p.startsWith('__MACOSX'))
+      console.log('📁 是否有子文件夹:', hasSubfolders)
+      
+      for (const [path, zipEntry] of Object.entries(zip.files)) {
+        if (zipEntry.dir) continue
+        // 跳过 Mac 系统文件
+        if (path.startsWith('__MACOSX') || path.includes('/.')) continue
+        
+        // 只处理图片文件
+        const ext = path.split('.').pop()?.toLowerCase()
+        if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'].includes(ext || '')) continue
+        
+        const pathParts = path.split('/').filter(p => p && !p.startsWith('.'))
+        let folderName: string
+        let fileName: string = pathParts[pathParts.length - 1]
+        
+        if (!hasSubfolders || pathParts.length <= 1) {
+          // 图片直接在根目录，使用压缩包文件名作为商品名
+          folderName = zipFileName
+        } else if (pathParts.length >= 2) {
+          // 有子文件夹
+          if (pathParts.length >= 3) {
+            // 三级结构：根/商品/图片 -> 使用第二级作为商品名
+            folderName = pathParts[1].trim()
+          } else {
+            // 两级结构：商品/图片 -> 使用第一级作为商品名
+            folderName = pathParts[0].trim()
+          }
+        } else {
+          folderName = zipFileName
+        }
+        
+        if (!folderName) continue
+        
+        if (!folderGroups[folderName]) {
+          folderGroups[folderName] = []
+        }
+        
+        folderGroups[folderName].push({
+          name: fileName,
+          blob: zipEntry.async('blob')
+        })
+      }
+      
+      const folderCount = Object.keys(folderGroups).length
+      console.log('📁 识别到的商品分组:', Object.keys(folderGroups))
+      
+      if (folderCount === 0) {
+        toast.dismiss(toastId)
+        toast.error('压缩包中没有找到有效的图片，请确保压缩包包含 jpg/png/gif/webp 格式的图片')
+        return
+      }
+      
+      console.log('📦 解压完成，发现', folderCount, '个文件夹:', Object.keys(folderGroups))
+      toast.dismiss(toastId)
+      
+      // 匹配商品并上传
+      const uploadToastId = toast.loading(`正在处理 ${folderCount} 个文件夹...`)
+      let successCount = 0
+      let failCount = 0
+      const notMatchedFolders: string[] = []
+      
+      for (const [folderName, files] of Object.entries(folderGroups)) {
+        // 匹配商品（优先级：精确匹配 > 商品名包含文件夹名 > 文件夹名包含商品名）
+        let matchedProduct: Product | undefined
+        
+        // 1. 精确匹配
+        matchedProduct = products.find(p => p.name === folderName)
+        
+        // 2. 商品名包含文件夹名（如 "月亮沙发A级" 包含 "月亮沙发"）
+        if (!matchedProduct && folderName.length >= 2) {
+          matchedProduct = products.find(p => p.name.includes(folderName))
+        }
+        
+        // 3. 文件夹名包含商品名（商品名至少4个字符，避免匹配太短的名字）
+        if (!matchedProduct) {
+          matchedProduct = products.find(p => p.name.length >= 4 && folderName.includes(p.name))
+        }
+        
+        // 4. 如果文件夹名只有数字，尝试匹配商品名以该数字结尾
+        if (!matchedProduct && /^\d+$/.test(folderName)) {
+          matchedProduct = products.find(p => p.name.endsWith(folderName))
+        }
+        
+        if (!matchedProduct) {
+          console.log(`❌ 文件夹 "${folderName}" 未找到匹配商品`)
+          failCount++
+          notMatchedFolders.push(folderName)
+          continue
+        }
+        
+        console.log(`✓ 文件夹 "${folderName}" 匹配到商品 "${matchedProduct.name}"`)
+        
+        // 按图片类型排序
+        const sortedFiles = [...files].sort((a, b) => getImageSortOrder(a.name) - getImageSortOrder(b.name))
+        
+        // 上传图片
+        const uploadedUrls: string[] = []
+        for (const fileInfo of sortedFiles) {
+          try {
+            const blob = await fileInfo.blob
+            const imageFile = new File([blob], fileInfo.name, { type: `image/${fileInfo.name.split('.').pop()}` })
+            const result = await uploadFile(imageFile)
+            const fileId = result?.fileId || result?.data?.fileId || result?.id
+            if (fileId) {
+              uploadedUrls.push(fileId)
+            }
+          } catch (err) {
+            console.error(`上传失败: ${fileInfo.name}`, err)
+          }
+        }
+        
+        if (uploadedUrls.length > 0) {
+          // 更新商品主图和所有 SKU 图片
+          const newImages = [...uploadedUrls, ...(matchedProduct.images || [])]
+          const updatedSkus = (matchedProduct.skus || []).map(sku => ({
+            ...sku,
+            images: [...uploadedUrls, ...(sku.images || [])]
+          }))
+          
+          await updateProduct(matchedProduct._id, { 
+            images: newImages,
+            skus: updatedSkus
+          })
+          
+          console.log(`✅ 商品 "${matchedProduct.name}" 导入了 ${uploadedUrls.length} 张图片`)
+          successCount++
+        }
+      }
+      
+      toast.dismiss(uploadToastId)
+      
+      if (successCount > 0) {
+        toast.success(`导入完成！${successCount} 个商品成功${failCount > 0 ? `，${failCount} 个未匹配` : ''}`)
+        await loadProducts()
+      } else {
+        toast.error('没有成功导入任何商品，请检查文件夹名称是否与商品名称匹配')
+      }
+      
+      // 显示未匹配的文件夹
+      if (notMatchedFolders.length > 0) {
+        console.log('⚠️ 未匹配的文件夹:', notMatchedFolders)
+        toast.warning(`未匹配文件夹: ${notMatchedFolders.join(', ')}`, { duration: 5000 })
+      }
+      
+    } catch (error) {
+      console.error('ZIP上传失败:', error)
+      toast.error('压缩包处理失败')
+    } finally {
+      // 确保关闭所有 loading toast
+      toast.dismiss()
+      setBatchImageUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  // ZIP 拖拽处理
+  const handleZipDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingZip(true)
+  }
+
+  const handleZipDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingZip(false)
+  }
+
+  const handleZipDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingZip(false)
+    setShowZipDropZone(false)
+
+    const files = Array.from(e.dataTransfer.files)
+    const zipFiles = files.filter(f => f.name.toLowerCase().endsWith('.zip'))
+    
+    if (zipFiles.length === 0) {
+      toast.error('请拖入 ZIP 格式的压缩包')
+      return
+    }
+
+    // 处理所有 ZIP 文件
+    for (const zipFile of zipFiles) {
+      // 创建一个模拟的 input change 事件
+      const fakeEvent = {
+        target: { files: [zipFile], value: '' }
+      } as unknown as React.ChangeEvent<HTMLInputElement>
+      await handleZipUpload(fakeEvent)
+    }
+  }
+
+  // 处理确认的图片匹配
+  const handleConfirmMatches = async () => {
+    const toastId = toast.loading('正在上传图片...')
+    let totalUploaded = 0
+    let totalProducts = 0
+    
+    try {
+      for (const match of pendingMatches) {
+        if (match.selectedProductIds.length === 0) continue
+        
+        // 图片排序函数：正视图 > 侧视图 > 背面图 > 细节图 > 其他
+        const getImageSortOrder = (fileName: string): number => {
+          const lowerName = fileName.toLowerCase()
+          if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front')) return 1
+          if (lowerName.includes('侧视') || lowerName.includes('侧面') || lowerName.includes('side')) return 2
+          if (lowerName.includes('背面') || lowerName.includes('背视') || lowerName.includes('back')) return 3
+          if (lowerName.includes('细节') || lowerName.includes('detail')) return 4
+          const numMatch = fileName.match(/[_-]?(\d+)\./)
+          if (numMatch) return 10 + parseInt(numMatch[1])
+          return 100
+        }
+        
+        // 按图片类型排序后上传
+        const sortedFiles = [...match.files].sort((a, b) => getImageSortOrder(a.name) - getImageSortOrder(b.name))
+        const uploadedUrls: string[] = []
+        for (const file of sortedFiles) {
+          const result = await uploadFile(file)
+          const fileId = result?.fileId || result?.data?.fileId || result?.id
+          if (fileId) {
+            uploadedUrls.push(fileId)
+          }
+        }
+        
+        if (uploadedUrls.length === 0) continue
+        
+        // 更新选中的商品（主图 + 所有SKU图片）
+        for (const productId of match.selectedProductIds) {
+          const product = products.find(p => p._id === productId)
+          if (product) {
+            // 更新商品主图
+            const newImages = [...uploadedUrls, ...(product.images || [])]
+            
+            // 同时更新所有 SKU 的图片
+            const updatedSkus = (product.skus || []).map(sku => ({
+              ...sku,
+              images: [...uploadedUrls, ...(sku.images || [])]
+            }))
+            
+            await updateProduct(product._id, { 
+              images: newImages,
+              skus: updatedSkus
+            })
+            totalProducts++
+            console.log(`✅ 商品 "${product.name}" 导入了 ${uploadedUrls.length} 张图片到主图和 ${updatedSkus.length} 个SKU`)
+          }
+        }
+        totalUploaded += uploadedUrls.length
+      }
+      
+      toast.dismiss(toastId)
+      if (totalProducts > 0) {
+        toast.success(`导入完成！${totalProducts} 个商品，${totalUploaded} 张图片`)
+        await loadProducts()
+      }
+    } catch (error) {
+      console.error('图片导入失败:', error)
+      toast.dismiss(toastId)
+      toast.error('图片导入失败')
+    } finally {
+      setShowMatchConfirmModal(false)
+      setPendingMatches([])
+    }
+  }
+  
+  // 旧版批量图片上传处理（保留兼容）
   // 图片命名规则：
   // 1. 商品主图: "商品名称1.jpg", "商品名称2.jpg" 或 "商品名称_1.jpg" -> 匹配商品名称，按序号排列
   // 2. SKU图片: "型号_1.jpg", "型号_2.jpg" 或 "型号1.jpg" -> 匹配SKU的code字段
-  const handleBatchImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBatchImageUploadLegacy = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
     
@@ -904,11 +1403,6 @@ export default function ProductManagement() {
     
     try {
       // 解析图片文件名，提取名称、SKU型号和序号
-      // 支持格式: 
-      // - "008-01云沙发（1）.png" -> skuCode="008-01", productName="云沙发", index=1
-      // - "劳伦斯1.jpg", "劳伦斯 1.jpg", "劳伦斯_1.jpg"
-      // - "劳伦斯（1）.jpg", "劳伦斯(1).jpg"
-      // - "C100-01_1.jpg", "C100-01 1.jpg"
       const parseFileName = (fileName: string) => {
         // 移除扩展名（支持更多格式）
         const nameWithoutExt = fileName.replace(/\.(jpg|jpeg|png|gif|webp|bmp|tiff|tif|svg|ico|heic|heif|avif|raw)$/i, '').trim()
@@ -916,49 +1410,27 @@ export default function ProductManagement() {
         console.log(`解析文件名: "${fileName}" -> 去扩展名: "${nameWithoutExt}"`)
         
         // 特殊格式1: "008-SKU2云沙发（1）" 或 "008-01云沙发 (2)" -> 商品型号-SKU型号+商品名称+（序号）
-        // 匹配: 数字-字母数字+任意字符+括号序号（支持括号前有空格）
         const skuFormatMatch = nameWithoutExt.match(/^(\d+[-][A-Za-z0-9]+)(.+?)\s*[（(\s]+(\d+)[）)\s]*$/)
         if (skuFormatMatch) {
-          const skuCode = skuFormatMatch[1] // "008-SKU2"
-          const productName = skuFormatMatch[2].trim() // "云沙发"
-          const index = parseInt(skuFormatMatch[3]) // 1
-          console.log(`✓ 解析SKU格式: skuCode="${skuCode}", productName="${productName}", index=${index}`)
+          const skuCode = skuFormatMatch[1]
+          const productName = skuFormatMatch[2].trim()
+          const index = parseInt(skuFormatMatch[3])
           return { baseName: productName, skuCode, index }
         }
         
-        // 特殊格式2: "008-SKU2云沙发1" 或 "008-01云沙发 1" (无括号)
-        const skuFormatMatch2 = nameWithoutExt.match(/^(\d+[-][A-Za-z0-9]+)(.+?)[\s_]?(\d+)$/)
-        if (skuFormatMatch2) {
-          const skuCode = skuFormatMatch2[1]
-          const productName = skuFormatMatch2[2].trim()
-          const index = parseInt(skuFormatMatch2[3])
-          console.log(`✓ 解析SKU格式2: skuCode="${skuCode}", productName="${productName}", index=${index}`)
-          return { baseName: productName, skuCode, index }
-        }
-        
-        // 特殊格式3: 兼容纯数字格式 "008-01云沙发（1）"
-        const numericSkuMatch = nameWithoutExt.match(/^(\d+[-]\d+)(.+?)\s*[（(\s]+(\d+)[）)\s]*$/)
-        if (numericSkuMatch) {
-          const skuCode = numericSkuMatch[1] // "008-01"
-          const productName = numericSkuMatch[2].trim() // "云沙发"
-          const index = parseInt(numericSkuMatch[3]) // 1
-          console.log(`✓ 解析数字SKU格式: skuCode="${skuCode}", productName="${productName}", index=${index}`)
-          return { baseName: productName, skuCode, index }
-        }
-        
-        // 普通格式1: 括号格式 "名称（1）" 或 "名称(1)"
+        // 普通格式: 括号格式 "名称（1）" 或 "名称(1)"
         const bracketMatch = nameWithoutExt.match(/^(.+?)\s*[（(](\d+)[）)]$/)
         if (bracketMatch) {
           return { baseName: bracketMatch[1].trim(), skuCode: undefined, index: parseInt(bracketMatch[2]) }
         }
         
-        // 普通格式2: 分隔符+数字 "名称_1" 或 "名称-1" 或 "名称 1"
+        // 普通格式: 分隔符+数字 "名称_1" 或 "名称-1" 或 "名称 1"
         const separatorMatch = nameWithoutExt.match(/^(.+?)[\s_](\d+)$/)
         if (separatorMatch) {
           return { baseName: separatorMatch[1].trim(), skuCode: undefined, index: parseInt(separatorMatch[2]) }
         }
         
-        // 普通格式3: 直接数字结尾 "名称1"
+        // 普通格式: 直接数字结尾 "名称1"
         const directMatch = nameWithoutExt.match(/^(.+?)(\d+)$/)
         if (directMatch) {
           return { baseName: directMatch[1].trim(), skuCode: undefined, index: parseInt(directMatch[2]) }
@@ -1511,18 +1983,14 @@ export default function ProductManagement() {
                   onChange={handleImportTable}
                 />
               </label>
-              <label className={`btn-primary flex items-center cursor-pointer ${batchImageUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                <ImageIcon className="h-5 w-5 mr-2" />
-                {batchImageUploading ? '上传中...' : '批量图片'}
-                <input
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.tif,.svg,.ico,.heic,.heif,.avif,image/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleBatchImageUpload}
-                  disabled={batchImageUploading}
-                />
-              </label>
+              <button 
+                className={`btn-primary flex items-center ${batchImageUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                onClick={() => setShowZipDropZone(true)}
+                disabled={batchImageUploading}
+              >
+                <Archive className="h-5 w-5 mr-2" />
+                {batchImageUploading ? '上传中...' : '批量图片(ZIP)'}
+              </button>
               <button
                 onClick={() => navigate('/admin/products/new')}
                 className="btn-primary flex items-center"
@@ -1942,6 +2410,175 @@ export default function ProductManagement() {
           )
         })()}
       </div>
+
+      {/* ZIP 拖拽上传弹窗 */}
+      {showZipDropZone && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowZipDropZone(false)}
+        >
+          <div 
+            className={`bg-white rounded-xl shadow-2xl max-w-xl w-full p-8 ${isDraggingZip ? 'ring-4 ring-primary-500' : ''}`}
+            onClick={e => e.stopPropagation()}
+            onDragOver={handleZipDragOver}
+            onDragLeave={handleZipDragLeave}
+            onDrop={handleZipDrop}
+          >
+            <div className="text-center">
+              <div className={`w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center ${isDraggingZip ? 'bg-primary-100' : 'bg-gray-100'}`}>
+                <Archive className={`w-10 h-10 ${isDraggingZip ? 'text-primary-600' : 'text-gray-400'}`} />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">批量导入商品图片</h3>
+              <p className="text-gray-500 mb-6">
+                将 ZIP 压缩包拖拽到此处，或点击下方按钮选择文件
+              </p>
+              
+              <div className={`border-2 border-dashed rounded-xl p-8 mb-6 transition-colors ${isDraggingZip ? 'border-primary-500 bg-primary-50' : 'border-gray-300'}`}>
+                <p className={`text-lg ${isDraggingZip ? 'text-primary-600' : 'text-gray-400'}`}>
+                  {isDraggingZip ? '松开鼠标上传' : '拖拽 ZIP 文件到这里'}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="btn-primary inline-flex items-center cursor-pointer">
+                  <Archive className="w-5 h-5 mr-2" />
+                  选择 ZIP 文件
+                  <input
+                    type="file"
+                    accept=".zip"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleZipUpload(e)
+                      setShowZipDropZone(false)
+                    }}
+                  />
+                </label>
+                
+                <div className="text-sm text-gray-500 mt-4">
+                  <p className="font-medium mb-2">压缩包结构说明：</p>
+                  <div className="text-left bg-gray-50 rounded-lg p-3 text-xs">
+                    <p><strong>方式1:</strong> 压缩包名 = 商品名（如：范思哲A级.zip）</p>
+                    <p className="mt-1"><strong>方式2:</strong> 压缩包内每个文件夹名 = 商品名</p>
+                    <p className="mt-2 text-gray-400">图片按 正视图→侧视图→背面图→细节图 排序</p>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                className="mt-6 text-gray-500 hover:text-gray-700"
+                onClick={() => setShowZipDropZone(false)}
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 批量图片匹配确认弹框 */}
+      {showMatchConfirmModal && pendingMatches.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">确认图片匹配</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                以下图片匹配到多个商品，请选择要导入的商品（可多选）
+              </p>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[50vh] space-y-6">
+              {pendingMatches.map((match, idx) => (
+                <div key={idx} className="border rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="font-medium text-gray-900">关键词: "{match.keyword}"</span>
+                    <span className="text-sm text-gray-500">({match.files.length} 张图片)</span>
+                  </div>
+                  
+                  {/* 图片预览 */}
+                  <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                    {match.files.slice(0, 4).map((file, fileIdx) => (
+                      <div key={fileIdx} className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={file.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                    {match.files.length > 4 && (
+                      <div className="w-16 h-16 flex-shrink-0 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 text-sm">
+                        +{match.files.length - 4}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* 匹配的商品列表 */}
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600 mb-2">匹配到 {match.matchedProducts.length} 个商品:</p>
+                    {match.matchedProducts.map(product => (
+                      <label 
+                        key={product._id} 
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={match.selectedProductIds.includes(product._id)}
+                          onChange={(e) => {
+                            setPendingMatches(prev => prev.map((m, i) => {
+                              if (i !== idx) return m
+                              const newSelected = e.target.checked
+                                ? [...m.selectedProductIds, product._id]
+                                : m.selectedProductIds.filter(id => id !== product._id)
+                              return { ...m, selectedProductIds: newSelected }
+                            }))
+                          }}
+                          className="w-4 h-4 text-blue-600 rounded"
+                        />
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                          {product.images?.[0] ? (
+                            <img 
+                              src={getThumbnailUrl(product.images[0], 80)} 
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              <ImageIcon className="w-5 h-5" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{product.name}</p>
+                          <p className="text-xs text-gray-500">{product.productCode || '无型号'}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowMatchConfirmModal(false)
+                  setPendingMatches([])
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmMatches}
+                disabled={!pendingMatches.some(m => m.selectedProductIds.length > 0)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                确认导入
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

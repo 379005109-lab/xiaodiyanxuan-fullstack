@@ -11,8 +11,7 @@ export default function Footer() {
               XiaoDi Yanxuan
             </h3>
             <p className="text-sm text-stone-500 leading-relaxed">
-              我们开始放弃全球端到端的全球化设计中。<br/>
-              打造进一步的线上线下体验。
+              源头好货，一键也是出厂价
             </p>
           </div>
 
@@ -37,7 +36,7 @@ export default function Footer() {
               版权政策
             </Link>
             <span className="text-stone-400">
-              © 2024 XiaoDi Yanxuan.
+              © 2025 XiaoDi Yanxuan.
             </span>
           </div>
         </div>

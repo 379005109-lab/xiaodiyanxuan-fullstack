@@ -10,7 +10,7 @@ import SkuImageManagerModal from '@/components/admin/SkuImageManagerModal'
 import { getProductById, createProduct, updateProduct } from '@/services/productService'
 import { getAllCategories, Category } from '@/services/categoryService'
 import { imageCache } from '@/services/imageCache'
-import { uploadFile, getFileUrl } from '@/services/uploadService'
+import { uploadFile, getFileUrl, getThumbnailUrl } from '@/services/uploadService'
 
 const CATEGORY_STORAGE_KEY = 'productForm:lastCategory'
 
@@ -539,18 +539,28 @@ export default function ProductForm() {
         console.log(`[ProductForm] 更新商品 ID: ${id}`)
         const result = await updateProduct(id, productData);
         console.log(`[ProductForm] 更新结果:`, result)
-        if (result && result.success) {
-          toast.success('商品更新成功');
-          navigate('/admin/products');
+        // 兼容多种返回格式
+        if (result && (result.success || result.data)) {
+          toast.success('✅ 商品已保存', {
+            description: `商品名称: ${formData.name}`,
+            duration: 3000,
+          });
+          // 延迟导航，确保 toast 显示
+          setTimeout(() => navigate('/admin/products'), 500);
         } else {
           toast.error('商品更新失败');
         }
       } else {
         // 创建新商品
         const result = await createProduct(productData);
-        if (result && result.success) {
-          toast.success('商品创建成功');
-          navigate('/admin/products');
+        // 兼容多种返回格式
+        if (result && (result.success || result.data)) {
+          toast.success('✅ 商品已创建', {
+            description: `商品名称: ${formData.name}`,
+            duration: 3000,
+          });
+          // 延迟导航，确保 toast 显示
+          setTimeout(() => navigate('/admin/products'), 500);
         } else {
           toast.error('商品创建失败');
         }
@@ -1404,7 +1414,7 @@ export default function ProductForm() {
                           >
                             {sku.images.slice(0, 3).map((img, imgIndex) => (
                               <div key={imgIndex} className="relative w-10 h-10 group">
-                                <img src={getFileUrl(img)} alt={`SKU ${imgIndex + 1}`} className="w-full h-full object-cover rounded border border-gray-300 cursor-pointer" />
+                                <img src={getThumbnailUrl(img, 80)} alt={`SKU ${imgIndex + 1}`} className="w-full h-full object-cover rounded border border-gray-300 cursor-pointer" loading="lazy" />
                               </div>
                             ))}
                             {sku.images.length > 3 && (

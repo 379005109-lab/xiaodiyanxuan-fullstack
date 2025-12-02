@@ -252,6 +252,34 @@ export default function MaterialManagement() {
     }
   }
 
+  // 重命名整个类别（材质组）- 批量更新所有子素材的名称前缀
+  const handleRenameCategory = async (oldGroupName: string, newGroupName: string, groupMaterials: Material[]) => {
+    if (!newGroupName || newGroupName === oldGroupName) return
+    
+    const toastId = toast.loading(`正在重命名 ${groupMaterials.length} 个素材...`)
+    
+    try {
+      let updatedCount = 0
+      for (const material of groupMaterials) {
+        // 替换名称前缀: "旧名-SKU1" -> "新名-SKU1"
+        const newName = newGroupName + material.name.substring(oldGroupName.length)
+        if (material.name !== newName) {
+          await updateMaterial(material._id, { name: newName })
+          updatedCount++
+          console.log(`✅ 重命名: "${material.name}" -> "${newName}"`)
+        }
+      }
+      
+      toast.dismiss(toastId)
+      toast.success(`已重命名 ${updatedCount} 个素材`)
+      loadMaterials()
+    } catch (error) {
+      toast.dismiss(toastId)
+      toast.error('重命名失败')
+      console.error('重命名失败:', error)
+    }
+  }
+
   // 删除整个类别（材质组）- 一次性删除该类别下的所有SKU
   const handleDeleteCategory = async (groupKey: string, groupMaterials: Material[]) => {
     if (confirm(`确定要删除整个类别"${groupKey}"吗？\n这将删除该类别下的所有 ${groupMaterials.length} 个SKU。`)) {
@@ -986,9 +1014,10 @@ export default function MaterialManagement() {
                         className="relative w-full aspect-square bg-gray-100 overflow-hidden cursor-pointer"
                       >
                         <img
-                          src={getFileUrl(representativeMaterial.image)}
+                          src={getThumbnailUrl(representativeMaterial.image, 200)}
                           alt={groupKey}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = '/placeholder.svg'
                           }}
@@ -1054,14 +1083,16 @@ export default function MaterialManagement() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              const categoryMaterial = { ...representativeMaterial, name: groupKey, isCategory: true, originalGroupName: groupKey }; setEditingMaterial(categoryMaterial as Material)
-                              setShowMaterialModal(true)
+                              const newName = prompt(`重命名分组 "${groupKey}"`, groupKey)
+                              if (newName && newName !== groupKey) {
+                                handleRenameCategory(groupKey, newName, groupMaterials)
+                              }
                             }}
                             className="flex-1 p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors text-xs flex items-center justify-center gap-1"
-                            title="编"
+                            title="重命名分组"
                           >
                             <Edit className="h-3.5 w-3.5" />
-                            编辑
+                            重命名
                           </button>
                           <button
                             onClick={(e) => {
@@ -1153,9 +1184,10 @@ export default function MaterialManagement() {
                                   >
                                     <div className="relative w-full aspect-square bg-gray-100 rounded-xl overflow-hidden border border-gray-200 hover:shadow-lg transition-all">
                                       <img
-                                        src={getFileUrl(material.image)}
+                                        src={getThumbnailUrl(material.image, 200)}
                                         alt={material.name}
                                         className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                        loading="lazy"
                                         onError={(e) => {
                                           (e.target as HTMLImageElement).src = '/placeholder.svg'
                                         }}
@@ -1213,9 +1245,10 @@ export default function MaterialManagement() {
                                 {/* 图片容器 - 更紧凑 */}
                                 <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-primary-300 transition-colors">
                                   <img
-                                    src={getFileUrl(material.image)}
+                                    src={getThumbnailUrl(material.image, 150)}
                                     alt={material.name}
                                     className="w-full h-full object-cover"
+                                    loading="lazy"
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).src = '/placeholder.svg'
                                     }}

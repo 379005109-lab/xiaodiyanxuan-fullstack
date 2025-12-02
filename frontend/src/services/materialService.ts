@@ -7,6 +7,11 @@ import { Material, MaterialCategory } from '@/types'
 let materialCache: Material[] | null = null;
 let materialCachePromise: Promise<Material[]> | null = null;
 
+// 材质图片缓存（避免重复请求）
+const materialImageLocalCache: Record<string, string> = {};
+let pendingImageRequest: Promise<Record<string, string>> | null = null;
+let pendingImageNames: string[] = [];
+
 export const getAllMaterials = async (): Promise<Material[]> => {
   // 如果有缓存，直接返回
   if (materialCache) {
@@ -36,29 +41,42 @@ export const getAllMaterials = async (): Promise<Material[]> => {
   return materialCachePromise;
 }
 
-// 根据材质名称列表批量获取图片（优化版：只返回名称和图片）
+// 根据材质名称列表批量获取图片
 export const getMaterialImagesByNames = async (names: string[]): Promise<Record<string, string>> => {
   if (!names || names.length === 0) return {};
   
+  // 先从本地缓存获取已有的
+  const result: Record<string, string> = {};
+  const uncachedNames: string[] = [];
+  
+  names.forEach(name => {
+    if (materialImageLocalCache[name]) {
+      result[name] = materialImageLocalCache[name];
+    } else {
+      uncachedNames.push(name);
+    }
+  });
+  
+  // 如果所有都有缓存，直接返回
+  if (uncachedNames.length === 0) {
+    return result;
+  }
+  
   try {
-    // 优先使用缓存
-    if (materialCache) {
-      const result: Record<string, string> = {};
-      names.forEach(name => {
-        const material = materialCache!.find(m => m.name === name);
-        if (material?.image) {
-          result[name] = material.image;
-        }
-      });
-      return result;
+    // 直接调用 API 获取材质图片（更可靠的匹配）
+    const batchSize = 50;
+    for (let i = 0; i < uncachedNames.length; i += batchSize) {
+      const batch = uncachedNames.slice(i, i + batchSize);
+      const response = await apiClient.post('/materials/images-by-names', { names: batch });
+      const batchResult = response.data.data || {};
+      Object.assign(result, batchResult);
+      Object.assign(materialImageLocalCache, batchResult);
     }
     
-    // 如果没有缓存，尝试调用批量 API
-    const response = await apiClient.post('/materials/images-by-names', { names });
-    return response.data.data || {};
+    return result;
   } catch (error: any) {
     console.error('批量获取材质图片失败:', error);
-    return {};
+    return result;
   }
 }
 

@@ -72,109 +72,29 @@ exports.update = async (req, res) => {
     
     const oldName = oldMaterial.name;
     const newName = req.body.name;
-    // 前端传递的原始分组名（用于分类编辑场景）
-    const originalGroupName = req.body.originalGroupName;
-    // 是否是分类编辑模式
-    const isCategoryEdit = !!originalGroupName;
     
     console.log(`🔄 [素材更新] ID: ${req.params.id}`);
     console.log(`   数据库中素材名: "${oldName}"`);
     console.log(`   前端传递新名: "${newName}"`);
-    console.log(`   分类编辑模式: ${isCategoryEdit ? '是，分组名=' + originalGroupName : '否'}`);
     
-    let updatedMaterialCount = 0;
     let updatedProductCount = 0;
     let material = oldMaterial;
     
-    if (isCategoryEdit && originalGroupName !== newName) {
-      // ========== 分类编辑模式 ==========
-      // 用户编辑的是分组（如 "A类"），要把所有 "A类-*" 改成 "新名-*"
-      console.log(`🔄 [分类编辑] 分组名变更: "${originalGroupName}" -> "${newName}"`);
-      
-      // 1. 查找所有属于这个分组的素材（以分组名+"-"开头）
-      const groupMaterials = await Material.find({
-        name: { $regex: `^${originalGroupName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-` }
-      });
-      
-      console.log(`🔄 [分类编辑] 找到 ${groupMaterials.length} 个子素材`);
-      
-      // 2. 更新所有子素材的名称
-      for (const child of groupMaterials) {
-        const oldChildName = child.name;
-        const newChildName = child.name.replace(originalGroupName, newName);
-        
-        await Material.findByIdAndUpdate(child._id, { name: newChildName });
-        updatedMaterialCount++;
-        console.log(`   ✅ "${oldChildName}" -> "${newChildName}"`);
-      }
-      
-      // 3. 同步更新商品中的材质引用
-      const products = await Product.find({});
-      for (const product of products) {
-        let productModified = false;
-        
-        if (product.skus && Array.isArray(product.skus)) {
-          for (const sku of product.skus) {
-            // 更新 material 字段
-            if (sku.material && typeof sku.material === 'object') {
-              for (const [categoryKey, materials] of Object.entries(sku.material)) {
-                if (Array.isArray(materials)) {
-                  for (let i = 0; i < materials.length; i++) {
-                    if (materials[i].startsWith(originalGroupName + '-')) {
-                      const newMaterialName = materials[i].replace(originalGroupName, newName);
-                      console.log(`   ✅ 商品 "${product.name}" 材质: "${materials[i]}" -> "${newMaterialName}"`);
-                      materials[i] = newMaterialName;
-                      productModified = true;
-                    }
-                  }
-                }
-              }
-            }
-            
-            // 更新 materialUpgradePrices/materialImages/materialDescriptions 中的键名
-            const fieldsToUpdate = ['materialUpgradePrices', 'materialImages', 'materialDescriptions'];
-            for (const field of fieldsToUpdate) {
-              if (sku[field]) {
-                const keysToUpdate = [];
-                for (const key of Object.keys(sku[field])) {
-                  if (key.startsWith(originalGroupName + '-')) {
-                    keysToUpdate.push({ oldKey: key, newKey: key.replace(originalGroupName, newName) });
-                  }
-                }
-                for (const { oldKey, newKey } of keysToUpdate) {
-                  sku[field][newKey] = sku[field][oldKey];
-                  delete sku[field][oldKey];
-                  productModified = true;
-                }
-              }
-            }
-          }
-        }
-        
-        if (productModified) {
-          await product.save();
-          updatedProductCount++;
-        }
-      }
-      
-      // 4. 返回更新后的代表素材（第一个子素材）
-      material = await Material.findOne({
-        name: { $regex: `^${newName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-` }
-      });
-      
-      console.log(`🔄 [分类编辑] 完成，更新了 ${updatedMaterialCount} 个素材，${updatedProductCount} 个商品`);
-      
-    } else {
+    // 移除不需要保存的字段
+    const updateData = { ...req.body };
+    delete updateData.originalGroupName;
+    
+    {
       // ========== 普通编辑模式 ==========
       // 直接更新单个素材
       material = await Material.findByIdAndUpdate(
         req.params.id,
-        req.body,
+        updateData,
         { new: true, runValidators: true }
       );
       
-      // 如果名称变化，更新商品中的引用
-      if (oldName !== newName) {
+      // 如果名称变化，更新商品中的引用（精确匹配）
+      if (oldName && newName && oldName !== newName) {
         console.log(`🔄 [普通编辑] 素材名变更: "${oldName}" -> "${newName}"`);
         
         const products = await Product.find({});
@@ -187,6 +107,7 @@ exports.update = async (req, res) => {
                 for (const [categoryKey, materials] of Object.entries(sku.material)) {
                   if (Array.isArray(materials)) {
                     for (let i = 0; i < materials.length; i++) {
+                      // 精确匹配，只更新完全相同的名称
                       if (materials[i] === oldName) {
                         materials[i] = newName;
                         productModified = true;
@@ -198,7 +119,7 @@ exports.update = async (req, res) => {
               
               const fieldsToUpdate = ['materialUpgradePrices', 'materialImages', 'materialDescriptions'];
               for (const field of fieldsToUpdate) {
-                if (sku[field] && sku[field][oldName]) {
+                if (sku[field] && sku[field][oldName] !== undefined) {
                   sku[field][newName] = sku[field][oldName];
                   delete sku[field][oldName];
                   productModified = true;
@@ -216,17 +137,13 @@ exports.update = async (req, res) => {
     }
     
     let message = '素材已更新';
-    if (updatedMaterialCount > 0 || updatedProductCount > 0) {
-      const parts = [];
-      if (updatedMaterialCount > 0) parts.push(`${updatedMaterialCount} 个子素材`);
-      if (updatedProductCount > 0) parts.push(`${updatedProductCount} 个商品`);
-      message = `素材已更新，同时更新了 ${parts.join(' 和 ')} 中的材质名称`;
+    if (updatedProductCount > 0) {
+      message = `素材已更新，同时更新了 ${updatedProductCount} 个商品中的材质名称`;
     }
     
     res.json({ 
       success: true, 
       data: material,
-      updatedMaterialCount,
       updatedProductCount,
       message
     });
@@ -357,7 +274,7 @@ exports.deleteCategory = async (req, res) => {
   }
 };
 
-// 批量获取材质图片（根据名称列表）
+// 批量获取材质图片（根据名称列表，支持模糊匹配）
 exports.getImagesByNames = async (req, res) => {
   try {
     const { names } = req.body;
@@ -366,19 +283,93 @@ exports.getImagesByNames = async (req, res) => {
       return res.json({ success: true, data: {} });
     }
     
-    // 只查询名称和图片字段，优化性能
-    const materials = await Material.find(
-      { name: { $in: names } },
+    // 获取所有有图片的材质
+    const allMaterials = await Material.find(
+      { image: { $exists: true, $ne: '' } },
       { name: 1, image: 1, _id: 0 }
     ).lean();
     
-    // 转换为 { name: image } 格式
-    const result = materials.reduce((acc, m) => {
-      if (m.name && m.image) {
-        acc[m.name] = m.image;
+    const result = {};
+    
+    // 辅助函数：提取核心名称（去掉数字后缀）
+    const extractCoreName = (name) => {
+      return name.replace(/[-_]?\d+$/, '').trim();
+    };
+    
+    // 辅助函数：提取最后一部分（用于 "A类头层真皮-软椅-621" -> "软椅621"）
+    const extractLastPart = (name) => {
+      const parts = name.split(/[-–—]/);
+      if (parts.length >= 2) {
+        // 取最后两部分组合，如 "软椅" + "621" = "软椅621"
+        const lastTwo = parts.slice(-2);
+        if (/^\d+$/.test(lastTwo[1])) {
+          return lastTwo[0] + lastTwo[1];
+        }
+        return parts[parts.length - 1];
       }
-      return acc;
-    }, {});
+      return name;
+    };
+    
+    for (const queryName of names) {
+      if (!queryName) continue;
+      
+      // 1. 精确匹配
+      let match = allMaterials.find(m => m.name === queryName);
+      
+      // 2. 素材库名称是查询名称的前缀
+      if (!match) {
+        match = allMaterials.find(m => queryName.startsWith(m.name + '-'));
+      }
+      
+      // 3. 查询名称是素材库名称的前缀
+      if (!match) {
+        match = allMaterials.find(m => m.name.startsWith(queryName + '-'));
+      }
+      
+      // 4. 提取核心名称匹配（去掉编号）
+      if (!match) {
+        const queryParts = queryName.split('-');
+        for (let i = queryParts.length - 1; i >= 1; i--) {
+          const prefix = queryParts.slice(0, i).join('-');
+          match = allMaterials.find(m => m.name.startsWith(prefix + '-') || m.name === prefix);
+          if (match) break;
+        }
+      }
+      
+      // 5. 匹配素材库名称的最后部分（如 "A类头层真皮-软椅-621" 匹配查询 "软椅621"）
+      if (!match) {
+        match = allMaterials.find(m => {
+          const lastPart = extractLastPart(m.name);
+          return lastPart === queryName;
+        });
+      }
+      
+      // 6. 素材库名称包含查询名称（模糊匹配）
+      if (!match) {
+        match = allMaterials.find(m => m.name.includes(queryName));
+      }
+      
+      // 7. 查询名称包含素材库名称的核心部分
+      if (!match) {
+        match = allMaterials.find(m => {
+          const coreName = extractCoreName(m.name);
+          return queryName.includes(coreName) && coreName.length >= 2;
+        });
+      }
+      
+      // 8. 匹配末尾数字编号（如 "软椅621" 匹配 "...软银621"）
+      if (!match) {
+        const numMatch = queryName.match(/(\d{2,})$/);
+        if (numMatch) {
+          const numPart = numMatch[1];
+          match = allMaterials.find(m => m.name.endsWith(numPart) || m.name.includes('-' + numPart));
+        }
+      }
+      
+      if (match && match.image) {
+        result[queryName] = match.image;
+      }
+    }
     
     res.json({ success: true, data: result });
   } catch (error) {
