@@ -804,10 +804,11 @@ export default function ProductsPage() {
                         <div className={`relative overflow-hidden rounded-lg bg-gray-100 group ${viewMode === 'grid' ? 'aspect-square mb-4' : 'w-24 h-24 flex-shrink-0'}`}>
                           {/* 主图 - 根据预览索引显示 */}
                           <img
-                            src={getThumbnailUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png', 400)}
+                            src={getThumbnailUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png', 280)}
                             alt={product.name}
                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                             loading="lazy"
+                            decoding="async"
                           />
                           
                           {/* SKU预览小方块 - 只在网格模式显示 */}
@@ -824,10 +825,11 @@ export default function ProductsPage() {
                                   }`}
                                 >
                                   <img
-                                    src={getThumbnailUrl(img, 50)}
+                                    src={getThumbnailUrl(img, 40)}
                                     alt=""
                                     className="w-full h-full object-cover"
                                     loading="lazy"
+                                    decoding="async"
                                   />
                                 </div>
                               ))}

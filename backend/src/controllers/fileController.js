@@ -4,7 +4,7 @@ const sharp = require('sharp');
 
 // 缩略图缓存（内存缓存，生产环境建议使用 Redis）
 const thumbnailCache = new Map();
-const THUMBNAIL_CACHE_MAX_SIZE = 500; // 最多缓存500个缩略图
+const THUMBNAIL_CACHE_MAX_SIZE = 1000; // 最多缓存1000个缩略图
 
 /**
  * 上传单个文件

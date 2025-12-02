@@ -98,7 +98,9 @@ export const getFileUrl = (fileId: string, options?: { width?: number; height?: 
  * @returns 缩略图 URL
  */
 export const getThumbnailUrl = (fileId: string, size: number = 200): string => {
-  return getFileUrl(fileId, { width: size, height: size, quality: 80 })
+  // 根据尺寸调整质量：小图用更低质量，大图用较高质量
+  const quality = size <= 100 ? 60 : size <= 300 ? 70 : 80
+  return getFileUrl(fileId, { width: size, height: size, quality })
 }
 
 /**
