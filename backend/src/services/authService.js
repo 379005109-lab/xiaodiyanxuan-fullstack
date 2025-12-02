@@ -131,35 +131,37 @@ const adminLogin = async (username, password) => {
 }
 
 /**
- * 手机号注册
+ * 手机号登录/注册（验证码验证后调用）
+ * 如果用户存在则登录，不存在则自动注册
  * @param {string} phone 手机号
- * @param {string} password 密码
  */
-const registerWithPhone = async (phone, password) => {
-  // 检查手机号是否已注册
-  const existingUser = await User.findOne({ 
+const loginOrRegisterWithPhone = async (phone) => {
+  // 查找用户
+  let user = await User.findOne({ 
     $or: [
       { phone },
       { username: phone }
     ]
   })
   
-  if (existingUser) {
-    throw new AuthenticationError('该手机号已注册')
+  // 如果用户不存在，自动注册
+  if (!user) {
+    // 加密密码（使用手机号作为默认密码）
+    const hashedPassword = await bcryptjs.hash(phone, 10)
+    
+    user = await User.create({
+      phone,
+      username: phone,
+      password: hashedPassword,
+      role: 'customer',
+      userType: 'customer',
+      status: 'active'
+    })
   }
   
-  // 加密密码
-  const hashedPassword = await bcryptjs.hash(password, 10)
-  
-  // 创建用户
-  const user = await User.create({
-    phone,
-    username: phone, // 默认用手机号作为用户名
-    password: hashedPassword,
-    role: 'customer',
-    userType: 'customer',
-    status: 'active'
-  })
+  // 更新最后登录时间
+  user.lastLoginAt = new Date()
+  await user.save()
   
   // 生成 token
   const token = generateToken(user._id)
@@ -170,10 +172,19 @@ const registerWithPhone = async (phone, password) => {
       id: user._id,
       phone: user.phone,
       username: user.username,
-      role: user.role,
-      userType: user.userType
+      nickname: user.nickname || user.username,
+      avatar: user.avatar,
+      role: user.role || user.userType || 'customer',
+      userType: user.role || user.userType || 'customer'
     }
   }
+}
+
+/**
+ * 手机号注册（旧接口，保留兼容）
+ */
+const registerWithPhone = async (phone, password) => {
+  return loginOrRegisterWithPhone(phone)
 }
 
 module.exports = {
