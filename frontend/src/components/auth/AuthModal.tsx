@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, User, Lock, Phone, ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
-import { loginUser } from '@/services/authService'
+import { loginUser, sendVerificationCode, registerWithPhone } from '@/services/authService'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -55,21 +55,17 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     
     try {
       setLoading(true)
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone })
-      })
-      
-      const data = await response.json()
-      if (data.success) {
+      const result = await sendVerificationCode(phone)
+      if (result.success) {
         toast.success('验证码已发送')
         setCountdown(60)
-      } else {
-        toast.error(data.message || '发送失败')
+        // 开发环境显示验证码
+        if (result.code) {
+          toast.info(`验证码: ${result.code}`)
+        }
       }
-    } catch (error) {
-      toast.error('发送验证码失败')
+    } catch (error: any) {
+      toast.error(error?.message || '发送验证码失败')
     } finally {
       setLoading(false)
     }
@@ -116,7 +112,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     }
   }
 
-  // 注册
+  // 注册（手机号+验证码登录）
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -127,26 +123,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     
     try {
       setLoading(true)
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: registerForm.phone,
-          verifyCode: registerForm.verifyCode
-        })
-      })
-      
-      const data = await response.json()
-      if (data.success) {
-        toast.success('注册成功！')
-        // 自动登录
-        login(data.data.user, data.data.token)
-        onClose() // 由 App.tsx 统一处理用户信息完善弹窗
+      const result = await registerWithPhone(registerForm.phone, registerForm.verifyCode)
+      if (result.success && result.data) {
+        toast.success('登录成功！')
+        login(result.data.user, result.data.token)
+        onClose()
       } else {
-        toast.error(data.message || '注册失败')
+        toast.error(result.message || '登录失败')
       }
     } catch (error: any) {
-      toast.error(error?.message || '注册失败')
+      toast.error(error?.message || '登录失败')
     } finally {
       setLoading(false)
     }
