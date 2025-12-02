@@ -65,8 +65,13 @@ const refreshToken = async (userId) => {
 }
 
 const usernamePasswordLogin = async (username, password) => {
-  // 查找用户
-  const user = await User.findOne({ username })
+  // 查找用户（支持用户名或手机号）
+  const user = await User.findOne({ 
+    $or: [
+      { username },
+      { phone: username }
+    ]
+  })
   
   if (!user) {
     throw new AuthenticationError('用户不存在')
