@@ -29,8 +29,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        serif: ['Playfair Display', 'serif'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', 'sans-serif'],
+        serif: ['Georgia', '"Times New Roman"', '"SimSun"', 'serif'],
       },
       animation: {
         'fade-in-up': 'fadeInUp 0.5s ease-out',
