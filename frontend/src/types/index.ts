@@ -332,7 +332,9 @@ export interface Order {
 export interface Refund {
   _id: string
   order: Order | string
+  orderId?: string  // 订单ID（冗余字段，兼容用）
   user: User | string
+  type: 'return' | 'exchange'  // 退货或换货
   reason: string
   description: string
   images: string[]

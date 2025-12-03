@@ -6,6 +6,7 @@ import { Refund, Order } from '@/types'
 import { toast } from 'sonner'
 import RefundFormModal from '@/components/admin/RefundFormModal'
 import RefundDetailModal from '@/components/admin/RefundDetailModal'
+import apiClient from '@/lib/apiClient'
 
 export default function RefundManagement() {
   const [searchOrderNo, setSearchOrderNo] = useState('')
@@ -87,10 +88,13 @@ export default function RefundManagement() {
     }
   }
 
-  const updateRefundStatus = (id: string, status: 'approved' | 'rejected', rejectReason?: string) => {
+  const updateRefundStatus = async (id: string, status: 'approved' | 'rejected', rejectReason?: string) => {
     try {
       const stored = localStorage.getItem('local_refunds')
       const allRefunds: Refund[] = stored ? JSON.parse(stored) : []
+      
+      // 找到当前退换货记录
+      const currentRefund = allRefunds.find(r => r._id === id)
       
       const updated = allRefunds.map(r => {
         if (r._id === id) {
@@ -105,6 +109,30 @@ export default function RefundManagement() {
       })
       
       localStorage.setItem('local_refunds', JSON.stringify(updated))
+      
+      // 如果同意退换货，同步更新订单状态
+      if (status === 'approved' && currentRefund) {
+        const orderId = typeof currentRefund.order === 'object' 
+          ? currentRefund.order._id 
+          : currentRefund.orderId || currentRefund.order
+        
+        if (orderId) {
+          try {
+            // 退货 -> 订单状态改为"退款中"
+            // 换货 -> 订单状态改为"处理中"
+            const newOrderStatus = currentRefund.type === 'return' ? 'refunding' : 'processing'
+            
+            await apiClient.patch(`/orders/${orderId}/status`, { status: newOrderStatus })
+            console.log('✅ 订单状态已同步更新为:', newOrderStatus)
+            toast.success(`订单状态已更新为${currentRefund.type === 'return' ? '退款中' : '处理中'}`)
+          } catch (err) {
+            console.error('同步订单状态失败:', err)
+            // 不影响主流程，只提示
+            toast.warning('退换货已同意，但订单状态同步失败，请手动更新')
+          }
+        }
+      }
+      
       loadRefunds()
       toast.success(status === 'approved' ? '已同意申请' : '已拒绝申请')
     } catch (error) {
