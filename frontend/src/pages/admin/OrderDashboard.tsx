@@ -291,7 +291,11 @@ export default function OrderDashboard() {
             <tbody>
               {recentOrders.length > 0 ? (
                 recentOrders.map((order) => {
-                  const config = statusConfig[order.status]
+                  const config = statusConfig[order.status as OrderStatus] || { 
+                    label: String(order.status), 
+                    color: 'text-gray-700', 
+                    bgColor: 'bg-gray-100' 
+                  }
                   const customerName =
                     typeof order.user === 'string' ? order.user : (order.user as any)?.name || '未知客户'
 
