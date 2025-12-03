@@ -330,57 +330,28 @@ export default function CartPage() {
                     </button>
                   </div>
                   <div className="space-y-1 text-sm mb-4">
-                    <p className="text-stone-500">规格: <span className="text-stone-800">{item.sku?.spec || '标准规格'}</span></p>
-                    {(() => {
-                      const materialUpgradePrices = item.materialUpgradePrices || {}  // 使用保存的升级价格
-                      const materialRows: React.ReactNode[] = []
-                      
-                      // 面料
-                      if (item.selectedMaterials?.fabric) {
-                        const fabricPrice = materialUpgradePrices[item.selectedMaterials.fabric] || 0
-                        materialRows.push(
-                          <p key="fabric" className="text-stone-500">
-                            面料: <span className="text-stone-800">{item.selectedMaterials.fabric}</span>
-                            {fabricPrice > 0 && <span className="text-red-600 font-semibold ml-2">+¥{fabricPrice}</span>}
-                          </p>
-                        )
-                      }
-                      
-                      // 填充
-                      if (item.selectedMaterials?.filling) {
-                        const fillingPrice = materialUpgradePrices[item.selectedMaterials.filling] || 0
-                        materialRows.push(
-                          <p key="filling" className="text-stone-500">
-                            填充: <span className="text-stone-800">{item.selectedMaterials.filling}</span>
-                            {fillingPrice > 0 && <span className="text-red-600 font-semibold ml-2">+¥{fillingPrice}</span>}
-                          </p>
-                        )
-                      }
-                      
-                      // 框架
-                      if (item.selectedMaterials?.frame) {
-                        const framePrice = materialUpgradePrices[item.selectedMaterials.frame] || 0
-                        materialRows.push(
-                          <p key="frame" className="text-stone-500">
-                            框架: <span className="text-stone-800">{item.selectedMaterials.frame}</span>
-                            {framePrice > 0 && <span className="text-red-600 font-semibold ml-2">+¥{framePrice}</span>}
-                          </p>
-                        )
-                      }
-                      
-                      // 脚架
-                      if (item.selectedMaterials?.leg) {
-                        const legPrice = materialUpgradePrices[item.selectedMaterials.leg] || 0
-                        materialRows.push(
-                          <p key="leg" className="text-stone-500">
-                            脚架: <span className="text-stone-800">{item.selectedMaterials.leg}</span>
-                            {legPrice > 0 && <span className="text-red-600 font-semibold ml-2">+¥{legPrice}</span>}
-                          </p>
-                        )
-                      }
-                      
-                      return materialRows
-                    })()}
+                    <p className="text-stone-500">规格: <span className="text-stone-800">{item.sku?.color || item.sku?.spec || '标准规格'}</span></p>
+                    {/* 尺寸信息 */}
+                    {(item.sku?.length || item.sku?.width || item.sku?.height) && (
+                      <p className="text-stone-500">尺寸: <span className="text-stone-800">{item.sku.length || '-'}×{item.sku.width || '-'}×{item.sku.height || '-'} CM</span></p>
+                    )}
+                    {/* 材质信息 - 动态遍历所有材质类目 */}
+                    {item.selectedMaterials && Object.keys(item.selectedMaterials).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {Object.entries(item.selectedMaterials).map(([category, material]) => {
+                          if (!material) return null
+                          const upgradePrice = item.materialUpgradePrices?.[category] || 0
+                          return (
+                            <span key={category} className="inline-flex items-center px-2 py-0.5 bg-stone-100 text-stone-600 text-xs rounded">
+                              {material as string}
+                              {upgradePrice > 0 && (
+                                <span className="text-red-600 font-semibold ml-1">+¥{upgradePrice}</span>
+                              )}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="flex justify-between items-center">

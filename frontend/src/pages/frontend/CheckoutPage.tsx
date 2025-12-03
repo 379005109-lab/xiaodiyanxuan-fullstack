@@ -515,34 +515,27 @@ export default function CheckoutPage() {
                         <div className="flex-1">
                           <h3 className="font-semibold text-gray-900 mb-1">{item.product.name}</h3>
                           <div className="text-sm text-gray-600 space-y-1">
-                            {item.sku.spec && <p>规格：{item.sku.spec}</p>}
-                            {item.selectedMaterials?.fabric && (
-                              <p>面料：{item.selectedMaterials.fabric} 
-                                {item.materialUpgradePrices?.[item.selectedMaterials.fabric] > 0 && 
-                                  <span className="text-red-600 ml-1">+¥{item.materialUpgradePrices[item.selectedMaterials.fabric]}</span>
-                                }
-                              </p>
+                            {(item.sku.color || item.sku.spec) && <p>规格：{item.sku.color || item.sku.spec}</p>}
+                            {/* 尺寸信息 */}
+                            {(item.sku.length || item.sku.width || item.sku.height) && (
+                              <p>尺寸：{item.sku.length || '-'}×{item.sku.width || '-'}×{item.sku.height || '-'} CM</p>
                             )}
-                            {item.selectedMaterials?.filling && (
-                              <p>填充：{item.selectedMaterials.filling}
-                                {item.materialUpgradePrices?.[item.selectedMaterials.filling] > 0 && 
-                                  <span className="text-red-600 ml-1">+¥{item.materialUpgradePrices[item.selectedMaterials.filling]}</span>
-                                }
-                              </p>
-                            )}
-                            {item.selectedMaterials?.frame && (
-                              <p>框架：{item.selectedMaterials.frame}
-                                {item.materialUpgradePrices?.[item.selectedMaterials.frame] > 0 && 
-                                  <span className="text-red-600 ml-1">+¥{item.materialUpgradePrices[item.selectedMaterials.frame]}</span>
-                                }
-                              </p>
-                            )}
-                            {item.selectedMaterials?.leg && (
-                              <p>脚架：{item.selectedMaterials.leg}
-                                {item.materialUpgradePrices?.[item.selectedMaterials.leg] > 0 && 
-                                  <span className="text-red-600 ml-1">+¥{item.materialUpgradePrices[item.selectedMaterials.leg]}</span>
-                                }
-                              </p>
+                            {/* 材质信息 - 动态遍历所有材质类目 */}
+                            {item.selectedMaterials && Object.keys(item.selectedMaterials).length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {Object.entries(item.selectedMaterials).map(([category, material]) => {
+                                  if (!material) return null
+                                  const upgradePrice = item.materialUpgradePrices?.[category] || 0
+                                  return (
+                                    <span key={category} className="inline-flex items-center px-2 py-0.5 bg-stone-100 text-stone-600 text-xs rounded">
+                                      {material as string}
+                                      {upgradePrice > 0 && (
+                                        <span className="text-red-600 font-semibold ml-1">+¥{upgradePrice}</span>
+                                      )}
+                                    </span>
+                                  )
+                                })}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -585,38 +578,25 @@ export default function CheckoutPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{item.product.name}</p>
                           <div className="text-xs text-gray-500 space-y-0.5 mt-1">
-                            {item.sku.spec && <p>规格: {item.sku.spec}</p>}
-                            {item.selectedMaterials?.fabric && (
-                              <p className="flex items-center gap-1">
-                                面料: {item.selectedMaterials.fabric}
-                                {item.materialUpgradePrices?.[item.selectedMaterials.fabric] > 0 && 
-                                  <span className="text-red-600 font-semibold">+¥{item.materialUpgradePrices[item.selectedMaterials.fabric]}</span>
-                                }
-                              </p>
+                            {(item.sku.color || item.sku.spec) && <p>规格: {item.sku.color || item.sku.spec}</p>}
+                            {/* 尺寸信息 */}
+                            {(item.sku.length || item.sku.width || item.sku.height) && (
+                              <p>尺寸: {item.sku.length || '-'}×{item.sku.width || '-'}×{item.sku.height || '-'} CM</p>
                             )}
-                            {item.selectedMaterials?.filling && (
-                              <p className="flex items-center gap-1">
-                                填充: {item.selectedMaterials.filling}
-                                {item.materialUpgradePrices?.[item.selectedMaterials.filling] > 0 && 
-                                  <span className="text-red-600 font-semibold">+¥{item.materialUpgradePrices[item.selectedMaterials.filling]}</span>
-                                }
-                              </p>
-                            )}
-                            {item.selectedMaterials?.frame && (
-                              <p className="flex items-center gap-1">
-                                框架: {item.selectedMaterials.frame}
-                                {item.materialUpgradePrices?.[item.selectedMaterials.frame] > 0 && 
-                                  <span className="text-red-600 font-semibold">+¥{item.materialUpgradePrices[item.selectedMaterials.frame]}</span>
-                                }
-                              </p>
-                            )}
-                            {item.selectedMaterials?.leg && (
-                              <p className="flex items-center gap-1">
-                                脚架: {item.selectedMaterials.leg}
-                                {item.materialUpgradePrices?.[item.selectedMaterials.leg] > 0 && 
-                                  <span className="text-red-600 font-semibold">+¥{item.materialUpgradePrices[item.selectedMaterials.leg]}</span>
-                                }
-                              </p>
+                            {/* 材质信息 - 动态遍历 */}
+                            {item.selectedMaterials && Object.keys(item.selectedMaterials).length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(item.selectedMaterials).map(([category, material]) => {
+                                  if (!material) return null
+                                  const upgradePrice = item.materialUpgradePrices?.[category] || 0
+                                  return (
+                                    <span key={category} className="text-stone-600">
+                                      {material as string}
+                                      {upgradePrice > 0 && <span className="text-red-600 ml-0.5">+¥{upgradePrice}</span>}
+                                    </span>
+                                  )
+                                })}
+                              </div>
                             )}
                             <p>× {item.quantity}</p>
                           </div>

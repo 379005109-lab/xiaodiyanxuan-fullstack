@@ -367,50 +367,30 @@ export default function OrdersPageNew() {
                             <h4 className="text-base font-medium text-stone-800 truncate hover:text-primary">{item.name || item.productName}</h4>
                             <div className="text-sm mt-1 space-y-0.5">
                               {/* 规格 */}
-                              {item.specifications?.size && (
-                                <p className="text-stone-500">规格: <span className="text-stone-800">{item.specifications.size}</span></p>
+                              {(item.sku?.color || item.skuName || item.specifications?.size) && (
+                                <p className="text-stone-500">规格: <span className="text-stone-800">{item.sku?.color || item.skuName || item.specifications?.size}</span></p>
                               )}
-                              
-                              {/* 面料 */}
-                              {item.specifications?.material && (
-                                <p className="text-stone-500">
-                                  面料: <span className="text-stone-800">{item.specifications.material}</span>
-                                  {item.materialUpgradePrices?.[item.specifications.material] > 0 && (
-                                    <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications.material]}</span>
-                                  )}
-                                </p>
+                              {/* 尺寸 */}
+                              {(item.skuDimensions?.length || item.skuDimensions?.width || item.skuDimensions?.height || item.specifications?.dimensions) && (
+                                <p className="text-stone-500">尺寸: <span className="text-stone-800">{item.specifications?.dimensions || `${item.skuDimensions?.length || '-'}×${item.skuDimensions?.width || '-'}×${item.skuDimensions?.height || '-'}`} CM</span></p>
                               )}
-                              
-                              {/* 填充 */}
-                              {item.specifications?.fill && (
-                                <p className="text-stone-500">
-                                  填充: <span className="text-stone-800">{item.specifications.fill}</span>
-                                  {item.materialUpgradePrices?.[item.specifications.fill] > 0 && (
-                                    <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications.fill]}</span>
-                                  )}
-                                </p>
+                              {/* 材质信息 - 动态遍历所有材质类目 */}
+                              {item.selectedMaterials && Object.keys(item.selectedMaterials).length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {Object.entries(item.selectedMaterials).map(([category, material]) => {
+                                    if (!material) return null
+                                    const upgradePrice = item.materialUpgradePrices?.[category] || 0
+                                    return (
+                                      <span key={category} className="inline-flex items-center px-2 py-0.5 bg-stone-100 text-stone-600 text-xs rounded">
+                                        {material as string}
+                                        {upgradePrice > 0 && (
+                                          <span className="text-red-600 font-semibold ml-1">+¥{upgradePrice}</span>
+                                        )}
+                                      </span>
+                                    )
+                                  })}
+                                </div>
                               )}
-                              
-                              {/* 框架 */}
-                              {item.specifications?.frame && (
-                                <p className="text-stone-500">
-                                  框架: <span className="text-stone-800">{item.specifications.frame}</span>
-                                  {item.materialUpgradePrices?.[item.specifications.frame] > 0 && (
-                                    <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications.frame]}</span>
-                                  )}
-                                </p>
-                              )}
-                              
-                              {/* 脚架 */}
-                              {item.specifications?.leg && (
-                                <p className="text-stone-500">
-                                  脚架: <span className="text-stone-800">{item.specifications.leg}</span>
-                                  {item.materialUpgradePrices?.[item.specifications.leg] > 0 && (
-                                    <span className="text-red-600 font-semibold ml-2">+¥{item.materialUpgradePrices[item.specifications.leg]}</span>
-                                  )}
-                                </p>
-                              )}
-                              
                               <p className="text-stone-500">× {item.quantity || 1}</p>
                             </div>
                           </div>
