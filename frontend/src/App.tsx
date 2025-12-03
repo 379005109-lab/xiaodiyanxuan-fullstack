@@ -8,11 +8,10 @@ import AuthModal from './components/auth/AuthModal'
 import UserProfileModal from './components/auth/UserProfileModal'
 import VersionChecker from './components/VersionChecker'
 import { useEffect, useState, lazy, Suspense } from 'react'
-// 导入测试工具
-import './utils/testImageSave'
 
-// 首页和布局直接导入（首屏必需）
-import HomePage from './pages/frontend/HomePage'
+// 首页懒加载（不阻塞首屏渲染）
+const HomePage = lazy(() => import('./pages/frontend/HomePage'))
+// 布局直接导入
 import AdminLayout from './layouts/AdminLayout'
 import FrontendLayout from './layouts/FrontendLayout'
 
