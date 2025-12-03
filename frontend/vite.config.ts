@@ -28,12 +28,22 @@ export default defineConfig({
     drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
   build: {
+    // 禁用自动 modulepreload，避免预加载非首屏资源
+    modulePreload: {
+      resolveDependencies: (filename, deps, { hostId, hostType }) => {
+        // 只预加载核心 vendor，其他按需加载
+        return deps.filter(dep => 
+          dep.includes('react-vendor') || 
+          dep.includes('index')
+        )
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks: {
           // 核心 React 库
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          // UI 框架
+          // UI 框架 - 不再预加载
           'ui-vendor': ['sonner', 'lucide-react'],
           // 大型库单独分包（按需加载）
           'xlsx': ['xlsx'],
