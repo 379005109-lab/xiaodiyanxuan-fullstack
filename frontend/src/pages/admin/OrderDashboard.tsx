@@ -198,9 +198,13 @@ export default function OrderDashboard() {
           <BarChart3 className="h-5 w-5" />
           订单状态分布
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {Object.entries(stats.statusBreakdown).map(([status, count]) => {
-            const config = statusConfig[status as OrderStatus]
+            const config = statusConfig[status as OrderStatus] || { 
+              label: status, 
+              color: 'text-gray-700', 
+              bgColor: 'bg-gray-100' 
+            }
             return (
               <div key={status} className="text-center">
                 <div className={`${config.bgColor} ${config.color} rounded-lg p-4 mb-2`}>
