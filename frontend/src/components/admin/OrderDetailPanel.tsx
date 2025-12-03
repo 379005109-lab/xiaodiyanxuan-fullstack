@@ -164,6 +164,8 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
         specifications: item.specifications,
         selectedMaterials: item.selectedMaterials,
         materialUpgradePrices: item.materialUpgradePrices,
+        skuDimensions: item.skuDimensions,
+        skuName: item.sku?.color || item.skuName,
         image: item.image || item.productImage
       }))
     }
@@ -271,42 +273,32 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-gray-800 font-medium">{product.name} x{product.quantity}</div>
+                  <div className="text-sm text-gray-800 font-medium">{product.name}</div>
                   {/* 规格信息 */}
-                  {(product.skuName || product.specifications?.size) && (
-                    <div className="text-xs text-gray-500 mt-1">规格: {product.skuName || product.specifications?.size}</div>
+                  {product.skuName && (
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{product.skuName}</span>
                   )}
-                  {/* 材质信息 - 支持套餐订单和普通订单 */}
-                  {(product.selectedMaterials?.fabric || product.specifications?.material) && (
-                    <div className="text-xs text-gray-500">
-                      面料: {product.selectedMaterials?.fabric || product.specifications?.material}
-                      {(product.materialUpgradePrices?.fabric > 0 || product.materialUpgradePrices?.[product.specifications?.material] > 0) && (
-                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices?.fabric || product.materialUpgradePrices?.[product.specifications?.material]}</span>
-                      )}
+                  {/* 尺寸信息 */}
+                  {(product.skuDimensions?.length || product.skuDimensions?.width || product.skuDimensions?.height || product.specifications?.dimensions) && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      尺寸: {product.specifications?.dimensions || `${product.skuDimensions?.length || '-'}×${product.skuDimensions?.width || '-'}×${product.skuDimensions?.height || '-'}`} CM
                     </div>
                   )}
-                  {(product.selectedMaterials?.filling || product.specifications?.fill) && (
-                    <div className="text-xs text-gray-500">
-                      填充: {product.selectedMaterials?.filling || product.specifications?.fill}
-                      {(product.materialUpgradePrices?.filling > 0 || product.materialUpgradePrices?.[product.specifications?.fill] > 0) && (
-                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices?.filling || product.materialUpgradePrices?.[product.specifications?.fill]}</span>
-                      )}
-                    </div>
-                  )}
-                  {(product.selectedMaterials?.frame || product.specifications?.frame) && (
-                    <div className="text-xs text-gray-500">
-                      框架: {product.selectedMaterials?.frame || product.specifications?.frame}
-                      {(product.materialUpgradePrices?.frame > 0 || product.materialUpgradePrices?.[product.specifications?.frame] > 0) && (
-                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices?.frame || product.materialUpgradePrices?.[product.specifications?.frame]}</span>
-                      )}
-                    </div>
-                  )}
-                  {(product.selectedMaterials?.leg || product.specifications?.leg) && (
-                    <div className="text-xs text-gray-500">
-                      脚架: {product.selectedMaterials?.leg || product.specifications?.leg}
-                      {(product.materialUpgradePrices?.leg > 0 || product.materialUpgradePrices?.[product.specifications?.leg] > 0) && (
-                        <span className="text-red-600 font-semibold ml-1">+¥{product.materialUpgradePrices?.leg || product.materialUpgradePrices?.[product.specifications?.leg]}</span>
-                      )}
+                  {/* 材质信息 - 动态显示所有材质类目 */}
+                  {product.selectedMaterials && Object.keys(product.selectedMaterials).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {Object.entries(product.selectedMaterials).map(([category, material]) => {
+                        if (!material) return null
+                        const upgradePrice = product.materialUpgradePrices?.[category] || 0
+                        return (
+                          <span key={category} className="inline-flex items-center px-2 py-0.5 bg-stone-100 text-stone-600 text-xs rounded">
+                            {material as string}
+                            {upgradePrice > 0 && (
+                              <span className="text-red-600 font-semibold ml-1">+¥{upgradePrice}</span>
+                            )}
+                          </span>
+                        )
+                      })}
                     </div>
                   )}
                   {/* 商品加价汇总 */}

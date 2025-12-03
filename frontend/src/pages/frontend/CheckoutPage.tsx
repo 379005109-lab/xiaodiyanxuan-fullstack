@@ -135,10 +135,21 @@ export default function CheckoutPage() {
           },
           specifications: {
             size: item.sku.spec || '',
-            material: item.selectedMaterials?.fabric || '',
-            fill: item.selectedMaterials?.filling || '',
-            frame: item.selectedMaterials?.frame || '',
-            leg: item.selectedMaterials?.leg || ''
+            // 添加尺寸信息
+            dimensions: (item.sku.length || item.sku.width || item.sku.height) 
+              ? `${item.sku.length || '-'}×${item.sku.width || '-'}×${item.sku.height || '-'}` 
+              : '',
+            // 材质信息（兼容中英文）
+            material: item.selectedMaterials?.['面料'] || item.selectedMaterials?.fabric || '',
+            fill: item.selectedMaterials?.['填充'] || item.selectedMaterials?.filling || '',
+            frame: item.selectedMaterials?.['框架'] || item.selectedMaterials?.frame || '',
+            leg: item.selectedMaterials?.['脚架'] || item.selectedMaterials?.leg || ''
+          },
+          // 保存 SKU 尺寸原始数据
+          skuDimensions: {
+            length: item.sku.length,
+            width: item.sku.width,
+            height: item.sku.height
           },
           selectedMaterials: item.selectedMaterials,  // 保存材质选择
           materialUpgradePrices: item.materialUpgradePrices || {},  // 保存升级价格
