@@ -4,15 +4,21 @@ const ORDER_STATUS = {
   PENDING_SHIPMENT: 2,
   PENDING_RECEIPT: 3,
   COMPLETED: 4,
-  CANCELLED: 5
+  CANCELLED: 5,
+  REFUNDING: 6,      // 退款中
+  REFUNDED: 7,       // 已退款
+  EXCHANGING: 8      // 换货中
 }
 
 const ORDER_STATUS_TEXT = {
-  1: '待付',
+  1: '待付款',
   2: '待发货',
   3: '待收货',
   4: '已完成',
-  5: '已取消'
+  5: '已取消',
+  6: '退款中',
+  7: '已退款',
+  8: '换货中'
 }
 
 // User types

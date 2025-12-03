@@ -89,7 +89,18 @@ export default function OrderDashboard() {
     }
   }
 
-  const statusConfig: Record<OrderStatus, { label: string; color: string; bgColor: string }> = {
+  // 支持数字和字符串状态
+  const statusConfig: Record<string | number, { label: string; color: string; bgColor: string }> = {
+    // 数字状态
+    1: { label: '待付款', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
+    2: { label: '待发货', color: 'text-green-700', bgColor: 'bg-green-100' },
+    3: { label: '待收货', color: 'text-blue-700', bgColor: 'bg-blue-100' },
+    4: { label: '已完成', color: 'text-gray-700', bgColor: 'bg-gray-100' },
+    5: { label: '已取消', color: 'text-red-700', bgColor: 'bg-red-100' },
+    6: { label: '退款中', color: 'text-orange-700', bgColor: 'bg-orange-100' },
+    7: { label: '已退款', color: 'text-purple-700', bgColor: 'bg-purple-100' },
+    8: { label: '换货中', color: 'text-amber-700', bgColor: 'bg-amber-100' },
+    // 字符串状态（兼容）
     pending: { label: '待付款', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
     processing: { label: '处理中', color: 'text-amber-700', bgColor: 'bg-amber-100' },
     paid: { label: '已付款', color: 'text-green-700', bgColor: 'bg-green-100' },
@@ -200,7 +211,7 @@ export default function OrderDashboard() {
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {Object.entries(stats.statusBreakdown).map(([status, count]) => {
-            const config = statusConfig[status as OrderStatus] || { 
+            const config = statusConfig[status] || { 
               label: status, 
               color: 'text-gray-700', 
               bgColor: 'bg-gray-100' 
@@ -291,7 +302,7 @@ export default function OrderDashboard() {
             <tbody>
               {recentOrders.length > 0 ? (
                 recentOrders.map((order) => {
-                  const config = statusConfig[order.status as OrderStatus] || { 
+                  const config = statusConfig[order.status] || { 
                     label: String(order.status), 
                     color: 'text-gray-700', 
                     bgColor: 'bg-gray-100' 

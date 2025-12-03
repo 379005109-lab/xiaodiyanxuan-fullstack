@@ -118,13 +118,14 @@ export default function RefundManagement() {
         
         if (orderId) {
           try {
-            // 退货 -> 订单状态改为"退款中"
-            // 换货 -> 订单状态改为"处理中"
-            const newOrderStatus = currentRefund.type === 'return' ? 'refunding' : 'processing'
+            // 退货 -> 订单状态改为 6 (退款中)
+            // 换货 -> 订单状态改为 8 (换货中)
+            const newOrderStatus = currentRefund.type === 'return' ? 6 : 8
+            const statusText = currentRefund.type === 'return' ? '退款中' : '换货中'
             
             await apiClient.patch(`/orders/${orderId}/status`, { status: newOrderStatus })
-            console.log('✅ 订单状态已同步更新为:', newOrderStatus)
-            toast.success(`订单状态已更新为${currentRefund.type === 'return' ? '退款中' : '处理中'}`)
+            console.log('✅ 订单状态已同步更新为:', statusText)
+            toast.success(`订单状态已更新为「${statusText}」`)
           } catch (err) {
             console.error('同步订单状态失败:', err)
             // 不影响主流程，只提示
