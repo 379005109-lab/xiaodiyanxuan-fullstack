@@ -16,10 +16,18 @@ const { auth } = require('../middleware/auth')
 const WX_APPID = process.env.WX_APPID || ''
 const WX_SECRET = process.env.WX_SECRET || ''
 const JWT_SECRET = process.env.JWT_SECRET || 'xiaodi-jwt-secret'
+const API_BASE_URL = process.env.API_BASE_URL || 'https://xiaodiyanxuan.com'
 
 // ========== 响应格式适配 ==========
 const success = (data, message = 'success') => ({ code: 0, data, message })
 const error = (code, message) => ({ code, message })
+
+// 图片URL处理
+const getImageUrl = (img) => {
+  if (!img) return ''
+  if (img.startsWith('http')) return img
+  return `${API_BASE_URL}/api/files/${img}`
+}
 
 // ========== 1. 微信登录 ==========
 router.post('/auth/wxlogin', async (req, res) => {
@@ -115,7 +123,7 @@ router.get('/home', async (req, res) => {
       name: p.name,
       price: p.price,
       originalPrice: p.originalPrice || p.price,
-      cover: p.images?.[0] || '',
+      cover: getImageUrl(p.images?.[0]),
       sales: p.sales || 0,
       category: p.category?.name || '',
       style: p.style || ''
@@ -156,7 +164,7 @@ router.get('/goods/list', async (req, res) => {
       name: p.name,
       price: p.price,
       originalPrice: p.originalPrice || p.price,
-      cover: p.images?.[0] || '',
+      cover: getImageUrl(p.images?.[0]),
       sales: p.sales || 0,
       category: p.category?.name || '',
       style: p.style || ''
@@ -182,7 +190,7 @@ router.get('/goods/:id', async (req, res) => {
       name: product.name,
       price: product.price,
       originalPrice: product.originalPrice || product.price,
-      images: product.images || [],
+      images: (product.images || []).map(img => getImageUrl(img)),
       description: product.description || '',
       category: product.category?.name || '',
       style: product.style || '',
@@ -203,7 +211,7 @@ router.get('/goods/:id', async (req, res) => {
         colors: (mc.materials || []).map(m => ({
           id: m._id || m.id,
           name: m.name,
-          image: m.image || ''
+          image: getImageUrl(m.image)
         }))
       })),
       fills: [],
@@ -245,7 +253,7 @@ router.get('/goods/search', async (req, res) => {
       name: p.name,
       price: p.price,
       originalPrice: p.originalPrice || p.price,
-      cover: p.images?.[0] || '',
+      cover: getImageUrl(p.images?.[0]),
       sales: p.sales || 0
     }))
 
@@ -292,7 +300,7 @@ router.get('/orders', auth, async (req, res) => {
       goods: (o.items || []).map(item => ({
         id: item.product,
         name: item.productName,
-        thumb: item.image,
+        thumb: getImageUrl(item.image),
         sizeName: item.specifications?.size || '',
         dims: item.skuDimensions || '',
         fabric: item.selectedMaterials?.fabric || '',
