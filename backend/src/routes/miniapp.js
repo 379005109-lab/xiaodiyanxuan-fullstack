@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const Product = require('../models/Product')
 const Order = require('../models/Order')
-const auth = require('../middleware/auth')
+const { auth } = require('../middleware/auth')
 
 // 微信小程序配置
 const WX_APPID = process.env.WX_APPID || ''
