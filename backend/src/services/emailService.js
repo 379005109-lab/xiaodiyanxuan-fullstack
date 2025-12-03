@@ -1,24 +1,31 @@
 const nodemailer = require('nodemailer');
 
+// 从环境变量读取邮箱配置
+const EMAIL_USER = process.env.EMAIL_USER || '379005109@qq.com';
+const EMAIL_PASS = process.env.EMAIL_PASS || ''; // 必须从环境变量设置
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || EMAIL_USER;
+
 // QQ 邮箱 SMTP 配置
 const transporter = nodemailer.createTransport({
   host: 'smtp.qq.com',
   port: 465,
   secure: true, // 使用 SSL
   auth: {
-    user: '379005109@qq.com',
-    pass: 'arallrjffznkcabc' // 授权码
+    user: EMAIL_USER,
+    pass: EMAIL_PASS
   }
 });
 
-// 管理员邮箱（接收通知）
-const ADMIN_EMAIL = '379005109@qq.com';
+// 检查邮箱配置
+if (!EMAIL_PASS) {
+  console.warn('⚠️ 邮件服务未配置：请设置 EMAIL_PASS 环境变量');
+}
 
 // 发送邮件的通用方法
 const sendEmail = async (to, subject, html) => {
   try {
     const info = await transporter.sendMail({
-      from: '"小迪严选" <379005109@qq.com>',
+      from: `"小迪严选" <${EMAIL_USER}>`,
       to,
       subject,
       html
