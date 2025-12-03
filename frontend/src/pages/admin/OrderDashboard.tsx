@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { TrendingUp, Package, DollarSign, Clock, CheckCircle, AlertCircle, BarChart3, Calendar, RefreshCw } from 'lucide-react'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Order, OrderStatus } from '@/types'
-import apiClient from '@/lib/axios'
+import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 
 interface DashboardStats {
