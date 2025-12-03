@@ -3,9 +3,45 @@ const router = express.Router()
 const { auth } = require('../middleware/auth')
 const { create, list, getOrder, cancel, confirm } = require('../controllers/orderController')
 const packageOrderController = require('../controllers/packageOrderController')
+const { sendEmail, testConnection, ADMIN_EMAIL } = require('../services/emailService')
 
 // 所有订单路由都需要认证
 router.use(auth)
+
+// ========== 邮件测试路由 ==========
+// POST /api/orders/test-email - 测试邮件发送
+router.post('/test-email', async (req, res) => {
+  try {
+    // 测试连接
+    const connected = await testConnection()
+    if (!connected) {
+      return res.status(500).json({ success: false, message: '邮件服务连接失败' })
+    }
+    
+    // 发送测试邮件
+    const result = await sendEmail(
+      ADMIN_EMAIL,
+      '【测试】小迪严选邮件通知测试',
+      `
+        <div style="font-family: 'Microsoft YaHei', Arial, sans-serif; padding: 20px;">
+          <h1 style="color: #667eea;">✅ 邮件服务配置成功！</h1>
+          <p>恭喜，您的邮件通知服务已正常工作。</p>
+          <p>当有新订单时，您将收到邮件通知。</p>
+          <p style="color: #999; margin-top: 20px;">发送时间：${new Date().toLocaleString('zh-CN')}</p>
+        </div>
+      `
+    )
+    
+    if (result.success) {
+      res.json({ success: true, message: '测试邮件已发送，请检查您的邮箱' })
+    } else {
+      res.status(500).json({ success: false, message: '邮件发送失败', error: result.error })
+    }
+  } catch (error) {
+    console.error('测试邮件错误:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
 
 // ========== 订单统计路由 ==========
 // GET /api/orders/stats - 获取订单统计数据（数据看板）

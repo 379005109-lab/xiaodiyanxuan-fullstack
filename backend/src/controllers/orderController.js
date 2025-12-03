@@ -1,5 +1,6 @@
 const { successResponse, errorResponse, paginatedResponse } = require('../utils/response')
 const { createOrder, getOrders, getOrderById, cancelOrder, confirmReceipt } = require('../services/orderService')
+const { sendNewOrderNotification } = require('../services/emailService')
 
 const create = async (req, res) => {
   try {
@@ -28,6 +29,18 @@ const create = async (req, res) => {
     console.log('📝 [Order] 开始创建订单...');
     const order = await createOrder(req.userId, items, recipient, couponCode)
     console.log('✅ [Order] 订单创建成功:', order._id);
+    
+    // 异步发送邮件通知（不阻塞响应）
+    sendNewOrderNotification(order).then(result => {
+      if (result.success) {
+        console.log('📧 [Order] 新订单邮件通知已发送');
+      } else {
+        console.error('📧 [Order] 邮件发送失败:', result.error);
+      }
+    }).catch(err => {
+      console.error('📧 [Order] 邮件发送异常:', err);
+    });
+    
     res.status(201).json(successResponse(order))
   } catch (err) {
     console.error('❌ [Order] 创建订单错误:', err)
