@@ -78,15 +78,15 @@ const sendNewOrderNotification = async (order) => {
         <table style="width: 100%; margin-bottom: 20px;">
           <tr>
             <td style="padding: 8px 0; color: #666;">收货人：</td>
-            <td style="padding: 8px 0;">${order.shippingAddress?.name || order.customerName || '未知'}</td>
+            <td style="padding: 8px 0; font-weight: bold;">${order.recipient?.name || order.shippingAddress?.name || '未知'}</td>
           </tr>
           <tr>
             <td style="padding: 8px 0; color: #666;">联系电话：</td>
-            <td style="padding: 8px 0;">${order.shippingAddress?.phone || order.customerPhone || '未知'}</td>
+            <td style="padding: 8px 0; font-weight: bold;">${order.recipient?.phone || order.shippingAddress?.phone || '未知'}</td>
           </tr>
           <tr>
             <td style="padding: 8px 0; color: #666;">收货地址：</td>
-            <td style="padding: 8px 0;">${order.shippingAddress?.fullAddress || order.shippingAddress?.address || '未知'}</td>
+            <td style="padding: 8px 0;">${order.recipient?.address || order.shippingAddress?.fullAddress || order.shippingAddress?.address || '未知'}</td>
           </tr>
         </table>
 
