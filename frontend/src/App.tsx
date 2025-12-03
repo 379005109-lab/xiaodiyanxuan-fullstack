@@ -14,6 +14,7 @@ import './utils/testImageSave'
 // 首页和布局直接导入（首屏必需）
 import HomePage from './pages/frontend/HomePage'
 import AdminLayout from './layouts/AdminLayout'
+import FrontendLayout from './layouts/FrontendLayout'
 
 // 前台页面 - 懒加载
 const ProductsPage = lazy(() => import('./pages/frontend/ProductsPage'))
@@ -71,8 +72,7 @@ const DesignManagement = lazy(() => import('./pages/admin/DesignManagement'))
 const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationManagement'))
 const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingServiceRequestsPage'))
 
-// 前台布局 - 懒加载
-const FrontendLayout = lazy(() => import('./layouts/FrontendLayout'))
+// 前台布局已在上方直接导入
 
 // 路由守卫
 interface ProtectedRouteProps {
