@@ -30,7 +30,17 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: undefined, // 暂时禁用手动分包，使用Vite默认策略
+        manualChunks: {
+          // 核心 React 库
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // UI 框架
+          'ui-vendor': ['sonner', 'lucide-react'],
+          // 大型库单独分包（按需加载）
+          'xlsx': ['xlsx'],
+          'recharts': ['recharts'],
+          'html2canvas': ['html2canvas'],
+          'framer-motion': ['framer-motion'],
+        },
       },
     },
     chunkSizeWarningLimit: 1500,
