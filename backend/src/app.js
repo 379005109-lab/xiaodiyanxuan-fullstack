@@ -78,6 +78,9 @@ app.use('/api/bargains', require('./routes/bargains'))
 app.use('/api/packages', require('./routes/packages'))
 app.use('/api/buying-service-requests', require('./routes/buyingService'))
 
+// 微信小程序专用接口
+app.use('/api/miniapp', require('./routes/miniapp'))
+
 // 404 处理
 app.use((req, res) => {
   res.status(404).json({
