@@ -432,32 +432,44 @@ export default function ProductManagement() {
           if (filterKeywords.length > 0) {
             console.log(`  使用关键词筛选: [${filterKeywords.join(', ')}]`);
             
-            filterKeywords.forEach(keyword => {
-              // 筛选包含该关键词的材质（必须在类别范围内）
-              const filtered = allCategorySkus.filter(sku => {
-                // 从材质名称中提取 SKU 部分（类别后面的部分）
-                const skuPart = sku.replace(colorFilterCategory + '-', '')
-                                   .replace(colorFilterCategory + '—', '');
-                // 检查 SKU 部分是否以关键词开头或包含关键词
-                return skuPart.startsWith(keyword + '-') || 
-                       skuPart.startsWith(keyword + '—') ||
-                       skuPart === keyword ||
-                       skuPart.includes('-' + keyword + '-') ||
-                       skuPart.includes('-' + keyword);
+            // 检查是否面料列内容就是类别名称本身（如面料列="A类油蜡皮"，颜色列也是"A类油蜡皮"）
+            const isCategoryName = filterKeywords.some(kw => 
+              kw === colorFilterCategory || 
+              colorFilterCategory.includes(kw) ||
+              kw.includes(colorFilterCategory.replace(/类$/, ''))
+            );
+            
+            if (isCategoryName) {
+              // 面料列填的就是类别名，返回该类别下的所有材质
+              matchedNames.push(...allCategorySkus);
+              console.log(`✓ 面料列内容是类别名，使用类别下所有 ${allCategorySkus.length} 个SKU`);
+            } else {
+              // 面料列填的是具体颜色名（如"希腊"），进行精确筛选
+              filterKeywords.forEach(keyword => {
+                // 筛选包含该关键词的材质（必须在类别范围内）
+                const filtered = allCategorySkus.filter(sku => {
+                  // 从材质名称中提取 SKU 部分（类别后面的部分）
+                  const skuPart = sku.replace(colorFilterCategory + '-', '')
+                                     .replace(colorFilterCategory + '—', '');
+                  // 检查 SKU 部分是否以关键词开头或包含关键词
+                  return skuPart.startsWith(keyword + '-') || 
+                         skuPart.startsWith(keyword + '—') ||
+                         skuPart === keyword ||
+                         skuPart.includes('-' + keyword + '-') ||
+                         skuPart.includes('-' + keyword);
+                });
+                
+                if (filtered.length > 0) {
+                  matchedNames.push(...filtered);
+                  console.log(`✓ 关键词 "${keyword}" 匹配: ${filtered.length} 个SKU`);
+                } else {
+                  console.log(`⚠️ 关键词 "${keyword}" 未匹配到任何SKU`);
+                }
               });
-              
-              if (filtered.length > 0) {
-                matchedNames.push(...filtered);
-                console.log(`✓ 关键词 "${keyword}" 匹配: ${filtered.length} 个SKU`);
-              } else {
-                console.log(`⚠️ 关键词 "${keyword}" 未匹配到任何SKU`);
-              }
-            });
+            }
           } else {
-            // 【重要修改】如果面料列为空，不添加任何材质，让用户手动选择
-            console.log(`  ⚠️ 面料列为空，不自动添加材质。用户需在面料列填写具体颜色名称（如：希腊）`);
-            // 不再自动添加所有类别材质
-            // matchedNames.push(...allCategorySkus);
+            // 面料列为空，不添加任何材质
+            console.log(`  ⚠️ 面料列为空，不自动添加材质`);
           }
           
           if (matchedNames.length > 0) {
