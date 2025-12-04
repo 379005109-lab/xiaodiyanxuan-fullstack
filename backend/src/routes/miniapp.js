@@ -598,7 +598,7 @@ router.post('/orders', auth, async (req, res) => {
     // 创建订单
     const order = await Order.create({
       orderNo,
-      user: req.userId,
+      userId: req.userId,
       items: goods.map(g => ({
         product: g.goodsId,
         productName: g.name,
@@ -768,21 +768,63 @@ router.get('/packages/:id', async (req, res) => {
       return res.status(404).json(error(404, '套餐不存在'))
     }
 
-    // 获取套餐中的商品详情
-    const productIds = pkg.products?.map(p => p.productId) || []
-    const products = await Product.find({ _id: { $in: productIds } }).lean()
-    const productMap = new Map(products.map(p => [p._id.toString(), p]))
+    // 处理 categories 格式（新格式：按类别分组商品）
+    let categoriesWithDetail = []
+    if (pkg.categories && pkg.categories.length > 0) {
+      // 收集所有商品ID
+      const allProductIds = []
+      pkg.categories.forEach(cat => {
+        if (cat.products) {
+          cat.products.forEach(p => {
+            const pid = typeof p === 'string' ? p : (p.productId || p._id || p.id)
+            if (pid) allProductIds.push(pid)
+          })
+        }
+      })
+      
+      // 批量查询商品
+      const products = await Product.find({ _id: { $in: allProductIds } }).lean()
+      const productMap = new Map(products.map(p => [p._id.toString(), p]))
+      
+      // 填充每个类别的商品详情
+      categoriesWithDetail = pkg.categories.map(cat => ({
+        name: cat.name || '未分类',
+        required: cat.required || 1,
+        products: (cat.products || []).map(p => {
+          const pid = typeof p === 'string' ? p : (p.productId || p._id || p.id)
+          const product = productMap.get(pid?.toString())
+          return {
+            id: pid?.toString() || '',
+            name: product?.name || p.productName || '商品已下架',
+            image: getImageUrl(product?.images?.[0]),
+            thumb: getImageUrl(product?.images?.[0]),
+            basePrice: product?.basePrice || 0,
+            packagePrice: product?.packagePrice || product?.basePrice || 0,
+            specs: product?.skus?.[0]?.dimensions || '',
+            skus: product?.skus || []
+          }
+        })
+      }))
+    }
+    
+    // 处理 products 格式（旧格式：商品列表）
+    let productsWithDetail = []
+    if (pkg.products && pkg.products.length > 0) {
+      const productIds = pkg.products.map(p => p.productId)
+      const products = await Product.find({ _id: { $in: productIds } }).lean()
+      const productMap = new Map(products.map(p => [p._id.toString(), p]))
 
-    const productsWithDetail = (pkg.products || []).map(item => {
-      const product = productMap.get(item.productId)
-      return {
-        id: item.productId,
-        name: item.productName || product?.name || '',
-        price: item.price || product?.basePrice || 0,
-        quantity: item.quantity || 1,
-        thumb: getImageUrl(product?.images?.[0])
-      }
-    })
+      productsWithDetail = pkg.products.map(item => {
+        const product = productMap.get(item.productId)
+        return {
+          id: item.productId,
+          name: item.productName || product?.name || '',
+          price: item.price || product?.basePrice || 0,
+          quantity: item.quantity || 1,
+          thumb: getImageUrl(product?.images?.[0])
+        }
+      })
+    }
 
     const data = {
       id: pkg._id,
@@ -795,7 +837,7 @@ router.get('/packages/:id', async (req, res) => {
       channelPrice: pkg.channelPrice || 0,
       designerPrice: pkg.designerPrice || 0,
       products: productsWithDetail,
-      categories: pkg.categories || [],
+      categories: categoriesWithDetail,
       sales: pkg.sales || 0
     }
 
