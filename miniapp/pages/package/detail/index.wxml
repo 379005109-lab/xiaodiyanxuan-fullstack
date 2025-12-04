@@ -102,10 +102,6 @@
 							<view class="variant-price" wx:if="{{item.priceDelta}}">+¥{{item.priceDelta}}</view>
 						</view>
 					</view>
-					<!-- 规格尺寸显示在选择规格下方 -->
-					<view class="spec-dims-row">
-						<text class="spec-dims-text">尺寸：{{goodsModalData.dims || '—'}}</text>
-					</view>
 				</view>
 				<!-- 面料选择（材质+颜色合并） -->
 				<view class="goods-modal-section" wx:if="{{goodsModalFabrics.length > 0}}">

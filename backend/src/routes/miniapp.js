@@ -16,6 +16,7 @@ const Package = require('../models/Package')
 const Style = require('../models/Style')
 const Banner = require('../models/Banner')
 const { auth } = require('../middleware/auth')
+const { sendNewOrderNotification } = require('../services/emailService')
 
 // 微信小程序配置
 const WX_APPID = process.env.WX_APPID || ''
@@ -625,6 +626,11 @@ router.post('/orders', auth, async (req, res) => {
       },
       remark,
       createdAt: new Date()
+    })
+
+    // 发送新订单邮件通知（异步，不阻塞响应）
+    sendNewOrderNotification(order).catch(err => {
+      console.error('发送订单通知邮件失败:', err)
     })
 
     res.json(success({
