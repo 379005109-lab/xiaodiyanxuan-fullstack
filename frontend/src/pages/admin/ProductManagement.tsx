@@ -357,13 +357,24 @@ export default function ProductManagement() {
           }
         }
         
-        // 方法3：模糊匹配 - 检查类别前缀是否包含关键词
-        if (materialType) {
+        // 方法3：模糊匹配 - 检查类别前缀是否包含关键词（必须等级也匹配）
+        if (materialType && categoryPrefix) {
           const fuzzyMatch = categoryPrefixes.find(prefix => {
-            // 检查前缀是否以 A-E 开头且包含材质类型
-            const startsWithGrade = /^[A-Ea-e][+]?/.test(prefix);
+            // 必须同时满足：
+            // 1. 前缀以相同的等级开头（如 A类、B类、A+类）
+            // 2. 包含材质类型
+            const prefixGradeMatch = prefix.match(/^([A-Ea-e][+]?)(类)?/);
+            const inputGradeMatch = categoryPrefix.match(/^([A-Ea-e][+]?)(类)?/);
+            if (!prefixGradeMatch || !inputGradeMatch) return false;
+            
+            // 等级必须完全匹配（A 只能匹配 A，不能匹配 B）
+            const prefixGrade = prefixGradeMatch[1].toUpperCase();
+            const inputGrade = inputGradeMatch[1].toUpperCase();
+            if (prefixGrade !== inputGrade) return false;
+            
+            // 还需要包含材质类型
             const containsType = prefix.includes(materialType);
-            return startsWithGrade && containsType;
+            return containsType;
           });
           if (fuzzyMatch) {
             console.log(`✓ 颜色筛选模糊匹配: "${fuzzyMatch}"`);

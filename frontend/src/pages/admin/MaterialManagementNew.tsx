@@ -642,16 +642,25 @@ export default function MaterialManagement() {
       if (material.isCategory) {
         return false
       }
-      // 选中分类时，显示该分类及所有子分类的材质
-      if (selectedCategoryId) {
-        const allowedCategoryIds = getAllCategoryIds(selectedCategoryId)
-        if (!allowedCategoryIds.includes(material.categoryId)) {
+      
+      // 搜索优先级最高 - 如果有搜索词，全局搜索（忽略分类选择）
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const nameMatch = material.name.toLowerCase().includes(query)
+        const categoryMatch = material.categoryName?.toLowerCase().includes(query)
+        if (!nameMatch && !categoryMatch) {
           return false
         }
+      } else {
+        // 没有搜索词时，才按分类筛选
+        if (selectedCategoryId) {
+          const allowedCategoryIds = getAllCategoryIds(selectedCategoryId)
+          if (!allowedCategoryIds.includes(material.categoryId)) {
+            return false
+          }
+        }
       }
-      if (searchQuery && !material.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false
-      }
+      
       if (filterStatus && material.status !== filterStatus) {
         return false
       }
