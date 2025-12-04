@@ -401,33 +401,71 @@ export default function ProductManagement() {
           console.log(`  使用颜色筛选: "${colorFilterCategory}"`);
           matchedCategoryName = colorFilterCategory;
           
-          // 直接用颜色字段值作为前缀来筛选所有材质
-          // 例如：颜色="B类雪尼尔绒"，则匹配所有以"B类雪尼尔绒-"开头的材质
-          const childSkus = allMaterials
+          // 获取所有以该类别开头的材质
+          // 例如：颜色="A类油蜡皮"，则获取所有以"A类油蜡皮-"开头的材质
+          const allCategorySkus = allMaterials
             .filter(m => m.name.startsWith(colorFilterCategory + '-') || 
                          m.name.startsWith(colorFilterCategory + '—'))
             .map(m => m.name);
           
-          if (childSkus.length > 0) {
-            matchedNames.push(...childSkus);
-            console.log(`✓ 颜色筛选匹配: "${colorFilterCategory}" -> 找到 ${childSkus.length} 个SKU`);
-            console.log(`  前3个: ${childSkus.slice(0, 3).join(', ')}`);
-          } else {
-            console.log(`⚠️ 颜色筛选未找到匹配的SKU: "${colorFilterCategory}"`);
-            console.log(`  可用材质示例: ${allMaterials.slice(0, 5).map(m => m.name).join(', ')}`);
-          }
+          console.log(`  类别 "${colorFilterCategory}" 下共有 ${allCategorySkus.length} 个SKU`);
           
-          // 解析面料列中的加价信息
+          // 解析面料列中的内容，用于进一步筛选
           const entries = text.split(/[\n,，、]/).map(s => s.trim()).filter(s => s);
+          const filterKeywords: string[] = [];
+          
           entries.forEach(entry => {
+            // 解析加价格式
             const priceMatch = entry.match(/^(.+?)\s*[+＋]\s*(\d+)$/);
             if (priceMatch) {
               totalUpgradePrice = parseInt(priceMatch[2]) || 0;
-              console.log(`  解析加价: "${entry}" -> 加价=${totalUpgradePrice}元`);
+              const keyword = priceMatch[1].trim();
+              if (keyword) filterKeywords.push(keyword);
+              console.log(`  解析: "${entry}" -> 关键词="${keyword}", 加价=${totalUpgradePrice}元`);
+            } else if (entry) {
+              filterKeywords.push(entry);
+              console.log(`  关键词: "${entry}"`);
             }
           });
           
-          // 直接返回颜色筛选结果，不再继续处理
+          // 如果面料列有具体的筛选关键词，使用它们来筛选
+          if (filterKeywords.length > 0) {
+            console.log(`  使用关键词筛选: [${filterKeywords.join(', ')}]`);
+            
+            filterKeywords.forEach(keyword => {
+              // 筛选包含该关键词的材质（必须在类别范围内）
+              const filtered = allCategorySkus.filter(sku => {
+                // 从材质名称中提取 SKU 部分（类别后面的部分）
+                const skuPart = sku.replace(colorFilterCategory + '-', '')
+                                   .replace(colorFilterCategory + '—', '');
+                // 检查 SKU 部分是否以关键词开头或包含关键词
+                return skuPart.startsWith(keyword + '-') || 
+                       skuPart.startsWith(keyword + '—') ||
+                       skuPart === keyword ||
+                       skuPart.includes('-' + keyword + '-') ||
+                       skuPart.includes('-' + keyword);
+              });
+              
+              if (filtered.length > 0) {
+                matchedNames.push(...filtered);
+                console.log(`✓ 关键词 "${keyword}" 匹配: ${filtered.length} 个SKU`);
+              } else {
+                console.log(`⚠️ 关键词 "${keyword}" 未匹配到任何SKU`);
+              }
+            });
+          } else {
+            // 如果没有筛选关键词，返回类别下的所有材质
+            matchedNames.push(...allCategorySkus);
+            console.log(`  无筛选关键词，使用类别下所有 ${allCategorySkus.length} 个SKU`);
+          }
+          
+          if (matchedNames.length > 0) {
+            console.log(`✓ 最终匹配: ${matchedNames.length} 个SKU，前3个: ${matchedNames.slice(0, 3).join(', ')}`);
+          } else {
+            console.log(`⚠️ 颜色筛选未找到匹配的SKU: "${colorFilterCategory}"`);
+          }
+          
+          // 返回颜色筛选结果
           return { names: [...new Set(matchedNames)], upgradePrice: totalUpgradePrice, categoryName: matchedCategoryName };
         }
         
