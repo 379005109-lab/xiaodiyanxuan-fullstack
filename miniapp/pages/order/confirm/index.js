@@ -471,7 +471,7 @@ Page({
 			}))
 		} else {
 			goods = [{
-				id: 'g1',
+				id: this.data.order.goodsId || 'g1',
 				name: this.data.order.goodsName,
 				code: this.data.order.goodsName,
 				dims: this.data.order.sizeDims,
@@ -486,14 +486,31 @@ Page({
 			}]
 		}
 		
-		// 组装订单数据
+		// 组装订单数据（与后端 API 格式匹配）
 		const orderData = {
 			type: this.data.orderType,
 			totalPrice: totalPrice,
-			goods: goods,
-			name: this.data.name,
-			phone: this.data.phone,
-			address: this.data.address
+			goods: goods.map(g => ({
+				goodsId: g.id,
+				name: g.name,
+				thumb: g.thumb,
+				price: g.price,
+				count: g.count || 1,
+				specs: {
+					size: g.sizeName || g.dims,
+					material: g.fabric,
+					materialColor: g.materialColor,
+					fill: g.fill,
+					frame: g.frame,
+					leg: g.leg
+				}
+			})),
+			receiver: {
+				name: this.data.name,
+				phone: this.data.phone,
+				address: this.data.address
+			},
+			remark: this.data.remark
 		}
 		
 		wx.showLoading({ title: '提交中...' })
