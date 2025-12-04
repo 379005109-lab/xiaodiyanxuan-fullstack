@@ -80,6 +80,8 @@ app.use('/api/buying-service-requests', require('./routes/buyingService'))
 
 // 微信小程序专用接口
 app.use('/api/miniapp', require('./routes/miniapp'))
+// 兼容小程序端 /api/miniapp/api/xxx 格式的请求
+app.use('/api/miniapp/api', require('./routes/miniapp'))
 
 // 404 处理
 app.use((req, res) => {
