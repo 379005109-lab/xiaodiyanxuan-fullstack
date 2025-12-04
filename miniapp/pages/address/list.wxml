@@ -1,0 +1,11 @@
+<view class="container">
+  <view class="address-item" wx:for="{{list}}" wx:key="id" bindtap="selectAddress" data-index="{{index}}">
+    <view class="info">
+      <text class="name">{{item.name}} {{item.phone}}</text>
+      <text class="detail">{{item.province}}{{item.city}}{{item.district}}{{item.detail}}</text>
+    </view>
+    <view class="edit" catchtap="goEdit" data-id="{{item.id}}">编辑</view>
+  </view>
+  <view class="empty" wx:if="{{list.length === 0}}">暂无地址</view>
+  <view class="add-btn" bindtap="goEdit">+ 添加新地址</view>
+</view>

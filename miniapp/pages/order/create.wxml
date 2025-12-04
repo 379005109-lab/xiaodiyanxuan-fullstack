@@ -1,0 +1,26 @@
+<view class="container">
+  <view class="address-section" bindtap="selectAddress">
+    <view wx:if="{{address}}">
+      <text class="name">{{address.name}} {{address.phone}}</text>
+      <text class="detail">{{address.province}}{{address.city}}{{address.district}}{{address.detail}}</text>
+    </view>
+    <text wx:else>请选择收货地址 ></text>
+  </view>
+  <view class="goods-section">
+    <view class="goods-item" wx:for="{{goods}}" wx:key="goodsId">
+      <image src="{{item.thumb}}" mode="aspectFill"/>
+      <view class="info">
+        <text class="name">{{item.name}}</text>
+        <text class="price">¥{{item.price}} x{{item.count}}</text>
+      </view>
+    </view>
+  </view>
+  <view class="remark-section">
+    <text>备注</text>
+    <input placeholder="选填" bindinput="inputRemark"/>
+  </view>
+  <view class="bottom-bar">
+    <text class="total">合计: ¥{{totalPrice}}</text>
+    <view class="submit-btn" bindtap="submit">提交订单</view>
+  </view>
+</view>

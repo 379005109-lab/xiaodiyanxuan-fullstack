@@ -1,0 +1,16 @@
+<view class="container">
+  <view class="search-bar">
+    <input class="search-input" placeholder="搜索家具" value="{{keyword}}" bindinput="inputKeyword" bindconfirm="search"/>
+    <view class="search-btn" bindtap="search">搜索</view>
+  </view>
+  <view class="result-list" wx:if="{{searched}}">
+    <view class="goods-item" wx:for="{{list}}" wx:key="id" bindtap="goDetail" data-id="{{item.id}}">
+      <image src="{{item.cover}}" mode="aspectFill"/>
+      <view class="info">
+        <text class="name">{{item.name}}</text>
+        <text class="price">¥{{item.price}}</text>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{list.length === 0 && !loading}}">未找到相关商品</view>
+  </view>
+</view>

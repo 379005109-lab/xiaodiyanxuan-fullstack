@@ -1,0 +1,99 @@
+<!--商品详情-->
+<view class="container" wx:if="{{goods}}">
+  <!-- 商品图片轮播 -->
+  <swiper class="goods-swiper" indicator-dots autoplay circular>
+    <swiper-item wx:for="{{goods.images}}" wx:key="index">
+      <image src="{{item}}" mode="aspectFill" class="goods-image"
+        bindtap="previewImage" data-index="{{index}}"/>
+    </swiper-item>
+  </swiper>
+
+  <!-- 商品信息 -->
+  <view class="goods-info">
+    <view class="price-row">
+      <text class="price">¥{{totalPrice}}</text>
+      <text class="original-price" wx:if="{{goods.originalPrice > goods.price}}">
+        ¥{{goods.originalPrice}}
+      </text>
+    </view>
+    <text class="goods-name">{{goods.name}}</text>
+    <view class="tags">
+      <text class="tag" wx:if="{{goods.sales}}">已售{{goods.sales}}件</text>
+      <text class="tag">{{goods.style || '现代风格'}}</text>
+    </view>
+  </view>
+
+  <!-- 规格选择 -->
+  <view class="spec-section">
+    <!-- 尺寸 -->
+    <view class="spec-item" wx:if="{{goods.sizes.length > 0}}">
+      <text class="spec-title">尺寸</text>
+      <view class="spec-options">
+        <view class="spec-option {{selectedSize.id === item.id ? 'active' : ''}}"
+          wx:for="{{goods.sizes}}" wx:key="id"
+          bindtap="selectSize" data-index="{{index}}">
+          <text>{{item.name}}</text>
+          <text class="dims" wx:if="{{item.dims}}">{{item.dims}}</text>
+          <text class="extra" wx:if="{{item.extra > 0}}">+¥{{item.extra}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 材质 -->
+    <view class="spec-item" wx:if="{{goods.materialsGroups.length > 0}}">
+      <text class="spec-title">材质</text>
+      <view class="spec-options">
+        <view class="spec-option {{selectedMaterial.id === item.id ? 'active' : ''}}"
+          wx:for="{{goods.materialsGroups}}" wx:key="id"
+          bindtap="selectMaterial" data-index="{{index}}">
+          {{item.name}}
+        </view>
+      </view>
+    </view>
+
+    <!-- 颜色 -->
+    <view class="spec-item" wx:if="{{selectedMaterial.colors.length > 0}}">
+      <text class="spec-title">颜色</text>
+      <view class="color-options">
+        <view class="color-option {{selectedColor.id === item.id ? 'active' : ''}}"
+          wx:for="{{selectedMaterial.colors}}" wx:key="id"
+          bindtap="selectColor" data-index="{{index}}">
+          <image src="{{item.image}}" mode="aspectFill" wx:if="{{item.image}}"/>
+          <text>{{item.name}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 数量 -->
+    <view class="spec-item quantity-row">
+      <text class="spec-title">数量</text>
+      <view class="quantity-control">
+        <view class="qty-btn" bindtap="changeQuantity" data-type="minus">-</view>
+        <text class="qty-num">{{quantity}}</text>
+        <view class="qty-btn" bindtap="changeQuantity" data-type="plus">+</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 商品描述 -->
+  <view class="desc-section" wx:if="{{goods.description}}">
+    <text class="section-title">商品描述</text>
+    <text class="desc-text">{{goods.description}}</text>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar">
+    <view class="action-btns">
+      <view class="action-btn" bindtap="addToCart">
+        <text class="action-icon">🛒</text>
+        <text>加入购物车</text>
+      </view>
+    </view>
+    <view class="buy-btn" bindtap="buyNow">立即购买</view>
+  </view>
+</view>
+
+<!-- 加载中 -->
+<view class="loading" wx:if="{{loading}}">
+  <text>加载中...</text>
+</view>

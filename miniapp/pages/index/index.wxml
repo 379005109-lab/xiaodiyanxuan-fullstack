@@ -1,0 +1,67 @@
+<!--首页-->
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-bar" bindtap="onSearch">
+    <view class="search-input">
+      <text class="icon">🔍</text>
+      <text class="placeholder">搜索家具</text>
+    </view>
+  </view>
+
+  <!-- 轮播图 -->
+  <swiper class="banner" wx:if="{{banners.length > 0}}"
+    indicator-dots autoplay interval="3000" circular>
+    <swiper-item wx:for="{{banners}}" wx:key="index">
+      <image src="{{item.image}}" mode="aspectFill" class="banner-image"/>
+    </swiper-item>
+  </swiper>
+
+  <!-- 快捷入口 -->
+  <view class="quick-nav">
+    <view class="nav-item" bindtap="goList" data-category="sofa">
+      <view class="nav-icon">🛋️</view>
+      <text>沙发</text>
+    </view>
+    <view class="nav-item" bindtap="goList" data-category="bed">
+      <view class="nav-icon">🛏️</view>
+      <text>床</text>
+    </view>
+    <view class="nav-item" bindtap="goList" data-category="table">
+      <view class="nav-icon">🪑</view>
+      <text>桌椅</text>
+    </view>
+    <view class="nav-item" bindtap="goList" data-category="cabinet">
+      <view class="nav-icon">🗄️</view>
+      <text>柜子</text>
+    </view>
+  </view>
+
+  <!-- 热门商品 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">热门推荐</text>
+      <text class="section-more" bindtap="goList">查看更多 ></text>
+    </view>
+    
+    <view class="goods-grid">
+      <view class="goods-item" wx:for="{{hotGoods}}" wx:key="id" 
+        bindtap="goDetail" data-id="{{item.id}}">
+        <image class="goods-image" src="{{item.cover}}" mode="aspectFill"/>
+        <view class="goods-info">
+          <text class="goods-name">{{item.name}}</text>
+          <view class="goods-price">
+            <text class="price">¥{{item.price}}</text>
+            <text class="original-price" wx:if="{{item.originalPrice > item.price}}">
+              ¥{{item.originalPrice}}
+            </text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

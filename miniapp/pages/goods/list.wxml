@@ -1,0 +1,13 @@
+<view class="container">
+  <view class="goods-grid">
+    <view class="goods-item" wx:for="{{list}}" wx:key="id" bindtap="goDetail" data-id="{{item.id}}">
+      <image class="goods-image" src="{{item.cover}}" mode="aspectFill"/>
+      <view class="goods-info">
+        <text class="goods-name">{{item.name}}</text>
+        <text class="goods-price">¥{{item.price}}</text>
+      </view>
+    </view>
+  </view>
+  <view class="loading" wx:if="{{loading}}">加载中...</view>
+  <view class="no-more" wx:if="{{!hasMore && list.length > 0}}">没有更多了</view>
+</view>
