@@ -156,16 +156,23 @@ router.get('/home', async (req, res) => {
       .lean()
 
     // 转换格式
-    const formattedGoods = hotGoods.map(p => ({
-      id: p._id,
-      name: p.name,
-      price: p.basePrice || p.price || 0,
-      originalPrice: p.originalPrice || p.basePrice || p.price || 0,
-      cover: getImageUrl(p.images?.[0]),
-      sales: p.sales || 0,
-      category: p.category?.name || '',
-      style: Array.isArray(p.styles) ? p.styles[0] : (p.style || '')
-    }))
+    const formattedGoods = hotGoods.map(p => {
+      const imageUrl = getImageUrl(p.images?.[0])
+      return {
+        id: p._id,
+        name: p.name,
+        price: p.basePrice || p.price || 0,
+        originalPrice: p.originalPrice || p.basePrice || p.price || 0,
+        // 多个图片字段名兼容
+        cover: imageUrl,
+        image: imageUrl,
+        thumb: imageUrl,
+        pic: imageUrl,
+        sales: p.sales || 0,
+        category: p.category?.name || '',
+        style: Array.isArray(p.styles) ? p.styles[0] : (p.style || '')
+      }
+    })
 
     res.json(success({
       banners: [],
@@ -199,16 +206,23 @@ router.get('/goods/list', async (req, res) => {
       .limit(parseInt(pageSize))
       .lean()
 
-    const list = products.map(p => ({
-      id: p._id,
-      name: p.name,
-      price: p.basePrice || p.price || 0,
-      originalPrice: p.originalPrice || p.basePrice || p.price || 0,
-      cover: getImageUrl(p.images?.[0]),
-      sales: p.sales || 0,
-      category: p.category?.name || '',
-      style: Array.isArray(p.styles) ? p.styles[0] : (p.style || '')
-    }))
+    const list = products.map(p => {
+      const imageUrl = getImageUrl(p.images?.[0])
+      return {
+        id: p._id,
+        name: p.name,
+        price: p.basePrice || p.price || 0,
+        originalPrice: p.originalPrice || p.basePrice || p.price || 0,
+        // 多个图片字段名兼容不同小程序前端
+        cover: imageUrl,
+        image: imageUrl,
+        thumb: imageUrl,
+        pic: imageUrl,
+        sales: p.sales || 0,
+        category: p.category?.name || '',
+        style: Array.isArray(p.styles) ? p.styles[0] : (p.style || '')
+      }
+    })
 
     res.json(success({ list, total, page: parseInt(page), pageSize: parseInt(pageSize) }))
   } catch (err) {
@@ -226,27 +240,27 @@ router.get('/goods/:id', async (req, res) => {
       return res.status(404).json(error(404, '商品不存在'))
     }
 
-    // 从 specifications 对象提取尺寸规格
+    // 从 skus 提取规格信息（优先使用 skus）
     const sizes = []
-    if (product.specifications && typeof product.specifications === 'object') {
-      Object.entries(product.specifications).forEach(([specName, dims], index) => {
-        sizes.push({
-          id: `spec_${index}`,
-          name: specName,
-          dims: dims || '',
-          extra: 0
-        })
-      })
-    }
-    // 如果没有 specifications，从 skus 提取
-    if (sizes.length === 0 && product.skus) {
+    if (product.skus && product.skus.length > 0) {
       product.skus.forEach((sku, index) => {
+        // 获取对应的尺寸信息
+        const specName = sku.spec || sku.name || `规格${index + 1}`
+        let dims = ''
+        // 从 specifications 对象获取尺寸
+        if (product.specifications && product.specifications[specName]) {
+          dims = product.specifications[specName]
+        } else if (sku.length && sku.width && sku.height) {
+          dims = `${sku.length}x${sku.width}x${sku.height}CM`
+        }
+        
         sizes.push({
           id: sku._id || `sku_${index}`,
-          name: sku.spec || sku.name || `规格${index + 1}`,
-          dims: sku.length && sku.width && sku.height ? `${sku.length}x${sku.width}x${sku.height}CM` : '',
+          name: specName,
+          dims: dims,
+          price: sku.price || product.basePrice || 0,
           extra: (sku.price || 0) - (product.basePrice || 0),
-          price: sku.price || product.basePrice || 0
+          images: (sku.images || []).map(img => getImageUrl(img))
         })
       })
     }
@@ -268,20 +282,23 @@ router.get('/goods/:id', async (req, res) => {
       })
     }
 
+    // 只有有材质数据时才添加
     const materialsGroups = []
     let groupIndex = 0
     materialsMap.forEach((materials, categoryName) => {
-      materialsGroups.push({
-        id: `material_${groupIndex}`,
-        name: categoryName,
-        extra: 0,
-        colors: Array.from(materials).map((name, i) => ({
-          id: `color_${groupIndex}_${i}`,
-          name: name,
-          image: ''
-        }))
-      })
-      groupIndex++
+      if (materials.size > 0) {
+        materialsGroups.push({
+          id: `material_${groupIndex}`,
+          name: categoryName,
+          extra: 0,
+          colors: Array.from(materials).map((name, i) => ({
+            id: `color_${groupIndex}_${i}`,
+            name: name,
+            image: ''
+          }))
+        })
+        groupIndex++
+      }
     })
 
     // 转换为小程序需要的格式
@@ -296,11 +313,33 @@ router.get('/goods/:id', async (req, res) => {
       style: Array.isArray(product.styles) ? product.styles[0] : (product.style || ''),
       sales: product.sales || 0,
       stock: product.stock || 999,
-      sizes: sizes,
-      materialsGroups: materialsGroups,
-      fills: [],
-      frames: [],
-      legs: []
+      // 只返回有数据的字段
+      sizes: sizes.length > 0 ? sizes : undefined,
+      materialsGroups: materialsGroups.length > 0 ? materialsGroups : undefined
+    }
+
+    // 内部结构 - 只有有数据时才添加
+    // fills, frames, legs 等字段在有数据时才返回
+    if (product.fills && product.fills.length > 0) {
+      data.fills = product.fills.map((f, i) => ({
+        id: `fill_${i}`,
+        name: f.name || f,
+        image: getImageUrl(f.image)
+      }))
+    }
+    if (product.frames && product.frames.length > 0) {
+      data.frames = product.frames.map((f, i) => ({
+        id: `frame_${i}`,
+        name: f.name || f,
+        image: getImageUrl(f.image)
+      }))
+    }
+    if (product.legs && product.legs.length > 0) {
+      data.legs = product.legs.map((f, i) => ({
+        id: `leg_${i}`,
+        name: f.name || f,
+        image: getImageUrl(f.image)
+      }))
     }
 
     res.json(success(data))
@@ -332,14 +371,20 @@ router.get('/goods/search', async (req, res) => {
       .limit(parseInt(pageSize))
       .lean()
 
-    const list = products.map(p => ({
-      id: p._id,
-      name: p.name,
-      price: p.basePrice || p.price || 0,
-      originalPrice: p.originalPrice || p.basePrice || p.price || 0,
-      cover: getImageUrl(p.images?.[0]),
-      sales: p.sales || 0
-    }))
+    const list = products.map(p => {
+      const imageUrl = getImageUrl(p.images?.[0])
+      return {
+        id: p._id,
+        name: p.name,
+        price: p.basePrice || p.price || 0,
+        originalPrice: p.originalPrice || p.basePrice || p.price || 0,
+        cover: imageUrl,
+        image: imageUrl,
+        thumb: imageUrl,
+        pic: imageUrl,
+        sales: p.sales || 0
+      }
+    })
 
     res.json(success({ list, total }))
   } catch (err) {
