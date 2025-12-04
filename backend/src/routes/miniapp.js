@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const Product = require('../models/Product')
 const Order = require('../models/Order')
+const Category = require('../models/Category')
 const { auth } = require('../middleware/auth')
 
 // 微信小程序配置
@@ -108,11 +109,48 @@ router.get('/user/info', auth, async (req, res) => {
   }
 })
 
-// ========== 3. 首页数据 ==========
+// ========== 3. 分类列表 ==========
+router.get('/categories', async (req, res) => {
+  try {
+    const categories = await Category.find({ status: 'active', level: 1 })
+      .sort({ order: 1 })
+      .lean()
+
+    const list = categories.map(c => ({
+      id: c._id,
+      name: c.name,
+      image: getImageUrl(c.image),
+      children: (c.children || []).map(child => ({
+        id: child._id,
+        name: child.name,
+        image: getImageUrl(child.image)
+      }))
+    }))
+
+    res.json(success(list))
+  } catch (err) {
+    res.status(500).json(error(500, err.message))
+  }
+})
+
+// ========== 4. 首页数据 ==========
 router.get('/home', async (req, res) => {
   try {
+    // 获取分类
+    const categories = await Category.find({ status: 'active', level: 1 })
+      .sort({ order: 1 })
+      .limit(8)
+      .lean()
+
+    const categoryList = categories.map(c => ({
+      id: c._id,
+      name: c.name,
+      image: getImageUrl(c.image)
+    }))
+
     // 获取热门商品
     const hotGoods = await Product.find({ status: 'active' })
+      .populate('category', 'name')
       .sort({ sales: -1 })
       .limit(6)
       .lean()
@@ -126,11 +164,12 @@ router.get('/home', async (req, res) => {
       cover: getImageUrl(p.images?.[0]),
       sales: p.sales || 0,
       category: p.category?.name || '',
-      style: p.style || ''
+      style: Array.isArray(p.styles) ? p.styles[0] : (p.style || '')
     }))
 
     res.json(success({
       banners: [],
+      categories: categoryList,
       hotGoods: formattedGoods
     }))
   } catch (err) {
@@ -138,22 +177,23 @@ router.get('/home', async (req, res) => {
   }
 })
 
-// ========== 4. 商品列表 ==========
+// ========== 5. 商品列表 ==========
 router.get('/goods/list', async (req, res) => {
   try {
     const { page = 1, pageSize = 10, category, style, sort } = req.query
     
     const query = { status: 'active' }
-    if (category) query['category.name'] = category
-    if (style) query.style = style
+    if (category) query.category = category  // 使用分类ID筛选
+    if (style) query.styles = style
 
     let sortOption = { createdAt: -1 }
-    if (sort === 'price_asc') sortOption = { price: 1 }
-    if (sort === 'price_desc') sortOption = { price: -1 }
+    if (sort === 'price_asc') sortOption = { basePrice: 1 }
+    if (sort === 'price_desc') sortOption = { basePrice: -1 }
     if (sort === 'sales') sortOption = { sales: -1 }
 
     const total = await Product.countDocuments(query)
     const products = await Product.find(query)
+      .populate('category', 'name')
       .sort(sortOption)
       .skip((page - 1) * pageSize)
       .limit(parseInt(pageSize))
@@ -167,7 +207,7 @@ router.get('/goods/list', async (req, res) => {
       cover: getImageUrl(p.images?.[0]),
       sales: p.sales || 0,
       category: p.category?.name || '',
-      style: p.style || ''
+      style: Array.isArray(p.styles) ? p.styles[0] : (p.style || '')
     }))
 
     res.json(success({ list, total, page: parseInt(page), pageSize: parseInt(pageSize) }))
@@ -176,13 +216,73 @@ router.get('/goods/list', async (req, res) => {
   }
 })
 
-// ========== 5. 商品详情 ==========
+// ========== 6. 商品详情 ==========
 router.get('/goods/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).lean()
+    const product = await Product.findById(req.params.id)
+      .populate('category', 'name')
+      .lean()
     if (!product) {
       return res.status(404).json(error(404, '商品不存在'))
     }
+
+    // 从 specifications 对象提取尺寸规格
+    const sizes = []
+    if (product.specifications && typeof product.specifications === 'object') {
+      Object.entries(product.specifications).forEach(([specName, dims], index) => {
+        sizes.push({
+          id: `spec_${index}`,
+          name: specName,
+          dims: dims || '',
+          extra: 0
+        })
+      })
+    }
+    // 如果没有 specifications，从 skus 提取
+    if (sizes.length === 0 && product.skus) {
+      product.skus.forEach((sku, index) => {
+        sizes.push({
+          id: sku._id || `sku_${index}`,
+          name: sku.spec || sku.name || `规格${index + 1}`,
+          dims: sku.length && sku.width && sku.height ? `${sku.length}x${sku.width}x${sku.height}CM` : '',
+          extra: (sku.price || 0) - (product.basePrice || 0),
+          price: sku.price || product.basePrice || 0
+        })
+      })
+    }
+
+    // 从 skus 中的 material 提取材质信息
+    const materialsMap = new Map()
+    if (product.skus) {
+      product.skus.forEach(sku => {
+        if (sku.material && typeof sku.material === 'object') {
+          Object.entries(sku.material).forEach(([categoryName, materials]) => {
+            if (!materialsMap.has(categoryName)) {
+              materialsMap.set(categoryName, new Set())
+            }
+            if (Array.isArray(materials)) {
+              materials.forEach(m => materialsMap.get(categoryName).add(m))
+            }
+          })
+        }
+      })
+    }
+
+    const materialsGroups = []
+    let groupIndex = 0
+    materialsMap.forEach((materials, categoryName) => {
+      materialsGroups.push({
+        id: `material_${groupIndex}`,
+        name: categoryName,
+        extra: 0,
+        colors: Array.from(materials).map((name, i) => ({
+          id: `color_${groupIndex}_${i}`,
+          name: name,
+          image: ''
+        }))
+      })
+      groupIndex++
+    })
 
     // 转换为小程序需要的格式
     const data = {
@@ -193,27 +293,11 @@ router.get('/goods/:id', async (req, res) => {
       images: (product.images || []).map(img => getImageUrl(img)),
       description: product.description || '',
       category: product.category?.name || '',
-      style: product.style || '',
+      style: Array.isArray(product.styles) ? product.styles[0] : (product.style || ''),
       sales: product.sales || 0,
       stock: product.stock || 999,
-      // SKU 规格转换
-      sizes: (product.skus || []).map(sku => ({
-        id: sku._id || sku.id,
-        name: sku.name || sku.spec,
-        dims: sku.dimensions || '',
-        extra: sku.priceAdjustment || 0
-      })),
-      // 材质转换
-      materialsGroups: (product.materialCategories || []).map(mc => ({
-        id: mc._id || mc.id,
-        name: mc.name,
-        extra: 0,
-        colors: (mc.materials || []).map(m => ({
-          id: m._id || m.id,
-          name: m.name,
-          image: getImageUrl(m.image)
-        }))
-      })),
+      sizes: sizes,
+      materialsGroups: materialsGroups,
       fills: [],
       frames: [],
       legs: []
