@@ -70,13 +70,12 @@ page { background: var(--color-bg); color: var(--color-text); }
 /* 规格尺寸行 */
 .spec-dims-row { margin-top: 16rpx; padding: 16rpx 20rpx; background: var(--color-bg); border-radius: 12rpx; }
 .spec-dims-text { font-size: 24rpx; color: #6B7280; }
-/* 面料选择网格 */
-.fabric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16rpx; }
-.fabric-item { display: flex; flex-direction: column; align-items: center; gap: 8rpx; padding: 12rpx; border-radius: 12rpx; border: 2rpx solid transparent; background: var(--color-bg); }
-.fabric-item.active { border-color: var(--color-primary); background: rgba(20, 69, 47, 0.08); }
-.fabric-img { width: 80rpx; height: 80rpx; border-radius: 8rpx; }
-.fabric-name { font-size: 20rpx; color: var(--color-text); text-align: center; line-height: 1.3; }
-.fabric-item.active .fabric-name { color: var(--color-primary); font-weight: 600; }
+/* 面料选择列表 */
+.fabric-list { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.fabric-chip { padding: 16rpx 24rpx; border-radius: 24rpx; background: var(--color-bg); border: 2rpx solid transparent; }
+.fabric-chip.active { border-color: var(--color-primary); background: rgba(20, 69, 47, 0.08); }
+.fabric-chip-text { font-size: 24rpx; color: var(--color-text); }
+.fabric-chip.active .fabric-chip-text { color: var(--color-primary); font-weight: 600; }
 /* 规格选择 */
 .variant-list { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .variant-chip { min-width: 160rpx; padding: 16rpx 20rpx; border-radius: 12rpx; background: var(--color-bg); color: var(--color-text); display: flex; flex-direction: column; gap: 6rpx; box-sizing: border-box; border: 2rpx solid transparent; }

@@ -106,10 +106,9 @@
 				<!-- 面料选择（材质+颜色合并） -->
 				<view class="goods-modal-section" wx:if="{{goodsModalFabrics.length > 0}}">
 					<view class="goods-modal-label">选择面料</view>
-					<view class="fabric-grid">
-						<view class="fabric-item {{goodsModalFabricIndex===index?'active':''}}" wx:for="{{goodsModalFabrics}}" wx:key="id" data-index="{{index}}" bindtap="onSelectFabric">
-							<image class="fabric-img" src="{{item.img}}" mode="aspectFill"></image>
-							<view class="fabric-name">{{item.name}}</view>
+					<view class="fabric-list">
+						<view class="fabric-chip {{goodsModalFabricIndex===index?'active':''}}" wx:for="{{goodsModalFabrics}}" wx:key="id" data-index="{{index}}" bindtap="onSelectFabric">
+							<text class="fabric-chip-text">{{item.name}}</text>
 						</view>
 					</view>
 				</view>
