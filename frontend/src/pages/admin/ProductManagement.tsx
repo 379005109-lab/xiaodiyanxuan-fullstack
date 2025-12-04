@@ -454,9 +454,10 @@ export default function ProductManagement() {
               }
             });
           } else {
-            // 如果没有筛选关键词，返回类别下的所有材质
-            matchedNames.push(...allCategorySkus);
-            console.log(`  无筛选关键词，使用类别下所有 ${allCategorySkus.length} 个SKU`);
+            // 【重要修改】如果面料列为空，不添加任何材质，让用户手动选择
+            console.log(`  ⚠️ 面料列为空，不自动添加材质。用户需在面料列填写具体颜色名称（如：希腊）`);
+            // 不再自动添加所有类别材质
+            // matchedNames.push(...allCategorySkus);
           }
           
           if (matchedNames.length > 0) {
