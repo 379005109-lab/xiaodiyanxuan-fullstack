@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs')
 const crypto = require('crypto')
+const mongoose = require('mongoose')
 const User = require('../models/User')
 const Organization = require('../models/Organization')
 const { successResponse, errorResponse } = require('../utils/response')
@@ -264,6 +265,11 @@ const updateUser = async (req, res) => {
     const { id } = req.params
     const updates = req.body
     const currentUser = req.user
+    
+    // 验证 ObjectId 格式
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json(errorResponse('无效的用户ID'))
+    }
     
     const user = await User.findById(id)
     if (!user) {

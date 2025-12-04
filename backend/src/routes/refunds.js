@@ -1,8 +1,12 @@
 const express = require('express')
 const router = express.Router()
+const mongoose = require('mongoose')
 const Refund = require('../models/Refund')
 const Order = require('../models/Order')
 const { auth } = require('../middleware/auth')
+
+// 验证 ObjectId
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id)
 
 // 获取退款列表
 router.get('/', auth, async (req, res) => {
@@ -107,12 +111,17 @@ router.post('/', auth, async (req, res) => {
 router.put('/:id/handle', auth, async (req, res) => {
   try {
     const { action, handleRemark } = req.body
+    const refundId = req.params.id
     
     if (!['approve', 'reject'].includes(action)) {
       return res.status(400).json({ success: false, message: '无效的操作' })
     }
     
-    const refund = await Refund.findById(req.params.id)
+    if (!isValidObjectId(refundId)) {
+      return res.status(400).json({ success: false, message: '无效的退款ID' })
+    }
+    
+    const refund = await Refund.findById(refundId)
     if (!refund) {
       return res.status(404).json({ success: false, message: '退款记录不存在' })
     }
