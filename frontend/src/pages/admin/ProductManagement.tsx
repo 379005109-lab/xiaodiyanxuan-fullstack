@@ -201,8 +201,16 @@ export default function ProductManagement() {
       console.log('总行数（包括表头）:', jsonData.length);
 
       // 加载材质库数据用于自动匹配
-      const allMaterials = await getAllMaterials();
+      let allMaterials = await getAllMaterials();
       const materialCategories = await getAllMaterialCategories();
+      
+      // 过滤掉名称中包含换行符的错误材质数据
+      const badMaterialCount = allMaterials.filter(m => m.name && m.name.includes('\n')).length;
+      if (badMaterialCount > 0) {
+        console.warn(`⚠️ 发现 ${badMaterialCount} 个包含换行符的错误材质，已过滤`);
+        allMaterials = allMaterials.filter(m => !m.name || !m.name.includes('\n'));
+      }
+      
       console.log('材质库数据:', allMaterials.length, '个材质,', materialCategories.length, '个分类');
 
       // 分离类别材质和SKU材质
