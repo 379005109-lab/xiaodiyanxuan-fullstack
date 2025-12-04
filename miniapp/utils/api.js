@@ -342,7 +342,7 @@ function confirmOrder(orderId) {
  */
 function getBargainGoods() {
   return request({
-    url: '/api/bargain/goods',
+    url: '/api/bargains',
     method: 'GET',
     needAuth: false
   })
@@ -352,11 +352,11 @@ function getBargainGoods() {
  * 发起砍价
  * @param {String} goodsId 商品ID
  */
-function startBargain(goodsId) {
+function startBargain(productId, productName, originalPrice, targetPrice, coverImage) {
   return request({
-    url: '/api/bargain/start',
+    url: '/api/bargains',
     method: 'POST',
-    data: { goodsId }
+    data: { productId, productName, originalPrice, targetPrice, coverImage }
   })
 }
 
@@ -365,7 +365,7 @@ function startBargain(goodsId) {
  */
 function getMyBargains() {
   return request({
-    url: '/api/bargain/my',
+    url: '/api/bargains/my',
     method: 'GET'
   })
 }
@@ -376,7 +376,7 @@ function getMyBargains() {
  */
 function helpBargain(bargainId) {
   return request({
-    url: `/api/bargain/${bargainId}/help`,
+    url: `/api/bargains/${bargainId}/help`,
     method: 'POST'
   })
 }

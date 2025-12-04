@@ -270,8 +270,10 @@ const updateUser = async (req, res) => {
       return res.status(404).json(errorResponse('用户不存在'))
     }
     
-    // 权限检查
-    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+    // 权限检查 - 超级管理员或 admin 角色可以修改所有用户
+    const isAdmin = ['super_admin', 'admin', 'platform_admin'].includes(currentUser.role)
+    if (!isAdmin) {
+      // 非管理员只能修改同组织用户
       if (user.organizationId?.toString() !== currentUser.organizationId?.toString()) {
         return res.status(403).json(errorResponse('无权限修改该用户'))
       }
@@ -282,8 +284,8 @@ const updateUser = async (req, res) => {
     delete updates.openId
     delete updates.createdBy
     
-    // 如果修改角色，检查权限
-    if (updates.role) {
+    // 如果修改角色，检查权限（管理员可以设置任何角色）
+    if (updates.role && !isAdmin) {
       const allowedRoles = getAllowedRolesToCreate(currentUser)
       if (!allowedRoles.includes(updates.role)) {
         return res.status(403).json(errorResponse('无权限设置该角色'))
@@ -298,6 +300,7 @@ const updateUser = async (req, res) => {
     
     res.json(successResponse(result, '更新成功'))
   } catch (err) {
+    console.error('更新用户失败:', err)
     res.status(500).json(errorResponse(err.message))
   }
 }
