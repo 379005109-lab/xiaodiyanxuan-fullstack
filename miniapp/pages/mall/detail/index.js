@@ -444,12 +444,14 @@ Page({
 		const i = e.currentTarget.dataset.index
 		const selectedSize = this.data.sizes[i]
 		
+		console.log('选择规格:', i, selectedSize?.name, '材质数量:', selectedSize?.materialsGroups?.length)
+		
 		// 如果该规格有自己的材质列表，更新显示
 		const updates = { sizeIndex: i }
 		if (selectedSize && selectedSize.materialsGroups && selectedSize.materialsGroups.length > 0) {
 			updates.materialsGroups = selectedSize.materialsGroups
-			updates.materialIndex = 0  // 重置材质选择
-			updates.colorIndex = 0     // 重置颜色选择
+			updates.materialGroupIndex = 0  // 重置材质分组选择
+			updates.materialColorIndex = 0  // 重置颜色选择
 		}
 		
 		this.setData(updates, () => {
@@ -653,6 +655,7 @@ Page({
 		const frame = d.frames[d.frameIndex] || {}
 		const leg = d.legs[d.legIndex] || {}
 		const order = {
+			goodsId: d.id,  // 商品ID
 			goodsName: d.goods.name,
 			goodsImage: d.images[0] || 'https://picsum.photos/200/200?random=1',
 			sizeName: size.name || '',
