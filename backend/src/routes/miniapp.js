@@ -12,6 +12,7 @@ const Product = require('../models/Product')
 const Order = require('../models/Order')
 const Category = require('../models/Category')
 const Material = require('../models/Material')
+const Package = require('../models/Package')
 const { auth } = require('../middleware/auth')
 
 // 微信小程序配置
@@ -657,6 +658,81 @@ router.get('/orders/:orderId', auth, async (req, res) => {
       })),
       receiver: order.recipient,
       remark: order.remark
+    }
+
+    res.json(success(data))
+  } catch (err) {
+    res.status(500).json(error(500, err.message))
+  }
+})
+
+// ========== 套餐列表 ==========
+router.get('/packages', async (req, res) => {
+  try {
+    const packages = await Package.find({ status: 'active' })
+      .sort({ createdAt: -1 })
+      .lean()
+
+    const list = packages.map(p => ({
+      id: p._id,
+      name: p.name,
+      description: p.description || '',
+      cover: getImageUrl(p.thumbnail),
+      image: getImageUrl(p.thumbnail),
+      thumb: getImageUrl(p.thumbnail),
+      images: (p.images || []).map(img => getImageUrl(img)),
+      basePrice: p.basePrice || 0,
+      discountPrice: p.discountPrice || p.basePrice || 0,
+      channelPrice: p.channelPrice || 0,
+      designerPrice: p.designerPrice || 0,
+      products: p.products || [],
+      categories: p.categories || [],
+      sales: p.sales || 0
+    }))
+
+    res.json(success(list))
+  } catch (err) {
+    res.status(500).json(error(500, err.message))
+  }
+})
+
+// ========== 套餐详情 ==========
+router.get('/packages/:id', async (req, res) => {
+  try {
+    const pkg = await Package.findById(req.params.id).lean()
+    if (!pkg) {
+      return res.status(404).json(error(404, '套餐不存在'))
+    }
+
+    // 获取套餐中的商品详情
+    const productIds = pkg.products?.map(p => p.productId) || []
+    const products = await Product.find({ _id: { $in: productIds } }).lean()
+    const productMap = new Map(products.map(p => [p._id.toString(), p]))
+
+    const productsWithDetail = (pkg.products || []).map(item => {
+      const product = productMap.get(item.productId)
+      return {
+        id: item.productId,
+        name: item.productName || product?.name || '',
+        price: item.price || product?.basePrice || 0,
+        quantity: item.quantity || 1,
+        thumb: getImageUrl(product?.images?.[0])
+      }
+    })
+
+    const data = {
+      id: pkg._id,
+      name: pkg.name,
+      description: pkg.description || '',
+      cover: getImageUrl(pkg.thumbnail),
+      images: (pkg.images || []).map(img => getImageUrl(img)),
+      basePrice: pkg.basePrice || 0,
+      discountPrice: pkg.discountPrice || pkg.basePrice || 0,
+      channelPrice: pkg.channelPrice || 0,
+      designerPrice: pkg.designerPrice || 0,
+      products: productsWithDetail,
+      categories: pkg.categories || [],
+      sales: pkg.sales || 0
     }
 
     res.json(success(data))

@@ -10,30 +10,29 @@
 		</view>
 	</view>
 	
-	<!-- 分类标签 -->
-	<view class="tabs">
-		<block wx:for="{{tabs}}" wx:key="name">
-			<view class="tab {{currentTab===index?'active':''}}" data-index="{{index}}" bindtap="onTabChange">
-				<text>{{item.name}}</text>
-			</view>
-		</block>
-	</view>
-
 	<!-- 套餐列表 -->
-	<view class="pkg-list">
+	<view class="pkg-list" wx:if="{{!loading && packages.length > 0}}">
 		<block wx:for="{{packages}}" wx:key="id">
 			<view class="pkg-card-new" data-id="{{item.id}}" bindtap="goPackageDetail">
 				<image class="pkg-cover-new" src="{{item.cover}}" mode="aspectFill"></image>
 				<view class="pkg-info-new">
 					<view class="pkg-name">{{item.name}}</view>
+					<view class="pkg-desc" wx:if="{{item.desc}}">{{item.desc}}</view>
 					<view class="pkg-price-row">
 						<text class="pkg-price-value">¥{{item.price}}</text>
-						<text class="pkg-save-tag">省 ¥{{item.save}}</text>
+						<text class="pkg-original-price" wx:if="{{item.save > 0}}">¥{{item.originalPrice}}</text>
+						<text class="pkg-save-tag" wx:if="{{item.save > 0}}">省 ¥{{item.save}}</text>
 					</view>
 				</view>
 			</view>
 		</block>
 	</view>
+	
+	<!-- 加载中 -->
+	<view class="loading-text" wx:if="{{loading}}">加载中...</view>
+	
+	<!-- 空状态 -->
+	<view class="empty-text" wx:if="{{!loading && packages.length === 0}}">暂无套餐</view>
 </view>
 </scroll-view>
 

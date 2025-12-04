@@ -34,8 +34,8 @@
 		<!-- 左侧类别抽屉 -->
 		<view class="drawer" wx:if="{{showCategoryDrawer}}">
 			<scroll-view scroll-y class="drawer-list">
-				<block wx:for="{{categories}}" wx:key="*this">
-					<view class="drawer-item {{selectedCategory===item?'active':''}}" data-cat="{{item}}" bindtap="onSelectCategory">{{item}}</view>
+				<block wx:for="{{categories}}" wx:key="id">
+					<view class="drawer-item {{selectedCategory===item.id?'active':''}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onSelectCategory">{{item.name}}</view>
 				</block>
 			</scroll-view>
 		</view>

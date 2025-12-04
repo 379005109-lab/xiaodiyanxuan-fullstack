@@ -16,22 +16,42 @@ Page({
 		showCategoryDrawer: false,
 		styles: ['中古风','现代风','极简风','轻奢风'],
 		selectedStyle: '',
-		categories: ['全部','沙发','家具','灯具&墙饰','地毯','家纺','装饰品','餐具用品','全部商品'],
-		selectedCategory: '全部',
+		categories: [{ id: '', name: '全部' }],  // 从后台加载
+		selectedCategory: '',  // 使用分类ID
+		selectedCategoryName: '全部',
 
 		allGoods: [],
 		filteredGoods: [],
 		loading: false
 	},
 	onLoad() {
+		this.loadCategories()
 		this.loadGoodsList()
 		this.closeOverlays()
+	},
+	// 加载分类列表
+	loadCategories() {
+		api.getCategories().then((data) => {
+			const categoryList = [{ id: '', name: '全部' }]
+			if (Array.isArray(data)) {
+				data.forEach(c => {
+					categoryList.push({ id: c.id, name: c.name })
+				})
+			}
+			this.setData({ categories: categoryList })
+		}).catch((err) => {
+			console.error('加载分类失败:', err)
+		})
 	},
 	loadGoodsList() {
 		this.setData({ loading: true })
 		const params = {
 			page: 1,
 			pageSize: 100
+		}
+		// 如果选择了分类，添加分类筛选
+		if (this.data.selectedCategory) {
+			params.category = this.data.selectedCategory
 		}
 		api.getGoodsList(params).then((data) => {
 			// 假设后端返回格式：{ list: [], total: 0 }
@@ -109,24 +129,29 @@ Page({
 	// 类别抽屉
 	openCategory() { this.setData({ showCategoryDrawer: true, showStylePopup: false }) },
 	closeCategory() { this.setData({ showCategoryDrawer: false }) },
-	onSelectCategory(e) { this.setData({ selectedCategory: e.currentTarget.dataset.cat, showCategoryDrawer: false }, this.applyFilter) },
+	onSelectCategory(e) { 
+		const catId = e.currentTarget.dataset.id || ''
+		const catName = e.currentTarget.dataset.name || '全部'
+		this.setData({ 
+			selectedCategory: catId, 
+			selectedCategoryName: catName,
+			showCategoryDrawer: false 
+		})
+		// 重新加载商品列表（按分类筛选）
+		this.loadGoodsList()
+	},
 	closeOverlays() { this.setData({ showStylePopup: false, showCategoryDrawer: false }) },
 
 	applyFilter() {
-		const { searchText, selectedStyle, selectedCategory } = this.data
+		const { searchText, selectedStyle } = this.data
 		let list = this.data.allGoods.slice()
 		// 搜索
 		if (searchText) list = list.filter(g => (g.name || '').includes(searchText))
 		// 风格
 		if (selectedStyle) list = list.filter(g => g.style === selectedStyle)
-		// 类别
-		if (selectedCategory && selectedCategory !== '全部' && selectedCategory !== '全部商品') {
-			list = list.filter(g => g.category === selectedCategory)
-		}
 		// 排序
 		if (this.data.sortKey === 'sales') {
-			// 无真实销量，临时按价格倒序模拟
-			list.sort((a, b) => b.price - a.price)
+			list.sort((a, b) => (b.sales || 0) - (a.sales || 0))
 		} else if (this.data.sortKey === 'price') {
 			list.sort((a, b) => this.data.priceAsc ? a.price - b.price : b.price - a.price)
 		}

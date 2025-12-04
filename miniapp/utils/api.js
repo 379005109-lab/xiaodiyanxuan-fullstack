@@ -442,6 +442,44 @@ function getCoupons(params = {}) {
   })
 }
 
+// ==================== 分类相关 API ====================
+
+/**
+ * 获取分类列表
+ */
+function getCategories() {
+  return request({
+    url: '/api/categories',
+    method: 'GET',
+    needAuth: false
+  })
+}
+
+// ==================== 套餐相关 API ====================
+
+/**
+ * 获取套餐列表
+ */
+function getPackages() {
+  return request({
+    url: '/api/packages',
+    method: 'GET',
+    needAuth: false
+  })
+}
+
+/**
+ * 获取套餐详情
+ * @param {String} id 套餐ID
+ */
+function getPackageDetail(id) {
+  return request({
+    url: `/api/packages/${id}`,
+    method: 'GET',
+    needAuth: false
+  })
+}
+
 module.exports = {
   // 基础方法
   request,
@@ -487,6 +525,13 @@ module.exports = {
   deleteAddress,
   
   // 优惠券相关
-  getCoupons
+  getCoupons,
+  
+  // 分类相关
+  getCategories,
+  
+  // 套餐相关
+  getPackages,
+  getPackageDetail
 }
 
