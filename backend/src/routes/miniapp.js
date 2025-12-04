@@ -11,6 +11,7 @@ const User = require('../models/User')
 const Product = require('../models/Product')
 const Order = require('../models/Order')
 const Category = require('../models/Category')
+const Material = require('../models/Material')
 const { auth } = require('../middleware/auth')
 
 // 微信小程序配置
@@ -265,37 +266,98 @@ router.get('/goods/:id', async (req, res) => {
       })
     }
 
-    // 从 skus 中的 material 提取材质信息
-    const materialsMap = new Map()
+    // 从 skus 中的 material 提取材质信息，按分类分组
+    // 材质名称格式："A类头层真皮（荔枝纹）-软银621"
+    const materialCategoryMap = new Map() // 按材质分类（如"面料"）分组
+    const allMaterialNames = new Set() // 收集所有材质名称用于查询图片
+    
     if (product.skus) {
       product.skus.forEach(sku => {
         if (sku.material && typeof sku.material === 'object') {
-          Object.entries(sku.material).forEach(([categoryName, materials]) => {
-            if (!materialsMap.has(categoryName)) {
-              materialsMap.set(categoryName, new Set())
+          Object.entries(sku.material).forEach(([categoryType, materials]) => {
+            // categoryType 是 "面料"、"填充物" 等
+            if (!materialCategoryMap.has(categoryType)) {
+              materialCategoryMap.set(categoryType, new Map()) // 存储 分类名->颜色列表
             }
+            const subCategoryMap = materialCategoryMap.get(categoryType)
+            
             if (Array.isArray(materials)) {
-              materials.forEach(m => materialsMap.get(categoryName).add(m))
+              materials.forEach(fullName => {
+                allMaterialNames.add(fullName)
+                // 解析材质名称：分离分类和颜色
+                // 格式："A类头层真皮（荔枝纹）-软银621" -> 分类:"A类头层真皮（荔枝纹）", 颜色:"软银621"
+                const lastDashIndex = fullName.lastIndexOf('-')
+                let subCategory = fullName
+                let colorName = fullName
+                
+                if (lastDashIndex > 0) {
+                  subCategory = fullName.substring(0, lastDashIndex)
+                  colorName = fullName.substring(lastDashIndex + 1)
+                }
+                
+                if (!subCategoryMap.has(subCategory)) {
+                  subCategoryMap.set(subCategory, new Set())
+                }
+                subCategoryMap.get(subCategory).add({ fullName, colorName })
+              })
             }
           })
         }
       })
     }
 
-    // 只有有材质数据时才添加
+    // 从数据库查询材质图片
+    const materialImages = {}
+    if (allMaterialNames.size > 0) {
+      try {
+        const materials = await Material.find({
+          name: { $in: Array.from(allMaterialNames) },
+          status: 'approved'
+        }).select('name image').lean()
+        
+        materials.forEach(m => {
+          if (m.image) {
+            materialImages[m.name] = getImageUrl(m.image)
+          }
+        })
+      } catch (e) {
+        console.log('查询材质图片失败:', e.message)
+      }
+    }
+
+    // 构建材质分组数据
     const materialsGroups = []
     let groupIndex = 0
-    materialsMap.forEach((materials, categoryName) => {
-      if (materials.size > 0) {
+    materialCategoryMap.forEach((subCategoryMap, categoryType) => {
+      // categoryType 是 "面料" 等
+      const subGroups = []
+      let subIndex = 0
+      
+      subCategoryMap.forEach((colorSet, subCategoryName) => {
+        // subCategoryName 是 "A类头层真皮（荔枝纹）" 等
+        const colors = Array.from(colorSet).map((item, i) => ({
+          id: `color_${groupIndex}_${subIndex}_${i}`,
+          name: item.colorName,
+          fullName: item.fullName,
+          image: materialImages[item.fullName] || ''
+        }))
+        
+        if (colors.length > 0) {
+          subGroups.push({
+            id: `subgroup_${groupIndex}_${subIndex}`,
+            name: subCategoryName,
+            count: colors.length,
+            colors: colors
+          })
+          subIndex++
+        }
+      })
+      
+      if (subGroups.length > 0) {
         materialsGroups.push({
           id: `material_${groupIndex}`,
-          name: categoryName,
-          extra: 0,
-          colors: Array.from(materials).map((name, i) => ({
-            id: `color_${groupIndex}_${i}`,
-            name: name,
-            image: ''
-          }))
+          name: categoryType,
+          subGroups: subGroups
         })
         groupIndex++
       }
