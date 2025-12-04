@@ -27,7 +27,7 @@ const MaterialSchema = new mongoose.Schema({
   status: { 
     type: String, 
     enum: ['pending', 'approved', 'rejected', 'offline'], 
-    default: 'pending',
+    default: 'approved',  // 直接通过审核
     index: true
   },
   order: { 

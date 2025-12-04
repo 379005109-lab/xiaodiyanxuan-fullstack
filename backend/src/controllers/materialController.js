@@ -398,3 +398,20 @@ exports.getImagesByNames = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// 批量审核通过所有待审核材质
+exports.approveAll = async (req, res) => {
+  try {
+    const result = await Material.updateMany(
+      { status: 'pending' },
+      { $set: { status: 'approved', reviewAt: new Date() } }
+    );
+    res.json({ 
+      success: true, 
+      message: `已批量审核通过 ${result.modifiedCount} 个材质`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

@@ -12,6 +12,7 @@ router.post('/', auth, materialController.create);
 router.put('/:id', auth, materialController.update);
 router.delete('/:id', auth, materialController.delete);
 router.post('/batch-delete', auth, materialController.batchDelete);
+router.post('/approve-all', auth, materialController.approveAll); // 批量审核通过
 
 // 分类路由
 router.get('/categories/list', materialController.listCategories);
