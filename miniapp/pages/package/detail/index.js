@@ -333,26 +333,22 @@ Page({
 		})
 	},
 	buildVariants(goods, categoryKey) {
-		if (goods.variants && goods.variants.length) return goods.variants
-		if (categoryKey === 'sofa') {
-			return [
-				{ id: `${goods.id}-double`, label: '双人沙发', desc: '适合2-3人使用', priceDelta: 0 },
-				{ id: `${goods.id}-triple`, label: '三人沙发', desc: '适合3-4人使用', priceDelta: 1500 },
-				{ id: `${goods.id}-chaise`, label: '贵妃组合', desc: '含贵妃位+脚踏', priceDelta: 3200 }
-			]
+		// 优先使用商品的 skus 数据
+		if (goods.skus && goods.skus.length > 0) {
+			return goods.skus.map((sku, index) => {
+				const dims = sku.length && sku.width && sku.height 
+					? `${sku.length}×${sku.width}×${sku.height}mm` 
+					: ''
+				return {
+					id: sku._id || sku.code || `${goods.id}-sku-${index}`,
+					label: sku.spec || sku.color || `规格${index + 1}`,
+					desc: dims,
+					priceDelta: (sku.price || goods.price) - goods.price,
+					sku: sku  // 保存完整SKU数据
+				}
+			})
 		}
-		if (categoryKey === 'bed') {
-			return [
-				{ id: `${goods.id}-queen`, label: '标准款', desc: '1.8m × 2.0m', priceDelta: 0 },
-				{ id: `${goods.id}-king`, label: '加大款', desc: '2.0m × 2.2m', priceDelta: 1800 }
-			]
-		}
-		if (categoryKey === 'dining-chair') {
-			return [
-				{ id: `${goods.id}-std`, label: '标准高度', desc: '45cm 座高', priceDelta: 0 },
-				{ id: `${goods.id}-high`, label: '高脚款', desc: '50cm 座高', priceDelta: 200 }
-			]
-		}
+		// 如果没有 skus，使用默认配置
 		return [
 			{ id: `${goods.id}-default`, label: '标准配置', desc: goods.dims || '', priceDelta: 0 }
 		]
@@ -363,8 +359,21 @@ Page({
 		const selectedVariant = this.data.selectedGoodsVariant[goods.id]
 		const defaultVariantId = variants.find(v => v.id === selectedVariant)?.id || (variants[0] && variants[0].id) || ''
 		
-		// 面料选项（材质+颜色合并）
-		const fabrics = this.getFabricOptions(this.data.currentCategory)
+		// 获取当前选中规格的 SKU 数据
+		const selectedSku = variants.find(v => v.id === defaultVariantId)?.sku
+		
+		// 从 SKU 的 material 中获取面料选项
+		let fabrics = []
+		if (selectedSku && selectedSku.material && selectedSku.material.fabric) {
+			fabrics = selectedSku.material.fabric.map((f, i) => ({
+				id: `fabric-${i}`,
+				name: f.replace(/\n/g, ''),  // 去掉换行符
+				img: ''
+			}))
+		}
+		if (fabrics.length === 0) {
+			fabrics = this.getFabricOptions(this.data.currentCategory)
+		}
 		const fabricIndex = fabrics.findIndex(f => f.name === goods.fabric) >= 0 ? fabrics.findIndex(f => f.name === goods.fabric) : 0
 		
 		// 获取当前类别配置

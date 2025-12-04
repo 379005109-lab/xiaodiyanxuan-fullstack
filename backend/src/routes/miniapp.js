@@ -524,7 +524,7 @@ router.get('/orders', auth, async (req, res) => {
   try {
     const { status, page = 1, pageSize = 10 } = req.query
     
-    const query = { user: req.userId }
+    const query = { userId: req.userId }
     if (status) query.status = parseInt(status)
 
     const total = await Order.countDocuments(query)
