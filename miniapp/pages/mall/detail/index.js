@@ -76,22 +76,37 @@ Page({
 		api.getGoodsDetail(id).then((data) => {
 			console.log('商品详情API返回:', data)
 			
-			// 解析材质数据的辅助函数
+			// 解析材质数据的辅助函数（带去重）
 			const parseMaterialsGroups = (materialsGroups) => {
 				const result = []
+				const seenNames = new Set()  // 用于去重材质分组
+				
 				if (materialsGroups && materialsGroups.length > 0) {
 					materialsGroups.forEach(mg => {
 						if (mg.subGroups && mg.subGroups.length > 0) {
 							mg.subGroups.forEach(sg => {
+								const groupName = sg.name || mg.name
+								// 跳过重复的材质分组
+								if (seenNames.has(groupName)) return
+								seenNames.add(groupName)
+								
+								// 颜色去重
+								const seenColors = new Set()
+								const uniqueColors = (sg.colors || []).filter(c => {
+									if (seenColors.has(c.name)) return false
+									seenColors.add(c.name)
+									return true
+								}).map(c => ({
+									name: c.name,
+									img: c.image || ''
+								}))
+								
 								result.push({
-									name: sg.name || mg.name,
+									name: groupName,
 									extra: 0,
 									better: false,
 									img: sg.colors?.[0]?.image || '',
-									colors: (sg.colors || []).map(c => ({
-										name: c.name,
-										img: c.image || ''
-									}))
+									colors: uniqueColors
 								})
 							})
 						}

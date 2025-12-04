@@ -295,7 +295,7 @@ function createOrder(orderData) {
  */
 function getOrders(params = {}) {
   return request({
-    url: '/api/orders',
+    url: '/api/miniapp/orders',
     method: 'GET',
     data: params
   })
@@ -307,7 +307,7 @@ function getOrders(params = {}) {
  */
 function getOrderDetail(orderId) {
   return request({
-    url: `/api/orders/${orderId}`,
+    url: `/api/miniapp/orders/${orderId}`,
     method: 'GET'
   })
 }
@@ -316,10 +316,11 @@ function getOrderDetail(orderId) {
  * 取消订单
  * @param {String} orderId 订单ID
  */
-function cancelOrder(orderId) {
+function cancelOrder(orderId, reason) {
   return request({
-    url: `/api/orders/${orderId}/cancel`,
-    method: 'POST'
+    url: `/api/miniapp/orders/${orderId}/cancel`,
+    method: 'POST',
+    data: { reason }
   })
 }
 
@@ -329,7 +330,7 @@ function cancelOrder(orderId) {
  */
 function confirmOrder(orderId) {
   return request({
-    url: `/api/orders/${orderId}/confirm`,
+    url: `/api/miniapp/orders/${orderId}/confirm`,
     method: 'POST'
   })
 }

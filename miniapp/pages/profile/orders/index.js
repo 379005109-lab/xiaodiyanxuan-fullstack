@@ -31,100 +31,24 @@ Page({
 	loadOrders() {
 		this.setData({ loading: true })
 		
-		// 默认材质信息
-		const defaultMaterial = '标准皮革'
-		const defaultFill = '高密度海绵'
-		const defaultFrame = '实木框架'
-		const defaultLeg = '木质脚'
-		
-		// 为订单商品添加默认材质信息
-		const formatOrderGoods = (goods) => {
-			if (!goods) return goods
-			return {
-				...goods,
-				fabric: goods.fabric || goods.material || defaultMaterial,
-				materialColor: goods.materialColor || '经典黑',
-				fill: goods.fill || defaultFill,
-				frame: goods.frame || defaultFrame,
-				leg: goods.leg || defaultLeg
-			}
-		}
-		
 		// 格式化订单列表
 		const formatOrders = (orders) => {
 			return orders.map(order => ({
 				...order,
-				goods: order.goods ? order.goods.map(formatOrderGoods) : order.goods,
-				// 单商品订单的材质信息
-				fabric: order.fabric || order.materialName || defaultMaterial,
-				fill: order.fill || order.fillName || defaultFill,
-				frame: order.frame || order.frameName || defaultFrame,
-				leg: order.leg || order.legName || defaultLeg
+				goods: order.goods || []
 			}))
 		}
 		
-		// 演示数据 - 包含已修改订单和已取消订单
-		const demoOrders = [
-			{
-				id: 'demo-modified-1',
-				orderNo: 'XD20241203001',
-				status: 1,
-				statusText: '待付款',
-				totalPrice: 8999,
-				originalPrice: 9599,
-				priceChanged: true,
-				modified: true,
-				modifyReason: '库存不足，部分商品替换为同款其他颜色',
-				modifyTime: '2024-12-03 14:30',
-				modifyItems: ['沙发颜色由米白色更换为浅灰色', '交货时间延长至8-10周'],
-				adminNote: '已电话与客户确认，客户同意更换',
-				modifyAccepted: false,
-				receiverName: '张三',
-				receiverPhone: '138****1234',
-				receiverAddress: '北京市朝阳区xx路xx号',
-				goods: [
-					{ id: 'g1', name: '北欧轻奢真皮沙发', thumb: 'https://picsum.photos/200/200?random=501', sizeName: '三人位', dims: '2100×950×850mm', fabric: '全青皮', materialColor: '浅灰色', fill: '高密度海绵', frame: '实木框架', leg: '金属脚', count: 1 }
-				]
-			},
-			{
-				id: 'demo-cancelled-1',
-				orderNo: 'XD20241202005',
-				status: 5,
-				statusText: '已取消',
-				totalPrice: 12999,
-				receiverName: '李四',
-				receiverPhone: '139****5678',
-				receiverAddress: '上海市浦东新区xx路xx号',
-				goods: [
-					{ id: 'g2', name: '意式极简皮艺床', thumb: 'https://picsum.photos/200/200?random=502', sizeName: '1.8米', dims: '2000×1800×1100mm', fabric: '头层牛皮', materialColor: '深棕色', fill: '乳胶+海绵', frame: '加厚实木', leg: '木质脚', count: 1 }
-				]
-			}
-		]
-		
 		api.getOrders().then((data) => {
+			console.log('订单列表API返回:', data)
 			const rawOrders = Array.isArray(data) ? data : (data.list || [])
-			// 合并演示数据和真实数据
-			const allOrders = [...demoOrders, ...rawOrders]
-			const orders = formatOrders(allOrders)
+			const orders = formatOrders(rawOrders)
 			this.setData({ orders, loading: false })
 			this.filterOrders()
 		}).catch((err) => {
 			console.error('加载订单失败:', err)
-			this.setData({ loading: false })
-			// 如果 API 失败，从本地存储获取并合并演示数据
-			try {
-				const rawOrders = wx.getStorageSync('orders') || []
-				const allOrders = [...demoOrders, ...rawOrders]
-				const orders = formatOrders(allOrders)
-				this.setData({ orders })
-				this.filterOrders()
-			} catch (e) {
-				console.error('加载订单失败:', e)
-				// 至少显示演示数据
-				const orders = formatOrders(demoOrders)
-				this.setData({ orders })
-				this.filterOrders()
-			}
+			this.setData({ orders: [], loading: false })
+			this.filterOrders()
 		})
 	},
 	filterOrders() {
