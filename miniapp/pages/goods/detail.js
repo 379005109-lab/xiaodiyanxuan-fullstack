@@ -12,6 +12,7 @@ Page({
     loading: true,
     selectedSize: null,
     selectedMaterial: null,
+    selectedSubGroup: null,
     selectedColor: null,
     quantity: 1,
     totalPrice: 0
@@ -30,15 +31,21 @@ Page({
       const res = await api.goods.getDetail(this.data.id)
       const goods = res.data
       
+      console.log('商品详情数据:', JSON.stringify(goods, null, 2))
+      
       // 默认选中第一个规格
       const selectedSize = goods.sizes?.[0] || null
+      
+      // 处理材质数据 - 支持 subGroups 格式
       const selectedMaterial = goods.materialsGroups?.[0] || null
-      const selectedColor = selectedMaterial?.colors?.[0] || null
+      const selectedSubGroup = selectedMaterial?.subGroups?.[0] || null
+      const selectedColor = selectedSubGroup?.colors?.[0] || null
       
       this.setData({
         goods,
         selectedSize,
         selectedMaterial,
+        selectedSubGroup,
         selectedColor,
         loading: false
       })
@@ -78,13 +85,25 @@ Page({
     this.calculatePrice()
   },
 
-  // 选择材质
+  // 选择材质分类（如"面料"）
   selectMaterial(e) {
     const { index } = e.currentTarget.dataset
     const material = this.data.goods.materialsGroups[index]
+    const subGroup = material.subGroups?.[0] || null
     this.setData({
       selectedMaterial: material,
-      selectedColor: material.colors?.[0] || null
+      selectedSubGroup: subGroup,
+      selectedColor: subGroup?.colors?.[0] || null
+    })
+  },
+
+  // 选择材质子分类（如"A类头层真皮（荔枝纹）"）
+  selectSubGroup(e) {
+    const { index } = e.currentTarget.dataset
+    const subGroup = this.data.selectedMaterial.subGroups[index]
+    this.setData({
+      selectedSubGroup: subGroup,
+      selectedColor: subGroup?.colors?.[0] || null
     })
   },
 
@@ -92,8 +111,19 @@ Page({
   selectColor(e) {
     const { index } = e.currentTarget.dataset
     this.setData({
-      selectedColor: this.data.selectedMaterial.colors[index]
+      selectedColor: this.data.selectedSubGroup.colors[index]
     })
+  },
+
+  // 预览材质图片
+  previewMaterialImage(e) {
+    const { image } = e.currentTarget.dataset
+    if (image) {
+      wx.previewImage({
+        current: image,
+        urls: [image]
+      })
+    }
   },
 
   // 修改数量

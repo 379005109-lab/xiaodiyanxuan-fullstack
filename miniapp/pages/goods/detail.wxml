@@ -25,39 +25,80 @@
 
   <!-- 规格选择 -->
   <view class="spec-section">
-    <!-- 尺寸 -->
-    <view class="spec-item" wx:if="{{goods.sizes.length > 0}}">
-      <text class="spec-title">尺寸</text>
+    <!-- 规格/尺寸 -->
+    <view class="spec-item" wx:if="{{goods.sizes && goods.sizes.length > 0}}">
+      <text class="spec-title">规格</text>
       <view class="spec-options">
         <view class="spec-option {{selectedSize.id === item.id ? 'active' : ''}}"
           wx:for="{{goods.sizes}}" wx:key="id"
           bindtap="selectSize" data-index="{{index}}">
-          <text>{{item.name}}</text>
+          <text class="spec-name">{{item.name}}</text>
           <text class="dims" wx:if="{{item.dims}}">{{item.dims}}</text>
           <text class="extra" wx:if="{{item.extra > 0}}">+¥{{item.extra}}</text>
         </view>
       </view>
     </view>
 
-    <!-- 材质 -->
-    <view class="spec-item" wx:if="{{goods.materialsGroups.length > 0}}">
-      <text class="spec-title">材质</text>
-      <view class="spec-options">
-        <view class="spec-option {{selectedMaterial.id === item.id ? 'active' : ''}}"
-          wx:for="{{goods.materialsGroups}}" wx:key="id"
-          bindtap="selectMaterial" data-index="{{index}}">
+    <!-- 材质分类 -->
+    <view class="spec-item" wx:if="{{goods.materialsGroups && goods.materialsGroups.length > 0}}">
+      <view class="spec-title-row">
+        <text class="spec-title">{{selectedMaterial.name || '材质'}}</text>
+        <text class="spec-count" wx:if="{{selectedSubGroup}}">{{selectedSubGroup.count}}种</text>
+      </view>
+      
+      <!-- 材质子分类选择（如A类头层真皮） -->
+      <view class="subgroup-options" wx:if="{{selectedMaterial.subGroups.length > 1}}">
+        <view class="subgroup-option {{selectedSubGroup.id === item.id ? 'active' : ''}}"
+          wx:for="{{selectedMaterial.subGroups}}" wx:key="id"
+          bindtap="selectSubGroup" data-index="{{index}}">
           {{item.name}}
+        </view>
+      </view>
+      
+      <!-- 当前子分类名称（如只有一个子分类） -->
+      <view class="subgroup-title" wx:if="{{selectedSubGroup && selectedMaterial.subGroups.length === 1}}">
+        {{selectedSubGroup.name}}
+      </view>
+      
+      <!-- 颜色/材质选项 -->
+      <view class="color-grid" wx:if="{{selectedSubGroup.colors.length > 0}}">
+        <view class="color-item {{selectedColor.id === item.id ? 'active' : ''}}"
+          wx:for="{{selectedSubGroup.colors}}" wx:key="id"
+          bindtap="selectColor" data-index="{{index}}">
+          <image class="color-image" src="{{item.image}}" mode="aspectFill" 
+            wx:if="{{item.image}}"
+            bindtap="previewMaterialImage" data-image="{{item.image}}" catchtap="previewMaterialImage"/>
+          <view class="color-placeholder" wx:else></view>
+          <text class="color-name">{{item.name}}</text>
         </view>
       </view>
     </view>
 
-    <!-- 颜色 -->
-    <view class="spec-item" wx:if="{{selectedMaterial.colors.length > 0}}">
-      <text class="spec-title">颜色</text>
-      <view class="color-options">
-        <view class="color-option {{selectedColor.id === item.id ? 'active' : ''}}"
-          wx:for="{{selectedMaterial.colors}}" wx:key="id"
-          bindtap="selectColor" data-index="{{index}}">
+    <!-- 内部结构 - 只有后台配置了才显示 -->
+    <view class="spec-item" wx:if="{{goods.fills && goods.fills.length > 0}}">
+      <text class="spec-title">内部填充</text>
+      <view class="structure-options">
+        <view class="structure-item" wx:for="{{goods.fills}}" wx:key="id">
+          <image src="{{item.image}}" mode="aspectFill" wx:if="{{item.image}}"/>
+          <text>{{item.name}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="spec-item" wx:if="{{goods.frames && goods.frames.length > 0}}">
+      <text class="spec-title">内部框架</text>
+      <view class="structure-options">
+        <view class="structure-item" wx:for="{{goods.frames}}" wx:key="id">
+          <image src="{{item.image}}" mode="aspectFill" wx:if="{{item.image}}"/>
+          <text>{{item.name}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="spec-item" wx:if="{{goods.legs && goods.legs.length > 0}}">
+      <text class="spec-title">沙发脚</text>
+      <view class="structure-options">
+        <view class="structure-item" wx:for="{{goods.legs}}" wx:key="id">
           <image src="{{item.image}}" mode="aspectFill" wx:if="{{item.image}}"/>
           <text>{{item.name}}</text>
         </view>
