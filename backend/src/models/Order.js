@@ -67,7 +67,10 @@ const orderSchema = new mongoose.Schema({
   cancelRequest: { type: Boolean, default: false },
   cancelRequestedAt: Date,
   // 商家备注
-  adminNote: { type: String, default: '' }
+  adminNote: { type: String, default: '' },
+  // 退款关联
+  refundId: { type: mongoose.Schema.Types.ObjectId, ref: 'Refund' },
+  refundStatus: { type: String, enum: ['pending', 'approved', 'rejected', 'completed', null], default: null }
 })
 
 orderSchema.index({ userId: 1 })

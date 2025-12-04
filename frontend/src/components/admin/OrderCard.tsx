@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Package, User, Phone, MapPin, ChevronRight, AlertCircle } from 'lucide-react'
+import { Package, User, Phone, MapPin, ChevronRight, AlertCircle, RotateCcw } from 'lucide-react'
 import { Order } from '@/types'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
@@ -22,8 +22,20 @@ const statusConfig: Record<number | string, { label: string; color: string; bgCo
   'shipped': { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-50' },
   5: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-50' },
   'completed': { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-50' },
-  6: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-50' },
-  'cancelled': { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-50' },
+  6: { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-50' },
+  'refunding': { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-50' },
+  7: { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-50' },
+  'refunded': { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-50' },
+  8: { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-50' },
+  'cancelled': { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-50' },
+}
+
+// 退款状态配置
+const refundStatusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
+  'pending': { label: '退款待处理', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
+  'approved': { label: '退款已同意', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  'rejected': { label: '退款已拒绝', color: 'text-red-600', bgColor: 'bg-red-100' },
+  'completed': { label: '退款已完成', color: 'text-green-600', bgColor: 'bg-green-100' },
 }
 
 // 隐藏手机号中间4位
@@ -90,6 +102,13 @@ export default function OrderCard({ order, isSelected, onClick }: OrderCardProps
             <span className="px-2 py-0.5 rounded text-xs font-medium text-red-600 bg-red-100 flex items-center gap-1 animate-pulse">
               <AlertCircle className="w-3 h-3" />
               申请取消
+            </span>
+          )}
+          {/* 退换货状态提示 */}
+          {(order as any).refundStatus && refundStatusConfig[(order as any).refundStatus] && (
+            <span className={`px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${refundStatusConfig[(order as any).refundStatus].color} ${refundStatusConfig[(order as any).refundStatus].bgColor}`}>
+              <RotateCcw className="w-3 h-3" />
+              {refundStatusConfig[(order as any).refundStatus].label}
             </span>
           )}
           <span className="text-gray-400 text-xs">{createdAt}</span>

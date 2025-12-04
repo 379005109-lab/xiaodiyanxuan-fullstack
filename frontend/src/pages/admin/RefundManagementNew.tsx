@@ -75,10 +75,13 @@ export default function RefundManagementNew() {
 
   const loadRefunds = async () => {
     try {
-      // 从localStorage加载退货记录（实际应从API加载）
-      const savedRefunds = localStorage.getItem('refund_records')
-      if (savedRefunds) {
-        setRefunds(JSON.parse(savedRefunds))
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/refunds', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      if (data.success) {
+        setRefunds(data.data || [])
       }
     } catch (error) {
       console.error('加载退货记录失败:', error)
@@ -126,7 +129,7 @@ export default function RefundManagementNew() {
   }
 
   // 创建退货申请
-  const handleCreateRefund = (order: Order) => {
+  const handleCreateRefund = async (order: Order) => {
     if (!refundReason) {
       toast.error('请选择退货原因')
       return
@@ -135,31 +138,43 @@ export default function RefundManagementNew() {
     const recipient = (order.recipient || order.shippingAddress) as any
     const products = order.items || (order as any).products || []
     
-    const newRefund: RefundItem = {
-      _id: `refund_${Date.now()}`,
-      orderId: order._id,
-      orderNo: order.orderNo,
-      products: products.map((p: any) => ({
-        name: p.name || p.productName,
-        image: p.image,
-        quantity: p.quantity || 1,
-        price: p.price || p.unitPrice || 0,
-        sku: p.skuName || p.sku
-      })),
-      reason: refundReason,
-      customReason: refundReason === '其他原因' ? customReason : undefined,
-      status: 'pending',
-      totalAmount: order.totalAmount,
-      createdAt: new Date().toISOString(),
-      buyerName: recipient?.name,
-      buyerPhone: recipient?.phone
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/refunds', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          orderId: order._id,
+          orderNo: order.orderNo,
+          products: products.map((p: any) => ({
+            name: p.name || p.productName,
+            image: p.image,
+            quantity: p.quantity || 1,
+            price: p.price || p.unitPrice || 0,
+            sku: p.skuName || p.sku
+          })),
+          reason: refundReason,
+          customReason: refundReason === '其他原因' ? customReason : undefined,
+          totalAmount: order.totalAmount,
+          buyerName: recipient?.name,
+          buyerPhone: recipient?.phone
+        })
+      })
+      const data = await response.json()
+      if (data.success) {
+        toast.success('退货申请已创建')
+        loadRefunds()
+      } else {
+        toast.error(data.message || '创建失败')
+        return
+      }
+    } catch (error) {
+      toast.error('创建退货申请失败')
+      return
     }
-    
-    const updatedRefunds = [...refunds, newRefund]
-    setRefunds(updatedRefunds)
-    localStorage.setItem('refund_records', JSON.stringify(updatedRefunds))
-    
-    toast.success('退货申请已创建')
     setShowNewRefundModal(false)
     setFoundOrder(null)
     setSearchOrderNo('')
@@ -216,37 +231,69 @@ export default function RefundManagementNew() {
   }
 
   // 处理退货
-  const handleProcessRefund = (refundId: string, action: 'approved' | 'rejected') => {
-    const updatedRefunds = refunds.map(r => 
-      r._id === refundId 
-        ? { ...r, status: action, updatedAt: new Date().toISOString() }
-        : r
-    )
-    setRefunds(updatedRefunds)
-    localStorage.setItem('refund_records', JSON.stringify(updatedRefunds))
-    toast.success(action === 'approved' ? '已同意退货' : '已拒绝退货')
+  const handleProcessRefund = async (refundId: string, action: 'approved' | 'rejected') => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/refunds/${refundId}/handle`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action: action === 'approved' ? 'approve' : 'reject' })
+      })
+      const data = await response.json()
+      if (data.success) {
+        toast.success(action === 'approved' ? '已同意退货' : '已拒绝退货')
+        loadRefunds()
+      } else {
+        toast.error(data.message || '操作失败')
+      }
+    } catch (error) {
+      toast.error('操作失败')
+    }
   }
 
   // 完成退货
-  const handleCompleteRefund = (refundId: string) => {
-    const updatedRefunds = refunds.map(r => 
-      r._id === refundId 
-        ? { ...r, status: 'completed', updatedAt: new Date().toISOString() }
-        : r
-    )
-    setRefunds(updatedRefunds)
-    localStorage.setItem('refund_records', JSON.stringify(updatedRefunds))
-    toast.success('退货已完成')
+  const handleCompleteRefund = async (refundId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/refunds/${refundId}/complete`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      if (data.success) {
+        toast.success('退货已完成')
+        loadRefunds()
+      } else {
+        toast.error(data.message || '操作失败')
+      }
+    } catch (error) {
+      toast.error('操作失败')
+    }
   }
 
   // 删除退货记录
-  const handleDeleteRefund = (refundId: string) => {
+  const handleDeleteRefund = async (refundId: string) => {
     if (!confirm('确定要删除这条退货记录吗？')) return
     
-    const updatedRefunds = refunds.filter(r => r._id !== refundId)
-    setRefunds(updatedRefunds)
-    localStorage.setItem('refund_records', JSON.stringify(updatedRefunds))
-    toast.success('已删除')
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/refunds/${refundId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      if (data.success) {
+        toast.success('已删除')
+        loadRefunds()
+      } else {
+        toast.error(data.message || '删除失败')
+      }
+    } catch (error) {
+      toast.error('删除失败')
+    }
   }
 
   // 筛选退货记录
