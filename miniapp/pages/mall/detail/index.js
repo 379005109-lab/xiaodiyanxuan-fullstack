@@ -76,7 +76,31 @@ Page({
 		api.getGoodsDetail(id).then((data) => {
 			console.log('商品详情API返回:', data)
 			
-			// 处理规格数据 - 从后端 sizes 获取
+			// 解析材质数据的辅助函数
+			const parseMaterialsGroups = (materialsGroups) => {
+				const result = []
+				if (materialsGroups && materialsGroups.length > 0) {
+					materialsGroups.forEach(mg => {
+						if (mg.subGroups && mg.subGroups.length > 0) {
+							mg.subGroups.forEach(sg => {
+								result.push({
+									name: sg.name || mg.name,
+									extra: 0,
+									better: false,
+									img: sg.colors?.[0]?.image || '',
+									colors: (sg.colors || []).map(c => ({
+										name: c.name,
+										img: c.image || ''
+									}))
+								})
+							})
+						}
+					})
+				}
+				return result
+			}
+			
+			// 处理规格数据 - 每个规格包含自己的材质
 			let sizes = []
 			if (data.sizes && data.sizes.length > 0) {
 				sizes = data.sizes.map((s, i) => ({
@@ -84,29 +108,17 @@ Page({
 					dims: s.dims || '',
 					extra: s.extra || 0,
 					price: s.price || 0,
-					img: s.images?.[0] || ''
+					img: s.images?.[0] || '',
+					materialsGroups: parseMaterialsGroups(s.materialsGroups)  // 保存每个规格的材质
 				}))
 			}
 			
-			// 处理材质数据 - 从后端 materialsGroups.subGroups 获取
+			// 默认显示第一个规格的材质（或全局材质）
 			let materialsGroups = []
-			if (data.materialsGroups && data.materialsGroups.length > 0) {
-				data.materialsGroups.forEach(mg => {
-					if (mg.subGroups && mg.subGroups.length > 0) {
-						mg.subGroups.forEach(sg => {
-							materialsGroups.push({
-								name: sg.name || mg.name,
-								extra: 0,
-								better: false,
-								img: sg.colors?.[0]?.image || '',
-								colors: (sg.colors || []).map(c => ({
-									name: c.name,
-									img: c.image || ''
-								}))
-							})
-						})
-					}
-				})
+			if (sizes.length > 0 && sizes[0].materialsGroups && sizes[0].materialsGroups.length > 0) {
+				materialsGroups = sizes[0].materialsGroups
+			} else if (data.materialsGroups && data.materialsGroups.length > 0) {
+				materialsGroups = parseMaterialsGroups(data.materialsGroups)
 			}
 			
 			// 处理内部结构数据 - 只有后端返回了才使用
@@ -114,7 +126,7 @@ Page({
 			const frames = data.frames || []
 			const legs = data.legs || []
 			
-			const hasMaterials = materialsGroups.length > 0
+			const hasMaterials = materialsGroups.length > 0 || sizes.some(s => s.materialsGroups && s.materialsGroups.length > 0)
 			const hasStructure = fills.length > 0 || frames.length > 0 || legs.length > 0
 			
 			this.setData({
@@ -126,7 +138,7 @@ Page({
 				images: data.images || (data.thumb ? [data.thumb] : []),
 				detailImages: data.detailImages || data.images || [],
 				sizes: sizes.length > 0 ? sizes : this.data.sizes,
-				materialsGroups: hasMaterials ? materialsGroups : [],
+				materialsGroups: materialsGroups,
 				fills: fills,
 				frames: frames,
 				legs: legs,
@@ -430,7 +442,20 @@ Page({
 	},
 	onSelectSize(e) {
 		const i = e.currentTarget.dataset.index
-		this.setData({ sizeIndex: i }, this.recalculate)
+		const selectedSize = this.data.sizes[i]
+		
+		// 如果该规格有自己的材质列表，更新显示
+		const updates = { sizeIndex: i }
+		if (selectedSize && selectedSize.materialsGroups && selectedSize.materialsGroups.length > 0) {
+			updates.materialsGroups = selectedSize.materialsGroups
+			updates.materialIndex = 0  // 重置材质选择
+			updates.colorIndex = 0     // 重置颜色选择
+		}
+		
+		this.setData(updates, () => {
+			this.buildTabList()  // 重新构建tab（可能材质数量变化）
+			this.recalculate()
+		})
 	},
 	recalculate() {
 		const d = this.data
