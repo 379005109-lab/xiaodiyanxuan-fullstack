@@ -1,0 +1,206 @@
+/* 预约陪买页面 - 小迪严选主题 */
+page { 
+  background: #F8F8F8; 
+  color: #333333; 
+}
+.scrollarea { 
+  height: 100vh; 
+}
+.page { 
+  padding: 24rpx; 
+  padding-top: calc(44px + env(safe-area-inset-top) + 24rpx); 
+  padding-bottom: 180rpx;
+  box-sizing: border-box; 
+}
+
+/* 我的预约记录 - 顶部 */
+.my-bookings-top { margin-bottom: 32rpx; }
+.empty-bookings { text-align: center; padding: 60rpx 0; background: #FFFFFF; border-radius: 16rpx; margin-bottom: 32rpx; }
+.empty-bookings .empty-icon { font-size: 80rpx; color: #E0E0E0; margin-bottom: 16rpx; }
+.empty-bookings .empty-text { font-size: 30rpx; color: #666666; margin-bottom: 8rpx; }
+.empty-bookings .empty-tip { font-size: 24rpx; color: #999999; }
+.new-booking-section { margin-bottom: 24rpx; }
+
+/* ========== 服务介绍 ========== */
+.intro-card {
+  background: linear-gradient(135deg, var(--color-primary) 0%, #1a5a3d 100%);
+  border-radius: 20rpx;
+  padding: 48rpx 32rpx;
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+.intro-icon-box {
+  width: 80rpx;
+  height: 80rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  color: #FFFFFF;
+  margin: 0 auto 20rpx;
+}
+.intro-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-bottom: 16rpx;
+}
+.intro-desc {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.6;
+}
+
+/* ========== 服务特色 ========== */
+.features {
+  display: flex;
+  justify-content: space-around;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 32rpx 16rpx;
+  margin-bottom: 24rpx;
+}
+.feature-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+.feature-icon-box {
+  width: 56rpx;
+  height: 56rpx;
+  background: rgba(20, 69, 47, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: var(--color-primary);
+}
+.feature-text {
+  font-size: 24rpx;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+/* ========== 预约表单 ========== */
+.form-card {
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+}
+.form-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 24rpx;
+  padding-left: 16rpx;
+  border-left: 6rpx solid var(--color-primary);
+}
+.form-item {
+  margin-bottom: 24rpx;
+}
+.form-item:last-child {
+  margin-bottom: 0;
+}
+.form-label {
+  font-size: 26rpx;
+  color: #6B7280;
+  margin-bottom: 12rpx;
+}
+.form-picker {
+  height: 88rpx;
+  background: var(--color-bg);
+  border: 2rpx solid var(--color-border);
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 28rpx;
+  color: var(--color-text);
+}
+.form-picker.placeholder {
+  color: #9CA3AF;
+}
+.form-picker .arrow {
+  font-size: 32rpx;
+  color: #9CA3AF;
+}
+.form-input {
+  height: 88rpx;
+  background: var(--color-bg);
+  border: 2rpx solid var(--color-border);
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: var(--color-text);
+}
+.form-textarea {
+  width: 100%;
+  height: 160rpx;
+  background: var(--color-bg);
+  border: 2rpx solid var(--color-border);
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+
+/* ========== 我的预约申请 ========== */
+.my-bookings { background: var(--color-card); border-radius: 16rpx; padding: 32rpx; }
+.section-title { font-size: 30rpx; font-weight: 700; color: var(--color-text); margin-bottom: 24rpx; padding-left: 16rpx; border-left: 6rpx solid var(--color-primary); }
+.booking-card { background: var(--color-bg); border-radius: 12rpx; margin-bottom: 20rpx; overflow: hidden; }
+.booking-card:last-child { margin-bottom: 0; }
+.booking-header { display: flex; align-items: center; justify-content: space-between; padding: 16rpx 20rpx; border-bottom: 1rpx solid var(--color-border); }
+.booking-status-tag { font-size: 24rpx; padding: 6rpx 16rpx; border-radius: 6rpx; }
+.booking-status-tag.pending { background: rgba(214, 173, 96, 0.2); color: #B8860B; }
+.booking-status-tag.confirmed { background: rgba(20, 69, 47, 0.15); color: var(--color-primary); }
+.booking-status-tag.completed { background: #E5E7EB; color: #6B7280; }
+.booking-status-tag.cancelled { background: #FEE2E2; color: #DC2626; }
+.booking-time { font-size: 22rpx; color: #9CA3AF; }
+.booking-content { padding: 20rpx; }
+.booking-row { display: flex; padding: 8rpx 0; font-size: 26rpx; }
+.booking-label { width: 140rpx; color: #9CA3AF; flex-shrink: 0; }
+.booking-value { color: var(--color-text); flex: 1; }
+.booking-actions { padding: 16rpx 20rpx; border-top: 1rpx solid var(--color-border); display: flex; justify-content: flex-end; }
+.booking-btn { height: 56rpx; padding: 0 32rpx; border-radius: 8rpx; font-size: 24rpx; display: flex; align-items: center; justify-content: center; line-height: 1; }
+.booking-btn.cancel { background: #FFFFFF; color: #DC2626; border: 1rpx solid #DC2626; }
+.booking-btn::after { display: none; }
+
+/* 确认状态提示 */
+.booking-confirm-info { display: flex; align-items: center; gap: 8rpx; margin-top: 16rpx; padding: 12rpx 16rpx; background: #E8F5E9; border-radius: 8rpx; }
+.confirm-icon { color: #43A047; font-size: 24rpx; }
+.confirm-text { color: #2E7D32; font-size: 24rpx; }
+
+/* ========== 底部按钮 ========== */
+.bottom-bar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: var(--color-card);
+  padding: 20rpx 24rpx;
+  box-shadow: 0 -8rpx 24rpx rgba(0,0,0,0.06);
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+}
+.btn-submit {
+  width: 100%;
+  height: 88rpx;
+  min-height: 88rpx;
+  background: var(--color-primary) !important;
+  color: #FFFFFF !important;
+  border: none;
+  border-radius: 12rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.btn-submit::after {
+  display: none;
+}

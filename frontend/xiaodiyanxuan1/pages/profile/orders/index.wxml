@@ -1,0 +1,128 @@
+<navigation-bar title="我的订单" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
+<view class="page">
+	<!-- 页面标题 -->
+	<view class="page-header">
+		<view class="page-title">我的订单</view>
+		<view class="page-subtitle">MY ORDERS ({{filteredOrders.length}})</view>
+	</view>
+	
+	<!-- 标签筛选 -->
+	<view class="tabs-wrap">
+		<view class="tab-item {{currentTab===0?'active':''}}" bindtap="onTabChange" data-index="0">全部订单</view>
+		<view class="tab-item {{currentTab===1?'active':''}}" bindtap="onTabChange" data-index="1">待付款</view>
+		<view class="tab-item {{currentTab===2?'active':''}}" bindtap="onTabChange" data-index="2">已付款</view>
+		<view class="tab-item {{currentTab===3?'active':''}}" bindtap="onTabChange" data-index="3">已发货</view>
+		<view class="tab-item {{currentTab===4?'active':''}}" bindtap="onTabChange" data-index="4">已完成</view>
+		<view class="tab-item {{currentTab===5?'active':''}} tab-cancelled" bindtap="onTabChange" data-index="5">已取消</view>
+	</view>
+	
+	<view class="order-list">
+		<block wx:for="{{filteredOrders}}" wx:key="id">
+			<view class="order-card-new {{item.modified ? 'order-modified' : ''}} {{item.status === 5 ? 'order-cancelled' : ''}}">
+				<!-- 管理员修改提示 -->
+				<view class="modified-banner" wx:if="{{item.modified}}">
+					<view class="modified-icon">⚠</view>
+					<view class="modified-content">
+						<text class="modified-title">订单已被管理员修改</text>
+						<text class="modified-reason" wx:if="{{item.modifyReason}}">原因: {{item.modifyReason}}</text>
+						<text class="modified-time" wx:if="{{item.modifyTime}}">修改时间: {{item.modifyTime}}</text>
+					</view>
+					<view class="modified-btn" bindtap="onViewModifyDetail" data-id="{{item.id}}">查看详情</view>
+				</view>
+				
+				<!-- 订单状态头 -->
+				<view class="order-status-bar {{item.status === 5 ? 'status-cancelled' : ''}}">
+					<view class="status-icon {{item.status === 5 ? 'icon-cancelled' : ''}}">{{item.status === 5 ? '✕' : '◎'}}</view>
+					<text class="status-text {{item.status === 5 ? 'text-cancelled' : ''}}">{{item.statusText}}</text>
+					<view class="modified-tag" wx:if="{{item.modified}}">已修改</view>
+					<view class="cancelled-tag" wx:if="{{item.status === 5}}">已取消</view>
+					<text class="order-price {{item.priceChanged ? 'price-changed' : ''}} {{item.status === 5 ? 'price-cancelled' : ''}}">¥{{item.totalPrice}}</text>
+					<text class="original-price" wx:if="{{item.priceChanged && item.originalPrice}}">原价: ¥{{item.originalPrice}}</text>
+				</view>
+				
+				<!-- 商品列表 -->
+				<block wx:for="{{item.goods}}" wx:key="id" wx:for-item="goods" wx:for-index="goodsIndex">
+					<view class="order-goods-item">
+						<image class="goods-thumb" src="{{goods.thumb || 'https://picsum.photos/200/200?random=' + goodsIndex}}" mode="aspectFill"></image>
+						<view class="goods-content">
+							<view class="goods-title">{{goods.name || goods.code || '商品'}}</view>
+							<view class="goods-spec">规格: {{goods.sizeName || '默认'}}</view>
+							<view class="goods-spec" wx:if="{{goods.dims}}">尺寸: {{goods.dims}}</view>
+							<!-- 材质信息 -->
+							<view class="goods-material-row">
+								<text class="material-item" wx:if="{{goods.fabric || goods.material}}">面料: {{goods.fabric || goods.material}}{{goods.materialColor ? '-' + goods.materialColor : ''}}</text>
+								<text class="material-item" wx:if="{{goods.fill}}">填充: {{goods.fill}}{{goods.fillExtra > 0 ? '+' + goods.fillExtra : ''}}</text>
+								<text class="material-item" wx:if="{{goods.frame}}">框架: {{goods.frame}}</text>
+								<text class="material-item" wx:if="{{goods.leg}}">腿脚: {{goods.leg}}</text>
+							</view>
+							<view class="goods-qty">×{{goods.count || 1}}</view>
+						</view>
+					</view>
+				</block>
+				
+				<!-- 单商品订单 -->
+				<view class="order-goods-item" wx:if="{{!item.goods || item.goods.length === 0}}">
+					<image class="goods-thumb" src="{{item.goodsImage || 'https://picsum.photos/200/200?random=1'}}" mode="aspectFill"></image>
+					<view class="goods-content">
+						<view class="goods-title">{{item.goodsName || '商品'}}</view>
+						<view class="goods-spec">规格: {{item.sizeName || '默认'}}</view>
+						<view class="goods-spec" wx:if="{{item.dims}}">尺寸: {{item.dims}}</view>
+						<!-- 材质信息 -->
+						<view class="goods-material-row">
+							<text class="material-item" wx:if="{{item.materialName || item.fabric}}">面料: {{item.materialName || item.fabric}}{{item.materialColor ? '-' + item.materialColor : ''}}</text>
+							<text class="material-item" wx:if="{{item.fillName || item.fill}}">填充: {{item.fillName || item.fill}}</text>
+							<text class="material-item" wx:if="{{item.frameName || item.frame}}">框架: {{item.frameName || item.frame}}</text>
+							<text class="material-item" wx:if="{{item.legName || item.leg}}">腿脚: {{item.legName || item.leg}}</text>
+						</view>
+						<view class="goods-qty">×1</view>
+					</view>
+				</view>
+				
+				<!-- 订单信息 -->
+				<view class="order-info-section">
+					<view class="info-row"><text class="info-label">订单号:</text><text class="info-value">{{item.orderNo}}</text></view>
+					<view class="info-row"><text class="info-label">收货人:</text><text class="info-value">{{item.receiverName || '—'}}</text></view>
+					<view class="info-row"><text class="info-label">电话:</text><text class="info-value">{{item.receiverPhone || '—'}}</text></view>
+					<view class="info-row"><text class="info-label">地址:</text><text class="info-value">{{item.receiverAddress || '—'}}</text></view>
+				</view>
+				
+				<!-- 操作按钮 -->
+				<view class="order-action-bar">
+					<!-- 被修改的订单显示确认按钮 -->
+					<button class="action-btn warning" wx:if="{{item.modified && !item.modifyAccepted}}" bindtap="onAcceptModifiedOrder" data-id="{{item.id}}">确认修改</button>
+					<button class="action-btn outline" wx:if="{{item.status===1}}" bindtap="onCancelOrder" data-id="{{item.id}}">取消订单</button>
+					<button class="action-btn primary" wx:if="{{item.status===1}}" bindtap="onPay" data-id="{{item.id}}">去付款</button>
+					<button class="action-btn primary" wx:if="{{item.status===3}}" bindtap="onConfirm" data-id="{{item.id}}">确认收货</button>
+					<!-- 已取消订单显示删除按钮 -->
+					<button class="action-btn danger" wx:if="{{item.status===5}}" bindtap="onDeleteOrder" data-id="{{item.id}}">删除订单</button>
+				</view>
+			</view>
+		</block>
+		
+		<view class="empty-state" wx:if="{{filteredOrders.length === 0}}">
+			<view class="empty-icon">○</view>
+			<text class="empty-text">暂无订单</text>
+		</view>
+	</view>
+	<custom-tab-bar></custom-tab-bar>
+</view>
+
+<!-- 取消订单弹窗 -->
+<view class="cancel-modal-mask" wx:if="{{showCancelModal}}" catchtap="onCloseCancelModal">
+	<view class="cancel-modal" catchtap="">
+		<view class="cancel-modal-header">
+			<text class="cancel-modal-title">取消订单</text>
+			<view class="cancel-modal-close" bindtap="onCloseCancelModal">✕</view>
+		</view>
+		<view class="cancel-modal-body">
+			<text class="cancel-modal-label">请填写取消原因（必填）</text>
+			<textarea class="cancel-reason-input" placeholder="请输入取消订单的原因..." value="{{cancelReason}}" bindinput="onCancelReasonInput" maxlength="200"></textarea>
+			<text class="cancel-reason-count">{{cancelReason.length}}/200</text>
+		</view>
+		<view class="cancel-modal-footer">
+			<button class="cancel-modal-btn cancel-btn" bindtap="onCloseCancelModal">取消</button>
+			<button class="cancel-modal-btn confirm-btn" bindtap="onConfirmCancel">确认取消</button>
+		</view>
+	</view>
+</view>
+

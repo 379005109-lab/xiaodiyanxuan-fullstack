@@ -1,0 +1,52 @@
+<navigation-bar title="我的收藏" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
+<view class="page">
+	<view class="favorites-hero">
+		<view class="hero-content">
+			<view class="hero-title">我的收藏</view>
+			<view class="hero-sub">共 {{favorites.length}} 件好物，随时加入购物车</view>
+		</view>
+		<view class="hero-actions">
+			<view class="hero-btn" bindtap="onClearFavorites" wx:if="{{favorites.length > 0}}">
+				<text class="hero-btn-text">清空</text>
+			</view>
+		</view>
+	</view>
+
+	<view class="favorites-filter">
+		<block wx:for="{{filters}}" wx:key="key">
+			<view class="filter-chip {{currentFilter===item.key?'active':''}}" data-key="{{item.key}}" bindtap="onChangeFilter">{{item.label}}</view>
+		</block>
+	</view>
+
+	<view class="favorites-loading" wx:if="{{loading}}">
+		<view class="loading-spinner"></view>
+		<text class="loading-text">正在加载...</text>
+	</view>
+	<view class="favorites-list" wx:if="{{!loading && filteredFavorites.length > 0}}">
+		<block wx:for="{{filteredFavorites}}" wx:key="id">
+			<view class="favorite-item" bindtap="goDetail" data-id="{{item.id}}">
+				<view class="favorite-left">
+					<image class="favorite-img" src="{{item.thumb}}" mode="aspectFill"></image>
+				</view>
+				<view class="favorite-right">
+					<view class="favorite-name-row">
+						<view class="favorite-name">{{item.name}}</view>
+						<view class="favorite-delete" bindtap="onDeleteFavorite" data-id="{{item.id}}" catchtap="stopPropagation">🗑</view>
+					</view>
+					<view class="favorite-sub">{{item.subtitle || '灵感搭配推荐'}}</view>
+					<view class="favorite-price">￥{{item.price}}</view>
+					<view class="favorite-bottom">
+						<view class="favorite-meta">收藏于 {{item.addedText}}</view>
+						<view class="favorite-btn cart-accent" data-id="{{item.id}}" data-name="{{item.name}}" data-price="{{item.price}}" data-thumb="{{item.thumb}}" catchtap="onAddToCart">加入购物车</view>
+					</view>
+				</view>
+			</view>
+		</block>
+	</view>
+	<view class="empty" wx:elif="{{!loading}}">
+		<text class="empty-text">暂无收藏</text>
+		<text class="empty-tip">去商城逛逛，收藏喜欢的商品吧</text>
+	</view>
+	<custom-tab-bar></custom-tab-bar>
+</view>
+

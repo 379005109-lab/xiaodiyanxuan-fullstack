@@ -1,0 +1,36 @@
+<navigation-bar title="优惠券" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
+<view class="page">
+	<view class="tabs">
+		<view class="tab {{currentTab===0?'active':''}}" bindtap="onTabChange" data-index="0">可用</view>
+		<view class="tab {{currentTab===1?'active':''}}" bindtap="onTabChange" data-index="1">已使用</view>
+		<view class="tab {{currentTab===2?'active':''}}" bindtap="onTabChange" data-index="2">已过期</view>
+	</view>
+	
+	<view class="coupons-list" wx:if="{{filteredCoupons.length > 0}}">
+		<block wx:for="{{filteredCoupons}}" wx:key="id">
+			<view class="coupon-item {{item.status === 'used' ? 'used' : ''}} {{item.status === 'expired' ? 'expired' : ''}}">
+				<view class="coupon-left">
+					<view class="coupon-amount">
+						<text class="amount-symbol">￥</text>
+						<text class="amount-value">{{item.amount}}</text>
+					</view>
+					<view class="coupon-condition">满{{item.minAmount}}可用</view>
+				</view>
+				<view class="coupon-right">
+					<view class="coupon-name">{{item.name}}</view>
+					<view class="coupon-desc">{{item.desc}}</view>
+					<view class="coupon-time">有效期：{{item.startTime}} 至 {{item.endTime}}</view>
+					<view class="coupon-status" wx:if="{{item.status === 'used'}}">已使用</view>
+					<view class="coupon-status expired" wx:if="{{item.status === 'expired'}}">已过期</view>
+				</view>
+			</view>
+		</block>
+	</view>
+	
+	<view class="empty" wx:else>
+		<text class="empty-text">暂无优惠券</text>
+		<text class="empty-tip">定期推送优惠券给到用户</text>
+	</view>
+	<custom-tab-bar></custom-tab-bar>
+</view>
+

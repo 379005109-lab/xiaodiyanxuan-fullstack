@@ -1,0 +1,82 @@
+<navigation-bar title="砍价详情" back="{{true}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="page-scroll" scroll-y>
+<view class="page">
+	<!-- 商品信息 -->
+	<view class="goods-card">
+		<image class="goods-cover" src="{{cover}}" mode="aspectFill"></image>
+		<view class="goods-info">
+			<view class="goods-name">{{name}}</view>
+			<view class="goods-prices">
+				<text class="current-price">¥{{currentPrice}}</text>
+				<text class="origin-price">¥{{origin}}</text>
+			</view>
+		</view>
+	</view>
+
+	<!-- 砍价进度 -->
+	<view class="progress-section">
+		<view class="progress-header">
+			<view class="progress-title">砍价进度</view>
+			<view class="progress-percent">{{progressPercent}}%</view>
+		</view>
+		<view class="progress-bar">
+			<view class="progress-fill" style="width: {{progressPercent}}%"></view>
+		</view>
+		<view class="progress-info">
+			<text>已砍 ¥{{cutAmount}}</text>
+			<text>还差 ¥{{remain}}</text>
+		</view>
+	</view>
+	
+	<!-- 可成交提示 -->
+	<view class="deal-section" wx:if="{{canDeal}}">
+		<view class="deal-title">🎉 恭喜！已达成交条件</view>
+		<view class="deal-desc">砍价已达到{{dealThreshold}}%，可直接成交</view>
+		<view class="deal-price">成交价 ¥{{dealPrice}}</view>
+	</view>
+
+	<!-- 倒计时 -->
+	<view class="countdown-section">
+		<view class="countdown-icon">⏰</view>
+		<view class="countdown-text">
+			<text>砍价剩余时间</text>
+			<text class="countdown-time">{{leftText}}</text>
+		</view>
+	</view>
+
+	<!-- 砍价记录 -->
+	<view class="records-section">
+		<view class="section-title">砍价记录</view>
+		<view class="records-list">
+			<block wx:for="{{records}}" wx:key="index">
+				<view class="record-item">
+					<image class="record-avatar" src="{{item.avatar}}" mode="aspectFill"></image>
+					<view class="record-info">
+						<text class="record-name">{{item.name}}</text>
+						<text class="record-time">{{item.time}}</text>
+					</view>
+					<view class="record-amount">-¥{{item.amount}}</view>
+				</view>
+			</block>
+			<view class="record-empty" wx:if="{{records.length === 0}}">
+				<text>暂无砍价记录，快邀请好友帮忙砍价吧！</text>
+			</view>
+		</view>
+	</view>
+
+	<!-- 邀请好友 -->
+	<view class="invite-section">
+		<view class="invite-title">邀请好友帮砍</view>
+		<view class="invite-desc">每位好友可帮砍 ¥10-50 不等</view>
+		<button class="invite-btn" open-type="share">邀请好友砍价</button>
+	</view>
+</view>
+</scroll-view>
+
+<!-- 底部操作栏 -->
+<view class="bottom-bar">
+	<button class="btn-cancel" bindtap="onCancelBargain">取消砍价</button>
+	<button class="btn-share" open-type="share">分享砍价</button>
+	<button class="btn-buy" bindtap="onBuyNow" wx:if="{{canDeal || remain <= 0}}">立即购买</button>
+	<button class="btn-continue" bindtap="onSelfCut" wx:else>自己砍一刀</button>
+</view>

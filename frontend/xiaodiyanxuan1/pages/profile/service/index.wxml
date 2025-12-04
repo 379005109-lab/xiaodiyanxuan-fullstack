@@ -1,0 +1,32 @@
+<navigation-bar title="客服中心" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
+<view class="page">
+	<view class="chat-container">
+		<view class="messages-list">
+			<block wx:for="{{messages}}" wx:key="id">
+				<view class="message-item {{item.type}}">
+					<view class="message-avatar" wx:if="{{item.type === 'service'}}">
+						<text class="avatar-text">客服</text>
+					</view>
+					<view class="message-content">
+						<view class="message-bubble {{item.type}}">
+							<text class="message-text">{{item.content}}</text>
+						</view>
+						<view class="message-time">{{item.time}}</view>
+					</view>
+					<view class="message-avatar user" wx:if="{{item.type === 'user'}}">
+						<text class="avatar-text">我</text>
+					</view>
+				</view>
+			</block>
+		</view>
+	</view>
+	
+	<view class="input-container">
+		<input class="input-field" placeholder="输入消息..." value="{{inputText}}" bindinput="onInput" bindconfirm="onSendMessage" />
+		<view class="send-btn {{inputText ? 'active' : ''}}" bindtap="onSendMessage">
+			<text class="send-text">发送</text>
+		</view>
+	</view>
+	<custom-tab-bar></custom-tab-bar>
+</view>
+

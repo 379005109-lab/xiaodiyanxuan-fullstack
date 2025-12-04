@@ -1,0 +1,44 @@
+/* 我的收藏页 - 小迪严选主题 */
+page { background: #F8F9FA; color: var(--color-text); }
+.page { padding: 0 0 96px; min-height: 100vh; }
+custom-tab-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; }
+
+/* 页面头部 */
+.favorites-hero { padding: calc(44px + env(safe-area-inset-top) + 24rpx) 24rpx 24rpx; display: flex; align-items: flex-end; justify-content: space-between; gap: 16rpx; }
+.hero-content { display: flex; flex-direction: column; gap: 8rpx; }
+.hero-title { font-size: 40rpx; font-weight: 700; color: var(--color-primary); }
+.hero-sub { font-size: 24rpx; color: var(--color-primary); opacity: 0.6; }
+.hero-actions { display: flex; align-items: center; gap: 16rpx; }
+.hero-btn { display: inline-flex; align-items: center; gap: 8rpx; padding: 12rpx 24rpx; border-radius: 32rpx; border: 1rpx solid var(--color-border); color: #6B7280; font-size: 24rpx; background: #FFFFFF; }
+.hero-btn-text { font-weight: 500; }
+
+/* 筛选标签 */
+.favorites-filter { padding: 0 24rpx 24rpx; display: flex; gap: 16rpx; }
+.filter-chip { padding: 14rpx 28rpx; border-radius: 32rpx; font-size: 26rpx; color: #6B7280; background: #FFFFFF; border: 1rpx solid var(--color-border); }
+.filter-chip.active { background: var(--color-primary); color: #FFFFFF; border-color: var(--color-primary); }
+
+/* 加载状态 */
+.favorites-loading { padding: 120rpx 24rpx; text-align: center; color: #6B7280; }
+.loading-text { font-size: 28rpx; }
+
+/* 收藏列表 */
+.favorites-list { display: flex; flex-direction: column; gap: 20rpx; padding: 0 24rpx 24rpx; }
+.favorite-item { display: flex; gap: 20rpx; padding: 24rpx; background: #FFFFFF; border-radius: 16rpx; }
+.favorite-left { flex-shrink: 0; }
+.favorite-img { width: 160rpx; height: 160rpx; border-radius: 12rpx; background: var(--color-bg); }
+.favorite-right { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.favorite-name-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16rpx; margin-bottom: 8rpx; }
+.favorite-name { flex: 1; font-size: 28rpx; color: var(--color-text); font-weight: 600; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.favorite-delete { width: 40rpx; height: 40rpx; display: flex; align-items: center; justify-content: center; font-size: 28rpx; color: #9CA3AF; flex-shrink: 0; }
+.favorite-sub { font-size: 24rpx; color: #6B7280; margin-bottom: 8rpx; }
+.favorite-price { font-size: 32rpx; font-weight: 700; color: #DC2626; margin-bottom: 12rpx; }
+.favorite-bottom { display: flex; align-items: center; justify-content: space-between; }
+.favorite-meta { font-size: 22rpx; color: #9CA3AF; }
+.favorite-btn { padding: 10rpx 24rpx; border-radius: 24rpx; font-size: 24rpx; font-weight: 600; }
+.cart-accent { background: var(--color-primary); color: #FFFFFF; }
+
+/* 空状态 */
+.empty { padding: 160rpx 40rpx; text-align: center; }
+.empty-text { font-size: 32rpx; color: var(--color-text); margin-bottom: 16rpx; }
+.empty-tip { font-size: 26rpx; color: #9CA3AF; }
+

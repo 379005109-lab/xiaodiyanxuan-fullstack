@@ -1,0 +1,36 @@
+<navigation-bar title="搭配推荐" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
+<view class="page">
+	<view class="recommendations-list">
+		<block wx:for="{{recommendations}}" wx:key="id" wx:for-index="recIndex">
+			<view class="recommendation-item">
+				<image class="recommendation-img" src="{{item.thumb}}" mode="aspectFill"></image>
+				<view class="recommendation-info">
+					<view class="recommendation-name">{{item.name}}</view>
+					<view class="recommendation-price">￥{{item.price}}</view>
+					<view class="recommendation-actions">
+						<view class="quantity-control" wx:if="{{item.added}}">
+							<view class="rec-quantity-btn" bindtap="onDecreaseRecQuantity" data-index="{{recIndex}}">-</view>
+							<text class="rec-quantity-value">{{item.count || 1}}</text>
+							<view class="rec-quantity-btn" bindtap="onIncreaseRecQuantity" data-index="{{recIndex}}">+</view>
+						</view>
+						<view class="recommendation-add" wx:if="{{!item.added}}" bindtap="onAddRecommendation" data-id="{{item.id}}" data-index="{{recIndex}}">
+							<text class="add-icon">+</text>
+						</view>
+						<view class="rec-delete-btn" wx:if="{{item.added}}" bindtap="onDeleteRecommendation" data-index="{{recIndex}}">删除</view>
+					</view>
+				</view>
+			</view>
+		</block>
+	</view>
+	
+	<view class="bottom-bar">
+		<view class="bottom-bar-left">
+			<text class="total-label">推荐商品合计：</text>
+			<text class="total-price">￥{{recommendationTotalPrice}}</text>
+		</view>
+		<view class="bottom-bar-right">
+			<button class="btn-confirm" bindtap="onConfirm">确定</button>
+		</view>
+	</view>
+</view>
+

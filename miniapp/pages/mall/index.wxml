@@ -1,0 +1,60 @@
+<navigation-bar title="商城" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<view class="page">
+		<!-- 搜索框 -->
+		<view class="search-bar">
+			<view class="search-input">
+				<input placeholder="请输入搜索的商品" value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
+			</view>
+			<button class="btn-search" wx:if="{{searchText}}" bindtap="onSearchConfirm">搜索</button>
+		</view>
+
+		<!-- 顶部筛选条：综合、销量、价格、类别、风格 -->
+		<view class="top-filters">
+			<view class="f-item {{sortKey==='comprehensive'?'active':''}}" data-key="comprehensive" bindtap="onTapSort">综合</view>
+			<view class="f-item {{sortKey==='sales'?'active':''}}" data-key="sales" bindtap="onTapSort">销量</view>
+			<view class="f-item {{sortKey==='price'?'active':''}}" data-key="price" bindtap="onTapPrice">价格<text class="arrow">{{priceAsc? '↑' : '↓'}}</text></view>
+			<view class="f-item" bindtap="openCategory">类别</view>
+			<view class="f-item {{showStylePopup?'active':''}}" bindtap="toggleStyle">风格</view>
+			<!-- 风格弹出 -->
+			<view class="style-popup" wx:if="{{showStylePopup}}">
+				<view class="style-list">
+					<block wx:for="{{styles}}" wx:key="*this">
+						<view class="style-tag {{selectedStyle===item?'active':''}}" data-style="{{item}}" bindtap="onSelectStyle">{{item}}</view>
+					</block>
+				</view>
+				<view class="style-actions">
+					<button class="btn-reset" bindtap="resetStyle">重置</button>
+					<button class="btn-apply" bindtap="applyStyle">确定</button>
+				</view>
+			</view>
+		</view>
+
+		<!-- 类别抽屉遮罩 -->
+		<view class="drawer-mask {{showCategoryDrawer?'active':''}}" wx:if="{{showCategoryDrawer}}" bindtap="closeCategory"></view>
+		<!-- 左侧类别抽屉 -->
+		<view class="drawer" wx:if="{{showCategoryDrawer}}">
+			<scroll-view scroll-y class="drawer-list">
+				<block wx:for="{{categories}}" wx:key="*this">
+					<view class="drawer-item {{selectedCategory===item?'active':''}}" data-cat="{{item}}" bindtap="onSelectCategory">{{item}}</view>
+				</block>
+			</scroll-view>
+		</view>
+
+		<view class="goods-grid">
+			<block wx:for="{{filteredGoods}}" wx:key="id">
+				<view class="goods-item" bindtap="goDetail" data-id="{{item.id}}">
+					<view class="thumb-box">
+						<image class="thumb-img" src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFill"></image>
+					</view>
+					<view class="hot-info">
+						<text class="h-name">{{item.name}}</text>
+						<view class="h-price">
+							<text class="price">￥{{item.price}}</text>
+						</view>
+					</view>
+				</view>
+			</block>
+		</view>
+	</view>
+
+

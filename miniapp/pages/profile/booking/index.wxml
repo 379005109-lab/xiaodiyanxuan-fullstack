@@ -1,0 +1,122 @@
+<navigation-bar title="我的预约" back="{{true}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y>
+  <view class="page">
+    <!-- 我的预约申请 - 放在最上面 -->
+    <view class="my-bookings-top" wx:if="{{myBookings.length > 0}}">
+      <view class="section-title">我的预约记录</view>
+      <view class="booking-card" wx:for="{{myBookings}}" wx:key="id" bindtap="onViewBookingDetail" data-id="{{item.id}}">
+        <view class="booking-header">
+          <view class="booking-status-tag {{item.status}}">{{item.statusText}}</view>
+          <view class="booking-time">{{item.createTime || '刚刚提交'}}</view>
+        </view>
+        <view class="booking-content">
+          <view class="booking-row">
+            <text class="booking-label">预约日期</text>
+            <text class="booking-value">{{item.date}} {{item.time}}</text>
+          </view>
+          <view class="booking-row">
+            <text class="booking-label">联系人</text>
+            <text class="booking-value">{{item.name}}</text>
+          </view>
+          <view class="booking-row">
+            <text class="booking-label">联系电话</text>
+            <text class="booking-value">{{item.phone}}</text>
+          </view>
+          <!-- 确认状态提示 -->
+          <view class="booking-confirm-info" wx:if="{{item.status === 'confirmed'}}">
+            <text class="confirm-icon">✓</text>
+            <text class="confirm-text">预约已确认，顾问将在预约时间联系您</text>
+          </view>
+        </view>
+        <view class="booking-actions" wx:if="{{item.status === 'pending'}}">
+          <button class="booking-btn cancel" catchtap="onCancelBooking" data-id="{{item.id}}">取消预约</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 无预约时显示空状态 -->
+    <view class="empty-bookings" wx:if="{{myBookings.length === 0}}">
+      <view class="empty-icon">○</view>
+      <view class="empty-text">暂无预约记录</view>
+      <view class="empty-tip">预约陪买服务，享受专属优惠</view>
+    </view>
+
+    <!-- 新建预约区域 -->
+    <view class="new-booking-section">
+      <view class="section-title">新建预约</view>
+      
+      <!-- 服务介绍 -->
+      <view class="intro-card">
+        <view class="intro-icon-box">◈</view>
+        <view class="intro-title">专业陪买服务</view>
+        <view class="intro-desc">资深家居顾问一对一陪同选购，为您提供专业的搭配建议和优惠方案</view>
+      </view>
+
+      <!-- 服务特色 -->
+      <view class="features">
+        <view class="feature-item">
+          <view class="feature-icon-box">◇</view>
+          <view class="feature-text">专业顾问</view>
+        </view>
+        <view class="feature-item">
+          <view class="feature-icon-box">○</view>
+          <view class="feature-text">专属优惠</view>
+        </view>
+        <view class="feature-item">
+          <view class="feature-icon-box">◎</view>
+          <view class="feature-text">精准推荐</view>
+        </view>
+        <view class="feature-item">
+          <view class="feature-icon-box">▷</view>
+          <view class="feature-text">免费接送</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 预约表单 -->
+    <view class="form-card">
+      <view class="form-title">预约信息</view>
+      
+      <view class="form-item">
+        <view class="form-label">预约日期</view>
+        <picker mode="date" value="{{bookingDate}}" start="{{minDate}}" bindchange="onDateChange">
+          <view class="form-picker {{bookingDate ? '' : 'placeholder'}}">
+            {{bookingDate || '请选择日期'}}
+            <text class="arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">预约时间</view>
+        <picker mode="selector" range="{{timeSlots}}" value="{{timeIndex}}" bindchange="onTimeChange">
+          <view class="form-picker {{timeIndex >= 0 ? '' : 'placeholder'}}">
+            {{timeIndex >= 0 ? timeSlots[timeIndex] : '请选择时间段'}}
+            <text class="arrow">›</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">联系人</view>
+        <input class="form-input" placeholder="请输入您的姓名" value="{{name}}" bindinput="onNameInput" />
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">联系电话</view>
+        <input class="form-input" type="number" placeholder="请输入手机号" value="{{phone}}" bindinput="onPhoneInput" />
+      </view>
+
+      <view class="form-item">
+        <view class="form-label">备注需求</view>
+        <textarea class="form-textarea" placeholder="请描述您的家居需求（可选）" value="{{remark}}" bindinput="onRemarkInput"></textarea>
+      </view>
+    </view>
+
+  </view>
+</scroll-view>
+
+<!-- 底部按钮 -->
+<view class="bottom-bar">
+  <button class="btn-submit" bindtap="onSubmit">立即预约</button>
+</view>

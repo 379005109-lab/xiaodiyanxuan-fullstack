@@ -1,0 +1,135 @@
+<navigation-bar title="套餐配置" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
+<view class="page">
+	<!-- 主视图大图 -->
+	<view class="preview-main">
+		<image class="preview-main-img" src="{{currentViewImage || previewImages[currentViewIndex]}}" mode="aspectFill" binderror="onImageError"></image>
+		<view class="preview-main-overlay"></view>
+		<view class="preview-main-info">
+			<text class="preview-main-title">{{currentPreviewLabel || (categories[currentViewIndex] && categories[currentViewIndex].name) || ''}}</text>
+			<text class="preview-main-subtitle">视角 {{currentViewIndex + 1}} · {{(categories[currentCategoryIndex] && categories[currentCategoryIndex].name) || ''}}</text>
+		</view>
+	</view>
+	<!-- 预览图区域 -->
+	<view class="preview-thumbs">
+		<scroll-view class="thumbs-scroll" scroll-x>
+			<block wx:for="{{previewImages}}" wx:key="*this" wx:for-index="imgIndex">
+				<view class="thumb-item-wrapper {{currentViewIndex===imgIndex?'active':''}}" data-index="{{imgIndex}}" bindtap="onTapPreview">
+					<image class="thumb-item" src="{{item}}" mode="aspectFill" binderror="onImageError"></image>
+					<view class="thumb-label">{{previewLabels[imgIndex] || ''}}</view>
+				</view>
+			</block>
+		</scroll-view>
+	</view>
+
+	<!-- 导航栏：沙发、茶几、软床等 -->
+	<view class="category-nav">
+		<scroll-view class="nav-scroll" scroll-x scroll-into-view="{{scrollIntoView}}" scroll-with-animation>
+			<block wx:for="{{categories}}" wx:key="key" wx:for-index="catIndex">
+				<view id="nav-{{item.key}}" class="nav-item {{currentCategory===item.key?'active':''}}" data-key="{{item.key}}" data-index="{{catIndex}}" bindtap="onTapCategory">
+					<text class="nav-text">{{item.name}}</text>
+					<text class="nav-badge" wx:if="{{item.remaining > 0}}">{{item.remaining}}</text>
+				</view>
+			</block>
+		</scroll-view>
+	</view>
+
+	<!-- 商品列表 -->
+	<view class="goods-list">
+		<block wx:for="{{currentGoodsList}}" wx:key="id">
+			<view class="goods-card {{item.count > 0 ? (item.allowRepeat ? 'selected-repeat' : 'selected') : ''}}" data-id="{{item.id}}">
+				<view class="goods-card-inner" bindtap="onTapGoods" data-id="{{item.id}}">
+					<image class="goods-img" src="{{item.thumb}}" mode="aspectFill" binderror="onImageError"></image>
+					<view class="goods-info">
+						<view class="goods-code">{{item.code}}</view>
+						<view class="goods-dims">{{item.dims}}</view>
+					</view>
+					<!-- 重复选择的商品：中间显示数字 -->
+					<view class="goods-count-center" wx:if="{{item.count > 0 && item.allowRepeat}}">{{item.count}}</view>
+					<!-- 单选商品：右上角显示勾选 -->
+					<view class="goods-check" wx:if="{{item.count > 0 && !item.allowRepeat}}">
+						<view class="check-icon">✓</view>
+					</view>
+				</view>
+				<!-- 取消按钮：只对重复选择的商品显示 -->
+				<view class="goods-minus" wx:if="{{item.count > 0 && item.allowRepeat}}" data-id="{{item.id}}" catchtap="onReduceGoods">−</view>
+			</view>
+		</block>
+	</view>
+
+
+	<!-- 底部操作栏 -->
+	<view class="bottom-bar">
+		<view class="bottom-bar-left">
+			<view class="total-price-wrap">
+				<text class="total-label">一口价</text>
+				<view class="total-price-row">
+					<text class="total-price-original">¥{{originalPrice}}</text>
+					<text class="total-price">¥{{totalPrice}}</text>
+				</view>
+			</view>
+		</view>
+		<view class="bottom-bar-right">
+			<view class="btn-action" bindtap="onNextCategory" wx:if="{{hasNextCategory}}">
+				<text class="btn-text">下一项：{{nextCategoryName}}</text>
+				<text class="btn-arrow">→</text>
+			</view>
+			<view class="btn-action btn-confirm" bindtap="onComplete" wx:else>
+				<text class="btn-text">确认订单</text>
+			</view>
+		</view>
+	</view>
+
+	<!-- 商品详情弹窗 -->
+	<view class="goods-modal" wx:if="{{showGoodsModal}}">
+		<view class="goods-modal-mask" bindtap="closeGoodsModal"></view>
+		<view class="goods-modal-panel" catchtap="">
+			<view class="goods-modal-header">
+				<image class="goods-modal-thumb" src="{{goodsModalData.thumb}}" mode="aspectFill" binderror="onImageError"></image>
+				<view class="goods-modal-header-info">
+					<view class="goods-modal-title">{{goodsModalData.code}}</view>
+					<view class="goods-modal-price">¥{{goodsModalData.price}}</view>
+				</view>
+				<view class="goods-modal-close" bindtap="closeGoodsModal">×</view>
+			</view>
+			<scroll-view class="goods-modal-body" scroll-y>
+				<!-- 规格选择 -->
+				<view class="goods-modal-section" wx:if="{{goodsModalVariants.length > 0}}">
+					<view class="goods-modal-label">选择规格</view>
+					<view class="variant-list">
+						<view class="variant-chip {{goodsModalVariantId===item.id?'active':''}}" wx:for="{{goodsModalVariants}}" wx:key="id" data-id="{{item.id}}" bindtap="onSelectVariant">
+							<view class="variant-label">{{item.label}}</view>
+							<view class="variant-desc" wx:if="{{item.desc}}">{{item.desc}}</view>
+							<view class="variant-price" wx:if="{{item.priceDelta}}">+¥{{item.priceDelta}}</view>
+						</view>
+					</view>
+					<!-- 规格尺寸显示在选择规格下方 -->
+					<view class="spec-dims-row">
+						<text class="spec-dims-text">尺寸：{{goodsModalData.dims || '—'}}</text>
+					</view>
+				</view>
+				<!-- 面料选择（材质+颜色合并） -->
+				<view class="goods-modal-section" wx:if="{{goodsModalFabrics.length > 0}}">
+					<view class="goods-modal-label">选择面料</view>
+					<view class="fabric-grid">
+						<view class="fabric-item {{goodsModalFabricIndex===index?'active':''}}" wx:for="{{goodsModalFabrics}}" wx:key="id" data-index="{{index}}" bindtap="onSelectFabric">
+							<image class="fabric-img" src="{{item.img}}" mode="aspectFill"></image>
+							<view class="fabric-name">{{item.name}}</view>
+						</view>
+					</view>
+				</view>
+				<!-- 数量选择（可重复选择的商品） -->
+				<view class="goods-modal-section" wx:if="{{goodsModalAllowRepeat}}">
+					<view class="goods-modal-label">选择数量</view>
+					<view class="quantity-selector">
+						<view class="qty-btn" bindtap="onModalDecreaseQty">−</view>
+						<text class="qty-value">{{goodsModalQuantity}}</text>
+						<view class="qty-btn" bindtap="onModalIncreaseQty">+</view>
+					</view>
+				</view>
+			</scroll-view>
+			<view class="goods-modal-actions">
+				<button class="modal-btn primary" bindtap="confirmGoodsSelection">确认添加</button>
+			</view>
+		</view>
+	</view>
+</view>

@@ -1,0 +1,78 @@
+<navigation-bar title="购物车" back="{{true}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y>
+  <view class="page">
+    <!-- 页面标题 -->
+    <view class="page-header">
+      <view class="page-title">购物车</view>
+      <view class="page-subtitle">SHOPPING CART ({{cartList.length}})</view>
+    </view>
+    
+    <!-- 空状态 -->
+    <view class="empty" wx:if="{{cartList.length === 0}}">
+      <view class="empty-icon-box">○</view>
+      <view class="empty-text">购物车是空的</view>
+      <view class="empty-tip">快去挑选心仪的商品吧</view>
+      <button class="btn-primary" bindtap="goMall">去逛逛</button>
+    </view>
+
+    <!-- 全选栏 -->
+    <view class="select-bar" wx:if="{{cartList.length > 0}}">
+      <view class="select-left" bindtap="onToggleAll">
+        <view class="check-box {{allChecked ? 'checked' : ''}}">
+          <text wx:if="{{allChecked}}">✓</text>
+        </view>
+        <text class="select-text">全选 ({{cartList.length}})</text>
+      </view>
+      <view class="select-right">
+        <text class="selected-info">已选择 {{checkedCount}} 件商品</text>
+      </view>
+    </view>
+
+    <!-- 购物车列表 - 每个商品独立卡片 -->
+    <view class="cart-list" wx:if="{{cartList.length > 0}}">
+      <view class="cart-card" wx:for="{{cartList}}" wx:key="id">
+        <!-- 商品头部：复选框和删除 -->
+        <view class="cart-header">
+          <view class="check-box {{item.checked ? 'checked' : ''}}" bindtap="onToggleCheck" data-index="{{index}}">
+            <text wx:if="{{item.checked}}">✓</text>
+          </view>
+          <view class="delete-icon" catchtap="onDelete" data-index="{{index}}">🗑</view>
+        </view>
+        <!-- 商品内容 -->
+        <view class="cart-content">
+          <image class="cart-thumb" src="{{item.thumb}}" mode="aspectFill" bindtap="goDetail" data-id="{{item.id}}"></image>
+          <view class="cart-info">
+            <view class="cart-name">{{item.name}}</view>
+            <view class="cart-spec-row">规格: {{item.sizeName || '默认'}}</view>
+            <view class="cart-spec-row" wx:if="{{item.dims}}">尺寸: {{item.dims}}</view>
+            <!-- 材质信息 -->
+            <view class="cart-material-list">
+              <view class="cart-material-item" wx:if="{{item.fabric || item.material}}">面料: {{item.fabric || item.material}}{{item.materialColor ? '-' + item.materialColor : ''}}</view>
+              <view class="cart-material-item" wx:if="{{item.fill}}">填充: {{item.fill}}{{item.fillExtra > 0 ? '+' + item.fillExtra : ''}}</view>
+              <view class="cart-material-item" wx:if="{{item.frame}}">框架: {{item.frame}}</view>
+              <view class="cart-material-item" wx:if="{{item.leg}}">腿脚: {{item.leg}}</view>
+            </view>
+          </view>
+        </view>
+        <!-- 价格和数量 -->
+        <view class="cart-footer">
+          <text class="cart-price">¥{{item.price}}</text>
+          <view class="quantity-control">
+            <view class="qty-btn" bindtap="onDecrease" data-index="{{index}}">−</view>
+            <view class="qty-value">{{item.count || 1}}</view>
+            <view class="qty-btn" bindtap="onIncrease" data-index="{{index}}">+</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</scroll-view>
+
+<!-- 底部结算栏 -->
+<view class="bottom-bar" wx:if="{{cartList.length > 0}}">
+  <view class="bar-left">
+    <text class="total-label">合计</text>
+    <text class="total-price">¥{{totalPrice}}</text>
+  </view>
+  <button class="btn-checkout" bindtap="onCheckout" disabled="{{checkedCount === 0}}">结算({{checkedCount}})</button>
+</view>

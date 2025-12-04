@@ -1,0 +1,238 @@
+/**mall/index.wxss**/
+/* 小迪严选商城页 - 按UI设计规范 */
+page { 
+  background: var(--color-bg); 
+  color: var(--color-text); 
+}
+.page { 
+  padding: 24rpx 32rpx 40rpx; 
+  padding-top: calc(44px + env(safe-area-inset-top) + 24rpx); 
+  box-sizing: border-box; 
+}
+
+/* ========== 搜索栏 ========== */
+.search-bar { 
+  display: flex; 
+  gap: 16rpx; 
+  padding: 16rpx 0; 
+}
+.search-input { 
+  flex: 1; 
+  height: 72rpx; 
+  border-radius: 9999rpx; 
+  background: var(--color-card); 
+  display: flex; 
+  align-items: center; 
+  padding: 0 24rpx; 
+  border: 2rpx solid var(--color-border);
+}
+.search-input input { 
+  width: 100%; 
+  font-size: 28rpx; 
+  color: var(--color-text);
+}
+.search-input input::placeholder {
+  color: #9CA3AF;
+}
+.btn-search { 
+  height: 56rpx; 
+  line-height: 56rpx; 
+  padding: 0 24rpx; 
+  border-radius: 8rpx; 
+  background: var(--color-primary); 
+  color: #fff; 
+  border: none; 
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+/* ========== 顶部筛选条 ========== */
+.top-filters { 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  padding: 12rpx 0 20rpx; 
+  position: relative; 
+}
+.f-item { 
+  color: #6B7280; 
+  font-size: 26rpx; 
+  padding: 8rpx 0;
+}
+.f-item.active { 
+  color: var(--color-primary); 
+  font-weight: 700; 
+}
+.f-item .arrow { 
+  margin-left: 4rpx; 
+}
+
+/* ========== 风格弹出层 ========== */
+.style-popup { 
+  position: absolute; 
+  left: 0; right: 0; 
+  top: 100%; 
+  z-index: 100; 
+  background: var(--color-card); 
+  border: 2rpx solid var(--color-border); 
+  border-top: none; 
+  border-radius: 0 0 16rpx 16rpx; 
+  padding: 20rpx; 
+  margin-top: -2rpx; 
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.08);
+}
+.style-mask { 
+  position: fixed; 
+  inset: 0; 
+  background: rgba(0,0,0,0.2); 
+  z-index: 50; 
+}
+.style-list { 
+  display: grid; 
+  grid-template-columns: repeat(4, 1fr); 
+  gap: 16rpx; 
+}
+.style-tag { 
+  padding: 12rpx 0; 
+  text-align: center; 
+  border: 2rpx solid var(--color-border); 
+  border-radius: 8rpx; 
+  color: var(--color-text); 
+  font-size: 24rpx; 
+}
+.style-tag.active { 
+  border-color: var(--color-primary); 
+  background: rgba(20, 69, 47, 0.08); 
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.style-actions { 
+  display: flex; 
+  gap: 16rpx; 
+  justify-content: flex-end; 
+  margin-top: 16rpx; 
+}
+.btn-reset { 
+  height: 56rpx; 
+  line-height: 56rpx; 
+  padding: 0 24rpx; 
+  background: var(--color-bg); 
+  border-radius: 8rpx; 
+  border: none; 
+  color: var(--color-text); 
+  font-size: 24rpx; 
+}
+.btn-apply { 
+  height: 56rpx; 
+  line-height: 56rpx; 
+  padding: 0 24rpx; 
+  background: var(--color-primary); 
+  border-radius: 8rpx; 
+  border: none; 
+  color: #fff; 
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+/* ========== 类别抽屉 ========== */
+.drawer-mask { 
+  position: fixed; 
+  inset: 0; 
+  background: rgba(0,0,0,0.4); 
+  z-index: 98; 
+}
+.drawer { 
+  position: fixed; 
+  left: 0; top: 0; bottom: 0; 
+  width: 280rpx; 
+  background: var(--color-card); 
+  z-index: 120; 
+  box-shadow: 4rpx 0 24rpx rgba(0,0,0,0.08); 
+}
+.drawer-mask.active { display: block; }
+.drawer-list { height: 100%; }
+.drawer-item { 
+  padding: 24rpx 28rpx; 
+  color: var(--color-text); 
+  font-size: 28rpx; 
+}
+.drawer-item.active { 
+  color: var(--color-primary); 
+  font-weight: 700; 
+  background: rgba(20, 69, 47, 0.06); 
+}
+
+/* ========== 商品网格 ========== */
+.goods-grid { 
+  display: grid; 
+  grid-template-columns: repeat(2, 1fr); 
+  gap: 24rpx; 
+}
+.goods-item { 
+  background: var(--color-card); 
+  border-radius: 16rpx; 
+  overflow: hidden; 
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04); 
+}
+.thumb-box { 
+  position: relative; 
+  width: 100%; 
+  height: 360rpx; 
+  background: var(--color-bg); 
+  overflow: hidden; 
+}
+.thumb-img { 
+  width: 100%; 
+  height: 100%; 
+  display: block; 
+}
+.hot-info { 
+  padding: 20rpx 24rpx 24rpx; 
+}
+.h-name { 
+  font-size: 28rpx; 
+  color: var(--color-text); 
+  font-weight: 500;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.h-price { 
+  margin-top: 8rpx; 
+  display: flex; 
+  align-items: center; 
+  gap: 16rpx; 
+}
+.price { 
+  font-size: 36rpx; 
+  font-weight: 700; 
+  color: var(--color-accent); 
+}
+
+/* ========== Tabs样式（保留兼容） ========== */
+.tabs { 
+  display: flex; 
+  gap: 32rpx; 
+  padding: 16rpx 8rpx 24rpx; 
+}
+.tab { 
+  position: relative; 
+  padding: 16rpx 8rpx; 
+  color: #6B7280; 
+  font-size: 28rpx;
+}
+.tab.active { 
+  color: var(--color-primary); 
+  font-weight: 600; 
+}
+.underline { 
+  position: absolute; 
+  left: 0; right: 0; 
+  bottom: -4rpx; 
+  height: 4rpx; 
+  background: var(--color-primary); 
+  border-radius: 4rpx; 
+}
+
+

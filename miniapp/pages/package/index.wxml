@@ -1,0 +1,53 @@
+<navigation-bar title="套餐" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y>
+<view class="page">
+	<!-- 顶部Banner -->
+	<view class="pkg-banner">
+		<image class="pkg-banner-img" src="https://picsum.photos/1080/720?random=100" mode="aspectFill"></image>
+		<view class="pkg-banner-overlay">
+			<view class="pkg-banner-title">精选套餐</view>
+			<view class="pkg-banner-desc">一站式配齐，省心又省钱</view>
+		</view>
+	</view>
+	
+	<!-- 分类标签 -->
+	<view class="tabs">
+		<block wx:for="{{tabs}}" wx:key="name">
+			<view class="tab {{currentTab===index?'active':''}}" data-index="{{index}}" bindtap="onTabChange">
+				<text>{{item.name}}</text>
+			</view>
+		</block>
+	</view>
+
+	<!-- 套餐列表 -->
+	<view class="pkg-list">
+		<block wx:for="{{packages}}" wx:key="id">
+			<view class="pkg-card-new" data-id="{{item.id}}" bindtap="goPackageDetail">
+				<image class="pkg-cover-new" src="{{item.cover}}" mode="aspectFill"></image>
+				<view class="pkg-info-new">
+					<view class="pkg-name">{{item.name}}</view>
+					<view class="pkg-price-row">
+						<text class="pkg-price-value">¥{{item.price}}</text>
+						<text class="pkg-save-tag">省 ¥{{item.save}}</text>
+					</view>
+				</view>
+			</view>
+		</block>
+	</view>
+</view>
+</scroll-view>
+
+<!-- 底部操作栏 -->
+<view class="bottom-bar">
+	<view class="sum">
+		<text class="label">已选</text>
+		<text class="count">{{selectedCount}}件</text>
+	</view>
+	<view class="sum-price">
+		<text class="label">合计</text>
+		<text class="value">¥{{totalPrice}}</text>
+	</view>
+	<button class="btn-primary" bindtap="goOrder">去下单</button>
+</view>
+
+

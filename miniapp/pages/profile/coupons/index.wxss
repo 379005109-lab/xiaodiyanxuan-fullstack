@@ -1,0 +1,25 @@
+page { background: #F5F6F7; }
+.page { padding-bottom: 70px; position: relative; min-height: 100vh; }
+custom-tab-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; }
+.tabs { display: flex; background: #FFFFFF; border-bottom: 1px solid #E5E7EB; position: sticky; top: 0; z-index: 10; }
+.tab { flex: 1; padding: 12px 0; text-align: center; font-size: 14px; color: #666666; position: relative; }
+.tab.active { color: #007AFF; font-weight: 600; }
+.tab.active::after { content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 24px; height: 2px; background: #007AFF; border-radius: 1px; }
+.coupons-list { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.coupon-item { display: flex; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); position: relative; }
+.coupon-item.used, .coupon-item.expired { opacity: 0.6; }
+.coupon-left { width: 120px; background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%); padding: 20px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }
+.coupon-amount { display: flex; align-items: baseline; margin-bottom: 8px; }
+.amount-symbol { font-size: 16px; color: #FFFFFF; font-weight: 600; }
+.amount-value { font-size: 36px; color: #FFFFFF; font-weight: 700; line-height: 1; }
+.coupon-condition { font-size: 12px; color: rgba(255, 255, 255, 0.9); }
+.coupon-right { flex: 1; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; }
+.coupon-name { font-size: 16px; color: #333333; font-weight: 600; margin-bottom: 6px; }
+.coupon-desc { font-size: 13px; color: #666666; margin-bottom: 8px; }
+.coupon-time { font-size: 12px; color: #999999; }
+.coupon-status { position: absolute; top: 16px; right: 16px; font-size: 12px; color: #999999; }
+.coupon-status.expired { color: #FF3B30; }
+.empty { padding: 100px 20px; text-align: center; }
+.empty-text { display: block; font-size: 16px; color: #666666; margin-bottom: 8px; }
+.empty-tip { display: block; font-size: 13px; color: #999999; }
+

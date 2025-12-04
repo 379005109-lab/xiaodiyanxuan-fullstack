@@ -1,0 +1,160 @@
+<navigation-bar title="{{goods.name}}" back="{{true}}" color="black" background="#FFFFFF">
+</navigation-bar>
+<!-- 悬浮购物车按钮 - 放在右下角 -->
+<view class="float-cart-btn" bindtap="goCart">
+	<view class="cart-icon-simple">
+		<view class="cart-basket"></view>
+		<view class="cart-handle"></view>
+	</view>
+	<text class="float-cart-badge" wx:if="{{cartCount > 0}}">{{cartCount > 99 ? '99+' : cartCount}}</text>
+</view>
+<view class="hero">
+	<swiper class="detail-swiper" autoplay circular interval="3000" current="{{imageIndex}}" bindchange="onSwiperChange">
+		<swiper-item wx:for="{{images}}" wx:key="*this">
+			<image class="d-img" src="{{item}}" mode="aspectFill" data-src="{{item}}" bindtap="onPreview"></image>
+		</swiper-item>
+	</swiper>
+	<scroll-view class="thumbs" scroll-x>
+		<block wx:for="{{images}}" wx:key="*this">
+			<image class="thumb {{imageIndex===index?'active':''}}" src="{{item}}" mode="aspectFill" data-index="{{index}}" bindtap="onTapThumb"></image>
+		</block>
+	</scroll-view>
+</view>
+<view class="page">
+	<view class="info">
+		<view class="name">{{goods.name}}</view>
+		<view class="price">￥{{totalPrice}}</view>
+		<view class="sub">基础价 ￥{{goods.basePrice}}</view>
+	</view>
+
+	<view class="tabs-head">
+		<block wx:for="{{tabList}}" wx:key="key">
+			<view class="tab {{tabIndex===index?'active':''}}" data-index="{{index}}" bindtap="onTabChange">{{item.label}}</view>
+		</block>
+	</view>
+
+	<view wx:if="{{tabList[tabIndex].key === 'spec'}}" class="section">
+		<view class="section-hd">规格（含图片）</view>
+		<view class="spec-grid">
+			<block wx:for="{{sizes}}" wx:key="name">
+			<view class="spec-card {{sizeIndex===index?'active':''}}" data-index="{{index}}" bindtap="onSelectSize">
+					<image class="spec-img" src="{{item.img}}" mode="aspectFill"></image>
+					<view class="spec-meta">
+						<view class="spec-title">{{item.name}}</view>
+						<view class="spec-dims">{{item.dims}}</view>
+					</view>
+				</view>
+			</block>
+		</view>
+	</view>
+
+	<view wx:if="{{tabList[tabIndex].key === 'material' && hasMaterials}}" class="section">
+		<view class="section-hd">材质</view>
+		<view class="mat-vertical">
+			<block wx:for="{{materialsGroups}}" wx:key="name" wx:for-index="gi">
+				<view class="matv-card {{materialGroupIndex===gi?'active':''}}">
+					<!-- 显示当前选中颜色的图片，如果没有则显示材质默认图片 -->
+					<image class="matv-img" src="{{materialGroupIndex===gi && item.colors[materialColorIndex].img ? item.colors[materialColorIndex].img : item.img}}" mode="aspectFill"></image>
+					<view class="matv-meta">
+						<view class="matv-title">{{item.name}} <text class="matv-extra {{item.extra>0?'danger':''}}">{{item.extra>0?('+'+item.extra):'标准'}}</text></view>
+						<view class="spec-options center">
+							<block wx:for="{{item.colors}}" wx:key="name" wx:for-index="ci">
+								<view class="spec-item {{materialGroupIndex===gi && materialColorIndex===ci?'active':''}}" data-g="{{gi}}" data-c="{{ci}}" bindtap="onSelectMaterialColor">{{item.name}}</view>
+							</block>
+						</view>
+					</view>
+				</view>
+			</block>
+		</view>
+	</view>
+
+	<view wx:if="{{tabList[tabIndex].key === 'structure' && hasStructure}}" class="section">
+		<view class="section-hd">内部结构</view>
+		<view class="struct-group">
+			<view class="struct-title">填充</view>
+			<view class="mat-grid">
+				<block wx:for="{{fills}}" wx:key="name">
+					<view class="mat-card {{fillIndex===index?'active':''}}" data-index="{{index}}" bindtap="onSelectFill">
+						<image class="mat-img" src="{{item.img}}" mode="aspectFill"></image>
+						<view class="mat-title">{{item.name}}</view>
+						<view class="mat-extra {{item.extra>0?'danger':''}}">{{item.extra>0?('+'+item.extra):'标准'}}</view>
+					</view>
+				</block>
+			</view>
+		</view>
+		<view class="struct-group">
+			<view class="struct-title">框架</view>
+			<view class="mat-grid">
+				<block wx:for="{{frames}}" wx:key="name">
+					<view class="mat-card {{frameIndex===index?'active':''}}" data-index="{{index}}" bindtap="onSelectFrame">
+						<image class="mat-img" src="{{item.img}}" mode="aspectFill"></image>
+						<view class="mat-title">{{item.name}}</view>
+						<view class="mat-extra {{item.extra>0?'danger':''}}">{{item.extra>0?('+'+item.extra):'标准'}}</view>
+					</view>
+				</block>
+			</view>
+		</view>
+		<view class="struct-group">
+			<view class="struct-title">脚架</view>
+			<view class="mat-grid">
+				<block wx:for="{{legs}}" wx:key="name">
+					<view class="mat-card {{legIndex===index?'active':''}}" data-index="{{index}}" bindtap="onSelectLeg">
+						<image class="mat-img" src="{{item.img}}" mode="aspectFill"></image>
+						<view class="mat-title">{{item.name}}</view>
+						<view class="mat-extra {{item.extra>0?'danger':''}}">{{item.extra>0?('+'+item.extra):'标准'}}</view>
+					</view>
+				</block>
+			</view>
+		</view>
+	</view>
+
+	<!-- 已选规格和材质信息展示 -->
+	<view class="selected-specs">
+		<view class="specs-header">
+			<text class="specs-title">已选配置</text>
+			<text class="specs-total">合计: ¥{{totalPrice}}</text>
+		</view>
+		<view class="specs-content">
+			<!-- 规格 -->
+			<view class="spec-line">
+				<text class="spec-label">规格:</text>
+				<text class="spec-value">{{sizes[sizeIndex].name || '默认'}} {{sizes[sizeIndex].dims ? '(' + sizes[sizeIndex].dims + ')' : ''}}</text>
+				<text class="spec-extra" wx:if="{{sizes[sizeIndex].extra > 0}}">+¥{{sizes[sizeIndex].extra}}</text>
+			</view>
+			<!-- 材质 -->
+			<view class="spec-line" wx:if="{{materialsGroups.length > 0}}">
+				<text class="spec-label">面料:</text>
+				<text class="spec-value">{{materialsGroups[materialGroupIndex].name}}{{materialsGroups[materialGroupIndex].colors[materialColorIndex].name ? '-' + materialsGroups[materialGroupIndex].colors[materialColorIndex].name : ''}}</text>
+				<text class="spec-extra" wx:if="{{materialsGroups[materialGroupIndex].extra > 0}}">+¥{{materialsGroups[materialGroupIndex].extra}}</text>
+			</view>
+			<!-- 填充 -->
+			<view class="spec-line" wx:if="{{fills.length > 0}}">
+				<text class="spec-label">填充:</text>
+				<text class="spec-value">{{fills[fillIndex].name}}</text>
+				<text class="spec-extra" wx:if="{{fills[fillIndex].extra > 0}}">+¥{{fills[fillIndex].extra}}</text>
+			</view>
+			<!-- 框架 -->
+			<view class="spec-line" wx:if="{{frames.length > 0}}">
+				<text class="spec-label">框架:</text>
+				<text class="spec-value">{{frames[frameIndex].name}}</text>
+				<text class="spec-extra" wx:if="{{frames[frameIndex].extra > 0}}">+¥{{frames[frameIndex].extra}}</text>
+			</view>
+			<!-- 脚架 -->
+			<view class="spec-line" wx:if="{{legs.length > 0}}">
+				<text class="spec-label">脚架:</text>
+				<text class="spec-value">{{legs[legIndex].name}}</text>
+				<text class="spec-extra" wx:if="{{legs[legIndex].extra > 0}}">+¥{{legs[legIndex].extra}}</text>
+			</view>
+		</view>
+	</view>
+
+	<view class="bottom-bar">
+		<button class="btn-fav {{isFavorited ? 'btn-fav-active' : ''}}" bindtap="onFav">
+			<text class="btn-icon">{{isFavorited ? '♥' : '♡'}}</text>
+		</button>
+		<button class="btn-cart" bindtap="onAddCart">加入购物车</button>
+		<button class="btn-buy" bindtap="onBuyNow">立即购买</button>
+	</view>
+</view>
+
+

@@ -1,0 +1,117 @@
+<navigation-bar title="陪买服务" back="{{true}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="page-scroll" scroll-y>
+<view class="page">
+	<!-- 顶部Banner -->
+	<view class="guide-banner">
+		<view class="banner-content">
+			<view class="banner-title">佛山源头陪买服务</view>
+			<view class="banner-desc">深入佛山家具产地，专车接送，资深买手带您逛遍 200+ 源头展厅，省去中间商差价，享受真正的一手出厂价。</view>
+		</view>
+	</view>
+
+	<!-- 服务套餐 -->
+	<view class="packages">
+		<!-- 基础陪买服务 -->
+		<view class="package-card standard">
+			<view class="package-header">
+				<view class="package-name">基础陪买服务</view>
+				<view class="package-en">STANDARD GUIDE</view>
+			</view>
+			<view class="package-price">
+				<text class="currency">¥</text>
+				<text class="amount">1,000</text>
+			</view>
+			<view class="package-note">* 购满 5000 元全额抵扣陪买服务费</view>
+			<view class="package-features">
+				<view class="feature-item">
+					<text class="check-icon">✓</text>
+					<text>专车接送（广佛区域：高铁站、机场、酒店）</text>
+				</view>
+				<view class="feature-item">
+					<text class="check-icon">✓</text>
+					<text>1天深度选购行程</text>
+				</view>
+				<view class="feature-item">
+					<text class="check-icon">✓</text>
+					<text>专业陪价</text>
+				</view>
+				<view class="feature-item">
+					<text class="check-icon">✓</text>
+					<text>购满5000元抵扣服务费</text>
+				</view>
+			</view>
+			<button class="package-btn primary" bindtap="bookStandard">立即预约</button>
+		</view>
+
+		<!-- 专家定制陪买 -->
+		<view class="package-card expert">
+			<view class="package-header">
+				<view class="package-name">专家定制陪买</view>
+				<view class="package-en">EXPERT GUIDE</view>
+			</view>
+			<view class="package-price">
+				<text class="currency">¥</text>
+				<text class="amount">5,000</text>
+			</view>
+			<view class="package-note">* 购满 1万元全额抵扣陪买服务费</view>
+			<view class="package-features">
+				<view class="feature-item">
+					<text class="check-icon">✓</text>
+					<text>包含基础陪买服务所有权益</text>
+				</view>
+				<view class="feature-item">
+					<text class="check-icon">✓</text>
+					<text>资深软装设计师陪同</text>
+				</view>
+				<view class="feature-item">
+					<text class="check-icon">✓</text>
+					<text>3天深度选品对比</text>
+				</view>
+				<view class="feature-item">
+					<text class="check-icon">✓</text>
+					<text>全屋搭配方案</text>
+				</view>
+				<view class="feature-item">
+					<text class="check-icon">✓</text>
+					<text>出厂价验货跟单</text>
+				</view>
+			</view>
+			<button class="package-btn outline" bindtap="bookExpert">立即预约</button>
+		</view>
+	</view>
+
+	<!-- 为什么选择小迪陪买 -->
+	<view class="why-section">
+		<view class="section-title">为什么选择小迪陪买？</view>
+		<view class="advantages">
+			<view class="advantage-card">
+				<view class="advantage-icon-box">◉</view>
+				<view class="advantage-name">源头直达</view>
+				<view class="advantage-desc">直达 200+ 工厂，省掉中间商差价</view>
+			</view>
+			<view class="advantage-card">
+				<view class="advantage-icon-box">▷</view>
+				<view class="advantage-name">专车接送</view>
+				<view class="advantage-desc">高端商务专车接送，全程轻松惬意</view>
+			</view>
+			<view class="advantage-card">
+				<view class="advantage-icon-box">◇</view>
+				<view class="advantage-name">专业陪同</view>
+				<view class="advantage-desc">资深行业老手陪同，帮您筛选最优性价比</view>
+			</view>
+			<view class="advantage-card">
+				<view class="advantage-icon-box">○</view>
+				<view class="advantage-name">售后无忧</view>
+				<view class="advantage-desc">平台统一售后客服，出现问题秒级响应</view>
+			</view>
+		</view>
+	</view>
+
+	<!-- 联系咨询 -->
+	<view class="contact-section">
+		<view class="contact-title">还有疑问？</view>
+		<view class="contact-desc">添加客服微信，获取更多详情</view>
+		<button class="contact-btn" bindtap="contactService">联系客服</button>
+	</view>
+</view>
+</scroll-view>

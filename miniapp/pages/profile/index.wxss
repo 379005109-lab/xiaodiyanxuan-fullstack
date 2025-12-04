@@ -1,0 +1,139 @@
+/**profile/index.wxss**/
+/* 小迪严选个人中心 - 按UI设计规范 */
+page { 
+  background: var(--color-bg); 
+  color: var(--color-text); 
+}
+.scrollarea { height: 100vh; }
+.page { 
+  padding: 24rpx 32rpx 40rpx; 
+  padding-top: calc(44px + env(safe-area-inset-top) + 24rpx); 
+  box-sizing: border-box; 
+}
+
+/* ========== 用户头部 ========== */
+.header { 
+  display: flex; 
+  align-items: center; 
+  gap: 24rpx; 
+}
+.avatar { 
+  width: 112rpx; 
+  height: 112rpx; 
+  border-radius: 50%; 
+  background: var(--color-bg); 
+  border: 4rpx solid var(--color-primary);
+}
+.u-info .name { 
+  font-size: 32rpx; 
+  color: var(--color-text); 
+  font-weight: 600; 
+}
+.badge { 
+  margin-top: 8rpx; 
+  display: inline-flex; 
+  font-size: 24rpx; 
+  color: var(--color-primary); 
+  background: rgba(20, 69, 47, 0.08); 
+  border-radius: 6rpx; 
+  padding: 4rpx 12rpx; 
+}
+
+/* ========== 统计数据 ========== */
+.stats { 
+  margin: 32rpx 0; 
+  display: grid; 
+  grid-template-columns: repeat(3, 1fr); 
+  gap: 16rpx; 
+}
+.stat { 
+  background: var(--color-card); 
+  border-radius: 16rpx; 
+  padding: 24rpx; 
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04); 
+  display: flex; 
+  flex-direction: column; 
+  gap: 12rpx; 
+}
+.label { 
+  font-size: 24rpx; 
+  color: #6B7280; 
+}
+.value { 
+  font-size: 32rpx; 
+  font-weight: 700; 
+  color: var(--color-accent); 
+}
+
+/* ========== 列表 ========== */
+.list { 
+  background: var(--color-card); 
+  border-radius: 16rpx; 
+  overflow: hidden; 
+  margin-top: 24rpx; 
+}
+.cell { 
+  padding: 28rpx 24rpx; 
+  border-bottom: 2rpx solid var(--color-border); 
+  font-size: 28rpx;
+  display: flex;
+  align-items: center;
+}
+.cell:last-child { 
+  border-bottom: none; 
+}
+.cell-icon-box {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 8rpx;
+  background: rgba(20, 69, 47, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20rpx;
+}
+.cell-icon-simple {
+  font-size: 24rpx;
+  color: var(--color-primary);
+  line-height: 1;
+}
+.cell-text {
+  flex: 1;
+  color: var(--color-text);
+}
+.cell-badge {
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 10rpx;
+  background: #DC2626;
+  color: #FFFFFF;
+  font-size: 20rpx;
+  font-weight: 600;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12rpx;
+}
+.cell-arrow {
+  color: #9CA3AF;
+  font-size: 32rpx;
+}
+.section-title { 
+  padding: 24rpx 24rpx 0; 
+  font-size: 24rpx; 
+  color: #7A7A7A; 
+}
+
+/* ========== 页脚 ========== */
+.footer { 
+  margin-top: 48rpx; 
+  text-align: center; 
+  color: #9CA3AF; 
+  font-size: 24rpx; 
+}
+.copy { 
+  margin-top: 16rpx; 
+}
+
+

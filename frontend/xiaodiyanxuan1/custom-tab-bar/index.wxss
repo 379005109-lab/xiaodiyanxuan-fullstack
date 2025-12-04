@@ -1,0 +1,36 @@
+/**custom-tab-bar/index.wxss**/
+/* 小迪严选自定义TabBar - 按UI设计规范 */
+.tabbar { 
+  position: fixed; 
+  left: 0; right: 0; bottom: 0; 
+  height: 112rpx; 
+  background: var(--color-card, #FFFFFF); 
+  display: flex; 
+  border-top: 2rpx solid var(--color-border, #E6E8E9); 
+  z-index: 999; 
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.item { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column;
+  align-items: center; 
+  justify-content: center; 
+  color: #6B7280; 
+  gap: 4rpx;
+  padding: 8rpx 0;
+}
+.item.active { 
+  color: var(--color-primary, #14452F); 
+  font-weight: 700; 
+}
+.icon {
+  font-size: 40rpx;
+  line-height: 1;
+}
+.text { 
+  font-size: 24rpx; 
+  line-height: 1.2;
+}
+
+

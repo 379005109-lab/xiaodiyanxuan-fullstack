@@ -1,0 +1,124 @@
+<navigation-bar title="砍价专区" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y>
+	<view class="page">
+		<!-- 顶部横幅 -->
+		<view class="hero-banner">
+			<view class="hero-content">
+				<view class="hero-left">
+					<view class="hero-title">砍一刀，最高省 50%</view>
+					<view class="hero-subtitle">源头好货 · 一件也是出厂价</view>
+					<view class="hero-countdown">
+						<text class="countdown-icon">⏱</text>
+						<text class="countdown-label">限时砍价 ·</text>
+						<text class="countdown-time">{{leftText}}</text>
+					</view>
+				</view>
+				<view class="hero-tag">HOT</view>
+			</view>
+		</view>
+
+		<!-- 筛选栏 -->
+		<view class="filter-bar">
+			<view class="filter-item" data-key="style" bindtap="onTapFilter">
+				<text class="filter-text">风格</text>
+				<text class="filter-arrow">▼</text>
+			</view>
+			<view class="filter-divider"></view>
+			<view class="filter-item" data-key="category" bindtap="onTapFilter">
+				<text class="filter-text">品类</text>
+				<text class="filter-arrow">▼</text>
+			</view>
+		</view>
+		
+		<!-- 筛选弹窗 -->
+		<view class="filter-popup" wx:if="{{showFilterPopup}}" bindtap="onCloseFilterPopup">
+			<view class="filter-popup-content" catchtap="">
+				<view class="filter-popup-title">{{activeFilter === 'style' ? '选择风格' : '选择品类'}}</view>
+				<view class="filter-options">
+					<block wx:if="{{activeFilter === 'style'}}">
+						<view class="filter-option {{selectedStyle === item ? 'active' : ''}}" 
+							wx:for="{{styleOptions}}" wx:key="*this"
+							data-type="style" data-value="{{item}}" bindtap="onSelectFilterOption">
+							{{item}}
+						</view>
+					</block>
+					<block wx:if="{{activeFilter === 'category'}}">
+						<view class="filter-option {{selectedCategory === item ? 'active' : ''}}" 
+							wx:for="{{categoryOptions}}" wx:key="*this"
+							data-type="category" data-value="{{item}}" bindtap="onSelectFilterOption">
+							{{item}}
+						</view>
+					</block>
+				</view>
+			</view>
+		</view>
+
+		<!-- 商品列表 -->
+		<view class="product-list">
+			<view class="product-card" wx:for="{{goodsList}}" wx:key="id">
+				<!-- 左侧图片区 -->
+				<view class="product-image-wrap">
+					<image class="product-image" src="{{item.cover}}" mode="aspectFill"></image>
+					<view class="helper-badge">
+						<text class="helper-icon">👥</text>
+						<text class="helper-count">{{item.cutCount}}人助力</text>
+					</view>
+				</view>
+				<!-- 右侧信息区 -->
+				<view class="product-info">
+					<view class="product-name">{{item.name}}</view>
+					<view class="save-badge">砍价省 ¥{{item.cut}}</view>
+					<view class="price-row">
+						<text class="price-symbol">¥</text>
+						<text class="price-value">{{item.price}}</text>
+						<text class="price-origin">¥{{item.origin}}</text>
+					</view>
+					<view class="action-btns">
+						<button class="btn-start" data-id="{{item.id}}" bindtap="onStartBargain">发起砍价</button>
+						<button class="btn-help" data-id="{{item.id}}" bindtap="onHelpCut">帮砍一刀</button>
+					</view>
+				</view>
+			</view>
+		</view>
+
+		<view class="my-bargain" wx:if="{{myBargains.length > 0}}">
+			<view class="section-title-new">我的砍价</view>
+			<block wx:for="{{myBargains}}" wx:key="id">
+				<view class="my-bargain-card" data-id="{{item.id}}" bindtap="onViewMyBargain">
+					<view class="my-bargain-row">
+						<image class="my-bargain-img" src="{{item.cover}}" mode="aspectFill"></image>
+						<view class="my-bargain-info">
+							<view class="my-bargain-header">
+								<text class="my-bargain-name">{{item.name}}</text>
+								<text class="my-bargain-status">进行中</text>
+							</view>
+							<view class="my-bargain-prices">
+								<text class="my-bargain-target">目标价 ¥{{item.price}}</text>
+								<text class="my-bargain-origin">原价 ¥{{item.origin}}</text>
+							</view>
+							<view class="my-bargain-progress-wrap">
+								<view class="my-bargain-progress-bar">
+									<view class="my-bargain-progress-fill" style="width: {{Math.min(100, Math.round(item.progress * 100))}}%;"></view>
+								</view>
+								<text class="my-bargain-remain">还差 ¥{{item.remain}}</text>
+							</view>
+						</view>
+					</view>
+					<view class="my-bargain-btns">
+						<button class="my-bargain-btn invite" open-type="share" data-id="{{item.id}}">邀请好友助力</button>
+						<button class="my-bargain-btn cancel" bindtap="onCancelMyBargain" data-id="{{item.id}}" catchtap="">取消</button>
+					</view>
+				</view>
+			</block>
+		</view>
+
+		<view class="rules">
+			<view class="rule-header">规则说明</view>
+			<view class="rule-body">
+				<text>每人每日可砍 3 次；砍价有效期 24 小时；满足条件可提现。</text>
+			</view>
+		</view>
+	</view>
+</scroll-view>
+
+

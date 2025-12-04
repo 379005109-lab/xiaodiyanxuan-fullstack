@@ -1,7 +1,0 @@
-<view class="container">
-  <view class="form-item"><text>姓名</text><input value="{{form.name}}" bindinput="inputField" data-field="name" placeholder="收货人姓名"/></view>
-  <view class="form-item"><text>电话</text><input value="{{form.phone}}" bindinput="inputField" data-field="phone" placeholder="手机号码" type="number"/></view>
-  <view class="form-item" bindtap="chooseLocation"><text>地区</text><text class="value">{{form.province}}{{form.city}}{{form.district}} ></text></view>
-  <view class="form-item"><text>详细地址</text><input value="{{form.detail}}" bindinput="inputField" data-field="detail" placeholder="街道、楼牌号等"/></view>
-  <view class="submit-btn" bindtap="submit">保存</view>
-</view>
