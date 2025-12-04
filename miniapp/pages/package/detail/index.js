@@ -79,6 +79,7 @@ Page({
 			
 			// 处理套餐中的每个类别
 			if (pkg.categories && pkg.categories.length > 0) {
+				// 新格式：有 categories 数组
 				pkg.categories.forEach((cat, index) => {
 					const key = `cat_${index}`
 					
@@ -98,8 +99,8 @@ Page({
 						code: p.name || '',
 						name: p.name || '',
 						dims: p.specs || '',
-						thumb: p.image || 'https://via.placeholder.com/400',
-						price: p.packagePrice || p.basePrice || 0,
+						thumb: p.image || p.thumb || 'https://via.placeholder.com/400',
+						price: p.packagePrice || p.basePrice || p.price || 0,
 						count: 0,
 						material: '',
 						materialColor: '',
@@ -112,6 +113,59 @@ Page({
 					
 					// 类别图片（使用第一个商品的图片）
 					categoryImages[key] = goods.length > 0 ? [goods[0].thumb] : []
+				})
+			} else if (pkg.products && pkg.products.length > 0) {
+				// 旧格式：只有 products 数组，按商品名称前缀自动分类
+				console.log('使用 products 格式，自动分类')
+				
+				// 按商品类型分组（沙发、床、床头柜等）
+				const productGroups = {}
+				pkg.products.forEach(p => {
+					// 从商品名称中提取类型
+					let type = '其他'
+					if (p.name.includes('沙发')) type = '沙发'
+					else if (p.name.includes('床头柜')) type = '床头柜'
+					else if (p.name.includes('床')) type = '床'
+					else if (p.name.includes('餐椅')) type = '餐椅'
+					else if (p.name.includes('餐桌')) type = '餐桌'
+					else if (p.name.includes('茶几')) type = '茶几'
+					else if (p.name.includes('电视柜')) type = '电视柜'
+					
+					if (!productGroups[type]) productGroups[type] = []
+					productGroups[type].push(p)
+				})
+				
+				// 为每个分组创建类别
+				Object.keys(productGroups).forEach((type, index) => {
+					const key = `cat_${index}`
+					const groupProducts = productGroups[type]
+					
+					categories.push({
+						key: key,
+						name: type,
+						required: 1,
+						selected: false,
+						allowRepeat: false,
+						remaining: 1
+					})
+					
+					const goods = groupProducts.map((p, i) => ({
+						id: p.id || `${key}_${i}`,
+						code: p.name || '',
+						name: p.name || '',
+						dims: '',
+						thumb: p.thumb || p.image || 'https://via.placeholder.com/400',
+						price: p.price || 0,
+						count: 0,
+						material: '',
+						materialColor: '',
+						fill: '',
+						frame: '',
+						leg: '',
+						skus: []
+					}))
+					allGoods[key] = goods
+					categoryImages[key] = goods.length > 0 && goods[0].thumb ? [goods[0].thumb] : []
 				})
 			}
 			
