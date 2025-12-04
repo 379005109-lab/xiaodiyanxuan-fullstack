@@ -426,6 +426,22 @@ Page({
 		})
 	},
 	onSubmit() {
+		// 检查是否登录
+		const token = wx.getStorageSync('token')
+		if (!token) {
+			wx.showModal({
+				title: '提示',
+				content: '请先登录后再提交订单',
+				confirmText: '去登录',
+				success: (res) => {
+					if (res.confirm) {
+						wx.switchTab({ url: '/pages/profile/index' })
+					}
+				}
+			})
+			return
+		}
+		
 		if (!this.data.name || !this.data.phone || !this.data.address) {
 			wx.showToast({ title: '请完善收货信息', icon: 'none' })
 			return
