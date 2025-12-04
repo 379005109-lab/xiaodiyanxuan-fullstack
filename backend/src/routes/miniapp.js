@@ -121,8 +121,8 @@ router.get('/home', async (req, res) => {
     const formattedGoods = hotGoods.map(p => ({
       id: p._id,
       name: p.name,
-      price: p.price,
-      originalPrice: p.originalPrice || p.price,
+      price: p.basePrice || p.price || 0,
+      originalPrice: p.originalPrice || p.basePrice || p.price || 0,
       cover: getImageUrl(p.images?.[0]),
       sales: p.sales || 0,
       category: p.category?.name || '',
@@ -162,8 +162,8 @@ router.get('/goods/list', async (req, res) => {
     const list = products.map(p => ({
       id: p._id,
       name: p.name,
-      price: p.price,
-      originalPrice: p.originalPrice || p.price,
+      price: p.basePrice || p.price || 0,
+      originalPrice: p.originalPrice || p.basePrice || p.price || 0,
       cover: getImageUrl(p.images?.[0]),
       sales: p.sales || 0,
       category: p.category?.name || '',
@@ -188,8 +188,8 @@ router.get('/goods/:id', async (req, res) => {
     const data = {
       id: product._id,
       name: product.name,
-      price: product.price,
-      originalPrice: product.originalPrice || product.price,
+      price: product.basePrice || product.price || 0,
+      originalPrice: product.originalPrice || product.basePrice || product.price || 0,
       images: (product.images || []).map(img => getImageUrl(img)),
       description: product.description || '',
       category: product.category?.name || '',
@@ -251,8 +251,8 @@ router.get('/goods/search', async (req, res) => {
     const list = products.map(p => ({
       id: p._id,
       name: p.name,
-      price: p.price,
-      originalPrice: p.originalPrice || p.price,
+      price: p.basePrice || p.price || 0,
+      originalPrice: p.originalPrice || p.basePrice || p.price || 0,
       cover: getImageUrl(p.images?.[0]),
       sales: p.sales || 0
     }))
