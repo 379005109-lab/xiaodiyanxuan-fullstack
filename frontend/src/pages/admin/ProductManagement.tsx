@@ -22,6 +22,7 @@ export default function ProductManagement() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [sortBy, setSortBy] = useState('')  // 排序方式
   
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1)
@@ -1916,7 +1917,25 @@ export default function ProductManagement() {
       return true
     })
     .sort((a, b) => {
-      // 按 order 字段排序，如果没有 order 则按创建时间排序
+      // 根据排序方式排序
+      if (sortBy === 'newest') {
+        // 最新上传优先
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      }
+      if (sortBy === 'oldest') {
+        // 最早上传优先
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      }
+      if (sortBy === 'priceHigh') {
+        return (b.basePrice || 0) - (a.basePrice || 0)
+      }
+      if (sortBy === 'priceLow') {
+        return (a.basePrice || 0) - (b.basePrice || 0)
+      }
+      if (sortBy === 'name') {
+        return a.name.localeCompare(b.name)
+      }
+      // 默认：按 order 字段排序，如果没有 order 则按创建时间排序
       const orderA = a.order ?? 0
       const orderB = b.order ?? 0
       if (orderA !== orderB) {
@@ -2046,6 +2065,22 @@ export default function ProductManagement() {
               <option value="active">上架中</option>
               <option value="inactive">已下架</option>
               <option value="out_of_stock">缺货</option>
+            </select>
+          </div>
+
+          {/* 排序 */}
+          <div className="w-full md:w-40">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="input w-full"
+            >
+              <option value="">默认排序</option>
+              <option value="newest">最新上传</option>
+              <option value="oldest">最早上传</option>
+              <option value="priceHigh">价格从高到低</option>
+              <option value="priceLow">价格从低到高</option>
+              <option value="name">按名称排序</option>
             </select>
           </div>
 

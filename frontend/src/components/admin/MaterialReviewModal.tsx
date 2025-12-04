@@ -11,27 +11,46 @@ interface MaterialReviewModalProps {
 
 export default function MaterialReviewModal({ material, onClose }: MaterialReviewModalProps) {
   const [reviewNote, setReviewNote] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleApprove = () => {
-    if (reviewMaterial(material._id, 'approved', '管理员', reviewNote)) {
-      toast.success('审核通过')
-      onClose()
-    } else {
+  const handleApprove = async () => {
+    setLoading(true)
+    try {
+      const result = await reviewMaterial(material._id, 'approved', '管理员', reviewNote)
+      if (result) {
+        toast.success('审核通过')
+        onClose()
+      } else {
+        toast.error('操作失败')
+      }
+    } catch (error) {
+      console.error('审核失败:', error)
       toast.error('操作失败')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!reviewNote.trim()) {
       toast.error('请输入拒绝原因')
       return
     }
 
-    if (reviewMaterial(material._id, 'rejected', '管理员', reviewNote)) {
-      toast.success('已拒绝')
-      onClose()
-    } else {
+    setLoading(true)
+    try {
+      const result = await reviewMaterial(material._id, 'rejected', '管理员', reviewNote)
+      if (result) {
+        toast.success('已拒绝')
+        onClose()
+      } else {
+        toast.error('操作失败')
+      }
+    } catch (error) {
+      console.error('拒绝失败:', error)
       toast.error('操作失败')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -142,6 +161,7 @@ export default function MaterialReviewModal({ material, onClose }: MaterialRevie
             <button
               type="button"
               onClick={onClose}
+              disabled={loading}
               className="btn-secondary px-6 py-2"
             >
               取消
@@ -149,18 +169,20 @@ export default function MaterialReviewModal({ material, onClose }: MaterialRevie
             <button
               type="button"
               onClick={handleReject}
-              className="flex items-center px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              disabled={loading}
+              className="flex items-center px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
             >
               <XCircle className="h-4 w-4 mr-2" />
-              拒绝
+              {loading ? '处理中...' : '拒绝'}
             </button>
             <button
               type="button"
               onClick={handleApprove}
-              className="flex items-center px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              disabled={loading}
+              className="flex items-center px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
-              通过
+              {loading ? '处理中...' : '通过'}
             </button>
           </div>
         </div>
