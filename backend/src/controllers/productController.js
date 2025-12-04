@@ -2,6 +2,7 @@ const { successResponse, errorResponse, paginatedResponse } = require('../utils/
 const { getProducts, getProductById, getCategories, getStyles, searchProducts } = require('../services/productService')
 const FileService = require('../services/fileService')
 const Product = require('../models/Product')
+const Style = require('../models/Style')
 
 const listProducts = async (req, res) => {
   try {
@@ -331,6 +332,38 @@ const bulkImport = async (req, res) => {
       return res.status(400).json(errorResponse('商品列表不能为空', 400))
     }
 
+    // 收集所有商品中的风格标签
+    const allStyles = new Set()
+    products.forEach(p => {
+      if (p.styles && Array.isArray(p.styles)) {
+        p.styles.forEach(s => {
+          if (s && s.trim()) allStyles.add(s.trim())
+        })
+      }
+      // 兼容单个 style 字段
+      if (p.style && typeof p.style === 'string' && p.style.trim()) {
+        allStyles.add(p.style.trim())
+      }
+    })
+
+    // 查询已存在的风格
+    const existingStyles = await Style.find({ name: { $in: Array.from(allStyles) } }).lean()
+    const existingStyleNames = new Set(existingStyles.map(s => s.name))
+
+    // 创建不存在的风格
+    const newStyles = Array.from(allStyles).filter(s => !existingStyleNames.has(s))
+    if (newStyles.length > 0) {
+      const stylesToCreate = newStyles.map(name => ({
+        name,
+        status: 'active',
+        order: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }))
+      await Style.insertMany(stylesToCreate, { ordered: false })
+      console.log(`自动创建了 ${newStyles.length} 个新风格标签:`, newStyles)
+    }
+
     // 为每个商品添加必要字段
     const productsWithDefaults = products.map(p => ({
       ...p,
@@ -348,8 +381,9 @@ const bulkImport = async (req, res) => {
 
     res.status(201).json(successResponse({
       imported: result.length,
-      products: result
-    }, '批量导入成功'))
+      products: result,
+      newStyles: newStyles
+    }, `批量导入成功${newStyles.length > 0 ? `，自动创建了 ${newStyles.length} 个新风格标签` : ''}`))
   } catch (err) {
     console.error('Bulk import error:', err)
     res.status(500).json(errorResponse(err.message, 500))
