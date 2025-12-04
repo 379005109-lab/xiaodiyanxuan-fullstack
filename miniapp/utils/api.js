@@ -455,6 +455,17 @@ function getCategories() {
   })
 }
 
+/**
+ * 获取风格列表
+ */
+function getStyles() {
+  return request({
+    url: '/api/styles',
+    method: 'GET',
+    needAuth: false
+  })
+}
+
 // ==================== 套餐相关 API ====================
 
 /**
@@ -529,6 +540,9 @@ module.exports = {
   
   // 分类相关
   getCategories,
+  
+  // 风格相关
+  getStyles,
   
   // 套餐相关
   getPackages,

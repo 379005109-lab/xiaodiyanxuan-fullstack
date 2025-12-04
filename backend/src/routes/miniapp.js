@@ -13,6 +13,8 @@ const Order = require('../models/Order')
 const Category = require('../models/Category')
 const Material = require('../models/Material')
 const Package = require('../models/Package')
+const Style = require('../models/Style')
+const Banner = require('../models/Banner')
 const { auth } = require('../middleware/auth')
 
 // 微信小程序配置
@@ -111,7 +113,26 @@ router.get('/user/info', auth, async (req, res) => {
   }
 })
 
-// ========== 3. 分类列表 ==========
+// ========== 3. 风格列表 ==========
+router.get('/styles', async (req, res) => {
+  try {
+    const styles = await Style.find({ status: 'active' })
+      .sort({ order: 1 })
+      .lean()
+
+    const list = styles.map(s => ({
+      id: s._id,
+      name: s.name,
+      image: getImageUrl(s.image)
+    }))
+
+    res.json(success(list))
+  } catch (err) {
+    res.status(500).json(error(500, err.message))
+  }
+})
+
+// ========== 4. 分类列表 ==========
 router.get('/categories', async (req, res) => {
   try {
     const categories = await Category.find({ status: 'active', level: 1 })
@@ -138,6 +159,40 @@ router.get('/categories', async (req, res) => {
 // ========== 4. 首页数据 ==========
 router.get('/home', async (req, res) => {
   try {
+    // 获取小程序首页轮播图 (HERO 图)
+    const now = new Date()
+    const banners = await Banner.find({
+      platform: { $in: ['miniapp', 'all'] },
+      type: 'hero',
+      status: 'active',
+      $or: [
+        { startTime: null, endTime: null },
+        { startTime: { $lte: now }, endTime: { $gte: now } },
+        { startTime: { $lte: now }, endTime: null },
+        { startTime: null, endTime: { $gte: now } }
+      ]
+    }).sort({ order: 1 }).lean()
+
+    const bannerList = banners.map(b => ({
+      id: b._id,
+      image: getImageUrl(b.image),
+      link: b.link || ''
+    }))
+
+    // 获取陪买服务图
+    const serviceBanners = await Banner.find({
+      platform: { $in: ['miniapp', 'all'] },
+      type: 'service',
+      status: 'active'
+    }).sort({ order: 1 }).lean()
+
+    const serviceList = serviceBanners.map(b => ({
+      id: b._id,
+      name: b.name,
+      image: getImageUrl(b.image),
+      link: b.link || ''
+    }))
+
     // 获取分类
     const categories = await Category.find({ status: 'active', level: 1 })
       .sort({ order: 1 })
@@ -150,11 +205,11 @@ router.get('/home', async (req, res) => {
       image: getImageUrl(c.image)
     }))
 
-    // 获取热门商品
+    // 获取本周热门商品（按浏览量排序，取前4个）
     const hotGoods = await Product.find({ status: 'active' })
       .populate('category', 'name')
-      .sort({ sales: -1 })
-      .limit(6)
+      .sort({ views: -1 })  // 按浏览量降序
+      .limit(4)
       .lean()
 
     // 转换格式
@@ -170,6 +225,7 @@ router.get('/home', async (req, res) => {
         image: imageUrl,
         thumb: imageUrl,
         pic: imageUrl,
+        views: p.views || 0,
         sales: p.sales || 0,
         category: p.category?.name || '',
         style: Array.isArray(p.styles) ? p.styles[0] : (p.style || '')
@@ -177,7 +233,8 @@ router.get('/home', async (req, res) => {
     })
 
     res.json(success({
-      banners: [],
+      banners: bannerList,
+      services: serviceList,
       categories: categoryList,
       hotGoods: formattedGoods
     }))

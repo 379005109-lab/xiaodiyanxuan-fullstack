@@ -76,6 +76,7 @@ app.use('/api/accounts', require('./routes/accounts'))
 app.use('/api/files', require('./routes/files'))
 app.use('/api/bargains', require('./routes/bargains'))
 app.use('/api/packages', require('./routes/packages'))
+app.use('/api/banners', require('./routes/banners'))
 app.use('/api/buying-service-requests', require('./routes/buyingService'))
 
 // 微信小程序专用接口

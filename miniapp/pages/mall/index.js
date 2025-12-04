@@ -14,7 +14,7 @@ Page({
 		priceAsc: true,
 		showStylePopup: false,
 		showCategoryDrawer: false,
-		styles: ['中古风','现代风','极简风','轻奢风'],
+		styles: [],  // 从后台加载
 		selectedStyle: '',
 		categories: [{ id: '', name: '全部' }],  // 从后台加载
 		selectedCategory: '',  // 使用分类ID
@@ -26,8 +26,25 @@ Page({
 	},
 	onLoad() {
 		this.loadCategories()
+		this.loadStyles()
 		this.loadGoodsList()
 		this.closeOverlays()
+	},
+	// 加载风格列表
+	loadStyles() {
+		api.getStyles().then((data) => {
+			const styles = []
+			if (Array.isArray(data)) {
+				data.forEach(s => {
+					if (s.name) styles.push(s.name)
+				})
+			}
+			// 如果后台没有数据，使用默认风格
+			this.setData({ styles: styles.length > 0 ? styles : ['中古风','现代风','极简风','轻奢风'] })
+		}).catch((err) => {
+			console.error('加载风格失败:', err)
+			this.setData({ styles: ['中古风','现代风','极简风','轻奢风'] })
+		})
 	},
 	// 加载分类列表
 	loadCategories() {
