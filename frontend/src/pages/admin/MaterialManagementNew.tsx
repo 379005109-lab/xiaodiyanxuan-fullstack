@@ -20,6 +20,7 @@ import {
   createMaterial,
   createMaterialCategory,
   deleteMaterialCategory,
+  clearMaterialCache,
 } from '@/services/materialService'
 import { getFileUrl, uploadFile, getThumbnailUrl } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
@@ -348,6 +349,7 @@ export default function MaterialManagement() {
         await updateMaterial(m._id, { status: 'approved' })
       }
       toast.success('批量审核成功')
+      clearMaterialCache()  // 清除缓存以获取最新数据
       loadMaterials()
       loadStats()
     } catch (error) {
@@ -361,6 +363,7 @@ export default function MaterialManagement() {
         await updateMaterial(m._id, { status: 'offline' })
       }
       toast.success('批量下线成功')
+      clearMaterialCache()  // 清除缓存以获取最新数据
       loadMaterials()
       loadStats()
     } catch (error) {
@@ -374,6 +377,7 @@ export default function MaterialManagement() {
         await updateMaterial(m._id, { status: 'approved' })
       }
       toast.success('批量上线成功')
+      clearMaterialCache()  // 清除缓存以获取最新数据
       loadMaterials()
       loadStats()
     } catch (error) {
