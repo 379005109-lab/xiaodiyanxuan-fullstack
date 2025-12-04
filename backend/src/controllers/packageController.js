@@ -4,6 +4,14 @@ const Product = require('../models/Product')
 const { calculatePagination } = require('../utils/helpers')
 const FileService = require('../services/fileService')
 
+// 图片URL处理
+const API_BASE_URL = process.env.API_BASE_URL || 'https://pkochbpmcgaa.sealoshzh.site'
+const getImageUrl = (img) => {
+  if (!img) return ''
+  if (img.startsWith('http')) return img
+  return `${API_BASE_URL}/api/files/${img}`
+}
+
 const list = async (req, res) => {
   try {
     const { page = 1, pageSize = 10, status } = req.query
@@ -102,8 +110,8 @@ const list = async (req, res) => {
               return {
                 id: product._id.toString(),
                 name: product.name,
-                image: product.images && product.images[0] ? product.images[0] : null,
-                images: product.images || [],
+                image: getImageUrl(product.images && product.images[0] ? product.images[0] : null),
+                images: (product.images || []).map(img => getImageUrl(img)),
                 basePrice: product.basePrice,
                 packagePrice: product.packagePrice || product.basePrice,
                 price: product.basePrice, // 兼容旧代码
@@ -196,8 +204,8 @@ const getPackage = async (req, res) => {
             return {
               id: product._id.toString(),
               name: product.name,
-              image: product.images && product.images[0] ? product.images[0] : null,
-              images: product.images || [],
+              image: getImageUrl(product.images && product.images[0] ? product.images[0] : null),
+              images: (product.images || []).map(img => getImageUrl(img)),
               basePrice: product.basePrice,
               packagePrice: product.packagePrice || product.basePrice,
               price: product.basePrice, // 兼容旧代码

@@ -283,7 +283,7 @@ function removeCartItem(cartId) {
  */
 function createOrder(orderData) {
   return request({
-    url: '/api/orders',
+    url: '/orders',
     method: 'POST',
     data: orderData
   })
@@ -295,7 +295,7 @@ function createOrder(orderData) {
  */
 function getOrders(params = {}) {
   return request({
-    url: '/api/miniapp/orders',
+    url: '/orders',
     method: 'GET',
     data: params
   })
@@ -307,7 +307,7 @@ function getOrders(params = {}) {
  */
 function getOrderDetail(orderId) {
   return request({
-    url: `/api/miniapp/orders/${orderId}`,
+    url: `/orders/${orderId}`,
     method: 'GET'
   })
 }
@@ -318,7 +318,7 @@ function getOrderDetail(orderId) {
  */
 function cancelOrder(orderId, reason) {
   return request({
-    url: `/api/miniapp/orders/${orderId}/cancel`,
+    url: `/orders/${orderId}/cancel`,
     method: 'POST',
     data: { reason }
   })
@@ -330,7 +330,7 @@ function cancelOrder(orderId, reason) {
  */
 function confirmOrder(orderId) {
   return request({
-    url: `/api/miniapp/orders/${orderId}/confirm`,
+    url: `/orders/${orderId}/confirm`,
     method: 'POST'
   })
 }
