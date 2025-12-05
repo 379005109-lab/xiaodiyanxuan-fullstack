@@ -286,6 +286,76 @@ const uploadIcon = async (req, res) => {
 }
 
 /**
+ * 设置单个分类折扣
+ * POST /api/categories/:id/discounts
+ */
+const setCategoryDiscount = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { discounts } = req.body
+
+    if (!Array.isArray(discounts)) {
+      return res.status(400).json(errorResponse('折扣数据格式错误', 400))
+    }
+
+    const hasDiscount = discounts.length > 0 && discounts.some(d => d.discountPercent < 100)
+
+    const category = await Category.findByIdAndUpdate(
+      id,
+      { 
+        discounts, 
+        hasDiscount,
+        updatedAt: new Date() 
+      },
+      { new: true }
+    )
+
+    if (!category) {
+      return res.status(404).json(errorResponse('分类不存在', 404))
+    }
+
+    res.json(successResponse(category, '折扣设置成功'))
+  } catch (err) {
+    console.error('Set category discount error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
+/**
+ * 批量设置所有分类折扣
+ * POST /api/categories/discounts/batch
+ */
+const setBatchCategoryDiscount = async (req, res) => {
+  try {
+    const { discounts } = req.body
+
+    if (!Array.isArray(discounts)) {
+      return res.status(400).json(errorResponse('折扣数据格式错误', 400))
+    }
+
+    const hasDiscount = discounts.length > 0 && discounts.some(d => d.discountPercent < 100)
+
+    // 更新所有分类
+    const result = await Category.updateMany(
+      {},
+      { 
+        discounts, 
+        hasDiscount,
+        updatedAt: new Date() 
+      }
+    )
+
+    res.json(successResponse({
+      modifiedCount: result.modifiedCount,
+      message: `成功更新 ${result.modifiedCount} 个分类的折扣设置`
+    }))
+  } catch (err) {
+    console.error('Set batch category discount error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
+/**
  * 获取分类统计
  * GET /api/categories/stats
  */
@@ -322,5 +392,7 @@ module.exports = {
   deleteCategory,
   getCategoryStats,
   uploadImage,
-  uploadIcon
+  uploadIcon,
+  setCategoryDiscount,
+  setBatchCategoryDiscount
 }
