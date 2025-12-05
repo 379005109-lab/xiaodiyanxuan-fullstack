@@ -183,7 +183,7 @@ export default function RefundManagementNew() {
   }
 
   // 批量创建退货
-  const handleBatchCreateRefund = () => {
+  const handleBatchCreateRefund = async () => {
     if (selectedOrders.length === 0) {
       toast.error('请选择订单')
       return
@@ -193,37 +193,57 @@ export default function RefundManagementNew() {
       return
     }
     
-    const newRefunds: RefundItem[] = selectedOrders.map(orderId => {
-      const order = orders.find(o => o._id === orderId)!
+    const token = localStorage.getItem('token')
+    let successCount = 0
+    
+    for (const orderId of selectedOrders) {
+      const order = orders.find(o => o._id === orderId)
+      if (!order) continue
+      
       const recipient = (order.recipient || order.shippingAddress) as any
       const products = order.items || (order as any).products || []
       
-      return {
-        _id: `refund_${Date.now()}_${orderId}`,
-        orderId: order._id,
-        orderNo: order.orderNo,
-        products: products.map((p: any) => ({
-          name: p.name || p.productName,
-          image: p.image,
-          quantity: p.quantity || 1,
-          price: p.price || p.unitPrice || 0,
-          sku: p.skuName || p.sku
-        })),
-        reason: refundReason,
-        customReason: refundReason === '其他原因' ? customReason : undefined,
-        status: 'pending',
-        totalAmount: order.totalAmount,
-        createdAt: new Date().toISOString(),
-        buyerName: recipient?.name,
-        buyerPhone: recipient?.phone
+      try {
+        const response = await fetch('/api/refunds', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            orderId: order._id,
+            orderNo: order.orderNo,
+            products: products.map((p: any) => ({
+              productId: p.product || p.productId,
+              name: p.name || p.productName,
+              image: p.image,
+              quantity: p.quantity || 1,
+              price: p.price || p.unitPrice || 0,
+              sku: p.skuName || p.sku
+            })),
+            reason: refundReason,
+            customReason: refundReason === '其他原因' ? customReason : undefined,
+            totalAmount: order.totalAmount,
+            buyerName: recipient?.name,
+            buyerPhone: recipient?.phone
+          })
+        })
+        const data = await response.json()
+        if (data.success) {
+          successCount++
+        }
+      } catch (error) {
+        console.error('创建退货失败:', error)
       }
-    })
+    }
     
-    const updatedRefunds = [...refunds, ...newRefunds]
-    setRefunds(updatedRefunds)
-    localStorage.setItem('refund_records', JSON.stringify(updatedRefunds))
+    if (successCount > 0) {
+      toast.success(`已创建 ${successCount} 个退货申请`)
+      loadRefunds()
+    } else {
+      toast.error('创建退货申请失败')
+    }
     
-    toast.success(`已创建 ${newRefunds.length} 个退货申请`)
     setShowOrderSelectModal(false)
     setSelectedOrders([])
     setRefundReason('')
