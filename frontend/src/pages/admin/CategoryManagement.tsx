@@ -324,19 +324,13 @@ export default function CategoryManagement() {
             {/* 角色折扣 */}
             <div className="flex-1 text-sm text-gray-600 px-4">
               {category.discounts && category.discounts.length > 0 ? (
-                category.discounts.map((d: any, idx) => {
-                  const roleName = d.role === 'designer' ? '设计师' : 
-                                   d.role === 'distributor' ? '经销商' : 
-                                   d.role === 'customer' ? '普通客户' : d.role
-                  const percent = d.discountPercent ?? d.discount ?? 100
-                  return (
-                    <span key={idx} className={`mr-4 ${percent < 100 ? 'text-orange-600 font-medium' : ''}`}>
-                      {roleName}:{percent}%
-                    </span>
-                  )
-                })
+                category.discounts.map((d, idx) => (
+                  <span key={idx} className="mr-4">
+                    {d.roleName}:{d.discount}%
+                  </span>
+                ))
               ) : (
-                <span className="text-gray-400">%</span>
+                <span className="text-gray-400">未设置</span>
               )}
             </div>
 

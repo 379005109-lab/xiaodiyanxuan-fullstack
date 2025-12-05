@@ -1,69 +1,58 @@
 /**custom-tab-bar/index.wxss**/
-/* ZenLife 2.0 浮动玻璃拟态导航栏 - Floating Dock */
-/* 距离底部24px，左右24px边距，玻璃拟态材质 */
-
+/* ZenLife 2.0 浮动玻璃拟态导航栏 */
 .tabbar { 
   position: fixed; 
-  left: 48rpx; 
-  right: 48rpx; 
-  bottom: calc(48rpx + env(safe-area-inset-bottom)); 
-  height: 120rpx; 
-  background: rgba(255, 255, 255, 0.8); 
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  left: 24rpx; 
+  right: 24rpx; 
+  bottom: calc(24rpx + env(safe-area-inset-bottom)); 
+  height: 112rpx; 
+  background: rgba(255, 255, 255, 0.75); 
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: flex; 
-  align-items: center;
-  justify-content: space-around;
-  border: 2rpx solid rgba(255, 255, 255, 0.5); 
+  border: 2rpx solid rgba(255, 255, 255, 0.6); 
   border-radius: 999rpx;
   z-index: 999; 
-  box-shadow: 0 16rpx 48rpx -16rpx rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20rpx 60rpx -20rpx rgba(34, 197, 94, 0.15);
 }
-
 .item { 
   flex: 1; 
   display: flex; 
   flex-direction: column;
   align-items: center; 
   justify-content: center; 
-  color: #6b7280; 
-  gap: 4rpx;
+  color: #9ca3af; 
+  gap: 6rpx;
+  padding: 8rpx 0;
   transition: all 0.3s ease;
 }
-
-/* 图标包裹 */
+.item.active { 
+  color: #FFFFFF;
+  font-weight: 700; 
+}
+.item.active .icon-wrap {
+  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
+  box-shadow: 0 8rpx 24rpx -8rpx rgba(52, 211, 153, 0.6);
+  border-radius: 999rpx;
+  padding: 12rpx 24rpx;
+}
 .icon-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
   transition: all 0.3s ease;
 }
 .icon {
-  font-size: 44rpx;
+  font-size: 40rpx;
   line-height: 1;
 }
-
-/* 文字 */
 .text { 
-  font-size: 20rpx; 
-  line-height: 1;
+  font-size: 22rpx; 
+  line-height: 1.2;
   font-weight: 500;
-  margin-top: 4rpx;
 }
-
-/* 选中态 - 渐变背景 + 发光阴影 */
-.item.active { 
-  color: #FFFFFF;
-}
-.item.active .icon-wrap {
-  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
-  box-shadow: 0 10rpx 30rpx -8rpx rgba(52, 211, 153, 0.6);
-}
-.item.active .icon {
-  color: #FFFFFF;
+.item.active .text {
+  color: #22c55e;
 }
 
 

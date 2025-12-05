@@ -4,7 +4,6 @@ import { motion } from 'framer-motion'
 import { Grid, List, SlidersHorizontal, Heart, Scale, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
 import { Product } from '@/types'
 import { formatPrice } from '@/lib/utils'
-import { calculateDiscountedPrice, hasDiscount } from '@/lib/priceUtils'
 // 使用真实API服务
 import { getProducts as getAllProducts } from '@/services/productService'
 import { getAllCategories } from '@/services/categoryService'
@@ -40,23 +39,7 @@ export default function ProductsPage() {
   
   const { isFavorited, toggleFavorite, loadFavorites, favorites } = useFavoriteStore()
   const { isInCompare, addToCompare: addToCompareStore, loadCompareItems } = useCompareStore()
-  const { isAuthenticated, user } = useAuthStore()
-  
-  // 获取商品的折扣价格
-  const getProductDiscountedPrice = (product: Product): number => {
-    if (!user?.role) return product.basePrice
-    // 查找商品分类的折扣
-    const category = categories.find(c => c._id === product.category || c.name === product.category)
-    if (!category?.discounts) return product.basePrice
-    return calculateDiscountedPrice(product.basePrice, user.role, category.discounts)
-  }
-  
-  // 检查商品是否有折扣
-  const productHasDiscount = (product: Product): boolean => {
-    if (!user?.role) return false
-    const category = categories.find(c => c._id === product.category || c.name === product.category)
-    return hasDiscount(user.role, category?.discounts)
-  }
+  const { isAuthenticated } = useAuthStore()
   
   // 恢复滚动位置
   useEffect(() => {
@@ -911,13 +894,8 @@ export default function ProductsPage() {
                         
                         <div className={viewMode === 'list' ? 'text-right ml-4' : 'flex items-baseline gap-2 mb-2'}>
                           <span className={`font-bold text-red-600 ${viewMode === 'grid' ? 'text-2xl' : 'text-base'}`}>
-                            {formatPrice(getProductDiscountedPrice(product))}
+                            {formatPrice(product.basePrice)}
                           </span>
-                          {productHasDiscount(product) && (
-                            <span className="text-xs text-gray-400 line-through ml-1">
-                              {formatPrice(product.basePrice)}
-                            </span>
-                          )}
                           {product.skus.length > 1 && (
                             <span className="text-xs text-gray-500">起</span>
                           )}

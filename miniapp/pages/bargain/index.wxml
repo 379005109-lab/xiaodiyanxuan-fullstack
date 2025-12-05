@@ -1,11 +1,35 @@
-<!-- ZenLife 2.0 砍价专区 - 玻璃拟态顶部 -->
-<view class="bargain-header-wrap">
-	<view class="header-title">砍价专区</view>
-	<view class="my-bargain-btn" bindtap="goMyBargain">我的砍价</view>
-</view>
-
-<scroll-view class="scrollarea" scroll-y enhanced show-scrollbar="{{false}}">
+<navigation-bar title="砍价专区" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y>
 	<view class="page">
+		<!-- 顶部横幅 -->
+		<view class="hero-banner">
+			<view class="hero-content">
+				<view class="hero-left">
+					<view class="hero-title">砍一刀，最高省 50%</view>
+					<view class="hero-subtitle">源头好货 · 一件也是出厂价</view>
+					<view class="hero-countdown">
+						<text class="countdown-icon">⏱</text>
+						<text class="countdown-label">限时砍价 ·</text>
+						<text class="countdown-time">{{leftText}}</text>
+					</view>
+				</view>
+				<view class="hero-tag">HOT</view>
+			</view>
+		</view>
+
+		<!-- 筛选栏 -->
+		<view class="filter-bar">
+			<view class="filter-item" data-key="style" bindtap="onTapFilter">
+				<text class="filter-text">风格</text>
+				<text class="filter-arrow">▼</text>
+			</view>
+			<view class="filter-divider"></view>
+			<view class="filter-item" data-key="category" bindtap="onTapFilter">
+				<text class="filter-text">品类</text>
+				<text class="filter-arrow">▼</text>
+			</view>
+		</view>
+		
 		<!-- 筛选弹窗 -->
 		<view class="filter-popup" wx:if="{{showFilterPopup}}" bindtap="onCloseFilterPopup">
 			<view class="filter-popup-content" catchtap="">
@@ -29,29 +53,29 @@
 			</view>
 		</view>
 
-		<!-- ZenLife 2.0 砍价商品列表 - BargainRowItem -->
-		<view class="bargain-list">
-			<view class="bargain-card" wx:for="{{goodsList}}" wx:key="id" data-id="{{item.id}}" bindtap="onViewDetail">
-				<!-- 左侧图片区 - 带助力标签 -->
-				<view class="bargain-image">
-					<image src="{{item.cover}}" mode="aspectFill"></image>
-					<view class="helper-tag">
-						<view class="helper-dot"></view>
-						<text>{{item.cutCount || 0}}人助力</text>
+		<!-- 商品列表 -->
+		<view class="product-list">
+			<view class="product-card" wx:for="{{goodsList}}" wx:key="id">
+				<!-- 左侧图片区 -->
+				<view class="product-image-wrap">
+					<image class="product-image" src="{{item.cover}}" mode="aspectFill"></image>
+					<view class="helper-badge">
+						<text class="helper-icon">👥</text>
+						<text class="helper-count">{{item.cutCount}}人助力</text>
 					</view>
 				</view>
 				<!-- 右侧信息区 -->
-				<view class="bargain-info">
-					<view class="bargain-top">
-						<view class="bargain-name">{{item.name}}</view>
-						<view class="bargain-desc">{{item.subtitle || item.description || '精选优质材料，匠心工艺制作'}}</view>
+				<view class="product-info">
+					<view class="product-name">{{item.name}}</view>
+					<view class="save-badge">砍价省 ¥{{item.cut}}</view>
+					<view class="price-row">
+						<text class="price-symbol">¥</text>
+						<text class="price-value">{{item.price}}</text>
+						<text class="price-origin">¥{{item.origin}}</text>
 					</view>
-					<view class="bargain-bottom">
-						<view class="bargain-prices">
-							<text class="origin-price">¥{{item.origin}}</text>
-							<text class="current-price">¥ {{item.price}}</text>
-						</view>
-						<view class="cut-btn" data-id="{{item.id}}" catchtap="onStartBargain">砍一刀</view>
+					<view class="action-btns">
+						<button class="btn-start" data-id="{{item.id}}" bindtap="onStartBargain">发起砍价</button>
+						<button class="btn-help" data-id="{{item.id}}" bindtap="onHelpCut">帮砍一刀</button>
 					</view>
 				</view>
 			</view>

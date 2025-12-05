@@ -1,11 +1,7 @@
-<!-- ZenLife 2.0 浮动玻璃拟态导航栏 -->
 <view class="tabbar">
 	<block wx:for="{{list}}" wx:key="pagePath">
 		<view class="item {{selected===index?'active':''}}" data-index="{{index}}" data-path="{{item.pagePath}}" bindtap="switchTab">
-			<view class="icon-wrap">
-				<text class="icon">{{item.icon}}</text>
-			</view>
-			<text class="text" wx:if="{{selected!==index}}">{{item.text}}</text>
+			<text class="text">{{item.text}}</text>
 		</view>
 	</block>
 </view>

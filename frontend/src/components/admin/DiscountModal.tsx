@@ -21,23 +21,15 @@ const roleOptions: { value: UserRole; label: string }[] = [
   { value: 'super_admin', label: '超级管理员' },
 ]
 
-// 转换后端数据格式为前端格式
-const normalizeDiscounts = (discounts: any[] | undefined) => {
-  if (!discounts || discounts.length === 0) {
-    return [
-      { role: 'designer' as UserRole, roleName: '设计师', discount: 100 },
-    ]
-  }
-  return discounts.map(d => ({
-    role: d.role as UserRole,
-    roleName: roleOptions.find(r => r.value === d.role)?.label || d.role,
-    discount: d.discountPercent ?? d.discount ?? 100
-  }))
-}
-
 export default function DiscountModal({ category, onClose, isBatch = false, onSuccess }: DiscountModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [discounts, setDiscounts] = useState(() => normalizeDiscounts(category?.discounts))
+  const [discounts, setDiscounts] = useState(
+    category?.discounts || [
+      { role: 'designer' as UserRole, roleName: '设计师', discount: 100 },
+      { role: 'distributor' as UserRole, roleName: '经销商', discount: 100 },
+      { role: 'customer' as UserRole, roleName: '普通客户', discount: 100 },
+    ]
+  )
 
   useEffect(() => {
     if (isBatch) {
@@ -45,9 +37,8 @@ export default function DiscountModal({ category, onClose, isBatch = false, onSu
         setIsLoading(true);
         try {
           const allCategories = await getAllCategories();
-          if (allCategories && allCategories.length > 0 && allCategories[0].discounts) {
-            // 转换后端格式为前端格式
-            setDiscounts(normalizeDiscounts(allCategories[0].discounts));
+          if (allCategories && allCategories.length > 0) {
+            setDiscounts(allCategories[0].discounts);
           }
         } catch (error) {
           console.error('获取当前折扣设置失败:', error);
