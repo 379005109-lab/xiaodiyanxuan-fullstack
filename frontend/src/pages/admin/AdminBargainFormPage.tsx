@@ -482,27 +482,28 @@ const AdminBargainFormPage: React.FC = () => {
             {/* 规格选择 */}
             {selectedProduct && selectedProduct.skus && selectedProduct.skus.length > 0 && (
               <div className="p-4 border-t bg-gray-50">
-                <p className="text-sm font-medium mb-2">选择规格：</p>
-                <div className="flex flex-wrap gap-2">
+                <p className="text-sm font-medium mb-2">选择规格（共 {selectedProduct.skus.length} 个）：</p>
+                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
                   {selectedProduct.skus.map(sku => (
                     <button
                       key={sku._id}
                       onClick={() => handleSelectSku(sku)}
-                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                      className={`px-3 py-2 text-sm rounded-lg border transition-colors text-left ${
                         selectedSku?._id === sku._id
                           ? 'border-primary-500 bg-primary-500 text-white'
-                          : 'border-gray-300 hover:border-primary-500'
+                          : 'border-gray-300 bg-white hover:border-primary-500'
                       }`}
                     >
-                      {sku.skuName} - ¥{sku.price}
-                      {sku.material && Object.keys(sku.material).length > 0 && (
-                        <span className="text-xs opacity-70 ml-1">
-                          ({Object.values(sku.material).join('/')})
-                        </span>
-                      )}
+                      <div className="font-medium">{sku.skuName}</div>
+                      <div className={`text-xs ${selectedSku?._id === sku._id ? 'text-white/80' : 'text-gray-500'}`}>
+                        ¥{sku.price}
+                      </div>
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {selectedSku ? `已选：${selectedSku.skuName}` : '请选择一个规格'}
+                </p>
               </div>
             )}
             
