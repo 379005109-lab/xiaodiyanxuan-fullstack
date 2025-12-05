@@ -298,12 +298,18 @@ const setCategoryDiscount = async (req, res) => {
       return res.status(400).json(errorResponse('折扣数据格式错误', 400))
     }
 
-    const hasDiscount = discounts.length > 0 && discounts.some(d => d.discountPercent < 100)
+    // 转换前端格式：discount -> discountPercent
+    const normalizedDiscounts = discounts.map(d => ({
+      role: d.role,
+      discountPercent: d.discountPercent || d.discount || 100
+    }))
+
+    const hasDiscount = normalizedDiscounts.length > 0 && normalizedDiscounts.some(d => d.discountPercent < 100)
 
     const category = await Category.findByIdAndUpdate(
       id,
       { 
-        discounts, 
+        discounts: normalizedDiscounts, 
         hasDiscount,
         updatedAt: new Date() 
       },
@@ -333,13 +339,19 @@ const setBatchCategoryDiscount = async (req, res) => {
       return res.status(400).json(errorResponse('折扣数据格式错误', 400))
     }
 
-    const hasDiscount = discounts.length > 0 && discounts.some(d => d.discountPercent < 100)
+    // 转换前端格式：discount -> discountPercent
+    const normalizedDiscounts = discounts.map(d => ({
+      role: d.role,
+      discountPercent: d.discountPercent || d.discount || 100
+    }))
+
+    const hasDiscount = normalizedDiscounts.length > 0 && normalizedDiscounts.some(d => d.discountPercent < 100)
 
     // 更新所有分类
     const result = await Category.updateMany(
       {},
       { 
-        discounts, 
+        discounts: normalizedDiscounts, 
         hasDiscount,
         updatedAt: new Date() 
       }
