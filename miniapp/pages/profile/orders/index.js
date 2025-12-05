@@ -32,18 +32,63 @@ Page({
 	loadOrders() {
 		this.setData({ loading: true })
 		
-		// 格式化订单列表
+		// 格式化订单列表，将后端数据映射为小程序需要的格式
 		const formatOrders = (orders) => {
-			return orders.map(order => ({
-				...order,
-				goods: order.goods || []
-			}))
+			return orders.map(order => {
+				// 获取订单状态文本
+				const statusTextMap = {
+					1: '待付款',
+					2: '待发货',
+					3: '待收货',
+					4: '已完成',
+					5: '已取消',
+					6: '退款中',
+					7: '已退款'
+				}
+				// 处理商品列表
+				const goods = (order.items || []).map(item => ({
+					id: item.productId || item._id,
+					name: item.productName || item.name,
+					thumb: item.image,
+					count: item.quantity || 1,
+					sizeName: item.sizeName || item.sku,
+					dims: item.dimensions,
+					fabric: item.materials?.fabric,
+					fill: item.materials?.fill,
+					frame: item.materials?.frame,
+					leg: item.materials?.leg,
+					material: item.materials?.fabric,
+					materialColor: item.materials?.fabricColor
+				}))
+				
+				return {
+					...order,
+					id: order._id || order.id,
+					status: order.status,
+					statusText: statusTextMap[order.status] || '未知',
+					totalPrice: order.totalAmount || order.subtotal || 0,
+					receiverName: order.recipient?.name,
+					receiverPhone: order.recipient?.phone,
+					receiverAddress: order.recipient?.address,
+					goods: goods,
+					refundStatus: order.refundStatus // 退款状态
+				}
+			})
 		}
 		
 		api.getOrders().then((data) => {
 			console.log('订单列表API返回:', data)
-			const rawOrders = Array.isArray(data) ? data : (data.list || [])
+			// 兼容多种后端返回格式: data.data / data.list / data (数组)
+			let rawOrders = []
+			if (Array.isArray(data)) {
+				rawOrders = data
+			} else if (data && data.data && Array.isArray(data.data)) {
+				rawOrders = data.data
+			} else if (data && data.list && Array.isArray(data.list)) {
+				rawOrders = data.list
+			}
 			const orders = formatOrders(rawOrders)
+			console.log('格式化后的订单:', orders)
 			this.setData({ orders, loading: false })
 			this.filterOrders()
 		}).catch((err) => {

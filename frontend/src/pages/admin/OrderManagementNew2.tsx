@@ -26,9 +26,12 @@ const statusConfig: Record<number | string, { label: string; color: string; bgCo
   'shipped': { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-100' },
   5: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
   'completed': { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
-  6: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
-  'cancelled': { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
-  'refunding': { label: '售后中', color: 'text-red-600', bgColor: 'bg-red-100' },
+  6: { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
+  'refunding': { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
+  7: { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-100' },
+  'refunded': { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-100' },
+  8: { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
+  'cancelled': { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
 }
 
 // 隐藏手机号中间4位
@@ -115,7 +118,7 @@ export default function OrderManagementNew2() {
         all: allOrders.length,
         pending: allOrders.filter(o => o.status === 1 || o.status === 'pending').length,
         shipping: allOrders.filter(o => o.status === 2 || o.status === 3 || o.status === 'paid' || o.status === 'processing').length,
-        afterSale: allOrders.filter(o => o.status === 'refunding').length,
+        afterSale: allOrders.filter(o => o.status === 6 || o.status === 7 || o.status === 'refunding' || o.status === 'refunded' || (o as any).refundStatus).length,
       })
     } catch (error) {
       console.error('加载订单失败:', error)
@@ -145,7 +148,7 @@ export default function OrderManagementNew2() {
       case 'shipping':
         return order.status === 2 || order.status === 3 || order.status === 'paid' || order.status === 'processing'
       case 'afterSale':
-        return order.status === 'refunding'
+        return order.status === 6 || order.status === 7 || order.status === 'refunding' || order.status === 'refunded' || (order as any).refundStatus
       default:
         return true
     }
