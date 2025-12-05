@@ -853,4 +853,8 @@ router.get('/packages/:id', async (req, res) => {
   }
 })
 
+// ========== 砍价相关 - 转发到主路由 ==========
+const bargainsRouter = require('./bargains')
+router.use('/bargains', bargainsRouter)
+
 module.exports = router

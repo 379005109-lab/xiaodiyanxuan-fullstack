@@ -1,5 +1,6 @@
 const { createPackageOrder, getPackageOrderDetail } = require('../services/packageOrderService')
 const { successResponse, errorResponse } = require('../utils/response')
+const { sendNewOrderNotification } = require('../services/emailService')
 
 /**
  * 创建套餐订单
@@ -27,6 +28,12 @@ const create = async (req, res) => {
     const order = await createPackageOrder(req.userId, packageData, recipient, notes)
     
     console.log('✅ [PackageOrderController] 套餐订单创建成功:', order._id);
+    
+    // 发送新订单邮件通知（异步，不阻塞响应）
+    sendNewOrderNotification(order).catch(err => {
+      console.error('📧 发送套餐订单通知邮件失败:', err.message)
+    })
+    
     res.status(201).json(successResponse(order))
   } catch (err) {
     console.error('❌ [PackageOrderController] 创建套餐订单错误:', err)

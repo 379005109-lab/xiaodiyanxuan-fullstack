@@ -342,7 +342,7 @@ function confirmOrder(orderId) {
  */
 function getBargainGoods() {
   return request({
-    url: '/api/bargains',
+    url: '/bargains',
     method: 'GET',
     needAuth: false
   })
@@ -354,7 +354,7 @@ function getBargainGoods() {
  */
 function startBargain(productId, productName, originalPrice, targetPrice, coverImage) {
   return request({
-    url: '/api/bargains',
+    url: '/bargains',
     method: 'POST',
     data: { productId, productName, originalPrice, targetPrice, coverImage }
   })
@@ -365,7 +365,7 @@ function startBargain(productId, productName, originalPrice, targetPrice, coverI
  */
 function getMyBargains() {
   return request({
-    url: '/api/bargains/my',
+    url: '/bargains/my',
     method: 'GET'
   })
 }
@@ -376,7 +376,7 @@ function getMyBargains() {
  */
 function helpBargain(bargainId) {
   return request({
-    url: `/api/bargains/${bargainId}/help`,
+    url: `/bargains/${bargainId}/help`,
     method: 'POST'
   })
 }
