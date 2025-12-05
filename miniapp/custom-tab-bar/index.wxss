@@ -1,14 +1,19 @@
 /**custom-tab-bar/index.wxss**/
-/* 小迪严选自定义TabBar - 按UI设计规范 */
+/* ZenLife 2.0 浮动玻璃拟态导航栏 */
 .tabbar { 
   position: fixed; 
-  left: 0; right: 0; bottom: 0; 
+  left: 24rpx; 
+  right: 24rpx; 
+  bottom: calc(24rpx + env(safe-area-inset-bottom)); 
   height: 112rpx; 
-  background: var(--color-card, #FFFFFF); 
+  background: rgba(255, 255, 255, 0.75); 
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: flex; 
-  border-top: 2rpx solid var(--color-border, #E6E8E9); 
+  border: 2rpx solid rgba(255, 255, 255, 0.6); 
+  border-radius: 999rpx;
   z-index: 999; 
-  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 20rpx 60rpx -20rpx rgba(34, 197, 94, 0.15);
 }
 .item { 
   flex: 1; 
@@ -16,21 +21,38 @@
   flex-direction: column;
   align-items: center; 
   justify-content: center; 
-  color: #6B7280; 
-  gap: 4rpx;
+  color: #9ca3af; 
+  gap: 6rpx;
   padding: 8rpx 0;
+  transition: all 0.3s ease;
 }
 .item.active { 
-  color: var(--color-primary, #14452F); 
+  color: #FFFFFF;
   font-weight: 700; 
+}
+.item.active .icon-wrap {
+  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
+  box-shadow: 0 8rpx 24rpx -8rpx rgba(52, 211, 153, 0.6);
+  border-radius: 999rpx;
+  padding: 12rpx 24rpx;
+}
+.icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
 }
 .icon {
   font-size: 40rpx;
   line-height: 1;
 }
 .text { 
-  font-size: 24rpx; 
+  font-size: 22rpx; 
   line-height: 1.2;
+  font-weight: 500;
+}
+.item.active .text {
+  color: #22c55e;
 }
 
 
