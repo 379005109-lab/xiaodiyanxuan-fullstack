@@ -1,70 +1,200 @@
 /**index.wxss**/
-/* 小迪严选首页 - ZenLife 2.0 Fresh Nature Gradient */
+/* ZenLife 2.0 首页 - Fresh Nature Gradient */
 page { 
   background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 50%, #dcfce7 100%);
-  background-attachment: fixed;
-  color: #1f2937; 
   min-height: 100vh; 
 }
-.page-scroll { min-height: 100vh; }
-.page { padding-top: calc(44px + env(safe-area-inset-top)); }
+.page-scroll { 
+  min-height: 100vh; 
+}
 
-/* ========== 满屏全屏页 - 清新渐变 ========== */
-.fullscreen-banner { 
+/* ========== Hero全屏区域 ========== */
+.hero-section { 
   position: relative; 
   width: 100%; 
   height: 100vh; 
   min-height: 100vh; 
-  overflow: hidden; 
   background: linear-gradient(135deg, #38bdf8 0%, #22d3ee 40%, #34d399 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
-.fullscreen-img { width: 100%; height: 100%; display: block; opacity: 0.3; }
-.fullscreen-overlay { 
-  position: absolute; 
-  top: 0; left: 0; right: 0; bottom: 0; 
-  background: linear-gradient(to top, rgba(16, 185, 129, 0.4), rgba(34, 211, 238, 0.2), transparent); 
+
+/* 右上角头像 */
+.hero-avatar {
+  position: absolute;
+  top: calc(40rpx + env(safe-area-inset-top));
+  right: 40rpx;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4rpx solid rgba(255,255,255,0.3);
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.15);
 }
-.fullscreen-content { 
-  position: absolute; 
-  left: 32rpx; 
-  right: 32rpx;
-  bottom: 200rpx; 
-  z-index: 10; 
+.hero-avatar image {
+  width: 100%;
+  height: 100%;
+}
+
+/* 中央内容 */
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+  padding: 0 60rpx;
 }
-.fullscreen-title { 
-  font-size: 160rpx; 
-  font-weight: 800; 
-  color: #FFFFFF; 
-  margin-bottom: 24rpx;
-  text-shadow: 0 8rpx 32rpx rgba(0,0,0,0.2);
+
+.hero-logo {
+  font-size: 320rpx;
+  font-weight: 800;
+  color: #FFFFFF;
+  line-height: 1;
+  text-shadow: 0 16rpx 48rpx rgba(0,0,0,0.15);
+  margin-bottom: 40rpx;
 }
-.fullscreen-subtitle { 
-  font-size: 48rpx; 
+
+.hero-slogan {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 48rpx;
+}
+
+.slogan-line {
+  font-size: 56rpx;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: 12rpx;
+  text-shadow: 0 8rpx 24rpx rgba(0,0,0,0.15);
+}
+
+.hero-price-tag {
+  font-size: 72rpx;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: 16rpx;
+  text-shadow: 0 8rpx 24rpx rgba(0,0,0,0.2);
+  margin-bottom: 60rpx;
+}
+
+.hero-arrow {
+  font-size: 48rpx;
+  color: rgba(255,255,255,0.8);
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(20rpx); }
+}
+
+/* ========== 陪买服务卡片 ========== */
+.service-card {
+  position: relative;
+  margin: -60rpx 24rpx 32rpx;
+  background: #FFFFFF;
+  border-radius: 48rpx;
+  overflow: hidden;
+  box-shadow: 0 20rpx 60rpx -20rpx rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.service-bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60%;
+  height: 100%;
+  opacity: 0.2;
+}
+
+.service-content {
+  position: relative;
+  padding: 48rpx;
+  z-index: 1;
+}
+
+.service-title {
+  font-size: 48rpx;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.95); 
+  color: #1f2937;
   margin-bottom: 16rpx;
-  letter-spacing: 8rpx;
 }
-.fullscreen-desc { 
-  font-size: 36rpx; 
+
+.service-desc {
+  font-size: 28rpx;
+  color: #6b7280;
+  line-height: 1.6;
+  margin-bottom: 32rpx;
+  max-width: 70%;
+}
+
+.service-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 20rpx 36rpx;
+  background: #1f2937;
+  color: #FFFFFF;
+  font-size: 28rpx;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9); 
-  margin-bottom: 48rpx; 
+  border-radius: 999rpx;
 }
-.fullscreen-action { 
-  display: inline-flex; 
-  align-items: center; 
-  gap: 16rpx; 
-  padding: 28rpx 56rpx; 
-  background: rgba(255, 255, 255, 0.95); 
-  border-radius: 999rpx; 
-  font-size: 32rpx; 
-  font-weight: 700; 
-  color: #22c55e;
-  box-shadow: 0 16rpx 48rpx -12rpx rgba(52, 211, 153, 0.5);
+
+.service-btn .arrow {
+  font-size: 32rpx;
 }
-.fullscreen-action .arrow { font-size: 36rpx; }
+
+/* ========== 快捷入口 ========== */
+.quick-actions {
+  display: flex;
+  gap: 24rpx;
+  padding: 0 24rpx;
+  margin-bottom: 32rpx;
+}
+
+.quick-item {
+  flex: 1;
+  background: #FFFFFF;
+  border-radius: 48rpx;
+  padding: 32rpx;
+  box-shadow: 0 8rpx 32rpx -8rpx rgba(0,0,0,0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-item::after {
+  content: '';
+  position: absolute;
+  top: -20rpx;
+  right: -20rpx;
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dcfce7 0%, #f0f9ff 100%);
+  opacity: 0.5;
+}
+
+.quick-icon {
+  width: 48rpx;
+  height: 48rpx;
+  margin-bottom: 16rpx;
+}
+
+.quick-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 8rpx;
+}
+
+.quick-label {
+  font-size: 24rpx;
+  color: #9ca3af;
+}
 
 /* ========== 新品推荐 - 玻璃拟态卡片 ========== */
 .new-products-banner { 

@@ -1,60 +1,106 @@
-<navigation-bar title="商城" back="{{false}}" color="black" background="#FFF"></navigation-bar>
 <view class="page">
-		<!-- 搜索框 -->
-		<view class="search-bar">
-			<view class="search-input">
-				<input placeholder="请输入搜索的商品" value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
+	<!-- ZenLife 2.0 顶部标题栏 -->
+	<view class="mall-header">
+		<view class="header-title">商城</view>
+		<view class="header-actions">
+			<view class="action-btn {{viewMode==='grid'?'active':''}}" bindtap="toggleViewMode" data-mode="grid">
+				<text class="iconfont">⊞</text>
 			</view>
-			<button class="btn-search" wx:if="{{searchText}}" bindtap="onSearchConfirm">搜索</button>
-		</view>
-
-		<!-- 顶部筛选条：综合、销量、价格、类别、风格 -->
-		<view class="top-filters">
-			<view class="f-item {{sortKey==='comprehensive'?'active':''}}" data-key="comprehensive" bindtap="onTapSort">综合</view>
-			<view class="f-item {{sortKey==='sales'?'active':''}}" data-key="sales" bindtap="onTapSort">销量</view>
-			<view class="f-item {{sortKey==='price'?'active':''}}" data-key="price" bindtap="onTapPrice">价格<text class="arrow">{{priceAsc? '↑' : '↓'}}</text></view>
-			<view class="f-item" bindtap="openCategory">类别</view>
-			<view class="f-item {{showStylePopup?'active':''}}" bindtap="toggleStyle">风格</view>
-			<!-- 风格弹出 -->
-			<view class="style-popup" wx:if="{{showStylePopup}}">
-				<view class="style-list">
-					<block wx:for="{{styles}}" wx:key="*this">
-						<view class="style-tag {{selectedStyle===item?'active':''}}" data-style="{{item}}" bindtap="onSelectStyle">{{item}}</view>
-					</block>
-				</view>
-				<view class="style-actions">
-					<button class="btn-reset" bindtap="resetStyle">重置</button>
-					<button class="btn-apply" bindtap="applyStyle">确定</button>
-				</view>
+			<view class="action-btn" bindtap="openFilter">
+				<text class="iconfont">▽</text>
 			</view>
 		</view>
+	</view>
 
-		<!-- 类别抽屉遮罩 -->
-		<view class="drawer-mask {{showCategoryDrawer?'active':''}}" wx:if="{{showCategoryDrawer}}" bindtap="closeCategory"></view>
-		<!-- 左侧类别抽屉 -->
-		<view class="drawer" wx:if="{{showCategoryDrawer}}">
-			<scroll-view scroll-y class="drawer-list">
-				<block wx:for="{{categories}}" wx:key="id">
-					<view class="drawer-item {{selectedCategory===item.id?'active':''}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onSelectCategory">{{item.name}}</view>
-				</block>
-			</scroll-view>
+	<!-- 搜索框 -->
+	<view class="search-bar">
+		<view class="search-icon">🔍</view>
+		<input class="search-input" placeholder="搜索沙发、桌椅..." value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
+	</view>
+
+	<!-- 筛选标签 -->
+	<view class="filter-tabs">
+		<view class="tab-item {{sortKey==='comprehensive'?'active':''}}" data-key="comprehensive" bindtap="onTapSort">
+			<text>综合</text>
+			<view class="tab-dot" wx:if="{{sortKey==='comprehensive'}}"></view>
 		</view>
+		<view class="tab-item {{sortKey==='sales'?'active':''}}" data-key="sales" bindtap="onTapSort">销量</view>
+		<view class="tab-item {{sortKey==='price'?'active':''}}" data-key="price" bindtap="onTapPrice">价格</view>
+		<view class="tab-item" bindtap="openCategory">类别</view>
+		<view class="tab-item {{showStylePopup?'active':''}}" bindtap="toggleStyle">风格</view>
+	</view>
 
+	<!-- 风格弹窗 -->
+	<view class="style-popup" wx:if="{{showStylePopup}}">
+		<view class="style-list">
+			<block wx:for="{{styles}}" wx:key="*this">
+				<view class="style-tag {{selectedStyle===item?'active':''}}" data-style="{{item}}" bindtap="onSelectStyle">{{item}}</view>
+			</block>
+		</view>
+		<view class="style-actions">
+			<button class="btn-reset" bindtap="resetStyle">重置</button>
+			<button class="btn-apply" bindtap="applyStyle">确定</button>
+		</view>
+	</view>
+
+	<!-- 类别抽屉遮罩 -->
+	<view class="drawer-mask {{showCategoryDrawer?'active':''}}" wx:if="{{showCategoryDrawer}}" bindtap="closeCategory"></view>
+	<!-- 左侧类别抽屉 -->
+	<view class="drawer" wx:if="{{showCategoryDrawer}}">
+		<scroll-view scroll-y class="drawer-list">
+			<block wx:for="{{categories}}" wx:key="id">
+				<view class="drawer-item {{selectedCategory===item.id?'active':''}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onSelectCategory">{{item.name}}</view>
+			</block>
+		</scroll-view>
+	</view>
+
+	<!-- 商品列表 - 网格模式 -->
+	<scroll-view scroll-y class="goods-scroll" wx:if="{{viewMode==='grid'}}">
 		<view class="goods-grid">
 			<block wx:for="{{filteredGoods}}" wx:key="id">
-				<view class="goods-item" bindtap="goDetail" data-id="{{item.id}}">
-					<view class="thumb-box">
-						<image class="thumb-img" src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFill"></image>
+				<view class="goods-card" bindtap="goDetail" data-id="{{item.id}}">
+					<view class="card-image">
+						<image src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFill"></image>
 					</view>
-					<view class="hot-info">
-						<text class="h-name">{{item.name}}</text>
-						<view class="h-price">
-							<text class="price">￥{{item.price}}</text>
+					<view class="card-info">
+						<view class="card-name">{{item.name}}</view>
+						<view class="card-desc">{{item.subtitle || item.material || ''}}</view>
+						<view class="card-bottom">
+							<view class="card-price">¥{{item.price}}</view>
+							<view class="card-cart-btn">🛒</view>
 						</view>
 					</view>
 				</view>
 			</block>
 		</view>
-	</view>
+		<view style="height: 200rpx;"></view>
+	</scroll-view>
+
+	<!-- 商品列表 - 大图模式 -->
+	<scroll-view scroll-y class="goods-scroll" wx:else>
+		<view class="goods-list-large">
+			<block wx:for="{{filteredGoods}}" wx:key="id">
+				<view class="goods-card-large" bindtap="goDetail" data-id="{{item.id}}">
+					<view class="card-header">
+						<view class="card-title">{{item.name}}</view>
+						<view class="card-fav">♡</view>
+					</view>
+					<view class="card-subtitle">{{item.subtitle || item.material || ''}}</view>
+					<view class="card-image-large">
+						<image src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFill"></image>
+					</view>
+					<view class="card-footer">
+						<view class="footer-left">
+							<view class="price-label">PRICE</view>
+							<view class="price-value">¥{{item.price}}</view>
+						</view>
+						<view class="footer-btn">🛒 加入购物车</view>
+					</view>
+				</view>
+			</block>
+		</view>
+		<view style="height: 200rpx;"></view>
+	</scroll-view>
+</view>
 
 
