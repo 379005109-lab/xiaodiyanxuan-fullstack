@@ -254,3 +254,44 @@ custom-tab-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; }
   color: #FFFFFF;
 }
 
+/* ========== 售后/退货样式 ========== */
+.tab-refund {
+  position: relative;
+}
+.refund-badge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  background: #DC2626;
+  color: #FFFFFF;
+  font-size: 20rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.status-refund {
+  background: #FFF8E1;
+}
+.icon-refund {
+  color: #F59E0B !important;
+}
+.text-refund {
+  color: #F59E0B !important;
+}
+.refund-tag {
+  padding: 4rpx 12rpx;
+  background: #FEF3C7;
+  color: #D97706;
+  font-size: 22rpx;
+  border-radius: 4rpx;
+  margin-left: 12rpx;
+}
+.refund-tag.completed {
+  background: #D1FAE5;
+  color: #059669;
+}
+

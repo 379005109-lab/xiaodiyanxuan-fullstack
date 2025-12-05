@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   // === 角色与权限 ===
   role: { 
     type: String, 
-    enum: Object.values(USER_ROLES), 
+    enum: [...Object.values(USER_ROLES), 'admin', 'user'], // 兼容旧角色
     default: USER_ROLES.CUSTOMER 
   },
   userType: { type: String, enum: Object.values(USER_TYPES), default: USER_TYPES.CUSTOMER },

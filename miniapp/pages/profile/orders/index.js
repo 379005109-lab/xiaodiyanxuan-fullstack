@@ -4,10 +4,11 @@ const api = app.api || require('../../utils/api.js')
 
 Page({
 	data: {
-		currentTab: 0, // 0:全部, 1:待付款, 2:待发货, 3:待收货, 4:已完成, 5:已取消
+		currentTab: 0, // 0:全部, 1:待付款, 2:待发货, 3:待收货, 4:已完成, 5:已取消, 6:售后
 		orders: [],
 		filteredOrders: [],
 		loading: false,
+		refundCount: 0, // 售后订单数量
 		// 取消订单弹窗
 		showCancelModal: false,
 		cancelOrderId: '',
@@ -54,6 +55,9 @@ Page({
 	filterOrders() {
 		const { currentTab, orders } = this.data
 		let filteredOrders = orders
+		// 计算售后订单数量
+		const refundCount = orders.filter(o => o.status === 6 || o.status === 7).length
+		
 		if (currentTab === 1) {
 			filteredOrders = orders.filter(o => o.status === 1) // 待付款
 		} else if (currentTab === 2) {
@@ -64,8 +68,10 @@ Page({
 			filteredOrders = orders.filter(o => o.status === 4) // 已完成
 		} else if (currentTab === 5) {
 			filteredOrders = orders.filter(o => o.status === 5) // 已取消
+		} else if (currentTab === 6) {
+			filteredOrders = orders.filter(o => o.status === 6 || o.status === 7) // 售后
 		}
-		this.setData({ filteredOrders })
+		this.setData({ filteredOrders, refundCount })
 	},
 	onTabChange(e) {
 		const index = parseInt(e.currentTarget.dataset.index)
@@ -257,7 +263,9 @@ Page({
 			2: '待发货',
 			3: '待收货',
 			4: '已完成',
-			5: '已取消'
+			5: '已取消',
+			6: '退款中',
+			7: '已退款'
 		}
 		return statusMap[status] || '未知'
 	}

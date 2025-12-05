@@ -14,6 +14,10 @@
 		<view class="tab-item {{currentTab===3?'active':''}}" bindtap="onTabChange" data-index="3">已发货</view>
 		<view class="tab-item {{currentTab===4?'active':''}}" bindtap="onTabChange" data-index="4">已完成</view>
 		<view class="tab-item {{currentTab===5?'active':''}} tab-cancelled" bindtap="onTabChange" data-index="5">已取消</view>
+		<view class="tab-item {{currentTab===6?'active':''}} tab-refund" bindtap="onTabChange" data-index="6">
+			售后
+			<text class="refund-badge" wx:if="{{refundCount > 0}}">{{refundCount}}</text>
+		</view>
 	</view>
 	
 	<view class="order-list">
@@ -31,11 +35,13 @@
 				</view>
 				
 				<!-- 订单状态头 -->
-				<view class="order-status-bar {{item.status === 5 ? 'status-cancelled' : ''}}">
-					<view class="status-icon {{item.status === 5 ? 'icon-cancelled' : ''}}">{{item.status === 5 ? '✕' : '◎'}}</view>
-					<text class="status-text {{item.status === 5 ? 'text-cancelled' : ''}}">{{item.statusText}}</text>
+				<view class="order-status-bar {{item.status === 5 ? 'status-cancelled' : ''}} {{item.status === 6 || item.status === 7 ? 'status-refund' : ''}}">
+					<view class="status-icon {{item.status === 5 ? 'icon-cancelled' : ''}} {{item.status === 6 || item.status === 7 ? 'icon-refund' : ''}}">{{item.status === 5 ? '✕' : (item.status === 6 || item.status === 7 ? '↩' : '◎')}}</view>
+					<text class="status-text {{item.status === 5 ? 'text-cancelled' : ''}} {{item.status === 6 || item.status === 7 ? 'text-refund' : ''}}">{{item.statusText}}</text>
 					<view class="modified-tag" wx:if="{{item.modified}}">已修改</view>
 					<view class="cancelled-tag" wx:if="{{item.status === 5}}">已取消</view>
+					<view class="refund-tag" wx:if="{{item.status === 6}}">退款中</view>
+					<view class="refund-tag completed" wx:if="{{item.status === 7}}">已退款</view>
 					<text class="order-price {{item.priceChanged ? 'price-changed' : ''}} {{item.status === 5 ? 'price-cancelled' : ''}}">¥{{item.totalPrice}}</text>
 					<text class="original-price" wx:if="{{item.priceChanged && item.originalPrice}}">原价: ¥{{item.originalPrice}}</text>
 				</view>

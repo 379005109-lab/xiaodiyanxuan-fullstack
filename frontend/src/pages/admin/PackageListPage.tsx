@@ -219,25 +219,6 @@ const PackageListPage: React.FC = () => {
 
               {/* 操作按钮 */}
               <div className="flex flex-col gap-2">
-                {/* 状态显示（只显示，不可点击） */}
-                <div className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg ${
-                  pkg.status === 'active' 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-gray-100 text-gray-700'
-                }`}>
-                  {pkg.status === 'active' ? (
-                    <>
-                      <Eye size={16} />
-                      <span className="text-sm font-medium">已上架</span>
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff size={16} />
-                      <span className="text-sm font-medium">已下架</span>
-                    </>
-                  )}
-                </div>
-
                 <div className="flex gap-2">
                   {/* 利润管理按钮 - 仅管理员 */}
                   {user?.role !== 'designer' && (
