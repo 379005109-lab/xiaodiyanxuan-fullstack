@@ -94,11 +94,18 @@ router.post('/', auth, async (req, res) => {
     })
     
     // 更新订单状态为退款中
-    await Order.findByIdAndUpdate(orderId, { 
-      status: 6,  // 退款中
-      refundId: refund._id,
-      refundStatus: 'pending'
-    })
+    const updateResult = await Order.findByIdAndUpdate(
+      orderId, 
+      { 
+        $set: {
+          status: 6,  // 退款中
+          refundId: refund._id,
+          refundStatus: 'pending'
+        }
+      },
+      { new: true }
+    )
+    console.log('退货创建 - 订单状态更新结果:', updateResult ? `订单 ${updateResult.orderNo} 状态已更新为 ${updateResult.status}` : '更新失败')
     
     res.json({ success: true, data: refund, message: '退款申请已提交' })
   } catch (error) {

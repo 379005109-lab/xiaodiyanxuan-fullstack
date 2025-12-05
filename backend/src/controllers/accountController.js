@@ -296,18 +296,24 @@ const updateUser = async (req, res) => {
     delete updates.password
     delete updates.openId
     delete updates.createdBy
+    delete updates._id
+    delete updates.createdAt
     
     // 管理员可以修改任何角色，无需额外检查
+    // 使用 findByIdAndUpdate 避免全字段验证问题
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: false }  // 关闭验证器避免旧数据问题
+    ).select('-password')
     
-    Object.assign(user, updates)
-    await user.save()
+    if (!updatedUser) {
+      return res.status(404).json(errorResponse('更新失败，用户不存在'))
+    }
     
-    const result = user.toObject()
-    delete result.password
-    
-    res.json(successResponse(result, '更新成功'))
+    res.json(successResponse(updatedUser, '更新成功'))
   } catch (err) {
-    console.error('更新用户失败:', err)
+    console.error('更新用户失败:', err.message, err.errors || '')
     res.status(500).json(errorResponse(err.message || '更新失败'))
   }
 }

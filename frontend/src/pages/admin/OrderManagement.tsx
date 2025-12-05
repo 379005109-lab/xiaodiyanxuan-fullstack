@@ -122,7 +122,18 @@ export default function OrderManagement() {
     }
   }
 
-  const statusConfig: Record<OrderStatus, { label: string; color: string }> = {
+  // 订单状态映射（后端使用数字，前端显示文本）
+  const statusConfig: Record<string | number, { label: string; color: string }> = {
+    // 数字状态（后端实际值）
+    1: { label: '待付款', color: 'bg-yellow-100 text-yellow-700' },
+    2: { label: '待发货', color: 'bg-green-100 text-green-700' },
+    3: { label: '待收货', color: 'bg-blue-100 text-blue-700' },
+    4: { label: '已完成', color: 'bg-gray-100 text-gray-700' },
+    5: { label: '已取消', color: 'bg-red-100 text-red-700' },
+    6: { label: '退款中', color: 'bg-orange-100 text-orange-700' },
+    7: { label: '已退款', color: 'bg-purple-100 text-purple-700' },
+    8: { label: '换货中', color: 'bg-amber-100 text-amber-700' },
+    // 字符串状态（兼容旧数据）
     pending: { label: '待付款', color: 'bg-yellow-100 text-yellow-700' },
     processing: { label: '处理中', color: 'bg-amber-100 text-amber-700' },
     paid: { label: '已付款', color: 'bg-green-100 text-green-700' },
