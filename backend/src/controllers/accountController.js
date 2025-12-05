@@ -299,6 +299,11 @@ const updateUser = async (req, res) => {
     delete updates._id
     delete updates.createdAt
     
+    // 处理空字符串的 organizationId - 转换为 null
+    if (updates.organizationId === '' || updates.organizationId === undefined) {
+      updates.organizationId = null
+    }
+    
     // 管理员可以修改任何角色，无需额外检查
     // 使用 findByIdAndUpdate 避免全字段验证问题
     const updatedUser = await User.findByIdAndUpdate(
