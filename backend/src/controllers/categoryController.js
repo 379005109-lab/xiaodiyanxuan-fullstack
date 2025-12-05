@@ -380,8 +380,8 @@ const getCategoryStats = async (req, res) => {
     // 统计商品总数
     const totalProducts = await Product.countDocuments()
 
-    // 目前数据模型中没有明确的 "优惠" 标记，这里先返回 0，避免前端访问 undefined
-    const withDiscount = 0
+    // 统计有折扣的分类数
+    const withDiscount = await Category.countDocuments({ hasDiscount: true })
 
     res.json(successResponse({
       total,
