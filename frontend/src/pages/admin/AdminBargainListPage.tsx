@@ -1,64 +1,100 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { getAllCategories, Category } from '@/services/categoryService';
-import { createCategoryLookup, getRoleDiscountMultiplier } from '@/utils/categoryHelper';
+import { toast } from 'sonner';
 
 interface BargainProduct {
-  id: number;
-  productId: number;
-  productName: string;
-  productImage: string; // Add product image
+  _id: string;
+  name: string;
+  coverImage: string;
   originalPrice: number;
-  floorPrice: number;
-  status: 'active' | 'inactive';
+  targetPrice: number;
+  category: string;
+  style: string;
+  status: 'active' | 'inactive' | 'soldout';
+  totalBargains: number;
+  successBargains: number;
+  minCutAmount: number;
+  maxCutAmount: number;
+  createdAt: string;
 }
 
 const AdminBargainListPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [bargainProducts, setBargainProducts] = useState<BargainProduct[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [categoryLookup, setCategoryLookup] = useState<Map<string, Category>>(new Map());
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const loadProducts = () => {
-    const stored = JSON.parse(localStorage.getItem('bargain_products') || '[]');
-    const withImages = stored.map((p: BargainProduct) => ({ ...p, productImage: p.productImage || '/placeholder.svg' }));
-    setBargainProducts(withImages);
-  };
-
-  const loadCategories = async () => {
+  const loadProducts = async () => {
+    setLoading(true);
     try {
-      const allCategories = await getAllCategories();
-      setCategories(allCategories);
-      setCategoryLookup(createCategoryLookup(allCategories));
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/bargains/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setBargainProducts(data.data || []);
+      }
     } catch (error) {
-      console.error('加载分类失败:', error);
+      console.error('加载砍价商品失败:', error);
+      toast.error('加载失败');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadProducts();
-    loadCategories();
   }, []);
 
-  const getDiscountMultiplier = (categoryKey?: string) => {
-    return getRoleDiscountMultiplier(categoryLookup, user?.role, categoryKey);
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('确定要删除这个砍价商品吗？')) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/bargains/products/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('删除成功');
+        loadProducts();
+      } else {
+        toast.error(data.message || '删除失败');
+      }
+    } catch (error) {
+      toast.error('删除失败');
+    }
   };
 
-  const handleDelete = (id: number) => {
-    if (window.confirm('您确定要删除这个砍价活动吗？此操作不可撤销。')) {
-      const stored = JSON.parse(localStorage.getItem('bargain_products') || '[]');
-      const updated = stored.filter((p: BargainProduct) => p.id !== id);
-      localStorage.setItem('bargain_products', JSON.stringify(updated));
-      loadProducts(); // Reload products to reflect deletion
+  const handleToggleStatus = async (product: BargainProduct) => {
+    const newStatus = product.status === 'active' ? 'inactive' : 'active';
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/bargains/products/${product._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success(newStatus === 'active' ? '已上架' : '已下架');
+        loadProducts();
+      }
+    } catch (error) {
+      toast.error('操作失败');
     }
   };
 
   const filteredProducts = bargainProducts.filter(product =>
-    product.productName.toLowerCase().includes(searchQuery.toLowerCase())
+    product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -67,12 +103,17 @@ const AdminBargainListPage: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">砍价商品管理</h1>
-          <p className="text-gray-600 mt-1">共 {bargainProducts.length} 个砍价活动</p>
+          <p className="text-gray-600 mt-1">共 {bargainProducts.length} 个砍价商品</p>
         </div>
-        <Link to="/admin/bargain/new" className="btn-primary">
-          <Plus size={20} className="mr-2" />
-          新建砍价商品
-        </Link>
+        <div className="flex gap-3">
+          <button onClick={loadProducts} className="btn btn-secondary" disabled={loading}>
+            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+          </button>
+          <Link to="/admin/bargain/new" className="btn-primary flex items-center gap-2">
+            <Plus size={20} />
+            新建砍价商品
+          </Link>
+        </div>
       </div>
 
       {/* 搜索栏 */}
@@ -91,110 +132,89 @@ const AdminBargainListPage: React.FC = () => {
 
       {/* 砍价列表 */}
       <div className="space-y-4">
-        {filteredProducts.length === 0 ? (
+        {loading ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <p className="text-gray-600">暂无砍价商品</p>
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto text-gray-400" />
+            <p className="text-gray-600 mt-2">加载中...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+            <p className="text-gray-600">暂无砍价商品，点击上方按钮新建</p>
           </div>
         ) : (
-          filteredProducts.map((product) => {
-            const multiplier = getDiscountMultiplier(product.productName);
-            const designerFloorPrice = Math.round(product.floorPrice * multiplier);
-            
-            return (
-              <div 
-                key={product.id} 
-                className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start gap-6">
-                  {/* 商品图片 */}
-                  <div className="flex-shrink-0">
-                    <img 
-                      src={product.productImage} 
-                      alt={product.productName} 
-                      className="w-24 h-24 rounded-lg object-cover"
-                    />
-                  </div>
+          filteredProducts.map((product) => (
+            <div 
+              key={product._id} 
+              className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-start gap-6">
+                {/* 商品图片 */}
+                <div className="flex-shrink-0">
+                  <img 
+                    src={product.coverImage || '/placeholder.svg'} 
+                    alt={product.name} 
+                    className="w-24 h-24 rounded-lg object-cover bg-gray-100"
+                  />
+                </div>
 
-                  {/* 商品信息 */}
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900">{product.productName}</h3>
-                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {user?.role === 'designer' ? (
-                        <>
-                          <div>
-                            <p className="text-xs text-gray-600">供货价</p>
-                            <p className="text-lg font-bold text-primary-600 mt-1">¥{designerFloorPrice}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-600">砍价底价</p>
-                            <p className="text-lg font-bold text-gray-900 mt-1">¥{product.floorPrice}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-600">状态</p>
-                            <p className="mt-1">
-                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${product.status === 'active' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
-                                {product.status === 'active' ? '进行中' : '已结束'}
-                              </span>
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div>
-                            <p className="text-xs text-gray-600">原价</p>
-                            <p className="text-lg font-bold text-gray-400 line-through mt-1">¥{product.originalPrice}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-600">砍价底价</p>
-                            <p className="text-lg font-bold text-red-600 mt-1">¥{product.floorPrice}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-600">省价</p>
-                            <p className="text-lg font-bold text-green-600 mt-1">¥{product.originalPrice - product.floorPrice}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-600">状态</p>
-                            <p className="mt-1">
-                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${product.status === 'active' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
-                                {product.status === 'active' ? '进行中' : '已结束'}
-                              </span>
-                            </p>
-                          </div>
-                        </>
-                      )}
+                {/* 商品信息 */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-bold text-gray-900">{product.name}</h3>
+                    <span className={`px-2 py-0.5 rounded text-xs ${product.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                      {product.status === 'active' ? '上架中' : '已下架'}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm text-gray-500">
+                    {product.category} · {product.style}
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500">原价</p>
+                      <p className="text-lg font-bold text-gray-400 line-through">¥{product.originalPrice}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">目标价</p>
+                      <p className="text-lg font-bold text-red-600">¥{product.targetPrice}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">可省</p>
+                      <p className="text-lg font-bold text-green-600">¥{product.originalPrice - product.targetPrice}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">发起次数</p>
+                      <p className="text-lg font-bold text-blue-600">{product.totalBargains || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">成功次数</p>
+                      <p className="text-lg font-bold text-purple-600">{product.successBargains || 0}</p>
                     </div>
                   </div>
+                </div>
 
-                  {/* 操作按钮 */}
-                  <div className="flex-shrink-0 flex gap-2">
-                    {user?.role === 'designer' ? (
-                      <button
-                        onClick={() => navigate(`/admin/bargain/edit/${product.id}`)}
-                        className="btn btn-primary btn-sm"
-                      >
-                        <Edit size={16} />
-                        编辑
-                      </button>
-                    ) : (
-                      <>
-                        <Link to={`/admin/bargain/edit/${product.id}`} className="btn btn-primary btn-sm">
-                          <Edit size={16} />
-                          编辑
-                        </Link>
-                        <button 
-                          onClick={() => handleDelete(product.id)} 
-                          className="btn btn-secondary btn-sm text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 size={16} />
-                          删除
-                        </button>
-                      </>
-                    )}
-                  </div>
+                {/* 操作按钮 */}
+                <div className="flex-shrink-0 flex flex-col gap-2">
+                  <button
+                    onClick={() => handleToggleStatus(product)}
+                    className={`btn btn-sm ${product.status === 'active' ? 'btn-secondary' : 'btn-primary'}`}
+                  >
+                    {product.status === 'active' ? '下架' : '上架'}
+                  </button>
+                  <Link to={`/admin/bargain/edit/${product._id}`} className="btn btn-secondary btn-sm flex items-center gap-1">
+                    <Edit size={14} />
+                    编辑
+                  </Link>
+                  <button 
+                    onClick={() => handleDelete(product._id)} 
+                    className="btn btn-secondary btn-sm text-red-600 hover:bg-red-50 flex items-center gap-1"
+                  >
+                    <Trash2 size={14} />
+                    删除
+                  </button>
                 </div>
               </div>
-            );
-          })
+            </div>
+          ))
         )}
       </div>
     </div>
