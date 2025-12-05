@@ -2,11 +2,11 @@ Component({
 	data: {
 		selected: 0,
 		list: [
-			{ pagePath: "/pages/index/index", text: "首页" },
-			{ pagePath: "/pages/bargain/index", text: "砍价" },
-			{ pagePath: "/pages/mall/index", text: "商城" },
-			{ pagePath: "/pages/package/index", text: "套餐" },
-			{ pagePath: "/pages/profile/index", text: "我的" }
+			{ pagePath: "/pages/index/index", text: "首页", icon: "🏠" },
+			{ pagePath: "/pages/bargain/index", text: "砍价", icon: "🎫" },
+			{ pagePath: "/pages/mall/index", text: "商城", icon: "🛍️" },
+			{ pagePath: "/pages/package/index", text: "套餐", icon: "📦" },
+			{ pagePath: "/pages/profile/index", text: "我的", icon: "👤" }
 		]
 	},
 	methods: {

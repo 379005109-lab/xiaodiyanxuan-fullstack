@@ -1,11 +1,11 @@
+<!-- ZenLife 2.0 砍价专区 - 玻璃拟态顶部 -->
+<view class="bargain-header-wrap">
+	<view class="header-title">砍价专区</view>
+	<view class="my-bargain-btn" bindtap="goMyBargain">我的砍价</view>
+</view>
+
 <scroll-view class="scrollarea" scroll-y enhanced show-scrollbar="{{false}}">
 	<view class="page">
-		<!-- ZenLife 2.0 顶部标题栏 -->
-		<view class="bargain-header">
-			<view class="header-title">砍价专区</view>
-			<view class="my-bargain-btn" bindtap="goMyBargain">我的砍价</view>
-		</view>
-		
 		<!-- 筛选弹窗 -->
 		<view class="filter-popup" wx:if="{{showFilterPopup}}" bindtap="onCloseFilterPopup">
 			<view class="filter-popup-content" catchtap="">
@@ -29,24 +29,28 @@
 			</view>
 		</view>
 
-		<!-- ZenLife 2.0 商品列表 -->
+		<!-- ZenLife 2.0 砍价商品列表 - BargainRowItem -->
 		<view class="bargain-list">
 			<view class="bargain-card" wx:for="{{goodsList}}" wx:key="id" data-id="{{item.id}}" bindtap="onViewDetail">
-				<!-- 左侧图片区 -->
+				<!-- 左侧图片区 - 带助力标签 -->
 				<view class="bargain-image">
 					<image src="{{item.cover}}" mode="aspectFill"></image>
 					<view class="helper-tag">
-						<text class="dot">●</text>
-						<text>{{item.cutCount}}人助力</text>
+						<view class="helper-dot"></view>
+						<text>{{item.cutCount || 0}}人助力</text>
 					</view>
 				</view>
 				<!-- 右侧信息区 -->
 				<view class="bargain-info">
-					<view class="bargain-name">{{item.name}}</view>
-					<view class="bargain-desc">{{item.subtitle || item.description || '精选优质材料，匠心工艺制作'}}</view>
-					<view class="bargain-price-row">
-						<text class="origin-price">¥{{item.origin}}</text>
-						<text class="current-price">¥{{item.price}}</text>
+					<view class="bargain-top">
+						<view class="bargain-name">{{item.name}}</view>
+						<view class="bargain-desc">{{item.subtitle || item.description || '精选优质材料，匠心工艺制作'}}</view>
+					</view>
+					<view class="bargain-bottom">
+						<view class="bargain-prices">
+							<text class="origin-price">¥{{item.origin}}</text>
+							<text class="current-price">¥ {{item.price}}</text>
+						</view>
 						<view class="cut-btn" data-id="{{item.id}}" catchtap="onStartBargain">砍一刀</view>
 					</view>
 				</view>

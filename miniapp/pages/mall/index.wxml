@@ -1,20 +1,22 @@
-<view class="page">
-	<!-- ZenLife 2.0 顶部标题栏 -->
+<!-- ZenLife 2.0 商城页 - 玻璃拟态顶部 -->
+<view class="mall-header-wrap">
 	<view class="mall-header">
-		<view class="header-title">商城</view>
+		<view class="header-left">
+			<view class="header-title">商城</view>
+		</view>
 		<view class="header-actions">
-			<view class="action-btn {{viewMode==='grid'?'active':''}}" bindtap="toggleViewMode" data-mode="grid">
-				<text class="iconfont">⊞</text>
+			<view class="action-btn {{viewMode!=='grid'?'':'active'}}" bindtap="toggleViewMode">
+				<text class="btn-icon">{{viewMode==='grid' ? '☰' : '⊞'}}</text>
 			</view>
 			<view class="action-btn" bindtap="openFilter">
-				<text class="iconfont">▽</text>
+				<text class="btn-icon">▽</text>
 			</view>
 		</view>
 	</view>
 
-	<!-- 搜索框 -->
+	<!-- 搜索框 - 玻璃内阴影效果 -->
 	<view class="search-bar">
-		<view class="search-icon">🔍</view>
+		<text class="search-icon">🔍</text>
 		<input class="search-input" placeholder="搜索沙发、桌椅..." value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
 	</view>
 
@@ -22,13 +24,26 @@
 	<view class="filter-tabs">
 		<view class="tab-item {{sortKey==='comprehensive'?'active':''}}" data-key="comprehensive" bindtap="onTapSort">
 			<text>综合</text>
-			<view class="tab-dot" wx:if="{{sortKey==='comprehensive'}}"></view>
+			<view class="tab-indicator" wx:if="{{sortKey==='comprehensive'}}"></view>
 		</view>
-		<view class="tab-item {{sortKey==='sales'?'active':''}}" data-key="sales" bindtap="onTapSort">销量</view>
-		<view class="tab-item {{sortKey==='price'?'active':''}}" data-key="price" bindtap="onTapPrice">价格</view>
-		<view class="tab-item" bindtap="openCategory">类别</view>
-		<view class="tab-item {{showStylePopup?'active':''}}" bindtap="toggleStyle">风格</view>
+		<view class="tab-item {{sortKey==='sales'?'active':''}}" data-key="sales" bindtap="onTapSort">
+			<text>销量</text>
+			<view class="tab-indicator" wx:if="{{sortKey==='sales'}}"></view>
+		</view>
+		<view class="tab-item {{sortKey==='price'?'active':''}}" data-key="price" bindtap="onTapPrice">
+			<text>价格</text>
+			<view class="tab-indicator" wx:if="{{sortKey==='price'}}"></view>
+		</view>
+		<view class="tab-item" bindtap="openCategory">
+			<text>类别</text>
+		</view>
+		<view class="tab-item {{showStylePopup?'active':''}}" bindtap="toggleStyle">
+			<text>风格</text>
+		</view>
 	</view>
+</view>
+
+<view class="page">
 
 	<!-- 风格弹窗 -->
 	<view class="style-popup" wx:if="{{showStylePopup}}">
@@ -59,15 +74,22 @@
 		<view class="goods-grid">
 			<block wx:for="{{filteredGoods}}" wx:key="id">
 				<view class="goods-card" bindtap="goDetail" data-id="{{item.id}}">
-					<view class="card-image">
-						<image src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFill"></image>
+					<!-- 图片区域 - 带收藏按钮 -->
+					<view class="card-image-wrap">
+						<image class="card-image" src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFill"></image>
+						<view class="card-fav-btn" catchtap="toggleFav" data-id="{{item.id}}">
+							<text>♡</text>
+						</view>
 					</view>
+					<!-- 信息区域 -->
 					<view class="card-info">
 						<view class="card-name">{{item.name}}</view>
-						<view class="card-desc">{{item.subtitle || item.material || ''}}</view>
+						<view class="card-desc">{{item.subtitle || item.category || ''}}</view>
 						<view class="card-bottom">
-							<view class="card-price">¥{{item.price}}</view>
-							<view class="card-cart-btn">🛒</view>
+							<view class="card-price">¥ {{item.price}}</view>
+							<view class="card-cart-btn" catchtap="addToCart" data-id="{{item.id}}">
+								<text>🛒</text>
+							</view>
 						</view>
 					</view>
 				</view>
@@ -81,20 +103,36 @@
 		<view class="goods-list-large">
 			<block wx:for="{{filteredGoods}}" wx:key="id">
 				<view class="goods-card-large" bindtap="goDetail" data-id="{{item.id}}">
+					<!-- 有机blob背景 -->
+					<view class="card-blob blob-1"></view>
+					<view class="card-blob blob-2"></view>
+					
+					<!-- 头部 -->
 					<view class="card-header">
-						<view class="card-title">{{item.name}}</view>
-						<view class="card-fav">♡</view>
+						<view class="card-header-text">
+							<view class="card-title">{{item.name}}</view>
+							<view class="card-subtitle">{{item.subtitle || item.material || ''}}</view>
+						</view>
+						<view class="card-fav-btn-large" catchtap="toggleFav" data-id="{{item.id}}">
+							<text>♡</text>
+						</view>
 					</view>
-					<view class="card-subtitle">{{item.subtitle || item.material || ''}}</view>
+					
+					<!-- 图片 -->
 					<view class="card-image-large">
-						<image src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFill"></image>
+						<image src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFit"></image>
 					</view>
+					
+					<!-- 底部价格栏 -->
 					<view class="card-footer">
 						<view class="footer-left">
 							<view class="price-label">PRICE</view>
-							<view class="price-value">¥{{item.price}}</view>
+							<view class="price-value">¥ {{item.price}}</view>
 						</view>
-						<view class="footer-btn">🛒 加入购物车</view>
+						<view class="footer-btn" catchtap="addToCart" data-id="{{item.id}}">
+							<view class="btn-icon-wrap">🛒</view>
+							<text>加入购物车</text>
+						</view>
 					</view>
 				</view>
 			</block>

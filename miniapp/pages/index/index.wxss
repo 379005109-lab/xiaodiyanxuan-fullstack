@@ -1,5 +1,7 @@
 /**index.wxss**/
 /* ZenLife 2.0 首页 - Fresh Nature Gradient */
+/* 严格按照设计规范 */
+
 page { 
   background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 50%, #dcfce7 100%);
   min-height: 100vh; 
@@ -8,34 +10,75 @@ page {
   min-height: 100vh; 
 }
 
-/* ========== Hero全屏区域 ========== */
+/* ========== Hero全屏区域 - 90vh ========== */
 .hero-section { 
   position: relative; 
   width: 100%; 
-  height: 100vh; 
-  min-height: 100vh; 
-  background: linear-gradient(135deg, #38bdf8 0%, #22d3ee 40%, #34d399 100%);
+  height: 90vh; 
+  background: linear-gradient(135deg, #38bdf8 0%, #22d3ee 50%, #34d399 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
-/* 右上角头像 */
+/* 背景装饰圆 - 模糊光斑效果 */
+.hero-bg-decor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0.3;
+  mix-blend-mode: overlay;
+}
+.decor-circle {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80rpx);
+}
+.circle-1 {
+  top: 20%;
+  right: 10%;
+  width: 400rpx;
+  height: 400rpx;
+  border: 60rpx solid #FFFFFF;
+}
+.circle-2 {
+  bottom: 20%;
+  left: 10%;
+  width: 500rpx;
+  height: 500rpx;
+  background: #FFFFFF;
+}
+.circle-3 {
+  top: 40%;
+  left: 30%;
+  width: 300rpx;
+  height: 300rpx;
+  background: #e0f2fe;
+}
+
+/* 右上角头像 - 玻璃效果 */
 .hero-avatar {
   position: absolute;
-  top: calc(40rpx + env(safe-area-inset-top));
-  right: 40rpx;
+  top: calc(48rpx + env(safe-area-inset-top));
+  right: 48rpx;
   width: 80rpx;
   height: 80rpx;
   border-radius: 50%;
   overflow: hidden;
-  border: 4rpx solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.2);
+  border: 2rpx solid rgba(255,255,255,0.3);
   box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.15);
+  z-index: 20;
 }
 .hero-avatar image {
   width: 100%;
   height: 100%;
+  padding: 4rpx;
+  border-radius: 50%;
 }
 
 /* 中央内容 */
@@ -45,70 +88,117 @@ page {
   align-items: center;
   text-align: center;
   padding: 0 60rpx;
-}
-
-.hero-logo {
-  font-size: 320rpx;
-  font-weight: 800;
-  color: #FFFFFF;
-  line-height: 1;
-  text-shadow: 0 16rpx 48rpx rgba(0,0,0,0.15);
-  margin-bottom: 40rpx;
-}
-
-.hero-slogan {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  margin-bottom: 48rpx;
-}
-
-.slogan-line {
-  font-size: 56rpx;
-  font-weight: 800;
-  color: #FFFFFF;
-  letter-spacing: 12rpx;
-  text-shadow: 0 8rpx 24rpx rgba(0,0,0,0.15);
-}
-
-.hero-price-tag {
-  font-size: 72rpx;
-  font-weight: 800;
-  color: #FFFFFF;
-  letter-spacing: 16rpx;
-  text-shadow: 0 8rpx 24rpx rgba(0,0,0,0.2);
-  margin-bottom: 60rpx;
-}
-
-.hero-arrow {
-  font-size: 48rpx;
-  color: rgba(255,255,255,0.8);
-  animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(20rpx); }
-}
-
-/* ========== 陪买服务卡片 ========== */
-.service-card {
-  position: relative;
-  margin: -60rpx 24rpx 32rpx;
-  background: #FFFFFF;
-  border-radius: 48rpx;
-  overflow: hidden;
-  box-shadow: 0 20rpx 60rpx -20rpx rgba(0,0,0,0.1);
   z-index: 10;
 }
 
-.service-bg {
+/* 大D Logo - 浮动动画 */
+.hero-logo-wrap {
+  animation: float 6s ease-in-out infinite;
+}
+.hero-logo {
+  font-size: 400rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 0.9;
+  opacity: 0.95;
+  text-shadow: 0 0 100rpx rgba(0,0,0,0.1);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20rpx); }
+}
+
+/* 标语 - 带倾斜效果 */
+.hero-slogan {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 48rpx;
+}
+
+.slogan-line {
+  font-size: 80rpx;
+  font-weight: 900;
+  color: #FFFFFF;
+  letter-spacing: 16rpx;
+  text-shadow: 0 8rpx 32rpx rgba(0,0,0,0.15);
+}
+.slogan-line.line-1 {
+  transform: rotate(-2deg);
+  transform-origin: bottom right;
+}
+.slogan-line.line-2 {
+  transform: rotate(1deg);
+  transform-origin: bottom left;
+  margin-left: 60rpx;
+}
+
+/* 一口价 - 更大倾斜 */
+.hero-price-wrap {
+  margin-top: 64rpx;
+}
+.hero-price-tag {
+  font-size: 96rpx;
+  font-weight: 900;
+  color: #FFFFFF;
+  letter-spacing: 20rpx;
+  text-shadow: 0 8rpx 32rpx rgba(0,0,0,0.2);
+  transform: rotate(-6deg);
+  display: block;
+}
+
+/* 底部箭头 */
+.hero-arrow-wrap {
+  position: absolute;
+  bottom: 200rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: bounce 2s infinite;
+}
+.hero-arrow {
+  font-size: 64rpx;
+  color: rgba(255,255,255,0.8);
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(20rpx); }
+}
+
+/* ========== 陪买服务卡片 - 带背景图玻璃效果 ========== */
+.service-card {
+  position: relative;
+  margin: -64rpx 48rpx 64rpx;
+  background: #FFFFFF;
+  border-radius: 64rpx;
+  overflow: hidden;
+  box-shadow: 0 40rpx 80rpx -20rpx rgba(0,0,0,0.1);
+  z-index: 10;
+  border: 2rpx solid rgba(255,255,255,0.5);
+}
+
+.service-bg-img {
   position: absolute;
   top: 0;
+  left: 0;
   right: 0;
-  width: 60%;
+  bottom: 0;
+  width: 100%;
   height: 100%;
-  opacity: 0.2;
+  opacity: 0.3;
+  z-index: -1;
+}
+
+.service-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255,255,255,0.8);
+  z-index: 0;
 }
 
 .service-content {
@@ -118,74 +208,96 @@ page {
 }
 
 .service-title {
-  font-size: 48rpx;
+  font-size: 60rpx;
   font-weight: 700;
-  color: #1f2937;
+  color: #000000;
   margin-bottom: 16rpx;
 }
 
 .service-desc {
   font-size: 28rpx;
-  color: #6b7280;
+  font-weight: 700;
+  color: #1f2937;
+  opacity: 0.8;
   line-height: 1.6;
-  margin-bottom: 32rpx;
+  margin-bottom: 48rpx;
   max-width: 70%;
 }
 
 .service-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8rpx;
-  padding: 20rpx 36rpx;
-  background: #1f2937;
+  gap: 16rpx;
+  padding: 20rpx 40rpx;
+  background: #000000;
   color: #FFFFFF;
   font-size: 28rpx;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: 999rpx;
+  box-shadow: 0 16rpx 32rpx -8rpx rgba(0,0,0,0.3);
 }
 
 .service-btn .arrow {
   font-size: 32rpx;
 }
 
-/* ========== 快捷入口 ========== */
+/* ========== 快捷入口 - 带图标装饰 ========== */
 .quick-actions {
   display: flex;
-  gap: 24rpx;
-  padding: 0 24rpx;
-  margin-bottom: 32rpx;
+  gap: 32rpx;
+  padding: 0 48rpx;
+  margin-bottom: 48rpx;
 }
 
 .quick-item {
   flex: 1;
   background: #FFFFFF;
   border-radius: 48rpx;
-  padding: 32rpx;
-  box-shadow: 0 8rpx 32rpx -8rpx rgba(0,0,0,0.05);
+  padding: 40rpx;
+  box-shadow: 0 8rpx 40rpx -10rpx rgba(0,0,0,0.05);
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 256rpx;
 }
 
-.quick-item::after {
-  content: '';
+/* 右上角装饰圆 */
+.quick-decor {
   position: absolute;
   top: -20rpx;
   right: -20rpx;
-  width: 100rpx;
-  height: 100rpx;
+  width: 128rpx;
+  height: 128rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #dcfce7 0%, #f0f9ff 100%);
-  opacity: 0.5;
+  transition: transform 0.5s;
+}
+.item-bargain .quick-decor {
+  background: #dcfce7;
+}
+.item-package .quick-decor {
+  background: #e0f2fe;
 }
 
-.quick-icon {
+/* 图标容器 */
+.quick-icon-wrap {
   width: 48rpx;
   height: 48rpx;
-  margin-bottom: 16rpx;
+  position: relative;
+  z-index: 1;
+}
+.quick-icon-text {
+  font-size: 48rpx;
 }
 
+/* 文字信息 */
+.quick-info {
+  position: relative;
+  z-index: 1;
+}
 .quick-value {
-  font-size: 40rpx;
+  font-size: 48rpx;
   font-weight: 700;
   color: #1f2937;
   margin-bottom: 8rpx;
@@ -193,6 +305,7 @@ page {
 
 .quick-label {
   font-size: 24rpx;
+  font-weight: 500;
   color: #9ca3af;
 }
 

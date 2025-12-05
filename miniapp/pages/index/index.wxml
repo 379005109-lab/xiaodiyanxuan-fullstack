@@ -1,6 +1,13 @@
 <scroll-view class="page-scroll" scroll-y enhanced show-scrollbar="{{false}}">
-	<!-- ZenLife 2.0 全屏Hero区域 -->
+	<!-- ZenLife 2.0 全屏Hero区域 - 90vh高度 -->
 	<view class="hero-section">
+		<!-- 背景装饰圆 -->
+		<view class="hero-bg-decor">
+			<view class="decor-circle circle-1"></view>
+			<view class="decor-circle circle-2"></view>
+			<view class="decor-circle circle-3"></view>
+		</view>
+		
 		<!-- 右上角头像 -->
 		<view class="hero-avatar" bindtap="goProfile">
 			<image src="{{userAvatar || '/images/default-avatar.png'}}" mode="aspectFill"></image>
@@ -8,19 +15,33 @@
 		
 		<!-- 中央Logo和标语 -->
 		<view class="hero-content">
-			<view class="hero-logo">D</view>
-			<view class="hero-slogan">
-				<text class="slogan-line">线上选款</text>
-				<text class="slogan-line">展厅体验</text>
+			<!-- 大D Logo带浮动动画 -->
+			<view class="hero-logo-wrap">
+				<text class="hero-logo">D</text>
 			</view>
-			<view class="hero-price-tag">一口价</view>
-			<view class="hero-arrow">↓</view>
+			
+			<!-- 标语 - 带倾斜效果 -->
+			<view class="hero-slogan">
+				<text class="slogan-line line-1">线上选款</text>
+				<text class="slogan-line line-2">展厅体验</text>
+			</view>
+			
+			<!-- 一口价 - 更大倾斜 -->
+			<view class="hero-price-wrap">
+				<text class="hero-price-tag">一口价</text>
+			</view>
+		</view>
+		
+		<!-- 底部箭头 -->
+		<view class="hero-arrow-wrap">
+			<text class="hero-arrow">↓</text>
 		</view>
 	</view>
 
-	<!-- 陪买服务卡片 -->
+	<!-- 陪买服务卡片 - 带背景图和玻璃效果 -->
 	<view class="service-card" bindtap="goGuideService">
-		<image class="service-bg" src="{{guideServiceImage}}" mode="aspectFill"></image>
+		<image class="service-bg-img" src="https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&q=80&w=600" mode="aspectFill"></image>
+		<view class="service-overlay"></view>
 		<view class="service-content">
 			<view class="service-title">陪买服务</view>
 			<view class="service-desc">专业顾问一对一陪同选购，为您甄选最适合的家居方案。</view>
@@ -31,17 +52,27 @@
 		</view>
 	</view>
 
-	<!-- 快捷入口 -->
+	<!-- 快捷入口 - 带图标和悬浮装饰 -->
 	<view class="quick-actions">
-		<view class="quick-item" bindtap="goBargain">
-			<image class="quick-icon" src="/images/icons/bargain.png" mode="aspectFit"></image>
-			<view class="quick-value">50%</view>
-			<view class="quick-label">限时折扣</view>
+		<view class="quick-item item-bargain" bindtap="goBargain">
+			<view class="quick-decor"></view>
+			<view class="quick-icon-wrap">
+				<text class="quick-icon-text">🎫</text>
+			</view>
+			<view class="quick-info">
+				<view class="quick-value">50%</view>
+				<view class="quick-label">限时折扣</view>
+			</view>
 		</view>
-		<view class="quick-item" bindtap="goPackage">
-			<image class="quick-icon" src="/images/icons/package.png" mode="aspectFit"></image>
-			<view class="quick-value">套餐</view>
-			<view class="quick-label">一站式购齐</view>
+		<view class="quick-item item-package" bindtap="goPackage">
+			<view class="quick-decor"></view>
+			<view class="quick-icon-wrap icon-sky">
+				<text class="quick-icon-text">📦</text>
+			</view>
+			<view class="quick-info">
+				<view class="quick-value">套餐</view>
+				<view class="quick-label">一站式购齐</view>
+			</view>
 		</view>
 	</view>
 
