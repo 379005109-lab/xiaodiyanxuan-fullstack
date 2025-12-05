@@ -2,41 +2,26 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="小迪严选 - 源头好货，一件也是出厂价" />
     <title>小迪严选 | XIAODI Select - 高端家居供应链</title>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     
-    <!-- DNS 预解析和预连接 - 加速后续请求 -->
+    <!-- DNS 预解析 -->
     <link rel="dns-prefetch" href="//xiaodiyanxuan.com" />
-    <link rel="dns-prefetch" href="//pkochbpmcgaa.sealoshzh.site" />
-    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
-    <link rel="dns-prefetch" href="//fonts.gstatic.com" />
-    <link rel="preconnect" href="https://pkochbpmcgaa.sealoshzh.site" crossorigin />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://xiaodiyanxuan.com" crossorigin />
     
-    <!-- Google Fonts - 异步加载，不阻塞渲染 -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet"></noscript>
-    
-    <!-- 关键 CSS 内联 - ZenLife 2.0 风格 -->
+    <!-- 关键 CSS 内联 -->
     <style>
       :root {
-        --font-sans: "Plus Jakarta Sans", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-        --cyan-400: #22d3ee;
-        --emerald-400: #34d399;
-        --sky-100: #e0f2fe;
-        --primary-100: #dcfce7;
+        --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        --font-serif: Georgia, "Times New Roman", "SimSun", serif;
       }
       * { box-sizing: border-box; }
-      html { scroll-behavior: smooth; }
       body { 
         margin: 0; 
-        background: linear-gradient(to bottom, var(--sky-100), #f0f9ff, var(--primary-100));
+        background-color: #F2F4F3; 
         font-family: var(--font-sans);
-        -webkit-tap-highlight-color: transparent;
-        min-height: 100vh;
       }
       /* 首屏加载骨架屏 */
       #root:empty {
@@ -49,8 +34,8 @@
         content: "";
         width: 40px;
         height: 40px;
-        border: 3px solid #dcfce7;
-        border-top-color: #22d3ee;
+        border: 3px solid #e0e0e0;
+        border-top-color: #4f46e5;
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
       }
@@ -58,40 +43,37 @@
         to { transform: rotate(360deg); }
       }
       .glass {
-        background: rgba(255, 255, 255, 0.75);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
       }
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
   </head>
-  <body class="text-gray-800 antialiased selection:bg-emerald-400 selection:text-white">
+  <body class="text-stone-900 antialiased selection:bg-primary selection:text-white">
     <div id="root">
-      <!-- 首屏静态骨架 - ZenLife 2.0 风格 -->
-      <div id="app-shell" style="min-height:100vh;background:linear-gradient(to bottom, #e0f2fe, #f0f9ff, #dcfce7);">
+      <!-- 首屏静态骨架 - 立即可见 -->
+      <div id="app-shell" style="min-height:100vh;background:#F2F4F3;">
         <!-- 顶部导航骨架 -->
-        <header style="background:rgba(255,255,255,0.8);backdrop-filter:blur(16px);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;border-radius:0 0 24px 24px;">
-          <div style="font-size:20px;font-weight:bold;background:linear-gradient(to right,#22d3ee,#34d399);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;">小迪严选</div>
+        <header style="background:white;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+          <div style="font-size:20px;font-weight:bold;color:#4f46e5;">小迪严选</div>
           <div style="display:flex;gap:24px;">
             <span style="color:#666;font-size:14px;">首页</span>
             <span style="color:#666;font-size:14px;">产品</span>
             <span style="color:#666;font-size:14px;">套餐</span>
           </div>
         </header>
-        <!-- Hero 区域骨架 - 清新渐变 -->
-        <div style="padding:80px 24px;text-align:center;background:linear-gradient(135deg,#38bdf8 0%,#22d3ee 50%,#34d399 100%);margin:24px;border-radius:32px;">
-          <h1 style="color:white;font-size:42px;margin:0 0 16px;font-weight:800;">D</h1>
-          <p style="color:rgba(255,255,255,0.95);font-size:24px;margin:0 0 8px;font-weight:700;">线上选款</p>
-          <p style="color:rgba(255,255,255,0.95);font-size:24px;margin:0 0 32px;font-weight:700;">展厅体验</p>
+        <!-- Hero 区域骨架 -->
+        <div style="padding:60px 24px;text-align:center;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+          <h1 style="color:white;font-size:36px;margin:0 0 16px;">高端家居供应链平台</h1>
+          <p style="color:rgba(255,255,255,0.9);font-size:18px;margin:0 0 32px;">源头好货，一件也是出厂价</p>
           <div style="display:flex;justify-content:center;gap:16px;">
-            <button style="background:white;color:#16a34a;padding:14px 36px;border:none;border-radius:9999px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px -6px rgba(52,211,153,0.5);">浏览产品</button>
+            <button style="background:white;color:#4f46e5;padding:12px 32px;border:none;border-radius:8px;font-size:16px;cursor:pointer;">浏览产品</button>
+            <button style="background:transparent;color:white;padding:12px 32px;border:2px solid white;border-radius:8px;font-size:16px;cursor:pointer;">了解更多</button>
           </div>
         </div>
         <!-- 加载提示 -->
         <div style="text-align:center;padding:40px;">
-          <div style="display:inline-block;width:32px;height:32px;border:3px solid #dcfce7;border-top-color:#22d3ee;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+          <div style="display:inline-block;width:32px;height:32px;border:3px solid #e0e0e0;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
           <p style="color:#666;margin-top:12px;font-size:14px;">正在加载...</p>
         </div>
       </div>
