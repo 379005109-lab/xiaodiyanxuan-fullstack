@@ -9,7 +9,8 @@ Page({
 		guideServiceImage: '',
 		banners: [],
 		styles: [],
-		hots: []
+		hots: [],
+		userAvatar: ''
 	},
 	onLoad() {
 		this.loadHomeData()
@@ -93,5 +94,11 @@ Page({
 		// 跳转到商城页面并筛选风格
 		wx.switchTab({ url: '/pages/mall/index' })
 		// 可以通过事件总线或存储传递风格参数
+	},
+	goProfile() {
+		wx.switchTab({ url: '/pages/profile/index' })
+	},
+	goMoreHots() {
+		wx.switchTab({ url: '/pages/mall/index' })
 	}
 })
