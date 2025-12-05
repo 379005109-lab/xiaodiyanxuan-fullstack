@@ -35,14 +35,16 @@ Page({
 			const res = await api.getBargainGoods()
 			const goods = (res.data || []).map(item => ({
 				id: item._id,
-				name: item.productName,
+				name: item.name || item.productName,
 				cover: item.coverImage || `https://picsum.photos/400/500?random=${Date.now()}`,
 				origin: item.originalPrice || 0,
-				price: item.targetPrice || item.currentPrice || 0,
-				cut: (item.originalPrice || 0) - (item.currentPrice || item.targetPrice || 0),
-				cutCount: item.helpCount || 0,
+				price: item.targetPrice || 0,
+				cut: 0,  // 商品列表显示的是可砍的空间
+				cutCount: item.totalBargains || 0,  // 显示多少人已参与
 				style: item.style || '现代简约',
-				category: item.category || '沙发'
+				category: item.category || '沙发',
+				minCut: item.minCutAmount || 1,
+				maxCut: item.maxCutAmount || 50
 			}))
 			this.setData({ allGoodsList: goods })
 			this.filterGoods()
