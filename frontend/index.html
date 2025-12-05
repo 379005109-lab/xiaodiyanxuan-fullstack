@@ -7,14 +7,18 @@
     <title>小迪严选 | XIAODI Select - 高端家居供应链</title>
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     
-    <!-- DNS 预解析 -->
+    <!-- DNS 预解析和预连接 - 加速后续请求 -->
     <link rel="dns-prefetch" href="//xiaodiyanxuan.com" />
-    <link rel="preconnect" href="https://xiaodiyanxuan.com" crossorigin />
+    <link rel="dns-prefetch" href="//pkochbpmcgaa.sealoshzh.site" />
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="//fonts.gstatic.com" />
+    <link rel="preconnect" href="https://pkochbpmcgaa.sealoshzh.site" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     
-    <!-- Google Fonts - ZenLife 2.0 字体 -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Google Fonts - 异步加载，不阻塞渲染 -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet"></noscript>
     
     <!-- 关键 CSS 内联 - ZenLife 2.0 风格 -->
     <style>
