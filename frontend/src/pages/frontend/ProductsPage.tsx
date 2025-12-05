@@ -170,11 +170,13 @@ export default function ProductsPage() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await getAllProducts({ pageSize: 100 });
+      // 加载所有商品（增加 pageSize 到 2000）
+      const response = await getAllProducts({ pageSize: 2000 });
       if (response.success && response.data) {
         // 只显示上架的商品
         const activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');
         setProducts(activeProducts);
+        console.log(`[商城] 共加载 ${activeProducts.length} 个商品`);
       } else {
         setProducts([]);
       }
