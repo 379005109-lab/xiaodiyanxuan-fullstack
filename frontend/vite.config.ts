@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { execSync } from 'child_process'
+import fs from 'fs'
 
 // 禁用 TypeScript 类型检查的插件
 const disableTypeCheckPlugin: any = {
@@ -15,10 +16,42 @@ const disableTypeCheckPlugin: any = {
   },
 };
 
+// 自动注入预加载标签的插件
+const injectPreloadPlugin: any = {
+  name: 'inject-preload',
+  apply: 'build',
+  closeBundle() {
+    const indexPath = path.resolve(__dirname, 'dist/index.html');
+    if (fs.existsSync(indexPath)) {
+      let html = fs.readFileSync(indexPath, 'utf-8');
+      
+      // 查找构建后的关键资源文件
+      const assetsDir = path.resolve(__dirname, 'dist/assets');
+      const files = fs.readdirSync(assetsDir);
+      
+      const reactVendor = files.find(f => f.startsWith('react-vendor') && f.endsWith('.js'));
+      const uiVendor = files.find(f => f.startsWith('ui-vendor') && f.endsWith('.js'));
+      const mainCss = files.find(f => f.startsWith('index') && f.endsWith('.css'));
+      
+      // 构建预加载标签
+      const preloads: string[] = [];
+      if (reactVendor) preloads.push(`<link rel="preload" href="/assets/${reactVendor}" as="script" crossorigin>`);
+      if (uiVendor) preloads.push(`<link rel="preload" href="/assets/${uiVendor}" as="script" crossorigin>`);
+      if (mainCss) preloads.push(`<link rel="preload" href="/assets/${mainCss}" as="style">`);
+      
+      // 注入到 head 中
+      html = html.replace('</head>', `${preloads.join('\n    ')}\n  </head>`);
+      
+      fs.writeFileSync(indexPath, html);
+      console.log('✅ Preload tags injected successfully');
+    }
+  }
+};
+
 // https://vitejs.dev/config/
 export default defineConfig({
   base: '/',
-  plugins: [react(), disableTypeCheckPlugin],
+  plugins: [react(), disableTypeCheckPlugin, injectPreloadPlugin],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
