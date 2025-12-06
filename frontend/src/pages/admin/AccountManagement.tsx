@@ -3,10 +3,11 @@ import { toast } from 'sonner'
 import { 
   Building2, Users, UserPlus, Key, Search, MoreVertical,
   Edit, Trash2, RefreshCw, Shield, Eye, EyeOff, Copy,
-  ChevronDown, Plus, Settings, BarChart3, TrendingUp, AlertTriangle, UserCheck
+  ChevronDown, Plus, Settings, BarChart3, TrendingUp, AlertTriangle, UserCheck, History
 } from 'lucide-react'
 import * as accountService from '@/services/accountService'
 import { ROLE_LABELS, ORG_TYPE_LABELS, USER_ROLES, DashboardData } from '@/services/accountService'
+import BrowseHistoryModal from '@/components/admin/BrowseHistoryModal'
 
 type TabType = 'dashboard' | 'organizations' | 'users' | 'customers' | 'designers' | 'special'
 
@@ -35,6 +36,10 @@ export default function AccountManagement() {
   const [showSpecialModal, setShowSpecialModal] = useState(false)
   const [editingOrg, setEditingOrg] = useState<accountService.Organization | null>(null)
   const [editingUser, setEditingUser] = useState<accountService.AccountUser | null>(null)
+  
+  // 浏览历史
+  const [showBrowseHistory, setShowBrowseHistory] = useState(false)
+  const [browseHistoryUser, setBrowseHistoryUser] = useState<{ id: string; name: string } | null>(null)
 
   // 加载数据
   useEffect(() => {
@@ -541,6 +546,19 @@ export default function AccountManagement() {
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
+                              onClick={() => {
+                                setBrowseHistoryUser({ 
+                                  id: user._id, 
+                                  name: user.nickname || user.username || user.phone || '未知用户'
+                                })
+                                setShowBrowseHistory(true)
+                              }}
+                              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg"
+                              title="查看浏览路径"
+                            >
+                              <History className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => { setEditingUser(user); setShowUserModal(true) }}
                               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
                             >
@@ -672,6 +690,18 @@ export default function AccountManagement() {
         <SpecialAccountModal
           onClose={() => setShowSpecialModal(false)}
           onSave={() => { setShowSpecialModal(false); loadSpecialAccounts() }}
+        />
+      )}
+
+      {/* 浏览历史弹窗 */}
+      {showBrowseHistory && browseHistoryUser && (
+        <BrowseHistoryModal
+          userId={browseHistoryUser.id}
+          userName={browseHistoryUser.name}
+          onClose={() => {
+            setShowBrowseHistory(false)
+            setBrowseHistoryUser(null)
+          }}
         />
       )}
     </div>

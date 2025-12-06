@@ -1,5 +1,6 @@
 const { successResponse, errorResponse, paginatedResponse } = require('../utils/response')
 const { getProducts, getProductById, getCategories, getStyles, searchProducts } = require('../services/productService')
+const browseHistoryService = require('../services/browseHistoryService')
 const FileService = require('../services/fileService')
 const Product = require('../models/Product')
 const Style = require('../models/Style')
@@ -39,6 +40,17 @@ const getProduct = async (req, res) => {
   try {
     const { id } = req.params
     const product = await getProductById(id)
+    
+    // 异步记录浏览历史（如果用户已登录）
+    const userId = req.user?._id || req.user?.id
+    if (userId) {
+      browseHistoryService.recordBrowse(userId, id, {
+        source: req.headers['x-platform'] || 'web',
+        userAgent: req.headers['user-agent'],
+        ip: req.ip || req.connection?.remoteAddress
+      }).catch(err => console.error('记录浏览历史失败:', err))
+    }
+    
     res.json(successResponse(product))
   } catch (err) {
     console.error('Get product error:', err)
