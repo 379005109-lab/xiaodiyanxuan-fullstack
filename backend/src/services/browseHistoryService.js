@@ -1,5 +1,6 @@
 const BrowseHistory = require('../models/BrowseHistory')
 const Product = require('../models/Product')
+const Category = require('../models/Category')
 
 /**
  * 记录用户浏览商品
@@ -14,9 +15,22 @@ const recordBrowse = async (userId, productId, options = {}) => {
     // 获取分类名称
     let categoryName = ''
     if (product.category) {
-      categoryName = typeof product.category === 'string' 
+      // 尝试获取分类ID
+      const categoryId = typeof product.category === 'string' 
         ? product.category 
-        : (product.category.name || product.category.id || '')
+        : (product.category.id || product.category._id || product.category)
+      
+      // 如果是有效的ObjectId，从数据库查询分类名称
+      if (categoryId && /^[a-f\d]{24}$/i.test(String(categoryId))) {
+        try {
+          const category = await Category.findById(categoryId).lean()
+          categoryName = category?.name || ''
+        } catch (e) {
+          categoryName = ''
+        }
+      } else if (typeof product.category === 'object' && product.category.name) {
+        categoryName = product.category.name
+      }
     }
     
     const record = await BrowseHistory.create({
@@ -85,21 +99,43 @@ const getUserBrowsePath = async (userId, options = {}) => {
     .limit(limit)
     .lean()
   
+  // 收集所有需要转换的分类ID
+  const categoryIds = records
+    .map(r => r.categoryName)
+    .filter(name => name && /^[a-f\d]{24}$/i.test(String(name)))
+  
+  // 批量查询分类名称
+  let categoryMap = {}
+  if (categoryIds.length > 0) {
+    const categories = await Category.find({ _id: { $in: categoryIds } }).lean()
+    categoryMap = categories.reduce((acc, cat) => {
+      acc[cat._id.toString()] = cat.name
+      return acc
+    }, {})
+  }
+  
   // 构建浏览路径
-  const path = records.map((r, index) => ({
-    step: index + 1,
-    productId: r.productId,
-    productName: r.productName,
-    productCode: r.productCode,
-    productImage: r.productImage,
-    categoryName: r.categoryName,
-    source: r.source,
-    viewedAt: r.viewedAt,
-    // 与上一步的时间间隔（分钟）
-    intervalMinutes: index > 0 
-      ? Math.round((new Date(r.viewedAt) - new Date(records[index - 1].viewedAt)) / 60000) 
-      : 0
-  }))
+  const path = records.map((r, index) => {
+    // 转换分类ID为名称
+    let displayCategoryName = r.categoryName || ''
+    if (displayCategoryName && /^[a-f\d]{24}$/i.test(String(displayCategoryName))) {
+      displayCategoryName = categoryMap[displayCategoryName] || ''
+    }
+    
+    return {
+      step: index + 1,
+      productId: r.productId,
+      productName: r.productName,
+      productCode: r.productCode,
+      productImage: r.productImage,
+      categoryName: displayCategoryName,
+      source: r.source,
+      viewedAt: r.viewedAt,
+      intervalMinutes: index > 0 
+        ? Math.round((new Date(r.viewedAt) - new Date(records[index - 1].viewedAt)) / 60000) 
+        : 0
+    }
+  })
   
   return path
 }
