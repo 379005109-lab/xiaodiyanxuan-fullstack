@@ -228,7 +228,7 @@ export default function FavoritesPage() {
 
         {/* 浮动对比按钮 */}
         {compareList.length > 0 && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-lg border border-stone-200 px-6 py-3 flex items-center gap-4 z-50">
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-2xl border border-stone-200 px-6 py-3 flex items-center gap-4 z-[9999]">
             <span className="text-sm text-stone-600">已选 {compareList.length} 件商品</span>
             <button
               onClick={() => setCompareList([])}

@@ -801,8 +801,8 @@ export default function ProductForm() {
           const cellStr = cell?.toString() || ''
           return cellStr.includes('脚架') || cellStr.includes('Leg')
         })
-        // 如果表头包含4个材质字段，或者列数>=16（新格式至少有16列），则判断为新格式
-        const isNewFormat = (hasFabric && hasFilling && hasFrame && hasLeg) || (header.length >= 16)
+        // 如果表头包含4个材质字段，或者列数>=15（新格式至少有15列），则判断为新格式
+        const isNewFormat = (hasFabric && hasFilling && hasFrame && hasLeg) || (header.length >= 15)
         
         console.log('格式检测:', {
           表头完整内容: headerStr,
@@ -812,7 +812,7 @@ export default function ProductForm() {
           表头包含框架: hasFrame,
           表头包含脚架: hasLeg,
           判断为新格式: isNewFormat,
-          判断依据: (hasFabric && hasFilling && hasFrame && hasLeg) ? '表头包含4个材质字段' : (header.length >= 16 ? '列数>=16' : '旧格式')
+          判断依据: (hasFabric && hasFilling && hasFrame && hasLeg) ? '表头包含4个材质字段' : (header.length >= 15 ? '列数>=15' : '旧格式')
         })
         
         // 打印第一条数据作为示例
@@ -827,28 +827,28 @@ export default function ProductForm() {
 
         // 跳过表头，从第二行开始读取数据
         const skuData = dataRows.map((row: any[], index) => {
-          // Excel格式v3.0（支持4个材质字段）：
-          // A(0):图片 B(1):商品名称 C(2):型号 D(3):类别 E(4):规格 F(5):长宽高 
-          // G(6):面料 H(7):填充 I(8):框架 J(9):脚架 
-          // K(10):标价 L(11):折扣价 M(12):库存 N(13):销量 O(14):PRO P(15):PRO特性
+          // Excel格式v4.0（无图片列，有厂家列）：
+          // A(0):商品名称 B(1):型号 C(2):类别 D(3):规格 E(4):长宽高
+          // F(5):面料 G(6):填充 H(7):框架 I(8):脚架
+          // J(9):标价 K(10):折扣价 L(11):库存 M(12):销量 N(13):PRO O(14):PRO特性 P(15):厂家
           //
-          // Excel格式v2.0（兼容）：
-          // A(0):图片 B(1):商品名称 C(2):型号 D(3):类别 E(4):规格 F(5):长宽高 G(6):材质 H(7):标价 I(8):折扣价 J(9):库存 K(10):销量 L(11):PRO M(12):PRO特性
+          // Excel格式v3.0（兼容旧格式）：
+          // A(0):商品名称 B(1):型号 C(2):类别 D(3):规格 E(4):长宽高 F(5):材质 G(6):标价 H(7):折扣价 I(8):库存 J(9):销量 K(10):PRO L(11):PRO特性
           
-          const productName = row[1] || '' // B列：商品名称
-          const modelCode = row[2] || '' // C列：型号
-          const spec = row[4] || '' // E列：规格
-          const dimensions = row[5]?.toString() || '' // F列：长宽高
+          const productName = row[0] || '' // A列：商品名称
+          const modelCode = row[1] || '' // B列：型号
+          const spec = row[3] || '' // D列：规格
+          const dimensions = row[4]?.toString() || '' // E列：长宽高
           
           console.log(`=== ProductForm 第${index + 2}行数据 ===`, {
             '完整行': row,
-            'B列[1]-商品名称': productName,
-            'C列[2]-型号': modelCode,
-            'E列[4]-规格': spec,
-            'F列[5]-长宽高': dimensions,
-            'G列[6]-材质': row[6],
-            'H列[7]-标价': row[7],
-            'I列[8]-折扣价': row[8]
+            'A列[0]-商品名称': productName,
+            'B列[1]-型号': modelCode,
+            'D列[3]-规格': spec,
+            'E列[4]-长宽高': dimensions,
+            'F列[5]-面料': row[5],
+            'J列[9]-标价': row[9],
+            'K列[10]-折扣价': row[10]
           })
           
           // 解析长宽高 - 格式: 长*宽*高
@@ -887,18 +887,18 @@ export default function ProductForm() {
           const buildMaterial = (): MaterialSelection => {
             const result: MaterialSelection = {}
             if (isNewFormat) {
-              // 新格式：G(6):面料 H(7):填充 I(8):框架 J(9):脚架
-              const fabric = parseMaterialString(row[6]?.toString() || '')
-              const filling = parseMaterialString(row[7]?.toString() || '')
-              const frame = parseMaterialString(row[8]?.toString() || '')
-              const leg = parseMaterialString(row[9]?.toString() || '')
+              // 新格式：F(5):面料 G(6):填充 H(7):框架 I(8):脚架
+              const fabric = parseMaterialString(row[5]?.toString() || '')
+              const filling = parseMaterialString(row[6]?.toString() || '')
+              const frame = parseMaterialString(row[7]?.toString() || '')
+              const leg = parseMaterialString(row[8]?.toString() || '')
               if (fabric.length > 0) result.fabric = fabric
               if (filling.length > 0) result.filling = filling
               if (frame.length > 0) result.frame = frame
               if (leg.length > 0) result.leg = leg
             } else {
-              // 旧格式：G(6):材质（作为面料）
-              const fabric = parseMaterialString(row[6]?.toString() || '')
+              // 旧格式：F(5):材质（作为面料）
+              const fabric = parseMaterialString(row[5]?.toString() || '')
               if (fabric.length > 0) result.fabric = fabric
             }
             return result
@@ -909,19 +909,19 @@ export default function ProductForm() {
           const materialCategories = Object.keys(material).filter(key => material[key]?.length > 0)
           
           if (isNewFormat) {
-            price = parseFloat((row[10]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // K列：标价
-            discountPrice = parseFloat((row[11]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // L列：折扣价
-            stock = parseInt(row[12]) || 0 // M列：库存
-            sales = parseInt(row[13]) || 0 // N列：销量
-            isPro = row[14] === '是' || row[14] === 'PRO' || false // O列：PRO
-            proFeature = (row[15]?.toString() || '').trim() // P列：PRO特性
+            price = parseFloat((row[9]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // J列：标价
+            discountPrice = parseFloat((row[10]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // K列：折扣价
+            stock = parseInt(row[11]) || 0 // L列：库存
+            sales = parseInt(row[12]) || 0 // M列：销量
+            isPro = row[13] === '是' || row[13] === 'PRO' || false // N列：PRO
+            proFeature = (row[14]?.toString() || '').trim() // O列：PRO特性
           } else {
-            price = parseFloat((row[7]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // H列：标价
-            discountPrice = parseFloat((row[8]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // I列：折扣价
-            stock = parseInt(row[9]) || 0 // J列：库存
-            sales = parseInt(row[10]) || 0 // K列：销量
-            isPro = row[11] === '是' || row[11] === 'PRO' || false // L列：PRO
-            proFeature = (row[12]?.toString() || '').trim() // M列：PRO特性
+            price = parseFloat((row[6]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // G列：标价
+            discountPrice = parseFloat((row[7]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // H列：折扣价
+            stock = parseInt(row[8]) || 0 // I列：库存
+            sales = parseInt(row[9]) || 0 // J列：销量
+            isPro = row[10] === '是' || row[10] === 'PRO' || false // K列：PRO
+            proFeature = (row[11]?.toString() || '').trim() // L列：PRO特性
           }
           
           console.log('材质字段映射:', {
@@ -929,10 +929,11 @@ export default function ProductForm() {
             行长度: row.length,
             已配置类目: materialCategories,
             material: material,
-            'G列[6]': row[6],
-            'H列[7]': row[7],
-            'I列[8]': row[8],
-            'J列[9]': row[9],
+            'F列[5]-面料': row[5],
+            'G列[6]-填充': row[6],
+            'H列[7]-框架': row[7],
+            'I列[8]-脚架': row[8],
+            'P列[15]-厂家': row[15],
           })
           
           return {
@@ -954,7 +955,7 @@ export default function ProductForm() {
             proFeature: proFeature,
             status: true,
             manufacturerId: '',
-            manufacturerName: row[16]?.toString() || '', // Q列：厂家名称
+            manufacturerName: row[15]?.toString() || '', // P列：厂家名称
           }
         })
 
