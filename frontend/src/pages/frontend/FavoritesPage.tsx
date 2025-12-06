@@ -79,15 +79,29 @@ export default function FavoritesPage() {
       toast.error('请至少选择2个商品进行对比')
       return
     }
+    
+    // 检查用户是否登录
+    if (!user) {
+      toast.error('请先登录后再使用对比功能')
+      openLogin()
+      return
+    }
+    
     try {
       toast.loading('正在添加到对比列表...')
-      // 清空之前的对比列表
-      console.log('[FavoritesPage] 清空对比列表...')
-      await clearAllCompare()
-      console.log('[FavoritesPage] 清空完成')
+      
+      // 清空之前的对比列表（忽略错误）
+      try {
+        console.log('[FavoritesPage] 清空对比列表...')
+        await clearAllCompare()
+        console.log('[FavoritesPage] 清空完成')
+      } catch (clearError) {
+        console.warn('[FavoritesPage] 清空对比列表失败，继续添加:', clearError)
+      }
       
       // 将选中的商品添加到云端对比列表
       let successCount = 0
+      let lastError = ''
       for (const productId of compareList) {
         console.log('[FavoritesPage] 添加商品到对比:', productId)
         const result = await addToCompare(productId)
@@ -96,6 +110,7 @@ export default function FavoritesPage() {
           successCount++
         } else {
           console.error('[FavoritesPage] 添加失败:', result.message)
+          lastError = result.message
         }
       }
       
@@ -104,12 +119,12 @@ export default function FavoritesPage() {
         toast.success(`已添加 ${successCount} 个商品到对比列表`)
         navigate('/compare')
       } else {
-        toast.error('添加对比失败，请重试')
+        toast.error(lastError || '添加对比失败，请重试')
       }
     } catch (error: any) {
       toast.dismiss()
       console.error('[FavoritesPage] 添加对比失败:', error)
-      toast.error(error.message || '添加对比失败')
+      toast.error(error.message || '添加对比失败，请检查网络连接')
     }
   }
 

@@ -72,6 +72,7 @@ const DesignManagement = lazy(() => import('./pages/admin/DesignManagement'))
 const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationManagement'))
 const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingServiceRequestsPage'))
 const ActivityDashboard = lazy(() => import('./pages/admin/ActivityDashboard'))
+const ManufacturerManagement = lazy(() => import('./pages/admin/ManufacturerManagement'))
 
 // 前台布局已在上方直接导入
 
@@ -271,7 +272,7 @@ function App() {
               <AdminLayout />
             </ProtectedRoute>
           }>
-            <Route index element={<Navigate to="/admin/products" replace />} />
+            <Route index element={<Navigate to="/admin/activity" replace />} />
             <Route path="products" element={
               <ProtectedRoute allowedRoles={['admin', 'super_admin', 'designer']}>
                 <ProductManagement />
@@ -326,6 +327,7 @@ function App() {
             <Route path="customization" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
             <Route path="activity" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
+            <Route path="manufacturers" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerManagement /></ProtectedRoute>} />
           </Route>
 
           {/* 404 */}

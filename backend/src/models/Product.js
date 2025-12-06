@@ -22,7 +22,9 @@ const skuSchema = new mongoose.Schema({
   isPro: { type: Boolean, default: false },
   proFeature: String,
   status: { type: Boolean, default: true },
-  sales: { type: Number, default: 0 }
+  sales: { type: Number, default: 0 },
+  manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+  manufacturerName: String // 冗余字段，方便显示
 }, { _id: true })
 
 const productSchema = new mongoose.Schema({
