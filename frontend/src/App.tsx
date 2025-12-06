@@ -35,6 +35,7 @@ const RoleSelectPage = lazy(() => import('@/pages/auth/RoleSelectPage'))
 const UserProfilePage = lazy(() => import('./pages/frontend/UserProfilePage'))
 const BargainListPage = lazy(() => import('./pages/frontend/BargainListPage'))
 const BargainDetailPage = lazy(() => import('./pages/frontend/BargainDetailPage'))
+const AboutPage = lazy(() => import('./pages/frontend/AboutPage'))
 
 // 后台页面 - 懒加载
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'))
@@ -246,6 +247,7 @@ function App() {
             <Route path="design" element={<DesignServicePage />} />
             <Route path="bargain" element={<BargainListPage />} />
             <Route path="bargain/:id" element={<BargainDetailPage />} />
+            <Route path="about" element={<AboutPage />} />
             <Route path="profile" element={
               <ProtectedRoute>
                 <UserProfilePage />

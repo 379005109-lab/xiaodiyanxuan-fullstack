@@ -72,12 +72,18 @@ export default function FavoritesPage() {
     })
   }
 
-  const handleCompare = () => {
+  const handleCompare = async () => {
     if (compareList.length < 2) {
       toast.error('请至少选择2个商品进行对比')
       return
     }
-    navigate(`/products/compare?ids=${compareList.join(',')}`)
+    // 将选中的商品添加到云端对比列表
+    const { addToCompare, clearAll } = await import('@/store/compareStore').then(m => m.useCompareStore.getState())
+    await clearAll() // 清空之前的对比
+    for (const productId of compareList) {
+      await addToCompare(productId)
+    }
+    navigate('/compare')
   }
 
   const getProductId = (favorite: any) => {
