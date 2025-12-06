@@ -37,8 +37,17 @@ export default function DiscountModal({ category, onClose, isBatch = false, onSu
         setIsLoading(true);
         try {
           const allCategories = await getAllCategories();
-          if (allCategories && allCategories.length > 0) {
-            setDiscounts(allCategories[0].discounts);
+          // 查找第一个有折扣设置的分类
+          const categoryWithDiscount = allCategories.find(cat => cat.discounts && cat.discounts.length > 0);
+          if (categoryWithDiscount && categoryWithDiscount.discounts.length > 0) {
+            setDiscounts(categoryWithDiscount.discounts);
+          } else {
+            // 默认折扣设置
+            setDiscounts([
+              { role: 'designer' as UserRole, roleName: '设计师', discount: 100 },
+              { role: 'distributor' as UserRole, roleName: '经销商', discount: 100 },
+              { role: 'customer' as UserRole, roleName: '普通客户', discount: 100 },
+            ]);
           }
         } catch (error) {
           console.error('获取当前折扣设置失败:', error);

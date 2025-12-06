@@ -28,6 +28,7 @@ export default function CategoryManagement() {
   
   // 拖拽状态
   const [draggedCategory, setDraggedCategory] = useState<Category | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ id: string; type: 'before' | 'after' | 'inside' } | null>(null)
   
   // 模态框状态
   const [showCategoryModal, setShowCategoryModal] = useState(false)
@@ -137,66 +138,119 @@ export default function CategoryManagement() {
     e.dataTransfer.effectAllowed = 'move'
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, targetCategory: Category) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
+    
+    if (!draggedCategory || draggedCategory._id === targetCategory._id) return
+    
+    // 不能拖到自己的子分类下
+    if (isDescendant(draggedCategory._id, targetCategory)) return
+    
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const y = e.clientY - rect.top
+    const height = rect.height
+    
+    // 上部 25% 表示放在前面，中间 50% 表示放入内部，下部 25% 表示放在后面
+    let type: 'before' | 'after' | 'inside' = 'inside'
+    if (y < height * 0.25) {
+      type = 'before'
+    } else if (y > height * 0.75) {
+      type = 'after'
+    }
+    
+    setDropTarget({ id: targetCategory._id, type })
+  }
+  
+  const handleDragLeave = () => {
+    setDropTarget(null)
+  }
+  
+  const handleDragEnd = () => {
+    setDraggedCategory(null)
+    setDropTarget(null)
+  }
+  
+  // 检查 parentId 是否是 category 的子孙
+  const isDescendant = (parentId: string, category: Category): boolean => {
+    if (category.parentId === parentId) return true
+    if (!category.children) return false
+    return category.children.some(child => isDescendant(parentId, child))
   }
 
   const handleDrop = async (e: React.DragEvent, targetCategory: Category) => {
     e.preventDefault()
     
-    if (!draggedCategory || draggedCategory._id === targetCategory._id) {
+    if (!draggedCategory || draggedCategory._id === targetCategory._id || !dropTarget) {
       setDraggedCategory(null)
+      setDropTarget(null)
       return
     }
-
-    // 只允许同级分类之间拖拽
-    if (draggedCategory.parentId !== targetCategory.parentId) {
-      toast.error('只能在同级分类之间调整顺序')
+    
+    // 不能拖到自己的子分类下
+    if (isDescendant(draggedCategory._id, targetCategory)) {
+      toast.error('不能将分类拖到自己的子分类下')
       setDraggedCategory(null)
+      setDropTarget(null)
       return
     }
 
     try {
-      const allCategories = await getAllCategories()
-      
-      // 获取同级分类并按order排序
-      let sameLevelCategories = allCategories.filter(
-        (cat: Category) => cat.parentId === draggedCategory.parentId
-      ).sort((a: Category, b: Category) => a.order - b.order)
+      if (dropTarget.type === 'inside') {
+        // 变成子分类
+        await updateCategory(draggedCategory._id, {
+          parentId: targetCategory._id,
+          level: (targetCategory.level || 1) + 1,
+          order: 999 // 放到最后
+        })
+        toast.success(`「${draggedCategory.name}」已移动到「${targetCategory.name}」下`)
+      } else {
+        // 同级排序
+        const allCategories = await getAllCategories()
+        let sameLevelCategories = allCategories.filter(
+          (cat: Category) => cat.parentId === targetCategory.parentId
+        ).sort((a: Category, b: Category) => (a.order || 0) - (b.order || 0))
 
-      // 找到拖拽分类和目标分类的索引
-      const draggedIndex = sameLevelCategories.findIndex((cat: Category) => cat._id === draggedCategory._id)
-      const targetIndex = sameLevelCategories.findIndex((cat: Category) => cat._id === targetCategory._id)
+        const draggedIndex = sameLevelCategories.findIndex((cat: Category) => cat._id === draggedCategory._id)
+        const targetIndex = sameLevelCategories.findIndex((cat: Category) => cat._id === targetCategory._id)
 
-      if (draggedIndex === -1 || targetIndex === -1) {
-        setDraggedCategory(null)
-        return
+        // 如果拖动的分类不在同级，先移动到同级
+        if (draggedCategory.parentId !== targetCategory.parentId) {
+          await updateCategory(draggedCategory._id, {
+            parentId: targetCategory.parentId || null,
+            level: targetCategory.level || 1
+          })
+          // 重新获取
+          const updatedCategories = await getAllCategories()
+          sameLevelCategories = updatedCategories.filter(
+            (cat: Category) => cat.parentId === targetCategory.parentId
+          ).sort((a: Category, b: Category) => (a.order || 0) - (b.order || 0))
+        }
+
+        // 调整顺序
+        const newOrder = dropTarget.type === 'before' ? targetIndex : targetIndex + 1
+        for (let i = 0; i < sameLevelCategories.length; i++) {
+          const cat = sameLevelCategories[i]
+          if (cat._id === draggedCategory._id) continue
+          let order = i < newOrder ? i : i + 1
+          if (cat._id === draggedCategory._id) order = newOrder
+          await updateCategory(cat._id, { order })
+        }
+        await updateCategory(draggedCategory._id, { order: newOrder })
+        
+        toast.success('顺序已调整')
       }
-
-      // 移除拖拽的分类
-      const [draggedItem] = sameLevelCategories.splice(draggedIndex, 1)
       
-      // 插入到目标位置
-      sameLevelCategories.splice(targetIndex, 0, draggedItem)
-
-      // 重新分配order值（从1开始）
-      sameLevelCategories.forEach((cat: Category, index: number) => {
-        updateCategory(cat._id, { order: index + 1 })
-      })
-
-      toast.success('顺序已调整')
-      
-      // 刷新分类列表
       setTimeout(() => {
         loadCategories()
         loadStats()
-      }, 150)
+      }, 200)
     } catch (error) {
-      console.error('拖拽排序失败:', error)
-      toast.error('调整顺序失败')
+      console.error('拖拽操作失败:', error)
+      toast.error('操作失败')
     } finally {
       setDraggedCategory(null)
+      setDropTarget(null)
     }
   }
 
@@ -220,12 +274,27 @@ export default function CategoryManagement() {
     const hasChildren = category.children && category.children.length > 0
     const paddingLeft = level * 30
 
+    // 拖拽指示器样式
+    const getDropIndicatorClass = () => {
+      if (!dropTarget || dropTarget.id !== category._id) return ''
+      if (dropTarget.type === 'before') return 'border-t-2 border-t-blue-500'
+      if (dropTarget.type === 'after') return 'border-b-2 border-b-blue-500'
+      if (dropTarget.type === 'inside') return 'bg-blue-50 ring-2 ring-blue-400 ring-inset'
+      return ''
+    }
+
     return (
       <div key={category._id}>
         {/* 主分类行 */}
         <div
-          className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
+          className={`border-b border-gray-200 hover:bg-gray-50 transition-all ${getDropIndicatorClass()} ${draggedCategory?._id === category._id ? 'opacity-50' : ''}`}
           style={{ paddingLeft: `${paddingLeft}px` }}
+          draggable
+          onDragStart={(e) => handleDragStart(e, category)}
+          onDragOver={(e) => handleDragOver(e, category)}
+          onDragLeave={handleDragLeave}
+          onDragEnd={handleDragEnd}
+          onDrop={(e) => handleDrop(e, category)}
         >
           <div className="flex items-center py-4 px-4">
             {/* 展开/折叠图标 */}
@@ -259,15 +328,15 @@ export default function CategoryManagement() {
                     }}
                   />
                 )}
-                <span 
-                  className="font-medium text-gray-900 cursor-move select-none"
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, category)}
-                  onDragOver={(e) => handleDragOver(e)}
-                  onDrop={(e) => handleDrop(e, category)}
-                >
+                <span className="font-medium text-gray-900 cursor-move select-none">
                   {category.name}
                 </span>
+                {/* 拖拽提示 */}
+                {dropTarget?.id === category._id && dropTarget.type === 'inside' && (
+                  <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
+                    放入此分类下
+                  </span>
+                )}
                 {/* 折扣标签：只有最低折扣低于60%才显示 */}
                 {category.hasDiscount && category.discounts && category.discounts.length > 0 && (() => {
                   const minDiscount = Math.min(...category.discounts.map(d => d.discount))
