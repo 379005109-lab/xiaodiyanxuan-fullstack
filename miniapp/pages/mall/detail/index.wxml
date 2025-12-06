@@ -57,15 +57,18 @@
 
 		<!-- 底部白色卡片 -->
 		<view class="bottom-card">
-			<!-- 颜色选择器 -->
-			<view class="color-picker" wx:if="{{colors.length > 0 || materialsGroups.length > 0}}">
-				<block wx:for="{{displayColors}}" wx:key="index">
+			<!-- 颜色/材质选择器 - 显示缩略图 -->
+			<view class="color-picker" wx:if="{{materialsGroups.length > 0}}">
+				<block wx:for="{{materialsGroups[materialGroupIndex].colors}}" wx:key="name" wx:for-index="ci">
 					<view 
-						class="color-item {{selectedColorIndex === index ? 'active' : ''}}" 
-						style="background-color: {{item.hex || '#DEB887'}}"
-						data-index="{{index}}"
-						bindtap="onSelectColor"
-					></view>
+						class="color-item {{materialColorIndex === ci ? 'active' : ''}}" 
+						data-c="{{ci}}"
+						bindtap="onQuickSelectColor"
+						wx:if="{{ci < 5}}"
+					>
+						<image wx:if="{{item.img}}" class="color-thumb" src="{{item.img}}" mode="aspectFill"></image>
+						<view wx:else class="color-block" style="background-color: {{item.hex || '#DEB887'}}"></view>
+					</view>
 				</block>
 				<view class="color-more" bindtap="showColorSheet">
 					<text>+</text>

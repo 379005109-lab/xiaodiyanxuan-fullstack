@@ -236,11 +236,13 @@ page { background: #FDFBF7; color: #1f2937; }
   margin-top: -40rpx;
 }
 
-/* 颜色选择器 */
-.color-picker { display: flex; align-items: center; gap: 20rpx; margin-bottom: 24rpx; }
-.color-item { width: 64rpx; height: 64rpx; border-radius: 16rpx; border: 4rpx solid transparent; transition: all 0.3s; }
+/* 颜色/材质选择器 - 支持缩略图 */
+.color-picker { display: flex; align-items: center; gap: 16rpx; margin-bottom: 24rpx; flex-wrap: wrap; }
+.color-item { width: 64rpx; height: 64rpx; border-radius: 14rpx; border: 3rpx solid transparent; transition: all 0.3s; overflow: hidden; }
 .color-item.active { border-color: #1f2937; transform: scale(1.1); box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.2); }
-.color-more { width: 64rpx; height: 64rpx; border-radius: 16rpx; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 32rpx; color: #9ca3af; }
+.color-thumb { width: 100%; height: 100%; object-fit: cover; }
+.color-block { width: 100%; height: 100%; }
+.color-more { width: 64rpx; height: 64rpx; border-radius: 14rpx; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 32rpx; color: #9ca3af; }
 
 /* 商品名称和数量 */
 .product-title-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20rpx; }

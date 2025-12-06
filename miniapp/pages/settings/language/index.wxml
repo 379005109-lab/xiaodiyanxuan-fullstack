@@ -1,0 +1,19 @@
+<!-- 语言设置页面 -->
+<navigation-bar title="{{i18n.settings.selectLanguage}}" back="{{true}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="page" scroll-y>
+  <view class="lang-list">
+    <view 
+      class="lang-item {{currentLang === item.code ? 'active' : ''}}" 
+      wx:for="{{languages}}" 
+      wx:key="code"
+      data-code="{{item.code}}"
+      bindtap="onSelectLang"
+    >
+      <view class="lang-info">
+        <text class="lang-native">{{item.nativeName}}</text>
+        <text class="lang-name">{{item.name}}</text>
+      </view>
+      <view class="lang-check" wx:if="{{currentLang === item.code}}">✓</view>
+    </view>
+  </view>
+</scroll-view>

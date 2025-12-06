@@ -54,6 +54,9 @@ Page({
 	},
 	goBooking() {
 		wx.navigateTo({ url: '/pages/profile/booking/index' })
+	},
+	goLanguage() {
+		wx.navigateTo({ url: '/pages/settings/language/index' })
 	}
 })
 

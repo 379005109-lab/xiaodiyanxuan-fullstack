@@ -60,6 +60,11 @@
 				<text class="cell-text">客服中心</text>
 				<text class="cell-arrow">›</text>
 			</view>
+			<view class="cell" bindtap="goLanguage">
+				<view class="cell-icon-box"><text class="cell-icon-simple">🌐</text></view>
+				<text class="cell-text">语言 / Language</text>
+				<text class="cell-arrow">›</text>
+			</view>
 		</view>
 
 		

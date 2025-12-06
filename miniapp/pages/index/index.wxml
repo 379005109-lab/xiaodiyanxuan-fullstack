@@ -11,19 +11,19 @@
 		<view class="hero-logo">D</view>
 		<!-- 标语 -->
 		<view class="hero-slogan">
-			<view class="slogan-line">线上选款</view>
-			<view class="slogan-line">展厅体验</view>
+			<view class="slogan-line"><text class="bold">{{i18n.home.slogan1 || '线上选款'}}</text></view>
+			<view class="slogan-line"><text class="bold">{{i18n.home.slogan2 || '展厅体验'}}</text></view>
 		</view>
-		<view class="hero-price-tag">一口价</view>
+		<view class="hero-price-tag"><text class="bold">{{i18n.home.priceTag || '一口价'}}</text></view>
 		<view class="hero-arrow">↓</view>
 	</view>
 
 	<!-- 陪买服务卡片 -->
 	<view class="service-card" bindtap="goGuideService">
-		<view class="service-title">陪买服务</view>
-		<view class="service-desc">专业顾问一对一陪同选购，<text>\n</text>为您甄选最适合的家居方案。</view>
+		<view class="service-title">{{i18n.home.serviceTitle || '陪买服务'}}</view>
+		<view class="service-desc">{{i18n.home.serviceDesc || '专业顾问一对一陪同选购，为您甄选最适合的家居方案。'}}</view>
 		<view class="service-btn">
-			<text>预约服务</text>
+			<text>{{i18n.home.bookService || '预约服务'}}</text>
 			<text class="arrow">›</text>
 		</view>
 	</view>
@@ -33,36 +33,14 @@
 		<view class="quick-item" bindtap="goBargain">
 			<view class="quick-icon bargain">🏷️</view>
 			<view class="quick-value">50%</view>
-			<view class="quick-label">限时折扣</view>
+			<view class="quick-label">{{i18n.home.discount || '限时折扣'}}</view>
 		</view>
 		<view class="quick-item" bindtap="goPackage">
 			<view class="quick-icon package">📦</view>
-			<view class="quick-value">套餐</view>
-			<view class="quick-label">一站式购齐</view>
+			<view class="quick-value">{{i18n.home.packageEntry || '套餐'}}</view>
+			<view class="quick-label">{{i18n.home.oneStop || '一站式购齐'}}</view>
 		</view>
 	</view>
 
-	<!-- 热门商品 -->
-	<view class="section">
-		<view class="section-header">
-			<view class="section-title">本周热门</view>
-			<view class="section-more" bindtap="goMoreHots">更多 ›</view>
-		</view>
-		<view class="hot-list">
-			<block wx:for="{{hots}}" wx:key="id">
-				<view class="hot-card" bindtap="goHotDetail" data-id="{{item.id}}">
-					<view class="new-tag" wx:if="{{item.isNew}}">NEW</view>
-					<image class="hot-cover" src="{{item.img}}" mode="aspectFill"></image>
-					<view class="hot-info">
-						<text class="h-name">{{item.name}}</text>
-						<view class="h-price">
-							<text class="price">¥{{item.price}}</text>
-							<view class="cart-btn">🛒</view>
-						</view>
-					</view>
-				</view>
-			</block>
-		</view>
-	</view>
 </view>
 </scroll-view>

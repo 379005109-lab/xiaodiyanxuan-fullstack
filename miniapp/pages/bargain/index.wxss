@@ -142,19 +142,20 @@ page {
   color: #f59e0b; 
   font-weight: 700;
 }
-/* 砍一刀按钮 */
+/* 砍一刀按钮 - 渐变色 */
 .btn-cut {
-  padding: 16rpx 36rpx;
+  padding: 18rpx 40rpx;
   border-radius: 999rpx;
-  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%) !important;
+  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%) !important;
   color: #FFFFFF !important;
-  font-size: 26rpx;
-  font-weight: 600;
+  font-size: 28rpx;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
   border: none;
+  box-shadow: 0 8rpx 24rpx -8rpx rgba(52, 211, 153, 0.5);
 }
 .btn-cut::after { display: none; }
 

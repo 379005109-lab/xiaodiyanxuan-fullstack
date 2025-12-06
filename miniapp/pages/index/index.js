@@ -2,6 +2,7 @@
 // 使用全局 api，避免懒加载导致的路径问题
 const app = getApp()
 const api = app.api || require('../../utils/api.js')
+import { getLocale } from '../../utils/i18n/index'
 
 Page({
 	data: {
@@ -10,10 +11,16 @@ Page({
 		banners: [],
 		styles: [],
 		hots: [],
-		userAvatar: ''
+		userAvatar: '',
+		i18n: {}
 	},
 	onLoad() {
+		this.refreshI18n()
 		this.loadHomeData()
+	},
+	// 刷新多语言
+	refreshI18n() {
+		this.setData({ i18n: getLocale() })
 	},
 	loadHomeData() {
 		wx.showLoading({ title: '加载中...' })
@@ -66,6 +73,7 @@ Page({
 		if (this.getTabBar) {
 			this.getTabBar().setData({ selected: 0 })
 		}
+		this.refreshI18n()
 	},
 	goBargain() {
 		wx.switchTab({ url: '/pages/bargain/index' })

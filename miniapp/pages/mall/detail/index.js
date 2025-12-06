@@ -744,6 +744,12 @@ Page({
 		const index = e.currentTarget.dataset.index
 		this.setData({ selectedColorIndex: index })
 	},
+	onQuickSelectColor(e) {
+		const ci = e.currentTarget.dataset.c
+		this.setData({ materialColorIndex: ci }, () => {
+			this.recalculate()
+		})
+	},
 	updateDisplayColors() {
 		// 生成显示用的颜色数组
 		let colors = []
