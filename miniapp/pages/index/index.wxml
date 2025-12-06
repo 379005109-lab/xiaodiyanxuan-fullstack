@@ -3,11 +3,7 @@
 <view class="page">
 	<!-- 全屏Hero - 大D Logo -->
 	<view class="hero-fullscreen">
-		<!-- 用户头像 -->
-		<view class="hero-avatar" bindtap="goProfile">
-			<image src="{{userAvatar || '/images/default-avatar.png'}}" mode="aspectFill"></image>
-		</view>
-		<!-- Logo区域 -->
+				<!-- Logo区域 -->
 		<view class="hero-logo">D</view>
 		<!-- 标语 -->
 		<view class="hero-slogan">
