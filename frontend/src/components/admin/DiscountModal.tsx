@@ -40,7 +40,13 @@ export default function DiscountModal({ category, onClose, isBatch = false, onSu
           // 查找第一个有折扣设置的分类
           const categoryWithDiscount = allCategories.find(cat => cat.discounts && cat.discounts.length > 0);
           if (categoryWithDiscount && categoryWithDiscount.discounts.length > 0) {
-            setDiscounts(categoryWithDiscount.discounts);
+            // 标准化字段名：后端可能使用 discountPercent 或 discount
+            const normalizedDiscounts = categoryWithDiscount.discounts.map((d: any) => ({
+              role: d.role,
+              roleName: d.roleName || roleOptions.find(r => r.value === d.role)?.label || d.role,
+              discount: d.discount ?? d.discountPercent ?? 100
+            }));
+            setDiscounts(normalizedDiscounts);
           } else {
             // 默认折扣设置
             setDiscounts([

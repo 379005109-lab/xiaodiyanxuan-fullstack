@@ -297,13 +297,21 @@ const batchSetDiscount = async (req, res) => {
       return res.status(400).json(errorResponse('折扣数据格式错误', 400))
     }
 
+    // 标准化折扣数据，确保同时有 discount 和 discountPercent 字段
+    const normalizedDiscounts = discounts.map(d => ({
+      role: d.role,
+      roleName: d.roleName,
+      discount: d.discount ?? d.discountPercent ?? 100,
+      discountPercent: d.discount ?? d.discountPercent ?? 100
+    }))
+    
     // 更新所有分类的折扣设置
     const result = await Category.updateMany(
       {},
       { 
         $set: { 
-          discounts: discounts,
-          hasDiscount: discounts.some(d => d.discount < 100),
+          discounts: normalizedDiscounts,
+          hasDiscount: normalizedDiscounts.some(d => d.discount < 100),
           updatedAt: new Date()
         }
       }
