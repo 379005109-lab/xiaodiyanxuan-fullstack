@@ -340,6 +340,18 @@ Page({
 			path: '/pages/bargain/index',
 			imageUrl: '' // 可以设置分享图片
 		}
+	},
+	// 跳转到我的砍价
+	goMyBargain() {
+		// 滚动到我的砍价区域或显示我的砍价列表
+		if (this.data.myBargains.length > 0) {
+			wx.pageScrollTo({
+				selector: '.my-bargain',
+				duration: 300
+			})
+		} else {
+			wx.showToast({ title: '暂无砍价记录', icon: 'none' })
+		}
 	}
 })
 
