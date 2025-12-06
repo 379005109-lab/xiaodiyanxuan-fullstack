@@ -21,7 +21,7 @@
 				</view>
 				<!-- 右侧信息区 -->
 				<view class="product-info">
-					<view class="product-name">{{item.shortName || item.name.split(' - ')[0].split('-')[0]}}</view>
+					<view class="product-name">{{item.name || '限时特惠商品'}}</view>
 					<view class="price-action">
 						<view class="price-row">
 							<text class="price-origin">¥{{item.origin}}</text>

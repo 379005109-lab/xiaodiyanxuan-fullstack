@@ -1,81 +1,33 @@
-<navigation-bar title="砍价专区" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<navigation-bar title="" back="{{false}}" color="black" background="transparent"></navigation-bar>
 <scroll-view class="scrollarea" scroll-y>
 	<view class="page">
-		<!-- 顶部横幅 -->
-		<view class="hero-banner">
-			<view class="hero-content">
-				<view class="hero-left">
-					<view class="hero-title">砍一刀，最高省 50%</view>
-					<view class="hero-subtitle">源头好货 · 一件也是出厂价</view>
-					<view class="hero-countdown">
-						<text class="countdown-icon">⏱</text>
-						<text class="countdown-label">限时砍价 ·</text>
-						<text class="countdown-time">{{leftText}}</text>
-					</view>
-				</view>
-				<view class="hero-tag">HOT</view>
-			</view>
-		</view>
-
-		<!-- 筛选栏 -->
-		<view class="filter-bar">
-			<view class="filter-item" data-key="style" bindtap="onTapFilter">
-				<text class="filter-text">风格</text>
-				<text class="filter-arrow">▼</text>
-			</view>
-			<view class="filter-divider"></view>
-			<view class="filter-item" data-key="category" bindtap="onTapFilter">
-				<text class="filter-text">品类</text>
-				<text class="filter-arrow">▼</text>
-			</view>
-		</view>
-		
-		<!-- 筛选弹窗 -->
-		<view class="filter-popup" wx:if="{{showFilterPopup}}" bindtap="onCloseFilterPopup">
-			<view class="filter-popup-content" catchtap="">
-				<view class="filter-popup-title">{{activeFilter === 'style' ? '选择风格' : '选择品类'}}</view>
-				<view class="filter-options">
-					<block wx:if="{{activeFilter === 'style'}}">
-						<view class="filter-option {{selectedStyle === item ? 'active' : ''}}" 
-							wx:for="{{styleOptions}}" wx:key="*this"
-							data-type="style" data-value="{{item}}" bindtap="onSelectFilterOption">
-							{{item}}
-						</view>
-					</block>
-					<block wx:if="{{activeFilter === 'category'}}">
-						<view class="filter-option {{selectedCategory === item ? 'active' : ''}}" 
-							wx:for="{{categoryOptions}}" wx:key="*this"
-							data-type="category" data-value="{{item}}" bindtap="onSelectFilterOption">
-							{{item}}
-						</view>
-					</block>
-				</view>
-			</view>
+		<!-- 页面标题栏 -->
+		<view class="page-header">
+			<view class="page-title">砍价专区</view>
+			<view class="my-bargain-link" bindtap="goMyBargain">我的砍价</view>
 		</view>
 
 		<!-- 商品列表 -->
 		<view class="product-list">
-			<view class="product-card" wx:for="{{goodsList}}" wx:key="id">
+			<view class="product-card" wx:for="{{goodsList}}" wx:key="id" data-id="{{item.id}}" bindtap="onStartBargain">
 				<!-- 左侧图片区 -->
 				<view class="product-image-wrap">
 					<image class="product-image" src="{{item.cover}}" mode="aspectFill"></image>
+					<view class="image-gradient"></view>
 					<view class="helper-badge">
-						<text class="helper-icon">👥</text>
-						<text class="helper-count">{{item.cutCount}}人助力</text>
+						<view class="helper-dot"></view>
+						<text class="helper-count">{{item.cutCount || 0}}人助力</text>
 					</view>
 				</view>
 				<!-- 右侧信息区 -->
 				<view class="product-info">
-					<view class="product-name">{{item.name}}</view>
-					<view class="save-badge">砍价省 ¥{{item.cut}}</view>
-					<view class="price-row">
-						<text class="price-symbol">¥</text>
-						<text class="price-value">{{item.price}}</text>
-						<text class="price-origin">¥{{item.origin}}</text>
-					</view>
-					<view class="action-btns">
-						<button class="btn-start" data-id="{{item.id}}" bindtap="onStartBargain">发起砍价</button>
-						<button class="btn-help" data-id="{{item.id}}" bindtap="onHelpCut">帮砍一刀</button>
+					<view class="product-name">{{item.name || '限时特惠商品'}}</view>
+					<view class="price-action">
+						<view class="price-row">
+							<text class="price-origin">¥{{item.origin}}</text>
+							<text class="price-current">¥{{item.price}}</text>
+						</view>
+						<button class="btn-cut" catchtap="onStartBargain" data-id="{{item.id}}">砍一刀</button>
 					</view>
 				</view>
 			</view>

@@ -5,9 +5,9 @@
   left: 0; 
   right: 0; 
   bottom: 0; 
-  height: calc(120rpx + env(safe-area-inset-bottom)); 
+  height: calc(100rpx + env(safe-area-inset-bottom)); 
   padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(255, 255, 255, 0.95); 
+  background: rgba(255, 255, 255, 0.98); 
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   display: flex; 
@@ -23,19 +23,19 @@
   align-items: center; 
   justify-content: center; 
   color: #9ca3af; 
-  gap: 8rpx;
-  padding: 8rpx 0;
+  gap: 4rpx;
+  padding: 4rpx 0;
   transition: all 0.3s ease;
 }
 .item.active { 
-  color: #22c55e;
+  color: #FFFFFF;
   font-weight: 700; 
 }
 .item.active .icon-wrap {
-  background: transparent;
-  box-shadow: none;
-  border-radius: 0;
-  padding: 8rpx 16rpx;
+  background: linear-gradient(180deg, #2DD4BF 0%, #22D3EE 100%);
+  box-shadow: 0 4rpx 16rpx -4rpx rgba(45, 212, 191, 0.6);
+  border-radius: 999rpx;
+  padding: 10rpx 20rpx;
 }
 .icon-wrap {
   display: flex;
@@ -57,7 +57,7 @@
   font-weight: 500;
 }
 .item.active .text {
-  color: #22c55e;
+  color: #2DD4BF;
 }
 
 /* 简洁矢量图标 - 使用CSS绘制 */
@@ -92,10 +92,10 @@
   border-radius: 2rpx;
 }
 .item.active .home-icon::before {
-  border-bottom-color: #22c55e;
+  border-bottom-color: #FFFFFF;
 }
 .item.active .home-icon::after {
-  background: #22c55e;
+  background: #FFFFFF;
 }
 
 /* 砍价图标 - 标签 */
@@ -121,10 +121,10 @@
   border-radius: 50%;
 }
 .item.active .tag-icon::before {
-  border-color: #22c55e;
+  border-color: #FFFFFF;
 }
 .item.active .tag-icon::after {
-  background: #22c55e;
+  background: #FFFFFF;
 }
 
 /* 商城图标 - 购物袋 */
@@ -154,10 +154,10 @@
   border-radius: 10rpx 10rpx 0 0;
 }
 .item.active .shop-icon::before {
-  border-color: #22c55e;
+  border-color: #FFFFFF;
 }
 .item.active .shop-icon::after {
-  border-color: #22c55e;
+  border-color: #FFFFFF;
 }
 
 /* 套餐图标 - 盒子 */
@@ -183,10 +183,10 @@
   background: #9ca3af;
 }
 .item.active .box-icon::before {
-  border-color: #22c55e;
+  border-color: #FFFFFF;
 }
 .item.active .box-icon::after {
-  background: #22c55e;
+  background: #FFFFFF;
 }
 
 /* 我的图标 - 用户 */
@@ -214,10 +214,10 @@
   border-radius: 20rpx 20rpx 0 0;
 }
 .item.active .user-icon::before {
-  border-color: #22c55e;
+  border-color: #FFFFFF;
 }
 .item.active .user-icon::after {
-  border-color: #22c55e;
+  border-color: #FFFFFF;
 }
 
 

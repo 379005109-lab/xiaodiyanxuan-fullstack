@@ -1,29 +1,31 @@
 <navigation-bar title="" back="{{false}}" color="black" background="transparent"></navigation-bar>
 <scroll-view class="scrollarea" scroll-y>
 <view class="page">
-		<!-- 页面标题栏 -->
-		<view class="page-header">
-			<view class="page-title">商城</view>
-			<view class="header-actions">
-				<view class="view-toggle {{viewMode === 'grid' ? 'active' : ''}}" bindtap="toggleViewMode" data-mode="grid">
-					<view class="grid-icon"></view>
-				</view>
-				<view class="filter-btn" bindtap="openCategory">
-					<view class="filter-icon"></view>
+		<!-- 顶部卡片：标题+搜索+筛选 -->
+		<view class="top-card">
+			<!-- 页面标题栏 -->
+			<view class="page-header">
+				<view class="page-title">商城</view>
+				<view class="header-actions">
+					<view class="view-toggle {{viewMode === 'grid' ? 'active' : ''}}" bindtap="toggleViewMode" data-mode="grid">
+						<view class="grid-icon"></view>
+					</view>
+					<view class="filter-btn" bindtap="openCategory">
+						<view class="filter-icon"></view>
+					</view>
 				</view>
 			</view>
-		</view>
 
-		<!-- 搜索框 -->
-		<view class="search-bar">
-			<view class="search-input">
-				<view class="search-icon-svg"></view>
-				<input placeholder="搜索沙发、桌椅..." value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
+			<!-- 搜索框 -->
+			<view class="search-bar">
+				<view class="search-input">
+					<view class="search-icon-svg"></view>
+					<input placeholder="搜索沙发、桌椅..." value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
+				</view>
 			</view>
-		</view>
 
-		<!-- 顶部筛选条：综合、销量、价格、类别、风格 -->
-		<view class="top-filters">
+			<!-- 顶部筛选条：综合、销量、价格、类别、风格 -->
+			<view class="top-filters">
 			<view class="f-item {{sortKey==='comprehensive'?'active':''}}" data-key="comprehensive" bindtap="onTapSort">综合</view>
 			<view class="f-item {{sortKey==='sales'?'active':''}}" data-key="sales" bindtap="onTapSort">销量</view>
 			<view class="f-item {{sortKey==='price'?'active':''}}" data-key="price" bindtap="onTapPrice">价格<text class="arrow">{{priceAsc? '↑' : '↓'}}</text></view>
@@ -40,6 +42,7 @@
 					<button class="btn-reset" bindtap="resetStyle">重置</button>
 					<button class="btn-apply" bindtap="applyStyle">确定</button>
 				</view>
+			</view>
 			</view>
 		</view>
 
