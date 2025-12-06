@@ -119,8 +119,11 @@ const getUserBrowseStats = async (userId) => {
   })
   
   // 最常浏览的分类
+  const mongoose = require('mongoose')
+  const userObjectId = new mongoose.Types.ObjectId(userId)
+  
   const categoryStats = await BrowseHistory.aggregate([
-    { $match: { userId: require('mongoose').Types.ObjectId(userId) } },
+    { $match: { userId: userObjectId } },
     { $group: { _id: '$categoryName', count: { $sum: 1 } } },
     { $sort: { count: -1 } },
     { $limit: 5 }
@@ -128,7 +131,7 @@ const getUserBrowseStats = async (userId) => {
   
   // 最近浏览的商品（去重）
   const recentProducts = await BrowseHistory.aggregate([
-    { $match: { userId: require('mongoose').Types.ObjectId(userId) } },
+    { $match: { userId: userObjectId } },
     { $sort: { viewedAt: -1 } },
     { $group: { 
       _id: '$productId', 
