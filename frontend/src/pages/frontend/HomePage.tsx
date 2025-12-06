@@ -265,11 +265,6 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
-                    {product.views && (
-                      <div className="mt-2 text-xs text-stone-400">
-                        {product.views} 次浏览
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}

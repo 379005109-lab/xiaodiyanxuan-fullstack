@@ -291,12 +291,12 @@ export default function Header() {
           {/* Compare */}
           <Link
             to="/compare"
-            className={`hover:text-primary transition-colors flex items-center gap-1 ${location.pathname === '/compare' ? 'text-primary' : 'text-stone-500'}`}
+            className={`relative hover:text-primary transition-colors ${location.pathname === '/compare' ? 'text-primary' : 'text-stone-500'}`}
             title="商品对比"
           >
             <Scale className="w-5 h-5" />
             {getCompareCount() > 0 && (
-              <span className="absolute -top-1 -right-1 bg-accent text-white text-[9px] w-3.5 h-3.5 flex items-center justify-center rounded-full">
+              <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[9px] w-3.5 h-3.5 flex items-center justify-center rounded-full">
                 {getCompareCount()}
               </span>
             )}

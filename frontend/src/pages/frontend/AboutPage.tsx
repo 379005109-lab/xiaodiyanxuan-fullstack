@@ -3,14 +3,25 @@ import { Mail, Phone, MapPin, Clock, MessageCircle } from 'lucide-react'
 import { getAllSiteConfigs } from '@/services/siteConfigService'
 
 export default function AboutPage() {
-  const [config, setConfig] = useState<any>(null)
+  const [config, setConfig] = useState<any>({
+    contactPhone: '18573023234',
+    contactEmail: '',
+    contactWechat: '',
+    businessHours: '周一至周日 9:00-18:00',
+    address: ''
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const loadConfig = async () => {
       try {
         const data = await getAllSiteConfigs()
-        setConfig(data)
+        // 合并默认配置和服务器配置
+        setConfig((prev: any) => ({
+          ...prev,
+          ...data,
+          contactPhone: data?.contactPhone || '18573023234'
+        }))
       } catch (error) {
         console.error('加载配置失败:', error)
       } finally {

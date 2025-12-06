@@ -78,10 +78,10 @@ export default function FavoritesPage() {
       return
     }
     // 将选中的商品添加到云端对比列表
-    const { addToCompare, clearAll } = await import('@/store/compareStore').then(m => m.useCompareStore.getState())
-    await clearAll() // 清空之前的对比
+    const compareStore = await import('@/store/compareStore').then(m => m.useCompareStore.getState())
+    await compareStore.clearAll() // 清空之前的对比
     for (const productId of compareList) {
-      await addToCompare(productId)
+      await compareStore.addToCompare(productId)
     }
     navigate('/compare')
   }
