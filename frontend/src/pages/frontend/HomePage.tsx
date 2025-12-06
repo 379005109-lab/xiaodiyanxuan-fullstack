@@ -257,9 +257,12 @@ export default function HomePage() {
                       <span className="text-2xl font-bold text-red-600">
                         {formatPrice(product.skus?.[0]?.discountPrice && product.skus[0].discountPrice > 0 
                           ? product.skus[0].discountPrice 
-                          : product.basePrice || product.price)}
+                          : product.skus?.[0]?.price || product.basePrice || product.price || 0)}
                       </span>
-                      {product.skus?.[0]?.discountPrice && product.skus[0].discountPrice > 0 && product.skus[0].price > product.skus[0].discountPrice && (
+                      {/* 只有当折扣价存在且大于0，且原价大于折扣价时才显示划线价 */}
+                      {product.skus?.[0]?.discountPrice > 0 && 
+                       product.skus?.[0]?.price > 0 && 
+                       product.skus[0].price > product.skus[0].discountPrice && (
                         <span className="text-sm text-stone-400 line-through">
                           {formatPrice(product.skus[0].price)}
                         </span>

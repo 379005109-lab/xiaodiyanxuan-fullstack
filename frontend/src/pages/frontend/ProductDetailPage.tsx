@@ -1067,7 +1067,8 @@ const ProductDetailPage = () => {
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-gray-500 text-sm">当前价格</span>
                 <span className="text-2xl font-bold text-red-600">{formatPrice(finalSkuPrice)}</span>
-                {!selectedSku?.isPro && discountPrice && (
+                {/* 只有当有折扣价且大于0，且原价大于折扣价时才显示划线价 */}
+                {!selectedSku?.isPro && discountPrice && discountPrice > 0 && currentPrice && currentPrice > discountPrice && (
                   <>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">限时优惠</span>
                     <span className="text-xs text-gray-400 line-through">{formatPrice(currentPrice)}</span>

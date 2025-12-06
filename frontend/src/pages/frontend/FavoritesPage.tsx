@@ -4,6 +4,7 @@ import { Heart, Trash2, ShoppingBag, Loader2, ShoppingCart, GitCompare } from 'l
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useFavoriteStore } from '@/store/favoriteStore'
+import { useCompareStore } from '@/store/compareStore'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
@@ -12,7 +13,8 @@ export default function FavoritesPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const { openLogin } = useAuthModalStore()
-  const { favorites, loadFavorites, removeFavorite, clearAll } = useFavoriteStore()
+  const { favorites, loadFavorites, removeFavorite, clearAll: clearAllFavorites } = useFavoriteStore()
+  const { addToCompare, clearAll: clearAllCompare } = useCompareStore()
   const [loading, setLoading] = useState(true)
   const [compareList, setCompareList] = useState<string[]>([])
 
@@ -44,7 +46,7 @@ export default function FavoritesPage() {
   const handleClearAll = async () => {
     if (window.confirm('确定要清空所有收藏吗？')) {
       try {
-        await clearAll()
+        await clearAllFavorites()
         toast.success('已清空收藏')
       } catch (error) {
         toast.error('操作失败')
@@ -77,13 +79,21 @@ export default function FavoritesPage() {
       toast.error('请至少选择2个商品进行对比')
       return
     }
-    // 将选中的商品添加到云端对比列表
-    const compareStore = await import('@/store/compareStore').then(m => m.useCompareStore.getState())
-    await compareStore.clearAll() // 清空之前的对比
-    for (const productId of compareList) {
-      await compareStore.addToCompare(productId)
+    try {
+      // 清空之前的对比列表
+      await clearAllCompare()
+      // 将选中的商品添加到云端对比列表
+      for (const productId of compareList) {
+        console.log('添加商品到对比:', productId)
+        const result = await addToCompare(productId)
+        console.log('添加结果:', result)
+      }
+      toast.success(`已添加 ${compareList.length} 个商品到对比列表`)
+      navigate('/compare')
+    } catch (error) {
+      console.error('添加对比失败:', error)
+      toast.error('添加对比失败')
     }
-    navigate('/compare')
   }
 
   const getProductId = (favorite: any) => {
