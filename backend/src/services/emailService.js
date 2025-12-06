@@ -1,5 +1,22 @@
 const nodemailer = require('nodemailer');
 
+// 格式化为中国时间
+const formatChinaTime = (date) => {
+  const d = new Date(date);
+  // 转换为中国时区 (UTC+8)
+  const options = {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  };
+  return d.toLocaleString('zh-CN', options);
+};
+
 // 从环境变量读取邮箱配置
 const EMAIL_USER = process.env.EMAIL_USER || '379005109@qq.com';
 const EMAIL_PASS = process.env.EMAIL_PASS || ''; // 必须从环境变量设置
@@ -66,7 +83,7 @@ const sendNewOrderNotification = async (order) => {
           </tr>
           <tr>
             <td style="padding: 8px 0; color: #666;">下单时间：</td>
-            <td style="padding: 8px 0;">${new Date(order.createdAt).toLocaleString('zh-CN')}</td>
+            <td style="padding: 8px 0;">${formatChinaTime(order.createdAt)}</td>
           </tr>
           <tr>
             <td style="padding: 8px 0; color: #666;">订单金额：</td>

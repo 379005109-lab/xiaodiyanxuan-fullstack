@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Heart, Trash2, ShoppingBag, Loader2 } from 'lucide-react'
+import { Heart, Trash2, ShoppingBag, Loader2, ShoppingCart, GitCompare } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useFavoriteStore } from '@/store/favoriteStore'
@@ -14,6 +14,7 @@ export default function FavoritesPage() {
   const { openLogin } = useAuthModalStore()
   const { favorites, loadFavorites, removeFavorite, clearAll } = useFavoriteStore()
   const [loading, setLoading] = useState(true)
+  const [compareList, setCompareList] = useState<string[]>([])
 
   useEffect(() => {
     if (!user) {
@@ -49,6 +50,34 @@ export default function FavoritesPage() {
         toast.error('操作失败')
       }
     }
+  }
+
+  const handleAddToCart = (favorite: any) => {
+    const productId = getProductId(favorite)
+    // 跳转到商品详情页添加购物车（需要选择规格）
+    navigate(`/products/${productId}?action=addToCart`)
+    toast.info('请选择规格后加入购物车')
+  }
+
+  const handleToggleCompare = (productId: string) => {
+    setCompareList(prev => {
+      if (prev.includes(productId)) {
+        return prev.filter(id => id !== productId)
+      }
+      if (prev.length >= 4) {
+        toast.error('最多只能对比4个商品')
+        return prev
+      }
+      return [...prev, productId]
+    })
+  }
+
+  const handleCompare = () => {
+    if (compareList.length < 2) {
+      toast.error('请至少选择2个商品进行对比')
+      return
+    }
+    navigate(`/products/compare?ids=${compareList.join(',')}`)
   }
 
   const getProductId = (favorite: any) => {
@@ -124,21 +153,47 @@ export default function FavoritesPage() {
                       </h3>
                     </Link>
                     
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-2">
                       <div className="font-serif font-bold text-accent">
                         {formatPrice(favAny.price || productAny?.skus?.[0]?.price || 0)}
                       </div>
-                      <Link
-                        to={`/products/${productId}`}
-                        className="text-xs bg-stone-100 hover:bg-primary hover:text-white px-3 py-1 rounded-full transition-colors"
+                      <button
+                        onClick={() => handleToggleCompare(productId)}
+                        className={`text-xs px-2 py-1 rounded-full transition-colors flex items-center gap-1 ${compareList.includes(productId) ? 'bg-primary text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-600'}`}
                       >
-                        查看详情
-                      </Link>
+                        <GitCompare className="w-3 h-3" />
+                        {compareList.includes(productId) ? '已选' : '对比'}
+                      </button>
                     </div>
+                    <button
+                      onClick={() => handleAddToCart(favorite)}
+                      className="w-full text-xs bg-primary hover:bg-green-900 text-white px-3 py-2 rounded-full transition-colors flex items-center justify-center gap-1"
+                    >
+                      <ShoppingCart className="w-3 h-3" /> 加入购物车
+                    </button>
                   </div>
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* 浮动对比按钮 */}
+        {compareList.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-lg border border-stone-200 px-6 py-3 flex items-center gap-4 z-50">
+            <span className="text-sm text-stone-600">已选 {compareList.length} 件商品</span>
+            <button
+              onClick={() => setCompareList([])}
+              className="text-xs text-stone-400 hover:text-red-500"
+            >
+              清空
+            </button>
+            <button
+              onClick={handleCompare}
+              className="bg-primary text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-green-900 transition-colors flex items-center gap-2"
+            >
+              <GitCompare className="w-4 h-4" /> 开始对比
+            </button>
           </div>
         )}
       </div>
