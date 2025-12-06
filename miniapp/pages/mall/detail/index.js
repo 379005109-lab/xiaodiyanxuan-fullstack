@@ -49,7 +49,15 @@ Page({
 		inCart: false,
 		hasBargain: false,
 		showAnimation: false,
-		animationType: '' // 'favorite' or 'cart'
+		animationType: '', // 'favorite' or 'cart'
+		// 新UI相关
+		quantity: 1,
+		showSpecs: false,
+		showColors: false,
+		selectedColorIndex: 0,
+		displayColors: [],
+		selectedConfigText: '默认规格',
+		colors: []
 	},
 	onLoad(query) {
 		const { id = '' } = query || {}
@@ -473,6 +481,18 @@ Page({
 			this.buildTabList()  // 重新构建tab（可能材质数量变化）
 			this.recalculate()
 		})
+		
+		// 更新顶部轮播图到该规格图片
+		if (selectedSize && selectedSize.img) {
+			const images = [...this.data.images]
+			const existIndex = images.indexOf(selectedSize.img)
+			if (existIndex >= 0) {
+				this.setData({ imageIndex: existIndex })
+			} else {
+				images.unshift(selectedSize.img)
+				this.setData({ images, imageIndex: 0 })
+			}
+		}
 	},
 	recalculate() {
 		const d = this.data
@@ -484,6 +504,9 @@ Page({
 		const base = d.goods.basePrice ? d.goods.basePrice : 0
 		const total = base + matExtra + fillExtra + frameExtra + legExtra + sizeExtra
 		this.setData({ totalPrice: total })
+		// 更新新UI相关数据
+		this.updateDisplayColors()
+		this.updateSelectedConfigText()
 	},
 	onStartBargain() {
 		if (!this.ensureLogin()) return
@@ -695,6 +718,66 @@ Page({
 			title: this.data.goods.name,
 			path: `/pages/mall/detail/index?id=${this.data.id}`
 		}
+	},
+	// 新UI方法
+	showSpecsSheet() {
+		this.setData({ showSpecs: true })
+	},
+	hideSpecsSheet() {
+		this.setData({ showSpecs: false })
+	},
+	showColorSheet() {
+		this.setData({ showColors: true })
+	},
+	hideColorSheet() {
+		this.setData({ showColors: false })
+	},
+	increaseQty() {
+		this.setData({ quantity: this.data.quantity + 1 })
+	},
+	decreaseQty() {
+		if (this.data.quantity > 1) {
+			this.setData({ quantity: this.data.quantity - 1 })
+		}
+	},
+	onSelectColor(e) {
+		const index = e.currentTarget.dataset.index
+		this.setData({ selectedColorIndex: index })
+	},
+	updateDisplayColors() {
+		// 生成显示用的颜色数组
+		let colors = []
+		const colorHexMap = {
+			'经典黑': '#1f2937',
+			'米白色': '#f5f5dc',
+			'深棕色': '#654321',
+			'灰色': '#9ca3af',
+			'浅灰': '#d1d5db',
+			'米色': '#deb887',
+			'红色': '#dc2626'
+		}
+		if (this.data.materialsGroups && this.data.materialsGroups.length > 0) {
+			this.data.materialsGroups.forEach(mg => {
+				if (mg.colors) {
+					mg.colors.forEach(c => {
+						colors.push({ name: c.name, hex: colorHexMap[c.name] || '#deb887' })
+					})
+				}
+			})
+		}
+		// 只取前6个
+		colors = colors.slice(0, 6)
+		this.setData({ displayColors: colors })
+	},
+	updateSelectedConfigText() {
+		const d = this.data
+		const sizeName = d.sizes[d.sizeIndex]?.name || '默认规格'
+		const materialName = d.materialsGroups[d.materialGroupIndex]?.name || ''
+		const colorName = d.materialsGroups[d.materialGroupIndex]?.colors?.[d.materialColorIndex]?.name || ''
+		let text = sizeName
+		if (materialName) text += '+' + materialName
+		if (colorName) text += '+' + colorName
+		this.setData({ selectedConfigText: text })
 	}
 })
 
