@@ -27,6 +27,9 @@ export default function Header() {
   const [categories, setCategories] = useState<any[]>([])
   const categoryMenuRef = useRef<HTMLDivElement>(null)
   const categoryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [language, setLanguage] = useState<'CN' | 'EN'>(() => {
+    return (localStorage.getItem('language') as 'CN' | 'EN') || 'CN'
+  })
   
   // 从URL获取当前选中的分类
   const [searchParams] = useSearchParams()
@@ -412,10 +415,18 @@ export default function Header() {
 
           {/* Language Toggle */}
           <button 
+            onClick={() => {
+              const newLang = language === 'CN' ? 'EN' : 'CN'
+              setLanguage(newLang)
+              localStorage.setItem('language', newLang)
+              // 触发语言变更事件供其他组件监听
+              window.dispatchEvent(new CustomEvent('languageChange', { detail: newLang }))
+            }}
             className="flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-primary transition-colors ml-2"
+            title={language === 'CN' ? '切换到英文' : 'Switch to Chinese'}
           >
             <Globe className="w-4 h-4" />
-            CN
+            {language}
           </button>
         </div>
       </div>
