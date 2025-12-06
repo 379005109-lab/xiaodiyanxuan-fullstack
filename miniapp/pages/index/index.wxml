@@ -21,7 +21,7 @@
 	<!-- 陪买服务卡片 -->
 	<view class="service-card" bindtap="goGuideService">
 		<view class="service-title">陪买服务</view>
-		<view class="service-desc">专业顾问一对一陪同选购，为您甄选最适合的家居方案。</view>
+		<view class="service-desc">专业顾问一对一陪同选购，<text>\n</text>为您甄选最适合的家居方案。</view>
 		<view class="service-btn">
 			<text>预约服务</text>
 			<text class="arrow">›</text>

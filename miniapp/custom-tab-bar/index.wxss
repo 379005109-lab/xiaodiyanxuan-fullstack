@@ -5,8 +5,8 @@
   left: 24rpx; 
   right: 24rpx; 
   bottom: calc(24rpx + env(safe-area-inset-bottom)); 
-  height: 112rpx; 
-  background: rgba(255, 255, 255, 0.75); 
+  height: 120rpx; 
+  background: rgba(255, 255, 255, 0.85); 
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   display: flex; 
@@ -22,7 +22,7 @@
   align-items: center; 
   justify-content: center; 
   color: #9ca3af; 
-  gap: 6rpx;
+  gap: 8rpx;
   padding: 8rpx 0;
   transition: all 0.3s ease;
 }
@@ -31,20 +31,24 @@
   font-weight: 700; 
 }
 .item.active .icon-wrap {
-  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
-  box-shadow: 0 8rpx 24rpx -8rpx rgba(52, 211, 153, 0.6);
+  background: linear-gradient(180deg, #2DD4BF 0%, #22D3EE 100%);
+  box-shadow: 0 8rpx 24rpx -8rpx rgba(45, 212, 191, 0.6);
   border-radius: 999rpx;
-  padding: 12rpx 24rpx;
+  padding: 14rpx 28rpx;
 }
 .icon-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
+  padding: 8rpx 16rpx;
 }
 .icon {
-  font-size: 40rpx;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44rpx;
+  height: 44rpx;
 }
 .text { 
   font-size: 22rpx; 
@@ -52,7 +56,167 @@
   font-weight: 500;
 }
 .item.active .text {
-  color: #22c55e;
+  color: #2DD4BF;
+}
+
+/* 简洁矢量图标 - 使用CSS绘制 */
+.svg-icon {
+  width: 44rpx;
+  height: 44rpx;
+  position: relative;
+}
+
+/* 首页图标 - 房子 */
+.home-icon::before {
+  content: '';
+  position: absolute;
+  top: 6rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 18rpx solid transparent;
+  border-right: 18rpx solid transparent;
+  border-bottom: 16rpx solid #9ca3af;
+}
+.home-icon::after {
+  content: '';
+  position: absolute;
+  bottom: 4rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28rpx;
+  height: 20rpx;
+  background: #9ca3af;
+  border-radius: 2rpx;
+}
+.item.active .home-icon::before {
+  border-bottom-color: #FFFFFF;
+}
+.item.active .home-icon::after {
+  background: #FFFFFF;
+}
+
+/* 砍价图标 - 标签 */
+.tag-icon::before {
+  content: '';
+  position: absolute;
+  top: 8rpx;
+  left: 8rpx;
+  width: 24rpx;
+  height: 24rpx;
+  border: 4rpx solid #9ca3af;
+  border-radius: 4rpx 4rpx 4rpx 12rpx;
+  transform: rotate(-45deg);
+}
+.tag-icon::after {
+  content: '';
+  position: absolute;
+  top: 16rpx;
+  left: 16rpx;
+  width: 6rpx;
+  height: 6rpx;
+  background: #9ca3af;
+  border-radius: 50%;
+}
+.item.active .tag-icon::before {
+  border-color: #FFFFFF;
+}
+.item.active .tag-icon::after {
+  background: #FFFFFF;
+}
+
+/* 商城图标 - 购物袋 */
+.shop-icon::before {
+  content: '';
+  position: absolute;
+  bottom: 4rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30rpx;
+  height: 26rpx;
+  border: 4rpx solid #9ca3af;
+  border-radius: 4rpx 4rpx 8rpx 8rpx;
+  border-top: none;
+  background: transparent;
+}
+.shop-icon::after {
+  content: '';
+  position: absolute;
+  top: 6rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16rpx;
+  height: 10rpx;
+  border: 4rpx solid #9ca3af;
+  border-bottom: none;
+  border-radius: 10rpx 10rpx 0 0;
+}
+.item.active .shop-icon::before {
+  border-color: #FFFFFF;
+}
+.item.active .shop-icon::after {
+  border-color: #FFFFFF;
+}
+
+/* 套餐图标 - 盒子 */
+.box-icon::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32rpx;
+  height: 28rpx;
+  border: 4rpx solid #9ca3af;
+  border-radius: 4rpx;
+}
+.box-icon::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32rpx;
+  height: 4rpx;
+  background: #9ca3af;
+}
+.item.active .box-icon::before {
+  border-color: #FFFFFF;
+}
+.item.active .box-icon::after {
+  background: #FFFFFF;
+}
+
+/* 我的图标 - 用户 */
+.user-icon::before {
+  content: '';
+  position: absolute;
+  top: 4rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16rpx;
+  height: 16rpx;
+  border: 4rpx solid #9ca3af;
+  border-radius: 50%;
+}
+.user-icon::after {
+  content: '';
+  position: absolute;
+  bottom: 2rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28rpx;
+  height: 14rpx;
+  border: 4rpx solid #9ca3af;
+  border-bottom: none;
+  border-radius: 20rpx 20rpx 0 0;
+}
+.item.active .user-icon::before {
+  border-color: #FFFFFF;
+}
+.item.active .user-icon::after {
+  border-color: #FFFFFF;
 }
 
 

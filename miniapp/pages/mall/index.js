@@ -19,6 +19,7 @@ Page({
 		categories: [{ id: '', name: '全部' }],  // 从后台加载
 		selectedCategory: '',  // 使用分类ID
 		selectedCategoryName: '全部',
+		viewMode: 'grid',  // 'grid' 或 'list'
 
 		allGoods: [],
 		filteredGoods: [],
@@ -60,11 +61,33 @@ Page({
 			console.error('加载分类失败:', err)
 		})
 	},
+	// 切换视图模式
+	toggleViewMode() {
+		const newMode = this.data.viewMode === 'grid' ? 'list' : 'grid'
+		this.setData({ viewMode: newMode })
+	},
+	// 收藏切换
+	onToggleFav(e) {
+		const id = e.currentTarget.dataset.id
+		const goods = this.data.filteredGoods.map(g => {
+			if (g.id === id) {
+				return { ...g, isFav: !g.isFav }
+			}
+			return g
+		})
+		this.setData({ filteredGoods: goods })
+		wx.showToast({ title: goods.find(g => g.id === id)?.isFav ? '已收藏' : '已取消', icon: 'none' })
+	},
+	// 加入购物车
+	onAddCart(e) {
+		const id = e.currentTarget.dataset.id
+		wx.showToast({ title: '已加入购物车', icon: 'success' })
+	},
 	loadGoodsList() {
 		this.setData({ loading: true })
 		const params = {
 			page: 1,
-			pageSize: 100
+			pageSize: 500  // 加载更多商品
 		}
 		// 如果选择了分类，添加分类筛选
 		if (this.data.selectedCategory) {

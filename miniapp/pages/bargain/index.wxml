@@ -1,4 +1,4 @@
-<navigation-bar title="砍价专区" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<navigation-bar title="" back="{{false}}" color="black" background="transparent"></navigation-bar>
 <scroll-view class="scrollarea" scroll-y>
 	<view class="page">
 		<!-- 页面标题栏 -->
@@ -13,6 +13,7 @@
 				<!-- 左侧图片区 -->
 				<view class="product-image-wrap">
 					<image class="product-image" src="{{item.cover}}" mode="aspectFill"></image>
+					<view class="image-gradient"></view>
 					<view class="helper-badge">
 						<view class="helper-dot"></view>
 						<text class="helper-count">{{item.cutCount || 0}}人助力</text>
@@ -22,12 +23,13 @@
 				<view class="product-info">
 					<view class="product-name">{{item.name}}</view>
 					<view class="product-desc">{{item.desc || '高品质家具，源头好货，砍价更优惠...'}}</view>
-					<view class="price-row">
-						<text class="price-origin">¥{{item.origin}}</text>
-						<text class="price-symbol">¥</text>
-						<text class="price-value">{{item.price}}</text>
+					<view class="price-action">
+						<view class="price-row">
+							<text class="price-origin">¥{{item.origin}}</text>
+							<text class="price-current">¥{{item.price}}</text>
+						</view>
+						<button class="btn-cut" catchtap="onStartBargain" data-id="{{item.id}}">砍一刀</button>
 					</view>
-					<button class="btn-cut" catchtap="onStartBargain" data-id="{{item.id}}">砍一刀</button>
 				</view>
 			</view>
 		</view>

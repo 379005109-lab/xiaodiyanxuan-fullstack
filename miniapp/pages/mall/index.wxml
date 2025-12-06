@@ -3,9 +3,17 @@
 		<!-- 搜索框 -->
 		<view class="search-bar">
 			<view class="search-input">
-				<input placeholder="请输入搜索的商品" value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
+				<view class="search-icon-svg"></view>
+				<input placeholder="搜索沙发、桌椅..." value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
 			</view>
-			<button class="btn-search" wx:if="{{searchText}}" bindtap="onSearchConfirm">搜索</button>
+			<view class="header-actions">
+				<view class="view-toggle {{viewMode === 'grid' ? 'active' : ''}}" bindtap="toggleViewMode" data-mode="grid">
+					<view class="grid-icon"></view>
+				</view>
+				<view class="filter-btn" bindtap="openCategory">
+					<view class="filter-icon"></view>
+				</view>
+			</view>
 		</view>
 
 		<!-- 顶部筛选条：综合、销量、价格、类别、风格 -->
@@ -40,16 +48,23 @@
 			</scroll-view>
 		</view>
 
-		<view class="goods-grid">
+		<view class="goods-grid {{viewMode === 'list' ? 'list-mode' : ''}}">
 			<block wx:for="{{filteredGoods}}" wx:key="id">
 				<view class="goods-item" bindtap="goDetail" data-id="{{item.id}}">
 					<view class="thumb-box">
 						<image class="thumb-img" src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFill"></image>
+						<view class="fav-btn" catchtap="onToggleFav" data-id="{{item.id}}">
+							<view class="heart-icon {{item.isFav ? 'favorited' : ''}}"></view>
+						</view>
 					</view>
 					<view class="hot-info">
 						<text class="h-name">{{item.name}}</text>
+						<text class="h-desc">{{item.desc || item.style || '精选好物'}}</text>
 						<view class="h-price">
-							<text class="price">￥{{item.price}}</text>
+							<text class="price">¥{{item.price}}</text>
+							<view class="cart-btn" catchtap="onAddCart" data-id="{{item.id}}">
+								<view class="cart-icon-svg"></view>
+							</view>
 						</view>
 					</view>
 				</view>

@@ -3,17 +3,17 @@
 	<!-- 顶部导航栏 -->
 	<view class="detail-header">
 		<view class="header-left" bindtap="onBack">
-			<text class="back-icon">←</text>
+			<view class="back-icon-svg"></view>
 		</view>
 		<view class="header-center">
 			<text class="header-title">{{goods.name}}</text>
 		</view>
 		<view class="header-right">
 			<view class="header-btn" bindtap="onFav">
-				<text class="header-icon {{isFavorited ? 'favorited' : ''}}">{{isFavorited ? '♥' : '♡'}}</text>
+				<view class="heart-icon {{isFavorited ? 'favorited' : ''}}"></view>
 			</view>
 			<view class="header-btn">
-				<text class="header-icon">⋯</text>
+				<view class="more-icon"></view>
 			</view>
 		</view>
 	</view>
@@ -25,15 +25,15 @@
 			<!-- 左侧尺寸按钮 -->
 			<view class="dimension-sidebar">
 				<view class="dim-btn" bindtap="showSpecsSheet">
-					<text class="dim-icon">↕</text>
+					<view class="dim-icon height-icon"></view>
 					<text class="dim-label">高</text>
 				</view>
 				<view class="dim-btn" bindtap="showSpecsSheet">
-					<text class="dim-icon">↔</text>
+					<view class="dim-icon width-icon"></view>
 					<text class="dim-label">宽</text>
 				</view>
 				<view class="dim-btn" bindtap="showSpecsSheet">
-					<text class="dim-icon">⬜</text>
+					<view class="dim-icon length-icon"></view>
 					<text class="dim-label">长</text>
 				</view>
 				<view class="dim-btn specs-btn" bindtap="showSpecsSheet">
@@ -50,7 +50,7 @@
 
 			<!-- 右下角购物车悬浮按钮 -->
 			<view class="float-cart" bindtap="goCart">
-				<view class="float-cart-icon">🛒</view>
+				<view class="cart-icon-svg"></view>
 				<view class="float-cart-badge" wx:if="{{cartCount > 0}}">{{cartCount > 99 ? '99+' : cartCount}}</view>
 			</view>
 		</view>
@@ -98,7 +98,7 @@
 					<text class="price-label">Total Payable</text>
 				</view>
 				<view class="add-cart-btn" bindtap="onAddCart">
-					<text class="cart-icon">🛒</text>
+					<view class="btn-cart-icon"></view>
 					<text>加入购物车</text>
 				</view>
 			</view>
@@ -149,7 +149,8 @@
 							data-c="{{ci}}" 
 							bindtap="onSelectMaterialColor"
 						>
-							<view class="color-swatch" style="background-color: {{item.hex || '#DEB887'}}"></view>
+							<image wx:if="{{item.img}}" class="color-swatch-img" src="{{item.img}}" mode="aspectFill"></image>
+							<view wx:else class="color-swatch" style="background-color: {{item.hex || '#DEB887'}}"></view>
 							<text class="color-name">{{item.name || ('色号' + (ci + 1))}}</text>
 						</view>
 					</block>
