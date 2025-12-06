@@ -2,6 +2,10 @@ const { successResponse, errorResponse } = require('../utils/response')
 const User = require('../models/User')
 const Order = require('../models/Order')
 const Product = require('../models/Product')
+const BrowseHistory = require('../models/BrowseHistory')
+const Favorite = require('../models/Favorite')
+const Compare = require('../models/Compare')
+const Cart = require('../models/Cart')
 
 const getDashboardData = async (req, res) => {
   try {
@@ -190,6 +194,250 @@ const getDashboardData = async (req, res) => {
   }
 }
 
+// 用户活跃度看板
+const getUserActivityDashboard = async (req, res) => {
+  try {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const weekAgo = new Date(today)
+    weekAgo.setDate(weekAgo.getDate() - 7)
+    const monthAgo = new Date(today)
+    monthAgo.setMonth(monthAgo.getMonth() - 1)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    // 1. 用户登录统计（基于 lastLoginAt 字段）
+    const todayLogins = await User.countDocuments({
+      lastLoginAt: { $gte: today, $lt: tomorrow }
+    })
+    
+    const weekLogins = await User.countDocuments({
+      lastLoginAt: { $gte: weekAgo, $lt: tomorrow }
+    })
+    
+    const monthLogins = await User.countDocuments({
+      lastLoginAt: { $gte: monthAgo, $lt: tomorrow }
+    })
+
+    // 2. 商品浏览统计
+    const todayBrowse = await BrowseHistory.countDocuments({
+      viewedAt: { $gte: today, $lt: tomorrow }
+    })
+    const weekBrowse = await BrowseHistory.countDocuments({
+      viewedAt: { $gte: weekAgo, $lt: tomorrow }
+    })
+    const monthBrowse = await BrowseHistory.countDocuments({
+      viewedAt: { $gte: monthAgo, $lt: tomorrow }
+    })
+
+    // 3. 商品收藏统计
+    const todayFavorite = await Favorite.countDocuments({
+      createdAt: { $gte: today, $lt: tomorrow }
+    })
+    const weekFavorite = await Favorite.countDocuments({
+      createdAt: { $gte: weekAgo, $lt: tomorrow }
+    })
+    const monthFavorite = await Favorite.countDocuments({
+      createdAt: { $gte: monthAgo, $lt: tomorrow }
+    })
+
+    // 4. 商品对比统计
+    const todayCompare = await Compare.countDocuments({
+      addedAt: { $gte: today, $lt: tomorrow }
+    })
+    const weekCompare = await Compare.countDocuments({
+      addedAt: { $gte: weekAgo, $lt: tomorrow }
+    })
+    const monthCompare = await Compare.countDocuments({
+      addedAt: { $gte: monthAgo, $lt: tomorrow }
+    })
+
+    // 5. 加购统计
+    const todayCart = await Cart.countDocuments({
+      createdAt: { $gte: today, $lt: tomorrow }
+    })
+    const weekCart = await Cart.countDocuments({
+      createdAt: { $gte: weekAgo, $lt: tomorrow }
+    })
+    const monthCart = await Cart.countDocuments({
+      createdAt: { $gte: monthAgo, $lt: tomorrow }
+    })
+
+    // 6. 最活跃的10个用户（基于浏览、收藏、对比、加购的综合活跃度）
+    const topActiveUsers = await User.aggregate([
+      {
+        $lookup: {
+          from: 'browsehistories',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'browseHistory'
+        }
+      },
+      {
+        $lookup: {
+          from: 'favorites',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'favorites'
+        }
+      },
+      {
+        $lookup: {
+          from: 'compares',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'compares'
+        }
+      },
+      {
+        $lookup: {
+          from: 'carts',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'carts'
+        }
+      },
+      {
+        $addFields: {
+          browseCount: { $size: '$browseHistory' },
+          favoriteCount: { $size: '$favorites' },
+          compareCount: { $size: '$compares' },
+          cartCount: { $size: '$carts' },
+          activityScore: {
+            $add: [
+              { $multiply: [{ $size: '$browseHistory' }, 1] },
+              { $multiply: [{ $size: '$favorites' }, 3] },
+              { $multiply: [{ $size: '$compares' }, 2] },
+              { $multiply: [{ $size: '$carts' }, 4] }
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          nickname: 1,
+          phone: 1,
+          username: 1,
+          lastLoginAt: 1,
+          browseCount: 1,
+          favoriteCount: 1,
+          compareCount: 1,
+          cartCount: 1,
+          activityScore: 1
+        }
+      },
+      { $sort: { activityScore: -1 } },
+      { $limit: 10 }
+    ])
+
+    // 7. 被浏览最多的商品 TOP 10
+    const topBrowsedProducts = await BrowseHistory.aggregate([
+      {
+        $group: {
+          _id: '$productId',
+          productName: { $first: '$productName' },
+          thumbnail: { $first: '$thumbnail' },
+          browseCount: { $sum: 1 }
+        }
+      },
+      { $sort: { browseCount: -1 } },
+      { $limit: 10 }
+    ])
+
+    // 8. 被收藏最多的商品 TOP 10
+    const topFavoritedProducts = await Favorite.aggregate([
+      {
+        $group: {
+          _id: '$productId',
+          productName: { $first: '$productName' },
+          thumbnail: { $first: '$thumbnail' },
+          favoriteCount: { $sum: 1 }
+        }
+      },
+      { $sort: { favoriteCount: -1 } },
+      { $limit: 10 }
+    ])
+
+    // 9. 被对比最多的商品 TOP 10
+    const topComparedProducts = await Compare.aggregate([
+      {
+        $group: {
+          _id: '$productId',
+          compareCount: { $sum: 1 }
+        }
+      },
+      { $sort: { compareCount: -1 } },
+      { $limit: 10 }
+    ])
+
+    // 10. 每日用户登录趋势（最近7天）
+    const loginTrend = []
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date(today)
+      dayStart.setDate(dayStart.getDate() - i)
+      const dayEnd = new Date(dayStart)
+      dayEnd.setDate(dayEnd.getDate() + 1)
+      
+      const count = await User.countDocuments({
+        lastLoginAt: { $gte: dayStart, $lt: dayEnd }
+      })
+      
+      const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+      loginTrend.push({
+        date: `${dayStart.getMonth() + 1}/${dayStart.getDate()}`,
+        dayName: dayNames[dayStart.getDay()],
+        count
+      })
+    }
+
+    res.json(successResponse({
+      // 登录统计
+      loginStats: {
+        today: todayLogins,
+        week: weekLogins,
+        month: monthLogins
+      },
+      // 浏览统计
+      browseStats: {
+        today: todayBrowse,
+        week: weekBrowse,
+        month: monthBrowse
+      },
+      // 收藏统计
+      favoriteStats: {
+        today: todayFavorite,
+        week: weekFavorite,
+        month: monthFavorite
+      },
+      // 对比统计
+      compareStats: {
+        today: todayCompare,
+        week: weekCompare,
+        month: monthCompare
+      },
+      // 加购统计
+      cartStats: {
+        today: todayCart,
+        week: weekCart,
+        month: monthCart
+      },
+      // 最活跃用户
+      topActiveUsers,
+      // 热门商品
+      topBrowsedProducts,
+      topFavoritedProducts,
+      topComparedProducts,
+      // 登录趋势
+      loginTrend
+    }))
+  } catch (err) {
+    console.error('Get user activity dashboard error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
 module.exports = {
-  getDashboardData
+  getDashboardData,
+  getUserActivityDashboard
 }

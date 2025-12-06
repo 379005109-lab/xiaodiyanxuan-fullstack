@@ -71,6 +71,7 @@ const NotificationManagementPage = lazy(() => import('./pages/admin/Notification
 const DesignManagement = lazy(() => import('./pages/admin/DesignManagement'))
 const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationManagement'))
 const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingServiceRequestsPage'))
+const ActivityDashboard = lazy(() => import('./pages/admin/ActivityDashboard'))
 
 // 前台布局已在上方直接导入
 
@@ -324,6 +325,7 @@ function App() {
             <Route path="designs" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><DesignManagement /></ProtectedRoute>} />
             <Route path="customization" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
+            <Route path="activity" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
           </Route>
 
           {/* 404 */}

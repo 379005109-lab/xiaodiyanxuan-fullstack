@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Scissors,
   Pencil,
+  Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -40,6 +41,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
   const allMenuItems: MenuItem[] = [
     { name: '首页', path: '/admin', icon: Home },
     { name: '数据看板', path: '/admin/dashboard', icon: TrendingUp },
+    { name: '用户活跃度', path: '/admin/activity', icon: Activity },
     { name: '网站图片管理', path: '/admin/images', icon: Image },
     { name: '设计管理', path: '/admin/designs', icon: Pencil },
     { name: '账号管理', path: '/admin/users', icon: Users },
