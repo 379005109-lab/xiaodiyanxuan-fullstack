@@ -11,6 +11,7 @@ import { getProductById, createProduct, updateProduct } from '@/services/product
 import { getAllCategories, Category } from '@/services/categoryService'
 import { imageCache } from '@/services/imageCache'
 import { uploadFile, getFileUrl, getThumbnailUrl } from '@/services/uploadService'
+import { getAllManufacturers, Manufacturer } from '@/services/manufacturerService'
 
 const CATEGORY_STORAGE_KEY = 'productForm:lastCategory'
 
@@ -55,6 +56,7 @@ export default function ProductForm() {
 
   // 分类数据
   const [categories, setCategories] = useState<Category[]>([])
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
   const [showMaterialSelectModal, setShowMaterialSelectModal] = useState(false)
   const [selectingMaterialForSkuIndex, setSelectingMaterialForSkuIndex] = useState<number>(-1)
   const [selectingMaterialType, setSelectingMaterialType] = useState<string>('fabric') // 支持动态材质类型
@@ -105,6 +107,8 @@ export default function ProductForm() {
         isPro: false,
         proFeature: '',
         status: true,
+        manufacturerId: '',
+        manufacturerName: '',
       },
     ],
     description: '',
@@ -126,6 +130,19 @@ export default function ProductForm() {
       }
     };
     loadCategories();
+  }, []);
+
+  // 加载厂家数据
+  useEffect(() => {
+    const loadManufacturers = async () => {
+      try {
+        const allManufacturers = await getAllManufacturers();
+        setManufacturers(allManufacturers);
+      } catch (error) {
+        console.error('加载厂家失败:', error);
+      }
+    };
+    loadManufacturers();
   }, []);
 
   // 恢复最近一次选择的分类
@@ -271,6 +288,8 @@ export default function ProductForm() {
               isPro: (sku as any).isPro || false,
               proFeature: (sku as any).proFeature || '',
               status: true,
+              manufacturerId: (sku as any).manufacturerId || '',
+              manufacturerName: (sku as any).manufacturerName || '',
             }
           }),
           description: product.description,
@@ -517,6 +536,8 @@ export default function ProductForm() {
           isPro: sku.isPro,
           proFeature: sku.proFeature,
           discountPrice: sku.discountPrice,
+          manufacturerId: sku.manufacturerId || undefined,
+          manufacturerName: sku.manufacturerName || undefined,
         })),
         isCombo: false,
         specifications: formData.specifications.reduce((acc, spec) => {
@@ -643,6 +664,8 @@ export default function ProductForm() {
           isPro: false,
           proFeature: '',
           status: true,
+          manufacturerId: '',
+          manufacturerName: '',
         },
       ],
     })
@@ -732,6 +755,8 @@ export default function ProductForm() {
       isPro: false,
       proFeature: '',
       status: true,
+      manufacturerId: '',
+      manufacturerName: '',
     }))
 
     setFormData({ ...formData, skus: newSkus })
@@ -928,6 +953,8 @@ export default function ProductForm() {
             isPro: isPro,
             proFeature: proFeature,
             status: true,
+            manufacturerId: '',
+            manufacturerName: row[16]?.toString() || '', // Q列：厂家名称
           }
         })
 
@@ -1394,6 +1421,7 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">显示价格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">库存</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">PRO</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium">厂家</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">状态</th>
                   <th className="text-right py-3 px-4 text-sm font-medium">操作</th>
                 </tr>
@@ -1700,6 +1728,24 @@ export default function ProductForm() {
                           </button>
                         )}
                       </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <select
+                        value={sku.manufacturerId || ''}
+                        onChange={(e) => {
+                          const newSkus = [...formData.skus]
+                          const selectedManufacturer = manufacturers.find(m => m._id === e.target.value)
+                          newSkus[index].manufacturerId = e.target.value
+                          newSkus[index].manufacturerName = selectedManufacturer?.name || ''
+                          setFormData({ ...formData, skus: newSkus })
+                        }}
+                        className="w-28 px-2 py-1 text-sm border border-gray-300 rounded"
+                      >
+                        <option value="">选择厂家</option>
+                        {manufacturers.map((m) => (
+                          <option key={m._id} value={m._id}>{m.name}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="py-3 px-4">
                       <label className="relative inline-flex items-center cursor-pointer">
