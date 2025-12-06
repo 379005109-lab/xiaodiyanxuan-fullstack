@@ -31,12 +31,12 @@ page {
 }
 .my-bargain-link {
   padding: 12rpx 24rpx;
-  background: transparent;
+  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
   border-radius: 999rpx;
   font-size: 26rpx;
   font-weight: 600;
-  color: #22c55e;
-  border: 2rpx solid #22c55e;
+  color: #fff;
+  border: none;
 }
 
 /* ========== 商品列表 ========== */

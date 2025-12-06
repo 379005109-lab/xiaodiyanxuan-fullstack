@@ -1,62 +1,72 @@
-<navigation-bar title="我的" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<navigation-bar title="" back="{{false}}" color="black" background="transparent"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y>
 <view class="page">
+		<!-- 设置按钮 -->
+		<view class="settings-btn" bindtap="goSettings">•••</view>
+
+		<!-- 用户头像和信息 -->
 		<view class="header">
 			<image class="avatar" src="{{avatar}}" mode="aspectFill"></image>
 			<view class="u-info">
-				<text class="name">昵称</text>
-				<text class="badge" wx:if="{{isDesigner}}">设计师认证</text>
+				<text class="name">{{nickname || '用户'}}</text>
+				<text class="badge">钻石会员</text>
 			</view>
 		</view>
 
+		<!-- 统计数据 -->
 		<view class="stats">
-			<view class="stat" bindtap="goOrders">
-				<text class="value">{{orderCount}}</text>
-				<text class="label">我的订单</text>
-			</view>
-			<view class="stat" bindtap="goCart">
-				<text class="value">{{cartCount}}</text>
-				<text class="label">购物车</text>
-			</view>
 			<view class="stat" bindtap="goFavorites">
-				<text class="value">{{favoriteCount}}</text>
-				<text class="label">我的收藏</text>
+				<text class="value">{{favoriteCount || 0}}</text>
+				<text class="label">收藏</text>
+			</view>
+			<view class="stat" bindtap="goOrders">
+				<text class="value">{{orderCount || 0}}</text>
+				<text class="label">订单</text>
+			</view>
+			<view class="stat" bindtap="goCoupons">
+				<text class="value orange">¥{{couponAmount || 0}}</text>
+				<text class="label">优惠券</text>
 			</view>
 		</view>
 
+		<!-- 快捷入口 -->
+		<view class="quick-actions">
+			<view class="quick-action" bindtap="goBooking">
+				<view class="quick-action-icon">📅</view>
+				<text class="quick-action-text">我的预约</text>
+			</view>
+			<view class="quick-action" bindtap="goCart">
+				<view class="quick-action-icon">🛒</view>
+				<text class="quick-action-text">我的购物车</text>
+			</view>
+		</view>
+
+		<!-- 最近浏览 -->
+		<view class="recent-section" wx:if="{{recentItem}}">
+			<view class="section-header">
+				<text class="section-icon">🕐</text>
+				<text class="section-title">最近浏览</text>
+			</view>
+			<view class="recent-item" bindtap="goProductDetail" data-id="{{recentItem.id}}">
+				<image class="recent-img" src="{{recentItem.cover}}" mode="aspectFill"></image>
+				<view class="recent-info">
+					<text class="recent-name">{{recentItem.name}}</text>
+					<text class="recent-desc">{{recentItem.desc || '精选好物'}}</text>
+					<text class="recent-price">¥{{recentItem.price}}</text>
+				</view>
+				<view class="recent-buy-btn">购买</view>
+			</view>
+		</view>
+
+		<!-- 更多功能列表 -->
 		<view class="list">
-			<view class="cell" bindtap="goCart">
-				<view class="cell-icon-box"><text class="cell-icon-simple">⊞</text></view>
-				<text class="cell-text">我的购物车</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" bindtap="goBooking">
-				<view class="cell-icon-box"><text class="cell-icon-simple">◎</text></view>
-				<text class="cell-text">我的预约</text>
-				<view class="cell-badge" wx:if="{{bookingCount > 0}}">{{bookingCount}}</view>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" bindtap="goOrders">
-				<view class="cell-icon-box"><text class="cell-icon-simple">☰</text></view>
-				<text class="cell-text">我的订单</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" bindtap="goFavorites">
-				<view class="cell-icon-box"><text class="cell-icon-simple">♡</text></view>
-				<text class="cell-text">我的收藏</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" bindtap="goCoupons">
-				<view class="cell-icon-box"><text class="cell-icon-simple">◇</text></view>
-				<text class="cell-text">优惠券</text>
-				<text class="cell-arrow">›</text>
-			</view>
 			<view class="cell" bindtap="goAddress">
-				<view class="cell-icon-box"><text class="cell-icon-simple">◉</text></view>
+				<view class="cell-icon-box"><text class="cell-icon-simple">📍</text></view>
 				<text class="cell-text">地址管理</text>
 				<text class="cell-arrow">›</text>
 			</view>
 			<view class="cell" bindtap="goService">
-				<view class="cell-icon-box"><text class="cell-icon-simple">○</text></view>
+				<view class="cell-icon-box"><text class="cell-icon-simple">💬</text></view>
 				<text class="cell-text">客服中心</text>
 				<text class="cell-arrow">›</text>
 			</view>
@@ -67,11 +77,11 @@
 			</view>
 		</view>
 
-		
 		<view class="footer">
 			<view class="fold">关于我们 · 隐私政策 · 帮助中心</view>
 			<view class="copy">© 小迪严选</view>
 		</view>
 	</view>
+</scroll-view>
 
 

@@ -8,7 +8,7 @@ page {
 .scrollarea { min-height: 100vh; }
 .page { 
   padding: 24rpx; 
-  padding-top: calc(env(safe-area-inset-top) + 100rpx); 
+  padding-top: calc(env(safe-area-inset-top) + 20rpx); 
   padding-bottom: calc(env(safe-area-inset-bottom) + 140rpx);
   box-sizing: border-box; 
 }

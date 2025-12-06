@@ -13,9 +13,9 @@ page { background: #FDFBF7; color: #1f2937; }
   display: flex; 
   align-items: center; 
   justify-content: space-between; 
-  padding: 20rpx 24rpx; 
-  padding-top: calc(env(safe-area-inset-top) + 20rpx); 
-  background: rgba(253,251,247,0.9);
+  padding: 24rpx; 
+  padding-top: calc(env(safe-area-inset-top) + 40rpx); 
+  background: rgba(253,251,247,0.95);
   backdrop-filter: blur(20rpx);
 }
 .header-left, .header-btn { 
@@ -96,7 +96,7 @@ page { background: #FDFBF7; color: #1f2937; }
 .more-icon::after { right: -12rpx; }
 
 /* 主内容区 */
-.detail-content { flex: 1; display: flex; flex-direction: column; padding-top: calc(env(safe-area-inset-top) + 112rpx); }
+.detail-content { flex: 1; display: flex; flex-direction: column; padding-top: calc(env(safe-area-inset-top) + 160rpx); }
 .product-hero { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-height: 500rpx; }
 
 /* 左侧尺寸按钮 */
