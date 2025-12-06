@@ -2,7 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const router = express.Router()
 const { auth, optionalAuth } = require('../middleware/auth')
-const { listCategories, getCategory, createCategory, updateCategory, deleteCategory, getCategoryStats } = require('../controllers/categoryController')
+const { listCategories, getCategory, createCategory, updateCategory, deleteCategory, getCategoryStats, batchSetDiscount } = require('../controllers/categoryController')
 
 // 配置 multer
 const storage = multer.memoryStorage()
@@ -24,6 +24,9 @@ router.get('/', optionalAuth, listCategories)
 
 // GET /api/categories/stats - Get category statistics (must be before /:id route)
 router.get('/stats', optionalAuth, getCategoryStats)
+
+// POST /api/categories/discounts/batch - Batch set discount for all categories
+router.post('/discounts/batch', auth, batchSetDiscount)
 
 // POST /api/categories - Create category
 router.post('/', auth, createCategory)

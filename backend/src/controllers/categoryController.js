@@ -286,6 +286,40 @@ const uploadIcon = async (req, res) => {
 }
 
 /**
+ * 批量设置所有分类折扣
+ * POST /api/categories/discounts/batch
+ */
+const batchSetDiscount = async (req, res) => {
+  try {
+    const { discounts } = req.body
+
+    if (!discounts || !Array.isArray(discounts)) {
+      return res.status(400).json(errorResponse('折扣数据格式错误', 400))
+    }
+
+    // 更新所有分类的折扣设置
+    const result = await Category.updateMany(
+      {},
+      { 
+        $set: { 
+          discounts: discounts,
+          hasDiscount: discounts.some(d => d.discount < 100),
+          updatedAt: new Date()
+        }
+      }
+    )
+
+    res.json(successResponse({
+      modifiedCount: result.modifiedCount,
+      message: `已为 ${result.modifiedCount} 个分类设置折扣`
+    }))
+  } catch (err) {
+    console.error('Batch set discount error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
+/**
  * 获取分类统计
  * GET /api/categories/stats
  */
@@ -321,6 +355,7 @@ module.exports = {
   updateCategory,
   deleteCategory,
   getCategoryStats,
+  batchSetDiscount,
   uploadImage,
   uploadIcon
 }
