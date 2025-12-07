@@ -461,15 +461,24 @@ export default function ProductsPage() {
     }
   }
 
-  // 获取商品SKU预览图
+  // 获取商品预览图（优先使用商品主图，其次使用SKU图片）
   const getProductPreviewImages = (product: Product) => {
-    // 获取前4个SKU的首图
+    // 优先使用商品主图
+    const mainImages = (product.images || []).slice(0, 4).filter(Boolean)
+    if (mainImages.length > 1) {
+      return mainImages
+    }
+    
+    // 如果商品主图不足，尝试获取SKU的首图
     const skuImages = (product.skus || [])
       .slice(0, 4)
       .map(sku => sku.images && sku.images[0])
       .filter(Boolean)
     
-    return skuImages.length > 0 ? skuImages : [(product.images && product.images[0]) || '/placeholder.png']
+    // 合并商品主图和SKU图片，去重
+    const allImages = [...new Set([...mainImages, ...skuImages])].slice(0, 4)
+    
+    return allImages.length > 0 ? allImages : ['/placeholder.png']
   }
 
   if (loading) {
