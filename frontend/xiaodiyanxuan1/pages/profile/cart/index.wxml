@@ -40,7 +40,10 @@
         </view>
         <!-- 商品内容 -->
         <view class="cart-content">
-          <image class="cart-thumb" src="{{item.thumb}}" mode="aspectFill" bindtap="goDetail" data-id="{{item.id}}"></image>
+          <view class="cart-thumb-wrap" bindtap="goDetail" data-id="{{item.id}}">
+            <image class="cart-thumb" src="{{item.thumb}}" mode="aspectFill"></image>
+            <image class="cart-fabric-thumb" wx:if="{{item.fabricImg}}" src="{{item.fabricImg}}" mode="aspectFill"></image>
+          </view>
           <view class="cart-info">
             <view class="cart-name">{{item.name}}</view>
             <view class="cart-spec-row">规格: {{item.sizeName || '默认'}}</view>

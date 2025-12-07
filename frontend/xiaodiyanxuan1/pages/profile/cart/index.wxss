@@ -36,7 +36,9 @@ page {
 .cart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
 .delete-icon { width: 44rpx; height: 44rpx; display: flex; align-items: center; justify-content: center; font-size: 28rpx; color: #CCCCCC; }
 .cart-content { display: flex; gap: 20rpx; margin-bottom: 16rpx; }
-.cart-thumb { width: 180rpx; height: 140rpx; border-radius: 8rpx; background: #F5F5F5; flex-shrink: 0; }
+.cart-thumb-wrap { display: flex; gap: 8rpx; flex-shrink: 0; }
+.cart-thumb { width: 140rpx; height: 140rpx; border-radius: 8rpx; background: #F5F5F5; }
+.cart-fabric-thumb { width: 60rpx; height: 60rpx; border-radius: 8rpx; background: #F5F5F5; align-self: flex-end; border: 2rpx solid #e5e7eb; }
 .cart-info { flex: 1; min-width: 0; }
 .cart-name { font-size: 30rpx; font-weight: 600; color: #333333; line-height: 1.4; margin-bottom: 8rpx; }
 .cart-spec-row { font-size: 26rpx; color: #666666; margin-bottom: 6rpx; }
