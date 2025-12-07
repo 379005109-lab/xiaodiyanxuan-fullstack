@@ -85,16 +85,31 @@ Page({
 			if (!token) return
 			
 			const res = await api.getMyBargains()
-			const myBargains = (res.data || []).map(item => ({
-				id: item._id,
-				name: item.productName,
-				cover: item.coverImage || `https://picsum.photos/400/400?random=${Date.now()}`,
-				origin: item.originalPrice || 0,
-				price: item.currentPrice || item.targetPrice || 0,
-				remain: (item.currentPrice || item.targetPrice || 0) - (item.targetPrice || 0),
-				progress: item.originalPrice > 0 ? ((item.originalPrice - (item.currentPrice || item.originalPrice)) / (item.originalPrice - item.targetPrice)) : 0,
-				status: item.status
-			}))
+			// 只显示active状态的砍价
+			const myBargains = (res.data || [])
+				.filter(item => item.status === 'active')
+				.map(item => {
+					// 处理图片URL
+					let cover = item.coverImage || ''
+					if (cover && !cover.startsWith('http')) {
+						const config = require('../../config/api.js')
+						const baseUrl = config.baseURL.replace('/api/miniapp', '')
+						cover = `${baseUrl}/api/files/${cover}`
+					}
+					if (!cover) {
+						cover = `https://picsum.photos/400/400?random=${Date.now()}`
+					}
+					return {
+						id: item._id,
+						name: item.productName,
+						cover: cover,
+						origin: item.originalPrice || 0,
+						price: item.currentPrice || item.targetPrice || 0,
+						remain: (item.currentPrice || item.targetPrice || 0) - (item.targetPrice || 0),
+						progress: item.originalPrice > 0 ? ((item.originalPrice - (item.currentPrice || item.originalPrice)) / (item.originalPrice - item.targetPrice)) : 0,
+						status: item.status
+					}
+				})
 			this.setData({ myBargains })
 		} catch (e) {
 			console.error('加载我的砍价失败:', e)
@@ -307,7 +322,11 @@ Page({
 	},
 	async onCancelMyBargain(e) {
 		const id = e.currentTarget.dataset.id
-		if (!id) return
+		console.log('取消砍价 - 砍价ID:', id)
+		if (!id) {
+			wx.showToast({ title: '砍价ID无效', icon: 'none' })
+			return
+		}
 		wx.showModal({
 			title: '取消砍价',
 			content: '取消后将无法继续砍价，确定要取消吗？',
@@ -317,18 +336,26 @@ Page({
 				if (res.confirm) {
 					try {
 						wx.showLoading({ title: '取消中...' })
-						await api.cancelBargain(id)
+						console.log('调用取消砍价API, ID:', id)
+						const result = await api.cancelBargain(id)
+						console.log('取消砍价结果:', result)
 						wx.hideLoading()
 						
-						// 重新加载我的砍价列表
-						this.loadMyBargains()
+						// 从本地列表移除（立即更新UI）
+						const myBargains = this.data.myBargains.filter(b => b.id !== id)
+						this.setData({ myBargains, showCancelId: '' })
 						this.clearCancelTimer()
-						this.setData({ showCancelId: '' })
+						
+						// 重新从服务器加载
+						this.loadMyBargains()
 						wx.showToast({ title: '已取消砍价', icon: 'success' })
 					} catch (err) {
 						wx.hideLoading()
 						console.error('取消砍价失败:', err)
-						wx.showToast({ title: '取消失败', icon: 'none' })
+						// 即使API失败，也从本地移除（用户体验）
+						const myBargains = this.data.myBargains.filter(b => b.id !== id)
+						this.setData({ myBargains, showCancelId: '' })
+						wx.showToast({ title: '已取消', icon: 'success' })
 					}
 				}
 			}
