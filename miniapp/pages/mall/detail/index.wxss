@@ -3,7 +3,7 @@
 page { background: #FDFBF7; color: #1f2937; }
 .detail-page { min-height: 100vh; display: flex; flex-direction: column; }
 
-/* 顶部导航栏 - 固定在安全区域下方 */
+/* 顶部导航栏 - 简洁透明设计 */
 .detail-header { 
   position: fixed; 
   top: 0; 
@@ -13,87 +13,91 @@ page { background: #FDFBF7; color: #1f2937; }
   display: flex; 
   align-items: center; 
   justify-content: space-between; 
-  padding: 24rpx; 
-  padding-top: calc(env(safe-area-inset-top) + 40rpx); 
-  background: rgba(253,251,247,0.95);
-  backdrop-filter: blur(20rpx);
+  padding: 20rpx 24rpx; 
+  padding-top: calc(env(safe-area-inset-top) + 16rpx); 
+  background: transparent;
 }
 .header-left, .header-btn { 
-  width: 72rpx; 
-  height: 72rpx; 
-  background: rgba(255,255,255,0.95); 
+  width: 64rpx; 
+  height: 64rpx; 
+  background: rgba(255,255,255,0.9); 
   border-radius: 50%; 
   display: flex; 
   align-items: center; 
   justify-content: center; 
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.08);
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.1);
 }
-.header-center { flex: 1; text-align: center; padding: 0 16rpx; }
-.header-title { font-size: 30rpx; font-weight: 600; color: #1f2937; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.header-right { display: flex; gap: 16rpx; }
+.header-center { flex: 1; text-align: center; padding: 0 12rpx; }
+.header-title { 
+  font-size: 28rpx; 
+  font-weight: 600; 
+  color: #1f2937; 
+  background: rgba(255,255,255,0.85);
+  padding: 8rpx 24rpx;
+  border-radius: 24rpx;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  white-space: nowrap; 
+}
+.header-right { display: flex; gap: 12rpx; }
 
-/* 返回图标 - 矢量箭头 */
+/* 返回图标 - 简洁箭头 */
 .back-icon-svg {
-  width: 24rpx;
-  height: 24rpx;
-  border-left: 4rpx solid #1f2937;
-  border-bottom: 4rpx solid #1f2937;
+  width: 20rpx;
+  height: 20rpx;
+  border-left: 4rpx solid #374151;
+  border-bottom: 4rpx solid #374151;
   transform: rotate(45deg);
-  margin-left: 8rpx;
+  margin-left: 6rpx;
 }
 
-/* 收藏心形图标 */
+/* 收藏心形图标 - 简化版 */
 .heart-icon {
-  width: 32rpx;
-  height: 28rpx;
-  position: relative;
-}
-.heart-icon::before,
-.heart-icon::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  width: 16rpx;
-  height: 26rpx;
-  border-radius: 16rpx 16rpx 0 0;
-  background: transparent;
-  border: 3rpx solid #1f2937;
+  width: 36rpx;
+  height: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .heart-icon::before {
-  left: 0;
-  transform: rotate(-45deg);
-  transform-origin: bottom right;
+  content: '♥';
+  font-size: 36rpx;
+  color: #9ca3af;
+  line-height: 1;
 }
-.heart-icon::after {
-  right: 0;
-  transform: rotate(45deg);
-  transform-origin: bottom left;
-}
-.heart-icon.favorited::before,
-.heart-icon.favorited::after {
-  background: #ef4444;
-  border-color: #ef4444;
+.heart-icon.favorited::before {
+  color: #ef4444;
 }
 
-/* 更多图标 - 三个点 */
+/* 更多图标 - 分享图标 */
 .more-icon {
-  width: 6rpx;
-  height: 6rpx;
-  background: #1f2937;
-  border-radius: 50%;
+  width: 32rpx;
+  height: 32rpx;
   position: relative;
 }
-.more-icon::before,
+.more-icon::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20rpx;
+  height: 20rpx;
+  border: 3rpx solid #374151;
+  border-radius: 50%;
+}
 .more-icon::after {
   content: '';
   position: absolute;
-  width: 6rpx;
-  height: 6rpx;
-  background: #1f2937;
-  border-radius: 50%;
+  bottom: 4rpx;
+  right: 4rpx;
+  width: 12rpx;
+  height: 3rpx;
+  background: #374151;
+  transform: rotate(45deg);
 }
-.more-icon::before { left: -12rpx; }
-.more-icon::after { right: -12rpx; }
 
 /* 主内容区 */
 .detail-content { flex: 1; display: flex; flex-direction: column; padding-top: calc(env(safe-area-inset-top) + 160rpx); }
@@ -306,12 +310,12 @@ page { background: #FDFBF7; color: #1f2937; }
   border-radius: 8rpx 8rpx 0 0;
 }
 
-/* 弹窗遮罩 */
-.sheet-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.3); backdrop-filter: blur(8rpx); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+/* 弹窗遮罩 - 无动画防止卡顿 */
+.sheet-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.3); z-index: 200; opacity: 0; pointer-events: none; }
 .sheet-mask.show { opacity: 1; pointer-events: auto; }
 
-/* 规格弹窗 */
-.spec-sheet, .color-sheet { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 60rpx 60rpx 0 0; padding: 32rpx; padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); z-index: 201; transform: translateY(100%); transition: transform 0.3s; max-height: 70vh; display: flex; flex-direction: column; }
+/* 规格弹窗 - 无动画防止卡顿 */
+.spec-sheet, .color-sheet { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 40rpx 40rpx 0 0; padding: 32rpx; padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); z-index: 201; transform: translateY(100%); max-height: 70vh; display: flex; flex-direction: column; }
 .spec-sheet.show, .color-sheet.show { transform: translateY(0); }
 .sheet-handle { width: 80rpx; height: 8rpx; background: #e5e7eb; border-radius: 4rpx; margin: 0 auto 20rpx; }
 .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; }
@@ -336,10 +340,10 @@ page { background: #FDFBF7; color: #1f2937; }
 .material-indicator { width: 6rpx; height: 24rpx; background: #22c55e; border-radius: 3rpx; }
 .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16rpx; }
 .color-option { display: flex; flex-direction: column; align-items: center; gap: 8rpx; }
-.color-swatch { width: 80rpx; height: 80rpx; border-radius: 20rpx; border: 3rpx solid transparent; transition: all 0.3s; }
-.color-swatch-img { width: 80rpx; height: 80rpx; border-radius: 20rpx; border: 3rpx solid transparent; transition: all 0.3s; }
+.color-swatch { width: 80rpx; height: 80rpx; border-radius: 20rpx; border: 3rpx solid transparent; }
+.color-swatch-img { width: 80rpx; height: 80rpx; border-radius: 20rpx; border: 3rpx solid transparent; }
 .color-option.active .color-swatch,
-.color-option.active .color-swatch-img { border-color: #1f2937; transform: scale(1.05); box-shadow: 0 0 0 4rpx rgba(31,41,55,0.1); }
+.color-option.active .color-swatch-img { border-color: #22d3ee; box-shadow: 0 0 0 4rpx rgba(34,211,238,0.2); }
 .color-name { font-size: 20rpx; color: #6b7280; text-align: center; }
 .color-option.active .color-name { color: #1f2937; font-weight: 600; }
 

@@ -242,6 +242,183 @@ page {
   font-size: 32rpx;
 }
 
+/* ========== 简洁图标 ========== */
+.icon-calendar, .icon-cart, .icon-clock, .icon-gift, .icon-location, .icon-chat, .icon-globe {
+  width: 32rpx;
+  height: 32rpx;
+  position: relative;
+}
+
+/* 日历图标 */
+.icon-calendar::before {
+  content: '';
+  position: absolute;
+  top: 6rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24rpx;
+  height: 20rpx;
+  border: 3rpx solid #22d3ee;
+  border-radius: 4rpx;
+}
+.icon-calendar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16rpx;
+  height: 3rpx;
+  background: #22d3ee;
+}
+
+/* 购物车图标 */
+.icon-cart::before {
+  content: '';
+  position: absolute;
+  bottom: 2rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22rpx;
+  height: 16rpx;
+  border: 3rpx solid #22d3ee;
+  border-radius: 4rpx 4rpx 8rpx 8rpx;
+  border-top: none;
+}
+.icon-cart::after {
+  content: '';
+  position: absolute;
+  top: 4rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14rpx;
+  height: 8rpx;
+  border: 3rpx solid #22d3ee;
+  border-bottom: none;
+  border-radius: 8rpx 8rpx 0 0;
+}
+
+/* 时钟图标 */
+.icon-clock::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24rpx;
+  height: 24rpx;
+  border: 3rpx solid #9ca3af;
+  border-radius: 50%;
+}
+.icon-clock::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8rpx;
+  height: 3rpx;
+  background: #9ca3af;
+  transform-origin: left center;
+  transform: rotate(-45deg);
+}
+
+/* 礼物图标 */
+.icon-gift::before {
+  content: '';
+  position: absolute;
+  bottom: 2rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24rpx;
+  height: 18rpx;
+  border: 3rpx solid #22d3ee;
+  border-radius: 4rpx;
+}
+.icon-gift::after {
+  content: '';
+  position: absolute;
+  top: 2rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16rpx;
+  height: 8rpx;
+  border: 3rpx solid #22d3ee;
+  border-bottom: none;
+  border-radius: 8rpx 8rpx 0 0;
+}
+
+/* 定位图标 */
+.icon-location::before {
+  content: '';
+  position: absolute;
+  top: 2rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16rpx;
+  height: 16rpx;
+  border: 3rpx solid #22d3ee;
+  border-radius: 50% 50% 50% 0;
+  transform: translateX(-50%) rotate(-45deg);
+}
+.icon-location::after {
+  content: '';
+  position: absolute;
+  top: 8rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6rpx;
+  height: 6rpx;
+  background: #22d3ee;
+  border-radius: 50%;
+}
+
+/* 聊天图标 */
+.icon-chat::before {
+  content: '';
+  position: absolute;
+  top: 4rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24rpx;
+  height: 18rpx;
+  border: 3rpx solid #22d3ee;
+  border-radius: 12rpx;
+}
+.icon-chat::after {
+  content: '';
+  position: absolute;
+  bottom: 2rpx;
+  left: 10rpx;
+  width: 0;
+  height: 0;
+  border-left: 6rpx solid transparent;
+  border-right: 6rpx solid transparent;
+  border-top: 8rpx solid #22d3ee;
+}
+
+/* 地球图标 */
+.icon-globe::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24rpx;
+  height: 24rpx;
+  border: 3rpx solid #22d3ee;
+  border-radius: 50%;
+}
+.icon-globe::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 3rpx;
+  height: 24rpx;
+  background: #22d3ee;
+}
+
 /* ========== 页脚 ========== */
 .footer { 
   margin-top: 48rpx; 

@@ -64,15 +64,9 @@ page {
   height: 100%;
   background: #f0f9ff;
 }
-/* 图片渐变遮罩 */
+/* 图片渐变遮罩 - 已移除，保持图片原色 */
 .image-gradient {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15) 0%, rgba(52, 211, 153, 0.15) 100%);
-  pointer-events: none;
+  display: none;
 }
 .helper-badge {
   position: absolute;
