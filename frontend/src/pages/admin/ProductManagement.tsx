@@ -1510,12 +1510,7 @@ export default function ProductManagement() {
               }
             }
             
-            // 2. 精确匹配商品名（如果没有匹配到SKU）
-            if (!matchedProduct) {
-              matchedProduct = products.find(p => p.name === folderName)
-            }
-            
-            // 3. 商品名+数字后缀匹配SKU（如 G601沙发2 → 商品"G601沙发"的SKU2）
+            // 2. 商品名+数字后缀匹配SKU（如 G601沙发2 → 商品"G601沙发"的SKU2，G601沙发 → SKU1）
             if (!matchedProduct) {
               // 解析文件夹名末尾的数字
               const suffixMatch = folderName.match(/^(.+?)(\d+)?$/)
@@ -1523,20 +1518,33 @@ export default function ProductManagement() {
                 const baseName = suffixMatch[1].trim()  // 基础商品名（如 "G601沙发"）
                 const skuNumber = suffixMatch[2] ? parseInt(suffixMatch[2]) : 1  // SKU编号，默认1
                 
-                // 查找匹配基础名的商品
-                const foundProduct = products.find(p => p.name === baseName)
+                // 查找匹配基础名或完整名的商品
+                let foundProduct = products.find(p => p.name === baseName)
+                // 如果基础名没找到，尝试用完整文件夹名匹配
+                if (!foundProduct) {
+                  foundProduct = products.find(p => p.name === folderName)
+                }
+                
                 if (foundProduct && foundProduct.skus && foundProduct.skus.length > 0) {
-                  const targetSkuIndex = skuNumber - 1  // 转换为0索引
+                  // 如果用完整名匹配到的（没有数字后缀），默认SKU1
+                  const targetSkuIndex = (foundProduct.name === folderName && !suffixMatch[2]) 
+                    ? 0 
+                    : (skuNumber - 1)
+                  
                   if (targetSkuIndex >= 0 && targetSkuIndex < foundProduct.skus.length) {
                     matchedProduct = foundProduct
                     matchedSkuIndex = targetSkuIndex
-                    console.log(`🎯 文件夹 "${folderName}" 通过数字后缀匹配到商品 "${foundProduct.name}" 的 SKU[${targetSkuIndex}]`)
+                    console.log(`🎯 文件夹 "${folderName}" 匹配到商品 "${foundProduct.name}" 的 SKU[${targetSkuIndex}]`)
                   }
+                } else if (foundProduct) {
+                  // 商品没有SKU，直接匹配商品
+                  matchedProduct = foundProduct
+                  console.log(`🎯 文件夹 "${folderName}" 匹配到商品 "${foundProduct.name}"（无SKU）`)
                 }
               }
             }
             
-            // 4. 模糊匹配SKU
+            // 3. 模糊匹配SKU
             if (!matchedProduct) {
               for (const product of products) {
                 if (product.skus && product.skus.length > 0) {
@@ -1556,17 +1564,17 @@ export default function ProductManagement() {
               }
             }
             
-            // 5. 商品名包含文件夹名
+            // 4. 商品名包含文件夹名
             if (!matchedProduct && folderName.length >= 2) {
               matchedProduct = products.find(p => p.name.includes(folderName))
             }
             
-            // 6. 文件夹名包含商品名（商品名至少4个字符）
+            // 5. 文件夹名包含商品名（商品名至少4个字符）
             if (!matchedProduct) {
               matchedProduct = products.find(p => p.name.length >= 4 && folderName.includes(p.name))
             }
             
-            // 7. 如果文件夹名只有数字，尝试匹配商品名以该数字结尾
+            // 6. 如果文件夹名只有数字，尝试匹配商品名以该数字结尾
             if (!matchedProduct && /^\d+$/.test(folderName)) {
               matchedProduct = products.find(p => p.name.endsWith(folderName))
             }
