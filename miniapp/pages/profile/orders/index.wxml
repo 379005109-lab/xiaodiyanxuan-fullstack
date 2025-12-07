@@ -99,6 +99,8 @@
 					<button class="action-btn outline" wx:if="{{item.status===1}}" bindtap="onCancelOrder" data-id="{{item.id}}">取消订单</button>
 					<button class="action-btn primary" wx:if="{{item.status===1}}" bindtap="onPay" data-id="{{item.id}}">去付款</button>
 					<button class="action-btn primary" wx:if="{{item.status===3}}" bindtap="onConfirm" data-id="{{item.id}}">确认收货</button>
+					<!-- 已完成订单显示推荐有礼按钮 -->
+					<button class="action-btn referral" wx:if="{{item.status===4}}" bindtap="onReferral" data-id="{{item.id}}" data-orderno="{{item.orderNo}}" data-amount="{{item.totalPrice}}">推荐有礼</button>
 					<!-- 已取消订单显示删除按钮 -->
 					<button class="action-btn danger" wx:if="{{item.status===5}}" bindtap="onDeleteOrder" data-id="{{item.id}}">删除订单</button>
 				</view>

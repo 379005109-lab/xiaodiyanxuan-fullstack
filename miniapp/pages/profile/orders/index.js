@@ -313,6 +313,13 @@ Page({
 			7: '已退款'
 		}
 		return statusMap[status] || '未知'
+	},
+	// 推荐有礼
+	onReferral(e) {
+		const { id, orderno, amount } = e.currentTarget.dataset
+		wx.navigateTo({
+			url: `/pages/profile/referral/index?orderId=${id}&orderNo=${orderno}&orderAmount=${amount}`
+		})
 	}
 })
 

@@ -1,0 +1,131 @@
+<navigation-bar title="推荐有礼" back="{{true}}" color="black" background="transparent"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y>
+<view class="page">
+  <!-- 统计卡片 -->
+  <view class="stats-card">
+    <view class="stats-row">
+      <view class="stat-item">
+        <text class="stat-value">{{stats.totalReferrals}}</text>
+        <text class="stat-label">总推荐</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{stats.convertedCount}}</text>
+        <text class="stat-label">已成交</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value orange">¥{{stats.totalReward || 0}}</text>
+        <text class="stat-label">已获奖励</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value green">¥{{stats.pendingReward || 0}}</text>
+        <text class="stat-label">待发放</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 标签切换 -->
+  <view class="tabs">
+    <view class="tab {{activeTab === 'form' ? 'active' : ''}}" data-tab="form" bindtap="switchTab">
+      推荐好友
+    </view>
+    <view class="tab {{activeTab === 'list' ? 'active' : ''}}" data-tab="list" bindtap="switchTab">
+      我的推荐
+    </view>
+  </view>
+
+  <!-- 推荐表单 -->
+  <view class="form-section" wx:if="{{activeTab === 'form'}}">
+    <view class="form-card">
+      <view class="form-header">
+        <text class="form-title">推荐好友，成交获5%奖励</text>
+        <text class="form-desc">填写您要推荐的朋友信息，成交后您将获得订单金额5%的奖励</text>
+      </view>
+
+      <!-- 关联订单 -->
+      <view class="order-info" wx:if="{{orderId}}">
+        <text class="order-label">关联订单</text>
+        <view class="order-detail">
+          <text class="order-no">{{orderNo}}</text>
+          <text class="order-amount">¥{{orderAmount}}</text>
+        </view>
+      </view>
+
+      <!-- 表单项 -->
+      <view class="form-item">
+        <text class="form-label">被推荐人姓名 <text class="required">*</text></text>
+        <input 
+          class="form-input" 
+          placeholder="请输入朋友姓名"
+          value="{{refereeName}}"
+          bindinput="onInputName"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">联系电话 <text class="required">*</text></text>
+        <input 
+          class="form-input" 
+          type="number"
+          maxlength="11"
+          placeholder="请输入朋友手机号"
+          value="{{refereePhone}}"
+          bindinput="onInputPhone"
+        />
+      </view>
+
+      <view class="form-item">
+        <text class="form-label">备注说明</text>
+        <textarea 
+          class="form-textarea" 
+          placeholder="可以补充一些信息，如朋友的需求、预算等"
+          value="{{refereeRemark}}"
+          bindinput="onInputRemark"
+          maxlength="200"
+        />
+      </view>
+
+      <button 
+        class="submit-btn {{submitting ? 'disabled' : ''}}" 
+        bindtap="submitReferral"
+        disabled="{{submitting}}"
+      >
+        {{submitting ? '提交中...' : '提交推荐'}}
+      </button>
+    </view>
+
+    <!-- 规则说明 -->
+    <view class="rules-card">
+      <view class="rules-title">📋 推荐规则</view>
+      <view class="rules-list">
+        <view class="rule-item">1. 推荐的朋友下单成交后，您可获得该订单金额的5%作为奖励</view>
+        <view class="rule-item">2. 奖励将在订单完成后发放，请保持联系方式畅通</view>
+        <view class="rule-item">3. 同一手机号只能被推荐一次</view>
+        <view class="rule-item">4. 最终解释权归小迪严选所有</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 推荐列表 -->
+  <view class="list-section" wx:if="{{activeTab === 'list'}}">
+    <view class="loading-text" wx:if="{{loading}}">加载中...</view>
+    <view class="empty-text" wx:elif="{{referrals.length === 0}}">暂无推荐记录</view>
+    <view class="referral-list" wx:else>
+      <view class="referral-item" wx:for="{{referrals}}" wx:key="_id">
+        <view class="referral-header">
+          <view class="referral-name">{{item.refereeName}}</view>
+          <view class="referral-status status-{{item.status}}">
+            {{item.status === 'pending' ? '待跟进' : item.status === 'contacted' ? '已联系' : item.status === 'converted' ? '已成交' : item.status === 'rewarded' ? '已发奖' : '无效'}}
+          </view>
+        </view>
+        <view class="referral-phone">{{item.refereePhone}}</view>
+        <view class="referral-footer">
+          <text class="referral-date">{{item.createdAt}}</text>
+          <text class="referral-reward" wx:if="{{item.status === 'converted' || item.status === 'rewarded'}}">
+            奖励: ¥{{item.rewardAmount}}
+          </text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+</scroll-view>

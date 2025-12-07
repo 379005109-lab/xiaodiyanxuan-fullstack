@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Eye, Truck, CheckCircle, Package } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '../../utils/api';
+import apiClient from '@/lib/apiClient';
 
 interface ManufacturerOrder {
   _id: string;
@@ -70,7 +70,7 @@ export default function ManufacturerOrderManagement() {
       if (keyword) params.append('keyword', keyword);
       if (status) params.append('status', status);
 
-      const res = await api.get(`/api/manufacturer-orders?${params}`);
+      const res = await apiClient.get(`/api/manufacturer-orders?${params}`);
       if (res.data.success) {
         setOrders(res.data.data);
         setTotal(res.data.pagination.total);
@@ -94,7 +94,7 @@ export default function ManufacturerOrderManagement() {
 
   const handleUpdateStatus = async (id: string, newStatus: string, extra?: object) => {
     try {
-      const res = await api.put(`/api/manufacturer-orders/${id}/status`, { status: newStatus, ...extra });
+      const res = await apiClient.put(`/api/manufacturer-orders/${id}/status`, { status: newStatus, ...extra });
       if (res.data.success) {
         toast.success('状态更新成功');
         fetchOrders();

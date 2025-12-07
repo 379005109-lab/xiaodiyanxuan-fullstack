@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Eye, CheckCircle, DollarSign, XCircle, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '../../utils/api';
+import apiClient from '@/lib/apiClient';
 
 interface Referral {
   _id: string;
@@ -69,7 +69,7 @@ export default function ReferralManagement() {
       if (keyword) params.append('keyword', keyword);
       if (status) params.append('status', status);
 
-      const res = await api.get(`/api/referrals?${params}`);
+      const res = await apiClient.get(`/api/referrals?${params}`);
       if (res.data.success) {
         setReferrals(res.data.data);
         setTotal(res.data.pagination.total);
@@ -93,7 +93,7 @@ export default function ReferralManagement() {
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await api.put(`/api/referrals/${id}`, { status: newStatus });
+      const res = await apiClient.put(`/api/referrals/${id}`, { status: newStatus });
       if (res.data.success) {
         toast.success('状态更新成功');
         fetchReferrals();
@@ -107,7 +107,7 @@ export default function ReferralManagement() {
   const handleAddNote = async () => {
     if (!selectedReferral || !followUpNote.trim()) return;
     try {
-      const res = await api.put(`/api/referrals/${selectedReferral._id}`, { 
+      const res = await apiClient.put(`/api/referrals/${selectedReferral._id}`, { 
         followUpNote: followUpNote.trim() 
       });
       if (res.data.success) {
@@ -124,7 +124,7 @@ export default function ReferralManagement() {
 
   const handlePayReward = async (id: string) => {
     try {
-      const res = await api.put(`/api/referrals/${id}`, { 
+      const res = await apiClient.put(`/api/referrals/${id}`, { 
         rewardStatus: 'paid',
         status: 'rewarded'
       });
@@ -142,7 +142,7 @@ export default function ReferralManagement() {
     if (!selectedReferral || !convertedOrderNo.trim()) return;
     try {
       // 这里需要先通过订单号查询订单ID
-      const res = await api.put(`/api/referrals/${selectedReferral._id}`, { 
+      const res = await apiClient.put(`/api/referrals/${selectedReferral._id}`, { 
         status: 'converted',
         // convertedOrderId 需要后端根据订单号查询
       });

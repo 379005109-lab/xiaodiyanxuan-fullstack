@@ -18,6 +18,7 @@
     "pages/profile/service/index",
     "pages/profile/cart/index",
     "pages/profile/booking/index",
+    "pages/profile/referral/index",
     "pages/settings/language/index"
   ],
   "window": {

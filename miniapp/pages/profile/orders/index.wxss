@@ -47,6 +47,7 @@ custom-tab-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; }
 .action-btn { height: 64rpx; padding: 0 32rpx; border-radius: 32rpx; font-size: 26rpx; display: flex; align-items: center; justify-content: center; line-height: 1; }
 .action-btn.outline { background: #FFFFFF; color: #DC2626; border: 1rpx solid #DC2626; }
 .action-btn.primary { background: var(--color-primary); color: #FFFFFF; border: none; }
+.action-btn.referral { background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); color: #FFFFFF; border: none; }
 .action-btn::after { display: none; }
 
 /* 空状态 */
