@@ -1566,8 +1566,8 @@ export default function ProductManagement() {
             
             if (uploadedUrls.length > 0) {
               // 重新获取最新的商品数据，避免并发更新冲突
-              const freshProducts = await getAllProducts()
-              const freshProduct = freshProducts.find(p => p._id === matchedProduct._id)
+              const freshProductData = await getProductById(matchedProduct._id)
+              const freshProduct = freshProductData
               if (!freshProduct) {
                 console.error(`商品 ${matchedProduct.name} 不存在`)
                 fail++
