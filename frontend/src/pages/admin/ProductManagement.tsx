@@ -1476,14 +1476,26 @@ export default function ProductManagement() {
                 const skuIndex = product.skus.findIndex(sku => {
                   const cleanSpec = (sku.spec || '').trim().replace(/\s+/g, '')
                   const cleanCode = (sku.code || '').trim().replace(/\s+/g, '')
-                  // 只做精确匹配
-                  return cleanSpec === cleanFolderName || cleanCode === cleanFolderName ||
-                         sku.spec === folderName || sku.code === folderName
+                  // 精确匹配
+                  if (cleanSpec === cleanFolderName || cleanCode === cleanFolderName ||
+                      sku.spec === folderName || sku.code === folderName) {
+                    return true
+                  }
+                  // 前缀匹配（如 "G621B床" 匹配 "G621B床（1.8m）"）
+                  // 确保前缀后面是括号或没有更多内容，避免 G621床 匹配到 G621床头柜
+                  if (cleanSpec.startsWith(cleanFolderName)) {
+                    const remainder = cleanSpec.slice(cleanFolderName.length)
+                    // 如果剩余部分以括号开头或为空，则匹配
+                    if (remainder === '' || remainder.startsWith('（') || remainder.startsWith('(')) {
+                      return true
+                    }
+                  }
+                  return false
                 })
                 if (skuIndex >= 0) {
                   matchedProduct = product
                   matchedSkuIndex = skuIndex
-                  console.log(`🎯 文件夹 "${folderName}" 精确匹配到商品 "${product.name}" 的 SKU[${skuIndex}] 规格="${product.skus[skuIndex].spec}" 型号="${product.skus[skuIndex].code}"`)
+                  console.log(`🎯 文件夹 "${folderName}" 匹配到商品 "${product.name}" 的 SKU[${skuIndex}] 规格="${product.skus[skuIndex].spec}"`)
                   break
                 }
               }
