@@ -1463,12 +1463,17 @@ export default function ProductManagement() {
             let matchedSkuIndex: number = -1  // 匹配到的SKU索引，-1表示匹配整个商品
             
             // 1. 优先精确匹配SKU规格（如 G621床 匹配到 spec="G621床" 的SKU）
+            const cleanFolderName = folderName.trim().replace(/\s+/g, '')  // 去除所有空格
+            console.log(`🔍 尝试匹配文件夹: "${folderName}" (清理后: "${cleanFolderName}")`)
+            
             for (const product of products) {
               if (product.skus && product.skus.length > 0) {
-                const skuIndex = product.skus.findIndex(sku => 
-                  sku.spec === folderName ||  // 精确匹配规格
-                  sku.code === folderName     // 精确匹配型号
-                )
+                const skuIndex = product.skus.findIndex(sku => {
+                  const cleanSpec = (sku.spec || '').trim().replace(/\s+/g, '')
+                  const cleanCode = (sku.code || '').trim().replace(/\s+/g, '')
+                  return cleanSpec === cleanFolderName || cleanCode === cleanFolderName ||
+                         sku.spec === folderName || sku.code === folderName
+                })
                 if (skuIndex >= 0) {
                   matchedProduct = product
                   matchedSkuIndex = skuIndex
@@ -1554,8 +1559,9 @@ export default function ProductManagement() {
                 await updateProduct(matchedProduct._id, { skus: updatedSkus })
                 console.log(`✅ ${zipFileName} -> "${matchedProduct.name}" SKU[${matchedSkuIndex}] 导入 ${uploadedUrls.length} 张图片`)
               } else {
-                // 更新商品主图和所有SKU图片
-                const newImages = [...uploadedUrls, ...(matchedProduct.images || [])]
+                // 更新商品主图（只用第一张）和所有SKU图片（用全部）
+                const mainImage = uploadedUrls[0]  // 商品详情页主图只需要1张
+                const newImages = [mainImage, ...(matchedProduct.images || []).filter(img => img !== mainImage)]
                 const updatedSkus = (matchedProduct.skus || []).map(sku => ({
                   ...sku,
                   images: [...uploadedUrls, ...(sku.images || [])]
@@ -1565,7 +1571,7 @@ export default function ProductManagement() {
                   images: newImages,
                   skus: updatedSkus
                 })
-                console.log(`✅ ${zipFileName} -> "${matchedProduct.name}" 导入 ${uploadedUrls.length} 张图片到主图和所有SKU`)
+                console.log(`✅ ${zipFileName} -> "${matchedProduct.name}" 主图1张 + SKU各${uploadedUrls.length}张`)
               }
               success++
             }
