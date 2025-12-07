@@ -1584,7 +1584,7 @@ export default function ProductManagement() {
               }
               
               if (matchedSkuIndex >= 0) {
-                // 只更新匹配到的SKU图片
+                // 更新匹配到的SKU图片
                 const updatedSkus = freshProduct.skus!.map((sku, idx) => {
                   if (idx === matchedSkuIndex) {
                     return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
@@ -1592,8 +1592,16 @@ export default function ProductManagement() {
                   return sku
                 })
                 
-                await updateProduct(freshProduct._id, { skus: updatedSkus })
-                console.log(`✅ ${zipFileName} -> "${freshProduct.name}" SKU[${matchedSkuIndex}] 导入 ${uploadedUrls.length} 张图片`)
+                // 如果是第一个SKU（index 0），同时更新商品主图
+                if (matchedSkuIndex === 0) {
+                  const mainImage = uploadedUrls[0]
+                  const newImages = [mainImage, ...(freshProduct.images || []).filter(img => img !== mainImage)]
+                  await updateProduct(freshProduct._id, { images: newImages, skus: updatedSkus })
+                  console.log(`✅ ${zipFileName} -> "${freshProduct.name}" SKU[0] 导入 ${uploadedUrls.length} 张图片 + 更新商品主图`)
+                } else {
+                  await updateProduct(freshProduct._id, { skus: updatedSkus })
+                  console.log(`✅ ${zipFileName} -> "${freshProduct.name}" SKU[${matchedSkuIndex}] 导入 ${uploadedUrls.length} 张图片`)
+                }
               } else {
                 // 更新商品主图（只用第一张）和所有SKU图片（用全部）
                 const mainImage = uploadedUrls[0]  // 商品详情页主图只需要1张
