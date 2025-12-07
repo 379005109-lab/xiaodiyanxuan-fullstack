@@ -70,7 +70,10 @@ const orderSchema = new mongoose.Schema({
   adminNote: { type: String, default: '' },
   // 退款关联
   refundId: { type: mongoose.Schema.Types.ObjectId, ref: 'Refund' },
-  refundStatus: { type: String, enum: ['pending', 'approved', 'rejected', 'completed', null], default: null }
+  refundStatus: { type: String, enum: ['pending', 'approved', 'rejected', 'completed', null], default: null },
+  // 订单分发状态
+  dispatchStatus: { type: String, enum: ['pending', 'dispatched', null], default: null },
+  dispatchedAt: Date
 })
 
 orderSchema.index({ userId: 1 })

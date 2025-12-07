@@ -81,6 +81,8 @@ app.use('/api/buying-service-requests', require('./routes/buyingService'))
 app.use('/api/refunds', require('./routes/refunds'))
 app.use('/api/browse-history', require('./routes/browseHistory'))
 app.use('/api/manufacturers', require('./routes/manufacturers'))
+app.use('/api/referrals', require('./routes/referral'))
+app.use('/api/manufacturer-orders', require('./routes/manufacturerOrder'))
 
 // 微信小程序专用接口
 app.use('/api/miniapp', require('./routes/miniapp'))

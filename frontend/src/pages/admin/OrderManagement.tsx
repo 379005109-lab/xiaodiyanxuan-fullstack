@@ -736,6 +736,48 @@ export default function OrderManagement() {
                       </button>
                     </div>
 
+                    {/* 订单分发按钮 */}
+                    {!(order as any).dispatchStatus && (
+                      <div className="p-3 rounded-lg bg-purple-50 border border-purple-100">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            if (!window.confirm('确定要将此订单分发给厂家吗？')) return
+                            try {
+                              const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/manufacturer-orders/dispatch/${order._id}`, {
+                                method: 'POST',
+                                headers: {
+                                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                  'Content-Type': 'application/json'
+                                }
+                              })
+                              const data = await response.json()
+                              if (data.success) {
+                                toast.success(data.message || '订单已分发')
+                                loadOrders()
+                              } else {
+                                toast.error(data.message || '分发失败')
+                              }
+                            } catch (error) {
+                              toast.error('分发失败')
+                            }
+                          }}
+                          className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 font-medium"
+                        >
+                          <Truck className="h-4 w-4" />
+                          分发给厂家
+                        </button>
+                      </div>
+                    )}
+                    {(order as any).dispatchStatus === 'dispatched' && (
+                      <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+                        <div className="flex items-center justify-center gap-2 text-green-700 font-medium">
+                          <CheckCircle2 className="h-4 w-4" />
+                          已分发给厂家
+                        </div>
+                      </div>
+                    )}
+
                     {/* 取消申请处理 */}
                     {(order as any).cancelRequest && (
                       <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
