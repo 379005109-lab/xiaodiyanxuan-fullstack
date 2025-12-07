@@ -1565,31 +1565,40 @@ export default function ProductManagement() {
             }
             
             if (uploadedUrls.length > 0) {
+              // 重新获取最新的商品数据，避免并发更新冲突
+              const freshProducts = await getAllProducts()
+              const freshProduct = freshProducts.find(p => p._id === matchedProduct._id)
+              if (!freshProduct) {
+                console.error(`商品 ${matchedProduct.name} 不存在`)
+                fail++
+                continue
+              }
+              
               if (matchedSkuIndex >= 0) {
                 // 只更新匹配到的SKU图片
-                const updatedSkus = matchedProduct.skus!.map((sku, idx) => {
+                const updatedSkus = freshProduct.skus!.map((sku, idx) => {
                   if (idx === matchedSkuIndex) {
                     return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
                   }
                   return sku
                 })
                 
-                await updateProduct(matchedProduct._id, { skus: updatedSkus })
-                console.log(`✅ ${zipFileName} -> "${matchedProduct.name}" SKU[${matchedSkuIndex}] 导入 ${uploadedUrls.length} 张图片`)
+                await updateProduct(freshProduct._id, { skus: updatedSkus })
+                console.log(`✅ ${zipFileName} -> "${freshProduct.name}" SKU[${matchedSkuIndex}] 导入 ${uploadedUrls.length} 张图片`)
               } else {
                 // 更新商品主图（只用第一张）和所有SKU图片（用全部）
                 const mainImage = uploadedUrls[0]  // 商品详情页主图只需要1张
-                const newImages = [mainImage, ...(matchedProduct.images || []).filter(img => img !== mainImage)]
-                const updatedSkus = (matchedProduct.skus || []).map(sku => ({
+                const newImages = [mainImage, ...(freshProduct.images || []).filter(img => img !== mainImage)]
+                const updatedSkus = (freshProduct.skus || []).map(sku => ({
                   ...sku,
                   images: [...uploadedUrls, ...(sku.images || [])]
                 }))
                 
-                await updateProduct(matchedProduct._id, { 
+                await updateProduct(freshProduct._id, { 
                   images: newImages,
                   skus: updatedSkus
                 })
-                console.log(`✅ ${zipFileName} -> "${matchedProduct.name}" 主图1张 + SKU各${uploadedUrls.length}张`)
+                console.log(`✅ ${zipFileName} -> "${freshProduct.name}" 主图1张 + SKU各${uploadedUrls.length}张`)
               }
               success++
             }
@@ -1601,20 +1610,15 @@ export default function ProductManagement() {
         return { success, fail, notMatched }
       }
       
-      // 并行处理所有ZIP（最多5个同时）
-      const batchSize = 5
-      for (let i = 0; i < zipFiles.length; i += batchSize) {
-        const batch = zipFiles.slice(i, i + batchSize)
-        const results = await Promise.all(batch.map(processZip))
-        
-        for (const result of results) {
-          totalSuccess += result.success
-          totalFail += result.fail
-          allNotMatched.push(...result.notMatched)
-        }
+      // 串行处理所有ZIP（避免同一商品的SKU更新冲突）
+      for (let i = 0; i < zipFiles.length; i++) {
+        const result = await processZip(zipFiles[i])
+        totalSuccess += result.success
+        totalFail += result.fail
+        allNotMatched.push(...result.notMatched)
         
         // 更新进度
-        toast.loading(`已处理 ${Math.min(i + batchSize, zipFiles.length)}/${zipFiles.length} 个压缩包...`, { id: toastId })
+        toast.loading(`已处理 ${i + 1}/${zipFiles.length} 个压缩包...`, { id: toastId })
       }
       
       toast.dismiss(toastId)
