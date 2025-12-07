@@ -328,24 +328,19 @@ export default function ComparePage() {
                       let fabricDisplay = '-'
                       let fabricImage: string | undefined
                       
+                      // 判断商品是否有面料选项
+                      const hasFabricOption = material && typeof material === 'object' && (material as any).fabric
+                      
                       if (item.selectedMaterials?.fabric) {
                         fabricDisplay = item.selectedMaterials.fabric
                         const materialInfo = materials.find(m => m.name === item.selectedMaterials?.fabric)
                         fabricImage = materialInfo?.image
-                      } else if (material) {
-                        if (typeof material === 'string') {
-                          fabricDisplay = material
-                          const materialInfo = materials.find(m => m.name === material)
-                          fabricImage = materialInfo?.image
-                        } else if (typeof material === 'object') {
-                          const materialObj = material as { fabric?: string | string[] }
-                          if (materialObj.fabric) {
-                            const fabricValue = Array.isArray(materialObj.fabric) ? materialObj.fabric[0] : materialObj.fabric
-                            fabricDisplay = fabricValue || '-'
-                            const materialInfo = materials.find(m => m.name === fabricValue)
-                            fabricImage = materialInfo?.image
-                          }
-                        }
+                      } else if (hasFabricOption) {
+                        // 商品有面料选项但用户未选
+                        fabricDisplay = '未选面料'
+                      } else {
+                        // 商品本身没有面料选项
+                        fabricDisplay = '-'
                       }
                       
                       // 获取加价信息
@@ -374,7 +369,7 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">
+                            <div className={`text-sm ${fabricDisplay === '未选面料' ? 'text-orange-500 font-medium' : 'text-gray-700'}`}>
                               {fabricDisplay}
                               {fabricUpgradePrice > 0 && (
                                 <span className="block text-red-600 font-semibold text-xs mt-1">+¥{fabricUpgradePrice}</span>
@@ -394,18 +389,19 @@ export default function ComparePage() {
                       let fillingDisplay = '-'
                       let fillingImage: string | undefined
                       
+                      // 判断商品是否有填充选项
+                      const hasFillingOption = material && typeof material === 'object' && (material as any).filling
+                      
                       if (item.selectedMaterials?.filling) {
                         fillingDisplay = item.selectedMaterials.filling
                         const materialInfo = materials.find(m => m.name === item.selectedMaterials?.filling)
                         fillingImage = materialInfo?.image
-                      } else if (material && typeof material === 'object') {
-                        const materialObj = material as { filling?: string | string[] }
-                        if (materialObj.filling) {
-                          const fillingValue = Array.isArray(materialObj.filling) ? materialObj.filling[0] : materialObj.filling
-                          fillingDisplay = fillingValue || '-'
-                          const materialInfo = materials.find(m => m.name === fillingValue)
-                          fillingImage = materialInfo?.image
-                        }
+                      } else if (hasFillingOption) {
+                        // 商品有填充选项但用户未选
+                        fillingDisplay = '未选填充'
+                      } else {
+                        // 商品本身没有填充选项
+                        fillingDisplay = '-'
                       }
                       
                       // 获取加价信息
@@ -434,7 +430,7 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">
+                            <div className={`text-sm ${fillingDisplay === '未选填充' ? 'text-orange-500 font-medium' : 'text-gray-700'}`}>
                               {fillingDisplay}
                               {fillingUpgradePrice > 0 && (
                                 <span className="block text-red-600 font-semibold text-xs mt-1">+¥{fillingUpgradePrice}</span>
@@ -454,18 +450,19 @@ export default function ComparePage() {
                       let frameDisplay = '-'
                       let frameImage: string | undefined
                       
+                      // 判断商品是否有框架选项
+                      const hasFrameOption = material && typeof material === 'object' && (material as any).frame
+                      
                       if (item.selectedMaterials?.frame) {
                         frameDisplay = item.selectedMaterials.frame
                         const materialInfo = materials.find(m => m.name === item.selectedMaterials?.frame)
                         frameImage = materialInfo?.image
-                      } else if (material && typeof material === 'object') {
-                        const materialObj = material as { frame?: string | string[] }
-                        if (materialObj.frame) {
-                          const frameValue = Array.isArray(materialObj.frame) ? materialObj.frame[0] : materialObj.frame
-                          frameDisplay = frameValue || '-'
-                          const materialInfo = materials.find(m => m.name === frameValue)
-                          frameImage = materialInfo?.image
-                        }
+                      } else if (hasFrameOption) {
+                        // 商品有框架选项但用户未选
+                        frameDisplay = '未选框架'
+                      } else {
+                        // 商品本身没有框架选项
+                        frameDisplay = '-'
                       }
                       
                       // 获取加价信息
@@ -494,7 +491,7 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">
+                            <div className={`text-sm ${frameDisplay === '未选框架' ? 'text-orange-500 font-medium' : 'text-gray-700'}`}>
                               {frameDisplay}
                               {frameUpgradePrice > 0 && (
                                 <span className="block text-red-600 font-semibold text-xs mt-1">+¥{frameUpgradePrice}</span>
@@ -514,18 +511,19 @@ export default function ComparePage() {
                       let legDisplay = '-'
                       let legImage: string | undefined
                       
+                      // 判断商品是否有脚架选项
+                      const hasLegOption = material && typeof material === 'object' && (material as any).leg
+                      
                       if (item.selectedMaterials?.leg) {
                         legDisplay = item.selectedMaterials.leg
                         const materialInfo = materials.find(m => m.name === item.selectedMaterials?.leg)
                         legImage = materialInfo?.image
-                      } else if (material && typeof material === 'object') {
-                        const materialObj = material as { leg?: string | string[] }
-                        if (materialObj.leg) {
-                          const legValue = Array.isArray(materialObj.leg) ? materialObj.leg[0] : materialObj.leg
-                          legDisplay = legValue || '-'
-                          const materialInfo = materials.find(m => m.name === legValue)
-                          legImage = materialInfo?.image
-                        }
+                      } else if (hasLegOption) {
+                        // 商品有脚架选项但用户未选
+                        legDisplay = '未选脚架'
+                      } else {
+                        // 商品本身没有脚架选项
+                        legDisplay = '-'
                       }
                       
                       // 获取加价信息
@@ -554,7 +552,7 @@ export default function ComparePage() {
                                 className="w-16 h-16 object-cover rounded border border-gray-200"
                               />
                             )}
-                            <div className="text-sm text-gray-700">
+                            <div className={`text-sm ${legDisplay === '未选脚架' ? 'text-orange-500 font-medium' : 'text-gray-700'}`}>
                               {legDisplay}
                               {legUpgradePrice > 0 && (
                                 <span className="block text-red-600 font-semibold text-xs mt-1">+¥{legUpgradePrice}</span>
@@ -568,43 +566,6 @@ export default function ComparePage() {
                 </>
               )}
               
-              {/* 如果材质是字符串格式，显示为单行 */}
-              {compareItems.some(item => {
-                const material = item.sku.material
-                return !material || typeof material === 'string' || (
-                  typeof material === 'object' && 
-                  !(material as any).fabric && !(material as any).filling && !(material as any).frame && !(material as any).leg
-                )
-              }) && (
-                <tr className="border-b border-gray-200">
-                  <td className="py-4 px-4 text-sm font-medium bg-gray-50">材质</td>
-                  {compareItems.map((item) => {
-                    const material = item.sku.material
-                    let materialDisplay = '-'
-                    
-                    if (material) {
-                      if (typeof material === 'string') {
-                        materialDisplay = material
-                      } else if (typeof material === 'object') {
-                        const materialObj = material as { fabric?: string; filling?: string; frame?: string; leg?: string }
-                        const parts: string[] = []
-                        if (materialObj.fabric) parts.push(`面料: ${materialObj.fabric}`)
-                        if (materialObj.filling) parts.push(`填充: ${materialObj.filling}`)
-                        if (materialObj.frame) parts.push(`框架: ${materialObj.frame}`)
-                        if (materialObj.leg) parts.push(`脚架: ${materialObj.leg}`)
-                        materialDisplay = parts.length > 0 ? parts.join(', ') : '-'
-                      }
-                    }
-                    
-                    return (
-                      <td key={item.compareItemId} className="py-4 px-4 text-center">
-                        <div className="text-sm text-gray-700">{materialDisplay}</div>
-                      </td>
-                    )
-                  })}
-                </tr>
-              )}
-
               {/* 尺寸 */}
               <tr className="border-b border-gray-200">
                 <td className="py-4 px-4 text-sm font-medium bg-gray-50">尺寸</td>
