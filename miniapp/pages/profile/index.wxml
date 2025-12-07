@@ -60,6 +60,11 @@
 
 		<!-- 更多功能列表 -->
 		<view class="list">
+			<view class="cell" bindtap="goReferral">
+				<view class="cell-icon-box"><text class="cell-icon-simple">🎁</text></view>
+				<text class="cell-text">推荐有奖</text>
+				<text class="cell-arrow">›</text>
+			</view>
 			<view class="cell" bindtap="goAddress">
 				<view class="cell-icon-box"><text class="cell-icon-simple">📍</text></view>
 				<text class="cell-text">地址管理</text>

@@ -637,11 +637,14 @@ Page({
 					const fill = this.data.fills[this.data.fillIndex] || {}
 					const frame = this.data.frames[this.data.frameIndex] || {}
 					const leg = this.data.legs[this.data.legIndex] || {}
+					// 获取面料图片（优先使用颜色图片，其次使用材质组图片）
+					const fabricImg = color.img || mg.img || ''
 					cart.unshift({
 						id: id,
 						name: goods.name,
 						price: totalPrice,
 						thumb: images[0] || 'https://picsum.photos/200/200?random=1',
+						fabricImg: fabricImg,
 						count: 1,
 						sizeName: size.name || '',
 						dims: size.dims || '',

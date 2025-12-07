@@ -63,6 +63,9 @@ Page({
 	goAddress() {
 		wx.navigateTo({ url: '/pages/profile/address/index' })
 	},
+	goReferral() {
+		wx.navigateTo({ url: '/pages/profile/referral/index' })
+	},
 	goService() {
 		wx.navigateTo({ url: '/pages/profile/service/index' })
 	},
