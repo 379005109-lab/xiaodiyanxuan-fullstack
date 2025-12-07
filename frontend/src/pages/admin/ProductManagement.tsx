@@ -1466,11 +1466,17 @@ export default function ProductManagement() {
             const cleanFolderName = folderName.trim().replace(/\s+/g, '')  // 去除所有空格
             console.log(`🔍 尝试匹配文件夹: "${folderName}" (清理后: "${cleanFolderName}")`)
             
+            // 打印所有商品的SKU规格，帮助调试
+            console.log('📋 所有SKU规格:', products.flatMap(p => 
+              (p.skus || []).map(sku => `${p.name} -> spec="${sku.spec}" code="${sku.code}"`)
+            ).slice(0, 20))
+            
             for (const product of products) {
               if (product.skus && product.skus.length > 0) {
                 const skuIndex = product.skus.findIndex(sku => {
                   const cleanSpec = (sku.spec || '').trim().replace(/\s+/g, '')
                   const cleanCode = (sku.code || '').trim().replace(/\s+/g, '')
+                  // 只做精确匹配
                   return cleanSpec === cleanFolderName || cleanCode === cleanFolderName ||
                          sku.spec === folderName || sku.code === folderName
                 })
