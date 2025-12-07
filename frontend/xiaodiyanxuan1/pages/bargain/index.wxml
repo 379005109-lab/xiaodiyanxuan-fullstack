@@ -58,7 +58,7 @@
 					</view>
 					<view class="my-bargain-btns">
 						<button class="my-bargain-btn invite" open-type="share" data-id="{{item.id}}">邀请好友助力</button>
-						<button class="my-bargain-btn cancel" bindtap="onCancelMyBargain" data-id="{{item.id}}" catchtap="">取消</button>
+						<button class="my-bargain-btn cancel" catchtap="onCancelMyBargain" data-id="{{item.id}}">取消</button>
 					</view>
 				</view>
 			</block>

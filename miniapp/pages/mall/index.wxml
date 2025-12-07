@@ -32,8 +32,8 @@
 			<view class="f-item {{sortKey==='comprehensive'?'active':''}}" data-key="comprehensive" bindtap="onTapSort">综合</view>
 			<view class="f-item {{sortKey==='sales'?'active':''}}" data-key="sales" bindtap="onTapSort">销量</view>
 			<view class="f-item {{sortKey==='price'?'active':''}}" data-key="price" bindtap="onTapPrice">价格<text class="arrow">{{priceAsc? '↑' : '↓'}}</text></view>
-			<view class="f-item" bindtap="openCategory">类别</view>
-			<view class="f-item {{showStylePopup?'active':''}}" bindtap="toggleStyle">风格</view>
+			<view class="f-item {{selectedCategoryName && selectedCategoryName !== '全部' ? 'active' : ''}}" bindtap="openCategory">类别{{selectedCategoryName && selectedCategoryName !== '全部' ? '·'+selectedCategoryName : ''}}</view>
+			<view class="f-item {{selectedStyle ? 'active' : ''}} {{showStylePopup?'active':''}}" bindtap="toggleStyle">风格{{selectedStyle ? '·'+selectedStyle : ''}}</view>
 			<!-- 风格弹出 -->
 			<view class="style-popup" wx:if="{{showStylePopup}}">
 				<view class="style-list">

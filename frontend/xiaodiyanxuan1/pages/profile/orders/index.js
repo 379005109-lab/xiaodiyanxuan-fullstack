@@ -7,7 +7,7 @@ Page({
 		currentTab: 0, // 0:全部, 1:待付款, 2:待发货, 3:待收货, 4:已完成, 5:已取消, 6:售后
 		orders: [],
 		filteredOrders: [],
-		loading: false,
+		loading: true, // 默认加载中
 		refundCount: 0, // 售后订单数量
 		// 取消订单弹窗
 		showCancelModal: false,

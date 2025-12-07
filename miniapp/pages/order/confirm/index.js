@@ -95,6 +95,8 @@ Page({
 						orderType: 'cart',
 						cartGoodsList: cartGoodsList,
 						totalPrice: data.totalPrice || 0
+					}, () => {
+						this.calculateTotalPrice()
 					})
 				} else {
 					this.calculateTotalPrice()
@@ -149,7 +151,13 @@ Page({
 		if (this.data.orderType === 'package') {
 			// 套餐一口价
 			baseTotalPrice = this.data.packageOrder.totalPrice || 0
+		} else if (this.data.orderType === 'cart') {
+			// 购物车订单：计算所有商品价格
+			baseTotalPrice = (this.data.cartGoodsList || []).reduce((sum, item) => {
+				return sum + (item.price || 0) * (item.count || item.quantity || 1)
+			}, 0)
 		} else {
+			// 普通订单
 			baseTotalPrice = this.data.order.totalPrice || 0
 		}
 		let recommendationTotalPrice = (this.data.addedRecommendations || []).reduce((sum, r) => sum + (r.price || 0) * (r.count || 1), 0)

@@ -3,7 +3,7 @@
 	<!-- 页面标题 -->
 	<view class="page-header">
 		<view class="page-title">我的订单</view>
-		<view class="page-subtitle">MY ORDERS ({{filteredOrders.length}})</view>
+		<view class="page-subtitle">MY ORDERS ({{loading ? '...' : filteredOrders.length}})</view>
 	</view>
 	
 	<!-- 标签筛选 -->
