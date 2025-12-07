@@ -181,6 +181,29 @@ router.post('/', auth, async (req, res) => {
   }
 })
 
+// DELETE /api/bargains/:id - 取消我的砍价
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const bargain = await Bargain.findOne({ _id: req.params.id, userId: req.userId })
+    if (!bargain) {
+      return res.status(404).json({ success: false, message: '砍价活动不存在' })
+    }
+    
+    if (bargain.status !== 'active') {
+      return res.status(400).json({ success: false, message: '只能取消进行中的砍价' })
+    }
+    
+    bargain.status = 'cancelled'
+    bargain.cancelledAt = new Date()
+    await bargain.save()
+    
+    res.json({ success: true, message: '已取消砍价' })
+  } catch (error) {
+    console.error('取消砍价失败:', error)
+    res.status(500).json({ success: false, message: '取消失败' })
+  }
+})
+
 // POST /api/bargains/:id/help - 帮好友砍价
 router.post('/:id/help', auth, async (req, res) => {
   try {

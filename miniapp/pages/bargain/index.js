@@ -33,19 +33,43 @@ Page({
 		this.setData({ loading: true })
 		try {
 			const res = await api.getBargainGoods()
-			const goods = (res.data || []).map(item => ({
-				id: item._id,
-				name: item.name || item.productName,
-				cover: item.coverImage || `https://picsum.photos/400/500?random=${Date.now()}`,
-				origin: item.originalPrice || 0,
-				price: item.targetPrice || 0,
-				cut: 0,  // 商品列表显示的是可砍的空间
-				cutCount: item.totalBargains || 0,  // 显示多少人已参与
-				style: item.style || '现代简约',
-				category: item.category || '沙发',
-				minCut: item.minCutAmount || 1,
-				maxCut: item.maxCutAmount || 50
-			}))
+			// 兼容多种返回格式
+			let rawList = []
+			if (Array.isArray(res)) {
+				rawList = res
+			} else if (res && res.data && Array.isArray(res.data)) {
+				rawList = res.data
+			} else if (res && Array.isArray(res.list)) {
+				rawList = res.list
+			}
+			
+			const goods = rawList.map(item => {
+				// 处理图片URL
+				let cover = item.coverImage || item.cover || item.image || ''
+				if (cover && !cover.startsWith('http')) {
+					// 如果是相对路径或文件ID，添加基础URL
+					const config = require('../../config/api.js')
+					const baseUrl = config.baseURL.replace('/api/miniapp', '')
+					cover = `${baseUrl}/api/files/${cover}`
+				}
+				if (!cover) {
+					cover = `https://picsum.photos/400/500?random=${Date.now()}`
+				}
+				
+				return {
+					id: item._id || item.id,
+					name: item.name || item.productName,
+					cover: cover,
+					origin: item.originalPrice || 0,
+					price: item.targetPrice || 0,
+					cut: 0,
+					cutCount: item.totalBargains || 0,
+					style: item.style || '现代简约',
+					category: item.category || '沙发',
+					minCut: item.minCutAmount || 1,
+					maxCut: item.maxCutAmount || 50
+				}
+			})
 			this.setData({ allGoodsList: goods })
 			this.filterGoods()
 		} catch (e) {
@@ -281,7 +305,7 @@ Page({
 		
 		wx.showToast({ title: '砍价成功，已省¥20', icon: 'success' })
 	},
-	onCancelMyBargain(e) {
+	async onCancelMyBargain(e) {
 		const id = e.currentTarget.dataset.id
 		if (!id) return
 		wx.showModal({
@@ -289,18 +313,23 @@ Page({
 			content: '取消后将无法继续砍价，确定要取消吗？',
 			confirmText: '取消砍价',
 			confirmColor: '#DC2626',
-			success: (res) => {
+			success: async (res) => {
 				if (res.confirm) {
-					const filtered = this.data.myBargains.filter(item => item.id !== id)
-					const normalized = this.normalizeMyBargains(filtered)
-					this.clearCancelTimer()
-					this.setData({ myBargains: normalized, showCancelId: '' })
 					try {
-						wx.setStorageSync('myBargains', normalized)
+						wx.showLoading({ title: '取消中...' })
+						await api.cancelBargain(id)
+						wx.hideLoading()
+						
+						// 重新加载我的砍价列表
+						this.loadMyBargains()
+						this.clearCancelTimer()
+						this.setData({ showCancelId: '' })
+						wx.showToast({ title: '已取消砍价', icon: 'success' })
 					} catch (err) {
+						wx.hideLoading()
 						console.error('取消砍价失败:', err)
+						wx.showToast({ title: '取消失败', icon: 'none' })
 					}
-					wx.showToast({ title: '已取消砍价', icon: 'success' })
 				}
 			}
 		})

@@ -381,6 +381,17 @@ function helpBargain(bargainId) {
   })
 }
 
+/**
+ * 取消砍价
+ * @param {String} bargainId 砍价活动ID
+ */
+function cancelBargain(bargainId) {
+  return request({
+    url: `/bargains/${bargainId}`,
+    method: 'DELETE'
+  })
+}
+
 // ==================== 地址相关 API ====================
 
 /**
@@ -529,6 +540,7 @@ module.exports = {
   startBargain,
   getMyBargains,
   helpBargain,
+  cancelBargain,
   
   // 地址相关
   getAddresses,
