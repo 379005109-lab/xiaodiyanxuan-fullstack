@@ -50,6 +50,7 @@ const CategoryManagement = lazy(() => import('./pages/admin/CategoryManagement')
 const MaterialManagement = lazy(() => import('./pages/admin/MaterialManagementNew'))
 const OrderAnalysis = lazy(() => import('./pages/admin/OrderAnalysis'))
 const RefundManagement = lazy(() => import('./pages/admin/RefundManagementNew'))
+const CouponManagement = lazy(() => import('./pages/admin/CouponManagement'))
 const PackageManagementPage = lazy(() => import('./pages/admin/PackageManagementPage'))
 const PackageListPage = lazy(() => import('./pages/admin/PackageListPage'))
 const AdminBargainListPage = lazy(() => import('./pages/admin/AdminBargainListPage'))
@@ -313,6 +314,7 @@ function App() {
             <Route path="materials" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><MaterialManagement /></ProtectedRoute>} />
             <Route path="order-analysis" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderAnalysis /></ProtectedRoute>} />
             <Route path="refunds" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><RefundManagement /></ProtectedRoute>} />
+            <Route path="coupons" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CouponManagement /></ProtectedRoute>} />
             <Route path="packages" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><PackageListPage /></ProtectedRoute>} />
             <Route path="packages/new" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><PackageManagementPage /></ProtectedRoute>} />
             <Route path="packages/edit/:id" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><PackageManagementPage /></ProtectedRoute>} />
