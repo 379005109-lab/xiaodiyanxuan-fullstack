@@ -1460,14 +1460,42 @@ export default function ProductManagement() {
           // 处理每个文件夹
           for (const [folderName, files] of Object.entries(folderGroups)) {
             let matchedProduct: Product | undefined
+            let matchedSkuIndex: number = -1  // 匹配到的SKU索引，-1表示匹配整个商品
             
+            // 1. 精确匹配商品名
             matchedProduct = products.find(p => p.name === folderName)
+            
+            // 2. 尝试匹配SKU（如 G621A床 匹配到商品 G621床 下的SKU）
+            if (!matchedProduct) {
+              for (const product of products) {
+                if (product.skus && product.skus.length > 0) {
+                  const skuIndex = product.skus.findIndex(sku => 
+                    sku.code === folderName || 
+                    sku.spec === folderName ||
+                    (sku.code && folderName.includes(sku.code)) ||
+                    (sku.code && sku.code.includes(folderName))
+                  )
+                  if (skuIndex >= 0) {
+                    matchedProduct = product
+                    matchedSkuIndex = skuIndex
+                    console.log(`🎯 文件夹 "${folderName}" 匹配到商品 "${product.name}" 的 SKU "${product.skus[skuIndex].code || product.skus[skuIndex].spec}"`)
+                    break
+                  }
+                }
+              }
+            }
+            
+            // 3. 商品名包含文件夹名
             if (!matchedProduct && folderName.length >= 2) {
               matchedProduct = products.find(p => p.name.includes(folderName))
             }
+            
+            // 4. 文件夹名包含商品名（商品名至少4个字符）
             if (!matchedProduct) {
               matchedProduct = products.find(p => p.name.length >= 4 && folderName.includes(p.name))
             }
+            
+            // 5. 如果文件夹名只有数字，尝试匹配商品名以该数字结尾
             if (!matchedProduct && /^\d+$/.test(folderName)) {
               matchedProduct = products.find(p => p.name.endsWith(folderName))
             }
@@ -1496,18 +1524,31 @@ export default function ProductManagement() {
             }
             
             if (uploadedUrls.length > 0) {
-              const newImages = [...uploadedUrls, ...(matchedProduct.images || [])]
-              const updatedSkus = (matchedProduct.skus || []).map(sku => ({
-                ...sku,
-                images: [...uploadedUrls, ...(sku.images || [])]
-              }))
-              
-              await updateProduct(matchedProduct._id, { 
-                images: newImages,
-                skus: updatedSkus
-              })
-              
-              console.log(`✅ ${zipFileName} -> "${matchedProduct.name}" 导入 ${uploadedUrls.length} 张图片`)
+              if (matchedSkuIndex >= 0) {
+                // 只更新匹配到的SKU图片
+                const updatedSkus = matchedProduct.skus!.map((sku, idx) => {
+                  if (idx === matchedSkuIndex) {
+                    return { ...sku, images: [...uploadedUrls, ...(sku.images || [])] }
+                  }
+                  return sku
+                })
+                
+                await updateProduct(matchedProduct._id, { skus: updatedSkus })
+                console.log(`✅ ${zipFileName} -> "${matchedProduct.name}" SKU[${matchedSkuIndex}] 导入 ${uploadedUrls.length} 张图片`)
+              } else {
+                // 更新商品主图和所有SKU图片
+                const newImages = [...uploadedUrls, ...(matchedProduct.images || [])]
+                const updatedSkus = (matchedProduct.skus || []).map(sku => ({
+                  ...sku,
+                  images: [...uploadedUrls, ...(sku.images || [])]
+                }))
+                
+                await updateProduct(matchedProduct._id, { 
+                  images: newImages,
+                  skus: updatedSkus
+                })
+                console.log(`✅ ${zipFileName} -> "${matchedProduct.name}" 导入 ${uploadedUrls.length} 张图片到主图和所有SKU`)
+              }
               success++
             }
           }
@@ -2753,9 +2794,9 @@ export default function ProductManagement() {
                 
                 <div className="text-sm text-gray-500 mt-4">
                   <p className="font-medium mb-2">压缩包结构说明：</p>
-                  <div className="text-left bg-gray-50 rounded-lg p-3 text-xs">
-                    <p><strong>方式1:</strong> 压缩包名 = 商品名（如：范思哲A级.zip）</p>
-                    <p className="mt-1"><strong>方式2:</strong> 压缩包内每个文件夹名 = 商品名</p>
+                  <div className="text-left bg-gray-50 rounded-lg p-3 text-xs space-y-1">
+                    <p><strong>商品匹配:</strong> 文件夹名 = 商品名（如：G621床）→ 更新商品主图+所有SKU</p>
+                    <p><strong>SKU匹配:</strong> 文件夹名 = SKU编码（如：G621A床）→ 只更新该SKU图片</p>
                     <p className="mt-2 text-gray-400">图片按 正视图→侧视图→背面图→细节图 排序</p>
                   </div>
                 </div>
