@@ -1,5 +1,9 @@
 /* 我的收藏页 - 小迪严选主题 */
-page { background: #F8F9FA; color: var(--color-text); }
+page { 
+  background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 50%, #dcfce7 100%);
+  background-attachment: fixed;
+  color: #1f2937; 
+}
 .page { padding: 0 0 96px; min-height: 100vh; }
 custom-tab-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; }
 

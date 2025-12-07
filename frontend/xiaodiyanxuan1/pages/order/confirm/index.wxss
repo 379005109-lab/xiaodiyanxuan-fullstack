@@ -1,7 +1,8 @@
 /* 确认订单页 - 小迪严选主题 */
 page { 
-  background: var(--color-bg); 
-  color: var(--color-text); 
+  background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 50%, #dcfce7 100%);
+  background-attachment: fixed;
+  color: #1f2937; 
 }
 .scrollarea { 
   height: 100vh; 

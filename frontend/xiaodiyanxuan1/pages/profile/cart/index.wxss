@@ -1,12 +1,16 @@
 /* 购物车页面 - 小迪严选主题 */
-page { background: #F8F9FA; color: var(--color-text); }
+page { 
+  background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 50%, #dcfce7 100%);
+  background-attachment: fixed;
+  color: #1f2937; 
+}
 .scrollarea { height: 100vh; }
 .page { padding: 24rpx; padding-top: calc(44px + env(safe-area-inset-top) + 24rpx); padding-bottom: 180rpx; box-sizing: border-box; }
 
 /* 页面标题 */
 .page-header { margin-bottom: 32rpx; }
-.page-title { font-size: 40rpx; font-weight: 700; color: var(--color-primary); }
-.page-subtitle { font-size: 24rpx; color: var(--color-primary); opacity: 0.6; margin-top: 8rpx; }
+.page-title { font-size: 40rpx; font-weight: 700; color: #1f2937; }
+.page-subtitle { font-size: 24rpx; color: #22d3ee; opacity: 0.8; margin-top: 8rpx; }
 
 /* 空状态 */
 .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 120rpx 0; }
