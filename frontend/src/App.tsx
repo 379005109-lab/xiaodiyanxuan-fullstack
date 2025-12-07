@@ -77,6 +77,10 @@ const ReferralManagement = lazy(() => import('./pages/admin/ReferralManagement')
 const ManufacturerOrderManagement = lazy(() => import('./pages/admin/ManufacturerOrderManagement'))
 const ImageSearchStats = lazy(() => import('./pages/admin/ImageSearchStats'))
 
+// 厂家端页面
+const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
+const ManufacturerOrders = lazy(() => import('./pages/manufacturer/ManufacturerOrders'))
+
 // 前台布局已在上方直接导入
 
 // 路由守卫
@@ -335,6 +339,10 @@ function App() {
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
           </Route>
+
+          {/* 厂家端路由 */}
+          <Route path="/manufacturer/login" element={<ManufacturerLogin />} />
+          <Route path="/manufacturer/orders" element={<ManufacturerOrders />} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />

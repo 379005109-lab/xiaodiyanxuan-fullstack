@@ -331,4 +331,307 @@ router.get('/order/:orderId', async (req, res) => {
   }
 });
 
+// ========== 厂家端专用 API ==========
+
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'xiaodi-secret-key';
+
+// 厂家登录
+router.post('/manufacturer/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: '请输入用户名和密码' });
+    }
+    
+    const manufacturer = await Manufacturer.findOne({ username }).select('+password');
+    
+    if (!manufacturer) {
+      return res.status(401).json({ success: false, message: '用户名或密码错误' });
+    }
+    
+    if (!manufacturer.password) {
+      return res.status(401).json({ success: false, message: '账户未设置密码，请联系管理员' });
+    }
+    
+    const isMatch = await manufacturer.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: '用户名或密码错误' });
+    }
+    
+    if (manufacturer.status !== 'active') {
+      return res.status(403).json({ success: false, message: '账户已被禁用' });
+    }
+    
+    // 生成 token
+    const token = jwt.sign(
+      { id: manufacturer._id, type: 'manufacturer', name: manufacturer.name },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        token,
+        manufacturer: {
+          id: manufacturer._id,
+          name: manufacturer.name,
+          code: manufacturer.code,
+          contactName: manufacturer.contactName,
+          contactPhone: manufacturer.contactPhone
+        }
+      }
+    });
+  } catch (error) {
+    console.error('厂家登录失败:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+// 厂家端中间件：验证厂家token
+const verifyManufacturer = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ success: false, message: '请先登录' });
+    }
+    
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.type !== 'manufacturer') {
+      return res.status(403).json({ success: false, message: '无权访问' });
+    }
+    
+    req.manufacturerId = decoded.id;
+    req.manufacturerName = decoded.name;
+    next();
+  } catch (error) {
+    res.status(401).json({ success: false, message: '登录已过期，请重新登录' });
+  }
+};
+
+// 获取厂家自己的订单列表
+router.get('/manufacturer/orders', verifyManufacturer, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    
+    const query = { manufacturerId: req.manufacturerId };
+    if (status) query.status = status;
+    
+    const orders = await ManufacturerOrder.find(query)
+      .populate('orderId', 'orderNo status totalAmount createdAt')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+    
+    const total = await ManufacturerOrder.countDocuments(query);
+    
+    // 统计各状态数量
+    const stats = await ManufacturerOrder.aggregate([
+      { $match: { manufacturerId: new mongoose.Types.ObjectId(req.manufacturerId) } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    const statusCounts = {
+      pending: 0,
+      confirmed: 0,
+      processing: 0,
+      shipped: 0,
+      completed: 0
+    };
+    stats.forEach(s => {
+      if (statusCounts.hasOwnProperty(s._id)) {
+        statusCounts[s._id] = s.count;
+      }
+    });
+    
+    res.json({
+      success: true,
+      data: orders,
+      stats: statusCounts,
+      pagination: { page: parseInt(page), limit: parseInt(limit), total }
+    });
+  } catch (error) {
+    console.error('获取厂家订单失败:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+// 获取厂家订单详情
+router.get('/manufacturer/orders/:id', verifyManufacturer, async (req, res) => {
+  try {
+    const order = await ManufacturerOrder.findOne({
+      _id: req.params.id,
+      manufacturerId: req.manufacturerId
+    }).populate('orderId', 'orderNo status totalAmount createdAt recipient');
+    
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' });
+    }
+    
+    res.json({ success: true, data: order });
+  } catch (error) {
+    console.error('获取订单详情失败:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+// 厂家确认订单
+router.post('/manufacturer/orders/:id/confirm', verifyManufacturer, async (req, res) => {
+  try {
+    const order = await ManufacturerOrder.findOne({
+      _id: req.params.id,
+      manufacturerId: req.manufacturerId
+    });
+    
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' });
+    }
+    
+    if (order.status !== 'pending') {
+      return res.status(400).json({ success: false, message: '只能确认待处理的订单' });
+    }
+    
+    order.status = 'confirmed';
+    order.confirmedAt = new Date();
+    order.logs.push({
+      action: 'confirm',
+      content: '厂家已确认订单',
+      operator: req.manufacturerName,
+      createdAt: new Date()
+    });
+    
+    await order.save();
+    
+    res.json({ success: true, message: '订单已确认', data: order });
+  } catch (error) {
+    console.error('确认订单失败:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+// 厂家开始生产
+router.post('/manufacturer/orders/:id/start-production', verifyManufacturer, async (req, res) => {
+  try {
+    const order = await ManufacturerOrder.findOne({
+      _id: req.params.id,
+      manufacturerId: req.manufacturerId
+    });
+    
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' });
+    }
+    
+    if (order.status !== 'confirmed') {
+      return res.status(400).json({ success: false, message: '只能对已确认的订单开始生产' });
+    }
+    
+    order.status = 'processing';
+    order.logs.push({
+      action: 'start_production',
+      content: '开始生产',
+      operator: req.manufacturerName,
+      createdAt: new Date()
+    });
+    
+    await order.save();
+    
+    res.json({ success: true, message: '已开始生产', data: order });
+  } catch (error) {
+    console.error('开始生产失败:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+// 厂家发货
+router.post('/manufacturer/orders/:id/ship', verifyManufacturer, async (req, res) => {
+  try {
+    const { trackingNo, trackingCompany } = req.body;
+    
+    if (!trackingNo) {
+      return res.status(400).json({ success: false, message: '请输入快递单号' });
+    }
+    
+    const order = await ManufacturerOrder.findOne({
+      _id: req.params.id,
+      manufacturerId: req.manufacturerId
+    });
+    
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' });
+    }
+    
+    if (order.status !== 'processing' && order.status !== 'confirmed') {
+      return res.status(400).json({ success: false, message: '当前状态不能发货' });
+    }
+    
+    order.status = 'shipped';
+    order.shippedAt = new Date();
+    order.trackingNo = trackingNo;
+    order.trackingCompany = trackingCompany || '顺丰速运';
+    order.logs.push({
+      action: 'ship',
+      content: `已发货，${order.trackingCompany}：${trackingNo}`,
+      operator: req.manufacturerName,
+      createdAt: new Date()
+    });
+    
+    await order.save();
+    
+    res.json({ success: true, message: '发货成功', data: order });
+  } catch (error) {
+    console.error('发货失败:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+// 获取厂家信息
+router.get('/manufacturer/profile', verifyManufacturer, async (req, res) => {
+  try {
+    const manufacturer = await Manufacturer.findById(req.manufacturerId);
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' });
+    }
+    
+    res.json({ success: true, data: manufacturer });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+// 修改厂家密码
+router.post('/manufacturer/change-password', verifyManufacturer, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: '请输入旧密码和新密码' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: '新密码至少6位' });
+    }
+    
+    const manufacturer = await Manufacturer.findById(req.manufacturerId).select('+password');
+    
+    const isMatch = await manufacturer.comparePassword(oldPassword);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: '旧密码错误' });
+    }
+    
+    manufacturer.password = newPassword;
+    await manufacturer.save();
+    
+    res.json({ success: true, message: '密码修改成功' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
 module.exports = router;

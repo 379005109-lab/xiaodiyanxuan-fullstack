@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2 } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 
@@ -7,6 +7,7 @@ interface Manufacturer {
   _id: string
   name: string
   code?: string
+  username?: string
   contactName?: string
   contactPhone?: string
   contactEmail?: string
@@ -33,6 +34,9 @@ export default function ManufacturerManagement() {
     status: 'active' as 'active' | 'inactive'
   })
   const [saving, setSaving] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordTarget, setPasswordTarget] = useState<Manufacturer | null>(null)
+  const [passwordForm, setPasswordForm] = useState({ username: '', password: '' })
 
   const fetchData = async () => {
     try {
@@ -79,6 +83,36 @@ export default function ManufacturerManagement() {
       status: item.status
     })
     setShowModal(true)
+  }
+
+  const openPasswordModal = (item: Manufacturer) => {
+    setPasswordTarget(item)
+    setPasswordForm({ username: item.username || item.code || '', password: '' })
+    setShowPasswordModal(true)
+  }
+
+  const handleSetPassword = async () => {
+    if (!passwordTarget) return
+    if (!passwordForm.username.trim()) {
+      toast.error('请输入用户名')
+      return
+    }
+    if (!passwordForm.password.trim() || passwordForm.password.length < 6) {
+      toast.error('密码至少6位')
+      return
+    }
+
+    try {
+      setSaving(true)
+      await apiClient.post(`/manufacturers/${passwordTarget._id}/set-password`, passwordForm)
+      toast.success('账号密码设置成功')
+      setShowPasswordModal(false)
+      fetchData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '设置失败')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleSave = async () => {
@@ -222,6 +256,13 @@ export default function ManufacturerManagement() {
                   编辑
                 </button>
                 <button
+                  onClick={() => openPasswordModal(item)}
+                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <Key className="w-4 h-4" />
+                  账号
+                </button>
+                <button
                   onClick={() => handleDelete(item._id)}
                   className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                 >
@@ -352,6 +393,62 @@ export default function ManufacturerManagement() {
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {editingItem ? '保存修改' : '创建厂家'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 设置密码弹窗 */}
+      {showPasswordModal && passwordTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-xl font-semibold text-gray-900">
+                设置账号密码 - {passwordTarget.name}
+              </h2>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                <input
+                  type="text"
+                  value={passwordForm.username}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, username: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  placeholder="请输入登录用户名"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                <input
+                  type="password"
+                  value={passwordForm.password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  placeholder="请输入密码（至少6位）"
+                />
+              </div>
+              <p className="text-sm text-gray-500">
+                设置后，厂家可通过 <span className="text-primary font-medium">/manufacturer/login</span> 登录系统管理订单
+              </p>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSetPassword}
+                disabled={saving}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                保存
               </button>
             </div>
           </div>
