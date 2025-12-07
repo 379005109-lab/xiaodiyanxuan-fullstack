@@ -205,6 +205,10 @@ Page({
 		}
 		const id = e.currentTarget.dataset.id
 		wx.navigateTo({ url: `/pages/mall/detail/index?id=${id}` })
+	},
+	// 以图搜图
+	goImageSearch() {
+		wx.navigateTo({ url: '/pages/image-search/index' })
 	}
 })
 

@@ -82,6 +82,20 @@ page {
 .search-input input::placeholder {
   color: #9CA3AF;
 }
+.image-search-btn {
+  width: 72rpx;
+  height: 72rpx;
+  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(34, 211, 238, 0.3);
+  flex-shrink: 0;
+}
+.camera-icon {
+  font-size: 32rpx;
+}
 .view-toggle, .filter-btn {
   width: 72rpx;
   height: 72rpx;

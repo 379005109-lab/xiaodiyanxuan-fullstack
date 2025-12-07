@@ -75,6 +75,7 @@ const ActivityDashboard = lazy(() => import('./pages/admin/ActivityDashboard'))
 const ManufacturerManagement = lazy(() => import('./pages/admin/ManufacturerManagement'))
 const ReferralManagement = lazy(() => import('./pages/admin/ReferralManagement'))
 const ManufacturerOrderManagement = lazy(() => import('./pages/admin/ManufacturerOrderManagement'))
+const ImageSearchStats = lazy(() => import('./pages/admin/ImageSearchStats'))
 
 // 前台布局已在上方直接导入
 
@@ -332,6 +333,7 @@ function App() {
             <Route path="manufacturers" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerManagement /></ProtectedRoute>} />
             <Route path="referrals" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerOrderManagement /></ProtectedRoute>} />
+            <Route path="image-search-stats" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
           </Route>
 
           {/* 404 */}

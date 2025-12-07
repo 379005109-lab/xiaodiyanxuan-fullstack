@@ -22,6 +22,9 @@
 					<view class="search-icon-svg"></view>
 					<input placeholder="搜索沙发、桌椅..." value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
 				</view>
+				<view class="image-search-btn" bindtap="goImageSearch">
+					<text class="camera-icon">📷</text>
+				</view>
 			</view>
 
 			<!-- 顶部筛选条：综合、销量、价格、类别、风格 -->

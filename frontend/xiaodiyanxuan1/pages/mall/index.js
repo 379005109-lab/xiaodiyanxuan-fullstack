@@ -14,24 +14,84 @@ Page({
 		priceAsc: true,
 		showStylePopup: false,
 		showCategoryDrawer: false,
-		styles: ['中古风','现代风','极简风','轻奢风'],
+		styles: [],  // 从后台加载
 		selectedStyle: '',
-		categories: ['全部','沙发','家具','灯具&墙饰','地毯','家纺','装饰品','餐具用品','全部商品'],
-		selectedCategory: '全部',
+		categories: [{ id: '', name: '全部' }],  // 从后台加载
+		selectedCategory: '',  // 使用分类ID
+		selectedCategoryName: '全部',
+		viewMode: 'grid',  // 'grid' 或 'list'
 
 		allGoods: [],
 		filteredGoods: [],
 		loading: false
 	},
 	onLoad() {
+		this.loadCategories()
+		this.loadStyles()
 		this.loadGoodsList()
 		this.closeOverlays()
+	},
+	// 加载风格列表
+	loadStyles() {
+		api.getStyles().then((data) => {
+			const styles = []
+			if (Array.isArray(data)) {
+				data.forEach(s => {
+					if (s.name) styles.push(s.name)
+				})
+			}
+			// 如果后台没有数据，使用默认风格
+			this.setData({ styles: styles.length > 0 ? styles : ['中古风','现代风','极简风','轻奢风'] })
+		}).catch((err) => {
+			console.error('加载风格失败:', err)
+			this.setData({ styles: ['中古风','现代风','极简风','轻奢风'] })
+		})
+	},
+	// 加载分类列表
+	loadCategories() {
+		api.getCategories().then((data) => {
+			const categoryList = [{ id: '', name: '全部' }]
+			if (Array.isArray(data)) {
+				data.forEach(c => {
+					categoryList.push({ id: c.id, name: c.name })
+				})
+			}
+			this.setData({ categories: categoryList })
+		}).catch((err) => {
+			console.error('加载分类失败:', err)
+		})
+	},
+	// 切换视图模式
+	toggleViewMode() {
+		const newMode = this.data.viewMode === 'grid' ? 'list' : 'grid'
+		this.setData({ viewMode: newMode })
+	},
+	// 收藏切换
+	onToggleFav(e) {
+		const id = e.currentTarget.dataset.id
+		const goods = this.data.filteredGoods.map(g => {
+			if (g.id === id) {
+				return { ...g, isFav: !g.isFav }
+			}
+			return g
+		})
+		this.setData({ filteredGoods: goods })
+		wx.showToast({ title: goods.find(g => g.id === id)?.isFav ? '已收藏' : '已取消', icon: 'none' })
+	},
+	// 加入购物车
+	onAddCart(e) {
+		const id = e.currentTarget.dataset.id
+		wx.showToast({ title: '已加入购物车', icon: 'success' })
 	},
 	loadGoodsList() {
 		this.setData({ loading: true })
 		const params = {
 			page: 1,
-			pageSize: 100
+			pageSize: 500  // 加载更多商品
+		}
+		// 如果选择了分类，添加分类筛选
+		if (this.data.selectedCategory) {
+			params.category = this.data.selectedCategory
 		}
 		api.getGoodsList(params).then((data) => {
 			// 假设后端返回格式：{ list: [], total: 0 }
@@ -109,24 +169,29 @@ Page({
 	// 类别抽屉
 	openCategory() { this.setData({ showCategoryDrawer: true, showStylePopup: false }) },
 	closeCategory() { this.setData({ showCategoryDrawer: false }) },
-	onSelectCategory(e) { this.setData({ selectedCategory: e.currentTarget.dataset.cat, showCategoryDrawer: false }, this.applyFilter) },
+	onSelectCategory(e) { 
+		const catId = e.currentTarget.dataset.id || ''
+		const catName = e.currentTarget.dataset.name || '全部'
+		this.setData({ 
+			selectedCategory: catId, 
+			selectedCategoryName: catName,
+			showCategoryDrawer: false 
+		})
+		// 重新加载商品列表（按分类筛选）
+		this.loadGoodsList()
+	},
 	closeOverlays() { this.setData({ showStylePopup: false, showCategoryDrawer: false }) },
 
 	applyFilter() {
-		const { searchText, selectedStyle, selectedCategory } = this.data
+		const { searchText, selectedStyle } = this.data
 		let list = this.data.allGoods.slice()
 		// 搜索
 		if (searchText) list = list.filter(g => (g.name || '').includes(searchText))
 		// 风格
 		if (selectedStyle) list = list.filter(g => g.style === selectedStyle)
-		// 类别
-		if (selectedCategory && selectedCategory !== '全部' && selectedCategory !== '全部商品') {
-			list = list.filter(g => g.category === selectedCategory)
-		}
 		// 排序
 		if (this.data.sortKey === 'sales') {
-			// 无真实销量，临时按价格倒序模拟
-			list.sort((a, b) => b.price - a.price)
+			list.sort((a, b) => (b.sales || 0) - (a.sales || 0))
 		} else if (this.data.sortKey === 'price') {
 			list.sort((a, b) => this.data.priceAsc ? a.price - b.price : b.price - a.price)
 		}
@@ -140,6 +205,10 @@ Page({
 		}
 		const id = e.currentTarget.dataset.id
 		wx.navigateTo({ url: `/pages/mall/detail/index?id=${id}` })
+	},
+	// 以图搜图
+	goImageSearch() {
+		wx.navigateTo({ url: '/pages/image-search/index' })
 	}
 })
 
