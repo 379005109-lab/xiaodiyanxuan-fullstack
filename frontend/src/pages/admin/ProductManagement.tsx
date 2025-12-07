@@ -1377,13 +1377,183 @@ export default function ProductManagement() {
       return
     }
 
-    // 处理所有 ZIP 文件
-    for (const zipFile of zipFiles) {
-      // 创建一个模拟的 input change 事件
-      const fakeEvent = {
-        target: { files: [zipFile], value: '' }
-      } as unknown as React.ChangeEvent<HTMLInputElement>
-      await handleZipUpload(fakeEvent)
+    // 处理多个 ZIP 文件
+    await handleMultipleZipUpload(zipFiles)
+  }
+
+  // 处理多个ZIP文件上传
+  const handleMultipleZipUpload = async (zipFiles: File[]) => {
+    if (zipFiles.length === 0) return
+    
+    setBatchImageUploading(true)
+    const toastId = toast.loading(`正在处理 ${zipFiles.length} 个压缩包...`)
+    
+    let totalSuccess = 0
+    let totalFail = 0
+    const allNotMatched: string[] = []
+    
+    // 图片排序函数
+    const getImageSortOrder = (fileName: string): number => {
+      const lowerName = fileName.toLowerCase()
+      if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front') || lowerName.includes('主图')) return 1
+      if (lowerName.includes('侧视') || lowerName.includes('侧面') || lowerName.includes('side')) return 2
+      if (lowerName.includes('背面') || lowerName.includes('背视') || lowerName.includes('back') || lowerName.includes('后面')) return 3
+      if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('4宫格') || lowerName.includes('宫格')) return 4
+      const numMatch = fileName.match(/[_-]?(\d+)\./);
+      if (numMatch) return 10 + parseInt(numMatch[1])
+      return 100
+    }
+    
+    try {
+      // 并行处理所有ZIP文件
+      const processZip = async (zipFile: File): Promise<{ success: number, fail: number, notMatched: string[] }> => {
+        const zipFileName = zipFile.name.replace(/\.zip$/i, '').trim()
+        console.log(`📦 处理压缩包: ${zipFileName}`)
+        
+        let success = 0
+        let fail = 0
+        const notMatched: string[] = []
+        
+        try {
+          const zip = await JSZip.loadAsync(zipFile)
+          
+          // 按文件夹分组图片
+          const folderGroups: Record<string, { name: string, blob: Promise<Blob> }[]> = {}
+          const allPaths = Object.keys(zip.files).filter(p => !zip.files[p].dir)
+          const hasSubfolders = allPaths.some(p => p.includes('/') && !p.startsWith('__MACOSX'))
+          
+          for (const [path, zipEntry] of Object.entries(zip.files)) {
+            if (zipEntry.dir) continue
+            if (path.startsWith('__MACOSX') || path.includes('/.')) continue
+            
+            const ext = path.split('.').pop()?.toLowerCase()
+            if (!['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'].includes(ext || '')) continue
+            
+            const pathParts = path.split('/').filter(p => p && !p.startsWith('.'))
+            let folderName: string
+            let fileName: string = pathParts[pathParts.length - 1]
+            
+            if (!hasSubfolders || pathParts.length <= 1) {
+              folderName = zipFileName
+            } else if (pathParts.length >= 2) {
+              if (pathParts.length >= 3) {
+                folderName = pathParts[1].trim()
+              } else {
+                folderName = pathParts[0].trim()
+              }
+            } else {
+              folderName = zipFileName
+            }
+            
+            if (!folderName) continue
+            
+            if (!folderGroups[folderName]) {
+              folderGroups[folderName] = []
+            }
+            
+            folderGroups[folderName].push({
+              name: fileName,
+              blob: zipEntry.async('blob')
+            })
+          }
+          
+          // 处理每个文件夹
+          for (const [folderName, files] of Object.entries(folderGroups)) {
+            let matchedProduct: Product | undefined
+            
+            matchedProduct = products.find(p => p.name === folderName)
+            if (!matchedProduct && folderName.length >= 2) {
+              matchedProduct = products.find(p => p.name.includes(folderName))
+            }
+            if (!matchedProduct) {
+              matchedProduct = products.find(p => p.name.length >= 4 && folderName.includes(p.name))
+            }
+            if (!matchedProduct && /^\d+$/.test(folderName)) {
+              matchedProduct = products.find(p => p.name.endsWith(folderName))
+            }
+            
+            if (!matchedProduct) {
+              fail++
+              notMatched.push(`${zipFileName}/${folderName}`)
+              continue
+            }
+            
+            const sortedFiles = [...files].sort((a, b) => getImageSortOrder(a.name) - getImageSortOrder(b.name))
+            const uploadedUrls: string[] = []
+            
+            for (const fileInfo of sortedFiles) {
+              try {
+                const blob = await fileInfo.blob
+                const imageFile = new File([blob], fileInfo.name, { type: `image/${fileInfo.name.split('.').pop()}` })
+                const result = await uploadFile(imageFile)
+                const fileId = result?.fileId || result?.data?.fileId || result?.id
+                if (fileId) {
+                  uploadedUrls.push(fileId)
+                }
+              } catch (err) {
+                console.error(`上传失败: ${fileInfo.name}`, err)
+              }
+            }
+            
+            if (uploadedUrls.length > 0) {
+              const newImages = [...uploadedUrls, ...(matchedProduct.images || [])]
+              const updatedSkus = (matchedProduct.skus || []).map(sku => ({
+                ...sku,
+                images: [...uploadedUrls, ...(sku.images || [])]
+              }))
+              
+              await updateProduct(matchedProduct._id, { 
+                images: newImages,
+                skus: updatedSkus
+              })
+              
+              console.log(`✅ ${zipFileName} -> "${matchedProduct.name}" 导入 ${uploadedUrls.length} 张图片`)
+              success++
+            }
+          }
+        } catch (err) {
+          console.error(`处理ZIP失败: ${zipFileName}`, err)
+        }
+        
+        return { success, fail, notMatched }
+      }
+      
+      // 并行处理所有ZIP（最多5个同时）
+      const batchSize = 5
+      for (let i = 0; i < zipFiles.length; i += batchSize) {
+        const batch = zipFiles.slice(i, i + batchSize)
+        const results = await Promise.all(batch.map(processZip))
+        
+        for (const result of results) {
+          totalSuccess += result.success
+          totalFail += result.fail
+          allNotMatched.push(...result.notMatched)
+        }
+        
+        // 更新进度
+        toast.loading(`已处理 ${Math.min(i + batchSize, zipFiles.length)}/${zipFiles.length} 个压缩包...`, { id: toastId })
+      }
+      
+      toast.dismiss(toastId)
+      
+      if (totalSuccess > 0) {
+        toast.success(`🎉 导入完成！${zipFiles.length} 个压缩包，${totalSuccess} 个商品成功${totalFail > 0 ? `，${totalFail} 个未匹配` : ''}`)
+        await loadProducts()
+      } else {
+        toast.error('没有成功导入任何商品，请检查压缩包内文件夹名称是否与商品名称匹配')
+      }
+      
+      if (allNotMatched.length > 0) {
+        console.log('⚠️ 未匹配的文件夹:', allNotMatched)
+        toast.warning(`未匹配: ${allNotMatched.slice(0, 5).join(', ')}${allNotMatched.length > 5 ? ` 等${allNotMatched.length}个` : ''}`, { duration: 5000 })
+      }
+      
+    } catch (error) {
+      console.error('批量ZIP上传失败:', error)
+      toast.dismiss(toastId)
+      toast.error('批量处理失败')
+    } finally {
+      setBatchImageUploading(false)
     }
   }
 
@@ -2535,26 +2705,32 @@ export default function ProductManagement() {
               </div>
               <h3 className="text-xl font-semibold mb-2">批量导入商品图片</h3>
               <p className="text-gray-500 mb-6">
-                将 ZIP 压缩包拖拽到此处，或点击下方按钮选择文件
+                支持同时拖入多个 ZIP 压缩包，系统将并行处理
               </p>
               
               <div className={`border-2 border-dashed rounded-xl p-8 mb-6 transition-colors ${isDraggingZip ? 'border-primary-500 bg-primary-50' : 'border-gray-300'}`}>
                 <p className={`text-lg ${isDraggingZip ? 'text-primary-600' : 'text-gray-400'}`}>
-                  {isDraggingZip ? '松开鼠标上传' : '拖拽 ZIP 文件到这里'}
+                  {isDraggingZip ? '松开鼠标上传' : '拖拽一个或多个 ZIP 文件到这里'}
                 </p>
+                <p className="text-sm text-gray-400 mt-2">支持同时选择多个压缩包</p>
               </div>
 
               <div className="space-y-3">
                 <label className="btn-primary inline-flex items-center cursor-pointer">
                   <Archive className="w-5 h-5 mr-2" />
-                  选择 ZIP 文件
+                  选择 ZIP 文件（支持多选）
                   <input
                     type="file"
                     accept=".zip"
+                    multiple
                     className="hidden"
                     onChange={(e) => {
-                      handleZipUpload(e)
-                      setShowZipDropZone(false)
+                      const files = Array.from(e.target.files || [])
+                      if (files.length > 0) {
+                        handleMultipleZipUpload(files)
+                        setShowZipDropZone(false)
+                      }
+                      e.target.value = ''
                     }}
                   />
                 </label>
