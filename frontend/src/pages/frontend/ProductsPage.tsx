@@ -814,22 +814,28 @@ export default function ProductsPage() {
                           />
                           
                           {/* SKU预览小方块 - 只在网格模式显示 */}
-                          {viewMode === 'grid' && (
-                            <div className="absolute bottom-2 left-2 flex gap-1">
+                          {viewMode === 'grid' && getProductPreviewImages(product).length > 1 && (
+                            <div 
+                              className="absolute bottom-2 left-2 flex gap-1 z-10"
+                              onClick={(e) => e.preventDefault()}
+                            >
                               {getProductPreviewImages(product).slice(0, 4).map((img, idx) => (
                                 <div
                                   key={idx}
-                                  onMouseEnter={() => setPreviewImageIndex(prev => ({ ...prev, [product._id]: idx }))}
-                                  className={`w-8 h-8 rounded border-2 shadow-sm overflow-hidden bg-white cursor-pointer transition-all ${
-                                    (previewImageIndex[product._id] === idx) && hoveredProductId === product._id
-                                      ? 'border-red-500 scale-110'
-                                      : 'border-white'
+                                  onMouseEnter={(e) => {
+                                    e.stopPropagation()
+                                    setPreviewImageIndex(prev => ({ ...prev, [product._id]: idx }))
+                                  }}
+                                  className={`w-8 h-8 rounded border-2 shadow-sm overflow-hidden bg-white cursor-pointer transition-all hover:scale-110 ${
+                                    previewImageIndex[product._id] === idx
+                                      ? 'border-primary ring-1 ring-primary'
+                                      : 'border-white hover:border-gray-300'
                                   }`}
                                 >
                                   <img
                                     src={getThumbnailUrl(img, 40)}
                                     alt=""
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover pointer-events-none"
                                     loading="lazy"
                                     decoding="async"
                                   />
