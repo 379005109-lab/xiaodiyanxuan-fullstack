@@ -238,7 +238,7 @@ function App() {
           <Routes>
           {/* 前台路由 */}
           <Route path="/" element={<FrontendLayout />}>
-            <Route index element={<HomePage />} />
+            <Route index element={<Navigate to="/products" replace />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/:id" element={<ProductDetailPage />} />
             <Route path="categories" element={<CategoriesPage />} />
