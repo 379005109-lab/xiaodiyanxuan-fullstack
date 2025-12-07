@@ -2022,13 +2022,28 @@ export default function ProductManagement() {
     toast.info(`搜索: ${searchQuery || '全部商品'}`)
   }
 
-  // 全选/取消全选
+  // 获取当前页商品
+  const getCurrentPageProducts = () => {
+    return filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  }
+
+  // 全选/取消全选（仅当前页）
   const handleSelectAll = (checked: boolean) => {
+    const currentPageIds = getCurrentPageProducts().map(p => p._id)
     if (checked) {
-      setSelectedIds(filteredProducts.map(p => p._id))
+      // 添加当前页的ID到已选中列表（保留其他页已选中的）
+      const newSelectedIds = [...new Set([...selectedIds, ...currentPageIds])]
+      setSelectedIds(newSelectedIds)
     } else {
-      setSelectedIds([])
+      // 从已选中列表中移除当前页的ID
+      setSelectedIds(selectedIds.filter(id => !currentPageIds.includes(id)))
     }
+  }
+
+  // 检查当前页是否全选
+  const isCurrentPageAllSelected = () => {
+    const currentPageIds = getCurrentPageProducts().map(p => p._id)
+    return currentPageIds.length > 0 && currentPageIds.every(id => selectedIds.includes(id))
   }
 
   // 单选
@@ -2347,8 +2362,9 @@ export default function ProductManagement() {
                   <input 
                     type="checkbox" 
                     className="w-4 h-4 cursor-pointer"
-                    checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0}
+                    checked={isCurrentPageAllSelected()}
                     onChange={(e) => handleSelectAll(e.target.checked)}
+                    title="全选当前页"
                   />
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">图片</th>

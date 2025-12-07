@@ -503,19 +503,29 @@ export default function MaterialManagement() {
           <p className="text-sm text-gray-500 mt-1">管理和组织您的材质素材库</p>
         </div>
         <div className="flex items-center gap-4 text-sm">
-          <div className="text-right">
+          <div 
+            className="text-right cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+            onClick={() => setFilterStatus('')}
+          >
             <div className="text-gray-600">总素材数</div>
-            <div className="text-2xl font-bold text-primary-600">{stats.total}</div>
+            <div className={`text-2xl font-bold ${filterStatus === '' ? 'text-primary-600' : 'text-gray-600'}`}>{stats.total}</div>
           </div>
           <div className="h-12 w-px bg-gray-300"></div>
-          <div className="text-right">
+          <div 
+            className="text-right cursor-pointer hover:bg-green-50 px-3 py-2 rounded-lg transition-colors"
+            onClick={() => setFilterStatus('approved')}
+          >
             <div className="text-gray-600">已上线</div>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+            <div className={`text-2xl font-bold ${filterStatus === 'approved' ? 'text-green-600' : 'text-gray-600'}`}>{stats.approved}</div>
           </div>
           <div className="h-12 w-px bg-gray-300"></div>
-          <div className="text-right">
+          <div 
+            className={`text-right cursor-pointer hover:bg-yellow-50 px-3 py-2 rounded-lg transition-colors ${stats.pending > 0 ? 'ring-2 ring-yellow-400 ring-offset-2' : ''}`}
+            onClick={() => setFilterStatus('pending')}
+            title="点击查看待审核素材"
+          >
             <div className="text-gray-600">待审核</div>
-            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            <div className={`text-2xl font-bold ${filterStatus === 'pending' ? 'text-yellow-600' : stats.pending > 0 ? 'text-yellow-500' : 'text-gray-600'}`}>{stats.pending}</div>
           </div>
         </div>
       </div>
