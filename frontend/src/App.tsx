@@ -9,8 +9,7 @@ import UserProfileModal from './components/auth/UserProfileModal'
 import VersionChecker from './components/VersionChecker'
 import { useEffect, useState, lazy, Suspense } from 'react'
 
-// 首页懒加载（不阻塞首屏渲染）
-const HomePage = lazy(() => import('./pages/frontend/HomePage'))
+// 首页已改为重定向到商品列表
 // 布局直接导入
 import AdminLayout from './layouts/AdminLayout'
 import FrontendLayout from './layouts/FrontendLayout'
