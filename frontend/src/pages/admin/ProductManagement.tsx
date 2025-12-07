@@ -1462,30 +1462,48 @@ export default function ProductManagement() {
             let matchedProduct: Product | undefined
             let matchedSkuIndex: number = -1  // 匹配到的SKU索引，-1表示匹配整个商品
             
-            // 1. 精确匹配商品名
-            matchedProduct = products.find(p => p.name === folderName)
+            // 1. 优先精确匹配SKU规格（如 G621床 匹配到 spec="G621床" 的SKU）
+            for (const product of products) {
+              if (product.skus && product.skus.length > 0) {
+                const skuIndex = product.skus.findIndex(sku => 
+                  sku.spec === folderName ||  // 精确匹配规格
+                  sku.code === folderName     // 精确匹配型号
+                )
+                if (skuIndex >= 0) {
+                  matchedProduct = product
+                  matchedSkuIndex = skuIndex
+                  console.log(`🎯 文件夹 "${folderName}" 精确匹配到商品 "${product.name}" 的 SKU[${skuIndex}] 规格="${product.skus[skuIndex].spec}" 型号="${product.skus[skuIndex].code}"`)
+                  break
+                }
+              }
+            }
             
-            // 2. 尝试匹配SKU（如 G621A床 匹配到商品 G621床 下的SKU）
+            // 2. 精确匹配商品名（如果没有匹配到SKU）
+            if (!matchedProduct) {
+              matchedProduct = products.find(p => p.name === folderName)
+            }
+            
+            // 3. 模糊匹配SKU
             if (!matchedProduct) {
               for (const product of products) {
                 if (product.skus && product.skus.length > 0) {
                   const skuIndex = product.skus.findIndex(sku => 
-                    sku.code === folderName || 
-                    sku.spec === folderName ||
                     (sku.code && folderName.includes(sku.code)) ||
-                    (sku.code && sku.code.includes(folderName))
+                    (sku.code && sku.code.includes(folderName)) ||
+                    (sku.spec && folderName.includes(sku.spec)) ||
+                    (sku.spec && sku.spec.includes(folderName))
                   )
                   if (skuIndex >= 0) {
                     matchedProduct = product
                     matchedSkuIndex = skuIndex
-                    console.log(`🎯 文件夹 "${folderName}" 匹配到商品 "${product.name}" 的 SKU "${product.skus[skuIndex].code || product.skus[skuIndex].spec}"`)
+                    console.log(`🎯 文件夹 "${folderName}" 模糊匹配到商品 "${product.name}" 的 SKU "${product.skus[skuIndex].code || product.skus[skuIndex].spec}"`)
                     break
                   }
                 }
               }
             }
             
-            // 3. 商品名包含文件夹名
+            // 4. 商品名包含文件夹名
             if (!matchedProduct && folderName.length >= 2) {
               matchedProduct = products.find(p => p.name.includes(folderName))
             }
