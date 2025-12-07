@@ -1392,13 +1392,22 @@ export default function ProductManagement() {
     let totalFail = 0
     const allNotMatched: string[] = []
     
-    // 图片排序函数
+    // 图片排序函数：正视图(1) > 侧视图(2) > 背视图(3) > 细节图(4) > 其他
     const getImageSortOrder = (fileName: string): number => {
       const lowerName = fileName.toLowerCase()
-      if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front') || lowerName.includes('主图')) return 1
-      if (lowerName.includes('侧视') || lowerName.includes('侧面') || lowerName.includes('side')) return 2
-      if (lowerName.includes('背面') || lowerName.includes('背视') || lowerName.includes('back') || lowerName.includes('后面')) return 3
-      if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('4宫格') || lowerName.includes('宫格')) return 4
+      // 1. 正视图/主图/产品图
+      if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front') || 
+          lowerName.includes('主图') || lowerName.includes('产品图') || lowerName.includes('封面')) return 1
+      // 2. 侧视图/45度角/左侧/右侧
+      if (lowerName.includes('侧视') || lowerName.includes('侧面') || lowerName.includes('side') ||
+          lowerName.includes('45度') || lowerName.includes('左侧') || lowerName.includes('右侧')) return 2
+      // 3. 背视图/后视图
+      if (lowerName.includes('背面') || lowerName.includes('背视') || lowerName.includes('back') || 
+          lowerName.includes('后面') || lowerName.includes('后视')) return 3
+      // 4. 细节图/宫格图
+      if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('4宫格') || 
+          lowerName.includes('宫格') || lowerName.includes('特写')) return 4
+      // 按文件名中的数字排序
       const numMatch = fileName.match(/[_-]?(\d+)\./);
       if (numMatch) return 10 + parseInt(numMatch[1])
       return 100
