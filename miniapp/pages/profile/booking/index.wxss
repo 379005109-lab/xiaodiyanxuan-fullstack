@@ -1,7 +1,8 @@
-/* 预约陪买页面 - 小迪严选主题 */
+/* 预约陪买页面 - ZenLife 2.0 主题 */
 page { 
-  background: #F8F8F8; 
-  color: #333333; 
+  background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 50%, #dcfce7 100%);
+  background-attachment: fixed;
+  color: #1f2937; 
 }
 .scrollarea { 
   height: 100vh; 
@@ -23,11 +24,12 @@ page {
 
 /* ========== 服务介绍 ========== */
 .intro-card {
-  background: linear-gradient(135deg, var(--color-primary) 0%, #1a5a3d 100%);
-  border-radius: 20rpx;
+  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
+  border-radius: 24rpx;
   padding: 48rpx 32rpx;
   text-align: center;
   margin-bottom: 24rpx;
+  box-shadow: 0 12rpx 32rpx -8rpx rgba(52, 211, 153, 0.4);
 }
 .intro-icon-box {
   width: 80rpx;
@@ -71,13 +73,13 @@ page {
 .feature-icon-box {
   width: 56rpx;
   height: 56rpx;
-  background: rgba(20, 69, 47, 0.1);
+  background: rgba(34, 211, 238, 0.15);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28rpx;
-  color: var(--color-primary);
+  color: #0891b2;
 }
 .feature-text {
   font-size: 24rpx;
@@ -95,10 +97,10 @@ page {
 .form-title {
   font-size: 30rpx;
   font-weight: 700;
-  color: var(--color-text);
+  color: #1f2937;
   margin-bottom: 24rpx;
   padding-left: 16rpx;
-  border-left: 6rpx solid var(--color-primary);
+  border-left: 6rpx solid #22d3ee;
 }
 .form-item {
   margin-bottom: 24rpx;
@@ -153,13 +155,13 @@ page {
 
 /* ========== 我的预约申请 ========== */
 .my-bookings { background: var(--color-card); border-radius: 16rpx; padding: 32rpx; }
-.section-title { font-size: 30rpx; font-weight: 700; color: var(--color-text); margin-bottom: 24rpx; padding-left: 16rpx; border-left: 6rpx solid var(--color-primary); }
+.section-title { font-size: 30rpx; font-weight: 700; color: #1f2937; margin-bottom: 24rpx; padding-left: 16rpx; border-left: 6rpx solid #22d3ee; }
 .booking-card { background: var(--color-bg); border-radius: 12rpx; margin-bottom: 20rpx; overflow: hidden; }
 .booking-card:last-child { margin-bottom: 0; }
 .booking-header { display: flex; align-items: center; justify-content: space-between; padding: 16rpx 20rpx; border-bottom: 1rpx solid var(--color-border); }
 .booking-status-tag { font-size: 24rpx; padding: 6rpx 16rpx; border-radius: 6rpx; }
 .booking-status-tag.pending { background: rgba(214, 173, 96, 0.2); color: #B8860B; }
-.booking-status-tag.confirmed { background: rgba(20, 69, 47, 0.15); color: var(--color-primary); }
+.booking-status-tag.confirmed { background: rgba(34, 211, 238, 0.15); color: #0891b2; }
 .booking-status-tag.completed { background: #E5E7EB; color: #6B7280; }
 .booking-status-tag.cancelled { background: #FEE2E2; color: #DC2626; }
 .booking-time { font-size: 22rpx; color: #9CA3AF; }
@@ -190,16 +192,17 @@ page {
   width: 100%;
   height: 88rpx;
   min-height: 88rpx;
-  background: var(--color-primary) !important;
+  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%) !important;
   color: #FFFFFF !important;
   border: none;
-  border-radius: 12rpx;
+  border-radius: 999rpx;
   font-size: 32rpx;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  box-shadow: 0 8rpx 24rpx -8rpx rgba(52, 211, 153, 0.5);
 }
 .btn-submit::after {
   display: none;

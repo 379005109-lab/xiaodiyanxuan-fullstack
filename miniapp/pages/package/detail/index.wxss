@@ -1,5 +1,9 @@
-/* 套餐详情页 - 小迪严选主题 */
-page { background: var(--color-bg); color: var(--color-text); }
+/* 套餐详情页 - ZenLife 2.0 主题 */
+page { 
+  background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 50%, #dcfce7 100%);
+  background-attachment: fixed;
+  color: #1f2937; 
+}
 .page { padding-bottom: 74px; padding-top: calc(44px + env(safe-area-inset-top)); }
 .preview-main { position: relative; width: 100%; height: 520rpx; background: var(--color-primary); overflow: hidden; }
 .preview-main-img { width: 100%; height: 100%; display: block; }
@@ -22,14 +26,14 @@ page { background: var(--color-bg); color: var(--color-text); }
 .goods-list { padding: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .goods-card { position: relative; background: var(--color-card); border-radius: 8px; overflow: hidden; }
 .goods-card-inner { position: relative; border: 2px solid var(--color-border); border-radius: 8px; padding: 8px; background: var(--color-card); }
-.goods-card.selected .goods-card-inner { border-color: var(--color-primary); background: rgba(20, 69, 47, 0.08); }
-.goods-card.selected-repeat .goods-card-inner { border-color: var(--color-primary); background: rgba(20, 69, 47, 0.15); }
+.goods-card.selected .goods-card-inner { border-color: #22d3ee; background: rgba(34, 211, 238, 0.1); }
+.goods-card.selected-repeat .goods-card-inner { border-color: #22d3ee; background: rgba(34, 211, 238, 0.15); }
 .goods-img { width: 100%; height: 180rpx; border-radius: 6px; background: var(--color-bg); display: block; margin-bottom: 6px; position: relative; }
 .goods-card.selected-repeat .goods-img { filter: brightness(0.5) grayscale(0.3); }
 .goods-info { padding: 0 2px; }
 .goods-code { font-size: 12px; color: var(--color-text); font-weight: 600; margin-bottom: 2px; }
 .goods-dims { font-size: 10px; color: #6B7280; }
-.goods-check { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; background: var(--color-primary); color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 10; }
+.goods-check { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); color: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 10; box-shadow: 0 2px 8px rgba(52, 211, 153, 0.4); }
 .check-icon { font-size: 16px; font-weight: bold; line-height: 1; }
 .goods-count-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #FFFFFF; text-align: center; font-size: 48px; font-weight: bold; z-index: 15; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
 .goods-minus { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; line-height: 28px; background: #DC2626; color: #FFFFFF; border-radius: 50%; text-align: center; font-size: 22px; font-weight: bold; z-index: 25; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); border: 2px solid #FFFFFF; }
@@ -41,8 +45,8 @@ page { background: var(--color-bg); color: var(--color-text); }
 .total-price-original { font-size: 12px; color: #9CA3AF; text-decoration: line-through; white-space: nowrap; }
 .total-price { font-size: 20px; font-weight: 700; color: var(--color-accent); white-space: nowrap; flex-shrink: 0; }
 .bottom-bar-right { display: flex; align-items: center; flex-shrink: 0; }
-.btn-action { height: 40px; padding: 0 24px; border-radius: 20px; background: var(--color-primary); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(20, 69, 47, 0.3); }
-.btn-confirm { background: var(--color-accent); box-shadow: 0 2px 8px rgba(214, 173, 96, 0.3); }
+.btn-action { height: 44px; padding: 0 28px; border-radius: 22px; background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(52, 211, 153, 0.4); }
+.btn-confirm { background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); box-shadow: 0 4px 12px rgba(52, 211, 153, 0.4); }
 .btn-text { font-size: 15px; font-weight: 600; color: #FFFFFF; white-space: nowrap; }
 .btn-arrow { font-size: 16px; color: #FFFFFF; margin-left: 4px; }
 /* 搭配推荐 */
@@ -73,16 +77,16 @@ page { background: var(--color-bg); color: var(--color-text); }
 /* 面料选择列表 */
 .fabric-list { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .fabric-chip { padding: 16rpx 24rpx; border-radius: 24rpx; background: var(--color-bg); border: 2rpx solid transparent; }
-.fabric-chip.active { border-color: var(--color-primary); background: rgba(20, 69, 47, 0.08); }
+.fabric-chip.active { border-color: #22d3ee; background: rgba(34, 211, 238, 0.1); }
 .fabric-chip-text { font-size: 24rpx; color: var(--color-text); }
-.fabric-chip.active .fabric-chip-text { color: var(--color-primary); font-weight: 600; }
+.fabric-chip.active .fabric-chip-text { color: #0891b2; font-weight: 600; }
 /* 规格选择 */
 .variant-list { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .variant-chip { min-width: 160rpx; padding: 16rpx 20rpx; border-radius: 12rpx; background: var(--color-bg); color: var(--color-text); display: flex; flex-direction: column; gap: 6rpx; box-sizing: border-box; border: 2rpx solid transparent; }
-.variant-chip.active { background: rgba(20, 69, 47, 0.08); border-color: var(--color-primary); }
+.variant-chip.active { background: rgba(34, 211, 238, 0.1); border-color: #22d3ee; }
 .variant-label { font-size: 26rpx; font-weight: 600; }
 .variant-desc { font-size: 22rpx; color: #6B7280; }
-.variant-price { font-size: 24rpx; color: var(--color-primary); font-weight: 600; }
+.variant-price { font-size: 24rpx; color: #0891b2; font-weight: 600; }
 /* 数量选择器 */
 .quantity-selector { display: flex; align-items: center; gap: 24rpx; }
 .qty-btn { width: 64rpx; height: 64rpx; border-radius: 32rpx; background: var(--color-bg); display: flex; align-items: center; justify-content: center; font-size: 36rpx; color: var(--color-text); font-weight: 600; }
@@ -90,6 +94,6 @@ page { background: var(--color-bg); color: var(--color-text); }
 /* 弹窗底部按钮 */
 .goods-modal-actions { padding: 20rpx 24rpx; padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid var(--color-border); }
 .modal-btn { width: 100%; height: 88rpx; border-radius: 44rpx; font-size: 30rpx; font-weight: 600; display: flex; align-items: center; justify-content: center; line-height: 1; }
-.modal-btn.primary { background: var(--color-primary); color: #FFFFFF; }
+.modal-btn.primary { background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); color: #FFFFFF; }
 .modal-btn::after { display: none; }
 .preview-thumbs { padding: 16px 12px; background: var(--color-card); border-bottom: 1px solid var(--color-border); }

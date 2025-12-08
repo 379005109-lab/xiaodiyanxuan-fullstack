@@ -12,10 +12,10 @@ custom-tab-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; }
 .page-title { font-size: 40rpx; font-weight: 700; color: var(--color-primary); }
 .page-subtitle { font-size: 24rpx; color: var(--color-primary); opacity: 0.6; margin-top: 8rpx; }
 
-/* 标签筛选 */
+/* 标签筛选 - 新版主题 */
 .tabs-wrap { display: flex; flex-wrap: wrap; gap: 16rpx; margin-bottom: 32rpx; }
-.tab-item { padding: 16rpx 28rpx; border-radius: 32rpx; font-size: 26rpx; background: #FFFFFF; color: #6B7280; border: 1rpx solid var(--color-border); }
-.tab-item.active { background: var(--color-primary); color: #FFFFFF; border-color: var(--color-primary); }
+.tab-item { padding: 16rpx 28rpx; border-radius: 999rpx; font-size: 26rpx; background: #FFFFFF; color: #6B7280; border: 1rpx solid #e5e7eb; }
+.tab-item.active { background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); color: #FFFFFF; border-color: #22d3ee; }
 
 /* 订单列表 */
 .order-list { display: flex; flex-direction: column; gap: 24rpx; }
@@ -50,8 +50,8 @@ custom-tab-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; }
 .order-action-bar { display: flex; justify-content: flex-end; gap: 16rpx; padding: 20rpx 24rpx; }
 .action-btn { height: 64rpx; padding: 0 32rpx; border-radius: 32rpx; font-size: 26rpx; display: flex; align-items: center; justify-content: center; line-height: 1; }
 .action-btn.outline { background: #FFFFFF; color: #DC2626; border: 1rpx solid #DC2626; }
-.action-btn.primary { background: var(--color-primary); color: #FFFFFF; border: none; }
-.action-btn.referral { background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); color: #FFFFFF; border: none; }
+.action-btn.primary { background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); color: #FFFFFF; border: none; box-shadow: 0 4rpx 12rpx -4rpx rgba(52, 211, 153, 0.4); }
+.action-btn.referral { background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); color: #FFFFFF; border: none; box-shadow: 0 4rpx 12rpx -4rpx rgba(52, 211, 153, 0.4); }
 .action-btn::after { display: none; }
 
 /* 空状态 */
