@@ -1,19 +1,16 @@
 <!-- 商品详情页 - ZenLife 2.0 设计 -->
 <view class="detail-page">
-	<!-- 顶部导航栏 -->
-	<view class="detail-header">
-		<view class="header-left" bindtap="onBack">
-			<view class="back-icon-svg"></view>
-		</view>
-		<view class="header-center">
-			<text class="header-title">{{goods.name}}</text>
-		</view>
-		<view class="header-right">
-			<view class="header-btn" bindtap="onFav">
-				<view class="heart-icon {{isFavorited ? 'favorited' : ''}}"></view>
-			</view>
-			<view class="header-btn">
-				<view class="more-icon"></view>
+	<!-- 顶部导航栏 - 与微信胶囊并排 -->
+	<view class="detail-header" style="padding-top: {{statusBarHeight}}px; height: {{navBarHeight + statusBarHeight}}px;">
+		<view class="header-buttons" style="height: {{menuButtonInfo.height}}px; margin-top: {{menuButtonInfo.top - statusBarHeight}}px;">
+			<view class="header-btn-group">
+				<view class="header-btn" bindtap="onBack">
+					<view class="back-icon-svg"></view>
+				</view>
+				<view class="header-divider"></view>
+				<view class="header-btn" bindtap="onFav">
+					<view class="heart-icon {{isFavorited ? 'favorited' : ''}}"></view>
+				</view>
 			</view>
 		</view>
 	</view>

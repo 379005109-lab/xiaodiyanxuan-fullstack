@@ -6,6 +6,10 @@ Page({
 	data: {
 		id: '',
 		goods: { name: '商品', basePrice: 0, price: 0 },
+		// 微信胶囊按钮位置
+		statusBarHeight: 0,
+		menuButtonInfo: null,
+		navBarHeight: 0,
 		images: [],
 		detailImages: [],
 		loading: false,
@@ -68,7 +72,20 @@ Page({
 			}, 1500)
 			return
 		}
-		this.setData({ id, loading: true })
+		
+		// 获取微信胶囊按钮位置
+		const menuButtonInfo = wx.getMenuButtonBoundingClientRect()
+		const systemInfo = wx.getSystemInfoSync()
+		const statusBarHeight = systemInfo.statusBarHeight
+		const navBarHeight = (menuButtonInfo.top - statusBarHeight) * 2 + menuButtonInfo.height
+		
+		this.setData({ 
+			id, 
+			loading: true,
+			statusBarHeight,
+			menuButtonInfo,
+			navBarHeight
+		})
 		
 		// 加载商品详情
 		this.loadGoodsDetail(id)
