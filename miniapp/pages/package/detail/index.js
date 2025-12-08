@@ -179,8 +179,8 @@ Page({
 			this.setData({
 				packageData: pkg,
 				loading: false,
-				totalPrice: pkg.price || 0,
-				originalPrice: pkg.originalPrice || pkg.price || 0,
+				totalPrice: pkg.discountPrice || pkg.basePrice || pkg.price || 0,
+				originalPrice: pkg.basePrice || pkg.originalPrice || pkg.price || 0,
 				categories: categories,
 				allGoods: allGoods,
 				categoryImages: categoryImages,
@@ -388,10 +388,17 @@ Page({
 			goodsModalQuantity: allowRepeat ? Math.max(1, currentQty) : 1
 		})
 	},
-	// 获取面料选项（材质+颜色合并）
-	// 获取材质选项（按类别分组）
+	// 获取材质选项（按类别分组）- 所有分类都显示材质选择
 	getFabricGroups(categoryKey) {
-		if (['sofa', 'bed', 'dining-chair'].includes(categoryKey)) {
+		// 获取当前分类名称
+		const category = this.data.categories.find(c => c.key === categoryKey)
+		const categoryName = category ? category.name : ''
+		
+		// 根据分类名称判断材质类型
+		const isFabricCategory = /沙发|床|椅/.test(categoryName)
+		const isWoodCategory = /桌|柜|茶几/.test(categoryName)
+		
+		if (isFabricCategory) {
 			return [
 				{
 					groupName: 'A类头层真皮 (荔枝纹)',
@@ -415,7 +422,7 @@ Page({
 				}
 			]
 		}
-		if (['table', 'nightstand', 'dining-table'].includes(categoryKey)) {
+		if (isWoodCategory) {
 			return [
 				{
 					groupName: '实木材质',
@@ -434,7 +441,17 @@ Page({
 				}
 			]
 		}
-		return []
+		// 默认返回通用材质选项
+		return [
+			{
+				groupName: '标准材质',
+				items: [
+					{ id: 'd1', colorName: '默认色', img: 'https://picsum.photos/120/120?random=341' },
+					{ id: 'd2', colorName: '浅色系', img: 'https://picsum.photos/120/120?random=342' },
+					{ id: 'd3', colorName: '深色系', img: 'https://picsum.photos/120/120?random=343' }
+				]
+			}
+		]
 	},
 	// 选择面料
 	onSelectFabric(e) {

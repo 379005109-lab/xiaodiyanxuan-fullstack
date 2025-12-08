@@ -274,7 +274,7 @@ page {
   height: 56rpx; 
   line-height: 56rpx; 
   padding: 0 24rpx; 
-  background: #22c55e; 
+  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%); 
   border-radius: 8rpx; 
   border: none; 
   color: #fff; 
