@@ -109,7 +109,11 @@ Page({
 						fill: '',
 						frame: '',
 						leg: '',
-						skus: p.skus || []
+						skus: p.skus || [],
+						// 材质数据（与商品详情页面格式一致）
+						materialsGroups: p.materialsGroups || [],
+						materialImages: p.materialImages || null,
+						materialCategories: p.materialCategories || []
 					}))
 					allGoods[key] = goods
 					
@@ -390,14 +394,27 @@ Page({
 	},
 	// 获取材质选项（按类别分组）- 所有分类都显示材质选择
 	getFabricGroups(categoryKey, goods) {
-		// 获取当前分类名称
 		const currentGoods = goods || this.data.goodsModalData
+		
+		// 优先使用商品的 materialsGroups 数据（与商品详情页一致）
+		if (currentGoods && currentGoods.materialsGroups && currentGoods.materialsGroups.length > 0) {
+			return currentGoods.materialsGroups.map((mg, mgIndex) => ({
+				groupName: mg.name || `材料${mgIndex + 1}`,
+				items: (mg.colors || []).map((color, cIndex) => ({
+					id: `${mg.name}_${cIndex}`,
+					colorName: color.name || `色号${cIndex + 1}`,
+					img: color.img || color.image || mg.img || ''
+				}))
+			})).filter(g => g.items.length > 0)
+		}
+		
+		// 如果没有 materialsGroups 数据，使用 materialImages 数据
 		if (currentGoods && currentGoods.materialImages) {
 			const groups = []
 			const materialImages = currentGoods.materialImages
 			const materialCategories = currentGoods.materialCategories || Object.keys(materialImages)
 			
-			materialCategories.forEach((catName, catIndex) => {
+			materialCategories.forEach((catName) => {
 				const images = materialImages[catName] || []
 				if (images.length > 0) {
 					groups.push({

@@ -32,6 +32,25 @@ Page({
 	loadOrders() {
 		this.setData({ loading: true })
 		
+		// 检查是否已登录
+		const token = wx.getStorageSync('token')
+		if (!token) {
+			console.log('用户未登录，跳转到登录页')
+			this.setData({ orders: [], loading: false })
+			this.filterOrders()
+			wx.showModal({
+				title: '提示',
+				content: '请先登录后查看订单',
+				confirmText: '去登录',
+				success: (res) => {
+					if (res.confirm) {
+						wx.navigateTo({ url: '/pages/login/index' })
+					}
+				}
+			})
+			return
+		}
+		
 		// 格式化订单列表，将后端数据映射为小程序需要的格式
 		const formatOrders = (orders) => {
 			return orders.map(order => {

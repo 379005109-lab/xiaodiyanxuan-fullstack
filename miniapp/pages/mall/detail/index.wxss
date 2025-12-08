@@ -45,34 +45,39 @@ page { background: #ffffff; color: #1f2937; }
   margin-left: 4rpx;
 }
 
-/* 收藏心形图标 - 饱满版 */
+/* 收藏心形图标 - 空心版 */
 .heart-icon {
-  width: 40rpx;
-  height: 36rpx;
+  width: 36rpx;
+  height: 32rpx;
   position: relative;
 }
-.heart-icon::before,
+.heart-icon::before {
+  content: '';
+  position: absolute;
+  top: 4rpx;
+  left: 50%;
+  transform: translateX(-50%) rotate(-45deg);
+  width: 20rpx;
+  height: 20rpx;
+  border: 3rpx solid #9ca3af;
+  border-radius: 50% 50% 0 50%;
+  background: transparent;
+}
 .heart-icon::after {
   content: '';
   position: absolute;
-  top: 0;
-  width: 22rpx;
-  height: 32rpx;
-  border-radius: 22rpx 22rpx 0 0;
-  background: #d1d5db;
-}
-.heart-icon::before {
-  left: 2rpx;
-  transform: rotate(-45deg);
-  transform-origin: bottom right;
-}
-.heart-icon::after {
-  right: 2rpx;
-  transform: rotate(45deg);
-  transform-origin: bottom left;
+  top: 4rpx;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 20rpx;
+  height: 20rpx;
+  border: 3rpx solid #9ca3af;
+  border-radius: 50% 50% 50% 0;
+  background: transparent;
 }
 .heart-icon.favorited::before,
 .heart-icon.favorited::after {
+  border-color: #ef4444;
   background: #ef4444;
 }
 

@@ -1,11 +1,10 @@
 <navigation-bar title="" back="{{false}}" color="white" background="transparent"></navigation-bar>
 <scroll-view class="page-scroll" scroll-y>
 <view class="page">
-	<!-- 全屏Hero - 绿色背景沙发图 -->
+	<!-- 全屏Hero - 完整背景图片 -->
 	<view class="hero-fullscreen">
-		<view class="hero-bg-gradient"></view>
-		<view class="hero-d-letter">D</view>
-		<image class="hero-sofa-image" src="{{homeBannerImage || 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800'}}" mode="aspectFit"></image>
+		<image class="hero-full-image" src="{{homeBannerImage || '/images/home-banner.png'}}" mode="aspectFill"></image>
+		<view class="hero-overlay"></view>
 		<!-- 标语 -->
 		<view class="hero-slogan">
 			<view class="slogan-line"><text class="bold">{{i18n.home.slogan1 || '线上选款'}}</text></view>

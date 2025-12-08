@@ -42,35 +42,33 @@
 			</view>
 		</view>
 
-		<view class="my-bargain" wx:if="{{myBargains.length > 0}}">
-			<view class="section-title-new">我的砍价</view>
-			<block wx:for="{{myBargains}}" wx:key="id">
-				<view class="my-bargain-card" data-id="{{item.id}}" bindtap="onViewMyBargain">
-					<view class="my-bargain-row">
-						<image class="my-bargain-img" src="{{item.cover}}" mode="aspectFill"></image>
-						<view class="my-bargain-info">
-							<view class="my-bargain-header">
-								<text class="my-bargain-name">{{item.name}}</text>
-								<text class="my-bargain-status">进行中</text>
-							</view>
-							<view class="my-bargain-prices">
-								<text class="my-bargain-target">目标价 ¥{{item.price}}</text>
-								<text class="my-bargain-origin">原价 ¥{{item.origin}}</text>
-							</view>
-							<view class="my-bargain-progress-wrap">
-								<view class="my-bargain-progress-bar">
-									<view class="my-bargain-progress-fill" style="width: {{Math.min(100, Math.round(item.progress * 100))}}%;"></view>
-								</view>
-								<text class="my-bargain-remain">还差 ¥{{item.remain}}</text>
-							</view>
+		<!-- 我的砍价 - 网格卡片样式 -->
+		<view class="my-bargain-section" wx:if="{{myBargains.length > 0}}">
+			<view class="section-header">
+				<text class="section-title">我的砍价</text>
+				<text class="section-desc">{{myBargains.length}}个进行中</text>
+			</view>
+			<view class="product-grid">
+				<view class="product-card-new my-card" wx:for="{{myBargains}}" wx:key="id" data-id="{{item.id}}" bindtap="onViewMyBargain">
+					<view class="product-image-box">
+						<image class="product-img" src="{{item.cover}}" mode="aspectFill"></image>
+						<view class="status-tag">进行中</view>
+					</view>
+					<view class="product-detail">
+						<view class="product-name-new">{{item.name}}</view>
+						<view class="product-prices">
+							<text class="current-price">¥{{item.price}}</text>
+							<text class="origin-price">¥{{item.origin}}</text>
+						</view>
+						<view class="progress-bar-mini">
+							<view class="progress-fill-mini" style="width: {{Math.min(100, Math.round(item.progress * 100))}}%;"></view>
+						</view>
+						<view class="my-card-actions">
+							<button class="action-btn invite" open-type="share" data-id="{{item.id}}">邀请助力</button>
 						</view>
 					</view>
-					<view class="my-bargain-btns">
-						<button class="my-bargain-btn invite" open-type="share" data-id="{{item.id}}">邀请好友助力</button>
-						<button class="my-bargain-btn cancel" catchtap="onCancelMyBargain" data-id="{{item.id}}">取消</button>
-					</view>
 				</view>
-			</block>
+			</view>
 		</view>
 
 		<view class="rules">
