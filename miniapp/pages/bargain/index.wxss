@@ -259,10 +259,10 @@ page {
 }
 .my-bargain-btn { 
   flex: 1; 
-  height: 72rpx; 
-  border-radius: 999rpx; 
-  font-size: 26rpx; 
-  font-weight: 600; 
+  height: 56rpx; 
+  border-radius: 28rpx; 
+  font-size: 22rpx; 
+  font-weight: 500; 
   display: flex; 
   align-items: center; 
   justify-content: center; 

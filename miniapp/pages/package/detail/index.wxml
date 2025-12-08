@@ -103,15 +103,23 @@
 						</view>
 					</view>
 				</view>
-				<!-- 面料选择（显示图片） -->
-				<view class="goods-modal-section" wx:if="{{goodsModalFabrics.length > 0}}">
+				<!-- 面料选择（按类别分组显示） -->
+				<view class="goods-modal-section" wx:if="{{goodsModalFabricGroups.length > 0}}">
 					<view class="goods-modal-label">选择面料</view>
-					<view class="fabric-grid">
-						<view class="fabric-item {{goodsModalFabricIndex===index?'active':''}}" wx:for="{{goodsModalFabrics}}" wx:key="id" data-index="{{index}}" bindtap="onSelectFabric">
-							<image class="fabric-img" src="{{item.image || item.img || 'https://picsum.photos/120/120?random=' + index}}" mode="aspectFill"></image>
-							<text class="fabric-name">{{item.name}}</text>
+					<block wx:for="{{goodsModalFabricGroups}}" wx:key="groupName" wx:for-item="group">
+						<view class="fabric-group">
+							<view class="fabric-group-title">
+								<view class="fabric-group-line"></view>
+								<text>{{group.groupName}}</text>
+							</view>
+							<view class="fabric-grid">
+								<view class="fabric-item {{goodsModalFabricId===item.id?'active':''}}" wx:for="{{group.items}}" wx:key="id" data-id="{{item.id}}" data-group="{{group.groupName}}" bindtap="onSelectFabric">
+									<image class="fabric-img" src="{{item.image || item.img}}" mode="aspectFill"></image>
+									<text class="fabric-name">{{item.colorName || item.name}}</text>
+								</view>
+							</view>
 						</view>
-					</view>
+					</block>
 				</view>
 				<!-- 数量选择（可重复选择的商品） -->
 				<view class="goods-modal-section" wx:if="{{goodsModalAllowRepeat}}">

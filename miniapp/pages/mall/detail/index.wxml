@@ -7,7 +7,6 @@
 				<view class="header-btn" bindtap="onBack">
 					<view class="back-icon-svg"></view>
 				</view>
-				<view class="header-divider"></view>
 				<view class="header-btn" bindtap="onFav">
 					<view class="heart-icon {{isFavorited ? 'favorited' : ''}}"></view>
 				</view>

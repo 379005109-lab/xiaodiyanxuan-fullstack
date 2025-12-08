@@ -7,11 +7,8 @@
 			<view class="page-header">
 				<view class="page-title">商城</view>
 				<view class="header-actions">
-					<view class="view-toggle {{viewMode === 'grid' ? 'active' : ''}}" bindtap="toggleViewMode" data-mode="grid">
-						<view class="grid-icon"></view>
-					</view>
-					<view class="filter-btn" bindtap="openCategory">
-						<view class="filter-icon"></view>
+					<view class="view-toggle" bindtap="toggleViewMode">
+						<view class="grid-icon-simple"></view>
 					</view>
 				</view>
 			</view>
@@ -23,7 +20,7 @@
 					<input placeholder="搜索沙发、桌椅..." value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
 				</view>
 				<view class="image-search-btn" bindtap="goImageSearch">
-					<text class="camera-icon">📷</text>
+					<view class="camera-icon-svg"></view>
 				</view>
 			</view>
 

@@ -49,6 +49,8 @@ Page({
 		selectedGoodsVariant: {},
 		// 面料选择
 		goodsModalFabrics: [],
+		goodsModalFabricGroups: [],
+		goodsModalFabricId: '',
 		goodsModalFabricIndex: 0,
 		goodsModalAllowRepeat: false,
 		goodsModalQuantity: 1
@@ -362,19 +364,9 @@ Page({
 		// 获取当前选中规格的 SKU 数据
 		const selectedSku = variants.find(v => v.id === defaultVariantId)?.sku
 		
-		// 从 SKU 的 material 中获取面料选项
-		let fabrics = []
-		if (selectedSku && selectedSku.material && selectedSku.material.fabric) {
-			fabrics = selectedSku.material.fabric.map((f, i) => ({
-				id: `fabric-${i}`,
-				name: f.replace(/\n/g, ''),  // 去掉换行符
-				img: ''
-			}))
-		}
-		if (fabrics.length === 0) {
-			fabrics = this.getFabricOptions(this.data.currentCategory)
-		}
-		const fabricIndex = fabrics.findIndex(f => f.name === goods.fabric) >= 0 ? fabrics.findIndex(f => f.name === goods.fabric) : 0
+		// 获取分组材质选项
+		const fabricGroups = this.getFabricGroups(this.data.currentCategory)
+		const defaultFabricId = fabricGroups[0]?.items[0]?.id || ''
 		
 		// 获取当前类别配置
 		const category = this.data.categories.find(c => c.key === this.data.currentCategory)
@@ -390,38 +382,64 @@ Page({
 			},
 			goodsModalVariants: variants,
 			goodsModalVariantId: defaultVariantId,
-			goodsModalFabrics: fabrics,
-			goodsModalFabricIndex: fabricIndex,
+			goodsModalFabricGroups: fabricGroups,
+			goodsModalFabricId: goods.fabricId || defaultFabricId,
 			goodsModalAllowRepeat: allowRepeat,
 			goodsModalQuantity: allowRepeat ? Math.max(1, currentQty) : 1
 		})
 	},
 	// 获取面料选项（材质+颜色合并）
-	getFabricOptions(categoryKey) {
+	// 获取材质选项（按类别分组）
+	getFabricGroups(categoryKey) {
 		if (['sofa', 'bed', 'dining-chair'].includes(categoryKey)) {
 			return [
-				{ id: 'f1', name: '标准皮革-经典黑', img: 'https://picsum.photos/100/100?random=201' },
-				{ id: 'f2', name: '标准皮革-米白色', img: 'https://picsum.photos/100/100?random=202' },
-				{ id: 'f3', name: '全青皮-深棕色', img: 'https://picsum.photos/100/100?random=203' },
-				{ id: 'f4', name: '科技布-浅灰色', img: 'https://picsum.photos/100/100?random=204' },
-				{ id: 'f5', name: '科技布-米白色', img: 'https://picsum.photos/100/100?random=205' },
-				{ id: 'f6', name: '科技布-深蓝色', img: 'https://picsum.photos/100/100?random=206' }
+				{
+					groupName: 'A类头层真皮 (荔枝纹)',
+					items: [
+						{ id: 'a1', colorName: '色号1', img: 'https://picsum.photos/120/120?random=301' },
+						{ id: 'a2', colorName: '色号2', img: 'https://picsum.photos/120/120?random=302' },
+						{ id: 'a3', colorName: '色号3', img: 'https://picsum.photos/120/120?random=303' },
+						{ id: 'a4', colorName: '色号4', img: 'https://picsum.photos/120/120?random=304' },
+						{ id: 'a5', colorName: '色号5', img: 'https://picsum.photos/120/120?random=305' },
+						{ id: 'a6', colorName: '色号6', img: 'https://picsum.photos/120/120?random=306' }
+					]
+				},
+				{
+					groupName: 'B类纳米科技布',
+					items: [
+						{ id: 'b1', colorName: '色号1', img: 'https://picsum.photos/120/120?random=311' },
+						{ id: 'b2', colorName: '色号2', img: 'https://picsum.photos/120/120?random=312' },
+						{ id: 'b3', colorName: '色号3', img: 'https://picsum.photos/120/120?random=313' },
+						{ id: 'b4', colorName: '色号4', img: 'https://picsum.photos/120/120?random=314' }
+					]
+				}
 			]
 		}
 		if (['table', 'nightstand', 'dining-table'].includes(categoryKey)) {
 			return [
-				{ id: 'f7', name: '实木-原木色', img: 'https://picsum.photos/100/100?random=207' },
-				{ id: 'f8', name: '实木-胡桃色', img: 'https://picsum.photos/100/100?random=208' },
-				{ id: 'f9', name: '岩板-雪花白', img: 'https://picsum.photos/100/100?random=209' },
-				{ id: 'f10', name: '岩板-灰色', img: 'https://picsum.photos/100/100?random=210' }
+				{
+					groupName: '实木材质',
+					items: [
+						{ id: 't1', colorName: '原木色', img: 'https://picsum.photos/120/120?random=321' },
+						{ id: 't2', colorName: '胡桃色', img: 'https://picsum.photos/120/120?random=322' },
+						{ id: 't3', colorName: '樱桃色', img: 'https://picsum.photos/120/120?random=323' }
+					]
+				},
+				{
+					groupName: '岩板材质',
+					items: [
+						{ id: 'r1', colorName: '雪花白', img: 'https://picsum.photos/120/120?random=331' },
+						{ id: 'r2', colorName: '灰色', img: 'https://picsum.photos/120/120?random=332' }
+					]
+				}
 			]
 		}
 		return []
 	},
 	// 选择面料
 	onSelectFabric(e) {
-		const index = e.currentTarget.dataset.index
-		this.setData({ goodsModalFabricIndex: index })
+		const id = e.currentTarget.dataset.id
+		this.setData({ goodsModalFabricId: id })
 	},
 	// 弹窗内增加数量
 	onModalIncreaseQty() {

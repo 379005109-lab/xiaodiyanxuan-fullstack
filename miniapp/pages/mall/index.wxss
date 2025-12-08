@@ -93,10 +93,53 @@ page {
   box-shadow: 0 4rpx 12rpx rgba(34, 211, 238, 0.3);
   flex-shrink: 0;
 }
-.camera-icon {
-  font-size: 32rpx;
+/* 相机图标 - 简单矢量图 */
+.camera-icon-svg {
+  width: 36rpx;
+  height: 28rpx;
+  border: 3rpx solid #fff;
+  border-radius: 4rpx;
+  position: relative;
 }
-.view-toggle, .filter-btn {
+.camera-icon-svg::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12rpx;
+  height: 12rpx;
+  border: 2rpx solid #fff;
+  border-radius: 50%;
+}
+.camera-icon-svg::after {
+  content: '';
+  position: absolute;
+  top: -6rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12rpx;
+  height: 4rpx;
+  background: #fff;
+  border-radius: 2rpx;
+}
+/* 列阵图标 - 简单矢量图 */
+.grid-icon-simple {
+  width: 32rpx;
+  height: 32rpx;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4rpx;
+}
+.grid-icon-simple::before,
+.grid-icon-simple::after {
+  content: '';
+  width: 12rpx;
+  height: 12rpx;
+  background: #6b7280;
+  border-radius: 2rpx;
+}
+.view-toggle {
   width: 72rpx;
   height: 72rpx;
   background: rgba(255,255,255,0.95);
@@ -222,10 +265,9 @@ page {
   height: 56rpx; 
   line-height: 56rpx; 
   padding: 0 24rpx; 
-  background: #f3f4f6; 
-  border-radius: 8rpx; 
+  background: #F0F0F0; 
+  color: #666666; 
   border: none; 
-  color: #374151; 
   font-size: 24rpx; 
 }
 .btn-apply { 
