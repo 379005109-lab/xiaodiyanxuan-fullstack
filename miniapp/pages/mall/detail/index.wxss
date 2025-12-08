@@ -45,23 +45,35 @@ page { background: #ffffff; color: #1f2937; }
   margin-left: 4rpx;
 }
 
-/* 收藏心形图标 - 简洁版 */
+/* 收藏心形图标 - 饱满版 */
 .heart-icon {
-  width: 32rpx;
+  width: 40rpx;
+  height: 36rpx;
+  position: relative;
+}
+.heart-icon::before,
+.heart-icon::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 22rpx;
   height: 32rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0;
+  border-radius: 22rpx 22rpx 0 0;
+  background: #d1d5db;
 }
 .heart-icon::before {
-  content: '♥';
-  font-size: 36rpx;
-  color: #d1d5db;
-  line-height: 1;
+  left: 2rpx;
+  transform: rotate(-45deg);
+  transform-origin: bottom right;
 }
-.heart-icon.favorited::before {
-  color: #ef4444;
+.heart-icon::after {
+  right: 2rpx;
+  transform: rotate(45deg);
+  transform-origin: bottom left;
+}
+.heart-icon.favorited::before,
+.heart-icon.favorited::after {
+  background: #ef4444;
 }
 
 /* 更多图标 - 分享图标 */

@@ -31,20 +31,31 @@ Page({
 		this.loadGoodsList()
 		this.closeOverlays()
 	},
-	// 加载风格列表（从商品标签中提取）
+	// 加载风格列表（从风格API和商品styles字段中提取）
 	loadStyles() {
-		// 从所有商品中提取风格标签
-		api.getGoodsList().then((data) => {
+		// 先从style API获取风格列表
+		Promise.all([
+			api.getStyles().catch(() => []),
+			api.getGoodsList().catch(() => [])
+		]).then(([styleData, goodsData]) => {
 			const styleSet = new Set()
-			if (Array.isArray(data)) {
-				data.forEach(g => {
-					if (g.style) styleSet.add(g.style)
-					if (g.tags && Array.isArray(g.tags)) {
-						g.tags.forEach(t => styleSet.add(t))
+			// 从风格列表中添加
+			if (Array.isArray(styleData)) {
+				styleData.forEach(s => {
+					if (s.name) styleSet.add(s.name)
+				})
+			}
+			// 从商品中提取风格标签
+			if (Array.isArray(goodsData)) {
+				goodsData.forEach(g => {
+					if (g.style) styleSet.add(typeof g.style === 'object' ? g.style.name : g.style)
+					if (g.styles && Array.isArray(g.styles)) {
+						g.styles.forEach(s => styleSet.add(s))
 					}
 				})
 			}
 			const styles = Array.from(styleSet).filter(s => s && s.trim())
+			console.log('加载到的风格列表:', styles)
 			this.setData({ styles: styles.length > 0 ? styles : ['中古风','现代风','极简风','轻奢风'] })
 		}).catch((err) => {
 			console.error('加载风格失败:', err)

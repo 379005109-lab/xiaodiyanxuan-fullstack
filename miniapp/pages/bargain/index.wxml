@@ -1,33 +1,42 @@
 <navigation-bar title="" back="{{false}}" color="black" background="transparent"></navigation-bar>
 <scroll-view class="scrollarea" scroll-y>
 	<view class="page">
-		<!-- 页面标题栏 -->
-		<view class="page-header">
-			<view class="page-title">砍价专区</view>
-			<view class="my-bargain-link" bindtap="goMyBargain">我的砍价</view>
+		<!-- 顶部活动Banner -->
+		<view class="bargain-banner">
+			<view class="banner-bg"></view>
+			<view class="banner-content">
+				<view class="banner-title">砍价专区</view>
+				<view class="banner-subtitle">邀请好友助力，最高省50%</view>
+			</view>
+			<view class="banner-action" bindtap="goMyBargain">
+				<text>我的砍价</text>
+				<text class="arrow">›</text>
+			</view>
 		</view>
 
 		<!-- 商品列表 -->
-		<view class="product-list">
-			<view class="product-card" wx:for="{{goodsList}}" wx:key="id" data-id="{{item.id}}" bindtap="onStartBargain">
-				<!-- 左侧图片区 -->
-				<view class="product-image-wrap">
-					<image class="product-image" src="{{item.cover}}" mode="aspectFill"></image>
-					<view class="image-gradient"></view>
-					<view class="helper-badge">
-						<view class="helper-dot"></view>
-						<text class="helper-count">{{item.cutCount || 0}}人助力</text>
-					</view>
+		<view class="section-header">
+			<text class="section-title">热门砍价</text>
+			<text class="section-desc">{{goodsList.length}}件商品参与中</text>
+		</view>
+		<view class="product-grid">
+			<view class="product-card-new" wx:for="{{goodsList}}" wx:key="id" data-id="{{item.id}}" bindtap="onStartBargain">
+				<view class="product-image-box">
+					<image class="product-img" src="{{item.cover}}" mode="aspectFill"></image>
+					<view class="discount-tag">-{{item.discountPercent || 30}}%</view>
 				</view>
-				<!-- 右侧信息区 -->
-				<view class="product-info">
-					<view class="product-name">{{item.name || '限时特惠商品'}}</view>
-					<view class="price-action">
-						<view class="price-row">
-							<text class="price-origin">¥{{item.origin}}</text>
-							<text class="price-current">¥{{item.price}}</text>
+				<view class="product-detail">
+					<view class="product-name-new">{{item.name || '限时特惠商品'}}</view>
+					<view class="product-prices">
+						<text class="current-price">¥{{item.price}}</text>
+						<text class="origin-price">¥{{item.origin}}</text>
+					</view>
+					<view class="product-meta">
+						<view class="helper-info">
+							<view class="helper-dot-new"></view>
+							<text>{{item.cutCount || 0}}人已助力</text>
 						</view>
-						<button class="btn-cut" catchtap="onStartBargain" data-id="{{item.id}}">砍一刀</button>
+						<button class="cut-btn" catchtap="onStartBargain" data-id="{{item.id}}">砍一刀</button>
 					</view>
 				</view>
 			</view>

@@ -365,7 +365,7 @@ Page({
 		const selectedSku = variants.find(v => v.id === defaultVariantId)?.sku
 		
 		// 获取分组材质选项
-		const fabricGroups = this.getFabricGroups(this.data.currentCategory)
+		const fabricGroups = this.getFabricGroups(this.data.currentCategory, goods)
 		const defaultFabricId = fabricGroups[0]?.items[0]?.id || ''
 		
 		// 获取当前类别配置
@@ -389,69 +389,35 @@ Page({
 		})
 	},
 	// 获取材质选项（按类别分组）- 所有分类都显示材质选择
-	getFabricGroups(categoryKey) {
+	getFabricGroups(categoryKey, goods) {
 		// 获取当前分类名称
-		const category = this.data.categories.find(c => c.key === categoryKey)
-		const categoryName = category ? category.name : ''
-		
-		// 根据分类名称判断材质类型
-		const isFabricCategory = /沙发|床|椅/.test(categoryName)
-		const isWoodCategory = /桌|柜|茶几/.test(categoryName)
-		
-		if (isFabricCategory) {
-			return [
-				{
-					groupName: 'A类头层真皮 (荔枝纹)',
-					items: [
-						{ id: 'a1', colorName: '色号1', img: 'https://picsum.photos/120/120?random=301' },
-						{ id: 'a2', colorName: '色号2', img: 'https://picsum.photos/120/120?random=302' },
-						{ id: 'a3', colorName: '色号3', img: 'https://picsum.photos/120/120?random=303' },
-						{ id: 'a4', colorName: '色号4', img: 'https://picsum.photos/120/120?random=304' },
-						{ id: 'a5', colorName: '色号5', img: 'https://picsum.photos/120/120?random=305' },
-						{ id: 'a6', colorName: '色号6', img: 'https://picsum.photos/120/120?random=306' }
-					]
-				},
-				{
-					groupName: 'B类纳米科技布',
-					items: [
-						{ id: 'b1', colorName: '色号1', img: 'https://picsum.photos/120/120?random=311' },
-						{ id: 'b2', colorName: '色号2', img: 'https://picsum.photos/120/120?random=312' },
-						{ id: 'b3', colorName: '色号3', img: 'https://picsum.photos/120/120?random=313' },
-						{ id: 'b4', colorName: '色号4', img: 'https://picsum.photos/120/120?random=314' }
-					]
+		const currentGoods = goods || this.data.goodsModalData
+		if (currentGoods && currentGoods.materialImages) {
+			const groups = []
+			const materialImages = currentGoods.materialImages
+			const materialCategories = currentGoods.materialCategories || Object.keys(materialImages)
+			
+			materialCategories.forEach((catName, catIndex) => {
+				const images = materialImages[catName] || []
+				if (images.length > 0) {
+					groups.push({
+						groupName: catName,
+						items: images.map((img, idx) => ({
+							id: `${catName}_${idx}`,
+							colorName: img.name || img.colorName || `色号${idx + 1}`,
+							img: img.url || img.image || img
+						}))
+					})
 				}
-			]
-		}
-		if (isWoodCategory) {
-			return [
-				{
-					groupName: '实木材质',
-					items: [
-						{ id: 't1', colorName: '原木色', img: 'https://picsum.photos/120/120?random=321' },
-						{ id: 't2', colorName: '胡桃色', img: 'https://picsum.photos/120/120?random=322' },
-						{ id: 't3', colorName: '樱桃色', img: 'https://picsum.photos/120/120?random=323' }
-					]
-				},
-				{
-					groupName: '岩板材质',
-					items: [
-						{ id: 'r1', colorName: '雪花白', img: 'https://picsum.photos/120/120?random=331' },
-						{ id: 'r2', colorName: '灰色', img: 'https://picsum.photos/120/120?random=332' }
-					]
-				}
-			]
-		}
-		// 默认返回通用材质选项
-		return [
-			{
-				groupName: '标准材质',
-				items: [
-					{ id: 'd1', colorName: '默认色', img: 'https://picsum.photos/120/120?random=341' },
-					{ id: 'd2', colorName: '浅色系', img: 'https://picsum.photos/120/120?random=342' },
-					{ id: 'd3', colorName: '深色系', img: 'https://picsum.photos/120/120?random=343' }
-				]
+			})
+			
+			if (groups.length > 0) {
+				return groups
 			}
-		]
+		}
+		
+		// 如果没有真实数据，不显示假数据
+		return []
 	},
 	// 选择面料
 	onSelectFabric(e) {
