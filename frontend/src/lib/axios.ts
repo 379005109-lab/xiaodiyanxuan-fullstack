@@ -1,7 +1,16 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
 
-// 防止多次401重定向
-let isRedirecting = false;
+// 防止多次401重定向（使用sessionStorage持久化）
+const REDIRECT_KEY = 'auth_redirecting';
+const isRedirecting = () => sessionStorage.getItem(REDIRECT_KEY) === 'true';
+const setRedirecting = (val: boolean) => {
+  if (val) {
+    sessionStorage.setItem(REDIRECT_KEY, 'true');
+    setTimeout(() => sessionStorage.removeItem(REDIRECT_KEY), 5000);
+  } else {
+    sessionStorage.removeItem(REDIRECT_KEY);
+  }
+};
 
 // 多个可用的API地址（按优先级排序）
 const API_URLS = [
@@ -83,8 +92,8 @@ const setupInterceptors = (instance: AxiosInstance) => {
     },
     async (error: AxiosError) => {
       // 处理401错误，防止重复重定向
-      if (error.response?.status === 401 && !isRedirecting) {
-        isRedirecting = true;
+      if (error.response?.status === 401 && !isRedirecting()) {
+        setRedirecting(true);
         localStorage.removeItem('token')
         setTimeout(() => {
           window.location.href = '/'

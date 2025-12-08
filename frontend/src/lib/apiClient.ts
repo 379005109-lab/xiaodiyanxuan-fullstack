@@ -1,8 +1,18 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
-// 防止多次401重定向
-let isRedirecting = false;
+// 防止多次401重定向（使用sessionStorage持久化）
+const REDIRECT_KEY = 'auth_redirecting';
+const isRedirecting = () => sessionStorage.getItem(REDIRECT_KEY) === 'true';
+const setRedirecting = (val: boolean) => {
+  if (val) {
+    sessionStorage.setItem(REDIRECT_KEY, 'true');
+    // 5秒后自动清除，防止卡死
+    setTimeout(() => sessionStorage.removeItem(REDIRECT_KEY), 5000);
+  } else {
+    sessionStorage.removeItem(REDIRECT_KEY);
+  }
+};
 
 // 获取 API 基础 URL
 const getApiUrl = () => {
@@ -70,9 +80,9 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !isRedirecting) {
+    if (error.response?.status === 401 && !isRedirecting()) {
       // Token 过期或无效，防止重复重定向
-      isRedirecting = true;
+      setRedirecting(true);
       useAuthStore.getState().logout();
       // 延迟重定向，让其他请求完成
       setTimeout(() => {

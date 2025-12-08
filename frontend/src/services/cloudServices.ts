@@ -2,8 +2,17 @@
 import * as notificationService from './notificationService'
 import { getAllCompareItems, addToCompare, removeFromCompare, isInCompare, clearCompare, getCompareCount } from './compareService'
 
-// 防止多次401重定向
-let isRedirecting = false;
+// 防止多次401重定向（使用sessionStorage持久化）
+const REDIRECT_KEY = 'auth_redirecting';
+const isRedirecting = () => sessionStorage.getItem(REDIRECT_KEY) === 'true';
+const setRedirecting = (val: boolean) => {
+  if (val) {
+    sessionStorage.setItem(REDIRECT_KEY, 'true');
+    setTimeout(() => sessionStorage.removeItem(REDIRECT_KEY), 5000);
+  } else {
+    sessionStorage.removeItem(REDIRECT_KEY);
+  }
+};
 
 /**
  * 云端服务配置
@@ -67,9 +76,9 @@ export const apiRequest = async (
       headers
     })
 
-    if (response.status === 401 && !isRedirecting) {
+    if (response.status === 401 && !isRedirecting()) {
       // 令牌过期，清除并重定向到首页，防止重复重定向
-      isRedirecting = true;
+      setRedirecting(true);
       clearAuthToken()
       setTimeout(() => {
         window.location.href = '/'
