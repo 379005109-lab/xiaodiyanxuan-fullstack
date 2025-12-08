@@ -1,4 +1,4 @@
-<navigation-bar title="套餐配置" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
+<navigation-bar title="套餐配置" back="{{true}}" color="black" background="transparent"></navigation-bar>
 <view class="page">
 	<!-- 主视图大图 -->
 	<view class="preview-main">
@@ -103,12 +103,13 @@
 						</view>
 					</view>
 				</view>
-				<!-- 面料选择（材质+颜色合并） -->
+				<!-- 面料选择（显示图片） -->
 				<view class="goods-modal-section" wx:if="{{goodsModalFabrics.length > 0}}">
 					<view class="goods-modal-label">选择面料</view>
-					<view class="fabric-list">
-						<view class="fabric-chip {{goodsModalFabricIndex===index?'active':''}}" wx:for="{{goodsModalFabrics}}" wx:key="id" data-index="{{index}}" bindtap="onSelectFabric">
-							<text class="fabric-chip-text">{{item.name}}</text>
+					<view class="fabric-grid">
+						<view class="fabric-item {{goodsModalFabricIndex===index?'active':''}}" wx:for="{{goodsModalFabrics}}" wx:key="id" data-index="{{index}}" bindtap="onSelectFabric">
+							<image class="fabric-img" src="{{item.image || item.img || 'https://picsum.photos/120/120?random=' + index}}" mode="aspectFill"></image>
+							<text class="fabric-name">{{item.name}}</text>
 						</view>
 					</view>
 				</view>

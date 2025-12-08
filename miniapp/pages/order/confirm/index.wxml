@@ -3,7 +3,7 @@
 <view class="page">
 	<!-- 生产周期提醒 -->
 	<view class="notice-bar">
-		<text class="notice-icon">!</text>
+		<view class="notice-icon-simple"></view>
 		<text class="notice-text">温馨提示：商品为定制生产，生产周期约6-8周</text>
 	</view>
 	
@@ -84,7 +84,7 @@
 	<block wx:if="{{orderType === 'package'}}">
 		<!-- 套餐提示 -->
 		<view class="package-notice">
-			<view class="package-notice-icon">📦</view>
+			<view class="package-icon-simple"></view>
 			<view class="package-notice-content">
 				<text class="package-notice-title">套餐一口价</text>
 				<text class="package-notice-desc">套餐商品为整体定价，无法单独删除或减少商品。如需修改，请返回重新选择套餐。</text>

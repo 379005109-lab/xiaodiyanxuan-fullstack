@@ -89,15 +89,17 @@ Page({
 			const myBargains = (res.data || [])
 				.filter(item => item.status === 'active')
 				.map(item => {
-					// 处理图片URL
-					let cover = item.coverImage || ''
+					// 处理图片URL - 使用thumbnail字段
+					let cover = item.thumbnail || item.coverImage || ''
 					if (cover && !cover.startsWith('http')) {
 						const config = require('../../config/api.js')
 						const baseUrl = config.baseURL.replace('/api/miniapp', '')
 						cover = `${baseUrl}/api/files/${cover}`
 					}
 					if (!cover) {
-						cover = `https://picsum.photos/400/400?random=${Date.now()}`
+						// 尝试从商品列表中获取图片
+						const product = this.data.goodsList.find(g => g.id === item.productId)
+						cover = product?.cover || `https://picsum.photos/400/400?random=${item._id}`
 					}
 					return {
 						id: item._id,
