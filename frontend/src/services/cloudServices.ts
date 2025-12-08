@@ -2,6 +2,9 @@
 import * as notificationService from './notificationService'
 import { getAllCompareItems, addToCompare, removeFromCompare, isInCompare, clearCompare, getCompareCount } from './compareService'
 
+// 防止多次401重定向
+let isRedirecting = false;
+
 /**
  * 云端服务配置
  */
@@ -64,10 +67,13 @@ export const apiRequest = async (
       headers
     })
 
-    if (response.status === 401) {
-      // 令牌过期，清除并重定向到首页
+    if (response.status === 401 && !isRedirecting) {
+      // 令牌过期，清除并重定向到首页，防止重复重定向
+      isRedirecting = true;
       clearAuthToken()
-      window.location.href = '/'
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 100)
       return null
     }
 

@@ -1,5 +1,8 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
 
+// 防止多次401重定向
+let isRedirecting = false;
+
 // 多个可用的API地址（按优先级排序）
 const API_URLS = [
   'https://pkochbpmcgaa.sealoshzh.site/api', // 后端API地址
@@ -79,10 +82,13 @@ const setupInterceptors = (instance: AxiosInstance) => {
       return response.data
     },
     async (error: AxiosError) => {
-      // 处理401错误
-      if (error.response?.status === 401) {
+      // 处理401错误，防止重复重定向
+      if (error.response?.status === 401 && !isRedirecting) {
+        isRedirecting = true;
         localStorage.removeItem('token')
-        window.location.href = '/'
+        setTimeout(() => {
+          window.location.href = '/'
+        }, 100)
         return Promise.reject(error)
       }
       

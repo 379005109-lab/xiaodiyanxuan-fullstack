@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
+// 防止多次401重定向
+let isRedirecting = false;
+
 // 获取 API 基础 URL
 const getApiUrl = () => {
   // 优先使用环境变量
@@ -67,10 +70,14 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token 过期或无效
+    if (error.response?.status === 401 && !isRedirecting) {
+      // Token 过期或无效，防止重复重定向
+      isRedirecting = true;
       useAuthStore.getState().logout();
-      window.location.href = '/';
+      // 延迟重定向，让其他请求完成
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
     }
     return Promise.reject(error);
   }
