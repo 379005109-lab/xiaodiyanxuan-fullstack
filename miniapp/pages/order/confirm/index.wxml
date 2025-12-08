@@ -106,13 +106,7 @@
 							<text class="goods-name">{{item.code}}</text>
 							<view class="package-lock-icon" catchtap="onPackageItemTip">🔒</view>
 						</view>
-						<view class="goods-spec-text">规格: {{item.categoryName || '默认'}}</view>
 						<view class="goods-spec-text" wx:if="{{item.dims}}">尺寸: {{item.dims}}</view>
-						<!-- 材质信息 -->
-						<view class="goods-spec-text" wx:if="{{item.fabric || item.material}}">面料: {{item.fabric || item.material}}{{item.materialColor ? '-' + item.materialColor : ''}}</view>
-						<view class="goods-spec-text" wx:if="{{item.fill}}">填充: {{item.fill}}</view>
-						<view class="goods-spec-text" wx:if="{{item.frame}}">框架: {{item.frame}}</view>
-						<view class="goods-spec-text" wx:if="{{item.leg}}">脚架: {{item.leg}}</view>
 						<view class="goods-price-new">¥{{item.price}}</view>
 					</view>
 				</view>
