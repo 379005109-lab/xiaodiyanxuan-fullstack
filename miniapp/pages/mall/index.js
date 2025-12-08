@@ -31,16 +31,20 @@ Page({
 		this.loadGoodsList()
 		this.closeOverlays()
 	},
-	// 加载风格列表
+	// 加载风格列表（从商品标签中提取）
 	loadStyles() {
-		api.getStyles().then((data) => {
-			const styles = []
+		// 从所有商品中提取风格标签
+		api.getGoodsList().then((data) => {
+			const styleSet = new Set()
 			if (Array.isArray(data)) {
-				data.forEach(s => {
-					if (s.name) styles.push(s.name)
+				data.forEach(g => {
+					if (g.style) styleSet.add(g.style)
+					if (g.tags && Array.isArray(g.tags)) {
+						g.tags.forEach(t => styleSet.add(t))
+					}
 				})
 			}
-			// 如果后台没有数据，使用默认风格
+			const styles = Array.from(styleSet).filter(s => s && s.trim())
 			this.setData({ styles: styles.length > 0 ? styles : ['中古风','现代风','极简风','轻奢风'] })
 		}).catch((err) => {
 			console.error('加载风格失败:', err)
