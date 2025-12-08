@@ -807,7 +807,10 @@ router.get('/packages/:id', async (req, res) => {
             basePrice: product?.basePrice || 0,
             packagePrice: product?.packagePrice || product?.basePrice || 0,
             specs: product?.skus?.[0]?.dimensions || '',
-            skus: product?.skus || []
+            skus: product?.skus || [],
+            materialsGroups: product?.materialsGroups || [],
+            materialImages: product?.materialImages || null,
+            materialCategories: product?.materialCategories || []
           }
         })
       }))

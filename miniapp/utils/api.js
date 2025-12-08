@@ -63,23 +63,32 @@ function request(options) {
 
         // 处理响应
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          // 如果后端返回的数据格式是 { code: 0, data: ..., message: ... }
-          if (res.data && typeof res.data === 'object' && 'code' in res.data) {
-            if (res.data.code === 0 || res.data.code === 200) {
-              resolve(res.data.data || res.data)
+          // 支持多种后端返回格式
+          const resData = res.data
+
+          // 格式1: { code: 0/200, data: ... }
+          if (resData && typeof resData === 'object' && 'code' in resData) {
+            if (resData.code === 0 || resData.code === 200) {
+              resolve(resData.data !== undefined ? resData.data : resData)
             } else {
-              // 业务错误
-              const errorMsg = res.data.message || '请求失败'
-              wx.showToast({
-                title: errorMsg,
-                icon: 'none',
-                duration: 2000
-              })
+              const errorMsg = resData.message || '请求失败'
+              wx.showToast({ title: errorMsg, icon: 'none', duration: 2000 })
               reject(new Error(errorMsg))
             }
-          } else {
-            // 直接返回数据
-            resolve(res.data)
+          }
+          // 格式2: { success: true, data: ... }
+          else if (resData && typeof resData === 'object' && resData.success === true) {
+            resolve(resData.data !== undefined ? resData.data : resData)
+          }
+          // 格式3: { success: false, message: ... }
+          else if (resData && typeof resData === 'object' && resData.success === false) {
+            const errorMsg = resData.message || '请求失败'
+            wx.showToast({ title: errorMsg, icon: 'none', duration: 2000 })
+            reject(new Error(errorMsg))
+          }
+          // 其他格式: 直接返回
+          else {
+            resolve(resData)
           }
         } else if (res.statusCode === 401) {
           // 未授权，清除 token 并跳转到登录
