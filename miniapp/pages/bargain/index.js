@@ -67,7 +67,11 @@ Page({
 					style: item.style || '现代简约',
 					category: item.category || '沙发',
 					minCut: item.minCutAmount || 1,
-					maxCut: item.maxCutAmount || 50
+					maxCut: item.maxCutAmount || 50,
+					// 材质信息
+					materialsGroups: item.materialsGroups || [],
+					materialImages: item.materialImages || null,
+					materialCategories: item.materialCategories || []
 				}
 			})
 			this.setData({ allGoodsList: goods })
@@ -267,6 +271,28 @@ Page({
 		
 		this.setData({ goodsList: filtered })
 	},
+	// 查看材质
+	onShowMaterials(e) {
+		const id = e.currentTarget.dataset.id
+		const goods = this.data.goodsList.find(g => g.id === id)
+		if (!goods || !goods.materialsGroups || goods.materialsGroups.length === 0) {
+			wx.showToast({ title: '暂无材质信息', icon: 'none' })
+			return
+		}
+		
+		// 构建材质预览内容
+		const materials = goods.materialsGroups.map(mg => {
+			const colorNames = (mg.colors || []).map(c => c.name).join('、')
+			return `${mg.name}: ${colorNames || '多色可选'}`
+		}).join('\n')
+		
+		wx.showModal({
+			title: '可选材质',
+			content: materials,
+			showCancel: false,
+			confirmText: '知道了'
+		})
+	},
 	async onHelpCut(e) {
 		if (!this.ensureLogin('帮好友助力砍价')) return
 		const id = e.currentTarget.dataset.id
@@ -373,17 +399,16 @@ Page({
 			wx.showLoading({ title: '发起砍价中...' })
 			const res = await api.startBargain(id, goods.name, goods.origin, goods.price, goods.cover)
 			wx.hideLoading()
+			console.log('发起砍价返回:', res)
 			
-			if (res.code === 0 || res.success) {
-				// 重新加载我的砍价
-				this.loadMyBargains()
-				wx.showToast({ title: '已发起砍价', icon: 'success' })
-			} else {
-				wx.showToast({ title: res.message || '发起砍价失败', icon: 'none' })
-			}
+			// API已处理响应格式，res直接是data
+			// 重新加载我的砍价
+			this.loadMyBargains()
+			wx.showToast({ title: '已发起砍价', icon: 'success' })
 		} catch (e) {
 			wx.hideLoading()
-			wx.showToast({ title: '发起砍价失败', icon: 'none' })
+			console.error('发起砍价失败:', e)
+			wx.showToast({ title: e.message || '发起砍价失败', icon: 'none' })
 		}
 	},
 	onShareAppMessage(res) {

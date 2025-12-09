@@ -123,7 +123,23 @@ router.get('/', optionalAuth, async (req, res) => {
       .limit(parseInt(pageSize))
       .lean()
     
-    res.json({ success: true, data: products })
+    // 获取关联商品的材质数据
+    const productIds = products.filter(p => p.productId).map(p => p.productId)
+    const relatedProducts = await Product.find({ _id: { $in: productIds } }).lean()
+    const productMap = new Map(relatedProducts.map(p => [p._id.toString(), p]))
+    
+    // 合并材质数据到砍价商品
+    const enrichedProducts = products.map(bp => {
+      const product = bp.productId ? productMap.get(bp.productId.toString()) : null
+      return {
+        ...bp,
+        materialsGroups: product?.materialsGroups || [],
+        materialImages: product?.materialImages || null,
+        materialCategories: product?.materialCategories || []
+      }
+    })
+    
+    res.json({ success: true, data: enrichedProducts })
   } catch (error) {
     console.error('获取砍价商品列表失败:', error)
     res.status(500).json({ success: false, message: '获取失败' })

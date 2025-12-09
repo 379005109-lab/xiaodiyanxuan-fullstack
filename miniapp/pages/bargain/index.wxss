@@ -171,6 +171,27 @@ page {
 }
 .cut-btn::after { display: none; }
 
+/* ========== 材质预览 ========== */
+.material-preview {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin: 12rpx 0;
+  padding: 8rpx 0;
+  border-top: 1rpx solid #f3f4f6;
+}
+.material-thumb {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 6rpx;
+  border: 1rpx solid #e5e7eb;
+}
+.material-more {
+  font-size: 20rpx;
+  color: #22d3ee;
+  margin-left: auto;
+}
+
 /* ========== 我的砍价 - 网格卡片样式 ========== */
 .my-bargain-section { 
   margin-top: 32rpx; 

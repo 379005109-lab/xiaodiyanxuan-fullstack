@@ -12,6 +12,7 @@ Page({
 		navBarHeight: 0,
 		images: [],
 		detailImages: [],
+		mainImage: '', // 保存原始商品主图
 		loading: false,
 		tabList: [], // 动态生成，根据商品是否有材质/内部结构数据
 		hasMaterials: false, // 是否有材质数据
@@ -176,6 +177,7 @@ Page({
 					price: data.price || 0
 				},
 				images: data.images || (data.thumb ? [data.thumb] : []),
+					mainImage: (data.images && data.images[0]) || data.thumb || '', // 原始商品主图
 				detailImages: data.detailImages || data.images || [],
 				sizes: sizes.length > 0 ? sizes : this.data.sizes,
 				materialsGroups: materialsGroups,
@@ -660,7 +662,7 @@ Page({
 						id: id,
 						name: goods.name,
 						price: totalPrice,
-						thumb: images[0] || 'https://picsum.photos/200/200?random=1',
+						thumb: this.data.mainImage || images[0] || 'https://picsum.photos/200/200?random=1',
 						fabricImg: fabricImg,
 						count: 1,
 						sizeName: size.name || '',
@@ -715,7 +717,7 @@ Page({
 		const order = {
 			goodsId: d.id,  // 商品ID
 			goodsName: d.goods.name,
-			goodsImage: d.images[0] || 'https://picsum.photos/200/200?random=1',
+			goodsImage: d.mainImage || d.images[0] || 'https://picsum.photos/200/200?random=1',
 			sizeName: size.name || '',
 			sizeDims: size.dims || '',
 			materialName: mg.name || '',
