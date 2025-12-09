@@ -653,6 +653,27 @@ router.get('/orders', auth, async (req, res) => {
       .limit(parseInt(pageSize))
       .lean()
 
+    // 收集所有商品ID，用于补充缺失的商品名称
+    const productIds = new Set()
+    orders.forEach(o => {
+      (o.items || []).forEach(item => {
+        if (item.product && !item.productName) {
+          productIds.add(item.product.toString())
+        }
+      })
+    })
+    
+    // 查询缺失的商品信息
+    const productMap = new Map()
+    if (productIds.size > 0) {
+      const products = await Product.find({ _id: { $in: Array.from(productIds) } })
+        .select('name images basePrice')
+        .lean()
+      products.forEach(p => {
+        productMap.set(p._id.toString(), p)
+      })
+    }
+
     // 状态文本映射
     const statusTextMap = {
       1: '待付款',
@@ -665,32 +686,48 @@ router.get('/orders', auth, async (req, res) => {
       8: '换货中'
     }
 
-    const list = orders.map(o => ({
-      id: o._id,
-      orderNo: o.orderNo,
-      status: o.status,
-      statusText: statusTextMap[o.status] || '未知',
-      totalPrice: o.totalAmount,
-      createTime: o.createdAt,
-      goods: (o.items || []).map(item => ({
-        id: item.product,
-        name: item.productName,
-        thumb: getImageUrl(item.image),
-        sizeName: item.specifications?.size || '',
-        dims: item.skuDimensions || '',
-        fabric: item.selectedMaterials?.fabric || '',
-        materialColor: item.selectedMaterials?.color || '',
-        fill: item.selectedMaterials?.fill || '',
-        frame: item.selectedMaterials?.frame || '',
-        leg: item.selectedMaterials?.leg || '',
-        count: item.quantity
-      })),
-      receiverName: o.recipient?.name || '',
-      receiverPhone: o.recipient?.phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') || '',
-      receiverAddress: o.recipient?.address || '',
-      modified: o.modified || false,
-      modifyAccepted: o.modifyAccepted !== false
-    }))
+    const list = orders.map(o => {
+      // 计算订单总价（如果没有保存的话）
+      let orderTotal = o.totalAmount
+      if (!orderTotal || orderTotal === 0) {
+        orderTotal = (o.items || []).reduce((sum, item) => {
+          const product = productMap.get(item.product?.toString())
+          const price = item.price || product?.basePrice || 0
+          return sum + (price * (item.quantity || 1))
+        }, 0)
+      }
+      
+      return {
+        id: o._id,
+        orderNo: o.orderNo,
+        status: o.status,
+        statusText: statusTextMap[o.status] || '未知',
+        totalPrice: orderTotal,
+        createTime: o.createdAt,
+        goods: (o.items || []).map(item => {
+          // 补充缺失的商品信息
+          const product = productMap.get(item.product?.toString())
+          return {
+            id: item.product,
+            name: item.productName || product?.name || '商品',
+            thumb: getImageUrl(item.image || product?.images?.[0]),
+            sizeName: item.specifications?.size || '',
+            dims: item.skuDimensions || '',
+            fabric: item.selectedMaterials?.fabric || '',
+            materialColor: item.selectedMaterials?.color || '',
+            fill: item.selectedMaterials?.fill || '',
+            frame: item.selectedMaterials?.frame || '',
+            leg: item.selectedMaterials?.leg || '',
+            count: item.quantity || 1
+          }
+        }),
+        receiverName: o.recipient?.name || '',
+        receiverPhone: o.recipient?.phone?.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') || '',
+        receiverAddress: o.recipient?.address || '',
+        modified: o.modified || false,
+        modifyAccepted: o.modifyAccepted !== false
+      }
+    })
 
     res.json(success({ list, total }))
   } catch (err) {
