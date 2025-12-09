@@ -54,7 +54,7 @@ Page({
 		// 格式化订单列表，将后端数据映射为小程序需要的格式
 		const formatOrders = (orders) => {
 			return orders.map(order => {
-				// 获取订单状态文本
+				// 获取订单状态文本（后端可能已经返回statusText）
 				const statusTextMap = {
 					1: '待付款',
 					2: '待发货',
@@ -64,33 +64,25 @@ Page({
 					6: '退款中',
 					7: '已退款'
 				}
-				// 处理商品列表
-				const goods = (order.items || []).map(item => ({
-					id: item.productId || item._id,
-					name: item.productName || item.name,
-					thumb: item.image,
-					count: item.quantity || 1,
-					sizeName: item.sizeName || item.sku,
-					dims: item.dimensions,
-					fabric: item.materials?.fabric,
-					fill: item.materials?.fill,
-					frame: item.materials?.frame,
-					leg: item.materials?.leg,
-					material: item.materials?.fabric,
-					materialColor: item.materials?.fabricColor
-				}))
+				
+				// 后端返回的是goods字段，直接使用
+				// 数据格式: { id, name, thumb, sizeName, dims, fabric, materialColor, fill, frame, leg, count }
+				const goodsList = order.goods || order.items || []
 				
 				return {
-					...order,
 					id: order._id || order.id,
+					orderNo: order.orderNo,
 					status: order.status,
-					statusText: statusTextMap[order.status] || '未知',
-					totalPrice: order.totalAmount || order.subtotal || 0,
-					receiverName: order.recipient?.name,
-					receiverPhone: order.recipient?.phone,
-					receiverAddress: order.recipient?.address,
-					goods: goods,
-					refundStatus: order.refundStatus // 退款状态
+					statusText: order.statusText || statusTextMap[order.status] || '未知',
+					totalPrice: order.totalPrice || order.totalAmount || 0,
+					createTime: order.createTime || order.createdAt,
+					receiverName: order.receiverName || order.recipient?.name || '',
+					receiverPhone: order.receiverPhone || order.recipient?.phone || '',
+					receiverAddress: order.receiverAddress || order.recipient?.address || '',
+					goods: goodsList,
+					modified: order.modified || false,
+					modifyAccepted: order.modifyAccepted !== false,
+					refundStatus: order.refundStatus
 				}
 			})
 		}

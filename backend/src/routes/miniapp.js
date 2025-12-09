@@ -46,17 +46,41 @@ const buildMaterialsFromSkus = async (skus, getImageUrl) => {
   
   if (allMaterialNames.size === 0) return []
   
-  // 查询材质图片
+  // 查询材质图片 - 支持模糊匹配
   const materialImages = {}
   try {
-    const materials = await Material.find({
+    console.log('[材质] 需要查询的材质名称:', Array.from(allMaterialNames))
+    
+    // 先尝试精确匹配
+    let materials = await Material.find({
       name: { $in: Array.from(allMaterialNames) },
       status: 'approved'
     }).select('name image').lean()
     
+    // 如果没找到，尝试用最后一段（颜色名）匹配
+    if (materials.length === 0) {
+      const colorNames = Array.from(allMaterialNames).map(fullName => {
+        const lastDash = fullName.lastIndexOf('-')
+        return lastDash > 0 ? fullName.substring(lastDash + 1) : fullName
+      })
+      console.log('[材质] 尝试用颜色名匹配:', colorNames)
+      materials = await Material.find({
+        name: { $in: colorNames },
+        status: 'approved'
+      }).select('name image').lean()
+    }
+    
+    console.log('[材质] 查询到的材质:', materials.length)
+    
     materials.forEach(m => {
       if (m.image) {
         materialImages[m.name] = getImageUrl(m.image)
+        // 同时用完整名称作为key（方便后续匹配）
+        allMaterialNames.forEach(fullName => {
+          if (fullName.endsWith(m.name) || fullName === m.name) {
+            materialImages[fullName] = getImageUrl(m.image)
+          }
+        })
       }
     })
   } catch (e) {
