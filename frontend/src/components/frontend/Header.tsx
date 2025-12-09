@@ -15,7 +15,7 @@ export default function Header() {
   const { openLogin } = useAuthModalStore()
   const { getTotalItems } = useCartStore()
   const { getFavoriteCount, loadFavorites } = useFavoriteStore()
-  const { getCount: getCompareCount, loadCompareItems } = useCompareStore()
+  const { getCount: getCompareCount, loadCompareItems, openModal: openCompareModal } = useCompareStore()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -289,9 +289,9 @@ export default function Header() {
           </Link>
 
           {/* Compare */}
-          <Link
-            to="/compare"
-            className={`relative hover:text-primary transition-colors ${location.pathname === '/compare' ? 'text-primary' : 'text-stone-500'}`}
+          <button
+            onClick={openCompareModal}
+            className="relative hover:text-primary transition-colors text-stone-500"
             title="商品对比"
           >
             <Scale className="w-5 h-5" />
@@ -300,7 +300,7 @@ export default function Header() {
                 {getCompareCount()}
               </span>
             )}
-          </Link>
+          </button>
           
           {/* Cart */}
           <Link

@@ -11,16 +11,20 @@ import {
 
 interface CompareStore {
   compareItems: CompareItem[]
+  isModalOpen: boolean
   loadCompareItems: () => Promise<void>
   addToCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => Promise<{ success: boolean; message: string }>
   removeFromCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => Promise<void>
   isInCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => Promise<boolean>
   clearAll: () => Promise<void>
   getCount: () => number
+  openModal: () => void
+  closeModal: () => void
 }
 
 export const useCompareStore = create<CompareStore>((set, get) => ({
   compareItems: [],
+  isModalOpen: false,
   
   loadCompareItems: async () => {
     try {
@@ -54,5 +58,8 @@ export const useCompareStore = create<CompareStore>((set, get) => ({
     set({ compareItems: [] })
   },
   
-  getCount: () => get().compareItems.length // return getCompareCount()
+  getCount: () => get().compareItems.length, // return getCompareCount()
+  
+  openModal: () => set({ isModalOpen: true }),
+  closeModal: () => set({ isModalOpen: false })
 }))
