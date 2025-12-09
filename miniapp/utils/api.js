@@ -100,8 +100,12 @@ function request(options) {
           // 可以在这里跳转到登录页面
           reject(new Error('未授权'))
         } else {
-          // HTTP 错误
-          const errorMsg = `请求失败 (${res.statusCode})`
+          // HTTP 错误 - 尝试解析后端返回的错误消息
+          let errorMsg = `请求失败 (${res.statusCode})`
+          if (res.data && typeof res.data === 'object' && res.data.message) {
+            errorMsg = res.data.message
+          }
+          console.log('HTTP错误详情:', res.statusCode, res.data)
           wx.showToast({
             title: errorMsg,
             icon: 'none'

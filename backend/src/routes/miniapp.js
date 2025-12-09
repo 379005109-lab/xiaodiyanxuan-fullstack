@@ -28,6 +28,100 @@ const API_BASE_URL = process.env.API_BASE_URL || 'https://xiaodiyanxuan.com'
 const success = (data, message = 'success') => ({ code: 0, data, message })
 const error = (code, message) => ({ code, message })
 
+// ========== 共享函数：从SKU构建材质分组 ==========
+const buildMaterialsFromSkus = async (skus, getImageUrl) => {
+  if (!skus || skus.length === 0) return []
+  
+  // 收集所有材质名称
+  const allMaterialNames = new Set()
+  skus.forEach(sku => {
+    if (sku.material && typeof sku.material === 'object') {
+      Object.values(sku.material).forEach(materials => {
+        if (Array.isArray(materials)) {
+          materials.forEach(name => allMaterialNames.add(name))
+        }
+      })
+    }
+  })
+  
+  if (allMaterialNames.size === 0) return []
+  
+  // 查询材质图片
+  const materialImages = {}
+  try {
+    const materials = await Material.find({
+      name: { $in: Array.from(allMaterialNames) },
+      status: 'approved'
+    }).select('name image').lean()
+    
+    materials.forEach(m => {
+      if (m.image) {
+        materialImages[m.name] = getImageUrl(m.image)
+      }
+    })
+  } catch (e) {
+    console.log('查询材质图片失败:', e.message)
+  }
+  
+  // 为第一个SKU构建材质分组
+  const sku = skus[0]
+  const materialCategoryMap = new Map()
+  
+  if (sku.material && typeof sku.material === 'object') {
+    Object.entries(sku.material).forEach(([categoryType, materials]) => {
+      if (!materialCategoryMap.has(categoryType)) {
+        materialCategoryMap.set(categoryType, new Map())
+      }
+      const subCategoryMap = materialCategoryMap.get(categoryType)
+      
+      if (Array.isArray(materials)) {
+        materials.forEach(fullName => {
+          const lastDashIndex = fullName.lastIndexOf('-')
+          let subCategory = fullName
+          let colorName = fullName
+          
+          if (lastDashIndex > 0) {
+            subCategory = fullName.substring(0, lastDashIndex)
+            colorName = fullName.substring(lastDashIndex + 1)
+          }
+          
+          if (!subCategoryMap.has(subCategory)) {
+            subCategoryMap.set(subCategory, new Set())
+          }
+          subCategoryMap.get(subCategory).add({ fullName, colorName })
+        })
+      }
+    })
+  }
+  
+  const materialsGroups = []
+  let groupIndex = 0
+  materialCategoryMap.forEach((subCategoryMap, categoryType) => {
+    const colors = []
+    subCategoryMap.forEach((colorSet, subCategoryName) => {
+      Array.from(colorSet).forEach((item, i) => {
+        colors.push({
+          id: `color_${groupIndex}_${i}`,
+          name: item.colorName,
+          fullName: item.fullName,
+          img: materialImages[item.fullName] || ''
+        })
+      })
+    })
+    
+    if (colors.length > 0) {
+      materialsGroups.push({
+        id: `material_${groupIndex}`,
+        name: categoryType,
+        colors: colors
+      })
+      groupIndex++
+    }
+  })
+  
+  return materialsGroups
+}
+
 // 图片URL处理
 const getImageUrl = (img) => {
   if (!img) return ''
@@ -792,6 +886,15 @@ router.get('/packages/:id', async (req, res) => {
       const products = await Product.find({ _id: { $in: allProductIds } }).lean()
       const productMap = new Map(products.map(p => [p._id.toString(), p]))
       
+      // 为每个商品构建材质数据
+      const productMaterialsMap = new Map()
+      for (const product of products) {
+        if (product.skus && product.skus.length > 0) {
+          const materialsGroups = await buildMaterialsFromSkus(product.skus, getImageUrl)
+          productMaterialsMap.set(product._id.toString(), materialsGroups)
+        }
+      }
+      
       // 填充每个类别的商品详情
       categoriesWithDetail = pkg.categories.map(cat => ({
         name: cat.name || '未分类',
@@ -799,6 +902,7 @@ router.get('/packages/:id', async (req, res) => {
         products: (cat.products || []).map(p => {
           const pid = typeof p === 'string' ? p : (p.productId || p._id || p.id)
           const product = productMap.get(pid?.toString())
+          const materialsGroups = productMaterialsMap.get(pid?.toString()) || []
           return {
             id: pid?.toString() || '',
             name: product?.name || p.productName || '商品已下架',
@@ -808,9 +912,7 @@ router.get('/packages/:id', async (req, res) => {
             packagePrice: product?.packagePrice || product?.basePrice || 0,
             specs: product?.skus?.[0]?.dimensions || '',
             skus: product?.skus || [],
-            materialsGroups: product?.materialsGroups || [],
-            materialImages: product?.materialImages || null,
-            materialCategories: product?.materialCategories || []
+            materialsGroups: materialsGroups
           }
         })
       }))

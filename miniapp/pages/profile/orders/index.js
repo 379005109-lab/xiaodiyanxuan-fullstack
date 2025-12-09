@@ -136,6 +136,7 @@ Page({
 			filteredOrders = orders.filter(o => o.status === 6 || o.status === 7) // 售后
 		}
 		console.log('筛选后的订单:', filteredOrders.length, '当前tab:', currentTab)
+		console.log('订单详情:', filteredOrders.map(o => ({ id: o.id, status: o.status, totalPrice: o.totalPrice })))
 		this.setData({ filteredOrders, refundCount })
 	},
 	onTabChange(e) {
