@@ -30,21 +30,37 @@ const error = (code, message) => ({ code, message })
 
 // ========== 共享函数：从SKU构建材质分组 ==========
 const buildMaterialsFromSkus = async (skus, getImageUrl) => {
-  if (!skus || skus.length === 0) return []
+  if (!skus || skus.length === 0) {
+    console.log('[材质构建] SKU为空')
+    return []
+  }
   
   // 收集所有材质名称
   const allMaterialNames = new Set()
   skus.forEach(sku => {
+    console.log('[材质构建] SKU material类型:', typeof sku.material, sku.material)
     if (sku.material && typeof sku.material === 'object') {
-      Object.values(sku.material).forEach(materials => {
+      Object.entries(sku.material).forEach(([key, materials]) => {
+        console.log(`[材质构建] 类别 ${key}:`, materials)
         if (Array.isArray(materials)) {
           materials.forEach(name => allMaterialNames.add(name))
+        } else if (typeof materials === 'string') {
+          // 支持字符串形式的材质
+          allMaterialNames.add(materials)
         }
       })
+    } else if (typeof sku.material === 'string' && sku.material) {
+      // 支持直接字符串材质
+      allMaterialNames.add(sku.material)
     }
   })
   
-  if (allMaterialNames.size === 0) return []
+  console.log('[材质构建] 收集到的材质名称:', Array.from(allMaterialNames))
+  
+  if (allMaterialNames.size === 0) {
+    console.log('[材质构建] 没有材质数据')
+    return []
+  }
   
   // 查询材质图片 - 支持模糊匹配
   const materialImages = {}
