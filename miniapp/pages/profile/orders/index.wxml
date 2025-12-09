@@ -21,7 +21,11 @@
 	</view>
 	
 	<view class="order-list">
-		<block wx:for="{{filteredOrders}}" wx:key="id">
+		<!-- 调试信息 -->
+		<view wx:if="{{filteredOrders.length > 0}}" style="padding: 20rpx; background: #e8f5e9; margin-bottom: 20rpx; border-radius: 8rpx;">
+			<text style="color: #2e7d32; font-size: 24rpx;">共 {{filteredOrders.length}} 条订单</text>
+		</view>
+		<block wx:for="{{filteredOrders}}" wx:key="index">
 			<view class="order-card-new {{item.modified ? 'order-modified' : ''}} {{item.status === 5 ? 'order-cancelled' : ''}}">
 				<!-- 管理员修改提示 -->
 				<view class="modified-banner" wx:if="{{item.modified}}">
