@@ -164,6 +164,21 @@ router.get('/my', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const { productId, productName, originalPrice, targetPrice, coverImage } = req.body
+    console.log('发起砍价请求:', { productId, productName, originalPrice, targetPrice, coverImage, userId: req.userId })
+    
+    // 参数验证
+    if (!productId) {
+      return res.status(400).json({ success: false, message: '商品ID不能为空' })
+    }
+    if (!productName) {
+      return res.status(400).json({ success: false, message: '商品名称不能为空' })
+    }
+    if (!originalPrice || originalPrice <= 0) {
+      return res.status(400).json({ success: false, message: '原价必须大于0' })
+    }
+    if (!targetPrice || targetPrice <= 0) {
+      return res.status(400).json({ success: false, message: '目标价必须大于0' })
+    }
     
     // 检查是否已有进行中的砍价
     const existing = await Bargain.findOne({ 

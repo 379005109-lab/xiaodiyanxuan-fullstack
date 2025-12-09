@@ -45,6 +45,18 @@ const productSchema = new mongoose.Schema({
   styles: [String], // 多个风格标签（现代风、轻奢风等）
   specifications: mongoose.Schema.Types.Mixed,
   skus: [skuSchema], // SKU数组
+  materialsGroups: [{ // 材质分组数据
+    name: String,
+    extra: { type: Number, default: 0 },
+    better: { type: Boolean, default: false },
+    img: String,
+    colors: [{
+      name: String,
+      img: String
+    }]
+  }],
+  materialImages: mongoose.Schema.Types.Mixed, // 材质图片 { categoryName: [{name, url}] }
+  materialCategories: [String], // 材质类目列表
   tags: [String],
   isCombo: { type: Boolean, default: false },
   comboItems: [String],

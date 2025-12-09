@@ -132,7 +132,7 @@ function request(options) {
  */
 function wxLogin(code) {
   return request({
-    url: '/api/auth/wxlogin',
+    url: '/auth/wxlogin',
     method: 'POST',
     data: { code },
     needAuth: false
@@ -144,7 +144,7 @@ function wxLogin(code) {
  */
 function getUserInfo() {
   return request({
-    url: '/api/user/info',
+    url: '/user/info',
     method: 'GET'
   })
 }
@@ -156,7 +156,7 @@ function getUserInfo() {
  */
 function getHomeData() {
   return request({
-    url: '/api/home',
+    url: '/home',
     method: 'GET',
     needAuth: false
   })
@@ -168,7 +168,7 @@ function getHomeData() {
  */
 function getGoodsList(params = {}) {
   return request({
-    url: '/api/goods/list',
+    url: '/goods/list',
     method: 'GET',
     data: params,
     needAuth: false
@@ -181,7 +181,7 @@ function getGoodsList(params = {}) {
  */
 function getGoodsDetail(id) {
   return request({
-    url: `/api/goods/${id}`,
+    url: `/goods/${id}`,
     method: 'GET',
     needAuth: false
   })
@@ -194,7 +194,7 @@ function getGoodsDetail(id) {
  */
 function searchGoods(keyword, params = {}) {
   return request({
-    url: '/api/goods/search',
+    url: '/goods/search',
     method: 'GET',
     data: { keyword, ...params },
     needAuth: false
@@ -208,7 +208,7 @@ function searchGoods(keyword, params = {}) {
  */
 function getFavorites() {
   return request({
-    url: '/api/favorites',
+    url: '/favorites',
     method: 'GET'
   })
 }
@@ -219,7 +219,7 @@ function getFavorites() {
  */
 function addFavorite(goodsId) {
   return request({
-    url: '/api/favorites',
+    url: '/favorites',
     method: 'POST',
     data: { goodsId }
   })
@@ -231,7 +231,7 @@ function addFavorite(goodsId) {
  */
 function removeFavorite(goodsId) {
   return request({
-    url: `/api/favorites/${goodsId}`,
+    url: `/favorites/${goodsId}`,
     method: 'DELETE'
   })
 }
@@ -243,7 +243,7 @@ function removeFavorite(goodsId) {
  */
 function getCart() {
   return request({
-    url: '/api/cart',
+    url: '/cart',
     method: 'GET'
   })
 }
@@ -254,7 +254,7 @@ function getCart() {
  */
 function addToCart(data) {
   return request({
-    url: '/api/cart',
+    url: '/cart',
     method: 'POST',
     data
   })
@@ -267,7 +267,7 @@ function addToCart(data) {
  */
 function updateCartItem(cartId, count) {
   return request({
-    url: `/api/cart/${cartId}`,
+    url: `/cart/${cartId}`,
     method: 'PUT',
     data: { count }
   })
@@ -279,7 +279,7 @@ function updateCartItem(cartId, count) {
  */
 function removeCartItem(cartId) {
   return request({
-    url: `/api/cart/${cartId}`,
+    url: `/cart/${cartId}`,
     method: 'DELETE'
   })
 }
@@ -408,7 +408,7 @@ function cancelBargain(bargainId) {
  */
 function getAddresses() {
   return request({
-    url: '/api/addresses',
+    url: '/addresses',
     method: 'GET'
   })
 }
@@ -419,7 +419,7 @@ function getAddresses() {
  */
 function addAddress(addressData) {
   return request({
-    url: '/api/addresses',
+    url: '/addresses',
     method: 'POST',
     data: addressData
   })
@@ -432,7 +432,7 @@ function addAddress(addressData) {
  */
 function updateAddress(addressId, addressData) {
   return request({
-    url: `/api/addresses/${addressId}`,
+    url: `/addresses/${addressId}`,
     method: 'PUT',
     data: addressData
   })
@@ -444,7 +444,7 @@ function updateAddress(addressId, addressData) {
  */
 function deleteAddress(addressId) {
   return request({
-    url: `/api/addresses/${addressId}`,
+    url: `/addresses/${addressId}`,
     method: 'DELETE'
   })
 }
@@ -457,7 +457,7 @@ function deleteAddress(addressId) {
  */
 function getCoupons(params = {}) {
   return request({
-    url: '/api/coupons',
+    url: '/coupons',
     method: 'GET',
     data: params
   })
@@ -470,7 +470,7 @@ function getCoupons(params = {}) {
  */
 function getCategories() {
   return request({
-    url: '/api/categories',
+    url: '/categories',
     method: 'GET',
     needAuth: false
   })
@@ -481,7 +481,7 @@ function getCategories() {
  */
 function getStyles() {
   return request({
-    url: '/api/styles',
+    url: '/styles',
     method: 'GET',
     needAuth: false
   })
@@ -494,7 +494,7 @@ function getStyles() {
  */
 function getPackages() {
   return request({
-    url: '/api/packages',
+    url: '/packages',
     method: 'GET',
     needAuth: false
   })
@@ -506,7 +506,7 @@ function getPackages() {
  */
 function getPackageDetail(id) {
   return request({
-    url: `/api/packages/${id}`,
+    url: `/packages/${id}`,
     method: 'GET',
     needAuth: false
   })
