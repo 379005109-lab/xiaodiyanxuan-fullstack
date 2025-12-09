@@ -417,7 +417,33 @@ Page({
 		} catch (e) {
 			wx.hideLoading()
 			console.error('发起砍价失败:', e)
-			wx.showToast({ title: e.message || '发起砍价失败', icon: 'none' })
+			
+			// 检查是否是"已有进行中砍价"的错误
+			if (e.message && e.message.includes('已有') && e.message.includes('砍价')) {
+				// 查找该商品的已有砍价
+				const existingBargain = this.data.myBargains.find(b => b.productId === id)
+				
+				wx.showModal({
+					title: '提示',
+					content: '您已有该商品的进行中砍价，是否查看？',
+					confirmText: '查看砍价',
+					cancelText: '取消',
+					success: (res) => {
+						if (res.confirm && existingBargain) {
+							// 跳转到已有砍价详情页
+							wx.navigateTo({
+								url: `/pages/bargain/detail/index?id=${existingBargain.id}&name=${encodeURIComponent(existingBargain.name)}&origin=${existingBargain.origin}&price=${existingBargain.price}&remain=${existingBargain.remain}&progress=${existingBargain.progress}&cover=${encodeURIComponent(existingBargain.cover)}`
+							})
+						} else if (res.confirm) {
+							// 刷新我的砍价列表并滚动到该区域
+							this.loadMyBargains()
+							wx.showToast({ title: '请在下方"我的砍价"中查看', icon: 'none', duration: 2000 })
+						}
+					}
+				})
+			} else {
+				wx.showToast({ title: e.message || '发起砍价失败', icon: 'none' })
+			}
 		}
 	},
 	onShareAppMessage(res) {

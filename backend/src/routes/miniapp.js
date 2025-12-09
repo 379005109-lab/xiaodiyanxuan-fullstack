@@ -235,9 +235,25 @@ router.get('/user/info', auth, async (req, res) => {
 // ========== 3. 风格列表 ==========
 router.get('/styles', async (req, res) => {
   try {
-    const styles = await Style.find({ status: 'active' })
+    let styles = await Style.find({ status: 'active' })
       .sort({ order: 1 })
       .lean()
+
+    // 如果数据库中没有风格数据，创建默认风格
+    if (styles.length === 0) {
+      console.log('[风格] 数据库为空，创建默认风格数据')
+      const defaultStyles = [
+        { name: '现代', description: '现代简约风格', order: 1, status: 'active' },
+        { name: '北欧', description: '北欧风格', order: 2, status: 'active' },
+        { name: '中式', description: '中式风格', order: 3, status: 'active' },
+        { name: '美式', description: '美式风格', order: 4, status: 'active' },
+        { name: '日式', description: '日式风格', order: 5, status: 'active' },
+        { name: '轻奢', description: '轻奢风格', order: 6, status: 'active' },
+        { name: '工业', description: '工业风格', order: 7, status: 'active' }
+      ]
+      styles = await Style.insertMany(defaultStyles)
+      console.log('[风格] 已创建默认风格:', styles.length)
+    }
 
     const list = styles.map(s => ({
       id: s._id,
@@ -634,6 +650,106 @@ router.get('/goods/search', async (req, res) => {
 
     res.json(success({ list, total }))
   } catch (err) {
+    res.status(500).json(error(500, err.message))
+  }
+})
+
+// ========== 6.5 获取推荐商品（关联推荐） ==========
+router.get('/recommendations', async (req, res) => {
+  try {
+    const { productId, categoryId, categoryName, limit = 6 } = req.query
+    
+    // 定义关联推荐规则
+    const recommendationRules = {
+      '沙发': ['茶几', '电视柜', '地毯', '落地灯'],
+      '床': ['床头柜', '衣柜', '床垫', '台灯'],
+      '餐桌': ['餐椅', '餐边柜', '吊灯'],
+      '茶几': ['沙发', '地毯', '落地灯'],
+      '衣柜': ['床', '梳妆台', '穿衣镜'],
+      '书桌': ['书柜', '办公椅', '台灯'],
+      '电视柜': ['沙发', '茶几', '落地灯']
+    }
+    
+    let recommendedProducts = []
+    
+    // 获取当前商品的分类信息
+    let currentCategoryName = categoryName
+    if (!currentCategoryName && productId) {
+      const currentProduct = await Product.findById(productId).populate('category').lean()
+      currentCategoryName = currentProduct?.category?.name || ''
+    }
+    if (!currentCategoryName && categoryId) {
+      const category = await Category.findById(categoryId).lean()
+      currentCategoryName = category?.name || ''
+    }
+    
+    console.log('[推荐] 当前分类:', currentCategoryName)
+    
+    // 根据分类名称查找关联分类
+    let relatedCategoryNames = []
+    for (const [key, values] of Object.entries(recommendationRules)) {
+      if (currentCategoryName && currentCategoryName.includes(key)) {
+        relatedCategoryNames = values
+        break
+      }
+    }
+    
+    console.log('[推荐] 关联分类:', relatedCategoryNames)
+    
+    if (relatedCategoryNames.length > 0) {
+      // 查找关联分类的ID
+      const relatedCategories = await Category.find({
+        status: 'active',
+        name: { $in: relatedCategoryNames.map(n => new RegExp(n, 'i')) }
+      }).select('_id name').lean()
+      
+      console.log('[推荐] 找到关联分类:', relatedCategories.map(c => c.name))
+      
+      if (relatedCategories.length > 0) {
+        // 从关联分类中获取商品
+        recommendedProducts = await Product.find({
+          status: 'active',
+          category: { $in: relatedCategories.map(c => c._id) },
+          _id: { $ne: productId } // 排除当前商品
+        })
+        .sort({ sales: -1 })
+        .limit(parseInt(limit))
+        .lean()
+      }
+    }
+    
+    // 如果关联推荐不足，用热门商品补充
+    if (recommendedProducts.length < limit) {
+      const existingIds = recommendedProducts.map(p => p._id.toString())
+      if (productId) existingIds.push(productId)
+      
+      const hotProducts = await Product.find({
+        status: 'active',
+        _id: { $nin: existingIds }
+      })
+      .sort({ sales: -1, views: -1 })
+      .limit(parseInt(limit) - recommendedProducts.length)
+      .lean()
+      
+      recommendedProducts = [...recommendedProducts, ...hotProducts]
+    }
+    
+    // 格式化输出
+    const list = recommendedProducts.map(p => ({
+      id: p._id,
+      name: p.name,
+      price: p.basePrice || p.price || 0,
+      originalPrice: p.originalPrice || p.basePrice || 0,
+      thumb: getImageUrl(p.images?.[0]),
+      cover: getImageUrl(p.images?.[0]),
+      sales: p.sales || 0,
+      categoryName: ''
+    }))
+    
+    console.log('[推荐] 返回商品数量:', list.length)
+    res.json(success(list))
+  } catch (err) {
+    console.error('[推荐] 获取失败:', err)
     res.status(500).json(error(500, err.message))
   }
 })

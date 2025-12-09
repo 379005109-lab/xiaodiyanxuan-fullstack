@@ -516,6 +516,23 @@ function getPackageDetail(id) {
   })
 }
 
+/**
+ * 获取推荐商品（关联推荐）
+ * @param {Object} params 参数
+ * @param {String} params.productId 当前商品ID
+ * @param {String} params.categoryId 分类ID
+ * @param {String} params.categoryName 分类名称
+ * @param {Number} params.limit 数量限制
+ */
+function getRecommendations(params = {}) {
+  return request({
+    url: '/recommendations',
+    method: 'GET',
+    data: params,
+    needAuth: false
+  })
+}
+
 module.exports = {
   // 基础方法
   request,
@@ -572,6 +589,9 @@ module.exports = {
   
   // 套餐相关
   getPackages,
-  getPackageDetail
+  getPackageDetail,
+  
+  // 推荐相关
+  getRecommendations
 }
 
