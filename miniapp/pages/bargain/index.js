@@ -10,7 +10,7 @@ Page({
 		// 筛选相关
 		activeFilter: '',
 		showFilterPopup: false,
-		styleOptions: ['全部', '现代简约', '北欧风', '轻奢', '中式'],
+		styleOptions: ['全部', '现代简约', '北欧风', '轻奢', '中式', '美式'],
 		categoryOptions: ['全部', '沙发', '床具', '餐桌椅', '柜类', '其他'],
 		selectedStyle: '全部',
 		selectedCategory: '全部',

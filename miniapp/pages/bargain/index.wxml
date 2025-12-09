@@ -35,14 +35,14 @@
 						<block wx:for="{{item.materialsGroups}}" wx:key="name" wx:for-item="mg" wx:for-index="mgi" wx:if="{{mgi < 3}}">
 							<image wx:if="{{mg.colors[0].img}}" class="material-thumb" src="{{mg.colors[0].img}}" mode="aspectFill"></image>
 						</block>
-						<text class="material-more" wx:if="{{item.materialsGroups.length > 0}}">\u67e5\u770b\u6750\u8d28</text>
+						<text class="material-more" wx:if="{{item.materialsGroups.length > 0}}">查看材质</text>
 					</view>
 					<view class="product-meta">
 						<view class="helper-info">
 							<view class="helper-dot-new"></view>
-							<text>{{item.cutCount || 0}}\u4eba\u5df2\u52a9\u529b</text>
+							<text>{{item.cutCount || 0}}人已助力</text>
 						</view>
-						<button class="cut-btn" catchtap="onStartBargain" data-id="{{item.id}}">\u780d\u4e00\u5200</button>
+						<button class="cut-btn" catchtap="onStartBargain" data-id="{{item.id}}">砍一刀</button>
 					</view>
 				</view>
 			</view>

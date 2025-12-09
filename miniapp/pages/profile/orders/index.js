@@ -135,6 +135,7 @@ Page({
 		} else if (currentTab === 6) {
 			filteredOrders = orders.filter(o => o.status === 6 || o.status === 7) // 售后
 		}
+		console.log('筛选后的订单:', filteredOrders.length, '当前tab:', currentTab)
 		this.setData({ filteredOrders, refundCount })
 	},
 	onTabChange(e) {
