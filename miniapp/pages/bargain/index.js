@@ -401,10 +401,19 @@ Page({
 			wx.hideLoading()
 			console.log('发起砍价返回:', res)
 			
-			// API已处理响应格式，res直接是data
-			// 重新加载我的砍价
+			// 发起成功，跳转到砍价详情页
+			const bargainId = res._id || res.id || id
+			wx.showToast({ title: '发起成功', icon: 'success', duration: 1000 })
+			
+			// 1秒后跳转到砍价详情页
+			setTimeout(() => {
+				wx.navigateTo({
+					url: `/pages/bargain/detail/index?id=${bargainId}&name=${encodeURIComponent(goods.name)}&origin=${goods.origin}&price=${goods.price}&remain=${goods.origin - goods.price}&progress=0&cover=${encodeURIComponent(goods.cover)}`
+				})
+			}, 1000)
+			
+			// 重新加载我的砍价列表
 			this.loadMyBargains()
-			wx.showToast({ title: '已发起砍价', icon: 'success' })
 		} catch (e) {
 			wx.hideLoading()
 			console.error('发起砍价失败:', e)

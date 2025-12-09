@@ -889,8 +889,11 @@ router.get('/packages/:id', async (req, res) => {
       // 为每个商品构建材质数据
       const productMaterialsMap = new Map()
       for (const product of products) {
+        console.log(`[套餐] 商品 ${product.name} SKU数量:`, product.skus?.length || 0)
         if (product.skus && product.skus.length > 0) {
+          console.log(`[套餐] 商品 ${product.name} 第一个SKU材质:`, product.skus[0].material)
           const materialsGroups = await buildMaterialsFromSkus(product.skus, getImageUrl)
+          console.log(`[套餐] 商品 ${product.name} 构建的材质分组:`, materialsGroups.length)
           productMaterialsMap.set(product._id.toString(), materialsGroups)
         }
       }
