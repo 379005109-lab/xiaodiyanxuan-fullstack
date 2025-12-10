@@ -63,9 +63,9 @@ export default function ProductsPage() {
     }
   }, [])
 
-  // 筛选条件
+  // 筛选条件 - 默认显示沙发类别
   const [filters, setFilters] = useState({
-    category: searchParams.get('category') || '',
+    category: searchParams.get('category') || '沙发',
     style: searchParams.get('style') || '',
     priceRange: searchParams.get('priceRange') || '',
     sort: searchParams.get('sort') || 'recommend',
@@ -79,6 +79,9 @@ export default function ProductsPage() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000])
   const [priceRangeInput, setPriceRangeInput] = useState<[number, number]>([0, 500000])
 
+  // 风格卡片图片配置（从网站配置加载）
+  const [styleCardImages, setStyleCardImages] = useState<Record<string, string>>({})
+  
   // 风格筛选选项 - 从商品中动态获取
   const styleOptions = useMemo(() => {
     const stylesSet = new Set<string>()
@@ -93,8 +96,51 @@ export default function ProductsPage() {
     ]
   }, [products])
   
-  // 风格卡片图片配置（从网站配置加载）
-  const [styleCardImages, setStyleCardImages] = useState<Record<string, string>>({})
+  // 动态生成风格卡片数据 - 从真实商品数据中获取
+  const styleCards = useMemo(() => {
+    const stylesMap = new Map<string, number>()
+    products.forEach(product => {
+      if ((product as any).styles && Array.isArray((product as any).styles)) {
+        (product as any).styles.forEach((style: string) => {
+          stylesMap.set(style, (stylesMap.get(style) || 0) + 1)
+        })
+      }
+    })
+    
+    const iconMap: Record<string, any> = {
+      '现代': Sofa,
+      '中古': Armchair,
+      '轻奢': Gem,
+      '极简': Sparkles,
+      '简约': Sofa,
+      '北欧': Sofa,
+      '工业': Armchair,
+      '美式': Sofa,
+      '欧式': Gem,
+      '日式': Sparkles,
+    }
+    
+    return Array.from(stylesMap.entries())
+      .filter(([_, count]) => count > 0) // 只显示有商品的风格
+      .slice(0, 4) // 最多显示4个
+      .map(([style, count]) => {
+        // 根据风格名称匹配图标
+        let icon = Sofa // 默认图标
+        for (const [key, value] of Object.entries(iconMap)) {
+          if (style.includes(key)) {
+            icon = value
+            break
+          }
+        }
+        return {
+          label: style,
+          enLabel: style.toUpperCase(),
+          value: count,
+          icon,
+          image: styleCardImages[style] || ''
+        }
+      })
+  }, [products, styleCardImages])
 
   // 加载商品数据
   useEffect(() => {
@@ -647,14 +693,10 @@ export default function ProductsPage() {
 
           {/* 主内容区 */}
           <main className="flex-1">
-            {/* 风格卡片 - 参考新设计 */}
+            {/* 风格卡片 - 从真实数据动态生成 */}
+            {styleCards.length > 0 && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              {[
-                { label: '现代风', enLabel: 'MODERN GREEN', value: products.filter(p => (p as any).styles?.includes('现代风')).length, icon: Sofa, image: styleCardImages['现代风'] },
-                { label: '中古风', enLabel: 'VINTAGE ERA', value: products.filter(p => (p as any).styles?.includes('中古风')).length, icon: Armchair, image: styleCardImages['中古风'] },
-                { label: '轻奢风', enLabel: 'SILK EMERALD', value: products.filter(p => (p as any).styles?.includes('轻奢风')).length, icon: Gem, image: styleCardImages['轻奢风'] },
-                { label: '极简风', enLabel: 'MINIMALIST', value: products.filter(p => (p as any).styles?.includes('极简风')).length, icon: Sparkles, image: styleCardImages['极简风'] },
-              ].map((stat, index) => {
+              {styleCards.map((stat, index) => {
                 const Icon = stat.icon
                 return (
                   <motion.div
@@ -701,6 +743,7 @@ export default function ProductsPage() {
                 )
               })}
             </div>
+            )}
 
             {/* 工具栏 */}
             <div className="flex items-center justify-between mb-6 bg-white rounded-xl p-4 shadow-sm border border-stone-100">

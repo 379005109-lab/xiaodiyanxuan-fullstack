@@ -147,6 +147,44 @@ router.get('/', optionalAuth, async (req, res) => {
   }
 })
 
+// GET /api/bargains/:id - 获取砍价详情
+router.get('/:id', optionalAuth, async (req, res) => {
+  try {
+    const bargain = await Bargain.findById(req.params.id).lean()
+    if (!bargain) {
+      return res.status(404).json({ success: false, message: '砍价活动不存在' })
+    }
+    
+    // 获取商品详情
+    const product = await BargainProduct.findById(bargain.productId).lean()
+    
+    // 获取帮砍用户的信息
+    const User = require('../models/User')
+    const helperIds = bargain.helpers.map(h => h.userId)
+    const users = await User.find({ _id: { $in: helperIds } }).select('username avatar').lean()
+    const userMap = new Map(users.map(u => [u._id.toString(), u]))
+    
+    // 合并帮砍记录和用户信息
+    const enrichedHelpers = bargain.helpers.map(h => ({
+      ...h,
+      userName: userMap.get(h.userId)?.username || '用户',
+      userAvatar: userMap.get(h.userId)?.avatar || '/placeholder.svg'
+    }))
+    
+    res.json({ 
+      success: true, 
+      data: {
+        ...bargain,
+        helpers: enrichedHelpers,
+        product
+      }
+    })
+  } catch (error) {
+    console.error('获取砍价详情失败:', error)
+    res.status(500).json({ success: false, message: '获取失败' })
+  }
+})
+
 // GET /api/bargains/my - 获取我发起的砍价活动
 router.get('/my', auth, async (req, res) => {
   try {
@@ -248,9 +286,17 @@ router.post('/:id/help', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: '该砍价活动已结束' })
     }
     
-    // 检查是否已经帮砍过
-    const helped = bargain.helpers.some(h => h.userId === req.userId.toString())
-    if (helped) {
+    // 检查用户帮砍次数（包括自己发起的砍价）
+    const userHelpCount = bargain.helpers.filter(h => h.userId === req.userId.toString()).length
+    const isOwner = bargain.userId.toString() === req.userId.toString()
+    
+    // 如果是自己的砍价，最多只能砍3次
+    if (isOwner && userHelpCount >= 3) {
+      return res.status(400).json({ success: false, message: '您最多只能帮自己砍3次' })
+    }
+    
+    // 如果不是自己的砍价，只能帮砍1次
+    if (!isOwner && userHelpCount >= 1) {
       return res.status(400).json({ success: false, message: '您已经帮砍过了' })
     }
     
