@@ -214,10 +214,12 @@ page { background: #ffffff; color: #1f2937; }
   position: absolute;
   top: 24rpx;
   right: 24rpx;
-  width: 72rpx;
-  height: 72rpx;
-  background: rgba(7, 193, 96, 0.95);
-  border-radius: 50%;
+  width: 72rpx !important;
+  height: 72rpx !important;
+  min-width: 0 !important;
+  max-width: 72rpx !important;
+  background: rgba(7, 193, 96, 0.95) !important;
+  border-radius: 50% !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -226,8 +228,10 @@ page { background: #ffffff; color: #1f2937; }
   padding: 0 !important;
   margin: 0 !important;
   border: none !important;
-  line-height: 1;
-  min-height: 0;
+  line-height: 1 !important;
+  min-height: 0 !important;
+  font-size: 0;
+  overflow: hidden;
 }
 .float-share::after {
   display: none;

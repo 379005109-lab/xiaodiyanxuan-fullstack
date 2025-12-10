@@ -281,10 +281,21 @@ Page({
 				// 所有类别都选完了，不自动跳转，显示确认订单按钮
 				// 用户需要手动点击确认订单按钮
 			} else if (isSelected) {
-				// 当前类别选完了，但还有未完成的类别，自动跳转到下一个类别
-				setTimeout(() => {
-					this.autoNextCategory()
-				}, 800)
+				// 当前类别选完了，但还有未完成的类别
+				// 显示提示让用户选择是否跳转
+				const nextCat = categories.find((c, idx) => idx > this.data.currentCategoryIndex && !c.selected)
+				const nextCatName = nextCat?.name || '下一类别'
+				wx.showModal({
+					title: '已完成选择',
+					content: `是否跳转到"${nextCatName}"继续配置？`,
+					confirmText: '继续配置',
+					cancelText: '留在当前',
+					success: (res) => {
+						if (res.confirm) {
+							this.autoNextCategory()
+						}
+					}
+				})
 			}
 		})
 	},

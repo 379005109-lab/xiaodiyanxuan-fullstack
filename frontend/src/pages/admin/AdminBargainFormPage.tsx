@@ -76,7 +76,9 @@ const AdminBargainFormPage: React.FC = () => {
       });
       const data = await response.json();
       if (data.success && Array.isArray(data.data)) {
-        setStyleOptions(data.data);
+        // API返回对象数组，提取name字段
+        const styleNames = data.data.map((s: any) => typeof s === 'string' ? s : s.name).filter(Boolean);
+        setStyleOptions(styleNames);
       }
     } catch (error) {
       console.error('加载风格失败:', error);
