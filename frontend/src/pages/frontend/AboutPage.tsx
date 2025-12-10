@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Mail, Phone, MapPin, Clock, MessageCircle } from 'lucide-react'
+import { Mail, Phone, MapPin, Clock } from 'lucide-react'
+import WechatIcon from '@/components/icons/WechatIcon'
 import { getAllSiteConfigs } from '@/services/siteConfigService'
 
 export default function AboutPage() {
@@ -98,7 +99,7 @@ export default function AboutPage() {
             {config?.contactWechat && (
               <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <MessageCircle className="w-6 h-6 text-green-600" />
+                  <WechatIcon className="w-6 h-6 text-green-600" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-1">微信</h3>

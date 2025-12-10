@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { X, Phone, MessageCircle } from 'lucide-react'
+import { X, Phone } from 'lucide-react'
+import WechatIcon from '@/components/icons/WechatIcon'
 
 export default function ContactFloat() {
   const [isOpen, setIsOpen] = useState(false)
@@ -12,7 +13,7 @@ export default function ContactFloat() {
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 z-[999] bg-primary hover:bg-green-900 text-white rounded-full p-4 shadow-2xl transition-all duration-300 hover:scale-110 flex items-center gap-2 group"
         >
-          <MessageCircle className="w-6 h-6" />
+          <WechatIcon className="w-6 h-6 text-white" />
           <span className="hidden group-hover:inline-block text-sm font-semibold pr-2">联系我们</span>
         </button>
       )}
@@ -23,7 +24,7 @@ export default function ContactFloat() {
           {/* 头部 */}
           <div className="bg-gradient-to-r from-primary to-green-800 text-white p-4 flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5" />
+              <WechatIcon className="w-5 h-5 text-white" />
               <h3 className="font-bold text-lg">联系我们</h3>
             </div>
             <button

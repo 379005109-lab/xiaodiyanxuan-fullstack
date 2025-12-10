@@ -4,6 +4,7 @@ const router = express.Router()
 const { auth, optionalAuth } = require('../middleware/auth')
 const BargainProduct = require('../models/BargainProduct')
 const Bargain = require('../models/Bargain')
+const Product = require('../models/Product')
 
 // 配置 multer
 const storage = multer.memoryStorage()
