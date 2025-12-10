@@ -180,11 +180,9 @@ const AdminBargainFormPage: React.FC = () => {
     }
     
     const price = selectedSku?.price || selectedProduct.basePrice;
-    const materialStr = selectedSku?.material 
-      ? Object.values(selectedSku.material).join(' / ') 
-      : '';
+    // 不再显示材质信息
     const productName = selectedSku 
-      ? `${selectedProduct.name} - ${selectedSku.skuName}${materialStr ? ` (${materialStr})` : ''}`
+      ? `${selectedProduct.name} - ${selectedSku.skuName}`
       : selectedProduct.name;
     
     setFormData(prev => ({
