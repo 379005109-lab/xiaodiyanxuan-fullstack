@@ -1081,13 +1081,35 @@ router.get('/packages/:id', async (req, res) => {
       
       // 为每个商品构建材质数据
       const productMaterialsMap = new Map()
+      const productMaterialImagesMap = new Map()
       for (const product of products) {
         console.log(`[套餐] 商品 ${product.name} SKU数量:`, product.skus?.length || 0)
-        if (product.skus && product.skus.length > 0) {
+        
+        // 优先使用商品本身的 materialsGroups
+        if (product.materialsGroups && product.materialsGroups.length > 0) {
+          console.log(`[套餐] 商品 ${product.name} 使用商品自带材质分组:`, product.materialsGroups.length)
+          const groups = product.materialsGroups.map((mg, idx) => ({
+            id: `material_${idx}`,
+            name: mg.name,
+            colors: (mg.colors || []).map((c, ci) => ({
+              id: `color_${idx}_${ci}`,
+              name: c.name,
+              fullName: c.name,
+              img: getImageUrl(c.img || mg.img || '')
+            }))
+          }))
+          productMaterialsMap.set(product._id.toString(), groups)
+        } else if (product.skus && product.skus.length > 0) {
+          // 否则从 SKU 构建
           console.log(`[套餐] 商品 ${product.name} 第一个SKU材质:`, product.skus[0].material)
           const materialsGroups = await buildMaterialsFromSkus(product.skus, getImageUrl)
           console.log(`[套餐] 商品 ${product.name} 构建的材质分组:`, materialsGroups.length)
           productMaterialsMap.set(product._id.toString(), materialsGroups)
+        }
+        
+        // 同时保留 materialImages 数据（前端可能需要）
+        if (product.materialImages) {
+          productMaterialImagesMap.set(product._id.toString(), product.materialImages)
         }
       }
       
@@ -1099,6 +1121,7 @@ router.get('/packages/:id', async (req, res) => {
           const pid = typeof p === 'string' ? p : (p.productId || p._id || p.id)
           const product = productMap.get(pid?.toString())
           const materialsGroups = productMaterialsMap.get(pid?.toString()) || []
+          const materialImages = productMaterialImagesMap.get(pid?.toString()) || product?.materialImages || null
           return {
             id: pid?.toString() || '',
             name: product?.name || p.productName || '商品已下架',
@@ -1108,7 +1131,9 @@ router.get('/packages/:id', async (req, res) => {
             packagePrice: product?.packagePrice || product?.basePrice || 0,
             specs: product?.skus?.[0]?.dimensions || '',
             skus: product?.skus || [],
-            materialsGroups: materialsGroups
+            materialsGroups: materialsGroups,
+            materialImages: materialImages,
+            materialCategories: product?.materialCategories || []
           }
         })
       }))

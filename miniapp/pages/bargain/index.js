@@ -107,6 +107,7 @@ Page({
 					}
 					return {
 						id: item._id,
+						productId: item.productId, // 保留productId用于匹配
 						name: item.productName,
 						cover: cover,
 						origin: item.originalPrice || 0,
@@ -122,17 +123,24 @@ Page({
 		}
 	},
 	ensureLogin(action = '使用砍价功能') {
-		// 模拟已登录状态，直接返回true
-		// 实际项目中应该检查token
-		// let token = ''
-		// try {
-		// 	token = wx.getStorageSync('token') || ''
-		// } catch (err) {
-		// 	console.error('读取登录状态失败:', err)
-		// }
-		// if (token) return true
-		// wx.showModal({...})
-		return true  // 模拟已登录
+		let token = ''
+		try {
+			token = wx.getStorageSync('token') || ''
+		} catch (err) {
+			console.error('读取登录状态失败:', err)
+		}
+		if (token) return true
+		wx.showModal({
+			title: '提示',
+			content: `请先登录后${action}`,
+			confirmText: '去登录',
+			success: (res) => {
+				if (res.confirm) {
+					wx.switchTab({ url: '/pages/profile/index' })
+				}
+			}
+		})
+		return false
 	},
 	normalizeMyBargains(list = []) {
 		return (list || []).map((item, index) => {
@@ -420,26 +428,33 @@ Page({
 			
 			// 检查是否是"已有进行中砍价"的错误
 			if (e.message && e.message.includes('已有') && e.message.includes('砍价')) {
-				// 查找该商品的已有砍价
-				const existingBargain = this.data.myBargains.find(b => b.productId === id)
-				
-				wx.showModal({
-					title: '提示',
-					content: '您已有该商品的进行中砍价，是否查看？',
-					confirmText: '查看砍价',
-					cancelText: '取消',
-					success: (res) => {
-						if (res.confirm && existingBargain) {
-							// 跳转到已有砍价详情页
-							wx.navigateTo({
-								url: `/pages/bargain/detail/index?id=${existingBargain.id}&name=${encodeURIComponent(existingBargain.name)}&origin=${existingBargain.origin}&price=${existingBargain.price}&remain=${existingBargain.remain}&progress=${existingBargain.progress}&cover=${encodeURIComponent(existingBargain.cover)}`
-							})
-						} else if (res.confirm) {
-							// 刷新我的砍价列表并滚动到该区域
-							this.loadMyBargains()
-							wx.showToast({ title: '请在下方"我的砍价"中查看', icon: 'none', duration: 2000 })
+				// 先重新加载我的砍价列表，确保数据最新
+				this.loadMyBargains().then(() => {
+					// 查找该商品的已有砍价
+					const existingBargain = this.data.myBargains.find(b => b.productId === id)
+					console.log('查找已有砍价:', id, this.data.myBargains, existingBargain)
+					
+					wx.showModal({
+						title: '提示',
+						content: '您已有该商品的进行中砍价，是否查看？',
+						confirmText: '查看砍价',
+						cancelText: '取消',
+						success: (res) => {
+							if (res.confirm && existingBargain) {
+								// 跳转到已有砍价详情页
+								wx.navigateTo({
+									url: `/pages/bargain/detail/index?id=${existingBargain.id}&name=${encodeURIComponent(existingBargain.name)}&origin=${existingBargain.origin}&price=${existingBargain.price}&remain=${existingBargain.remain}&progress=${existingBargain.progress}&cover=${encodeURIComponent(existingBargain.cover)}`
+								})
+							} else if (res.confirm) {
+								// 没找到对应记录，滚动到我的砍价区域
+								if (this.data.myBargains.length > 0) {
+									wx.pageScrollTo({ selector: '.my-bargain', duration: 300 })
+								} else {
+									wx.showToast({ title: '请刷新页面后查看', icon: 'none', duration: 2000 })
+								}
+							}
 						}
-					}
+					})
 				})
 			} else {
 				wx.showToast({ title: e.message || '发起砍价失败', icon: 'none' })

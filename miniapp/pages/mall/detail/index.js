@@ -736,9 +736,12 @@ Page({
 		wx.navigateTo({ url: '/pages/order/confirm/index' })
 	},
 	onShareAppMessage() {
+		const goods = this.data.goods
+		const price = this.data.totalPrice || goods.basePrice || 0
 		return {
-			title: this.data.goods.name,
-			path: `/pages/mall/detail/index?id=${this.data.id}`
+			title: `${goods.name} ¥${price}`,
+			path: `/pages/mall/detail/index?id=${this.data.id}`,
+			imageUrl: this.data.images[0] || goods.image || ''
 		}
 	},
 	// 新UI方法

@@ -209,6 +209,60 @@ page { background: #ffffff; color: #1f2937; }
   border-radius: 10rpx 10rpx 0 0;
 }
 
+/* 悬浮分享按钮 */
+.float-share {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  width: 72rpx;
+  height: 72rpx;
+  background: rgba(7, 193, 96, 0.95);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  box-shadow: 0 8rpx 24rpx rgba(7, 193, 96, 0.4);
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  line-height: 1;
+  min-height: 0;
+}
+.float-share::after {
+  display: none;
+}
+
+/* 微信分享图标 */
+.share-icon-svg {
+  width: 32rpx;
+  height: 32rpx;
+  position: relative;
+}
+.share-icon-svg::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  border: 3rpx solid #fff;
+}
+.share-icon-svg::after {
+  content: '';
+  position: absolute;
+  top: 2rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 8rpx solid transparent;
+  border-right: 8rpx solid transparent;
+  border-bottom: 10rpx solid #fff;
+}
+
 /* 底部白色卡片 - 减少上边距 */
 .bottom-card { 
   background: rgba(255,255,255,0.95); 

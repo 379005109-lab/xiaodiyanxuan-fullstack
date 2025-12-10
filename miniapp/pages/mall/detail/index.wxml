@@ -49,6 +49,11 @@
 				<view class="cart-icon-svg"></view>
 				<view class="float-cart-badge" wx:if="{{cartCount > 0}}">{{cartCount > 99 ? '99+' : cartCount}}</view>
 			</view>
+			
+			<!-- 右上角分享按钮 -->
+			<button class="float-share" open-type="share">
+				<view class="share-icon-svg"></view>
+			</button>
 		</view>
 
 		<!-- 底部白色卡片 -->
