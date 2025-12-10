@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>购物车数据检查工具</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2c3e50; }
+        h2 { color: #34495e; margin-top: 0; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border-left: 4px solid #3498db;
+        }
+        .item-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .success { color: #27ae60; font-weight: bold; }
+        .error { color: #e74c3c; font-weight: bold; }
+        .warning { color: #f39c12; font-weight: bold; }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover { background: #2980b9; }
+        button.danger { background: #e74c3c; }
+        button.danger:hover { background: #c0392b; }
+        .field { margin: 5px 0; }
+        .label { font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>🛒 购物车数据检查工具</h1>
+    
+    <div class="card">
+        <h2>操作</h2>
+        <button onclick="checkCartData()">🔍 检查购物车数据</button>
+        <button onclick="clearCart()" class="danger">🗑️ 清空购物车</button>
+        <button onclick="clearAllData()" class="danger">💣 清空所有localStorage</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        function checkCartData() {
+            const results = document.getElementById('results');
+            results.innerHTML = '';
+
+            // 1. 获取购物车数据
+            const cartStorage = localStorage.getItem('cart-storage');
+            if (!cartStorage) {
+                results.innerHTML = '<div class="card error">❌ 购物车为空或未找到</div>';
+                return;
+            }
+
+            let cart;
+            try {
+                cart = JSON.parse(cartStorage);
+            } catch (e) {
+                results.innerHTML = '<div class="card error">❌ 购物车数据格式错误</div>';
+                return;
+            }
+
+            const items = cart.state?.items || [];
+            
+            // 2. 基本信息
+            results.innerHTML += `
+                <div class="card">
+                    <h2>📊 基本信息</h2>
+                    <div class="field"><span class="label">商品数量:</span> ${items.length}</div>
+                    <div class="field"><span class="label">数据结构:</span> ${cart.state ? '✅ 正常' : '❌ 异常'}</div>
+                </div>
+            `;
+
+            // 3. 逐个检查商品
+            if (items.length === 0) {
+                results.innerHTML += '<div class="card warning">⚠️ 购物车是空的</div>';
+                return;
+            }
+
+            items.forEach((item, index) => {
+                const hasSelectedMaterials = item.selectedMaterials && Object.keys(item.selectedMaterials).length > 0;
+                const hasMaterialUpgradePrices = item.materialUpgradePrices && Object.keys(item.materialUpgradePrices).length > 0;
+                
+                let status = '✅ 完整';
+                let issues = [];
+                
+                if (!hasSelectedMaterials) {
+                    issues.push('❌ 缺少 selectedMaterials');
+                    status = '⚠️ 不完整';
+                }
+                if (!hasMaterialUpgradePrices) {
+                    issues.push('❌ 缺少 materialUpgradePrices');
+                    status = '⚠️ 不完整';
+                }
+
+                results.innerHTML += `
+                    <div class="item-card">
+                        <h3>商品 ${index + 1}: ${item.product?.name || '未知商品'} ${status}</h3>
+                        <div class="field"><span class="label">规格:</span> ${item.sku?.spec || '无'}</div>
+                        <div class="field"><span class="label">价格:</span> ¥${item.price || 0}</div>
+                        <div class="field"><span class="label">数量:</span> ${item.quantity || 1}</div>
+                        
+                        <h4>材质选择 (selectedMaterials):</h4>
+                        ${hasSelectedMaterials ? `
+                            <div class="field">• 面料: ${item.selectedMaterials.fabric || '-'}</div>
+                            <div class="field">• 填充: ${item.selectedMaterials.filling || '-'}</div>
+                            <div class="field">• 框架: ${item.selectedMaterials.frame || '-'}</div>
+                            <div class="field">• 脚架: ${item.selectedMaterials.leg || '-'}</div>
+                        ` : '<div class="error">❌ 没有材质选择数据</div>'}
+                        
+                        <h4>材质升级价格 (materialUpgradePrices):</h4>
+                        ${hasMaterialUpgradePrices ? `
+                            <pre>${JSON.stringify(item.materialUpgradePrices, null, 2)}</pre>
+                        ` : '<div class="error">❌ 没有升级价格数据</div>'}
+                        
+                        ${issues.length > 0 ? `
+                            <h4 class="error">问题:</h4>
+                            ${issues.map(issue => `<div>${issue}</div>`).join('')}
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            // 4. 完整数据
+            results.innerHTML += `
+                <div class="card">
+                    <h2>📄 完整购物车数据</h2>
+                    <pre>${JSON.stringify(cart, null, 2)}</pre>
+                </div>
+            `;
+
+            // 5. 建议
+            const hasIssues = items.some(item => 
+                !item.selectedMaterials || Object.keys(item.selectedMaterials).length === 0 ||
+                !item.materialUpgradePrices || Object.keys(item.materialUpgradePrices).length === 0
+            );
+
+            if (hasIssues) {
+                results.innerHTML += `
+                    <div class="card warning">
+                        <h2>💡 解决方案</h2>
+                        <p>购物车中的商品缺少材质信息，这可能是因为：</p>
+                        <ol>
+                            <li>商品是在代码更新前添加的（旧数据）</li>
+                            <li>添加商品时没有选择材质选项</li>
+                        </ol>
+                        <p><strong>建议操作：</strong></p>
+                        <ol>
+                            <li>点击上方"清空购物车"按钮</li>
+                            <li>回到商品详情页</li>
+                            <li>选择规格和材质选项（如果有的话）</li>
+                            <li>重新点击"加入购物车"</li>
+                            <li>再次检查购物车，应该能看到材质信息了</li>
+                        </ol>
+                    </div>
+                `;
+            }
+        }
+
+        function clearCart() {
+            if (confirm('确定要清空购物车吗？')) {
+                const cart = JSON.parse(localStorage.getItem('cart-storage') || '{}');
+                if (cart.state) {
+                    cart.state.items = [];
+                    localStorage.setItem('cart-storage', JSON.stringify(cart));
+                }
+                alert('✅ 购物车已清空！请重新添加商品。');
+                checkCartData();
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('警告：这将清除所有localStorage数据（购物车、对比、收藏等）！确定继续吗？')) {
+                localStorage.clear();
+                alert('✅ 所有数据已清除！页面将刷新。');
+                location.reload();
+            }
+        }
+
+        // 页面加载时自动检查
+        window.onload = checkCartData;
+    </script>
+</body>
+</html>

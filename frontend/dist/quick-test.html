@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>快速API测试 - 6个问题验证</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 1000px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 10px 5px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 4px; }
+        .result { margin-top: 10px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; white-space: pre-wrap; background: #f5f5f5; font-size: 12px; max-height: 300px; overflow-y: auto; }
+        .error { background: #ffebee; border-color: #f44336; color: #c62828; }
+        .success { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; }
+        .warning { background: #fff3e0; border-color: #ff9800; color: #e65100; }
+        input { padding: 8px; width: 100%; margin: 5px 0; }
+        .status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; }
+        .status.ok { background: #4caf50; color: white; }
+        .status.fail { background: #f44336; color: white; }
+        h2 { border-bottom: 2px solid #4CAF50; padding-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 API测试 - 验证6个问题修复状态</h1>
+    
+    <div>
+        <h3>Token (从登录获取):</h3>
+        <input type="text" id="token" placeholder="粘贴token或点击按钮自动获取">
+        <button onclick="getToken()">从LocalStorage获取Token</button>
+        <button onclick="testAll()">🚀 测试所有问题</button>
+    </div>
+
+    <hr>
+
+    <h2>问题1: 对比功能 (应该返回201或400但不是500)</h2>
+    <button onclick="testCompare()">测试添加对比</button>
+    <div id="compare-result" class="result"></div>
+
+    <h2>问题2: 收藏功能 (应该返回201或400但不是500)</h2>
+    <button onclick="testFavorite()">测试添加收藏</button>
+    <div id="favorite-result" class="result"></div>
+
+    <h2>问题5: 陪买需求提交</h2>
+    <button onclick="testBuyingService()">测试陪买服务</button>
+    <div id="buying-result" class="result"></div>
+
+    <h2>后端连接测试</h2>
+    <button onclick="testProducts()">获取产品列表</button>
+    <div id="products-result" class="result"></div>
+
+    <script>
+        const API = 'https://pkochbpmcgaa.sealoshzh.site/api';
+        
+        function getToken() {
+            const token = localStorage.getItem('token');
+            document.getElementById('token').value = token || '';
+            if (token) {
+                alert('✅ Token已加载');
+            } else {
+                alert('❌ 未找到Token，请先登录网站');
+            }
+        }
+
+        function showResult(id, content, status = 'info') {
+            const el = document.getElementById(id);
+            el.textContent = content;
+            el.className = 'result ' + (status === 'error' ? 'error' : status === 'success' ? 'success' : status === 'warning' ? 'warning' : '');
+        }
+
+        async function testAll() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('请先获取Token');
+                return;
+            }
+            
+            alert('开始测试所有问题...');
+            await testCompare();
+            await new Promise(r => setTimeout(r, 1000));
+            await testFavorite();
+            await new Promise(r => setTimeout(r, 1000));
+            await testBuyingService();
+            await new Promise(r => setTimeout(r, 1000));
+            await testProducts();
+            alert('测试完成！请查看各个结果。');
+        }
+
+        async function testCompare() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('请先获取Token');
+                return;
+            }
+
+            showResult('compare-result', '⏳ 测试中...');
+
+            try {
+                const response = await fetch(`${API}/compare`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        productId: '6745c22b4f6d7f7885c81f11',
+                        skuId: 'test-sku-123'
+                    })
+                });
+
+                const data = await response.json();
+                
+                let status = 'error';
+                let verdict = '';
+                if (response.status === 201) {
+                    verdict = '✅ 成功添加到对比';
+                    status = 'success';
+                } else if (response.status === 400) {
+                    verdict = '⚠️ 400错误（可能已存在或达到上限）- 这是正常的';
+                    status = 'warning';
+                } else if (response.status === 500) {
+                    verdict = '❌ 500错误 - 后端有BUG未修复！';
+                    status = 'error';
+                }
+                
+                const result = `${verdict}\n\n状态码: ${response.status}\n状态文本: ${response.statusText}\n\n响应数据:\n${JSON.stringify(data, null, 2)}`;
+
+                showResult('compare-result', result, status);
+            } catch (error) {
+                showResult('compare-result', `❌ 网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFavorite() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('请先获取Token');
+                return;
+            }
+
+            showResult('favorite-result', '⏳ 测试中...');
+
+            try {
+                const response = await fetch(`${API}/favorites`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        productId: '6745c22b4f6d7f7885c81f11'
+                    })
+                });
+
+                const data = await response.json();
+                
+                let status = 'error';
+                let verdict = '';
+                if (response.status === 201) {
+                    verdict = '✅ 成功添加到收藏';
+                    status = 'success';
+                } else if (response.status === 400) {
+                    verdict = '⚠️ 400错误（可能已存在）- 这是正常的';
+                    status = 'warning';
+                } else if (response.status === 500) {
+                    verdict = '❌ 500错误 - 后端有BUG未修复！';
+                    status = 'error';
+                }
+                
+                const result = `${verdict}\n\n状态码: ${response.status}\n状态文本: ${response.statusText}\n\n响应数据:\n${JSON.stringify(data, null, 2)}`;
+
+                showResult('favorite-result', result, status);
+            } catch (error) {
+                showResult('favorite-result', `❌ 网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBuyingService() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('请先获取Token');
+                return;
+            }
+
+            showResult('buying-result', '⏳ 测试中...');
+
+            try {
+                const response = await fetch(`${API}/buying-service-requests`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        serviceType: 'standard',
+                        scheduledDate: '2024-12-15T10:00:00Z',
+                        notes: '测试陪买服务'
+                    })
+                });
+
+                const data = await response.json();
+                
+                let status = response.status === 201 ? 'success' : 'error';
+                let verdict = response.status === 201 ? '✅ 陪买服务提交成功' : '❌ 提交失败';
+                
+                const result = `${verdict}\n\n状态码: ${response.status}\n状态文本: ${response.statusText}\n\n响应数据:\n${JSON.stringify(data, null, 2)}`;
+
+                showResult('buying-result', result, status);
+            } catch (error) {
+                showResult('buying-result', `❌ 网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testProducts() {
+            showResult('products-result', '⏳ 测试中...');
+
+            try {
+                const response = await fetch(`${API}/products?page=1&limit=5`);
+                const data = await response.json();
+                
+                const result = `状态码: ${response.status}\n` +
+                              `状态文本: ${response.statusText}\n\n` +
+                              `产品数量: ${data.data?.products?.length || 0}\n\n` +
+                              `响应数据:\n${JSON.stringify(data, null, 2).substring(0, 500)}...`;
+
+                showResult('products-result', result, response.ok ? 'success' : 'error');
+            } catch (error) {
+                showResult('products-result', `❌ 错误: ${error.message}`, 'error');
+            }
+        }
+
+        window.onload = function() {
+            getToken();
+        };
+    </script>
+</body>
+</html>
