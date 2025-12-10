@@ -123,7 +123,6 @@ const BargainDetailPage: React.FC = () => {
           <img src={detail.imageUrl} alt={detail.name} className="w-full h-64 object-cover rounded-lg" />
           <h2 className="text-xl font-bold mt-4">{detail.name}</h2>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-sm text-gray-500">底价: <span className="text-red-500 font-bold">¥{detail.bargainPrice}</span></span>
             <span className="text-sm text-gray-500 line-through">原价: ¥{detail.originalPrice}</span>
           </div>
         </div>
@@ -132,11 +131,11 @@ const BargainDetailPage: React.FC = () => {
         <div className="p-4 text-center">
           <h3 className="text-lg font-semibold">当前价: <span className="text-red-500">¥{detail.currentPrice}</span></h3>
           <div className="w-full bg-gray-200 rounded-full h-4 mt-2">
-            <div className="bg-orange-500 h-4 rounded-full text-white text-xs flex items-center justify-center" style={{ width: `${progress}%` }}>
-              {progress.toFixed(0)}%
+            <div className="bg-orange-500 h-4 rounded-full text-white text-xs flex items-center justify-center" style={{ width: `${Math.min(progress, 100)}%` }}>
+              已砍{Math.min(progress, 100).toFixed(0)}%
             </div>
           </div>
-          <p className="text-sm text-gray-600 mt-2">还差 <span className="font-bold text-red-500">¥{detail.currentPrice - detail.bargainPrice}</span> 即可到底价</p>
+          <p className="text-sm text-gray-600 mt-2">已砍 <span className="font-bold text-green-500">¥{detail.originalPrice - detail.currentPrice}</span>，继续邀请好友砍价！</p>
         </div>
 
         {/* Share Button */}

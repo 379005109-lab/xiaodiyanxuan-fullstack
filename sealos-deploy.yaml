@@ -34,7 +34,7 @@ spec:
           name: http
         env:
         - name: BACKEND_URL
-          value: "https://pkochbpmcgaa.sealoshzh.site"
+          value: "https://xuahitfkpixy.sealoshzh.site"
         resources:
           requests:
             cpu: 100m
@@ -95,7 +95,7 @@ spec:
     - www.xiaodiyanxuan.com
     secretName: xiaodiyanxuan-tls
   rules:
-  - host: lgpzubdtdxjf.sealoshzh.site
+  - host: xuahitfkpixy.sealoshzh.site
     http:
       paths:
       - path: /

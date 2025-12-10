@@ -28,11 +28,11 @@ echo ""
 # 测试 3: CORS 验证
 echo "3️⃣  测试 CORS (前端地址)"
 echo "   请求: POST /api/auth/login (带 Origin 头)"
-echo "   Origin: https://lgpzubdtdxjf.sealoshzh.site"
+echo "   Origin: https://xuahitfkpixy.sealoshzh.site"
 echo ""
 curl -s -v -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -H "Origin: https://lgpzubdtdxjf.sealoshzh.site" \
+  -H "Origin: https://xuahitfkpixy.sealoshzh.site" \
   -d '{"username":"zcd","password":"asd123"}' 2>&1 | grep -E "Access-Control|HTTP"
 echo ""
 

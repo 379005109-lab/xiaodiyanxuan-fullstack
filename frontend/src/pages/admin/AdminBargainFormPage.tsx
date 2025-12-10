@@ -492,7 +492,7 @@ const AdminBargainFormPage: React.FC = () => {
                 </div>
               </div>
               
-              {/* 右侧：规格详情和材质 */}
+              {/* 右侧：规格详情 */}
               <div className="w-1/2 flex flex-col overflow-hidden">
                 {selectedProduct ? (
                   <>
@@ -531,35 +531,6 @@ const AdminBargainFormPage: React.FC = () => {
                                 </div>
                               )}
                               
-                              {/* 材质图块 */}
-                              {sku.materialImages && Object.keys(sku.materialImages).length > 0 && (
-                                <div className="mt-2">
-                                  <p className="text-xs text-gray-500 mb-1">材质：</p>
-                                  <div className="flex flex-wrap gap-1">
-                                    {Object.entries(sku.materialImages).map(([key, imageUrl]) => (
-                                      <div 
-                                        key={key} 
-                                        className="w-10 h-10 rounded border overflow-hidden"
-                                        title={sku.material?.[key] || key}
-                                      >
-                                        <img 
-                                          src={getFileUrl(imageUrl as string)} 
-                                          alt={key}
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* 材质文字（如果没有图片） */}
-                              {sku.material && Object.keys(sku.material).length > 0 && 
-                               (!sku.materialImages || Object.keys(sku.materialImages).length === 0) && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  材质: {Object.values(sku.material).join(' / ')}
-                                </div>
-                              )}
                               
                               {selectedSku?._id === sku._id && (
                                 <div className="flex items-center gap-1 text-primary-600 text-xs mt-2">

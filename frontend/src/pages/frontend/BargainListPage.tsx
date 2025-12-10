@@ -10,7 +10,7 @@ const mockBargainProducts = [
     maxSaving: '50%',
     alreadyHelped: 12,
     imageUrl: '/placeholder.svg',
-    tags: ['可砍金额', '风格', '品类'],
+    tags: ['限时特惠', '热门', '家居'],
     countdown: '00:00:00',
   },
   // Add more mock products here
@@ -42,17 +42,17 @@ const BargainListPage: React.FC = () => {
       {productsWithBargainInfo.map(product => (
         <div key={product.id} className="bg-white rounded-lg shadow-md mb-4 overflow-hidden">
           {/* Banner */}
-          <div className="bg-red-100 p-4 text-center">
-            <h2 className="text-2xl font-bold text-red-500">砍一刀，最高省 {product.maxSaving}</h2>
-            <p className="text-sm text-red-400">限时砍价 · {product.countdown}</p>
+          <div className="bg-gradient-to-r from-red-500 to-orange-500 p-4 text-center">
+            <h2 className="text-2xl font-bold text-white">🔥 砍价活动进行中</h2>
+            <p className="text-sm text-white/80">邀请好友助力，享超低价格！</p>
           </div>
 
           {/* Tags */}
           <div className="p-4 flex justify-center gap-2">
-            {product.tags.map((tag: string) => (
-              <button key={tag} className={`btn btn-sm ${tag === '可砍金额' ? 'btn-primary' : 'btn-secondary'}`}>
+            {product.tags.map((tag: string, index: number) => (
+              <span key={tag} className={`px-3 py-1 text-xs rounded-full ${index === 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
                 {tag}
-              </button>
+              </span>
             ))}
           </div>
 
@@ -63,16 +63,15 @@ const BargainListPage: React.FC = () => {
           <div className="p-4">
             <h3 className="text-lg font-semibold">{product.name}</h3>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-bold text-red-500">¥{product.bargainPrice}</span>
-              <span className="text-sm text-gray-500 line-through">¥{product.originalPrice}</span>
-              <span className="text-xs bg-red-100 text-red-500 p-1 rounded">砍价省 {product.savingAmount}</span>
+              <span className="text-sm text-gray-500 line-through">原价: ¥{product.originalPrice}</span>
+              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">邀请好友砍价</span>
             </div>
 
             {/* Progress Bar */}
             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
               <div className="bg-orange-500 h-2.5 rounded-full" style={{ width: '60%' }}></div>
             </div>
-            <p className="text-sm text-gray-600 mt-1">已砍 {product.alreadyHelped} 人助力</p>
+            <p className="text-sm text-gray-600 mt-1">已有 {product.alreadyHelped} 人助力</p>
           </div>
 
           {/* Actions */}
