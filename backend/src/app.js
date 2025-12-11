@@ -84,6 +84,7 @@ app.use('/api/manufacturers', require('./routes/manufacturers'))
 app.use('/api/referrals', require('./routes/referral'))
 app.use('/api/manufacturer-orders', require('./routes/manufacturerOrder'))
 app.use('/api/image-search', require('./routes/imageSearch'))
+app.use('/api/authorizations', require('./routes/authorizations'))
 
 // 微信小程序专用接口
 app.use('/api/miniapp', require('./routes/miniapp'))

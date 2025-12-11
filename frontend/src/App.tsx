@@ -76,6 +76,7 @@ const ManufacturerManagement = lazy(() => import('./pages/admin/ManufacturerMana
 const ReferralManagement = lazy(() => import('./pages/admin/ReferralManagement'))
 const ManufacturerOrderManagement = lazy(() => import('./pages/admin/ManufacturerOrderManagement'))
 const ImageSearchStats = lazy(() => import('./pages/admin/ImageSearchStats'))
+const AuthorizationManagement = lazy(() => import('./pages/admin/AuthorizationManagement'))
 
 // 厂家端页面
 const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
@@ -336,6 +337,7 @@ function App() {
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
             <Route path="activity" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
             <Route path="manufacturers" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerManagement /></ProtectedRoute>} />
+            <Route path="authorizations" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><AuthorizationManagement /></ProtectedRoute>} />
             <Route path="referrals" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
