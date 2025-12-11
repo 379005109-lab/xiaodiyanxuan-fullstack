@@ -6,6 +6,8 @@ import { toast } from 'sonner'
 interface Manufacturer {
   _id: string
   name: string
+  fullName?: string
+  shortName?: string
   code?: string
   username?: string
   contactName?: string
@@ -24,8 +26,8 @@ export default function ManufacturerManagement() {
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState<Manufacturer | null>(null)
   const [formData, setFormData] = useState({
-    name: '',
-    code: '',
+    fullName: '',
+    shortName: '',
     contactName: '',
     contactPhone: '',
     contactEmail: '',
@@ -58,8 +60,8 @@ export default function ManufacturerManagement() {
   const openCreateModal = () => {
     setEditingItem(null)
     setFormData({
-      name: '',
-      code: '',
+      fullName: '',
+      shortName: '',
       contactName: '',
       contactPhone: '',
       contactEmail: '',
@@ -73,8 +75,8 @@ export default function ManufacturerManagement() {
   const openEditModal = (item: Manufacturer) => {
     setEditingItem(item)
     setFormData({
-      name: item.name,
-      code: item.code || '',
+      fullName: item.fullName || item.name || '',
+      shortName: item.shortName || '',
       contactName: item.contactName || '',
       contactPhone: item.contactPhone || '',
       contactEmail: item.contactEmail || '',
@@ -116,8 +118,12 @@ export default function ManufacturerManagement() {
   }
 
   const handleSave = async () => {
-    if (!formData.name.trim()) {
-      toast.error('请输入厂家名称')
+    if (!formData.fullName.trim()) {
+      toast.error('请输入厂家全称')
+      return
+    }
+    if (!formData.shortName.trim()) {
+      toast.error('请输入厂家简称')
       return
     }
 
@@ -206,10 +212,11 @@ export default function ManufacturerManagement() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h3 className="font-semibold text-gray-900 text-lg">{item.name}</h3>
-                  {item.code && (
-                    <p className="text-sm text-gray-500">编码：{item.code}</p>
-                  )}
+                  <h3 className="font-semibold text-gray-900 text-lg">{item.fullName || item.name}</h3>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    {item.shortName && <span className="font-medium text-primary">[{item.shortName}]</span>}
+                    {item.code && <span>编号：{item.code}</span>}
+                  </div>
                 </div>
                 <span className={`px-2 py-1 text-xs rounded-full ${
                   item.status === 'active' 
@@ -288,27 +295,46 @@ export default function ManufacturerManagement() {
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  厂家名称 <span className="text-red-500">*</span>
+                  厂家全称 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="请输入厂家名称"
+                  placeholder="请输入厂家全称，如：广州市某某家具有限公司"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">厂家编码</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  厂家简称 <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="请输入厂家编码（可选）"
+                  value={formData.shortName}
+                  onChange={(e) => setFormData({ ...formData, shortName: e.target.value.toUpperCase() })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary uppercase"
+                  placeholder="请输入简称（2-4个字母），如：GS、MMJJ"
+                  maxLength={6}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  简称将用于生成厂家编号，如 GS20251211XXXX
+                </p>
               </div>
+
+              {editingItem?.code && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">厂家编号</label>
+                  <input
+                    type="text"
+                    value={editingItem.code}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">编号由系统自动生成，不可修改</p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
