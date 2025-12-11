@@ -45,6 +45,12 @@ function generateRandomLetters(length: number = 4): string {
   return result
 }
 
+interface AccountQuota {
+  authAccounts: number
+  subAccounts: number
+  designerAccounts: number
+}
+
 interface Manufacturer {
   _id: string
   name: string
@@ -59,6 +65,8 @@ interface Manufacturer {
   description?: string
   status: 'active' | 'inactive'
   createdAt: string
+  accountQuota?: AccountQuota
+  accountUsage?: AccountQuota
 }
 
 export default function ManufacturerManagement() {
@@ -81,6 +89,14 @@ export default function ManufacturerManagement() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [passwordTarget, setPasswordTarget] = useState<Manufacturer | null>(null)
   const [passwordForm, setPasswordForm] = useState({ username: '', password: '' })
+  // 账号配额编辑
+  const [showQuotaModal, setShowQuotaModal] = useState(false)
+  const [quotaTarget, setQuotaTarget] = useState<Manufacturer | null>(null)
+  const [quotaForm, setQuotaForm] = useState({
+    authAccounts: 0,
+    subAccounts: 0,
+    designerAccounts: 0
+  })
 
   const fetchData = async () => {
     try {
@@ -199,6 +215,35 @@ export default function ManufacturerManagement() {
     }
   }
 
+  // 打开配额编辑弹窗
+  const openQuotaModal = (item: Manufacturer) => {
+    setQuotaTarget(item)
+    setQuotaForm({
+      authAccounts: item.accountQuota?.authAccounts || 0,
+      subAccounts: item.accountQuota?.subAccounts || 0,
+      designerAccounts: item.accountQuota?.designerAccounts || 0
+    })
+    setShowQuotaModal(true)
+  }
+
+  // 保存配额设置
+  const handleSaveQuota = async () => {
+    if (!quotaTarget) return
+    try {
+      setSaving(true)
+      await apiClient.put(`/manufacturers/${quotaTarget._id}`, {
+        accountQuota: quotaForm
+      })
+      toast.success('账号配额更新成功')
+      setShowQuotaModal(false)
+      fetchData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '更新失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -269,7 +314,7 @@ export default function ManufacturerManagement() {
                 </span>
               </div>
 
-              <div className="space-y-2 text-sm text-gray-600 mb-4">
+              <div className="space-y-2 text-sm text-gray-600 mb-3">
                 {item.contactName && (
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400">联系人：</span>
@@ -282,18 +327,39 @@ export default function ManufacturerManagement() {
                     {item.contactPhone}
                   </div>
                 )}
-                {item.contactEmail && (
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-gray-400" />
-                    {item.contactEmail}
+              </div>
+
+              {/* 账号配额信息 */}
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500">账号配额</span>
+                  <button
+                    onClick={() => openQuotaModal(item)}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    设置配额
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <div className="text-lg font-bold text-gray-900">
+                      {item.accountUsage?.authAccounts || 0}/{item.accountQuota?.authAccounts || 0}
+                    </div>
+                    <div className="text-xs text-gray-500">授权账号</div>
                   </div>
-                )}
-                {item.address && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="line-clamp-1">{item.address}</span>
+                  <div>
+                    <div className="text-lg font-bold text-gray-900">
+                      {item.accountUsage?.subAccounts || 0}/{item.accountQuota?.subAccounts || 0}
+                    </div>
+                    <div className="text-xs text-gray-500">子账号</div>
                   </div>
-                )}
+                  <div>
+                    <div className="text-lg font-bold text-gray-900">
+                      {item.accountUsage?.designerAccounts || 0}/{item.accountQuota?.designerAccounts || 0}
+                    </div>
+                    <div className="text-xs text-gray-500">设计师</div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
@@ -480,7 +546,7 @@ export default function ManufacturerManagement() {
           <div className="bg-white rounded-2xl w-full max-w-md mx-4">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-xl font-semibold text-gray-900">
-                设置账号密码 - {passwordTarget.name}
+                设置账号密码 - {passwordTarget.fullName || passwordTarget.name}
               </h2>
             </div>
 
@@ -524,6 +590,92 @@ export default function ManufacturerManagement() {
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 设置账号配额弹窗 */}
+      {showQuotaModal && quotaTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-xl font-semibold text-gray-900">
+                账号配额设置 - {quotaTarget.fullName || quotaTarget.shortName || quotaTarget.name}
+              </h2>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  授权账号配额
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={quotaForm.authAccounts}
+                  onChange={(e) => setQuotaForm({ ...quotaForm, authAccounts: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  placeholder="0"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  当前已使用：{quotaTarget.accountUsage?.authAccounts || 0} 个
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  子账号配额
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={quotaForm.subAccounts}
+                  onChange={(e) => setQuotaForm({ ...quotaForm, subAccounts: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  placeholder="0"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  当前已使用：{quotaTarget.accountUsage?.subAccounts || 0} 个
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  设计师账号配额
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={quotaForm.designerAccounts}
+                  onChange={(e) => setQuotaForm({ ...quotaForm, designerAccounts: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  placeholder="0"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  当前已使用：{quotaTarget.accountUsage?.designerAccounts || 0} 个
+                </p>
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-700">
+                  ⚠️ 设置配额后，厂家可在配额范围内创建对应类型的账号
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowQuotaModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveQuota}
+                disabled={saving}
+                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                保存配额
               </button>
             </div>
           </div>

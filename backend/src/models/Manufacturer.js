@@ -65,6 +65,39 @@ const manufacturerSchema = new mongoose.Schema({
     enum: ['active', 'inactive'],
     default: 'active'
   },
+  // 账号配额（由超级管理员配置）
+  accountQuota: {
+    // 授权账号配额
+    authAccounts: {
+      type: Number,
+      default: 0
+    },
+    // 子账号配额
+    subAccounts: {
+      type: Number,
+      default: 0
+    },
+    // 设计师账号配额
+    designerAccounts: {
+      type: Number,
+      default: 0
+    }
+  },
+  // 已使用账号数量
+  accountUsage: {
+    authAccounts: {
+      type: Number,
+      default: 0
+    },
+    subAccounts: {
+      type: Number,
+      default: 0
+    },
+    designerAccounts: {
+      type: Number,
+      default: 0
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

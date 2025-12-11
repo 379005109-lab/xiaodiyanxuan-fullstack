@@ -1,1 +1,0 @@
-import{b as a}from"./index-DWFic46w.js";const t=async()=>{const t=a.getState().token,o=await fetch("/api/dashboard",{headers:{"Content-Type":"application/json",Authorization:`Bearer ${t}`}});if(!o.ok){const a=await o.json();throw new Error(a.message||"Failed to fetch dashboard data")}const e=await o.json();return e.data||e};export{t as g};

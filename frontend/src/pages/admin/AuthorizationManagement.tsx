@@ -380,13 +380,49 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
     }
   }, [formData.toManufacturer, token])
 
-  // 获取该厂家商品的分类列表
+  // 获取该厂家商品的分类列表（包含分类名称和商品数量）
   const getManufacturerCategories = () => {
-    const categorySet = new Set<string>()
+    const categoryMap = new Map<string, { id: string; name: string; count: number; parentId?: string }>()
+    
     manufacturerProducts.forEach(product => {
-      if (product.category) categorySet.add(product.category)
+      if (product.category) {
+        const catId = typeof product.category === 'object' ? product.category._id : product.category
+        if (!categoryMap.has(catId)) {
+          // 从分类列表中查找分类名称
+          const categoryInfo = categories.find(c => c._id === catId || c.slug === catId)
+          categoryMap.set(catId, {
+            id: catId,
+            name: categoryInfo?.name || catId,
+            count: 1,
+            parentId: categoryInfo?.parentId || categoryInfo?.parent
+          })
+        } else {
+          categoryMap.get(catId)!.count++
+        }
+      }
     })
-    return Array.from(categorySet)
+    
+    return Array.from(categoryMap.values())
+  }
+
+  // 构建树状分类结构
+  const buildCategoryTree = (cats: { id: string; name: string; count: number; parentId?: string }[]) => {
+    const rootCats: typeof cats = []
+    const childMap = new Map<string, typeof cats>()
+    
+    // 分离根分类和子分类
+    cats.forEach(cat => {
+      if (!cat.parentId) {
+        rootCats.push(cat)
+      } else {
+        if (!childMap.has(cat.parentId)) {
+          childMap.set(cat.parentId, [])
+        }
+        childMap.get(cat.parentId)!.push(cat)
+      }
+    })
+    
+    return { rootCats, childMap }
   }
 
   const handleCategoryToggle = (category: string) => {
@@ -552,23 +588,38 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
               {loading ? (
                 <p className="text-sm text-gray-500">加载中...</p>
               ) : manufacturerCategories.length > 0 ? (
-                <div className="border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto">
-                  <div className="grid grid-cols-2 gap-2">
-                    {manufacturerCategories.map(cat => (
-                      <label key={cat} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                        <input
-                          type="checkbox"
-                          checked={formData.categories.includes(cat)}
-                          onChange={() => handleCategoryToggle(cat)}
-                          className="rounded text-primary"
-                        />
-                        <span className="text-sm">{cat}</span>
-                        <span className="text-xs text-gray-400">
-                          ({manufacturerProducts.filter(p => p.category === cat).length}个商品)
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                <div className="border border-gray-200 rounded-lg p-3 max-h-64 overflow-y-auto">
+                  {(() => {
+                    const { rootCats, childMap } = buildCategoryTree(manufacturerCategories)
+                    
+                    // 渲染分类项（树状结构）
+                    const renderCategory = (cat: typeof manufacturerCategories[0], level: number = 0) => {
+                      const children = childMap.get(cat.id) || []
+                      return (
+                        <div key={cat.id} style={{ marginLeft: level * 16 }}>
+                          <label className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                            <input
+                              type="checkbox"
+                              checked={formData.categories.includes(cat.id)}
+                              onChange={() => handleCategoryToggle(cat.id)}
+                              className="rounded text-primary"
+                            />
+                            <span className="text-sm font-medium">{cat.name}</span>
+                            <span className="text-xs text-gray-400">
+                              ({cat.count}个商品)
+                            </span>
+                          </label>
+                          {children.length > 0 && (
+                            <div className="border-l-2 border-gray-100 ml-2">
+                              {children.map(child => renderCategory(child, level + 1))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+                    
+                    return rootCats.map(cat => renderCategory(cat))
+                  })()}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded">
