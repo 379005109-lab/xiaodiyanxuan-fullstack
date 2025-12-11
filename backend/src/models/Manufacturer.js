@@ -60,6 +60,42 @@ const manufacturerSchema = new mongoose.Schema({
   logo: {
     type: String
   },
+  // 厂家设置信息
+  settings: {
+    // 公司电话
+    phone: {
+      type: String,
+      trim: true
+    },
+    // 客服电话
+    servicePhone: {
+      type: String,
+      trim: true
+    },
+    // 微信收款码
+    wechatQrCode: {
+      type: String
+    },
+    // 支付宝收款码
+    alipayQrCode: {
+      type: String
+    },
+    // 银行转账信息
+    bankInfo: {
+      bankName: String,
+      accountName: String,
+      accountNumber: String
+    },
+    // 公司地址
+    companyAddress: {
+      type: String,
+      trim: true
+    },
+    // 营业执照
+    businessLicense: {
+      type: String
+    }
+  },
   status: {
     type: String,
     enum: ['active', 'inactive'],

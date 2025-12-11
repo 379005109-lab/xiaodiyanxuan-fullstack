@@ -81,6 +81,7 @@ const AuthorizationManagement = lazy(() => import('./pages/admin/AuthorizationMa
 // 厂家端页面
 const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
 const ManufacturerOrders = lazy(() => import('./pages/manufacturer/ManufacturerOrders'))
+const ManufacturerSettings = lazy(() => import('./pages/manufacturer/ManufacturerSettings'))
 
 // 前台布局已在上方直接导入
 
@@ -346,6 +347,7 @@ function App() {
           {/* 厂家端路由 */}
           <Route path="/manufacturer/login" element={<ManufacturerLogin />} />
           <Route path="/manufacturer/orders" element={<ManufacturerOrders />} />
+          <Route path="/manufacturer/settings" element={<ManufacturerSettings />} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />

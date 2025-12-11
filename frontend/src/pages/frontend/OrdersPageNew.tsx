@@ -172,7 +172,22 @@ export default function OrdersPageNew() {
     { value: 'paid', label: '已付款' },
     { value: 'shipped', label: '已发货' },
     { value: 'completed', label: '已完成' },
+    { value: 'cancelled', label: '已取消' },
   ]
+
+  // 筛选订单
+  const filteredOrders = orders.filter(order => {
+    if (!filterStatus) return true
+    // 兼容数字和字符串状态
+    const statusMap: Record<string, (number | string)[]> = {
+      'pending': [1, 'pending'],
+      'paid': [2, 'paid'],
+      'shipped': [3, 'shipped'],
+      'completed': [4, 'completed'],
+      'cancelled': [5, 'cancelled'],
+    }
+    return statusMap[filterStatus]?.includes(order.status)
+  })
 
   if (loading) {
     return (
@@ -188,7 +203,7 @@ export default function OrdersPageNew() {
         <div className="flex justify-between items-end mb-8">
           <div>
             <h1 className="text-3xl font-serif font-bold text-primary mb-2">我的订单</h1>
-            <p className="text-stone-500 uppercase tracking-widest text-xs">My Orders ({orders.length})</p>
+            <p className="text-stone-500 uppercase tracking-widest text-xs">My Orders ({filteredOrders.length})</p>
           </div>
         </div>
 
@@ -212,7 +227,7 @@ export default function OrdersPageNew() {
         </div>
 
         {/* 订单列表 */}
-        {orders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-stone-100">
             <Package className="w-16 h-16 text-stone-300 mx-auto mb-4" />
             <p className="text-stone-400 font-serif italic mb-4">暂无订单记录</p>
@@ -225,7 +240,7 @@ export default function OrdersPageNew() {
           </div>
         ) : (
           <div className="space-y-6">
-            {orders.map((order) => {
+            {filteredOrders.map((order) => {
               const isCancelled = order.status === 5 || order.status === 'cancelled'
               const hasCancelRequest = order.cancelRequest === true
               return (

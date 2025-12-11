@@ -458,6 +458,62 @@ router.get('/trash/list', async (req, res) => {
   }
 })
 
+// PATCH /api/orders/:id/price - 修改订单价格（改价）
+router.patch('/:id/price', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { totalAmount, reason } = req.body
+    const Order = require('../models/Order')
+    
+    // 验证权限（只有管理员可以改价）
+    const isAdmin = req.userRole === 'admin' || req.userRole === 'superadmin' || req.userRole === 'super_admin'
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: '只有管理员可以修改订单价格' })
+    }
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    // 只有待付款订单可以改价
+    if (order.status !== 1 && order.status !== 'pending') {
+      return res.status(400).json({ success: false, message: '只有待付款订单可以修改价格' })
+    }
+    
+    // 记录原价格
+    const originalAmount = order.totalAmount
+    
+    // 更新价格
+    order.totalAmount = totalAmount
+    order.priceModified = true
+    order.priceModifyHistory = order.priceModifyHistory || []
+    order.priceModifyHistory.push({
+      originalAmount,
+      newAmount: totalAmount,
+      reason: reason || '管理员改价',
+      modifiedBy: req.userId,
+      modifiedAt: new Date()
+    })
+    
+    await order.save()
+    
+    console.log('💰 订单价格已修改:', id, originalAmount, '->', totalAmount)
+    res.json({ 
+      success: true, 
+      message: '价格修改成功',
+      data: {
+        orderId: id,
+        originalAmount,
+        newAmount: totalAmount
+      }
+    })
+  } catch (error) {
+    console.error('修改订单价格失败:', error)
+    res.status(500).json({ success: false, message: '修改价格失败' })
+  }
+})
+
 // POST /api/orders/:id/restore - 恢复订单
 router.post('/:id/restore', async (req, res) => {
   try {

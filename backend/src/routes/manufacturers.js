@@ -12,6 +12,29 @@ router.get('/', list)
 // GET /api/manufacturers/all - 获取所有厂家（不分页，用于下拉选择）
 router.get('/all', listAll)
 
+// GET /api/manufacturers/me - 获取当前登录厂家的信息
+const ManufacturerModel = require('../models/Manufacturer')
+router.get('/me', async (req, res) => {
+  try {
+    // 从用户信息中获取厂家ID（需要厂家登录后设置）
+    const manufacturerId = req.manufacturerId || req.user?.manufacturerId
+    
+    if (!manufacturerId) {
+      return res.status(400).json({ success: false, message: '未找到厂家信息，请重新登录' })
+    }
+    
+    const manufacturer = await ManufacturerModel.findById(manufacturerId)
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+    
+    res.json({ success: true, data: manufacturer })
+  } catch (error) {
+    console.error('获取厂家信息失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
 // GET /api/manufacturers/:id - 获取单个厂家
 router.get('/:id', get)
 

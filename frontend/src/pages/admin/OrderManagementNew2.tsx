@@ -71,6 +71,9 @@ export default function OrderManagementNew2() {
   const [followUpText, setFollowUpText] = useState('') // 跟进内容
   const [orderLogs, setOrderLogs] = useState<any[]>([]) // 订单动态记录
   const [isAdmin, setIsAdmin] = useState(true) // 是否超级管理员（后续从用户信息获取）
+  const [showPriceModal, setShowPriceModal] = useState(false) // 改价弹窗
+  const [newPrice, setNewPrice] = useState('') // 新价格
+  const [priceReason, setPriceReason] = useState('') // 改价原因
   
   // 统计数据
   const [stats, setStats] = useState({
@@ -228,6 +231,58 @@ export default function OrderManagementNew2() {
       }))
     }
     return []
+  }
+
+  // 打开改价弹窗
+  const openPriceModal = (orderId: string) => {
+    const order = orders.find(o => o._id === orderId)
+    if (order) {
+      setSelectedOrderId(orderId)
+      setNewPrice(order.totalAmount?.toString() || '0')
+      setPriceReason('')
+      setShowPriceModal(true)
+    }
+  }
+
+  // 处理改价
+  const handleChangePrice = async () => {
+    if (!selectedOrderId || !newPrice) {
+      toast.error('请输入新价格')
+      return
+    }
+    
+    const price = parseFloat(newPrice)
+    if (isNaN(price) || price < 0) {
+      toast.error('请输入有效的价格')
+      return
+    }
+    
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrderId}/price`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ 
+          totalAmount: price,
+          reason: priceReason || '管理员改价'
+        })
+      })
+      
+      if (response.ok) {
+        toast.success('价格修改成功')
+        setShowPriceModal(false)
+        loadOrders()
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.message || '修改失败')
+      }
+    } catch (error) {
+      console.error('改价失败:', error)
+      toast.error('修改失败，请重试')
+    }
   }
 
   // 处理发货
@@ -1537,15 +1592,28 @@ export default function OrderManagementNew2() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedOrderId(order._id)
-                        }}
-                        className="text-blue-600 hover:text-blue-700 hover:underline"
-                      >
-                        详情
-                      </button>
+                      <div className="flex items-center gap-2 justify-end">
+                        {(order.status === 1 || order.status === 'pending') && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openPriceModal(order._id)
+                            }}
+                            className="px-3 py-1.5 text-sm bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200"
+                          >
+                            改价
+                          </button>
+                        )}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedOrderId(order._id)
+                          }}
+                          className="text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          详情
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -1554,6 +1622,69 @@ export default function OrderManagementNew2() {
           </tbody>
         </table>
       </div>
+
+      {/* 改价弹窗 */}
+      {showPriceModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-semibold mb-4">订单改价</h3>
+            <p className="text-sm text-gray-500 mb-4">订单号: {selectedOrder.orderNo}</p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  原价格
+                </label>
+                <div className="text-lg font-bold text-gray-400 line-through">
+                  ¥{formatPrice(selectedOrder.totalAmount)}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  新价格 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newPrice}
+                  onChange={(e) => setNewPrice(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="请输入新价格"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  改价原因（可选）
+                </label>
+                <input
+                  type="text"
+                  value={priceReason}
+                  onChange={(e) => setPriceReason(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="如：优惠活动、会员折扣等"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowPriceModal(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleChangePrice}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+              >
+                确认改价
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
