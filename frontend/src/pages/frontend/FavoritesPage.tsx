@@ -14,7 +14,7 @@ export default function FavoritesPage() {
   const { user } = useAuthStore()
   const { openLogin } = useAuthModalStore()
   const { favorites, loadFavorites, removeFavorite, clearAll: clearAllFavorites } = useFavoriteStore()
-  const { addToCompare, clearAll: clearAllCompare } = useCompareStore()
+  const { addToCompare, clearAll: clearAllCompare, openModal: openCompareModal } = useCompareStore()
   const [loading, setLoading] = useState(true)
   const [compareList, setCompareList] = useState<string[]>([])
 
@@ -117,7 +117,8 @@ export default function FavoritesPage() {
       toast.dismiss()
       if (successCount > 0) {
         toast.success(`已添加 ${successCount} 个商品到对比列表`)
-        navigate('/compare')
+        // 打开对比弹窗而不是跳转页面
+        openCompareModal()
       } else {
         toast.error(lastError || '添加对比失败，请重试')
       }

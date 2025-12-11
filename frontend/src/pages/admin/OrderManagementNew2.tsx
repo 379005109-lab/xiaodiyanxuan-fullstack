@@ -12,7 +12,7 @@ import { getFileUrl } from '@/services/uploadService'
 import * as XLSX from 'xlsx'
 import html2canvas from 'html2canvas'
 
-type TabType = 'all' | 'pending' | 'shipping' | 'afterSale'
+type TabType = 'all' | 'pending' | 'shipping' | 'afterSale' | 'cancelled'
 
 // 订单状态配置 - 支持数字和字符串状态
 const statusConfig: Record<number | string, { label: string; color: string; bgColor: string }> = {
@@ -77,7 +77,8 @@ export default function OrderManagementNew2() {
     all: 0,
     pending: 0,
     shipping: 0,
-    afterSale: 0
+    afterSale: 0,
+    cancelled: 0
   })
 
   useEffect(() => {
@@ -119,6 +120,7 @@ export default function OrderManagementNew2() {
         pending: allOrders.filter(o => o.status === 1 || o.status === 'pending').length,
         shipping: allOrders.filter(o => o.status === 2 || o.status === 3 || o.status === 'paid' || o.status === 'processing').length,
         afterSale: allOrders.filter(o => o.status === 6 || o.status === 7 || o.status === 'refunding' || o.status === 'refunded' || (o as any).refundStatus).length,
+        cancelled: allOrders.filter(o => o.status === 8 || o.status === 'cancelled').length,
       })
     } catch (error) {
       console.error('加载订单失败:', error)
@@ -149,6 +151,8 @@ export default function OrderManagementNew2() {
         return order.status === 2 || order.status === 3 || order.status === 'paid' || order.status === 'processing'
       case 'afterSale':
         return order.status === 6 || order.status === 7 || order.status === 'refunding' || order.status === 'refunded' || (order as any).refundStatus
+      case 'cancelled':
+        return order.status === 8 || order.status === 'cancelled'
       default:
         return true
     }
@@ -1386,6 +1390,18 @@ export default function OrderManagementNew2() {
         >
           <p className="text-sm text-gray-500">售后</p>
           <p className="text-2xl font-bold mt-1">{stats.afterSale}</p>
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('cancelled')}
+          className={`flex-1 p-4 rounded-xl border-2 transition-all ${
+            activeTab === 'cancelled' 
+              ? 'border-gray-500 bg-gray-50' 
+              : 'border-gray-200 bg-white hover:border-gray-300'
+          }`}
+        >
+          <p className="text-sm text-gray-500">已取消</p>
+          <p className="text-2xl font-bold mt-1">{stats.cancelled}</p>
         </button>
       </div>
 

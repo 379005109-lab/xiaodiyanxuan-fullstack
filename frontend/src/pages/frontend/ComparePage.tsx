@@ -333,8 +333,17 @@ export default function ComparePage() {
                       
                       if (item.selectedMaterials?.fabric) {
                         fabricDisplay = item.selectedMaterials.fabric
-                        const materialInfo = materials.find(m => m.name === item.selectedMaterials?.fabric)
-                        fabricImage = materialInfo?.image
+                        // 更灵活的材质匹配：精确匹配或包含匹配
+                        const materialInfo = materials.find(m => 
+                          m.name === item.selectedMaterials?.fabric ||
+                          m.name?.includes(item.selectedMaterials?.fabric) ||
+                          item.selectedMaterials?.fabric?.includes(m.name)
+                        )
+                        fabricImage = materialInfo?.image || materialInfo?.thumbnail
+                        // 如果还是没有图片，尝试从 SKU 材质中获取
+                        if (!fabricImage && (item.sku as any).materialImages) {
+                          fabricImage = (item.sku as any).materialImages[item.selectedMaterials.fabric]
+                        }
                       } else if (hasFabricOption) {
                         // 商品有面料选项但用户未选
                         fabricDisplay = '未选面料'

@@ -358,16 +358,6 @@ export default function Header() {
                     编辑资料
                   </Link>
                   
-                  {/* 我的订单 */}
-                  <Link
-                    to="/orders"
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
-                  >
-                    <ClipboardList className="w-4 h-4" />
-                    我的订单
-                  </Link>
-                  
                   {/* 我的地址 */}
                   <Link
                     to="/addresses"
