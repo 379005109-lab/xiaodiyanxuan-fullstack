@@ -3,6 +3,48 @@ import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key 
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 
+// 中文转拼音首字母（简化版）
+const pinyinMap: Record<string, string> = {
+  '各': 'G', '色': 'S', '佛': 'F', '山': 'S', '家': 'J', '具': 'J', '有': 'Y', '限': 'X', '公': 'G', '司': 'S',
+  '广': 'G', '州': 'Z', '深': 'S', '圳': 'Z', '东': 'D', '莞': 'G', '惠': 'H', '中': 'Z', '珠': 'Z', '海': 'H',
+  '顺': 'S', '德': 'D', '南': 'N', '北': 'B', '西': 'X', '美': 'M', '乐': 'L', '华': 'H', '龙': 'L', '江': 'J',
+  '新': 'X', '明': 'M', '达': 'D', '成': 'C', '发': 'F', '展': 'Z', '盛': 'S', '旺': 'W', '富': 'F', '贵': 'G',
+  '金': 'J', '银': 'Y', '铜': 'T', '铁': 'T', '木': 'M', '水': 'S', '火': 'H', '土': 'T', '天': 'T', '地': 'D',
+  '大': 'D', '小': 'X', '上': 'S', '下': 'X', '左': 'Z', '右': 'Y', '前': 'Q', '后': 'H', '里': 'L', '外': 'W',
+  '红': 'H', '黄': 'H', '蓝': 'L', '绿': 'L', '白': 'B', '黑': 'H', '灰': 'H', '紫': 'Z', '橙': 'C', '粉': 'F',
+  '沙': 'S', '床': 'C', '柜': 'G', '桌': 'Z', '椅': 'Y', '门': 'M', '窗': 'C', '板': 'B', '架': 'J', '台': 'T',
+  '皮': 'P', '布': 'B', '实': 'S', '原': 'Y', '创': 'C', '意': 'Y', '品': 'P', '质': 'Z', '优': 'Y', '良': 'L',
+  '一': 'Y', '二': 'E', '三': 'S', '四': 'S', '五': 'W', '六': 'L', '七': 'Q', '八': 'B', '九': 'J', '十': 'S',
+  '百': 'B', '千': 'Q', '万': 'W', '亿': 'Y', '元': 'Y', '年': 'N', '月': 'Y', '日': 'R', '时': 'S', '分': 'F',
+  '业': 'Y', '工': 'G', '厂': 'C', '店': 'D', '铺': 'P', '行': 'H', '号': 'H', '室': 'S', '层': 'C', '栋': 'D',
+  '迪': 'D', '严': 'Y', '选': 'X', '科': 'K', '技': 'J', '网': 'W', '络': 'L', '电': 'D', '子': 'Z', '商': 'S',
+  '贸': 'M', '易': 'Y', '进': 'J', '出': 'C', '口': 'K', '国': 'G', '际': 'J', '集': 'J', '团': 'T', '股': 'G',
+  '份': 'F', '合': 'H', '伙': 'H', '人': 'R', '独': 'D', '资': 'Z', '个': 'G', '体': 'T', '户': 'H', '企': 'Q'
+}
+
+function getChinesePinyinInitials(str: string): string {
+  let result = ''
+  for (const char of str) {
+    if (pinyinMap[char]) {
+      result += pinyinMap[char]
+    } else if (/[a-zA-Z]/.test(char)) {
+      result += char.toUpperCase()
+    }
+    // 忽略其他字符
+  }
+  return result.toUpperCase()
+}
+
+// 生成4个随机大写字母
+function generateRandomLetters(length: number = 4): string {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  let result = ''
+  for (let i = 0; i < length; i++) {
+    result += letters.charAt(Math.floor(Math.random() * letters.length))
+  }
+  return result
+}
+
 interface Manufacturer {
   _id: string
   name: string
@@ -300,44 +342,47 @@ export default function ManufacturerManagement() {
                 <input
                   type="text"
                   value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  onChange={(e) => {
+                    const newFullName = e.target.value
+                    // 自动从中文提取拼音首字母作为简称
+                    const autoShortName = !editingItem ? getChinesePinyinInitials(newFullName) : formData.shortName
+                    setFormData({ ...formData, fullName: newFullName, shortName: autoShortName })
+                  }}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="请输入厂家全称，如：广州市某某家具有限公司"
+                  placeholder="请输入厂家全称，如：佛山各色家具有限公司"
+                  disabled={!!editingItem}
                 />
+                {editingItem && (
+                  <p className="text-xs text-gray-500 mt-1">厂家全称创建后不可修改</p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  厂家简称 <span className="text-red-500">*</span>
+                  厂家简称（自动提取）
                 </label>
                 <input
                   type="text"
                   value={formData.shortName}
                   onChange={(e) => setFormData({ ...formData, shortName: e.target.value.toUpperCase() })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary uppercase"
-                  placeholder="请输入简称（2-4个字母），如：GS、MMJJ"
-                  maxLength={6}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono uppercase"
+                  placeholder="根据厂家全称自动提取"
                   disabled={!!editingItem}
                 />
-                {!editingItem && formData.shortName && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    编号预览: <span className="font-mono text-primary">{formData.shortName}{new Date().toISOString().slice(0,10).replace(/-/g,'')}XXXX</span>
-                  </p>
-                )}
-                {editingItem && (
-                  <p className="text-xs text-gray-500 mt-1">简称创建后不可修改</p>
-                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  {editingItem ? '简称创建后不可修改' : '根据厂家全称中文自动提取拼音首字母，可手动修改'}
+                </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">厂家编号</label>
                 <input
                   type="text"
-                  value={editingItem?.code || '保存后自动生成'}
+                  value={editingItem?.code || (formData.shortName ? `${formData.shortName}${new Date().toISOString().slice(0,10).replace(/-/g,'')}XXXX` : '输入厂家全称后自动生成')}
                   disabled
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 font-mono"
                 />
-                <p className="text-xs text-gray-500 mt-1">编号由系统自动生成，格式：简称+日期+随机数</p>
+                <p className="text-xs text-gray-500 mt-1">编号格式：简称 + 日期 + 4位随机字母（如：GS20251211ABCD）</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

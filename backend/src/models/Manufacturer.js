@@ -75,6 +75,16 @@ const manufacturerSchema = new mongoose.Schema({
   }
 })
 
+// 生成4位随机大写字母
+function generateRandomLetters(length = 4) {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  let result = ''
+  for (let i = 0; i < length; i++) {
+    result += letters.charAt(Math.floor(Math.random() * letters.length))
+  }
+  return result
+}
+
 // 生成唯一编号的辅助函数
 async function generateUniqueCode(shortName) {
   const today = new Date()
@@ -82,11 +92,11 @@ async function generateUniqueCode(shortName) {
     (today.getMonth() + 1).toString().padStart(2, '0') +
     today.getDate().toString().padStart(2, '0')
   
-  // 生成4位随机数
-  const randomNum = Math.floor(1000 + Math.random() * 9000).toString()
+  // 生成4位随机字母
+  const randomLetters = generateRandomLetters(4)
   
-  // 组合编号：简称 + 日期 + 随机数
-  const code = `${shortName.toUpperCase()}${dateStr}${randomNum}`
+  // 组合编号：简称 + 日期 + 4位随机字母（如：GS20251211ABCD）
+  const code = `${shortName.toUpperCase()}${dateStr}${randomLetters}`
   
   // 检查是否已存在
   const existing = await mongoose.model('Manufacturer').findOne({ code })
