@@ -15,6 +15,15 @@ import { Material, MaterialCategory } from '@/types'
 import { createCategoryLookup, getRoleDiscountMultiplier } from '@/utils/categoryHelper'
 import { useAuthStore } from '@/store/authStore'
 import { getFileUrl, uploadFile, getThumbnailUrl } from '@/services/uploadService'
+import apiClient from '@/lib/apiClient'
+
+interface Manufacturer {
+  _id: string
+  fullName?: string
+  shortName?: string
+  name: string
+  code?: string
+}
 
 export default function ProductManagement() {
   const navigate = useNavigate()
@@ -35,6 +44,10 @@ export default function ProductManagement() {
   // 分类数据
   const [categories, setCategories] = useState<Category[]>([])
   const [categoryLookup, setCategoryLookup] = useState<Map<string, Category>>(new Map())
+  
+  // 厂家数据
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
+  const [editingManufacturer, setEditingManufacturer] = useState<string | null>(null) // 正在编辑厂家的商品ID
   
   // 批量选择
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -68,6 +81,7 @@ export default function ProductManagement() {
   useEffect(() => {
     loadProducts()
     loadCategories()
+    loadManufacturers()
   }, [])
   
   const loadCategories = async () => {
@@ -77,6 +91,15 @@ export default function ProductManagement() {
       setCategoryLookup(createCategoryLookup(allCategories));
     } catch (error) {
       console.error('加载分类失败:', error);
+    }
+  }
+  
+  const loadManufacturers = async () => {
+    try {
+      const response = await apiClient.get('/manufacturers', { params: { pageSize: 100 } })
+      setManufacturers(response.data.data || [])
+    } catch (error) {
+      console.error('加载厂家失败:', error)
     }
   };
 
@@ -116,6 +139,29 @@ export default function ProductManagement() {
       }
     }
   };
+
+  // 快速更新商品厂家
+  const handleUpdateManufacturer = async (productId: string, manufacturerId: string) => {
+    try {
+      await updateProduct(productId, { manufacturer: manufacturerId || null })
+      toast.success('厂家已更新')
+      setEditingManufacturer(null)
+      // 更新本地数据
+      setProducts(prev => prev.map(p => 
+        p._id === productId ? { ...p, manufacturer: manufacturerId || undefined } : p
+      ))
+    } catch (error) {
+      console.error('更新厂家失败:', error)
+      toast.error('更新失败')
+    }
+  }
+
+  // 获取厂家显示名称
+  const getManufacturerName = (manufacturerId: string | undefined) => {
+    if (!manufacturerId) return '-'
+    const m = manufacturers.find(m => m._id === manufacturerId)
+    return m ? (m.shortName || m.fullName || m.name) : '-'
+  }
 
   // 下载导入模板
   const handleDownloadTemplate = () => {
@@ -2502,6 +2548,7 @@ export default function ProductManagement() {
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">图片</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">商品名称</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">厂家</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">分类</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">价格</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">SKU数量</th>
@@ -2558,6 +2605,33 @@ export default function ProductManagement() {
                       <p className="font-medium text-gray-900">{product.name}</p>
                       <p className="text-xs text-gray-500 line-clamp-1 mt-1">{product.description}</p>
                     </div>
+                  </td>
+                  {/* 厂家列 */}
+                  <td className="py-4 px-4">
+                    {editingManufacturer === product._id ? (
+                      <select
+                        autoFocus
+                        className="text-sm border border-gray-300 rounded px-2 py-1 w-24"
+                        value={(product as any).manufacturer || ''}
+                        onChange={(e) => handleUpdateManufacturer(product._id, e.target.value)}
+                        onBlur={() => setEditingManufacturer(null)}
+                      >
+                        <option value="">无</option>
+                        {manufacturers.map(m => (
+                          <option key={m._id} value={m._id}>
+                            {m.shortName || m.fullName || m.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span 
+                        className="text-sm text-gray-700 cursor-pointer hover:text-primary hover:underline"
+                        onClick={() => setEditingManufacturer(product._id)}
+                        title="点击编辑厂家"
+                      >
+                        {getManufacturerName((product as any).manufacturer)}
+                      </span>
+                    )}
                   </td>
                   <td className="py-4 px-4">
                     <span className="text-sm text-gray-700">

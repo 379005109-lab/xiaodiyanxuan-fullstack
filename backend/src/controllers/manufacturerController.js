@@ -67,13 +67,19 @@ const get = async (req, res) => {
 // 创建厂家
 const create = async (req, res) => {
   try {
-    const { name, code, contactName, contactPhone, contactEmail, address, description, logo, status } = req.body
+    const { fullName, shortName, name, code, contactName, contactPhone, contactEmail, address, description, logo, status } = req.body
     
-    if (!name) {
+    // 支持新字段fullName，兼容旧字段name
+    const manufacturerName = fullName || name
+    if (!manufacturerName) {
       return res.status(400).json(errorResponse('厂家名称不能为空', 400))
     }
     
-    // 检查编码是否重复
+    if (!shortName) {
+      return res.status(400).json(errorResponse('厂家简称不能为空', 400))
+    }
+    
+    // 检查编码是否重复（如果手动传入）
     if (code) {
       const existing = await Manufacturer.findOne({ code })
       if (existing) {
@@ -82,8 +88,9 @@ const create = async (req, res) => {
     }
     
     const manufacturer = await Manufacturer.create({
-      name,
-      code,
+      fullName: manufacturerName,
+      shortName,
+      name: manufacturerName, // 兼容旧字段
       contactName,
       contactPhone,
       contactEmail,
