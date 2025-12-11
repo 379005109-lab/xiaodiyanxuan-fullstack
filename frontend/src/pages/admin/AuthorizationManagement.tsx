@@ -303,20 +303,125 @@ export default function AuthorizationManagement() {
 // 创建授权模态框组件
 function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const { token } = useAuthStore()
+  const [manufacturers, setManufacturers] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [manufacturerProducts, setManufacturerProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     authorizationType: 'manufacturer',
     toManufacturer: '',
     toDesigner: '',
     scope: 'all',
     categories: [] as string[],
+    products: [] as string[],
     globalDiscount: 0.85,
     validUntil: '',
     allowSubAuthorization: false,
     notes: ''
   })
 
+  // 加载厂家列表
+  useEffect(() => {
+    const loadManufacturers = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/manufacturers?pageSize=100`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const data = await response.json()
+        if (data.success || data.data) {
+          setManufacturers(data.data || [])
+        }
+      } catch (error) {
+        console.error('加载厂家列表失败:', error)
+      }
+    }
+    loadManufacturers()
+  }, [token])
+
+  // 加载系统分类
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/categories`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const data = await response.json()
+        if (data.success || data.data) {
+          setCategories(data.data || [])
+        }
+      } catch (error) {
+        console.error('加载分类失败:', error)
+      }
+    }
+    loadCategories()
+  }, [token])
+
+  // 当选择厂家后，加载该厂家的商品分类
+  useEffect(() => {
+    if (formData.toManufacturer) {
+      const loadManufacturerProducts = async () => {
+        setLoading(true)
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL || '/api'}/products?manufacturer=${formData.toManufacturer}&pageSize=200`,
+            { headers: { 'Authorization': `Bearer ${token}` } }
+          )
+          const data = await response.json()
+          if (data.success || data.data) {
+            setManufacturerProducts(data.data || [])
+          }
+        } catch (error) {
+          console.error('加载厂家商品失败:', error)
+        } finally {
+          setLoading(false)
+        }
+      }
+      loadManufacturerProducts()
+    }
+  }, [formData.toManufacturer, token])
+
+  // 获取该厂家商品的分类列表
+  const getManufacturerCategories = () => {
+    const categorySet = new Set<string>()
+    manufacturerProducts.forEach(product => {
+      if (product.category) categorySet.add(product.category)
+    })
+    return Array.from(categorySet)
+  }
+
+  const handleCategoryToggle = (category: string) => {
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.includes(category)
+        ? prev.categories.filter(c => c !== category)
+        : [...prev.categories, category]
+    }))
+  }
+
+  const handleProductToggle = (productId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      products: prev.products.includes(productId)
+        ? prev.products.filter(p => p !== productId)
+        : [...prev.products, productId]
+    }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!formData.toManufacturer && formData.authorizationType === 'manufacturer') {
+      toast.error('请选择目标厂家')
+      return
+    }
+    if (formData.scope === 'category' && formData.categories.length === 0) {
+      toast.error('请至少选择一个商品分类')
+      return
+    }
+    if (formData.scope === 'specific' && formData.products.length === 0) {
+      toast.error('请至少选择一个商品')
+      return
+    }
     
     const payload = {
       authorizationType: formData.authorizationType,
@@ -325,6 +430,7 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
         : { toDesigner: formData.toDesigner }),
       scope: formData.scope,
       categories: formData.scope === 'category' ? formData.categories : undefined,
+      products: formData.scope === 'specific' ? formData.products : undefined,
       priceSettings: {
         globalDiscount: formData.globalDiscount
       },
@@ -334,7 +440,7 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/authorizations`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/authorizations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -355,6 +461,8 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
       toast.error('创建授权失败')
     }
   }
+
+  const manufacturerCategories = getManufacturerCategories()
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -380,23 +488,44 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
             </select>
           </div>
 
-          {/* 授权对象 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {formData.authorizationType === 'manufacturer' ? '目标厂家ID' : '目标设计师ID'}
-            </label>
-            <input
-              type="text"
-              value={formData.authorizationType === 'manufacturer' ? formData.toManufacturer : formData.toDesigner}
-              onChange={(e) => setFormData({
-                ...formData,
-                [formData.authorizationType === 'manufacturer' ? 'toManufacturer' : 'toDesigner']: e.target.value
-              })}
-              className="input w-full"
-              placeholder="请输入ID"
-              required
-            />
-          </div>
+          {/* 目标厂家选择 */}
+          {formData.authorizationType === 'manufacturer' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                选择目标厂家 <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.toManufacturer}
+                onChange={(e) => setFormData({ ...formData, toManufacturer: e.target.value, categories: [], products: [] })}
+                className="input w-full"
+                required
+              >
+                <option value="">-- 请选择厂家 --</option>
+                {manufacturers.map(m => (
+                  <option key={m._id} value={m._id}>
+                    {m.fullName || m.name} {m.shortName && `[${m.shortName}]`} {m.code && `- ${m.code}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* 目标设计师输入 */}
+          {formData.authorizationType === 'designer' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                目标设计师ID <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.toDesigner}
+                onChange={(e) => setFormData({ ...formData, toDesigner: e.target.value })}
+                className="input w-full"
+                placeholder="请输入设计师ID"
+                required
+              />
+            </div>
+          )}
 
           {/* 授权范围 */}
           <div>
@@ -405,14 +534,95 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
             </label>
             <select
               value={formData.scope}
-              onChange={(e) => setFormData({ ...formData, scope: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, scope: e.target.value as any, categories: [], products: [] })}
               className="input w-full"
             >
               <option value="all">全部商品</option>
-              <option value="category">按分类</option>
-              <option value="specific">指定商品</option>
+              <option value="category">按分类授权</option>
+              <option value="specific">指定商品授权</option>
             </select>
           </div>
+
+          {/* 分类选择（当选择按分类授权时显示） */}
+          {formData.scope === 'category' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                选择商品分类 <span className="text-red-500">*</span>
+              </label>
+              {loading ? (
+                <p className="text-sm text-gray-500">加载中...</p>
+              ) : manufacturerCategories.length > 0 ? (
+                <div className="border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-2">
+                    {manufacturerCategories.map(cat => (
+                      <label key={cat} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                        <input
+                          type="checkbox"
+                          checked={formData.categories.includes(cat)}
+                          onChange={() => handleCategoryToggle(cat)}
+                          className="rounded text-primary"
+                        />
+                        <span className="text-sm">{cat}</span>
+                        <span className="text-xs text-gray-400">
+                          ({manufacturerProducts.filter(p => p.category === cat).length}个商品)
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded">
+                  {formData.toManufacturer ? '该厂家暂无商品分类' : '请先选择厂家'}
+                </p>
+              )}
+              {formData.categories.length > 0 && (
+                <p className="text-xs text-primary mt-2">
+                  已选择 {formData.categories.length} 个分类
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* 商品选择（当选择指定商品授权时显示） */}
+          {formData.scope === 'specific' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                选择商品 <span className="text-red-500">*</span>
+              </label>
+              {loading ? (
+                <p className="text-sm text-gray-500">加载中...</p>
+              ) : manufacturerProducts.length > 0 ? (
+                <div className="border border-gray-200 rounded-lg p-3 max-h-64 overflow-y-auto">
+                  <div className="space-y-2">
+                    {manufacturerProducts.map(product => (
+                      <label key={product._id} className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                        <input
+                          type="checkbox"
+                          checked={formData.products.includes(product._id)}
+                          onChange={() => handleProductToggle(product._id)}
+                          className="rounded text-primary"
+                        />
+                        <img src={product.images?.[0] || '/placeholder.png'} alt="" className="w-10 h-10 object-cover rounded" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{product.name}</p>
+                          <p className="text-xs text-gray-500">{product.category} · ¥{product.basePrice}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded">
+                  {formData.toManufacturer ? '该厂家暂无商品' : '请先选择厂家'}
+                </p>
+              )}
+              {formData.products.length > 0 && (
+                <p className="text-xs text-primary mt-2">
+                  已选择 {formData.products.length} 个商品
+                </p>
+              )}
+            </div>
+          )}
 
           {/* 全局折扣率 */}
           <div>

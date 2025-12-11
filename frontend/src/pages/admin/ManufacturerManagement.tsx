@@ -317,24 +317,28 @@ export default function ManufacturerManagement() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary uppercase"
                   placeholder="请输入简称（2-4个字母），如：GS、MMJJ"
                   maxLength={6}
+                  disabled={!!editingItem}
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  简称将用于生成厂家编号，如 GS20251211XXXX
-                </p>
+                {!editingItem && formData.shortName && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    编号预览: <span className="font-mono text-primary">{formData.shortName}{new Date().toISOString().slice(0,10).replace(/-/g,'')}XXXX</span>
+                  </p>
+                )}
+                {editingItem && (
+                  <p className="text-xs text-gray-500 mt-1">简称创建后不可修改</p>
+                )}
               </div>
 
-              {editingItem?.code && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">厂家编号</label>
-                  <input
-                    type="text"
-                    value={editingItem.code}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">编号由系统自动生成，不可修改</p>
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">厂家编号</label>
+                <input
+                  type="text"
+                  value={editingItem?.code || '保存后自动生成'}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 font-mono"
+                />
+                <p className="text-xs text-gray-500 mt-1">编号由系统自动生成，格式：简称+日期+随机数</p>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
