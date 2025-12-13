@@ -476,13 +476,27 @@ export default function ManufacturerManagement() {
           <Factory className="w-6 h-6" />
           厂家信息管理
         </h1>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          新建厂家
-        </button>
+        <div className="flex items-center gap-3">
+          <a
+            href="/admin/channel-partners"
+            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            📋 渠道商档案
+          </a>
+          <a
+            href="/admin/commission-rules"
+            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            📊 分成规则
+          </a>
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            新建厂家
+          </button>
+        </div>
       </div>
 
       {/* 搜索栏 */}
