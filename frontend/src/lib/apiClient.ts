@@ -39,10 +39,18 @@ const getApiUrl = () => {
       return 'http://localhost:8080';
     }
     
-    // 如果是测试环境（test-cxxiwxce），使用相对路径
-    if (hostname.includes('test-cxxiwxce') || hostname.includes('api-test')) {
-      console.log('✅ 测试环境，使用相对路径 /api');
-      return '/api';
+    // 如果是测试环境（test-cxxiwxce），使用测试后端API地址
+    if (hostname.includes('test-cxxiwxce')) {
+      const apiUrl = 'https://api-test-cxxiwxce.sealoshzh.site/api';
+      console.log(`✅ 测试环境，使用后端API: ${apiUrl}`);
+      return apiUrl;
+    }
+
+    // 如果是正式域名，使用阿里云CDN加速后的API域名
+    if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
+      const apiUrl = 'https://api.xiaodiyanxuan.com/api';
+      console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
+      return apiUrl;
     }
     
     // 如果在公网，使用相对路径（需要配置代理）或使用当前协议
