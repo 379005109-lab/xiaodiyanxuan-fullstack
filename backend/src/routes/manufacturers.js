@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const { auth } = require('../middleware/auth')
 const { list, listAll, get, create, update, remove } = require('../controllers/manufacturerController')
+const manufacturerAccountController = require('../controllers/manufacturerAccountController')
 
 // 需要认证
 router.use(auth)
@@ -82,5 +83,35 @@ router.post('/:id/set-password', async (req, res) => {
     res.status(500).json({ success: false, message: '服务器错误' })
   }
 })
+
+// ========== 厂家账号管理 ==========
+
+// GET /api/manufacturers/:manufacturerId/accounts - 获取厂家的所有账号
+router.get('/:manufacturerId/accounts', manufacturerAccountController.getAccounts)
+
+// POST /api/manufacturers/:manufacturerId/accounts - 创建厂家账号
+router.post('/:manufacturerId/accounts', manufacturerAccountController.createAccount)
+
+// PUT /api/manufacturers/:manufacturerId/accounts/:accountId - 更新厂家账号
+router.put('/:manufacturerId/accounts/:accountId', manufacturerAccountController.updateAccount)
+
+// DELETE /api/manufacturers/:manufacturerId/accounts/:accountId - 删除厂家账号
+router.delete('/:manufacturerId/accounts/:accountId', manufacturerAccountController.deleteAccount)
+
+// POST /api/manufacturers/:manufacturerId/accounts/:accountId/reset-password - 重置账号密码
+router.post('/:manufacturerId/accounts/:accountId/reset-password', manufacturerAccountController.resetPassword)
+
+// ========== 厂家设置管理 ==========
+
+// PUT /api/manufacturers/:manufacturerId/settings - 更新厂家设置（LOGO、电话、收款信息）
+router.put('/:manufacturerId/settings', manufacturerAccountController.updateSettings)
+
+// ========== 企业认证 ==========
+
+// POST /api/manufacturers/:manufacturerId/certification - 提交企业认证
+router.post('/:manufacturerId/certification', manufacturerAccountController.submitCertification)
+
+// PUT /api/manufacturers/:manufacturerId/certification/review - 审核企业认证（管理员）
+router.put('/:manufacturerId/certification/review', manufacturerAccountController.reviewCertification)
 
 module.exports = router

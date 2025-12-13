@@ -96,6 +96,57 @@ const manufacturerSchema = new mongoose.Schema({
       type: String
     }
   },
+  // 企业认证信息
+  certification: {
+    // 认证状态: pending(待审核), approved(已认证), rejected(已拒绝), none(未提交)
+    status: {
+      type: String,
+      enum: ['none', 'pending', 'approved', 'rejected'],
+      default: 'none'
+    },
+    // 营业执照图片
+    businessLicenseImage: {
+      type: String
+    },
+    // 统一社会信用代码
+    creditCode: {
+      type: String,
+      trim: true
+    },
+    // 企业名称（营业执照上的）
+    companyName: {
+      type: String,
+      trim: true
+    },
+    // 法人代表
+    legalRepresentative: {
+      type: String,
+      trim: true
+    },
+    // 开票信息
+    invoiceInfo: {
+      // 开票名称
+      name: { type: String, trim: true },
+      // 税号
+      taxNumber: { type: String, trim: true },
+      // 开户银行
+      bankName: { type: String, trim: true },
+      // 银行账号
+      bankAccount: { type: String, trim: true },
+      // 企业地址
+      address: { type: String, trim: true },
+      // 企业电话
+      phone: { type: String, trim: true }
+    },
+    // 认证时间
+    certifiedAt: {
+      type: Date
+    },
+    // 审核备注
+    reviewNote: {
+      type: String
+    }
+  },
   status: {
     type: String,
     enum: ['active', 'inactive'],

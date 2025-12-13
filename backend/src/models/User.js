@@ -24,6 +24,16 @@ const userSchema = new mongoose.Schema({
   // === 组织归属（平台/企业账号）===
   organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
   
+  // === 厂家归属 ===
+  manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+  
+  // === 账号类型（厂家账号用）===
+  accountType: { 
+    type: String, 
+    enum: ['auth', 'sub', 'designer', 'normal'],  // 授权账号、子账号、设计师账号、普通账号
+    default: 'normal'
+  },
+  
   // === 功能权限 ===
   permissions: {
     canAccessAdmin: { type: Boolean, default: false },      // 能否进入管理后台
