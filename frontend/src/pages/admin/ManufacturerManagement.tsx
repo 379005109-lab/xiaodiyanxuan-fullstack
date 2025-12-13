@@ -335,7 +335,14 @@ export default function ManufacturerManagement() {
               {/* 账号配额信息 */}
               <div className="bg-gray-50 rounded-lg p-3 mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-500">账号配额</span>
+                  <span className="text-xs font-medium text-gray-500">
+                    账号配额
+                    {item.accountQuota?.totalAccounts ? (
+                      <span className="ml-2 text-primary font-bold">
+                        (总配额: {item.accountQuota.totalAccounts})
+                      </span>
+                    ) : null}
+                  </span>
                   <button
                     onClick={() => openQuotaModal(item)}
                     className="text-xs text-primary hover:underline"
