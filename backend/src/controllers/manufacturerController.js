@@ -141,10 +141,13 @@ const update = async (req, res) => {
     
     // 更新账号配额
     if (accountQuota !== undefined) {
+      // 需要将 Mongoose 子文档转为普通对象再合并，否则 spread 不生效
+      const existingQuota = manufacturer.accountQuota ? manufacturer.accountQuota.toObject() : {}
       manufacturer.accountQuota = {
-        ...manufacturer.accountQuota,
+        ...existingQuota,
         ...accountQuota
       }
+      console.log('📊 更新账号配额:', { existingQuota, newQuota: accountQuota, merged: manufacturer.accountQuota })
     }
     
     // 更新设置
