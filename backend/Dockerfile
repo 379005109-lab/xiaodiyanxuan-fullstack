@@ -1,4 +1,4 @@
-# 构建阶段
+# 构建阶段 - Updated 2024-12-13 - Fix login response to include nickname/gender
 FROM node:18-alpine AS builder
 
 WORKDIR /app

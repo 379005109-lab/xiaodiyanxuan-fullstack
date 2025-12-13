@@ -40,6 +40,7 @@ const wxLogin = async (code) => {
       openId: user.openId,
       nickname: user.nickname,
       avatar: user.avatar,
+      gender: user.gender,
       role: user.userType,
       userType: user.userType
     }
@@ -95,7 +96,9 @@ const usernamePasswordLogin = async (username, password) => {
     user: {
       id: user._id,
       username: user.username,
+      nickname: user.nickname,
       avatar: user.avatar,
+      gender: user.gender,
       role: user.role || user.userType || 'customer',
       userType: user.role || user.userType || 'customer'
     }
@@ -128,7 +131,9 @@ const adminLogin = async (username, password) => {
     user: {
       id: user._id,
       username: user.username,
+      nickname: user.nickname,
       avatar: user.avatar,
+      gender: user.gender,
       role: user.userType,
       userType: user.userType
     }
