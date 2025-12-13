@@ -103,6 +103,10 @@ const manufacturerSchema = new mongoose.Schema({
   },
   // 账号配额（由超级管理员配置）
   accountQuota: {
+    totalAccounts: {
+      type: Number,
+      default: 0
+    },
     // 授权账号配额
     authAccounts: {
       type: Number,

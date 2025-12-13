@@ -46,6 +46,7 @@ function generateRandomLetters(length: number = 4): string {
 }
 
 interface AccountQuota {
+  totalAccounts: number
   authAccounts: number
   subAccounts: number
   designerAccounts: number
@@ -93,6 +94,7 @@ export default function ManufacturerManagement() {
   const [showQuotaModal, setShowQuotaModal] = useState(false)
   const [quotaTarget, setQuotaTarget] = useState<Manufacturer | null>(null)
   const [quotaForm, setQuotaForm] = useState({
+    totalAccounts: 0,
     authAccounts: 0,
     subAccounts: 0,
     designerAccounts: 0
@@ -219,6 +221,7 @@ export default function ManufacturerManagement() {
   const openQuotaModal = (item: Manufacturer) => {
     setQuotaTarget(item)
     setQuotaForm({
+      totalAccounts: item.accountQuota?.totalAccounts || 0,
       authAccounts: item.accountQuota?.authAccounts || 0,
       subAccounts: item.accountQuota?.subAccounts || 0,
       designerAccounts: item.accountQuota?.designerAccounts || 0
@@ -607,57 +610,93 @@ export default function ManufacturerManagement() {
             </div>
 
             <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  授权账号配额
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-blue-700 mb-2">
+                  总账号配额（由管理员设置）
                 </label>
                 <input
                   type="number"
                   min="0"
-                  value={quotaForm.authAccounts}
-                  onChange={(e) => setQuotaForm({ ...quotaForm, authAccounts: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="0"
+                  value={quotaForm.totalAccounts}
+                  onChange={(e) => setQuotaForm({ ...quotaForm, totalAccounts: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                  placeholder="如：500"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  当前已使用：{quotaTarget.accountUsage?.authAccounts || 0} 个
+                <p className="text-xs text-blue-600 mt-2">
+                  厂家可在此总配额范围内，自行分配各类型账号数量
                 </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  子账号配额
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={quotaForm.subAccounts}
-                  onChange={(e) => setQuotaForm({ ...quotaForm, subAccounts: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="0"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  当前已使用：{quotaTarget.accountUsage?.subAccounts || 0} 个
-                </p>
+
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-gray-600 mb-3">分配明细（厂家可自行调整）：</p>
+                
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      授权账号
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quotaForm.authAccounts}
+                      onChange={(e) => setQuotaForm({ ...quotaForm, authAccounts: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      已用：{quotaTarget.accountUsage?.authAccounts || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      子账号
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quotaForm.subAccounts}
+                      onChange={(e) => setQuotaForm({ ...quotaForm, subAccounts: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      已用：{quotaTarget.accountUsage?.subAccounts || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      设计师账号
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quotaForm.designerAccounts}
+                      onChange={(e) => setQuotaForm({ ...quotaForm, designerAccounts: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      已用：{quotaTarget.accountUsage?.designerAccounts || 0}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-3 text-sm">
+                  <span className="text-gray-500">已分配：</span>
+                  <span className={`font-medium ${
+                    (quotaForm.authAccounts + quotaForm.subAccounts + quotaForm.designerAccounts) > quotaForm.totalAccounts 
+                      ? 'text-red-600' 
+                      : 'text-green-600'
+                  }`}>
+                    {quotaForm.authAccounts + quotaForm.subAccounts + quotaForm.designerAccounts}
+                  </span>
+                  <span className="text-gray-500"> / {quotaForm.totalAccounts} 个</span>
+                  {(quotaForm.authAccounts + quotaForm.subAccounts + quotaForm.designerAccounts) > quotaForm.totalAccounts && (
+                    <span className="text-red-500 text-xs ml-2">（超出总配额）</span>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  设计师账号配额
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={quotaForm.designerAccounts}
-                  onChange={(e) => setQuotaForm({ ...quotaForm, designerAccounts: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="0"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  当前已使用：{quotaTarget.accountUsage?.designerAccounts || 0} 个
-                </p>
-              </div>
+
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-700">
-                  ⚠️ 设置配额后，厂家可在配额范围内创建对应类型的账号
+                  ⚠️ 厂家登录后可在总配额范围内，根据实际经营需要调整各类账号分配
                 </p>
               </div>
             </div>

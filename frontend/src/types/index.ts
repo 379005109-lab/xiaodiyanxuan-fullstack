@@ -153,6 +153,8 @@ export interface ProductSKU {
   proFeature?: string
   status?: boolean
   sales?: number
+  manufacturerId?: string | null
+  manufacturerName?: string | null
 }
 
 export interface ProductFile {

@@ -25,7 +25,7 @@ const list = async (req, res) => {
       .limit(parseInt(pageSize))
       .lean()
     
-    res.json(paginatedResponse(items, parseInt(page), parseInt(pageSize), total))
+    res.json(paginatedResponse(items, total, page, pageSize))
   } catch (err) {
     console.error('List manufacturers error:', err)
     res.status(500).json(errorResponse(err.message, 500))
@@ -111,7 +111,7 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params
-    const { name, code, contactName, contactPhone, contactEmail, address, description, logo, status } = req.body
+    const { name, fullName, shortName, code, contactName, contactPhone, contactEmail, address, description, logo, status, accountQuota, settings } = req.body
     
     const manufacturer = await Manufacturer.findById(id)
     if (!manufacturer) {
@@ -126,18 +126,38 @@ const update = async (req, res) => {
       }
     }
     
-    manufacturer.name = name || manufacturer.name
-    manufacturer.code = code
-    manufacturer.contactName = contactName
-    manufacturer.contactPhone = contactPhone
-    manufacturer.contactEmail = contactEmail
-    manufacturer.address = address
-    manufacturer.description = description
-    manufacturer.logo = logo
-    manufacturer.status = status || manufacturer.status
+    // 更新基本信息
+    if (fullName !== undefined) manufacturer.fullName = fullName
+    if (shortName !== undefined) manufacturer.shortName = shortName
+    if (name !== undefined) manufacturer.name = name
+    if (code !== undefined) manufacturer.code = code
+    if (contactName !== undefined) manufacturer.contactName = contactName
+    if (contactPhone !== undefined) manufacturer.contactPhone = contactPhone
+    if (contactEmail !== undefined) manufacturer.contactEmail = contactEmail
+    if (address !== undefined) manufacturer.address = address
+    if (description !== undefined) manufacturer.description = description
+    if (logo !== undefined) manufacturer.logo = logo
+    if (status !== undefined) manufacturer.status = status
+    
+    // 更新账号配额
+    if (accountQuota !== undefined) {
+      manufacturer.accountQuota = {
+        ...manufacturer.accountQuota,
+        ...accountQuota
+      }
+    }
+    
+    // 更新设置
+    if (settings !== undefined) {
+      manufacturer.settings = {
+        ...manufacturer.settings,
+        ...settings
+      }
+    }
     
     await manufacturer.save()
     
+    console.log('✅ 厂家更新成功:', id, { accountQuota, settings })
     res.json(successResponse(manufacturer, '更新成功'))
   } catch (err) {
     console.error('Update manufacturer error:', err)
