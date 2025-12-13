@@ -1,3 +1,4 @@
+// Build timestamp: 2024-12-13T10:25:00Z - Force rebuild to include test API detection
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
