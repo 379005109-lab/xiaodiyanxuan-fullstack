@@ -530,13 +530,25 @@ export default function ManufacturerManagement() {
                     {item.code && <span>编号：{item.code}</span>}
                   </div>
                 </div>
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  item.status === 'active' 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {item.status === 'active' ? '启用' : '停用'}
-                </span>
+                <div className="flex items-center gap-2">
+                  {item.certification?.status === 'approved' && (
+                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1">
+                      ✓ 已认证
+                    </span>
+                  )}
+                  {item.certification?.status === 'pending' && (
+                    <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">
+                      待审核
+                    </span>
+                  )}
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    item.status === 'active' 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {item.status === 'active' ? '启用' : '停用'}
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-2 text-sm text-gray-600 mb-3">
@@ -858,6 +870,112 @@ export default function ManufacturerManagement() {
                           />
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* 企业认证信息 */}
+                  <div className="border-t pt-4 mt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-900">企业认证</h3>
+                      {editingItem?.certification?.status && (
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          editingItem.certification.status === 'approved' 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : editingItem.certification.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : editingItem.certification.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {editingItem.certification.status === 'approved' ? '已认证' :
+                           editingItem.certification.status === 'pending' ? '待审核' :
+                           editingItem.certification.status === 'rejected' ? '已拒绝' : '未提交'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <p className="text-xs text-gray-500 mb-4">
+                      上传营业执照和开票信息，经审核后将获得"已认证"标识
+                    </p>
+                    
+                    <div className="space-y-4 bg-blue-50 rounded-lg p-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">营业执照（图片URL）</label>
+                        <input
+                          type="text"
+                          value={(editingItem as any)?.certification?.businessLicenseImage || ''}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                          placeholder="厂家通过API提交"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">统一社会信用代码</label>
+                          <input
+                            type="text"
+                            value={(editingItem as any)?.certification?.creditCode || ''}
+                            readOnly
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                            placeholder="厂家通过API提交"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">企业名称</label>
+                          <input
+                            type="text"
+                            value={(editingItem as any)?.certification?.companyName || ''}
+                            readOnly
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                            placeholder="厂家通过API提交"
+                          />
+                        </div>
+                      </div>
+                      
+                      {editingItem?.certification?.status === 'pending' && (
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!confirm('确定通过该企业认证吗？')) return
+                              try {
+                                await apiClient.put(`/manufacturers/${editingItem._id}/certification/review`, {
+                                  status: 'approved'
+                                })
+                                toast.success('认证已通过')
+                                fetchData()
+                                setShowModal(false)
+                              } catch (error: any) {
+                                toast.error(error.response?.data?.message || '操作失败')
+                              }
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                          >
+                            通过认证
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const reason = prompt('请输入拒绝原因：')
+                              if (!reason) return
+                              try {
+                                await apiClient.put(`/manufacturers/${editingItem._id}/certification/review`, {
+                                  status: 'rejected',
+                                  reviewNote: reason
+                                })
+                                toast.success('已拒绝认证')
+                                fetchData()
+                                setShowModal(false)
+                              } catch (error: any) {
+                                toast.error(error.response?.data?.message || '操作失败')
+                              }
+                            }}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+                          >
+                            拒绝
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
