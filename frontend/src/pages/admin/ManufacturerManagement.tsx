@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, TrendingUp } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 
@@ -643,6 +643,13 @@ export default function ManufacturerManagement() {
                   删除
                 </button>
               </div>
+              <a
+                href={`/admin/commission-system/${item._id}`}
+                className="flex items-center justify-center gap-2 mt-2 px-3 py-2 text-sm text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-lg transition-colors"
+              >
+                <TrendingUp className="w-4 h-4" />
+                分成体系管理
+              </a>
             </div>
           ))}
         </div>
