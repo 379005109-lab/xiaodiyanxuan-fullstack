@@ -156,109 +156,125 @@ router.post('/search', async (req, res) => {
     }
 
     if (imageAnalysis) {
-      // 基于AI分析结果搜索商品
-      const searchQuery = { status: 'active' };
-      const searchKeywords = [];
-      
-      // 添加分类关键词
+      // 颜色关键词映射（支持部分匹配）
+      const colorKeywords = {
+        '黑色': ['黑', '黑色', 'black', '炭', '墨'],
+        '白色': ['白', '白色', 'white', '米白', '象牙'],
+        '灰色': ['灰', '灰色', 'gray', 'grey'],
+        '棕色': ['棕', '棕色', 'brown', '咖', '咖啡', '胡桃'],
+        '米色': ['米', '米色', 'beige', '奶', '杏'],
+        '蓝色': ['蓝', '蓝色', 'blue'],
+        '绿色': ['绿', '绿色', 'green'],
+        '红色': ['红', '红色', 'red'],
+        '黄色': ['黄', '黄色', 'yellow', '金'],
+        '橙色': ['橙', '橙色', 'orange']
+      };
+
+      // 材质关键词映射
+      const materialKeywords = {
+        '皮革': ['皮', '皮革', '真皮', 'leather', '牛皮', '头层皮'],
+        '布艺': ['布', '布艺', '绒', '麻', '棉', 'fabric'],
+        '实木': ['木', '实木', '原木', 'wood', '胡桃', '橡木', '榉木'],
+        '金属': ['金属', '铁', '钢', '铜', 'metal'],
+        '玻璃': ['玻璃', 'glass'],
+        '大理石': ['大理石', '石材', 'marble']
+      };
+
+      // 获取颜色的所有关键词
+      const getColorKeywords = (color) => {
+        for (const [key, values] of Object.entries(colorKeywords)) {
+          if (key === color || values.includes(color)) {
+            return values;
+          }
+        }
+        return [color];
+      };
+
+      // 获取材质的所有关键词
+      const getMaterialKeywords = (material) => {
+        for (const [key, values] of Object.entries(materialKeywords)) {
+          if (key === material || values.includes(material)) {
+            return values;
+          }
+        }
+        return [material];
+      };
+
+      // 先按分类搜索所有商品
+      let products = [];
       if (imageAnalysis.category) {
-        searchKeywords.push(imageAnalysis.category);
-      }
-      // 添加颜色关键词
-      if (imageAnalysis.color) {
-        searchKeywords.push(imageAnalysis.color);
-      }
-      // 添加材质关键词
-      if (imageAnalysis.material) {
-        searchKeywords.push(imageAnalysis.material);
-      }
-      // 添加风格关键词
-      if (imageAnalysis.style) {
-        searchKeywords.push(imageAnalysis.style);
-      }
-      // 添加其他关键词
-      if (imageAnalysis.keywords && Array.isArray(imageAnalysis.keywords)) {
-        searchKeywords.push(...imageAnalysis.keywords);
-      }
-
-      // 构建文本搜索条件
-      if (searchKeywords.length > 0) {
-        const keywordRegex = searchKeywords.map(k => new RegExp(k, 'i'));
-        searchQuery.$or = [
-          { name: { $in: keywordRegex } },
-          { description: { $in: keywordRegex } },
-          { 'category.name': { $in: keywordRegex } },
-          { styles: { $in: searchKeywords } },
-          { materials: { $in: searchKeywords } }
-        ];
-      }
-
-      // 搜索匹配的商品
-      let products = await Product.find(searchQuery)
-        .populate('category', 'name')
-        .limit(20)
-        .select('name images basePrice category styles materials description');
-
-      // 如果没有匹配结果，降级到分类匹配
-      if (products.length === 0 && imageAnalysis.category) {
         const categoryRegex = new RegExp(imageAnalysis.category, 'i');
         products = await Product.find({
           status: 'active',
           $or: [
             { name: categoryRegex },
-            { 'category.name': categoryRegex }
+            { description: categoryRegex }
           ]
         })
           .populate('category', 'name')
-          .limit(20)
-          .select('name images basePrice category styles materials description');
+          .limit(50)
+          .select('name images basePrice category styles materials description skus');
       }
 
-      // 如果还是没有结果，返回所有商品
+      // 如果分类搜索没结果，搜索所有商品
       if (products.length === 0) {
         products = await Product.find({ status: 'active' })
-          .limit(10)
-          .select('name images basePrice category');
+          .populate('category', 'name')
+          .limit(50)
+          .select('name images basePrice category styles materials description skus');
       }
+
+      console.log(`找到 ${products.length} 个候选商品`);
+
+      // 获取搜索关键词
+      const colorWords = imageAnalysis.color ? getColorKeywords(imageAnalysis.color) : [];
+      const materialWords = imageAnalysis.material ? getMaterialKeywords(imageAnalysis.material) : [];
 
       // 计算相似度分数
       matchedProducts = products.map((p) => {
-        let score = 50; // 基础分
-        const productName = (p.name || '').toLowerCase();
-        const productDesc = (p.description || '').toLowerCase();
-        const productStyles = (p.styles || []).map(s => s.toLowerCase());
-        const productMaterials = (p.materials || []).map(m => m.toLowerCase());
-        const categoryName = (p.category?.name || '').toLowerCase();
+        let score = 40; // 基础分（已经是分类匹配）
+        const productName = (p.name || '');
+        const productDesc = (p.description || '');
+        const productStyles = (p.styles || []);
+        const skuInfo = JSON.stringify(p.skus || []);
+        const fullText = `${productName} ${productDesc} ${skuInfo}`.toLowerCase();
 
-        // 分类匹配 +30分
-        if (imageAnalysis.category && (
-          productName.includes(imageAnalysis.category.toLowerCase()) ||
-          categoryName.includes(imageAnalysis.category.toLowerCase())
-        )) {
-          score += 30;
+        // 颜色匹配 +25分
+        if (colorWords.length > 0) {
+          const colorMatch = colorWords.some(c => fullText.includes(c.toLowerCase()));
+          if (colorMatch) {
+            score += 25;
+            console.log(`颜色匹配: ${productName} 包含 ${imageAnalysis.color}`);
+          }
         }
 
-        // 颜色匹配 +10分
-        if (imageAnalysis.color && (
-          productName.includes(imageAnalysis.color.toLowerCase()) ||
-          productDesc.includes(imageAnalysis.color.toLowerCase())
-        )) {
-          score += 10;
-        }
-
-        // 材质匹配 +10分
-        if (imageAnalysis.material && (
-          productName.includes(imageAnalysis.material.toLowerCase()) ||
-          productMaterials.some(m => m.includes(imageAnalysis.material.toLowerCase()))
-        )) {
-          score += 10;
+        // 材质匹配 +20分
+        if (materialWords.length > 0) {
+          const materialMatch = materialWords.some(m => fullText.includes(m.toLowerCase()));
+          if (materialMatch) {
+            score += 20;
+            console.log(`材质匹配: ${productName} 包含 ${imageAnalysis.material}`);
+          }
         }
 
         // 风格匹配 +10分
-        if (imageAnalysis.style && (
-          productStyles.some(s => s.includes(imageAnalysis.style.toLowerCase()))
-        )) {
-          score += 10;
+        if (imageAnalysis.style) {
+          const styleMatch = productStyles.some(s => 
+            s.toLowerCase().includes(imageAnalysis.style.toLowerCase()) ||
+            imageAnalysis.style.toLowerCase().includes(s.toLowerCase())
+          );
+          if (styleMatch) {
+            score += 10;
+          }
+        }
+
+        // 关键词匹配 +5分/个
+        if (imageAnalysis.keywords && Array.isArray(imageAnalysis.keywords)) {
+          imageAnalysis.keywords.forEach(kw => {
+            if (fullText.includes(kw.toLowerCase())) {
+              score += 5;
+            }
+          });
         }
 
         return {
@@ -271,6 +287,10 @@ router.post('/search', async (req, res) => {
 
       // 按相似度排序
       matchedProducts.sort((a, b) => b.similarity - a.similarity);
+      
+      // 打印前6个结果
+      console.log('匹配结果:', matchedProducts.slice(0, 6).map(p => `${p.productName}: ${p.similarity}%`));
+      
       matchedProducts = matchedProducts.slice(0, 6);
     } else {
       // 备用方案：返回随机商品
