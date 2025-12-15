@@ -33,13 +33,16 @@ async function analyzeImageWithQwen(base64Image) {
               },
               {
                 type: 'text',
-                text: `请分析这张家具图片，返回JSON格式：
+                text: `请详细分析这张家具图片，返回JSON格式：
 {
   "category": "家具类型，如：沙发、床、餐桌、椅子、柜子、茶几等",
   "color": "主要颜色，如：黑色、白色、灰色、棕色、米色等",
   "material": "主要材质，如：皮革、布艺、实木、金属等",
   "style": "风格，如：现代简约、北欧、中式、轻奢、工业风等",
-  "keywords": ["关键词1", "关键词2", "关键词3"]
+  "shape": "外形特征描述，如：圆润、方正、流线型、模块化、L型、弧形等",
+  "features": "独特设计特征，如：拉扣、车线、高靠背、低矮、厚垫、金属脚等",
+  "seats": "座位数量，如：单人、双人、三人、四人、组合等",
+  "keywords": ["尽可能多的视觉特征关键词，包括形状、纹理、设计元素等"]
 }
 只返回JSON，不要其他内容。`
               }
@@ -229,6 +232,16 @@ router.post('/search', async (req, res) => {
       // 获取搜索关键词
       const colorWords = imageAnalysis.color ? getColorKeywords(imageAnalysis.color) : [];
       const materialWords = imageAnalysis.material ? getMaterialKeywords(imageAnalysis.material) : [];
+      
+      // 收集所有分析关键词
+      const allKeywords = [
+        ...(imageAnalysis.keywords || []),
+        imageAnalysis.shape,
+        imageAnalysis.features,
+        imageAnalysis.seats
+      ].filter(Boolean).map(k => k.toLowerCase());
+
+      console.log('分析关键词:', allKeywords);
 
       // 计算相似度分数
       matchedProducts = products.map((p) => {
@@ -239,21 +252,19 @@ router.post('/search', async (req, res) => {
         const skuInfo = JSON.stringify(p.skus || []);
         const fullText = `${productName} ${productDesc} ${skuInfo}`.toLowerCase();
 
-        // 颜色匹配 +25分
+        // 颜色匹配 +20分
         if (colorWords.length > 0) {
           const colorMatch = colorWords.some(c => fullText.includes(c.toLowerCase()));
           if (colorMatch) {
-            score += 25;
-            console.log(`颜色匹配: ${productName} 包含 ${imageAnalysis.color}`);
+            score += 20;
           }
         }
 
-        // 材质匹配 +20分
+        // 材质匹配 +15分
         if (materialWords.length > 0) {
           const materialMatch = materialWords.some(m => fullText.includes(m.toLowerCase()));
           if (materialMatch) {
-            score += 20;
-            console.log(`材质匹配: ${productName} 包含 ${imageAnalysis.material}`);
+            score += 15;
           }
         }
 
@@ -268,20 +279,21 @@ router.post('/search', async (req, res) => {
           }
         }
 
-        // 关键词匹配 +5分/个
-        if (imageAnalysis.keywords && Array.isArray(imageAnalysis.keywords)) {
-          imageAnalysis.keywords.forEach(kw => {
-            if (fullText.includes(kw.toLowerCase())) {
-              score += 5;
-            }
-          });
-        }
+        // 关键词匹配 +3分/个（最多+15分）
+        let keywordScore = 0;
+        allKeywords.forEach(kw => {
+          if (kw && fullText.includes(kw)) {
+            keywordScore += 3;
+          }
+        });
+        score += Math.min(15, keywordScore);
 
         return {
           productId: p._id,
           productName: p.name,
           similarity: Math.min(99, score),
-          productImage: getImageUrl(p.images?.[0])
+          productImage: getImageUrl(p.images?.[0]),
+          _score: score // 用于调试
         };
       });
 
