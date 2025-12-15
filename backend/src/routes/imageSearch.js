@@ -3,6 +3,71 @@ const router = express.Router();
 const ImageSearch = require('../models/ImageSearch');
 const Product = require('../models/Product');
 const crypto = require('crypto');
+const axios = require('axios');
+
+// 阿里云通义千问VL API配置
+const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || '';
+const DASHSCOPE_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+
+// 使用通义千问VL分析图片
+async function analyzeImageWithQwen(base64Image) {
+  if (!DASHSCOPE_API_KEY) {
+    console.warn('DASHSCOPE_API_KEY 未配置，使用备用方案');
+    return null;
+  }
+
+  try {
+    const response = await axios.post(
+      DASHSCOPE_API_URL,
+      {
+        model: 'qwen-vl-plus',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`
+                }
+              },
+              {
+                type: 'text',
+                text: `请分析这张家具图片，返回JSON格式：
+{
+  "category": "家具类型，如：沙发、床、餐桌、椅子、柜子、茶几等",
+  "color": "主要颜色，如：黑色、白色、灰色、棕色、米色等",
+  "material": "主要材质，如：皮革、布艺、实木、金属等",
+  "style": "风格，如：现代简约、北欧、中式、轻奢、工业风等",
+  "keywords": ["关键词1", "关键词2", "关键词3"]
+}
+只返回JSON，不要其他内容。`
+              }
+            ]
+          }
+        ]
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      }
+    );
+
+    const content = response.data.choices?.[0]?.message?.content || '';
+    // 尝试解析JSON
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return null;
+  } catch (error) {
+    console.error('通义千问VL分析失败:', error.message);
+    return null;
+  }
+}
 
 // 水印关键词配置
 const WATERMARK_PATTERNS = {
@@ -74,18 +139,152 @@ router.post('/search', async (req, res) => {
     // 获取客户端IP
     const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     
-    // 搜索相似商品（这里使用简单的随机匹配，实际应使用图像相似度算法）
-    // TODO: 接入真正的图像相似度搜索服务
-    const products = await Product.find({ status: 'active' })
-      .limit(10)
-      .select('name images price category');
+    // 构建图片URL的辅助函数
+    const getImageUrl = (imageId) => {
+      if (!imageId) return '';
+      if (imageId.startsWith('http')) return imageId;
+      return `https://api.xiaodiyanxuan.com/api/files/${imageId}`;
+    };
+
+    // 使用通义千问VL分析图片
+    let imageAnalysis = null;
+    let matchedProducts = [];
     
-    const matchedProducts = products.map((p, idx) => ({
-      productId: p._id,
-      productName: p.name,
-      similarity: Math.max(30, 95 - idx * 8), // 模拟相似度
-      productImage: p.images?.[0] || ''
-    }));
+    if (imageData) {
+      imageAnalysis = await analyzeImageWithQwen(imageData);
+      console.log('图片分析结果:', imageAnalysis);
+    }
+
+    if (imageAnalysis) {
+      // 基于AI分析结果搜索商品
+      const searchQuery = { status: 'active' };
+      const searchKeywords = [];
+      
+      // 添加分类关键词
+      if (imageAnalysis.category) {
+        searchKeywords.push(imageAnalysis.category);
+      }
+      // 添加颜色关键词
+      if (imageAnalysis.color) {
+        searchKeywords.push(imageAnalysis.color);
+      }
+      // 添加材质关键词
+      if (imageAnalysis.material) {
+        searchKeywords.push(imageAnalysis.material);
+      }
+      // 添加风格关键词
+      if (imageAnalysis.style) {
+        searchKeywords.push(imageAnalysis.style);
+      }
+      // 添加其他关键词
+      if (imageAnalysis.keywords && Array.isArray(imageAnalysis.keywords)) {
+        searchKeywords.push(...imageAnalysis.keywords);
+      }
+
+      // 构建文本搜索条件
+      if (searchKeywords.length > 0) {
+        const keywordRegex = searchKeywords.map(k => new RegExp(k, 'i'));
+        searchQuery.$or = [
+          { name: { $in: keywordRegex } },
+          { description: { $in: keywordRegex } },
+          { 'category.name': { $in: keywordRegex } },
+          { styles: { $in: searchKeywords } },
+          { materials: { $in: searchKeywords } }
+        ];
+      }
+
+      // 搜索匹配的商品
+      let products = await Product.find(searchQuery)
+        .populate('category', 'name')
+        .limit(20)
+        .select('name images basePrice category styles materials description');
+
+      // 如果没有匹配结果，降级到分类匹配
+      if (products.length === 0 && imageAnalysis.category) {
+        const categoryRegex = new RegExp(imageAnalysis.category, 'i');
+        products = await Product.find({
+          status: 'active',
+          $or: [
+            { name: categoryRegex },
+            { 'category.name': categoryRegex }
+          ]
+        })
+          .populate('category', 'name')
+          .limit(20)
+          .select('name images basePrice category styles materials description');
+      }
+
+      // 如果还是没有结果，返回所有商品
+      if (products.length === 0) {
+        products = await Product.find({ status: 'active' })
+          .limit(10)
+          .select('name images basePrice category');
+      }
+
+      // 计算相似度分数
+      matchedProducts = products.map((p) => {
+        let score = 50; // 基础分
+        const productName = (p.name || '').toLowerCase();
+        const productDesc = (p.description || '').toLowerCase();
+        const productStyles = (p.styles || []).map(s => s.toLowerCase());
+        const productMaterials = (p.materials || []).map(m => m.toLowerCase());
+        const categoryName = (p.category?.name || '').toLowerCase();
+
+        // 分类匹配 +30分
+        if (imageAnalysis.category && (
+          productName.includes(imageAnalysis.category.toLowerCase()) ||
+          categoryName.includes(imageAnalysis.category.toLowerCase())
+        )) {
+          score += 30;
+        }
+
+        // 颜色匹配 +10分
+        if (imageAnalysis.color && (
+          productName.includes(imageAnalysis.color.toLowerCase()) ||
+          productDesc.includes(imageAnalysis.color.toLowerCase())
+        )) {
+          score += 10;
+        }
+
+        // 材质匹配 +10分
+        if (imageAnalysis.material && (
+          productName.includes(imageAnalysis.material.toLowerCase()) ||
+          productMaterials.some(m => m.includes(imageAnalysis.material.toLowerCase()))
+        )) {
+          score += 10;
+        }
+
+        // 风格匹配 +10分
+        if (imageAnalysis.style && (
+          productStyles.some(s => s.includes(imageAnalysis.style.toLowerCase()))
+        )) {
+          score += 10;
+        }
+
+        return {
+          productId: p._id,
+          productName: p.name,
+          similarity: Math.min(99, score),
+          productImage: getImageUrl(p.images?.[0])
+        };
+      });
+
+      // 按相似度排序
+      matchedProducts.sort((a, b) => b.similarity - a.similarity);
+      matchedProducts = matchedProducts.slice(0, 6);
+    } else {
+      // 备用方案：返回随机商品
+      const products = await Product.find({ status: 'active' })
+        .limit(6)
+        .select('name images basePrice category');
+      
+      matchedProducts = products.map((p, idx) => ({
+        productId: p._id,
+        productName: p.name,
+        similarity: Math.max(30, 80 - idx * 10),
+        productImage: getImageUrl(p.images?.[0])
+      }));
+    }
     
     // 保存搜索记录
     const searchRecord = new ImageSearch({
