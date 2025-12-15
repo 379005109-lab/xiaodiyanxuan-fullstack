@@ -203,11 +203,33 @@ router.post('/search', async (req, res) => {
         return [material];
       };
 
+      // 分类排除规则（防止"床"匹配"床头柜"等）
+      const categoryExclusions = {
+        '床': ['床头柜', '床尾凳', '床垫'],
+        '沙发': ['沙发凳', '沙发椅'],
+        '椅': ['椅凳'],
+        '桌': ['桌椅']
+      };
+
+      // 获取需要排除的关键词
+      const getExclusions = (category) => {
+        for (const [key, exclusions] of Object.entries(categoryExclusions)) {
+          if (category.includes(key)) {
+            return exclusions;
+          }
+        }
+        return [];
+      };
+
       // 先按分类搜索所有商品
       let products = [];
       if (imageAnalysis.category) {
-        const categoryRegex = new RegExp(imageAnalysis.category, 'i');
-        products = await Product.find({
+        const category = imageAnalysis.category;
+        const exclusions = getExclusions(category);
+        
+        // 搜索包含分类关键词的商品
+        const categoryRegex = new RegExp(category, 'i');
+        let allProducts = await Product.find({
           status: 'active',
           $or: [
             { name: categoryRegex },
@@ -215,8 +237,23 @@ router.post('/search', async (req, res) => {
           ]
         })
           .populate('category', 'name')
-          .limit(50)
+          .limit(100)
           .select('name images basePrice category styles materials description skus');
+        
+        // 过滤掉不相关的分类（如床头柜）
+        products = allProducts.filter(p => {
+          const name = p.name || '';
+          // 检查是否包含排除词
+          for (const exclusion of exclusions) {
+            if (name.includes(exclusion)) {
+              console.log(`排除: ${name} (包含 ${exclusion})`);
+              return false;
+            }
+          }
+          return true;
+        });
+        
+        console.log(`分类 "${category}" 找到 ${allProducts.length} 个商品，过滤后 ${products.length} 个`);
       }
 
       // 如果分类搜索没结果，搜索所有商品
