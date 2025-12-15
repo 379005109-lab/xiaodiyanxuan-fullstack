@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const ImageSearch = require('../models/ImageSearch');
 const Product = require('../models/Product');
+const Category = require('../models/Category');
+const FileService = require('../services/fileService');
+const sharp = require('sharp');
 const crypto = require('crypto');
 const axios = require('axios');
 
@@ -87,6 +90,88 @@ function generateImageHash(base64Data) {
   return crypto.createHash('md5').update(base64Data.substring(0, 10000)).digest('hex');
 }
 
+const imageDHashCache = new Map();
+
+function base64ToBuffer(base64Data) {
+  if (!base64Data || typeof base64Data !== 'string') return null;
+  const cleaned = base64Data.includes('base64,') ? base64Data.split('base64,').pop() : base64Data;
+  try {
+    return Buffer.from(cleaned, 'base64');
+  } catch (e) {
+    return null;
+  }
+}
+
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function computeDHashFromBuffer(buffer) {
+  const { data } = await sharp(buffer)
+    .resize(9, 8, { fit: 'fill' })
+    .grayscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  let hash = 0n;
+  for (let y = 0; y < 8; y++) {
+    const rowOffset = y * 9;
+    for (let x = 0; x < 8; x++) {
+      const left = data[rowOffset + x];
+      const right = data[rowOffset + x + 1];
+      hash = (hash << 1n) | (left > right ? 1n : 0n);
+    }
+  }
+  return hash;
+}
+
+function hammingDistance64(a, b) {
+  let x = a ^ b;
+  let count = 0;
+  while (x) {
+    x &= (x - 1n);
+    count++;
+  }
+  return count;
+}
+
+async function getImageDHashFromFileId(fileId) {
+  if (!fileId || typeof fileId !== 'string') return null;
+  const cached = imageDHashCache.get(fileId);
+  if (cached !== undefined) return cached;
+  try {
+    const fileData = await FileService.getFile(fileId);
+    const buffer = await streamToBuffer(fileData.stream);
+    const dhash = await computeDHashFromBuffer(buffer);
+    if (imageDHashCache.size > 5000) {
+      const firstKey = imageDHashCache.keys().next().value;
+      imageDHashCache.delete(firstKey);
+    }
+    imageDHashCache.set(fileId, dhash);
+    return dhash;
+  } catch (e) {
+    imageDHashCache.set(fileId, null);
+    return null;
+  }
+}
+
+async function mapLimit(items, limit, iterator) {
+  const results = new Array(items.length);
+  let idx = 0;
+  const workers = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+    while (idx < items.length) {
+      const current = idx++;
+      results[current] = await iterator(items[current], current);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 // 检测水印来源
 function detectWatermarkSource(ocrText) {
   if (!ocrText) return { source: 'none', confidence: 0, text: '' };
@@ -152,6 +237,9 @@ router.post('/search', async (req, res) => {
     // 使用通义千问VL分析图片
     let imageAnalysis = null;
     let matchedProducts = [];
+
+    const uploadBuffer = imageData ? base64ToBuffer(imageData) : null;
+    const uploadDHash = uploadBuffer ? await computeDHashFromBuffer(uploadBuffer).catch(() => null) : null;
     
     if (imageData) {
       imageAnalysis = await analyzeImageWithQwen(imageData);
@@ -203,9 +291,8 @@ router.post('/search', async (req, res) => {
         return [material];
       };
 
-      // 分类排除规则（防止"床"匹配"床头柜"等）
       const categoryExclusions = {
-        '床': ['床头柜', '床尾凳', '床垫'],
+        '床': ['床头柜', '床边柜', '床尾凳', '床垫'],
         '沙发': ['沙发凳', '沙发椅'],
         '椅': ['椅凳'],
         '桌': ['桌椅']
@@ -226,34 +313,49 @@ router.post('/search', async (req, res) => {
       if (imageAnalysis.category) {
         const category = imageAnalysis.category;
         const exclusions = getExclusions(category);
-        
-        // 搜索包含分类关键词的商品
+
         const categoryRegex = new RegExp(category, 'i');
-        let allProducts = await Product.find({
+        const exclusionRegex = exclusions.length > 0 ? new RegExp(exclusions.join('|'), 'i') : null;
+
+        const categoryQuery = {
           status: 'active',
-          $or: [
+          $and: [
             { name: categoryRegex },
-            { description: categoryRegex }
+            ...(exclusionRegex ? [{ name: { $not: exclusionRegex } }] : [])
           ]
-        })
-          .populate('category', 'name')
-          .limit(100)
-          .select('name images basePrice category styles materials description skus');
-        
-        // 过滤掉不相关的分类（如床头柜）
-        products = allProducts.filter(p => {
-          const name = p.name || '';
-          // 检查是否包含排除词
-          for (const exclusion of exclusions) {
-            if (name.includes(exclusion)) {
-              console.log(`排除: ${name} (包含 ${exclusion})`);
-              return false;
+        };
+
+        const categoryDocs = await Category.find(categoryQuery).select('_id name');
+        const categoryIds = categoryDocs.map(c => c._id);
+
+        if (categoryIds.length > 0) {
+          products = await Product.find({ status: 'active', category: { $in: categoryIds } })
+            .populate('category', 'name')
+            .limit(200)
+            .select('name images basePrice category styles materials description skus');
+        } else {
+          const allProducts = await Product.find({
+            status: 'active',
+            $or: [
+              { name: categoryRegex },
+              { description: categoryRegex }
+            ]
+          })
+            .populate('category', 'name')
+            .limit(200)
+            .select('name images basePrice category styles materials description skus');
+
+          products = allProducts.filter(p => {
+            const name = p.name || '';
+            const catName = p.category?.name || '';
+            for (const exclusion of exclusions) {
+              if (name.includes(exclusion) || catName.includes(exclusion)) {
+                return false;
+              }
             }
-          }
-          return true;
-        });
-        
-        console.log(`分类 "${category}" 找到 ${allProducts.length} 个商品，过滤后 ${products.length} 个`);
+            return true;
+          });
+        }
       }
 
       // 如果分类搜索没结果，搜索所有商品
@@ -329,10 +431,44 @@ router.post('/search', async (req, res) => {
           productId: p._id,
           productName: p.name,
           similarity: Math.min(99, score),
-          productImage: getImageUrl(p.images?.[0]),
-          _score: score // 用于调试
+          productImage: getImageUrl(p.images?.[0])
         };
       });
+
+      if (uploadDHash) {
+        const candidates = products
+          .filter(p => p.images && p.images.length > 0)
+          .slice(0, 120);
+
+        const hashResults = await mapLimit(candidates, 6, async (p) => {
+          const fileIds = Array.isArray(p.images) ? p.images.slice(0, 3) : [];
+          let bestDist = null;
+
+          for (const fileId of fileIds) {
+            const dhash = await getImageDHashFromFileId(fileId);
+            if (dhash === null) continue;
+            const dist = hammingDistance64(uploadDHash, dhash);
+            if (bestDist === null || dist < bestDist) bestDist = dist;
+            if (bestDist === 0) break;
+          }
+
+          if (bestDist === null) return null;
+          return { productId: p._id.toString(), dist: bestDist };
+        });
+
+        const validHashResults = hashResults.filter(Boolean).sort((a, b) => a.dist - b.dist);
+        const best = validHashResults[0];
+
+        if (best && best.dist <= 10) {
+          const distById = new Map(validHashResults.map(r => [r.productId, r.dist]));
+          matchedProducts = matchedProducts.map(mp => {
+            const dist = distById.get(mp.productId.toString());
+            if (dist === undefined) return mp;
+            const boost = Math.max(0, 98 - dist * 4);
+            return { ...mp, similarity: Math.max(mp.similarity, boost) };
+          });
+        }
+      }
 
       // 按相似度排序
       matchedProducts.sort((a, b) => b.similarity - a.similarity);
