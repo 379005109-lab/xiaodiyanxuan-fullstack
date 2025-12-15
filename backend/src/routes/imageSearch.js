@@ -239,7 +239,7 @@ router.post('/search', async (req, res) => {
         imageAnalysis.shape,
         imageAnalysis.features,
         imageAnalysis.seats
-      ].filter(Boolean).map(k => k.toLowerCase());
+      ].filter(k => k && typeof k === 'string').map(k => k.toLowerCase());
 
       console.log('分析关键词:', allKeywords);
 
