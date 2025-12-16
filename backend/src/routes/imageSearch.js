@@ -638,7 +638,7 @@ router.post('/search', async (req, res) => {
     const getImageUrl = (imageId) => {
       if (!imageId) return '';
       if (imageId.startsWith('http')) return imageId;
-      return `https://api.xiaodiyanxuan.com/api/files/${imageId}`;
+      return getPublicImageUrl(imageId);
     };
 
     // 使用通义千问VL分析图片
