@@ -19,7 +19,11 @@ const IMAGE_EMBEDDING_API_URL = 'https://dashscope.aliyuncs.com/api/v1/services/
 const IMAGE_EMBEDDING_MODEL = process.env.IMAGE_EMBEDDING_MODEL || 'tongyi-embedding-vision-flash';
 
 const DASHVECTOR_API_KEY = process.env.DASHVECTOR_API_KEY || '';
-const DASHVECTOR_ENDPOINT = (process.env.DASHVECTOR_ENDPOINT || '').replace(/\/+$/, '');
+let dashvectorEndpointRaw = String(process.env.DASHVECTOR_ENDPOINT || '').trim();
+if (dashvectorEndpointRaw && !/^https?:\/\//i.test(dashvectorEndpointRaw)) {
+  dashvectorEndpointRaw = `https://${dashvectorEndpointRaw}`;
+}
+const DASHVECTOR_ENDPOINT = dashvectorEndpointRaw.replace(/\/+$/, '');
 const DASHVECTOR_COLLECTION = process.env.DASHVECTOR_COLLECTION || 'product_image_v1';
 
 const ADMIN_ROLES = [
