@@ -127,8 +127,10 @@ function normalizeDashVectorScore(score) {
   if (score === null || score === undefined) return null;
   const n = Number(score);
   if (!Number.isFinite(n)) return null;
-  if (n <= 1) return Math.max(0, Math.min(100, n * 100));
-  return Math.max(0, Math.min(100, n));
+  // DashVector 返回的是距离分数（越小越相似），转换为相似度（越大越相似）
+  // 距离范围通常是 0-2（余弦距离），转换为 0-100 的相似度
+  const similarity = Math.max(0, 1 - n) * 100;
+  return Math.max(0, Math.min(100, similarity));
 }
 
 async function dashvectorRequest(method, path, body) {
