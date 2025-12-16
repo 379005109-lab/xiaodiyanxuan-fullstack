@@ -259,8 +259,13 @@ function getPublicEmbeddingImageUrl(imageId) {
 }
 
 async function dashvectorSearchProductsFromUpload(uploadBuffer, categoryNorm) {
-  if (!isDashVectorEnabled() || !uploadBuffer) return [];
+  console.log('[dashvectorSearchProductsFromUpload] called, categoryNorm:', categoryNorm);
+  if (!isDashVectorEnabled() || !uploadBuffer) {
+    console.log('[dashvectorSearchProductsFromUpload] disabled or no buffer');
+    return [];
+  }
   const variants = await buildQueryVariantsFromUpload(uploadBuffer);
+  console.log('[dashvectorSearchProductsFromUpload] variants:', variants.length);
   if (variants.length === 0) return [];
 
   const vectors = await dashscopeMultiModalEmbeddings(variants);
@@ -646,8 +651,13 @@ router.post('/search', async (req, res) => {
     }
 
     const categoryNormForDashVector = imageAnalysis?.category ? normalizeCategoryName(imageAnalysis.category) : '';
+    console.log('[DashVector search] enabled:', isDashVectorEnabled(), 'categoryNorm:', categoryNormForDashVector);
     if (uploadBuffer && isDashVectorEnabled()) {
-      dashvectorMatches = await dashvectorSearchProductsFromUpload(uploadBuffer, categoryNormForDashVector).catch(() => []);
+      dashvectorMatches = await dashvectorSearchProductsFromUpload(uploadBuffer, categoryNormForDashVector).catch(e => {
+        console.error('[DashVector search error]', e.message);
+        return [];
+      });
+      console.log('[DashVector search] matches:', dashvectorMatches.length, dashvectorMatches.slice(0, 3).map(m => m?.productId));
       for (const m of dashvectorMatches) {
         if (m?.productId && typeof m.score === 'number') {
           dashScoreByProductId.set(String(m.productId), m.score);
