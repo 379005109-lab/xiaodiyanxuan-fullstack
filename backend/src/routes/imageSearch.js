@@ -381,7 +381,7 @@ router.post('/dashvector/index', auth, requireRole(ADMIN_ROLES), async (req, res
 
         const t = chunk[j];
         docsToUpsert.push({
-          id: `${t.productId}:${t.imageId}`,
+          id: `${t.productId}_${t.imageId}`,
           vector: v,
           fields: {
             productId: t.productId,
