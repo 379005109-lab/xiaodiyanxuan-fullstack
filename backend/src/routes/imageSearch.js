@@ -239,23 +239,32 @@ async function buildQueryVariantsFromUpload(buffer) {
   variants.push({ image: await makeDataUriCover(sharp(buffer).rotate()) });
 
   if (meta?.width && meta?.height && meta.width >= 200 && meta.height >= 200) {
-    const cropSize = Math.floor(Math.min(meta.width, meta.height) * 0.8);
-    const centerLeft = Math.floor((meta.width - cropSize) / 2);
-    const midTop = Math.floor((meta.height - cropSize) / 2);
-    const bottomTop = Math.max(0, meta.height - cropSize);
-    const centers = [
-      { left: centerLeft, top: midTop },
-      { left: centerLeft, top: bottomTop },
-      { left: 0, top: midTop },
-      { left: Math.max(0, meta.width - cropSize), top: midTop }
-    ];
+    const side = Math.min(meta.width, meta.height);
+    const cropScales = [0.85, 0.65];
+    for (const scale of cropScales) {
+      const cropSize = Math.max(64, Math.floor(side * scale));
+      const centerLeft = Math.floor((meta.width - cropSize) / 2);
+      const midTop = Math.floor((meta.height - cropSize) / 2);
+      const bottomTop = Math.max(0, meta.height - cropSize);
+      const leftMax = Math.max(0, meta.width - cropSize);
+      const topMax = Math.max(0, meta.height - cropSize);
+      const centers = [
+        { left: centerLeft, top: midTop },
+        { left: centerLeft, top: bottomTop },
+        { left: 0, top: midTop },
+        { left: leftMax, top: midTop },
+        { left: centerLeft, top: 0 },
+        { left: centerLeft, top: topMax }
+      ];
 
-    for (const c of centers) {
-      const extracted = sharp(buffer)
-        .rotate()
-        .extract({ left: c.left, top: c.top, width: cropSize, height: cropSize });
-      variants.push({ image: await makeDataUri(extracted) });
-      if (variants.length >= 6) break;
+      for (const c of centers) {
+        const extracted = sharp(buffer)
+          .rotate()
+          .extract({ left: c.left, top: c.top, width: cropSize, height: cropSize });
+        variants.push({ image: await makeDataUri(extracted) });
+        if (variants.length >= 10) break;
+      }
+      if (variants.length >= 10) break;
     }
   }
 
@@ -661,6 +670,7 @@ router.post('/search', async (req, res) => {
 
     let dashvectorMatches = [];
     const dashScoreByProductId = new Map();
+    let bestDashScore = null;
 
     const uploadBuffer = imageData ? base64ToBuffer(imageData) : null;
     const uploadDHash = uploadBuffer ? await computeDHashFromBuffer(uploadBuffer).catch(() => null) : null;
@@ -682,6 +692,9 @@ router.post('/search', async (req, res) => {
         if (m?.productId && typeof m.score === 'number') {
           dashScoreByProductId.set(String(m.productId), m.score);
         }
+      }
+      if (dashScoreByProductId.size > 0) {
+        bestDashScore = Math.max(...Array.from(dashScoreByProductId.values()));
       }
       console.log('[DashVector search] dashScoreByProductId size:', dashScoreByProductId.size);
     }
@@ -892,11 +905,18 @@ router.post('/search', async (req, res) => {
 
         const dashScore = dashScoreByProductId.get(p._id.toString());
         if (dashScore !== undefined) {
-          // DashVector 是视觉相似度主信号，给更强的权重，让排序变化更明显。
-          const boost = dashScore >= 85 ? 15 : dashScore >= 75 ? 10 : dashScore >= 65 ? 6 : dashScore >= 55 ? 3 : 0;
-          if (boost > 0) {
-            score = Math.max(score, Math.min(99, dashScore + boost));
+          const topBand = bestDashScore !== null && dashScore >= bestDashScore - 2;
+          const strongBoost = topBand && dashScore >= 55;
+          if (strongBoost) {
+            score = Math.max(score, Math.min(99, dashScore + 25));
+          } else {
+            const boost = dashScore >= 85 ? 15 : dashScore >= 75 ? 10 : dashScore >= 65 ? 6 : dashScore >= 55 ? 3 : 0;
+            if (boost > 0) {
+              score = Math.max(score, Math.min(99, dashScore + boost));
+            }
           }
+          const tieBreaker = Math.max(0, Math.min(2.5, (dashScore - 50) / 10));
+          score = Math.min(99, score + tieBreaker);
         }
 
         const result = {
