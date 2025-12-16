@@ -25,6 +25,7 @@ if (dashvectorEndpointRaw && !/^https?:\/\//i.test(dashvectorEndpointRaw)) {
 }
 const DASHVECTOR_ENDPOINT = dashvectorEndpointRaw.replace(/\/+$/, '');
 const DASHVECTOR_COLLECTION = process.env.DASHVECTOR_COLLECTION || 'product_image_v1';
+const PUBLIC_API_URL = process.env.PUBLIC_API_URL || 'https://pkochbpmcgaa.sealoshzh.site';
 
 const ADMIN_ROLES = [
   USER_ROLES.SUPER_ADMIN,
@@ -242,13 +243,13 @@ async function buildQueryVariantsFromUpload(buffer) {
 function getPublicImageUrl(imageId) {
   if (!imageId) return '';
   if (imageId.startsWith('http')) return imageId;
-  return `https://api.xiaodiyanxuan.com/api/files/${imageId}`;
+  return `${PUBLIC_API_URL}/api/files/${imageId}`;
 }
 
 function getPublicEmbeddingImageUrl(imageId) {
   if (!imageId) return '';
   if (imageId.startsWith('http')) return imageId;
-  return `https://api.xiaodiyanxuan.com/api/files/${imageId}?w=512&q=75&format=jpeg`;
+  return `${PUBLIC_API_URL}/api/files/${imageId}?w=512&q=75&format=jpeg`;
 }
 
 async function dashvectorSearchProductsFromUpload(uploadBuffer, categoryNorm) {

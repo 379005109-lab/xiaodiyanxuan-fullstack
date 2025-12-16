@@ -9,7 +9,6 @@ import UserProfileModal from './components/auth/UserProfileModal'
 import VersionChecker from './components/VersionChecker'
 import { useEffect, useState, lazy, Suspense } from 'react'
 
-// 首页已改为重定向到商品列表
 // 布局直接导入
 import AdminLayout from './layouts/AdminLayout'
 import FrontendLayout from './layouts/FrontendLayout'
@@ -35,6 +34,7 @@ const UserProfilePage = lazy(() => import('./pages/frontend/UserProfilePage'))
 const BargainListPage = lazy(() => import('./pages/frontend/BargainListPage'))
 const BargainDetailPage = lazy(() => import('./pages/frontend/BargainDetailPage'))
 const AboutPage = lazy(() => import('./pages/frontend/AboutPage'))
+const HomePage = lazy(() => import('./pages/frontend/HomePage'))
 
 // 后台页面 - 懒加载
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'))
@@ -80,6 +80,7 @@ const AuthorizationManagement = lazy(() => import('./pages/admin/AuthorizationMa
 const CommissionRules = lazy(() => import('./pages/admin/CommissionRules'))
 const CommissionSystem = lazy(() => import('./pages/admin/CommissionSystem'))
 const ChannelPartners = lazy(() => import('./pages/admin/ChannelPartners'))
+const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManagement'))
 
 // 厂家端页面
 const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
@@ -243,7 +244,7 @@ function App() {
           <Routes>
           {/* 前台路由 */}
           <Route path="/" element={<FrontendLayout />}>
-            <Route index element={<Navigate to="/products" replace />} />
+            <Route index element={<HomePage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/:id" element={<ProductDetailPage />} />
             <Route path="categories" element={<CategoriesPage />} />
@@ -348,6 +349,7 @@ function App() {
             <Route path="referrals" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
+            <Route path="tier-system" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
           </Route>
 
           {/* 厂家端路由 */}

@@ -58,7 +58,7 @@ Page({
       // 获取设备信息
       const systemInfo = wx.getSystemInfoSync();
       
-      const res = await api.post('/api/image-search/search', {
+      const result = await api.post('/image-search/search', {
         imageData: base64Data,
         channel: 'miniapp',
         deviceInfo: {
@@ -68,11 +68,24 @@ Page({
         }
       });
 
-      if (res.success) {
-        this.setData({ result: res.data });
+      // api.post 返回的已经是 data 对象
+      if (result && result.searchId) {
+        // 处理商品图片URL
+        const config = require('../../config/api.js');
+        const baseUrl = config.baseURL.replace('/api', '');
+        if (result.matchedProducts) {
+          result.matchedProducts = result.matchedProducts.map(p => ({
+            ...p,
+            productImage: p.productImage && !p.productImage.startsWith('http') 
+              ? `${baseUrl}/api/files/${p.productImage}` 
+              : p.productImage
+          }));
+        }
         
-        if (res.data.watermarkDetails?.hasWatermark) {
-          const sourceName = this.data.sourceLabels[res.data.detectedSource]?.name || '未知';
+        this.setData({ result: result });
+        
+        if (result.watermarkDetails?.hasWatermark) {
+          const sourceName = this.data.sourceLabels[result.detectedSource]?.name || '未知';
           wx.showToast({
             title: `检测到来源: ${sourceName}`,
             icon: 'none',
@@ -80,7 +93,7 @@ Page({
           });
         }
       } else {
-        wx.showToast({ title: res.message || '搜索失败', icon: 'none' });
+        wx.showToast({ title: '搜索失败', icon: 'none' });
       }
     } catch (error) {
       console.error('搜索失败:', error);
@@ -97,7 +110,7 @@ Page({
     // 记录用户行为
     if (searchid) {
       try {
-        await api.post(`/api/image-search/follow-up/${searchid}`, {
+        await api.post(`/image-search/follow-up/${searchid}`, {
           action: 'view_product',
           productId: productid
         });
