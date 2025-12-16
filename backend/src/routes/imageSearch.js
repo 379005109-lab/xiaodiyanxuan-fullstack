@@ -164,7 +164,13 @@ async function dashvectorEnsureCollection(dimension) {
 
 async function dashvectorUpsertDocs(docs) {
   if (!docs || docs.length === 0) return null;
-  return dashvectorRequest('POST', `/v1/collections/${encodeURIComponent(DASHVECTOR_COLLECTION)}/docs`, { docs });
+  const result = await dashvectorRequest('POST', `/v1/collections/${encodeURIComponent(DASHVECTOR_COLLECTION)}/docs`, { docs });
+  if (result && result.code !== 0) {
+    console.error('[DashVector upsert error]', result.code, result.message, JSON.stringify(result.output?.slice(0, 3)));
+  } else {
+    console.log('[DashVector upsert ok]', docs.length, 'docs');
+  }
+  return result;
 }
 
 async function dashvectorQuery(vector, topk, filter) {
@@ -354,7 +360,9 @@ router.post('/dashvector/index', auth, requireRole(ADMIN_ROLES), async (req, res
       let vectors = [];
       try {
         vectors = await dashscopeMultiModalEmbeddings(contents);
+        console.log('[Embedding] got', vectors.length, 'vectors, dims:', vectors[0]?.length);
       } catch (e) {
+        console.error('[Embedding error]', e.message);
         failedImages += chunk.length;
         continue;
       }
