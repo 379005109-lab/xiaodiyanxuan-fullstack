@@ -4,6 +4,8 @@ const ImageSearch = require('../models/ImageSearch');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const FileService = require('../services/fileService');
+const { auth, requireRole } = require('../middleware/auth');
+const { USER_ROLES } = require('../config/constants');
 const sharp = require('sharp');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
@@ -12,6 +14,21 @@ const axios = require('axios');
 // 阿里云通义千问VL API配置
 const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || '';
 const DASHSCOPE_API_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+
+const IMAGE_EMBEDDING_API_URL = 'https://dashscope.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding';
+const IMAGE_EMBEDDING_MODEL = process.env.IMAGE_EMBEDDING_MODEL || 'tongyi-embedding-vision-flash';
+
+const DASHVECTOR_API_KEY = process.env.DASHVECTOR_API_KEY || '';
+const DASHVECTOR_ENDPOINT = (process.env.DASHVECTOR_ENDPOINT || '').replace(/\/+$/, '');
+const DASHVECTOR_COLLECTION = process.env.DASHVECTOR_COLLECTION || 'product_image_v1';
+
+const ADMIN_ROLES = [
+  USER_ROLES.SUPER_ADMIN,
+  USER_ROLES.PLATFORM_ADMIN,
+  USER_ROLES.ENTERPRISE_ADMIN,
+  'admin',
+  'super_admin'
+];
 
 // 使用通义千问VL分析图片
 async function analyzeImageWithQwen(base64Image) {
@@ -92,6 +109,315 @@ function generateImageHash(base64Data) {
 }
 
 const imageDHashCache = new Map();
+
+function isDashVectorEnabled() {
+  return Boolean(DASHSCOPE_API_KEY && DASHVECTOR_API_KEY && DASHVECTOR_ENDPOINT && DASHVECTOR_COLLECTION);
+}
+
+function escapeDashVectorString(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function normalizeDashVectorScore(score) {
+  if (score === null || score === undefined) return null;
+  const n = Number(score);
+  if (!Number.isFinite(n)) return null;
+  if (n <= 1) return Math.max(0, Math.min(100, n * 100));
+  return Math.max(0, Math.min(100, n));
+}
+
+async function dashvectorRequest(method, path, body) {
+  const url = `${DASHVECTOR_ENDPOINT}${path}`;
+  const resp = await axios.request({
+    method,
+    url,
+    headers: {
+      'dashvector-auth-token': DASHVECTOR_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    data: body,
+    timeout: 30000
+  });
+  return resp.data;
+}
+
+async function dashvectorEnsureCollection(dimension) {
+  try {
+    await dashvectorRequest('POST', '/v1/collections', {
+      name: DASHVECTOR_COLLECTION,
+      dimension
+    });
+    return true;
+  } catch (e) {
+    const status = e.response?.status;
+    if (status === 409) return true;
+    const msg = e.response?.data?.message || e.message;
+    if (typeof msg === 'string' && msg.toLowerCase().includes('exist')) return true;
+    throw e;
+  }
+}
+
+async function dashvectorUpsertDocs(docs) {
+  if (!docs || docs.length === 0) return null;
+  return dashvectorRequest('POST', `/v1/collections/${encodeURIComponent(DASHVECTOR_COLLECTION)}/docs`, { docs });
+}
+
+async function dashvectorQuery(vector, topk, filter) {
+  const body = { vector, topk };
+  if (filter) body.filter = filter;
+  const data = await dashvectorRequest('POST', `/v1/collections/${encodeURIComponent(DASHVECTOR_COLLECTION)}/query`, body);
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.output)) return data.output;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+}
+
+async function dashscopeMultiModalEmbeddings(contents) {
+  const resp = await axios.post(
+    IMAGE_EMBEDDING_API_URL,
+    {
+      model: IMAGE_EMBEDDING_MODEL,
+      input: { contents }
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000
+    }
+  );
+
+  const embeddings = resp.data?.output?.embeddings;
+  if (!Array.isArray(embeddings)) return [];
+  return embeddings
+    .slice()
+    .sort((a, b) => (Number(a?.index) || 0) - (Number(b?.index) || 0))
+    .map(e => (Array.isArray(e?.embedding) ? e.embedding : null))
+    .filter(Boolean);
+}
+
+async function buildQueryVariantsFromUpload(buffer) {
+  if (!buffer) return [];
+  const base = sharp(buffer).rotate();
+  const meta = await base.metadata().catch(() => null);
+  const variants = [];
+
+  const makeDataUri = async (pipeline) => {
+    const out = await pipeline
+      .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${out.toString('base64')}`;
+  };
+
+  variants.push({ image: await makeDataUri(sharp(buffer).rotate()) });
+
+  if (meta?.width && meta?.height && meta.width >= 200 && meta.height >= 200) {
+    const cropSize = Math.floor(Math.min(meta.width, meta.height) * 0.8);
+    const centers = [
+      { left: Math.floor((meta.width - cropSize) / 2), top: Math.floor((meta.height - cropSize) / 2) },
+      { left: 0, top: Math.floor((meta.height - cropSize) / 2) },
+      { left: meta.width - cropSize, top: Math.floor((meta.height - cropSize) / 2) },
+      { left: Math.floor((meta.width - cropSize) / 2), top: 0 },
+      { left: Math.floor((meta.width - cropSize) / 2), top: meta.height - cropSize }
+    ];
+
+    for (const c of centers) {
+      const extracted = sharp(buffer)
+        .rotate()
+        .extract({ left: c.left, top: c.top, width: cropSize, height: cropSize });
+      variants.push({ image: await makeDataUri(extracted) });
+      if (variants.length >= 6) break;
+    }
+  }
+
+  return variants;
+}
+
+function getPublicImageUrl(imageId) {
+  if (!imageId) return '';
+  if (imageId.startsWith('http')) return imageId;
+  return `https://api.xiaodiyanxuan.com/api/files/${imageId}`;
+}
+
+function getPublicEmbeddingImageUrl(imageId) {
+  if (!imageId) return '';
+  if (imageId.startsWith('http')) return imageId;
+  return `https://api.xiaodiyanxuan.com/api/files/${imageId}?w=512&q=75&format=jpeg`;
+}
+
+async function dashvectorSearchProductsFromUpload(uploadBuffer, categoryNorm) {
+  if (!isDashVectorEnabled() || !uploadBuffer) return [];
+  const variants = await buildQueryVariantsFromUpload(uploadBuffer);
+  if (variants.length === 0) return [];
+
+  const vectors = await dashscopeMultiModalEmbeddings(variants);
+  if (vectors.length === 0) return [];
+
+  const filter = categoryNorm ? `categoryNorm = '${escapeDashVectorString(categoryNorm)}'` : null;
+  const all = [];
+  const results = await mapLimit(vectors, 3, async (v) => {
+    return dashvectorQuery(v, 50, filter).catch(() => []);
+  });
+  for (const r of results) {
+    if (Array.isArray(r)) all.push(...r);
+  }
+
+  const bestByProduct = new Map();
+  for (const doc of all) {
+    const fields = doc?.fields || {};
+    const productId = fields.productId || (typeof doc?.id === 'string' ? doc.id.split(':')[0] : null);
+    if (!productId) continue;
+    const score = normalizeDashVectorScore(doc?.score);
+    if (score === null) continue;
+    const prev = bestByProduct.get(productId);
+    if (!prev || score > prev.score) {
+      bestByProduct.set(productId, { productId, score });
+    }
+  }
+
+  return Array.from(bestByProduct.values()).sort((a, b) => b.score - a.score);
+}
+
+router.post('/dashvector/index', auth, requireRole(ADMIN_ROLES), async (req, res) => {
+  try {
+    if (!isDashVectorEnabled()) {
+      return res.status(400).json({ success: false, message: 'DashVector 未配置' });
+    }
+
+    const skip = Math.max(0, parseInt(req.body?.skip || '0', 10) || 0);
+    const limit = Math.min(200, Math.max(1, parseInt(req.body?.limit || '50', 10) || 50));
+    const imagesPerProduct = Math.min(8, Math.max(1, parseInt(req.body?.imagesPerProduct || '3', 10) || 3));
+
+    const products = await Product.find({ status: 'active', images: { $exists: true, $ne: [] } })
+      .populate('category', 'name')
+      .skip(skip)
+      .limit(limit)
+      .select('name images category');
+
+    const categoryIdSet = new Set();
+    for (const p of products) {
+      const rawCategoryId = typeof p.category === 'string'
+        ? p.category
+        : (p.category?._id ? p.category._id.toString() : (p.category?.id ? String(p.category.id) : ''));
+      const rawCategoryName = p.category?.name || '';
+      if (!rawCategoryName && rawCategoryId && mongoose.Types.ObjectId.isValid(rawCategoryId)) {
+        categoryIdSet.add(rawCategoryId);
+      }
+    }
+
+    const categoryNameById = new Map();
+    if (categoryIdSet.size > 0) {
+      const ids = Array.from(categoryIdSet).map(id => new mongoose.Types.ObjectId(id));
+      const categories = await Category.find({ _id: { $in: ids } }).select('_id name');
+      for (const c of categories) {
+        categoryNameById.set(c._id.toString(), c.name);
+      }
+    }
+
+    const imageTasks = [];
+    for (const p of products) {
+      const catId = typeof p.category === 'string'
+        ? p.category
+        : (p.category?._id ? p.category._id.toString() : (p.category?.id ? String(p.category.id) : ''));
+      const catName = p.category?.name || categoryNameById.get(catId) || '';
+      const categoryNorm = catName ? normalizeCategoryName(catName) : '';
+      const fileIds = Array.isArray(p.images) ? p.images.slice(0, imagesPerProduct) : [];
+      for (const imageId of fileIds) {
+        if (!imageId) continue;
+        imageTasks.push({
+          productId: p._id.toString(),
+          imageId,
+          categoryNorm,
+          categoryId: catId,
+          imageUrl: getPublicImageUrl(imageId),
+          embeddingUrl: getPublicEmbeddingImageUrl(imageId)
+        });
+      }
+    }
+
+    let ensured = false;
+    let dimension = null;
+    let processedImages = 0;
+    let failedImages = 0;
+
+    const docsToUpsert = [];
+    for (let i = 0; i < imageTasks.length; i += 8) {
+      const chunk = imageTasks.slice(i, i + 8);
+      const contents = chunk.map(t => ({ image: t.embeddingUrl }));
+      let vectors = [];
+      try {
+        vectors = await dashscopeMultiModalEmbeddings(contents);
+      } catch (e) {
+        failedImages += chunk.length;
+        continue;
+      }
+
+      for (let j = 0; j < chunk.length; j++) {
+        const v = vectors[j];
+        if (!Array.isArray(v)) {
+          failedImages += 1;
+          continue;
+        }
+        if (!ensured) {
+          dimension = v.length;
+          await dashvectorEnsureCollection(dimension);
+          ensured = true;
+        }
+
+        const t = chunk[j];
+        docsToUpsert.push({
+          id: `${t.productId}:${t.imageId}`,
+          vector: v,
+          fields: {
+            productId: t.productId,
+            imageId: t.imageId,
+            categoryNorm: t.categoryNorm,
+            categoryId: t.categoryId,
+            imageUrl: t.imageUrl
+          }
+        });
+        processedImages += 1;
+      }
+
+      if (docsToUpsert.length >= 50) {
+        const batch = docsToUpsert.splice(0, docsToUpsert.length);
+        try {
+          await dashvectorUpsertDocs(batch);
+        } catch (e) {
+          failedImages += batch.length;
+        }
+      }
+    }
+
+    if (docsToUpsert.length > 0) {
+      try {
+        await dashvectorUpsertDocs(docsToUpsert);
+      } catch (e) {
+        failedImages += docsToUpsert.length;
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        skip,
+        limit,
+        nextSkip: skip + products.length,
+        processedProducts: products.length,
+        processedImages,
+        failedImages,
+        collection: DASHVECTOR_COLLECTION,
+        embeddingModel: IMAGE_EMBEDDING_MODEL,
+        dimension
+      }
+    });
+  } catch (error) {
+    console.error('DashVector index failed:', error);
+    return res.status(500).json({ success: false, message: 'index failed' });
+  }
+});
 
 function normalizeCategoryName(category) {
   if (!category || typeof category !== 'string') return '';
@@ -295,12 +621,25 @@ router.post('/search', async (req, res) => {
     let imageAnalysis = null;
     let matchedProducts = [];
 
+    let dashvectorMatches = [];
+    const dashScoreByProductId = new Map();
+
     const uploadBuffer = imageData ? base64ToBuffer(imageData) : null;
     const uploadDHash = uploadBuffer ? await computeDHashFromBuffer(uploadBuffer).catch(() => null) : null;
     
     if (imageData) {
       imageAnalysis = await analyzeImageWithQwen(imageData);
       console.log('图片分析结果:', imageAnalysis);
+    }
+
+    const categoryNormForDashVector = imageAnalysis?.category ? normalizeCategoryName(imageAnalysis.category) : '';
+    if (uploadBuffer && isDashVectorEnabled()) {
+      dashvectorMatches = await dashvectorSearchProductsFromUpload(uploadBuffer, categoryNormForDashVector).catch(() => []);
+      for (const m of dashvectorMatches) {
+        if (m?.productId && typeof m.score === 'number') {
+          dashScoreByProductId.set(String(m.productId), m.score);
+        }
+      }
     }
 
     if (imageAnalysis) {
@@ -424,6 +763,14 @@ router.post('/search', async (req, res) => {
           .select('name images basePrice category styles materials description skus');
       }
 
+      if (products.length === 0 && dashvectorMatches.length > 0) {
+        const ids = dashvectorMatches.slice(0, 200).map(m => m.productId).filter(Boolean);
+        products = await Product.find({ status: 'active', _id: { $in: ids } })
+          .populate('category', 'name')
+          .limit(200)
+          .select('name images basePrice category styles materials description skus');
+      }
+
       console.log(`找到 ${products.length} 个候选商品`);
 
       // 获取搜索关键词
@@ -480,6 +827,11 @@ router.post('/search', async (req, res) => {
           }
         });
         score += Math.min(15, keywordScore);
+
+        const dashScore = dashScoreByProductId.get(p._id.toString());
+        if (dashScore !== undefined) {
+          score = Math.max(score, Math.min(99, dashScore + 2));
+        }
 
         const result = {
           productId: p._id,
@@ -538,12 +890,32 @@ router.post('/search', async (req, res) => {
       console.log('匹配结果:', matchedProducts.slice(0, 6).map(p => `${p.productName}: ${p.similarity}%`));
       
       matchedProducts = matchedProducts.slice(0, 6);
+    } else if (dashvectorMatches.length > 0) {
+      const ids = dashvectorMatches.slice(0, 200).map(m => m.productId).filter(Boolean);
+      const products = await Product.find({ status: 'active', _id: { $in: ids } })
+        .populate('category', 'name')
+        .limit(200)
+        .select('name images basePrice category styles materials description skus');
+
+      const dashById = new Map(dashvectorMatches.map(m => [String(m.productId), m.score]));
+      matchedProducts = products
+        .map(p => {
+          const score = dashById.get(p._id.toString());
+          return {
+            productId: p._id,
+            productName: p.name,
+            similarity: Math.min(99, (typeof score === 'number' ? score + 2 : 60)),
+            productImage: getImageUrl(p.images?.[0])
+          };
+        })
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 6);
     } else {
       // 备用方案：返回随机商品
       const products = await Product.find({ status: 'active' })
         .limit(6)
         .select('name images basePrice category');
-      
+
       matchedProducts = products.map((p, idx) => ({
         productId: p._id,
         productName: p.name,
