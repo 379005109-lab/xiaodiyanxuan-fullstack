@@ -282,9 +282,10 @@ async function dashvectorSearchProductsFromUpload(uploadBuffer, categoryNorm) {
   }
 
   const bestByProduct = new Map();
+  console.log('[dashvectorSearchProductsFromUpload] processing', all.length, 'docs, first doc:', JSON.stringify(all[0]).slice(0, 300));
   for (const doc of all) {
     const fields = doc?.fields || {};
-    const productId = fields.productId || (typeof doc?.id === 'string' ? doc.id.split(':')[0] : null);
+    const productId = fields.productId || (typeof doc?.id === 'string' ? doc.id.split('_')[0] : null);
     if (!productId) continue;
     const score = normalizeDashVectorScore(doc?.score);
     if (score === null) continue;
@@ -658,12 +659,13 @@ router.post('/search', async (req, res) => {
         console.error('[DashVector search error]', e.message);
         return [];
       });
-      console.log('[DashVector search] matches:', dashvectorMatches.length, dashvectorMatches.slice(0, 3).map(m => m?.productId));
+      console.log('[DashVector search] matches:', dashvectorMatches.length, 'top scores:', dashvectorMatches.slice(0, 3).map(m => `${m?.productId}:${m?.score}`));
       for (const m of dashvectorMatches) {
         if (m?.productId && typeof m.score === 'number') {
           dashScoreByProductId.set(String(m.productId), m.score);
         }
       }
+      console.log('[DashVector search] dashScoreByProductId size:', dashScoreByProductId.size);
     }
 
     if (imageAnalysis) {
