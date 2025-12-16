@@ -68,8 +68,10 @@ async function analyzeImageWithQwen(base64Image) {
   "shape": "外形特征描述，如：圆润、方正、流线型、模块化、L型、弧形等",
   "features": "独特设计特征，如：拉扣、车线、高靠背、低矮、厚垫、金属脚等",
   "seats": "座位数量，如：单人、双人、三人、四人、组合等",
-  "keywords": ["尽可能多的视觉特征关键词，包括形状、纹理、设计元素等"]
+  "keywords": ["尽可能多的视觉特征关键词，包括形状、纹理、设计元素等"],
+  "subjectBox": null
 }
+subjectBox 表示图片中家具主体（如沙发）的框选区域，使用 0-1 的归一化坐标（left/top/width/height）。如果无法确定主体框选，请返回 null。
 只返回JSON，不要其他内容。`
               }
             ]
@@ -111,6 +113,78 @@ const WATERMARK_PATTERNS = {
 // 简单的图片哈希生成（用于去重）
 function generateImageHash(base64Data) {
   return crypto.createHash('md5').update(base64Data.substring(0, 10000)).digest('hex');
+}
+
+function clampNumber(value, min, max) {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, value));
+}
+
+function normalizeSubjectBox(subjectBox) {
+  if (!subjectBox || typeof subjectBox !== 'object') return null;
+
+  const leftRaw = subjectBox.left ?? subjectBox.x ?? subjectBox.x1;
+  const topRaw = subjectBox.top ?? subjectBox.y ?? subjectBox.y1;
+  const widthRaw = subjectBox.width ?? subjectBox.w;
+  const heightRaw = subjectBox.height ?? subjectBox.h;
+
+  const left = Number(leftRaw);
+  const top = Number(topRaw);
+  let width = Number(widthRaw);
+  let height = Number(heightRaw);
+
+  const x2 = Number(subjectBox.x2);
+  const y2 = Number(subjectBox.y2);
+  if ((!Number.isFinite(width) || !Number.isFinite(height)) && Number.isFinite(x2) && Number.isFinite(y2) && Number.isFinite(left) && Number.isFinite(top)) {
+    width = x2 - left;
+    height = y2 - top;
+  }
+
+  if (![left, top, width, height].every(Number.isFinite)) return null;
+  if (width <= 0 || height <= 0) return null;
+
+  const l = clampNumber(left, 0, 1);
+  const t = clampNumber(top, 0, 1);
+  const r = clampNumber(l + width, 0, 1);
+  const b = clampNumber(t + height, 0, 1);
+
+  const w = r - l;
+  const h = b - t;
+  if (w < 0.06 || h < 0.06) return null;
+
+  return { left: l, top: t, width: w, height: h };
+}
+
+async function cropBufferByNormalizedBox(buffer, box) {
+  if (!buffer || !box) return null;
+  const meta = await sharp(buffer).rotate().metadata().catch(() => null);
+  if (!meta?.width || !meta?.height) return null;
+
+  const expand = 0.08;
+  const left = clampNumber(box.left - expand, 0, 1);
+  const top = clampNumber(box.top - expand, 0, 1);
+  const right = clampNumber(box.left + box.width + expand, 0, 1);
+  const bottom = clampNumber(box.top + box.height + expand, 0, 1);
+
+  const width = Math.max(0.08, right - left);
+  const height = Math.max(0.08, bottom - top);
+
+  const pxLeft = Math.max(0, Math.floor(left * meta.width));
+  const pxTop = Math.max(0, Math.floor(top * meta.height));
+  const pxWidth = Math.max(64, Math.floor(width * meta.width));
+  const pxHeight = Math.max(64, Math.floor(height * meta.height));
+
+  const maxWidth = meta.width - pxLeft;
+  const maxHeight = meta.height - pxTop;
+  const finalWidth = Math.max(1, Math.min(pxWidth, maxWidth));
+  const finalHeight = Math.max(1, Math.min(pxHeight, maxHeight));
+  if (finalWidth < 64 || finalHeight < 64) return null;
+
+  return sharp(buffer)
+    .rotate()
+    .extract({ left: pxLeft, top: pxTop, width: finalWidth, height: finalHeight })
+    .jpeg({ quality: 90 })
+    .toBuffer();
 }
 
 const imageDHashCache = new Map();
@@ -683,11 +757,44 @@ router.post('/search', async (req, res) => {
     const categoryNormForDashVector = imageAnalysis?.category ? normalizeCategoryName(imageAnalysis.category) : '';
     console.log('[DashVector search] enabled:', isDashVectorEnabled(), 'categoryNorm:', categoryNormForDashVector);
     if (uploadBuffer && isDashVectorEnabled()) {
-      dashvectorMatches = await dashvectorSearchProductsFromUpload(uploadBuffer, categoryNormForDashVector).catch(e => {
+      const subjectBox = normalizeSubjectBox(imageAnalysis?.subjectBox);
+      let dashvectorBuffer = uploadBuffer;
+      if (subjectBox) {
+        const cropped = await cropBufferByNormalizedBox(uploadBuffer, subjectBox).catch(() => null);
+        if (cropped) {
+          dashvectorBuffer = cropped;
+        }
+      }
+
+      const mergeDashMatches = (arr, map) => {
+        for (const m of arr || []) {
+          if (!m?.productId || typeof m.score !== 'number') continue;
+          const id = String(m.productId);
+          const prev = map.get(id);
+          if (!prev || m.score > prev.score) {
+            map.set(id, { productId: id, score: m.score });
+          }
+        }
+      };
+
+      const merged = new Map();
+      const primary = await dashvectorSearchProductsFromUpload(dashvectorBuffer, categoryNormForDashVector).catch(e => {
         console.error('[DashVector search error]', e.message);
         return [];
       });
-      console.log('[DashVector search] matches:', dashvectorMatches.length, 'top scores:', dashvectorMatches.slice(0, 3).map(m => `${m?.productId}:${m?.score}`));
+      mergeDashMatches(primary, merged);
+
+      if (dashvectorBuffer !== uploadBuffer && merged.size < 18) {
+        const fallback = await dashvectorSearchProductsFromUpload(uploadBuffer, categoryNormForDashVector).catch(() => []);
+        mergeDashMatches(fallback, merged);
+      }
+
+      dashvectorMatches = Array.from(merged.values()).sort((a, b) => b.score - a.score);
+
+      if (subjectBox && dashvectorBuffer !== uploadBuffer) {
+        console.log('[DashVector search] used subjectBox:', subjectBox);
+      }
+
       for (const m of dashvectorMatches) {
         if (m?.productId && typeof m.score === 'number') {
           dashScoreByProductId.set(String(m.productId), m.score);
@@ -696,7 +803,8 @@ router.post('/search', async (req, res) => {
       if (dashScoreByProductId.size > 0) {
         bestDashScore = Math.max(...Array.from(dashScoreByProductId.values()));
       }
-      console.log('[DashVector search] dashScoreByProductId size:', dashScoreByProductId.size);
+      console.log('[DashVector search] matches:', dashvectorMatches.length, 'top scores:', dashvectorMatches.slice(0, 6).map(m => `${m?.productId}:${m?.score}`));
+      console.log('[DashVector search] bestDashScore:', bestDashScore, 'dashScoreByProductId size:', dashScoreByProductId.size);
     }
 
     if (imageAnalysis) {
@@ -734,6 +842,22 @@ router.post('/search', async (req, res) => {
         return [color];
       };
 
+      const normalizeColorKey = (color) => {
+        if (!color) return '';
+        for (const [key, values] of Object.entries(colorKeywords)) {
+          if (key === color || values.includes(color)) return key;
+        }
+        return String(color);
+      };
+
+      const detectColorKeyFromText = (text) => {
+        if (!text) return '';
+        for (const [key, values] of Object.entries(colorKeywords)) {
+          if (values.some(v => text.includes(String(v).toLowerCase()))) return key;
+        }
+        return '';
+      };
+
       // 获取材质的所有关键词
       const getMaterialKeywords = (material) => {
         for (const [key, values] of Object.entries(materialKeywords)) {
@@ -742,6 +866,22 @@ router.post('/search', async (req, res) => {
           }
         }
         return [material];
+      };
+
+      const normalizeMaterialKey = (material) => {
+        if (!material) return '';
+        for (const [key, values] of Object.entries(materialKeywords)) {
+          if (key === material || values.includes(material)) return key;
+        }
+        return String(material);
+      };
+
+      const detectMaterialKeyFromText = (text) => {
+        if (!text) return '';
+        for (const [key, values] of Object.entries(materialKeywords)) {
+          if (values.some(v => text.includes(String(v).toLowerCase()))) return key;
+        }
+        return '';
       };
 
       const categoryExclusions = {
@@ -856,7 +996,7 @@ router.post('/search', async (req, res) => {
       const allKeywords = [
         ...(imageAnalysis.keywords || []),
         imageAnalysis.shape,
-        imageAnalysis.features,
+        ...(Array.isArray(imageAnalysis.features) ? imageAnalysis.features : [imageAnalysis.features]),
         imageAnalysis.seats
       ].filter(k => k && typeof k === 'string').map(k => k.toLowerCase());
 
@@ -871,10 +1011,18 @@ router.post('/search', async (req, res) => {
         const skuInfo = JSON.stringify(p.skus || []);
         const fullText = `${productName} ${productDesc} ${skuInfo}`.toLowerCase();
 
+        const queryColorKey = imageAnalysis.color ? normalizeColorKey(imageAnalysis.color) : '';
+        const queryMaterialKey = imageAnalysis.material ? normalizeMaterialKey(imageAnalysis.material) : '';
+        const productColorKey = queryColorKey ? detectColorKeyFromText(fullText) : '';
+        const productMaterialKey = queryMaterialKey ? detectMaterialKeyFromText(fullText) : '';
+
         if (colorWords.length > 0) {
           const colorMatch = colorWords.some(c => fullText.includes(c.toLowerCase()));
           if (colorMatch) {
             score += 20;
+          }
+          if (queryColorKey && productColorKey && productColorKey !== queryColorKey) {
+            score -= 14;
           }
         }
 
@@ -882,6 +1030,9 @@ router.post('/search', async (req, res) => {
           const materialMatch = materialWords.some(m => fullText.includes(m.toLowerCase()));
           if (materialMatch) {
             score += 15;
+          }
+          if (queryMaterialKey && productMaterialKey && productMaterialKey !== queryMaterialKey) {
+            score -= 12;
           }
         }
 
@@ -906,7 +1057,7 @@ router.post('/search', async (req, res) => {
         const dashScore = dashScoreByProductId.get(p._id.toString());
         if (dashScore !== undefined) {
           const topBand = bestDashScore !== null && dashScore >= bestDashScore - 2;
-          const strongBoost = topBand && dashScore >= 55;
+          const strongBoost = topBand && bestDashScore !== null && bestDashScore >= 50;
           if (strongBoost) {
             score = Math.max(score, Math.min(99, dashScore + 25));
           } else {
@@ -917,6 +1068,24 @@ router.post('/search', async (req, res) => {
           }
           const tieBreaker = Math.max(0, Math.min(2.5, (dashScore - 50) / 10));
           score = Math.min(99, score + tieBreaker);
+        }
+
+        if (dashScore === undefined && bestDashScore !== null && bestDashScore >= 50) {
+          score -= 10;
+          if (score < 0) score = 0;
+        }
+
+        const imageStyleText = (imageAnalysis.style || '').toLowerCase();
+        if (imageStyleText) {
+          const productStyleText = `${productName} ${productDesc} ${(productStyles || []).join(' ')}`.toLowerCase();
+          const queryModern = ['现代', '简约', '极简', '北欧', '轻奢', '工业'].some(k => imageStyleText.includes(k));
+          const queryClassic = ['欧式', '法式', '美式', '复古', '古典', '宫廷', '巴洛克', '洛可可'].some(k => imageStyleText.includes(k));
+          const productClassic = ['欧式', '法式', '美式', '复古', '古典', '雕花', '宫廷', '巴洛克', '洛可可'].some(k => productStyleText.includes(k));
+          const productModern = ['现代', '简约', '极简', '北欧', '轻奢', '工业'].some(k => productStyleText.includes(k));
+
+          if (queryModern && productClassic) score -= 22;
+          if (queryClassic && productModern) score -= 18;
+          if (score < 0) score = 0;
         }
 
         const result = {
