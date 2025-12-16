@@ -271,10 +271,11 @@ async function dashvectorSearchProductsFromUpload(uploadBuffer, categoryNorm) {
   const vectors = await dashscopeMultiModalEmbeddings(variants);
   if (vectors.length === 0) return [];
 
-  const filter = categoryNorm ? `categoryNorm = '${escapeDashVectorString(categoryNorm)}'` : null;
+  // 暂时去掉分类过滤，让向量相似度决定结果
   const all = [];
+  console.log('[dashvectorSearchProductsFromUpload] querying with', vectors.length, 'vectors, no filter');
   const results = await mapLimit(vectors, 3, async (v) => {
-    return dashvectorQuery(v, 50, filter).catch(() => []);
+    return dashvectorQuery(v, 50, null).catch(() => []);
   });
   for (const r of results) {
     if (Array.isArray(r)) all.push(...r);
