@@ -793,12 +793,30 @@ router.post('/search', async (req, res) => {
           .select('name images basePrice category styles materials description skus');
       }
 
-      if (products.length === 0 && dashvectorMatches.length > 0) {
-        const ids = dashvectorMatches.slice(0, 200).map(m => m.productId).filter(Boolean);
-        products = await Product.find({ status: 'active', _id: { $in: ids } })
-          .populate('category', 'name')
-          .limit(200)
-          .select('name images basePrice category styles materials description skus');
+      // 始终把 DashVector 命中的商品并入候选集，避免被类目/关键词过滤导致“库里有同款却搜不到”。
+      if (dashvectorMatches.length > 0) {
+        const dashIds = dashvectorMatches
+          .slice(0, 120)
+          .map(m => m.productId)
+          .filter(Boolean);
+
+        if (dashIds.length > 0) {
+          const dashProducts = await Product.find({ status: 'active', _id: { $in: dashIds } })
+            .populate('category', 'name')
+            .limit(200)
+            .select('name images basePrice category styles materials description skus');
+
+          const byId = new Map();
+          for (const p of products) byId.set(p._id.toString(), p);
+          for (const p of dashProducts) {
+            const id = p?._id ? p._id.toString() : '';
+            if (!id) continue;
+            if (!byId.has(id)) {
+              products.push(p);
+              byId.set(id, p);
+            }
+          }
+        }
       }
 
       console.log(`找到 ${products.length} 个候选商品`);
@@ -860,7 +878,8 @@ router.post('/search', async (req, res) => {
 
         const dashScore = dashScoreByProductId.get(p._id.toString());
         if (dashScore !== undefined) {
-          score = Math.max(score, Math.min(99, dashScore + 2));
+          // DashVector 是视觉相似度主信号，给更强的权重，让排序变化更明显。
+          score = Math.max(score, Math.min(99, dashScore + 15));
         }
 
         const result = {
