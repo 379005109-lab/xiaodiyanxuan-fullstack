@@ -164,11 +164,11 @@ async function dashvectorEnsureCollection(dimension) {
 
 async function dashvectorUpsertDocs(docs) {
   if (!docs || docs.length === 0) return null;
+  console.log('[DashVector upsert] sending', docs.length, 'docs, first id:', docs[0]?.id, 'vector len:', docs[0]?.vector?.length);
   const result = await dashvectorRequest('POST', `/v1/collections/${encodeURIComponent(DASHVECTOR_COLLECTION)}/docs`, { docs });
+  console.log('[DashVector upsert response]', JSON.stringify(result).slice(0, 500));
   if (result && result.code !== 0) {
-    console.error('[DashVector upsert error]', result.code, result.message, JSON.stringify(result.output?.slice(0, 3)));
-  } else {
-    console.log('[DashVector upsert ok]', docs.length, 'docs');
+    console.error('[DashVector upsert error]', result.code, result.message);
   }
   return result;
 }
