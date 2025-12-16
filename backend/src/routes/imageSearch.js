@@ -282,7 +282,9 @@ async function dashvectorSearchProductsFromUpload(uploadBuffer, categoryNorm) {
   }
 
   const bestByProduct = new Map();
-  console.log('[dashvectorSearchProductsFromUpload] processing', all.length, 'docs, first doc:', JSON.stringify(all[0]).slice(0, 300));
+  if (all.length > 0) {
+    console.log('[DashVector] first 3 raw scores:', all.slice(0, 3).map(d => ({ id: d?.id?.slice(0, 30), rawScore: d?.score, productId: d?.fields?.productId })));
+  }
   for (const doc of all) {
     const fields = doc?.fields || {};
     const productId = fields.productId || (typeof doc?.id === 'string' ? doc.id.split('_')[0] : null);
