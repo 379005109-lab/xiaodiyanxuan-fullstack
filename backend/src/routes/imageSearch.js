@@ -6,6 +6,7 @@ const Category = require('../models/Category');
 const FileService = require('../services/fileService');
 const sharp = require('sharp');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const axios = require('axios');
 
 // 阿里云通义千问VL API配置
@@ -92,6 +93,23 @@ function generateImageHash(base64Data) {
 
 const imageDHashCache = new Map();
 
+function normalizeCategoryName(category) {
+  if (!category || typeof category !== 'string') return '';
+  const c = category.trim();
+  const rules = [
+    { re: /床/, value: '床' },
+    { re: /沙发/, value: '沙发' },
+    { re: /茶几/, value: '茶几' },
+    { re: /餐桌|饭桌/, value: '餐桌' },
+    { re: /椅|凳/, value: '椅' },
+    { re: /柜|橱/, value: '柜' }
+  ];
+  for (const rule of rules) {
+    if (rule.re.test(c)) return rule.value;
+  }
+  return c;
+}
+
 function base64ToBuffer(base64Data) {
   if (!base64Data || typeof base64Data !== 'string') return null;
   const cleaned = base64Data.includes('base64,') ? base64Data.split('base64,').pop() : base64Data;
@@ -144,9 +162,38 @@ async function getImageDHashFromFileId(fileId) {
   const cached = imageDHashCache.get(fileId);
   if (cached !== undefined) return cached;
   try {
+    if (mongoose.connection?.db) {
+      const objectId = new mongoose.Types.ObjectId(fileId);
+      const doc = await mongoose.connection.db
+        .collection('uploads.files')
+        .findOne({ _id: objectId }, { projection: { 'metadata.dhash': 1 } });
+      if (doc?.metadata && Object.prototype.hasOwnProperty.call(doc.metadata, 'dhash')) {
+        const v = doc.metadata.dhash;
+        const persisted = typeof v === 'string' && v ? BigInt(v) : null;
+        if (imageDHashCache.size > 5000) {
+          const firstKey = imageDHashCache.keys().next().value;
+          imageDHashCache.delete(firstKey);
+        }
+        imageDHashCache.set(fileId, persisted);
+        return persisted;
+      }
+    }
+  } catch (e) {
+  }
+  try {
     const fileData = await FileService.getFile(fileId);
     const buffer = await streamToBuffer(fileData.stream);
     const dhash = await computeDHashFromBuffer(buffer);
+    try {
+      if (mongoose.connection?.db) {
+        const objectId = new mongoose.Types.ObjectId(fileId);
+        await mongoose.connection.db.collection('uploads.files').updateOne(
+          { _id: objectId },
+          { $set: { 'metadata.dhash': dhash.toString(), 'metadata.dhashAlg': 'dhash64-v1' } }
+        );
+      }
+    } catch (e) {
+    }
     if (imageDHashCache.size > 5000) {
       const firstKey = imageDHashCache.keys().next().value;
       imageDHashCache.delete(firstKey);
@@ -154,6 +201,16 @@ async function getImageDHashFromFileId(fileId) {
     imageDHashCache.set(fileId, dhash);
     return dhash;
   } catch (e) {
+    try {
+      if (mongoose.connection?.db) {
+        const objectId = new mongoose.Types.ObjectId(fileId);
+        await mongoose.connection.db.collection('uploads.files').updateOne(
+          { _id: objectId },
+          { $set: { 'metadata.dhash': null, 'metadata.dhashAlg': 'dhash64-v1' } }
+        );
+      }
+    } catch (err) {
+    }
     imageDHashCache.set(fileId, null);
     return null;
   }
@@ -292,7 +349,7 @@ router.post('/search', async (req, res) => {
       };
 
       const categoryExclusions = {
-        '床': ['床头柜', '床边柜', '床尾凳', '床垫'],
+        '床': ['床头柜', '床边柜', '床头几', '床尾凳', '床垫'],
         '沙发': ['沙发凳', '沙发椅'],
         '椅': ['椅凳'],
         '桌': ['桌椅']
@@ -311,7 +368,7 @@ router.post('/search', async (req, res) => {
       // 先按分类搜索所有商品
       let products = [];
       if (imageAnalysis.category) {
-        const category = imageAnalysis.category;
+        const category = normalizeCategoryName(imageAnalysis.category);
         const exclusions = getExclusions(category);
 
         const categoryRegex = new RegExp(category, 'i');
@@ -327,39 +384,40 @@ router.post('/search', async (req, res) => {
 
         const categoryDocs = await Category.find(categoryQuery).select('_id name');
         const categoryIds = categoryDocs.map(c => c._id);
+        const categoryIdStrings = categoryIds.map(id => id.toString());
 
-        if (categoryIds.length > 0) {
-          products = await Product.find({ status: 'active', category: { $in: categoryIds } })
-            .populate('category', 'name')
-            .limit(200)
-            .select('name images basePrice category styles materials description skus');
-        } else {
-          const allProducts = await Product.find({
-            status: 'active',
-            $or: [
+        const categoryMatchClauses = categoryIds.length > 0
+          ? [
+              { category: { $in: [...categoryIds, ...categoryIdStrings] } },
+              { 'category._id': { $in: categoryIds } },
+              { 'category.id': { $in: categoryIdStrings } }
+            ]
+          : [
               { name: categoryRegex },
               { description: categoryRegex }
-            ]
-          })
-            .populate('category', 'name')
-            .limit(200)
-            .select('name images basePrice category styles materials description skus');
+            ];
 
-          products = allProducts.filter(p => {
-            const name = p.name || '';
-            const catName = p.category?.name || '';
-            for (const exclusion of exclusions) {
-              if (name.includes(exclusion) || catName.includes(exclusion)) {
-                return false;
-              }
-            }
-            return true;
-          });
-        }
+        const productQuery = {
+          status: 'active',
+          $and: [
+            { $or: categoryMatchClauses },
+            ...(exclusionRegex
+              ? [
+                  { name: { $not: exclusionRegex } },
+                  { description: { $not: exclusionRegex } }
+                ]
+              : [])
+          ]
+        };
+
+        products = await Product.find(productQuery)
+          .populate('category', 'name')
+          .limit(200)
+          .select('name images basePrice category styles materials description skus');
       }
 
       // 如果分类搜索没结果，搜索所有商品
-      if (products.length === 0) {
+      if (products.length === 0 && !imageAnalysis.category) {
         products = await Product.find({ status: 'active' })
           .populate('category', 'name')
           .limit(50)
@@ -383,15 +441,14 @@ router.post('/search', async (req, res) => {
       console.log('分析关键词:', allKeywords);
 
       // 计算相似度分数
-      matchedProducts = products.map((p) => {
-        let score = 40; // 基础分（已经是分类匹配）
+      const scoredProducts = products.map((p) => {
+        let score = imageAnalysis.category ? 40 : 25;
         const productName = (p.name || '');
         const productDesc = (p.description || '');
         const productStyles = (p.styles || []);
         const skuInfo = JSON.stringify(p.skus || []);
         const fullText = `${productName} ${productDesc} ${skuInfo}`.toLowerCase();
 
-        // 颜色匹配 +20分
         if (colorWords.length > 0) {
           const colorMatch = colorWords.some(c => fullText.includes(c.toLowerCase()));
           if (colorMatch) {
@@ -399,7 +456,6 @@ router.post('/search', async (req, res) => {
           }
         }
 
-        // 材质匹配 +15分
         if (materialWords.length > 0) {
           const materialMatch = materialWords.some(m => fullText.includes(m.toLowerCase()));
           if (materialMatch) {
@@ -407,9 +463,8 @@ router.post('/search', async (req, res) => {
           }
         }
 
-        // 风格匹配 +10分
         if (imageAnalysis.style) {
-          const styleMatch = productStyles.some(s => 
+          const styleMatch = productStyles.some(s =>
             s.toLowerCase().includes(imageAnalysis.style.toLowerCase()) ||
             imageAnalysis.style.toLowerCase().includes(s.toLowerCase())
           );
@@ -418,7 +473,6 @@ router.post('/search', async (req, res) => {
           }
         }
 
-        // 关键词匹配 +3分/个（最多+15分）
         let keywordScore = 0;
         allKeywords.forEach(kw => {
           if (kw && fullText.includes(kw)) {
@@ -427,18 +481,25 @@ router.post('/search', async (req, res) => {
         });
         score += Math.min(15, keywordScore);
 
-        return {
+        const result = {
           productId: p._id,
           productName: p.name,
           similarity: Math.min(99, score),
           productImage: getImageUrl(p.images?.[0])
         };
+
+        return { product: p, result };
       });
 
+      matchedProducts = scoredProducts.map(sp => sp.result);
+
       if (uploadDHash) {
-        const candidates = products
-          .filter(p => p.images && p.images.length > 0)
-          .slice(0, 120);
+        const sortedForHash = scoredProducts
+          .filter(sp => sp.product.images && sp.product.images.length > 0)
+          .sort((a, b) => b.result.similarity - a.result.similarity);
+
+        const maxCandidates = sortedForHash.length <= 80 ? sortedForHash.length : 60;
+        const candidates = sortedForHash.slice(0, maxCandidates).map(sp => sp.product);
 
         const hashResults = await mapLimit(candidates, 6, async (p) => {
           const fileIds = Array.isArray(p.images) ? p.images.slice(0, 3) : [];
