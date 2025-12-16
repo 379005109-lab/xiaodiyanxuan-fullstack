@@ -224,16 +224,30 @@ async function buildQueryVariantsFromUpload(buffer) {
     return `data:image/jpeg;base64,${out.toString('base64')}`;
   };
 
+  const makeDataUriCover = async (pipeline) => {
+    const attentionPosition = (sharp.strategy && sharp.strategy.attention)
+      ? sharp.strategy.attention
+      : (sharp.gravity && sharp.gravity.centre ? sharp.gravity.centre : 'centre');
+    const out = await pipeline
+      .resize(512, 512, { fit: 'cover', position: attentionPosition })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${out.toString('base64')}`;
+  };
+
   variants.push({ image: await makeDataUri(sharp(buffer).rotate()) });
+  variants.push({ image: await makeDataUriCover(sharp(buffer).rotate()) });
 
   if (meta?.width && meta?.height && meta.width >= 200 && meta.height >= 200) {
     const cropSize = Math.floor(Math.min(meta.width, meta.height) * 0.8);
+    const centerLeft = Math.floor((meta.width - cropSize) / 2);
+    const midTop = Math.floor((meta.height - cropSize) / 2);
+    const bottomTop = Math.max(0, meta.height - cropSize);
     const centers = [
-      { left: Math.floor((meta.width - cropSize) / 2), top: Math.floor((meta.height - cropSize) / 2) },
-      { left: 0, top: Math.floor((meta.height - cropSize) / 2) },
-      { left: meta.width - cropSize, top: Math.floor((meta.height - cropSize) / 2) },
-      { left: Math.floor((meta.width - cropSize) / 2), top: 0 },
-      { left: Math.floor((meta.width - cropSize) / 2), top: meta.height - cropSize }
+      { left: centerLeft, top: midTop },
+      { left: centerLeft, top: bottomTop },
+      { left: 0, top: midTop },
+      { left: Math.max(0, meta.width - cropSize), top: midTop }
     ];
 
     for (const c of centers) {
@@ -879,7 +893,10 @@ router.post('/search', async (req, res) => {
         const dashScore = dashScoreByProductId.get(p._id.toString());
         if (dashScore !== undefined) {
           // DashVector 是视觉相似度主信号，给更强的权重，让排序变化更明显。
-          score = Math.max(score, Math.min(99, dashScore + 15));
+          const boost = dashScore >= 85 ? 15 : dashScore >= 75 ? 10 : dashScore >= 65 ? 6 : dashScore >= 55 ? 3 : 0;
+          if (boost > 0) {
+            score = Math.max(score, Math.min(99, dashScore + boost));
+          }
         }
 
         const result = {
