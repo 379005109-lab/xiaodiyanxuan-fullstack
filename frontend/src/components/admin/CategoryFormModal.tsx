@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { X, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { Category } from '@/types'
 import { createCategory, updateCategory, getAllCategories } from '@/services/categoryService'
+import { getAllManufacturers } from '@/services/manufacturerService'
 
 interface CategoryFormModalProps {
   category: Category | null
@@ -16,6 +17,9 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
   const [formData, setFormData] = useState({
     name: category?.name || '',
     image: category?.image || '',
+    manufacturerId: (typeof (category as any)?.manufacturerId === 'string'
+      ? ((category as any).manufacturerId as string)
+      : ((category as any)?.manufacturerId?._id as string) || '') as string,
     parentId: category?.parentId || null,
     level: category?.level || 1,
     status: category?.status || 'active' as 'active' | 'inactive',
@@ -28,16 +32,44 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
     ],
   })
 
+  const [allCategories, setAllCategories] = useState<Category[]>([])
   const [parentCategories, setParentCategories] = useState<Category[]>([])
+  const [manufacturers, setManufacturers] = useState<any[]>([])
 
   useEffect(() => {
     const loadParentCategories = async () => {
       const allCats = await getAllCategories();
-      const topLevel = allCats.filter(cat => !cat.parentId || cat.parentId === null);
-      setParentCategories(topLevel);
+      setAllCategories(allCats)
     };
     loadParentCategories();
   }, []);
+
+  const selectedManufacturerId = useMemo(() => {
+    return (formData.manufacturerId || '').trim()
+  }, [formData.manufacturerId])
+
+  useEffect(() => {
+    const topLevel = allCategories
+      .filter(cat => !cat.parentId || cat.parentId === null)
+      .filter(cat => {
+        const mid: any = (cat as any).manufacturerId
+        const midStr = typeof mid === 'string' ? mid : (mid?._id || '')
+        return String(midStr || '') === String(selectedManufacturerId || '')
+      })
+    setParentCategories(topLevel)
+  }, [allCategories, selectedManufacturerId])
+
+  useEffect(() => {
+    const loadManufacturers = async () => {
+      try {
+        const list = await getAllManufacturers()
+        setManufacturers(Array.isArray(list) ? list : [])
+      } catch (e) {
+        setManufacturers([])
+      }
+    }
+    loadManufacturers()
+  }, [])
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -81,9 +113,14 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
     }
     
     const allCategories = await getAllCategories();
+    const sameManufacturerCategories = allCategories.filter(cat => {
+      const mid: any = (cat as any).manufacturerId
+      const midStr = typeof mid === 'string' ? mid : (mid?._id || '')
+      return String(midStr || '') === String(selectedManufacturerId || '')
+    })
 
     // 检查slug唯一性
-    const existingCategory = allCategories.find(cat => cat.slug === slug);
+    const existingCategory = sameManufacturerCategories.find(cat => cat.slug === slug);
     if (existingCategory && (!isEdit || existingCategory._id !== category?._id)) {
       toast.error('分类名称已存在，请使用其他名称');
       return;
@@ -97,7 +134,7 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
     }
     
     // 获取同级分类的最大order值
-    const sameLevelCategories = allCategories.filter(
+    const sameLevelCategories = sameManufacturerCategories.filter(
       cat => cat.parentId === formData.parentId
     )
     const maxOrder = sameLevelCategories.length > 0 
@@ -109,6 +146,7 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
       const categoryData = {
         name: formData.name,
         image: formData.image,
+        manufacturerId: formData.manufacturerId || null,
         parentId: formData.parentId,
         level: formData.level,
         status: formData.status,
@@ -171,6 +209,25 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
               className="input w-full"
               required
             />
+          </div>
+
+          {/* 厂家 */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              厂家
+            </label>
+            <select
+              value={formData.manufacturerId || ''}
+              onChange={(e) => setFormData({ ...formData, manufacturerId: e.target.value })}
+              className="input w-full"
+            >
+              <option value="">平台（未分配厂家）</option>
+              {manufacturers.map((m: any) => (
+                <option key={m._id} value={m._id}>
+                  {m.name || m.fullName || m._id}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* 分类图片 */}

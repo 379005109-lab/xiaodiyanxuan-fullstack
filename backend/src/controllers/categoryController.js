@@ -9,16 +9,25 @@ const Product = require('../models/Product')
  */
 const listCategories = async (req, res) => {
   try {
-    const { page, limit, status } = req.query
+    const { page, limit, status, manufacturerId } = req.query
     
     let query = {}
     if (status) {
       query.status = status
     }
 
+    const user = req.user
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      query.manufacturerId = user.manufacturerId
+    } else if (manufacturerId) {
+      query.manufacturerId = manufacturerId
+    }
+
     // 如果没有分页参数，返回树状结构
     if (!page && !limit) {
-      const allCategories = await Category.find(query).sort({ order: 1, createdAt: -1 })
+      const allCategories = await Category.find(query)
+        .populate('manufacturerId', 'name')
+        .sort({ order: 1, createdAt: -1 })
       
       // 构建树状结构
       const categoryMap = {}
@@ -58,6 +67,7 @@ const listCategories = async (req, res) => {
     const skip = (page - 1) * limit
     const total = await Category.countDocuments(query)
     const categories = await Category.find(query)
+      .populate('manufacturerId', 'name')
       .sort({ order: 1, createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -95,7 +105,7 @@ const getCategory = async (req, res) => {
  */
 const createCategory = async (req, res) => {
   try {
-    let { name, description, order, status, icon, image, parentId, level, slug } = req.body
+    let { name, description, order, status, icon, image, parentId, level, slug, manufacturerId } = req.body
 
     if (!name) {
       return res.status(400).json(errorResponse('分类名称不能为空', 400))
@@ -116,12 +126,18 @@ const createCategory = async (req, res) => {
       description,
       icon,
       image,
+      manufacturerId: manufacturerId || null,
       parentId: parentId || null,
       level: level || 1,
       order: order || 0,
       status: status || 'active',
       updatedAt: new Date()
     })
+
+    const user = req.user
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      category.manufacturerId = user.manufacturerId
+    }
 
     await category.save()
 
@@ -146,7 +162,7 @@ const createCategory = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params
-    const { name, description, order, status, image, icon, parentId, level, slug } = req.body
+    const { name, description, order, status, image, icon, parentId, level, slug, manufacturerId } = req.body
 
     // 构建更新对象，只包含有值的字段
     const updateData = { updatedAt: new Date() }
@@ -159,6 +175,12 @@ const updateCategory = async (req, res) => {
     if (parentId !== undefined) updateData.parentId = parentId || null
     if (level !== undefined) updateData.level = level
     if (slug !== undefined) updateData.slug = slug
+    if (manufacturerId !== undefined) updateData.manufacturerId = manufacturerId || null
+
+    const user = req.user
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      updateData.manufacturerId = user.manufacturerId
+    }
 
     const category = await Category.findByIdAndUpdate(
       id,
@@ -333,9 +355,19 @@ const batchSetDiscount = async (req, res) => {
  */
 const getCategoryStats = async (req, res) => {
   try {
-    const total = await Category.countDocuments()
-    const activeCount = await Category.countDocuments({ status: 'active' })
-    const inactiveCount = await Category.countDocuments({ status: 'inactive' })
+    const { manufacturerId } = req.query
+    const user = req.user
+
+    const query = {}
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      query.manufacturerId = user.manufacturerId
+    } else if (manufacturerId) {
+      query.manufacturerId = manufacturerId
+    }
+
+    const total = await Category.countDocuments(query)
+    const activeCount = await Category.countDocuments({ ...query, status: 'active' })
+    const inactiveCount = await Category.countDocuments({ ...query, status: 'inactive' })
 
     // 统计商品总数
     const totalProducts = await Product.countDocuments()

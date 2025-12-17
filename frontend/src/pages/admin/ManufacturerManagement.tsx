@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, TrendingUp } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 
@@ -473,25 +473,13 @@ export default function ManufacturerManagement() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Factory className="w-6 h-6" />
-          厂家信息管理
+          <Factory className="w-7 h-7" />
+          厂家管理
         </h1>
         <div className="flex items-center gap-3">
-          <a
-            href="/admin/channel-partners"
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            📋 渠道商档案
-          </a>
-          <a
-            href="/admin/commission-rules"
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            📊 分成规则
-          </a>
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
             新建厂家
@@ -643,13 +631,6 @@ export default function ManufacturerManagement() {
                   删除
                 </button>
               </div>
-              <a
-                href={`/admin/commission-system/${item._id}`}
-                className="flex items-center justify-center gap-2 mt-2 px-3 py-2 text-sm text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-lg transition-colors"
-              >
-                <TrendingUp className="w-4 h-4" />
-                分成体系管理
-              </a>
             </div>
           ))}
         </div>

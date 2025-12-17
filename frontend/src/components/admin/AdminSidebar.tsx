@@ -17,7 +17,6 @@ import {
   Activity,
   Factory,
   Shield,
-  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -55,12 +54,9 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
       icon: Factory,
       children: [
         { name: '厂家列表', path: '/admin/manufacturers' },
-        { name: '渠道商档案', path: '/admin/channel-partners' },
-        { name: '分成规则', path: '/admin/commission-rules' },
       ]
     },
     { name: '授权管理', path: '/admin/authorizations', icon: Shield },
-    { name: '分层体系', path: '/admin/tier-system', icon: Layers },
     { name: '商品管理', path: '/admin/products', icon: Package },
     { name: '分类管理', path: '/admin/categories', icon: FolderTree },
     { name: '套餐管理', path: '/admin/packages', icon: Package },

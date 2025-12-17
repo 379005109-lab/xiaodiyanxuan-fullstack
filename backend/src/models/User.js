@@ -28,6 +28,9 @@ const userSchema = new mongoose.Schema({
   
   // === 厂家归属 ===
   manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+
+  // === 厂家归属（多选）===
+  manufacturerIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' }],
   
   // === 账号类型（厂家账号用）===
   accountType: { 

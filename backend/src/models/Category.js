@@ -1,11 +1,12 @@
 const mongoose = require('mongoose')
 
 const categorySchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
-  slug: { type: String, unique: true, sparse: true }, // sparse: true 允许多个null值
+  name: { type: String, required: true },
+  slug: { type: String, sparse: true }, // sparse: true 允许多个null值
   description: String,
   icon: String,
   image: String,
+  manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer', default: null },
   parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: null }, // 父分类ID
   level: { type: Number, default: 1 }, // 层级：1为顶级，2为二级
   order: { type: Number, default: 0 },
@@ -24,5 +25,7 @@ categorySchema.pre('save', function(next) {
 })
 
 categorySchema.index({ status: 1, order: 1 })
+categorySchema.index({ manufacturerId: 1, name: 1 }, { unique: true })
+categorySchema.index({ manufacturerId: 1, slug: 1 }, { unique: true, sparse: true })
 
 module.exports = mongoose.model('Category', categorySchema)

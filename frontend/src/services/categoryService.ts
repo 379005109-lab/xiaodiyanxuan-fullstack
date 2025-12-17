@@ -11,6 +11,7 @@ export const getAllCategories = async (): Promise<Category[]> => {
     // 确保每个分类都有 discounts 字段
     return categories.map((cat: any) => ({
       ...cat,
+      manufacturerId: cat.manufacturerId ?? null,
       discounts: cat.discounts || [],
       hasDiscount: cat.hasDiscount || false,
       productCount: cat.productCount || 0,

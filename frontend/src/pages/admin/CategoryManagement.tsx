@@ -358,6 +358,16 @@ export default function CategoryManagement() {
               {category.level}
             </div>
 
+            {/* 厂家 */}
+            <div className="w-40 text-sm text-gray-600 truncate">
+              {(() => {
+                const mid: any = (category as any).manufacturerId
+                if (!mid) return '平台'
+                if (typeof mid === 'string') return mid
+                return mid?.name || mid?._id || '平台'
+              })()}
+            </div>
+
             {/* 商品数量 */}
             <div className="w-20 text-center text-sm text-gray-600">
               {category.productCount}
@@ -597,6 +607,7 @@ export default function CategoryManagement() {
             <div className="w-8"></div>
             <div className="flex-1 text-sm font-medium text-gray-700">分类</div>
             <div className="w-20 text-center text-sm font-medium text-gray-700">层级</div>
+            <div className="w-40 text-sm font-medium text-gray-700">厂家</div>
             <div className="w-20 text-center text-sm font-medium text-gray-700">商品数量</div>
             <div className="w-32 text-center text-sm font-medium text-gray-700">状态</div>
             <div className="w-40 text-sm font-medium text-gray-700">创建时间</div>

@@ -1018,24 +1018,34 @@ function HierarchyTab({
   const [selectedModuleCode, setSelectedModuleCode] = useState<string>('all')
   const [showAddModal, setShowAddModal] = useState(false)
   const [parentAccount, setParentAccount] = useState<AuthorizedAccount | null>(null)
-  const [manufacturerCategories, setManufacturerCategories] = useState<any[]>([])
+  const [manufacturerCategoryTree, setManufacturerCategoryTree] = useState<any[]>([])
+  const [manufacturerProducts, setManufacturerProducts] = useState<any[]>([])
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadCategoriesAndProducts = async () => {
       if (!manufacturerId) {
-        setManufacturerCategories([])
+        setManufacturerCategoryTree([])
+        setManufacturerProducts([])
         return
       }
       try {
-        const resp = await apiClient.get(`/manufacturers/${manufacturerId}/product-categories`)
-        const list = resp.data?.data || []
-        setManufacturerCategories(Array.isArray(list) ? list : [])
+        const [catResp, prodResp] = await Promise.all([
+          apiClient.get('/categories', { params: { manufacturerId } }),
+          apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'all', limit: 5000 } })
+        ])
+
+        const catList = catResp.data?.data || []
+        setManufacturerCategoryTree(Array.isArray(catList) ? catList : [])
+
+        const prodList = prodResp.data?.data || []
+        setManufacturerProducts(Array.isArray(prodList) ? prodList : [])
       } catch (e) {
-        console.error('加载厂家商品分类失败:', e)
-        setManufacturerCategories([])
+        console.error('加载厂家分类/商品失败:', e)
+        setManufacturerCategoryTree([])
+        setManufacturerProducts([])
       }
     }
-    loadCategories()
+    loadCategoriesAndProducts()
   }, [manufacturerId])
 
   // 按角色模块筛选账号
@@ -1292,7 +1302,8 @@ function HierarchyTab({
           modules={modules}
           parentAccount={parentAccount}
           manufacturerId={manufacturerId}
-          manufacturerCategories={manufacturerCategories}
+          manufacturerCategoryTree={manufacturerCategoryTree}
+          manufacturerProducts={manufacturerProducts}
           existingUserIds={accounts.map(a => String(a.userId))}
           onClose={() => {
             setShowAddModal(false)
@@ -1311,7 +1322,8 @@ function AddAccountModal({
   modules,
   parentAccount,
   manufacturerId,
-  manufacturerCategories,
+  manufacturerCategoryTree,
+  manufacturerProducts,
   existingUserIds,
   onClose,
   onSave
@@ -1319,7 +1331,8 @@ function AddAccountModal({
   modules: RoleModule[]
   parentAccount: AuthorizedAccount | null
   manufacturerId: string
-  manufacturerCategories: Array<{ id: string; name: string; parentId?: string | null; count: number }>
+  manufacturerCategoryTree: any[]
+  manufacturerProducts: any[]
   existingUserIds: string[]
   onClose: () => void
   onSave: (data: {
@@ -1334,6 +1347,8 @@ function AddAccountModal({
 }) {
   const [accounts, setAccounts] = useState<any[]>([])
   const [accountKeyword, setAccountKeyword] = useState('')
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set())
+  const [selectionMode, setSelectionMode] = useState<'multiple' | 'single'>('multiple')
 
   const parentHasCustomVisibility = !!(parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0)
   const parentVisibleCategoryIds = parentHasCustomVisibility
@@ -1347,6 +1362,63 @@ function AddAccountModal({
     visibilityMode: (parentHasCustomVisibility ? 'custom' : 'all') as 'all' | 'custom',
     visibleCategoryIds: (parentHasCustomVisibility ? parentVisibleCategoryIds : []) as string[]
   })
+
+  const normalizeId = (x: any) => {
+    if (!x) return ''
+    if (typeof x === 'string') return x
+    return String(x._id || x.id || '')
+  }
+
+  const getProductCategoryIds = (p: any): string[] => {
+    const ids: string[] = []
+    const c = p?.category
+
+    const push = (v: any) => {
+      const id = normalizeId(v)
+      if (id) ids.push(id)
+    }
+
+    if (Array.isArray(p?.categories)) {
+      p.categories.forEach((cc: any) => push(cc))
+    } else if (Array.isArray(c)) {
+      c.forEach((cc: any) => push(cc))
+    } else if (c) {
+      push(c)
+      if (typeof c === 'object') {
+        push((c as any)._id)
+        push((c as any).id)
+      }
+    }
+
+    return Array.from(new Set(ids.filter(Boolean)))
+  }
+
+  const productsByCategoryId = useMemo(() => {
+    const map = new Map<string, any[]>()
+    ;(manufacturerProducts || []).forEach((p: any) => {
+      const ids = getProductCategoryIds(p)
+      ids.forEach((cid) => {
+        const prev = map.get(cid) || []
+        prev.push(p)
+        map.set(cid, prev)
+      })
+    })
+    return map
+  }, [manufacturerProducts])
+
+  const filterTreeByAllowed = (nodes: any[], allowed: Set<string> | null): any[] => {
+    return (nodes || [])
+      .map((n: any) => {
+        const id = normalizeId(n)
+        const rawChildren = Array.isArray(n?.children) ? n.children : []
+        const nextChildren = filterTreeByAllowed(rawChildren, allowed)
+
+        const keep = !allowed || allowed.has(id) || nextChildren.length > 0
+        if (!keep) return null
+        return { ...n, children: nextChildren }
+      })
+      .filter(Boolean)
+  }
 
   useEffect(() => {
     const loadAccounts = async () => {
@@ -1374,9 +1446,34 @@ function AddAccountModal({
   const allowedCategoryIds = parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0
     ? new Set(parentAccount.visibleCategoryIds.map(String))
     : null
-  const effectiveCategories = allowedCategoryIds
-    ? manufacturerCategories.filter(c => allowedCategoryIds.has(String(c.id)))
-    : manufacturerCategories
+  const effectiveCategoryTree = useMemo(() => {
+    return filterTreeByAllowed(manufacturerCategoryTree || [], allowedCategoryIds)
+  }, [manufacturerCategoryTree, allowedCategoryIds])
+
+  const toggleExpand = (id: string) => {
+    setExpandedCategoryIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleCategory = (id: string) => {
+    if (allowedCategoryIds && !allowedCategoryIds.has(String(id))) return
+    setFormData(prev => {
+      const exists = prev.visibleCategoryIds.includes(id)
+      if (selectionMode === 'single') {
+        return { ...prev, visibleCategoryIds: exists ? [] : [id] }
+      }
+      return {
+        ...prev,
+        visibleCategoryIds: exists
+          ? prev.visibleCategoryIds.filter(x => x !== id)
+          : [...prev.visibleCategoryIds, id]
+      }
+    })
+  }
 
   const filteredAccounts = accounts
     .filter(a => !existingUserIds.includes(String(a._id)))
@@ -1475,7 +1572,7 @@ function AddAccountModal({
               }}
               className="input w-full"
             >
-              <option value="all" disabled={parentHasCustomVisibility}>全部品类</option>
+              <option value="all">{parentHasCustomVisibility ? '全部（继承上级范围）' : '全部品类'}</option>
               <option value="custom">自定义</option>
             </select>
             {parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0 && (
@@ -1485,30 +1582,86 @@ function AddAccountModal({
 
           {formData.visibilityMode === 'custom' && (
             <div className="border border-gray-200 rounded-lg p-3 max-h-56 overflow-y-auto">
-              {effectiveCategories.length === 0 ? (
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="text-xs text-gray-500">树状选择：分类 → 商品（商品仅展示，不保存）</div>
+                <select
+                  value={selectionMode}
+                  onChange={(e) => setSelectionMode(e.target.value as any)}
+                  className="input h-8 text-xs"
+                >
+                  <option value="multiple">多选</option>
+                  <option value="single">单选</option>
+                </select>
+              </div>
+
+              {effectiveCategoryTree.length === 0 ? (
                 <p className="text-sm text-gray-500">该厂家暂无可选品类</p>
               ) : (
-                <div className="space-y-2">
-                  {effectiveCategories.map((c) => (
-                    <label key={c.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                      <input
-                        type="checkbox"
-                        checked={formData.visibleCategoryIds.includes(String(c.id))}
-                        onChange={() => {
-                          const id = String(c.id)
-                          setFormData(prev => ({
-                            ...prev,
-                            visibleCategoryIds: prev.visibleCategoryIds.includes(id)
-                              ? prev.visibleCategoryIds.filter(x => x !== id)
-                              : [...prev.visibleCategoryIds, id]
-                          }))
-                        }}
-                        className="rounded text-primary"
-                      />
-                      <span className="text-sm font-medium">{c.name}</span>
-                      <span className="text-xs text-gray-400">({c.count})</span>
-                    </label>
-                  ))}
+                <div className="space-y-1">
+                  {(function renderTree(nodes: any[], depth: number = 0): any {
+                    return nodes.map((n: any) => {
+                      const id = normalizeId(n)
+                      const children = Array.isArray(n?.children) ? n.children : []
+                      const prods = productsByCategoryId.get(id) || []
+                      const hasChildren = children.length > 0
+                      const hasProducts = prods.length > 0
+                      const canExpand = hasChildren || hasProducts
+                      const isExpanded = expandedCategoryIds.has(id)
+                      const checked = formData.visibleCategoryIds.includes(id)
+
+                      return (
+                        <div key={id} style={{ marginLeft: depth * 16 }}>
+                          <div className="flex items-center gap-2 hover:bg-gray-50 p-2 rounded">
+                            <button
+                              type="button"
+                              className={`p-1 rounded ${canExpand ? 'hover:bg-gray-200' : ''}`}
+                              onClick={() => canExpand && toggleExpand(id)}
+                              disabled={!canExpand}
+                            >
+                              {canExpand ? (
+                                isExpanded ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />
+                              ) : (
+                                <span className="w-4 h-4" />
+                              )}
+                            </button>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleCategory(id)}
+                              className="rounded text-primary"
+                            />
+                            <span className="text-sm font-medium text-gray-900 truncate">{n?.name || id}</span>
+                            <span className="text-xs text-gray-400">
+                              {hasProducts ? `${prods.length}商品` : ''}
+                            </span>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="ml-8 border-l border-gray-100 pl-3 space-y-1">
+                              {hasProducts && (
+                                <div className="space-y-1">
+                                  {prods.slice(0, 50).map((p: any) => (
+                                    <div key={String(p._id)} className="text-xs text-gray-600 py-0.5 truncate">
+                                      {p.name || p.productCode || p._id}
+                                    </div>
+                                  ))}
+                                  {prods.length > 50 && (
+                                    <div className="text-xs text-gray-400">仅展示前 50 个商品</div>
+                                  )}
+                                </div>
+                              )}
+
+                              {hasChildren && (
+                                <div className="space-y-1">
+                                  {renderTree(children, depth + 1)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
+                  })(effectiveCategoryTree)}
                 </div>
               )}
             </div>

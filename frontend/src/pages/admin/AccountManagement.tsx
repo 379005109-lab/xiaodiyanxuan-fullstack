@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { 
   Building2, Users, UserPlus, Key, Search, MoreVertical,
@@ -8,6 +8,7 @@ import {
 import * as accountService from '@/services/accountService'
 import { ROLE_LABELS, ORG_TYPE_LABELS, USER_ROLES, DashboardData } from '@/services/accountService'
 import BrowseHistoryModal from '@/components/admin/BrowseHistoryModal'
+import { getAllManufacturers } from '@/services/manufacturerService'
 
 type TabType = 'dashboard' | 'organizations' | 'users' | 'customers' | 'designers' | 'special'
 
@@ -26,6 +27,10 @@ export default function AccountManagement() {
   const [users, setUsers] = useState<accountService.AccountUser[]>([])
   const [userRole, setUserRole] = useState<string>('')
   const [userKeyword, setUserKeyword] = useState('')
+
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+  const [batchManufacturerIds, setBatchManufacturerIds] = useState<string[]>([])
+  const [batchAssigning, setBatchAssigning] = useState(false)
   
   // 特殊账号数据
   const [specialAccounts, setSpecialAccounts] = useState<accountService.AccountUser[]>([])
@@ -36,6 +41,8 @@ export default function AccountManagement() {
   const [showSpecialModal, setShowSpecialModal] = useState(false)
   const [editingOrg, setEditingOrg] = useState<accountService.Organization | null>(null)
   const [editingUser, setEditingUser] = useState<accountService.AccountUser | null>(null)
+
+  const [manufacturers, setManufacturers] = useState<any[]>([])
   
   // 浏览历史
   const [showBrowseHistory, setShowBrowseHistory] = useState(false)
@@ -53,6 +60,53 @@ export default function AccountManagement() {
       loadSpecialAccounts()
     }
   }, [activeTab, orgType, userRole])
+
+  const getManufacturerName = (mid: any) => {
+    if (!mid) return ''
+    if (typeof mid === 'string') {
+      const m = manufacturers.find((x: any) => String(x._id) === String(mid))
+      return m?.name || m?.fullName || String(mid)
+    }
+    return mid?.name || mid?.fullName || mid?._id || ''
+  }
+
+  const groupedUsers = useMemo(() => {
+    const groups = new Map<string, { key: string; label: string; users: accountService.AccountUser[] }>()
+
+    const getOwnerGroup = (u: accountService.AccountUser) => {
+      const mid: any = (u as any).manufacturerId
+      if (!mid) return { key: 'platform', label: '平台' }
+      const id = typeof mid === 'string' ? String(mid) : String(mid?._id || '')
+      return { key: `m:${id}`, label: getManufacturerName(mid) || '厂家' }
+    }
+
+    users.forEach((u) => {
+      const g = getOwnerGroup(u)
+      const prev = groups.get(g.key)
+      if (prev) prev.users.push(u)
+      else groups.set(g.key, { ...g, users: [u] })
+    })
+
+    const list = Array.from(groups.values())
+    list.sort((a, b) => {
+      if (a.key === 'platform' && b.key !== 'platform') return -1
+      if (a.key !== 'platform' && b.key === 'platform') return 1
+      return a.label.localeCompare(b.label, 'zh-CN')
+    })
+    return list
+  }, [users, manufacturers])
+
+  useEffect(() => {
+    const loadManufacturers = async () => {
+      try {
+        const list = await getAllManufacturers()
+        setManufacturers(Array.isArray(list) ? list : [])
+      } catch (e) {
+        setManufacturers([])
+      }
+    }
+    loadManufacturers()
+  }, [])
 
   const loadDashboard = async () => {
     setLoading(true)
@@ -75,6 +129,16 @@ export default function AccountManagement() {
       toast.error(error.message || '加载组织列表失败')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const ensureOrganizationsLoaded = async () => {
+    if (organizations.length > 0) return
+    try {
+      const data = await accountService.getOrganizations({ page: 1, limit: 200 })
+      setOrganizations(data.list || [])
+    } catch (error: any) {
+      toast.error(error.message || '加载组织列表失败')
     }
   }
 
@@ -132,6 +196,43 @@ export default function AccountManagement() {
       loadUsers()
     } catch (error: any) {
       toast.error(error.message || '删除失败')
+    }
+  }
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedUserIds(new Set(users.map(u => u._id)))
+    } else {
+      setSelectedUserIds(new Set())
+    }
+  }
+
+  const toggleSelectOne = (id: string, checked: boolean) => {
+    setSelectedUserIds(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
+
+  const applyBatchManufacturer = async (manufacturerIds: string[]) => {
+    const ids = Array.from(selectedUserIds)
+    if (ids.length === 0) return
+
+    setBatchAssigning(true)
+    try {
+      await Promise.all(
+        ids.map((id) => accountService.updateUser(id, { manufacturerIds } as any))
+      )
+      toast.success('批量设置成功')
+      setSelectedUserIds(new Set())
+      setBatchManufacturerIds([])
+      loadUsers()
+    } catch (error: any) {
+      toast.error(error.message || '批量设置失败')
+    } finally {
+      setBatchAssigning(false)
     }
   }
 
@@ -446,7 +547,11 @@ export default function AccountManagement() {
               </div>
               {activeTab !== 'customers' && (
                 <button
-                  onClick={() => { setEditingUser(null); setShowUserModal(true) }}
+                  onClick={async () => {
+                    await ensureOrganizationsLoaded()
+                    setEditingUser(null)
+                    setShowUserModal(true)
+                  }}
                   className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
                 >
                   <Plus className="w-4 h-4" />
@@ -455,15 +560,65 @@ export default function AccountManagement() {
               )}
             </div>
 
+            {selectedUserIds.size > 0 && (
+              <div className="mb-4 bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="text-sm text-gray-700">
+                    已选择 <span className="font-semibold">{selectedUserIds.size}</span> 个账号
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      multiple
+                      value={batchManufacturerIds}
+                      onChange={(e) =>
+                        setBatchManufacturerIds(Array.from(e.target.selectedOptions).map(o => o.value))
+                      }
+                      className="px-3 py-2 border rounded-lg min-w-64"
+                      size={Math.min(6, Math.max(3, manufacturers.length))}
+                    >
+                      {manufacturers.map((m: any) => (
+                        <option key={m._id} value={m._id}>
+                          {m.name || m.fullName || m._id}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => applyBatchManufacturer(batchManufacturerIds)}
+                      disabled={batchAssigning}
+                      className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      {batchAssigning ? '设置中...' : '批量设置归属'}
+                    </button>
+                    <button
+                      onClick={() => applyBatchManufacturer([])}
+                      disabled={batchAssigning}
+                      className="px-4 py-2 border rounded-lg hover:bg-white disabled:opacity-50"
+                    >
+                      清空归属
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 用户列表 */}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={users.length > 0 && selectedUserIds.size === users.length}
+                        onChange={(e) => toggleSelectAll(e.target.checked)}
+                        className="rounded"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">用户</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">角色</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">标签</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">组织</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">归属</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">状态</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">创建时间</th>
                     <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">操作</th>
@@ -472,108 +627,144 @@ export default function AccountManagement() {
                 <tbody className="divide-y">
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-gray-500">加载中...</td>
+                      <td colSpan={9} className="text-center py-12 text-gray-500">加载中...</td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-gray-500">暂无数据</td>
+                      <td colSpan={9} className="text-center py-12 text-gray-500">暂无数据</td>
                     </tr>
                   ) : (
-                    users.map((user) => (
-                      <tr key={user._id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                              {user.avatar ? (
-                                <img src={user.avatar} alt="" className="w-10 h-10 rounded-full" />
+                    groupedUsers.flatMap((group) => [
+                      (
+                        <tr key={`group-${group.key}`} className="bg-gray-50">
+                          <td colSpan={9} className="px-4 py-2 text-sm font-medium text-gray-700">
+                            {group.label}（{group.users.length}）
+                          </td>
+                        </tr>
+                      ),
+                      ...group.users.map((user) => (
+                        <tr key={user._id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedUserIds.has(user._id)}
+                              onChange={(e) => toggleSelectOne(user._id, e.target.checked)}
+                              className="rounded"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                {user.avatar ? (
+                                  <img src={user.avatar} alt="" className="w-10 h-10 rounded-full" />
+                                ) : (
+                                  <span className="text-gray-500 font-medium">
+                                    {(user.nickname || user.username)?.[0]?.toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{user.nickname || user.username}</div>
+                                <div className="text-sm text-gray-500">{user.phone || user.email || '-'}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
+                              {ROLE_LABELS[user.role] || user.role}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1">
+                              {user.tags && user.tags.length > 0 ? (
+                                user.tags.map((tag, idx) => (
+                                  <span 
+                                    key={idx} 
+                                    className={`px-2 py-0.5 text-xs rounded-full ${
+                                      tag === '批量下载' ? 'bg-red-100 text-red-700' :
+                                      tag === '高风险' ? 'bg-orange-100 text-orange-700' :
+                                      'bg-blue-100 text-blue-700'
+                                    }`}
+                                    title={user.downloadStats?.totalDownloads 
+                                      ? `总下载: ${user.downloadStats.totalDownloads}次` 
+                                      : undefined}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))
                               ) : (
-                                <span className="text-gray-500 font-medium">
-                                  {(user.nickname || user.username)?.[0]?.toUpperCase()}
-                                </span>
+                                <span className="text-gray-400 text-xs">-</span>
                               )}
                             </div>
-                            <div>
-                              <div className="font-medium text-gray-900">{user.nickname || user.username}</div>
-                              <div className="text-sm text-gray-500">{user.phone || user.email || '-'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {user.organizationId?.name || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {(() => {
+                              const mids: any = (user as any).manufacturerIds
+                              if (Array.isArray(mids) && mids.length > 0) {
+                                const names = mids
+                                  .map((x: any) => getManufacturerName(x))
+                                  .filter(Boolean)
+                                if (names.length === 0) return '平台'
+                                return names.length > 1 ? `${names[0]} 等${names.length}` : names[0]
+                              }
+                              const mid: any = (user as any).manufacturerId
+                              if (!mid) return '平台'
+                              return getManufacturerName(mid) || '平台'
+                            })()}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              user.status === 'active' ? 'bg-green-100 text-green-700' :
+                              user.status === 'banned' ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {user.status === 'active' ? '正常' : 
+                               user.status === 'banned' ? '已禁用' : 
+                               user.status === 'expired' ? '已过期' : '未激活'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {new Date(user.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => {
+                                  setBrowseHistoryUser({ 
+                                    id: user._id, 
+                                    name: user.nickname || user.username || user.phone || '未知用户'
+                                  })
+                                  setShowBrowseHistory(true)
+                                }}
+                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg"
+                                title="查看浏览路径"
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  await ensureOrganizationsLoaded()
+                                  setEditingUser(user)
+                                  setShowUserModal(true)
+                                }}
+                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(user)}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded-lg"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
-                            {ROLE_LABELS[user.role] || user.role}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {user.tags && user.tags.length > 0 ? (
-                              user.tags.map((tag, idx) => (
-                                <span 
-                                  key={idx} 
-                                  className={`px-2 py-0.5 text-xs rounded-full ${
-                                    tag === '批量下载' ? 'bg-red-100 text-red-700' :
-                                    tag === '高风险' ? 'bg-orange-100 text-orange-700' :
-                                    'bg-blue-100 text-blue-700'
-                                  }`}
-                                  title={user.downloadStats?.totalDownloads 
-                                    ? `总下载: ${user.downloadStats.totalDownloads}次` 
-                                    : undefined}
-                                >
-                                  {tag}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-gray-400 text-xs">-</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {user.organizationId?.name || '-'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            user.status === 'active' ? 'bg-green-100 text-green-700' :
-                            user.status === 'banned' ? 'bg-red-100 text-red-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            {user.status === 'active' ? '正常' : 
-                             user.status === 'banned' ? '已禁用' : 
-                             user.status === 'expired' ? '已过期' : '未激活'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {new Date(user.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => {
-                                setBrowseHistoryUser({ 
-                                  id: user._id, 
-                                  name: user.nickname || user.username || user.phone || '未知用户'
-                                })
-                                setShowBrowseHistory(true)
-                              }}
-                              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg"
-                              title="查看浏览路径"
-                            >
-                              <History className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => { setEditingUser(user); setShowUserModal(true) }}
-                              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(user)}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded-lg"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                        </tr>
+                      ))
+                    ])
                   )}
                 </tbody>
               </table>
@@ -679,6 +870,7 @@ export default function AccountManagement() {
         <UserModal
           user={editingUser}
           organizations={organizations}
+          manufacturers={manufacturers}
           isDesigner={activeTab === 'designers'}
           onClose={() => setShowUserModal(false)}
           onSave={() => { setShowUserModal(false); loadUsers() }}
@@ -834,16 +1026,36 @@ function OrganizationModal({
 function UserModal({ 
   user, 
   organizations,
+  manufacturers,
   isDesigner,
   onClose, 
   onSave 
 }: { 
   user: accountService.AccountUser | null
   organizations: accountService.Organization[]
+  manufacturers: any[]
   isDesigner: boolean
   onClose: () => void
   onSave: () => void
 }) {
+  const getManufacturerNameById = (id: string) => {
+    const m = manufacturers.find((x: any) => String(x._id) === String(id))
+    return m?.name || m?.fullName || String(id)
+  }
+
+  const initialManufacturerIds = (() => {
+    const mids: any = (user as any)?.manufacturerIds
+    if (Array.isArray(mids) && mids.length > 0) {
+      return mids
+        .map((x: any) => (typeof x === 'string' ? String(x) : String(x?._id || '')))
+        .filter(Boolean)
+    }
+    const mid: any = (user as any)?.manufacturerId
+    if (!mid) return []
+    const id = typeof mid === 'string' ? String(mid) : String(mid?._id || '')
+    return id ? [id] : []
+  })()
+
   const [formData, setFormData] = useState({
     username: user?.username || '',
     password: '',
@@ -852,9 +1064,20 @@ function UserModal({
     email: user?.email || '',
     role: user?.role || (isDesigner ? USER_ROLES.DESIGNER : USER_ROLES.CUSTOMER),
     organizationId: (user?.organizationId as any)?._id || '',
+    manufacturerIds: initialManufacturerIds,
     status: user?.status || 'active',
   })
   const [loading, setLoading] = useState(false)
+
+  const parentUnit = (() => {
+    if (formData.manufacturerIds.length > 0) {
+      const names = formData.manufacturerIds.map(getManufacturerNameById).filter(Boolean)
+      return names.length > 1 ? `${names[0]} 等${names.length}` : (names[0] || '平台')
+    }
+    const org = organizations.find(o => String(o._id) === String(formData.organizationId))
+    if (org) return org.name
+    return '平台'
+  })()
 
   const handleSubmit = async () => {
     if (!formData.username) {
@@ -941,6 +1164,38 @@ function UserModal({
           
           {!isDesigner && (
             <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">归属厂家（可多选）</label>
+                <select
+                  multiple
+                  value={formData.manufacturerIds}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      manufacturerIds: Array.from(e.target.selectedOptions).map(o => o.value)
+                    })
+                  }
+                  className="w-full px-4 py-2 border rounded-lg"
+                  size={Math.min(6, Math.max(3, manufacturers.length))}
+                >
+                  {manufacturers.map((m: any) => (
+                    <option key={m._id} value={m._id}>
+                      {m.name || m.fullName || m._id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">父级单位</label>
+                <input
+                  type="text"
+                  value={parentUnit}
+                  readOnly
+                  className="w-full px-4 py-2 border rounded-lg bg-gray-50"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">角色</label>
                 <select

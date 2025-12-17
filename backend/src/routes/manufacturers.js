@@ -94,6 +94,36 @@ router.get('/:manufacturerId/product-categories', async (req, res) => {
   }
 })
 
+router.get('/:manufacturerId/products', async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+
+    const { status = 'active', limit = 2000 } = req.query
+
+    const mid = new mongoose.Types.ObjectId(manufacturerId)
+    const query = {
+      $or: [{ manufacturerId: mid }, { 'skus.manufacturerId': mid }]
+    }
+    if (status && status !== 'all') {
+      query.status = status
+    }
+
+    const products = await Product.find(query)
+      .select('_id name productCode category thumbnail images status')
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(limit) || 2000, 5000))
+      .lean()
+
+    res.json({ success: true, data: products })
+  } catch (error) {
+    console.error('获取厂家商品失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
 // GET /api/manufacturers/:id - 获取单个厂家
 router.get('/:id', get)
 

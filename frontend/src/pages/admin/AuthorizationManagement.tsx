@@ -273,14 +273,6 @@ export default function AuthorizationManagement() {
                 </div>
               )}
 
-              {auth.allowSubAuthorization && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                    <CheckCircle className="w-3 h-3" />
-                    允许下级授权
-                  </span>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -316,7 +308,6 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
     products: [] as string[],
     globalDiscount: 0.85,
     validUntil: '',
-    allowSubAuthorization: false,
     notes: ''
   })
 
@@ -471,7 +462,6 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
         globalDiscount: formData.globalDiscount
       },
       validUntil: formData.validUntil || undefined,
-      allowSubAuthorization: formData.allowSubAuthorization,
       notes: formData.notes
     }
 
@@ -707,20 +697,6 @@ function CreateAuthorizationModal({ onClose, onSuccess }: { onClose: () => void;
               className="input w-full"
             />
             <p className="text-xs text-gray-500 mt-1">留空表示永久有效</p>
-          </div>
-
-          {/* 允许下级授权 */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="allowSub"
-              checked={formData.allowSubAuthorization}
-              onChange={(e) => setFormData({ ...formData, allowSubAuthorization: e.target.checked })}
-              className="rounded"
-            />
-            <label htmlFor="allowSub" className="text-sm text-gray-700">
-              允许被授权方继续授权给他人
-            </label>
           </div>
 
           {/* 备注 */}

@@ -90,12 +90,6 @@ const authorizationSchema = new mongoose.Schema({
   },
   validUntil: Date,  // 如果为空，表示永久有效
   
-  // 是否允许下级授权
-  allowSubAuthorization: {
-    type: Boolean,
-    default: false
-  },
-  
   // 备注说明
   notes: String,
   

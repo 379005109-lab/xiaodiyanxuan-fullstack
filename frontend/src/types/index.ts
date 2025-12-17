@@ -407,6 +407,7 @@ export interface Category {
   slug: string
   description?: string
   image?: string
+  manufacturerId?: string | { _id: string; name?: string } | null
   parentId?: string | null
   status: 'active' | 'inactive'
   order: number

@@ -25,7 +25,6 @@ router.post('/', auth, async (req, res) => {
       products,
       priceSettings,
       validUntil,
-      allowSubAuthorization,
       notes
     } = req.body
 
@@ -69,7 +68,6 @@ router.post('/', auth, async (req, res) => {
       products,
       priceSettings,
       validUntil,
-      allowSubAuthorization,
       notes,
       createdBy: req.userId
     })
@@ -189,13 +187,12 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '只有授权方可以修改授权' })
     }
 
-    const { priceSettings, validUntil, status, notes, allowSubAuthorization } = req.body
+    const { priceSettings, validUntil, status, notes } = req.body
 
     if (priceSettings) authorization.priceSettings = priceSettings
     if (validUntil !== undefined) authorization.validUntil = validUntil
     if (status) authorization.status = status
     if (notes !== undefined) authorization.notes = notes
-    if (allowSubAuthorization !== undefined) authorization.allowSubAuthorization = allowSubAuthorization
     
     authorization.updatedAt = new Date()
     await authorization.save()
@@ -321,8 +318,7 @@ router.get('/products/authorized', auth, async (req, res) => {
         authorizedPrice: authModel.getAuthorizedPrice(product),
         authorizationInfo: {
           fromManufacturer: auth.fromManufacturer,
-          discount: auth.priceSettings.globalDiscount,
-          allowSubAuthorization: auth.allowSubAuthorization
+          discount: auth.priceSettings.globalDiscount
         }
       }
     })
@@ -400,8 +396,7 @@ router.get('/products/:productId/price', auth, async (req, res) => {
             basePrice: product.basePrice,
             authorizedPrice,
             discount: authorizedPrice / product.basePrice,
-            isOwner: false,
-            allowSubAuthorization: auth.allowSubAuthorization
+            isOwner: false
           }
         })
       }
