@@ -34,6 +34,8 @@ const productSchema = new mongoose.Schema({
   subCodes: [String], // 副编号数组
   description: String,
   basePrice: { type: Number, required: true },
+  manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+  authorizedLabelPrices: mongoose.Schema.Types.Mixed,
   stock: { type: Number, default: 0 },
   thumbnail: String,
   images: [String],

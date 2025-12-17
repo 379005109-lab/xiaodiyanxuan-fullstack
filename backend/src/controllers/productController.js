@@ -3,11 +3,215 @@ const { getProducts, getProductById, getCategories, getStyles, searchProducts } 
 const browseHistoryService = require('../services/browseHistoryService')
 const FileService = require('../services/fileService')
 const Product = require('../models/Product')
+const Authorization = require('../models/Authorization')
 const Style = require('../models/Style')
+
+const getProductOwnerManufacturerId = (product) => {
+  if (!product) return null
+  const direct = product.manufacturerId?._id || product.manufacturerId
+  if (direct) return direct.toString()
+  const skuManufacturerId = product.skus?.[0]?.manufacturerId
+  if (skuManufacturerId) return skuManufacturerId.toString()
+  return null
+}
+
+const getAuthorizationViewerKey = (user) => {
+  if (!user) return null
+  if (user.manufacturerId) return `m:${user.manufacturerId.toString()}`
+  const userId = user._id || user.id
+  if (!userId) return null
+  return `u:${userId.toString()}`
+}
+
+const normalizeCategoryId = (category) => {
+  if (!category) return null
+  if (typeof category === 'string') return category
+  const id = category._id || category.id
+  if (!id) return null
+  return id.toString()
+}
+
+const findAuthorizationForUserAndProduct = async (user, product) => {
+  const ownerManufacturerId = getProductOwnerManufacturerId(product)
+  if (!ownerManufacturerId) return null
+
+  if (user?.manufacturerId && user.manufacturerId.toString() === ownerManufacturerId) {
+    return { _isOwner: true }
+  }
+
+  const query = {
+    status: 'active',
+    $or: [
+      { validUntil: { $exists: false } },
+      { validUntil: { $gt: new Date() } }
+    ]
+  }
+
+  if (user?.manufacturerId) {
+    query.toManufacturer = user.manufacturerId
+  } else if (user?.role === 'designer') {
+    query.toDesigner = user._id
+  } else {
+    return null
+  }
+
+  const authorizations = await Authorization.find(query).lean()
+  const categoryId = normalizeCategoryId(product.category)
+
+  for (const auth of authorizations) {
+    if (auth.fromManufacturer?.toString?.() !== ownerManufacturerId) continue
+
+    if (auth.scope === 'all') return auth
+
+    if (auth.scope === 'category' && categoryId && Array.isArray(auth.categories)) {
+      const ok = auth.categories.some(c => c?.toString?.() === categoryId)
+      if (ok) return auth
+    }
+
+    if (auth.scope === 'specific' && Array.isArray(auth.products)) {
+      const ok = auth.products.some(p => p?.toString?.() === product._id?.toString?.())
+      if (ok) return auth
+    }
+  }
+
+  return null
+}
+
+const getAuthorizedTakePrice = (auth, product) => {
+  const authModel = new Authorization(auth)
+  return authModel.getAuthorizedPrice(product)
+}
+
+const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1) => {
+  return {
+    _id: product._id,
+    name: product.name,
+    productCode: product.productCode,
+    category: product.category,
+    thumbnail: product.thumbnail,
+    images: product.images,
+    status: product.status,
+    takePrice,
+    labelPrice1,
+  }
+}
 
 const listProducts = async (req, res) => {
   try {
     const { page = 1, pageSize = 100, search, categoryId, styleId, sortBy } = req.query
+
+    const user = req.user
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      const authQuery = {
+        status: 'active',
+        toManufacturer: user.manufacturerId,
+        $or: [
+          { validUntil: { $exists: false } },
+          { validUntil: { $gt: new Date() } }
+        ]
+      }
+
+      const authorizations = await Authorization.find(authQuery).lean()
+      const authorizedProductIds = new Set()
+      const authByProduct = new Map()
+
+      for (const auth of authorizations) {
+        if (auth.scope === 'all') {
+          const products = await Product.find({
+            $or: [
+              { manufacturerId: auth.fromManufacturer },
+              { 'skus.manufacturerId': auth.fromManufacturer },
+            ],
+            status: 'active'
+          }).select('_id').lean()
+          products.forEach(p => {
+            authorizedProductIds.add(p._id.toString())
+            authByProduct.set(p._id.toString(), auth)
+          })
+        } else if (auth.scope === 'category') {
+          const products = await Product.find({
+            $or: [
+              { manufacturerId: auth.fromManufacturer },
+              { 'skus.manufacturerId': auth.fromManufacturer },
+            ],
+            status: 'active',
+            $or: [
+              { category: { $in: auth.categories || [] } },
+              { 'category._id': { $in: auth.categories || [] } },
+              { 'category.id': { $in: auth.categories || [] } },
+            ]
+          }).select('_id').lean()
+          products.forEach(p => {
+            authorizedProductIds.add(p._id.toString())
+            authByProduct.set(p._id.toString(), auth)
+          })
+        } else if (auth.scope === 'specific') {
+          ;(auth.products || []).forEach(pid => {
+            authorizedProductIds.add(pid.toString())
+            authByProduct.set(pid.toString(), auth)
+          })
+        }
+      }
+
+      const accessQuery = {
+        $or: [
+          { $or: [
+            { manufacturerId: user.manufacturerId },
+            { 'skus.manufacturerId': user.manufacturerId },
+          ] },
+          { _id: { $in: Array.from(authorizedProductIds) } }
+        ]
+      }
+
+      if (search) {
+        accessQuery.$text = { $search: search }
+      }
+
+      if (categoryId) {
+        accessQuery.$or = [
+          { manufacturerId: user.manufacturerId, $or: [
+            { 'category.id': categoryId },
+            { 'category._id': categoryId },
+            { category: categoryId },
+          ] },
+          { _id: { $in: Array.from(authorizedProductIds) }, $or: [
+            { 'category.id': categoryId },
+            { 'category._id': categoryId },
+            { category: categoryId },
+          ] },
+        ]
+      }
+
+      if (styleId) {
+        accessQuery['style.id'] = styleId
+      }
+
+      const total = await Product.countDocuments(accessQuery)
+      const products = await Product.find(accessQuery)
+        .sort(sortBy || 'order -createdAt')
+        .skip((parseInt(page) - 1) * parseInt(pageSize))
+        .limit(parseInt(pageSize))
+        .lean()
+
+      const shaped = products.map(p => {
+        const ownerManufacturerId = getProductOwnerManufacturerId(p)
+        if (ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
+          return p
+        }
+
+        const auth = authByProduct.get(p._id.toString())
+        if (!auth) {
+          return sanitizeProductForAuthorizedViewer(p, 0, 0)
+        }
+
+        const takePrice = getAuthorizedTakePrice(auth, p)
+        const key = getAuthorizationViewerKey(user)
+        const labelPrice1 = (p.authorizedLabelPrices && key) ? (p.authorizedLabelPrices[key] || takePrice) : takePrice
+        return sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1)
+      })
+
+      return res.json(paginatedResponse(shaped, total, parseInt(page), parseInt(pageSize)))
+    }
     
     const result = await getProducts({
       page,
@@ -40,6 +244,24 @@ const getProduct = async (req, res) => {
   try {
     const { id } = req.params
     const product = await getProductById(id)
+
+    const user = req.user
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      const ownerManufacturerId = getProductOwnerManufacturerId(product)
+      if (ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
+        return res.json(successResponse(product))
+      }
+
+      const auth = await findAuthorizationForUserAndProduct(user, product)
+      if (!auth || auth._isOwner) {
+        return res.status(403).json(errorResponse('您没有此商品的授权', 403))
+      }
+
+      const takePrice = getAuthorizedTakePrice(auth, product)
+      const key = getAuthorizationViewerKey(user)
+      const labelPrice1 = (product.authorizedLabelPrices && key) ? (product.authorizedLabelPrices[key] || takePrice) : takePrice
+      return res.json(successResponse(sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1)))
+    }
     
     // 异步记录浏览历史（如果用户已登录）
     const userId = req.user?._id || req.user?.id
@@ -222,7 +444,19 @@ const deleteImage = async (req, res) => {
 // 创建单个商品
 const createProduct = async (req, res) => {
   try {
+    if (!req.user || (req.user.role !== 'super_admin' && !req.user.permissions?.canManageProducts)) {
+      return res.status(403).json(errorResponse('无权限创建商品', 403))
+    }
+
     const productData = req.body
+
+    if (req.user.manufacturerId && req.user.role !== 'super_admin') {
+      productData.manufacturerId = req.user.manufacturerId
+    }
+
+    if (!productData.manufacturerId && productData.skus?.[0]?.manufacturerId) {
+      productData.manufacturerId = productData.skus[0].manufacturerId
+    }
     
     // 调试日志：检查category字段
     console.log('🔥 [创建商品] 商品名称:', productData.name)
@@ -256,6 +490,71 @@ const updateProduct = async (req, res) => {
   try {
     const { id } = req.params
     const productData = req.body
+
+    const existingProduct = await Product.findById(id)
+    if (!existingProduct) {
+      return res.status(404).json(errorResponse('商品不存在', 404))
+    }
+
+    if (!req.user) {
+      return res.status(403).json(errorResponse('无权限更新商品', 403))
+    }
+
+    const ownerManufacturerId = getProductOwnerManufacturerId(existingProduct)
+    const isOwner = req.user.role === 'super_admin' || req.user.role === 'admin' || (req.user.manufacturerId && ownerManufacturerId && req.user.manufacturerId.toString() === ownerManufacturerId)
+
+    // 非归属方：仅允许改标1价（不要求 canManageProducts）
+    if (!isOwner && req.user.manufacturerId) {
+      const allowedKeys = ['labelPrice1']
+      const providedKeys = Object.keys(productData || {}).filter(k => productData[k] !== undefined)
+      const hasOnlyAllowed = providedKeys.every(k => allowedKeys.includes(k))
+      if (!hasOnlyAllowed) {
+        return res.status(403).json(errorResponse('仅允许修改标1价', 403))
+      }
+
+      const auth = await findAuthorizationForUserAndProduct(req.user, existingProduct)
+      if (!auth || auth._isOwner) {
+        return res.status(403).json(errorResponse('您没有此商品的授权', 403))
+      }
+
+      const takePrice = getAuthorizedTakePrice(auth, existingProduct.toObject())
+      const nextLabelPrice = Number(productData.labelPrice1)
+      if (!Number.isFinite(nextLabelPrice)) {
+        return res.status(400).json(errorResponse('标1价无效', 400))
+      }
+      if (nextLabelPrice < takePrice) {
+        return res.status(400).json(errorResponse('标1价不能低于拿货价', 400))
+      }
+
+      const key = getAuthorizationViewerKey(req.user)
+      if (!key) {
+        return res.status(400).json(errorResponse('无法识别授权账号', 400))
+      }
+
+      const prices = existingProduct.authorizedLabelPrices || {}
+      prices[key] = nextLabelPrice
+      existingProduct.authorizedLabelPrices = prices
+      existingProduct.updatedAt = Date.now()
+      await existingProduct.save()
+
+      return res.json(successResponse(
+        sanitizeProductForAuthorizedViewer(existingProduct.toObject(), takePrice, nextLabelPrice),
+        '标1价更新成功'
+      ))
+    }
+
+    // 归属方/平台管理员：正常更新，但需要管理权限（兼容旧 admin 角色）
+    if (req.user.role !== 'super_admin' && req.user.role !== 'admin' && !req.user.permissions?.canManageProducts) {
+      return res.status(403).json(errorResponse('无权限更新商品', 403))
+    }
+
+    if (req.user.manufacturerId && req.user.role !== 'super_admin') {
+      productData.manufacturerId = req.user.manufacturerId
+    }
+
+    if (!productData.manufacturerId && productData.skus?.[0]?.manufacturerId) {
+      productData.manufacturerId = productData.skus[0].manufacturerId
+    }
     
     // 调试日志：检查更新数据
     console.log('🔥 [更新商品] ID:', id)

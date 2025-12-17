@@ -25,6 +25,12 @@ const formatPriceSimplified = (price: number): string => {
   return formatPrice(price)
 }
 
+const getDisplayPrice = (product: any): number => {
+  const raw = product?.labelPrice1 ?? product?.takePrice ?? product?.basePrice ?? 0
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : 0
+}
+
 export default function ProductsPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -337,10 +343,11 @@ export default function ProductsPage() {
     // 价格筛选
     if (filters.priceRange) {
       const [min, max] = filters.priceRange.split('-').map(Number)
+      const price = getDisplayPrice(product as any)
       if (max) {
-        if (product.basePrice < min || product.basePrice > max) return false
+        if (price < min || price > max) return false
       } else {
-        if (product.basePrice < min) return false
+        if (price < min) return false
       }
     }
     
@@ -350,7 +357,7 @@ export default function ProductsPage() {
   // 动态计算价格区间
   const actualPriceRange = useMemo(() => {
     if (products.length === 0) return [0, 500000]
-    const prices = products.map(p => p.basePrice)
+    const prices = products.map(p => getDisplayPrice(p as any)).filter(p => Number.isFinite(p) && p >= 0)
     const minPrice = Math.floor(Math.min(...prices) / 1000) * 1000 // 向下取整到千位
     const maxPrice = Math.ceil(Math.max(...prices) / 1000) * 1000 // 向上取整到千位
     return [minPrice, maxPrice]
@@ -413,9 +420,9 @@ export default function ProductsPage() {
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (filters.sort) {
       case 'price-asc':
-        return a.basePrice - b.basePrice
+        return getDisplayPrice(a as any) - getDisplayPrice(b as any)
       case 'price-desc':
-        return b.basePrice - a.basePrice
+        return getDisplayPrice(b as any) - getDisplayPrice(a as any)
       case 'sales':
         return (b.sales || 0) - (a.sales || 0)
       case 'views':
@@ -488,7 +495,8 @@ export default function ProductsPage() {
     }
     
     // 添加产品的第一个SKU到对比列表
-    const firstSku = product.skus && product.skus[0]
+    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : []
+    const firstSku = skus[0]
     if (!firstSku) {
       toast.error('该商品暂无可选规格')
       return
@@ -841,6 +849,11 @@ export default function ProductsPage() {
                     transition={{ delay: index * 0.05 }}
                     className={viewMode === 'grid' ? 'card hover:shadow-lg transition-shadow' : 'bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow border border-stone-100'}
                   >
+                    {(() => {
+                      const skus = Array.isArray((product as any).skus) ? (product as any).skus : []
+                      const displayPrice = getDisplayPrice(product as any)
+                      const firstSku = skus[0]
+                      return (
                     <div
                       onMouseEnter={() => setHoveredProductId(product._id)}
                       onMouseLeave={() => {
@@ -920,7 +933,7 @@ export default function ProductsPage() {
                                 handleAddToCompare(e, product)
                               }}
                               className={`p-2 rounded-full shadow-md transition-colors ${
-                                product.skus && product.skus[0] && isInCompare(product._id, product.skus[0]._id)
+                                firstSku && isInCompare(product._id, firstSku._id)
                                   ? 'bg-blue-500 text-white'
                                   : 'bg-white text-gray-600 hover:text-blue-500'
                               }`}
@@ -938,23 +951,23 @@ export default function ProductsPage() {
                           </h3>
                           
                           {/* 显示尺寸信息 - 列表模式下显示更紧凑 */}
-                          {viewMode === 'grid' && product.skus[0] && (product.skus[0].length || product.skus[0].width || product.skus[0].height) && (
+                          {viewMode === 'grid' && firstSku && ((firstSku as any).length || (firstSku as any).width || (firstSku as any).height) && (
                             <div className="text-xs text-gray-500 mb-2">
-                              尺寸: {product.skus[0].length || '-'}×{product.skus[0].width || '-'}×{product.skus[0].height || '-'} CM
+                              尺寸: {(firstSku as any).length || '-'}×{(firstSku as any).width || '-'}×{(firstSku as any).height || '-'} CM
                             </div>
                           )}
                           {viewMode === 'list' && (
                             <div className="text-xs text-gray-400">
-                              {product.skus.length} 个规格
+                              {skus.length} 个规格
                             </div>
                           )}
                         </div>
                         
                         <div className={viewMode === 'list' ? 'text-right ml-4' : 'flex items-baseline gap-2 mb-2'}>
                           <span className={`font-bold text-red-600 ${viewMode === 'grid' ? 'text-2xl' : 'text-base'}`}>
-                            {formatPrice(product.basePrice)}
+                            {formatPrice(displayPrice)}
                           </span>
-                          {product.skus.length > 1 && (
+                          {skus.length > 1 && (
                             <span className="text-xs text-gray-500">起</span>
                           )}
                         </div>
@@ -967,12 +980,14 @@ export default function ProductsPage() {
                                 {product.style}
                               </span>
                             )}
-                            <span className="text-gray-500 ml-auto">{product.skus.length} 个规格</span>
+                            <span className="text-gray-500 ml-auto">{skus.length} 个规格</span>
                           </div>
                         )}
                       </div>
                       </Link>
                     </div>
+                      )
+                    })()}
                   </motion.div>
                 ))}
               </div>

@@ -11,6 +11,20 @@ const generateToken = (userId) => {
   )
 }
 
+const ensureProfileCompleted = async (user) => {
+  if (!user || user.profileCompleted) return user
+
+  const hasNickname = user.nickname && user.nickname.trim() !== ''
+  const hasGender = user.gender && ['male', 'female'].includes(user.gender)
+
+  if (hasNickname && hasGender) {
+    user.profileCompleted = true
+    if (!user.profileCompletedAt) user.profileCompletedAt = new Date()
+  }
+
+  return user
+}
+
 const wxLogin = async (code) => {
   // In production, verify code with WeChat API
   // For now, we'll use a mock implementation
@@ -29,6 +43,7 @@ const wxLogin = async (code) => {
   }
   
   user.lastLoginAt = new Date()
+  await ensureProfileCompleted(user)
   await user.save()
   
   const token = generateToken(user._id)
@@ -41,6 +56,7 @@ const wxLogin = async (code) => {
       nickname: user.nickname,
       avatar: user.avatar,
       gender: user.gender,
+      profileCompleted: user.profileCompleted,
       role: user.userType,
       userType: user.userType
     }
@@ -86,6 +102,7 @@ const usernamePasswordLogin = async (username, password) => {
   
   // 更新最后登录时间
   user.lastLoginAt = new Date()
+  await ensureProfileCompleted(user)
   await user.save()
   
   // 生成 token
@@ -99,6 +116,7 @@ const usernamePasswordLogin = async (username, password) => {
       nickname: user.nickname,
       avatar: user.avatar,
       gender: user.gender,
+      profileCompleted: user.profileCompleted,
       role: user.role || user.userType || 'customer',
       userType: user.role || user.userType || 'customer'
     }
@@ -121,6 +139,7 @@ const adminLogin = async (username, password) => {
   
   // 更新最后登录时间
   user.lastLoginAt = new Date()
+  await ensureProfileCompleted(user)
   await user.save()
   
   // 生成 token
@@ -134,6 +153,7 @@ const adminLogin = async (username, password) => {
       nickname: user.nickname,
       avatar: user.avatar,
       gender: user.gender,
+      profileCompleted: user.profileCompleted,
       role: user.userType,
       userType: user.userType
     }
@@ -171,6 +191,7 @@ const loginOrRegisterWithPhone = async (phone) => {
   
   // 更新最后登录时间
   user.lastLoginAt = new Date()
+  await ensureProfileCompleted(user)
   await user.save()
   
   // 生成 token
@@ -184,6 +205,8 @@ const loginOrRegisterWithPhone = async (phone) => {
       username: user.username,
       nickname: user.nickname || user.username,
       avatar: user.avatar,
+      gender: user.gender,
+      profileCompleted: user.profileCompleted,
       role: user.role || user.userType || 'customer',
       userType: user.role || user.userType || 'customer'
     }

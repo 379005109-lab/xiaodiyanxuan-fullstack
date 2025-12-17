@@ -49,7 +49,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
       const data = response.data
       if (data?.success) {
         // 更新本地用户信息
-        updateUser({ nickname: form.nickname.trim(), gender: form.gender } as any)
+        updateUser({ nickname: form.nickname.trim(), gender: form.gender, profileCompleted: true } as any)
         
         // 标记已完善信息，下次不再弹窗
         const userId = (user as any)?._id || (user as any)?.id

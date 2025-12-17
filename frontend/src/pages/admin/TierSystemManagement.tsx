@@ -6,6 +6,8 @@ import {
   TrendingUp, GitBranch, Layers, UserCheck, Store, Briefcase,
   BarChart3, ArrowRight, Check
 } from 'lucide-react'
+import apiClient from '@/lib/apiClient'
+import { useAuthStore } from '@/store/authStore'
 
 // ==================== 类型定义 ====================
 
@@ -53,6 +55,7 @@ interface AuthorizedAccount {
   level: number  // 层级深度
   allocatedRate: number  // 分配的比例
   availableRate: number  // 可再分配比例
+  visibleCategoryIds?: string[]
   children: AuthorizedAccount[]
   status: 'active' | 'suspended' | 'pending'
   createdAt: string
@@ -143,15 +146,21 @@ const ICON_MAP: Record<string, any> = {
 // ==================== localStorage 操作 ====================
 
 const STORAGE_KEY = 'tier_system_data'
+const STORAGE_SELECTED_MANUFACTURER_KEY = 'tier_system_selected_manufacturer'
+
+const getTierStorageKey = (manufacturerId: string) => {
+  if (!manufacturerId) return STORAGE_KEY
+  return `${STORAGE_KEY}:${manufacturerId}`
+}
 
 interface TierSystemData {
   roleModules: RoleModule[]
   authorizedAccounts: AuthorizedAccount[]
 }
 
-const loadTierSystemData = (): TierSystemData => {
+const loadTierSystemData = (manufacturerId: string): TierSystemData => {
   try {
-    const data = localStorage.getItem(STORAGE_KEY)
+    const data = localStorage.getItem(getTierStorageKey(manufacturerId))
     if (data) {
       return JSON.parse(data)
     }
@@ -180,29 +189,82 @@ const loadTierSystemData = (): TierSystemData => {
     authorizedAccounts: []
   }
   
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData))
+  localStorage.setItem(getTierStorageKey(manufacturerId), JSON.stringify(defaultData))
   return defaultData
 }
 
-const saveTierSystemData = (data: TierSystemData) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+const saveTierSystemData = (manufacturerId: string, data: TierSystemData) => {
+  localStorage.setItem(getTierStorageKey(manufacturerId), JSON.stringify(data))
 }
 
 // ==================== 主组件 ====================
 
 export default function TierSystemManagement() {
+  const { user } = useAuthStore()
+  const lockedManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
+  const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'admin'
+
+  const [manufacturers, setManufacturers] = useState<any[]>([])
+  const [selectedManufacturerId, setSelectedManufacturerId] = useState<string>(() => {
+    if (lockedManufacturerId) return lockedManufacturerId
+    const saved = localStorage.getItem(STORAGE_SELECTED_MANUFACTURER_KEY)
+    return saved || ''
+  })
+
   const [activeTab, setActiveTab] = useState<'modules' | 'pool' | 'hierarchy'>('modules')
-  const [data, setData] = useState<TierSystemData>(() => loadTierSystemData())
+  const [data, setData] = useState<TierSystemData>(() => loadTierSystemData(lockedManufacturerId || selectedManufacturerId || ''))
   const [selectedModule, setSelectedModule] = useState<RoleModule | null>(null)
   const [showModuleModal, setShowModuleModal] = useState(false)
   const [showRuleModal, setShowRuleModal] = useState(false)
   const [editingRule, setEditingRule] = useState<DiscountRule | null>(null)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
 
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    const loadManufacturers = async () => {
+      try {
+        const resp = await apiClient.get('/manufacturers/all')
+        const list = resp.data?.data || resp.data?.list || resp.data || []
+        setManufacturers(Array.isArray(list) ? list : [])
+      } catch (e) {
+        console.error('加载厂家列表失败:', e)
+        setManufacturers([])
+      }
+    }
+    loadManufacturers()
+  }, [isSuperAdmin])
+
+  useEffect(() => {
+    if (lockedManufacturerId) {
+      if (selectedManufacturerId !== lockedManufacturerId) {
+        setSelectedManufacturerId(lockedManufacturerId)
+      }
+      return
+    }
+
+    if (isSuperAdmin && !selectedManufacturerId && manufacturers.length > 0) {
+      setSelectedManufacturerId(String(manufacturers[0]?._id || ''))
+    }
+  }, [lockedManufacturerId, isSuperAdmin, manufacturers, selectedManufacturerId])
+
+  useEffect(() => {
+    if (lockedManufacturerId) return
+    if (selectedManufacturerId) {
+      localStorage.setItem(STORAGE_SELECTED_MANUFACTURER_KEY, selectedManufacturerId)
+    }
+  }, [lockedManufacturerId, selectedManufacturerId])
+
+  useEffect(() => {
+    const mid = lockedManufacturerId || selectedManufacturerId || ''
+    setData(loadTierSystemData(mid))
+    setSelectedModule(null)
+    setExpandedNodes(new Set())
+  }, [lockedManufacturerId, selectedManufacturerId])
+
   // 保存数据
   const saveData = (newData: TierSystemData) => {
     setData(newData)
-    saveTierSystemData(newData)
+    saveTierSystemData(lockedManufacturerId || selectedManufacturerId || '', newData)
   }
 
   // 更新角色模块
@@ -284,6 +346,31 @@ export default function TierSystemManagement() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">分层体系管理</h1>
         <p className="text-sm text-gray-500 mt-1">管理角色模块、毛利池配置和多层级授权关系</p>
+        <div className="mt-4 flex items-center gap-3">
+          <div className="text-sm text-gray-600 flex items-center gap-2">
+            <Building2 className="w-4 h-4" />
+            <span>厂家</span>
+          </div>
+          {lockedManufacturerId ? (
+            <span className="text-sm text-gray-900">
+              {(user as any)?.manufacturerName || (user as any)?.manufacturer?.name || lockedManufacturerId}
+            </span>
+          ) : (
+            <select
+              value={selectedManufacturerId}
+              onChange={(e) => setSelectedManufacturerId(e.target.value)}
+              className="input"
+              disabled={!isSuperAdmin}
+            >
+              <option value="">-- 请选择厂家 --</option>
+              {manufacturers.map(m => (
+                <option key={m._id} value={m._id}>
+                  {m.name || m.fullName || m._id}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {/* 标签切换 */}
@@ -334,6 +421,7 @@ export default function TierSystemManagement() {
         <HierarchyTab 
           modules={data.roleModules}
           accounts={data.authorizedAccounts}
+          manufacturerId={lockedManufacturerId || selectedManufacturerId || ''}
           expandedNodes={expandedNodes}
           onToggleNode={(id) => {
             const newExpanded = new Set(expandedNodes)
@@ -915,12 +1003,14 @@ function ProfitPoolTab({
 function HierarchyTab({
   modules,
   accounts,
+  manufacturerId,
   expandedNodes,
   onToggleNode,
   onSaveAccounts
 }: {
   modules: RoleModule[]
   accounts: AuthorizedAccount[]
+  manufacturerId: string
   expandedNodes: Set<string>
   onToggleNode: (id: string) => void
   onSaveAccounts: (accounts: AuthorizedAccount[]) => void
@@ -928,6 +1018,25 @@ function HierarchyTab({
   const [selectedModuleCode, setSelectedModuleCode] = useState<string>('all')
   const [showAddModal, setShowAddModal] = useState(false)
   const [parentAccount, setParentAccount] = useState<AuthorizedAccount | null>(null)
+  const [manufacturerCategories, setManufacturerCategories] = useState<any[]>([])
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      if (!manufacturerId) {
+        setManufacturerCategories([])
+        return
+      }
+      try {
+        const resp = await apiClient.get(`/manufacturers/${manufacturerId}/product-categories`)
+        const list = resp.data?.data || []
+        setManufacturerCategories(Array.isArray(list) ? list : [])
+      } catch (e) {
+        console.error('加载厂家商品分类失败:', e)
+        setManufacturerCategories([])
+      }
+    }
+    loadCategories()
+  }, [manufacturerId])
 
   // 按角色模块筛选账号
   const filteredAccounts = useMemo(() => {
@@ -950,12 +1059,29 @@ function HierarchyTab({
 
   // 添加账号
   const handleAddAccount = (data: {
+    accountId: string
     username: string
     nickname: string
     phone: string
     roleModuleId: string
     allocatedRate: number
+    visibleCategoryIds: string[]
   }) => {
+    if (!manufacturerId) {
+      toast.error('请先选择厂家')
+      return
+    }
+
+    if (!data.accountId) {
+      toast.error('请选择要绑定的账号')
+      return
+    }
+
+    if (accounts.some(a => String(a.userId) === String(data.accountId))) {
+      toast.error('该账号已绑定在授权层级中')
+      return
+    }
+
     const module = modules.find(m => m._id === data.roleModuleId)
     if (!module) {
       toast.error('请选择角色模块')
@@ -975,7 +1101,7 @@ function HierarchyTab({
 
     const newAccount: AuthorizedAccount = {
       _id: `account_${Date.now()}`,
-      userId: `user_${Date.now()}`,
+      userId: data.accountId,
       username: data.username,
       nickname: data.nickname,
       phone: data.phone,
@@ -986,6 +1112,7 @@ function HierarchyTab({
       level: parentAccount ? parentAccount.level + 1 : 1,
       allocatedRate: data.allocatedRate,
       availableRate: data.allocatedRate,
+      visibleCategoryIds: data.visibleCategoryIds,
       children: [],
       status: 'active',
       createdAt: new Date().toISOString()
@@ -1004,6 +1131,7 @@ function HierarchyTab({
     const isExpanded = expandedNodes.has(account._id)
     const module = modules.find(m => m._id === account.roleModuleId)
     const Icon = module ? (ICON_MAP[module.icon] || Layers) : Users
+    const visibleCount = account.visibleCategoryIds?.length || 0
 
     return (
       <div key={account._id} className="select-none">
@@ -1048,6 +1176,8 @@ function HierarchyTab({
               <span>分配: {account.allocatedRate}%</span>
               <span>•</span>
               <span>可授权: {account.availableRate}%</span>
+              <span>•</span>
+              <span>品类: {visibleCount > 0 ? `${visibleCount}个` : '全部'}</span>
             </div>
           </div>
           
@@ -1161,6 +1291,9 @@ function HierarchyTab({
         <AddAccountModal
           modules={modules}
           parentAccount={parentAccount}
+          manufacturerId={manufacturerId}
+          manufacturerCategories={manufacturerCategories}
+          existingUserIds={accounts.map(a => String(a.userId))}
           onClose={() => {
             setShowAddModal(false)
             setParentAccount(null)
@@ -1177,44 +1310,119 @@ function HierarchyTab({
 function AddAccountModal({
   modules,
   parentAccount,
+  manufacturerId,
+  manufacturerCategories,
+  existingUserIds,
   onClose,
   onSave
 }: {
   modules: RoleModule[]
   parentAccount: AuthorizedAccount | null
+  manufacturerId: string
+  manufacturerCategories: Array<{ id: string; name: string; parentId?: string | null; count: number }>
+  existingUserIds: string[]
   onClose: () => void
   onSave: (data: {
+    accountId: string
     username: string
     nickname: string
     phone: string
     roleModuleId: string
     allocatedRate: number
+    visibleCategoryIds: string[]
   }) => void
 }) {
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [accountKeyword, setAccountKeyword] = useState('')
+
+  const parentHasCustomVisibility = !!(parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0)
+  const parentVisibleCategoryIds = parentHasCustomVisibility
+    ? parentAccount!.visibleCategoryIds!.map(String)
+    : []
+
   const [formData, setFormData] = useState({
-    username: '',
-    nickname: '',
-    phone: '',
+    accountId: '',
     roleModuleId: parentAccount?.roleModuleId || modules[0]?._id || '',
-    allocatedRate: 5
+    allocatedRate: 5,
+    visibilityMode: (parentHasCustomVisibility ? 'custom' : 'all') as 'all' | 'custom',
+    visibleCategoryIds: (parentHasCustomVisibility ? parentVisibleCategoryIds : []) as string[]
   })
+
+  useEffect(() => {
+    const loadAccounts = async () => {
+      if (!manufacturerId) {
+        setAccounts([])
+        return
+      }
+      try {
+        const resp = await apiClient.get(`/manufacturers/${manufacturerId}/accounts`)
+        const list = resp.data?.data || []
+        setAccounts(Array.isArray(list) ? list : [])
+      } catch (e) {
+        console.error('加载厂家账号失败:', e)
+        setAccounts([])
+      }
+    }
+    loadAccounts()
+  }, [manufacturerId])
 
   const selectedModule = modules.find(m => m._id === formData.roleModuleId)
   const maxRate = parentAccount 
     ? parentAccount.availableRate 
     : (selectedModule ? selectedModule.maxProfitRate - selectedModule.currentAllocatedRate : 0)
 
+  const allowedCategoryIds = parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0
+    ? new Set(parentAccount.visibleCategoryIds.map(String))
+    : null
+  const effectiveCategories = allowedCategoryIds
+    ? manufacturerCategories.filter(c => allowedCategoryIds.has(String(c.id)))
+    : manufacturerCategories
+
+  const filteredAccounts = accounts
+    .filter(a => !existingUserIds.includes(String(a._id)))
+    .filter(a => {
+      if (!accountKeyword.trim()) return true
+      const t = `${a.username || ''} ${a.nickname || ''} ${a.phone || ''}`.toLowerCase()
+      return t.includes(accountKeyword.trim().toLowerCase())
+    })
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.username.trim()) {
-      toast.error('请输入用户名')
+
+    const selected = accounts.find(a => String(a._id) === String(formData.accountId))
+    if (!selected) {
+      toast.error('请选择要绑定的账号')
       return
     }
     if (!formData.roleModuleId) {
       toast.error('请选择角色模块')
       return
     }
-    onSave(formData)
+
+    let visibleCategoryIds = formData.visibilityMode === 'custom' ? formData.visibleCategoryIds : []
+
+    if (allowedCategoryIds && formData.visibilityMode === 'all') {
+      visibleCategoryIds = Array.from(allowedCategoryIds)
+    }
+
+    if (allowedCategoryIds) {
+      visibleCategoryIds = visibleCategoryIds.filter(id => allowedCategoryIds.has(String(id)))
+    }
+
+    if ((formData.visibilityMode === 'custom' || allowedCategoryIds) && visibleCategoryIds.length === 0) {
+      toast.error('请选择至少一个可见品类')
+      return
+    }
+
+    onSave({
+      accountId: String(selected._id),
+      username: String(selected.username || ''),
+      nickname: String(selected.nickname || selected.username || ''),
+      phone: String(selected.phone || ''),
+      roleModuleId: formData.roleModuleId,
+      allocatedRate: formData.allocatedRate,
+      visibleCategoryIds
+    })
   }
 
   return (
@@ -1228,38 +1436,83 @@ function AddAccountModal({
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">用户名 <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">绑定账号 <span className="text-red-500">*</span></label>
             <input
               type="text"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+              value={accountKeyword}
+              onChange={(e) => setAccountKeyword(e.target.value)}
+              className="input w-full mb-2"
+              placeholder="搜索账号（用户名/昵称/手机号）"
+            />
+            <select
+              value={formData.accountId}
+              onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
               className="input w-full"
-              placeholder="登录用户名"
               required
-            />
+            >
+              <option value="">-- 请选择账号 --</option>
+              {filteredAccounts.map(a => (
+                <option key={a._id} value={a._id}>
+                  {(a.nickname || a.username) || a._id} {a.username ? `@${a.username}` : ''} {a.phone ? `(${a.phone})` : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">昵称</label>
-            <input
-              type="text"
-              value={formData.nickname}
-              onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+            <label className="block text-sm font-medium text-gray-700 mb-1">可见品类</label>
+            <select
+              value={formData.visibilityMode}
+              onChange={(e) => {
+                const nextMode = e.target.value as any
+                setFormData(prev => ({
+                  ...prev,
+                  visibilityMode: nextMode,
+                  visibleCategoryIds: nextMode === 'custom'
+                    ? (parentHasCustomVisibility ? parentVisibleCategoryIds : [])
+                    : []
+                }))
+              }}
               className="input w-full"
-              placeholder="显示名称"
-            />
+            >
+              <option value="all" disabled={parentHasCustomVisibility}>全部品类</option>
+              <option value="custom">自定义</option>
+            </select>
+            {parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">下级可选品类不会超出上级范围</p>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">手机号</label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="input w-full"
-              placeholder="联系电话"
-            />
-          </div>
+          {formData.visibilityMode === 'custom' && (
+            <div className="border border-gray-200 rounded-lg p-3 max-h-56 overflow-y-auto">
+              {effectiveCategories.length === 0 ? (
+                <p className="text-sm text-gray-500">该厂家暂无可选品类</p>
+              ) : (
+                <div className="space-y-2">
+                  {effectiveCategories.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                      <input
+                        type="checkbox"
+                        checked={formData.visibleCategoryIds.includes(String(c.id))}
+                        onChange={() => {
+                          const id = String(c.id)
+                          setFormData(prev => ({
+                            ...prev,
+                            visibleCategoryIds: prev.visibleCategoryIds.includes(id)
+                              ? prev.visibleCategoryIds.filter(x => x !== id)
+                              : [...prev.visibleCategoryIds, id]
+                          }))
+                        }}
+                        className="rounded text-primary"
+                      />
+                      <span className="text-sm font-medium">{c.name}</span>
+                      <span className="text-xs text-gray-400">({c.count})</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">角色模块 <span className="text-red-500">*</span></label>

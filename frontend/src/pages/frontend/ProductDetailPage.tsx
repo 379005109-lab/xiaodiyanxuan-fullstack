@@ -55,6 +55,12 @@ const determineDefaultFilter = (skus: ProductSKU[]): SkuFilter => {
   return 'all';
 };
 
+const getProductDisplayPrice = (product: any): number => {
+  const raw = product?.labelPrice1 ?? product?.takePrice ?? product?.basePrice ?? 0
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : 0
+}
+
 const getInitialSkuForFilter = (skus: ProductSKU[], filter: SkuFilter) => {
   if (!skus.length) return null;
   if (filter === 'standard') return skus.find(sku => !sku.isPro) || skus[0];
@@ -444,7 +450,8 @@ const ProductDetailPage = () => {
   const defaultGalleryImages = useMemo(() => {
     if (!product) return [];
     const baseImages = Array.isArray(product.images) ? product.images : [];
-    const skuImages = product.skus.flatMap(sku => sku.images || []);
+    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : [];
+    const skuImages = skus.flatMap((sku: any) => sku.images || []);
     const merged = [...baseImages, ...skuImages].filter(Boolean);
     return Array.from(new Set(merged));
   }, [product]);
@@ -462,18 +469,21 @@ const ProductDetailPage = () => {
 
   const filteredSkus = useMemo(() => {
     if (!product) return [];
-    if (activeFilter === 'standard') return product.skus.filter(sku => !sku.isPro);
-    if (activeFilter === 'pro') return product.skus.filter(sku => sku.isPro);
-    return product.skus;
+    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+    if (activeFilter === 'standard') return skus.filter(sku => !sku.isPro);
+    if (activeFilter === 'pro') return skus.filter(sku => sku.isPro);
+    return skus;
   }, [product, activeFilter]);
 
   // 根据商品实际的SKU动态生成可用的筛选选项
   const availableFilters = useMemo(() => {
-    if (!product || !product.skus || product.skus.length === 0) return [];
+    if (!product) return [];
+    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+    if (skus.length === 0) return [];
     
     const filters: { key: SkuFilter; label: string }[] = [];
-    const hasStandard = product.skus.some(sku => !sku.isPro);
-    const hasPro = product.skus.some(sku => sku.isPro);
+    const hasStandard = skus.some(sku => !sku.isPro);
+    const hasPro = skus.some(sku => sku.isPro);
     
     // 只有当同时有标准版和PRO版时才显示"全部款式"
     if (hasStandard && hasPro) {
@@ -502,9 +512,10 @@ const ProductDetailPage = () => {
         const fetchedProduct = await getProductById(id);
         setProduct(fetchedProduct);
         if (fetchedProduct) {
-          const defaultFilter = determineDefaultFilter(fetchedProduct.skus);
+          const fetchedSkus = Array.isArray((fetchedProduct as any).skus) ? ((fetchedProduct as any).skus as ProductSKU[]) : [];
+          const defaultFilter = determineDefaultFilter(fetchedSkus);
           setActiveFilter(defaultFilter);
-          const initialSku = getInitialSkuForFilter(fetchedProduct.skus, defaultFilter);
+          const initialSku = getInitialSkuForFilter(fetchedSkus, defaultFilter);
           setSelectedSku(initialSku);
           const firstSkuImage = initialSku?.images?.find(Boolean);
           const firstProductImage = fetchedProduct.images?.find(Boolean);
@@ -773,10 +784,11 @@ const ProductDetailPage = () => {
     return <div className="container-custom py-12 text-center">商品不存在</div>;
   }
 
-  const currentPrice = selectedSku ? selectedSku.price : product.basePrice;
+  const productDisplayPrice = getProductDisplayPrice(product as any);
+  const currentPrice = selectedSku ? selectedSku.price : productDisplayPrice;
   const discountPrice = selectedSku?.discountPrice;
   const normalizedSelectedMaterials = selectedSku ? normalizeMaterialSelection(selectedSku.material) : null;
-  const baseSkuPrice = selectedSku ? getBasePrice(selectedSku) : product.basePrice;
+  const baseSkuPrice = selectedSku ? getBasePrice(selectedSku) : productDisplayPrice;
   
   // 获取当前选中的材质（支持动态类目）
   const currentSelectedMaterials = (() => {
@@ -793,7 +805,7 @@ const ProductDetailPage = () => {
     return result;
   })();
   
-  const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : product.basePrice;
+  const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : productDisplayPrice;
 
   const isFavorited = product ? favorites.some(f => {
     if (!f || !f.product) return false;

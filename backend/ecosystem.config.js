@@ -39,7 +39,7 @@ module.exports = {
       listen_timeout: 10000,
       
       // 环境变量
-      cwd: '/home/devbox/project/backend'
+      cwd: '/home/devbox/project/1114/client/backend'
     }
   ],
   
@@ -50,7 +50,7 @@ module.exports = {
       host: 'localhost',
       ref: 'origin/main',
       repo: 'git@github.com:repo.git',
-      path: '/home/devbox/project/backend',
+      path: '/home/devbox/project/1114/client/backend',
       'post-deploy': 'npm install && pm2 reload ecosystem.config.js --env production'
     }
   }

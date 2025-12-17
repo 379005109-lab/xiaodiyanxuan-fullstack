@@ -1,5 +1,18 @@
 // 用户类型
-export type UserRole = 'super_admin' | 'admin' | 'designer' | 'distributor' | 'customer' | 'owner' | 'professional'
+export type UserRole =
+  | 'super_admin'
+  | 'admin'
+  | 'platform_admin'
+  | 'platform_staff'
+  | 'enterprise_admin'
+  | 'enterprise_staff'
+  | 'designer'
+  | 'special_guest'
+  | 'distributor'
+  | 'customer'
+  | 'owner'
+  | 'professional'
+  | 'user'
 
 export interface User {
   _id: string
@@ -8,7 +21,19 @@ export interface User {
   phone?: string
   nickname?: string
   gender?: 'male' | 'female' | ''
+  profileCompleted?: boolean
   role: UserRole
+  manufacturerId?: string
+  accountType?: 'auth' | 'sub' | 'designer' | 'normal'
+  permissions?: {
+    canAccessAdmin?: boolean
+    canViewCostPrice?: boolean
+    canDownloadMaterial?: boolean
+    canManageUsers?: boolean
+    canManageProducts?: boolean
+    canManageOrders?: boolean
+    canViewReports?: boolean
+  }
   avatar?: string
   createdAt: string
   updatedAt: string
@@ -174,13 +199,16 @@ export interface Product {
   style: ProductStyle
   styles?: string[]  // 多个风格标签（现代风、轻奢风等）
   basePrice: number
+  takePrice?: number
+  labelPrice1?: number
+  thumbnail?: string
   images: string[]
   skus: ProductSKU[]
   isCombo: boolean
   comboItems?: string[]
   tags: string[]
   specifications: Record<string, string>
-  status: 'active' | 'inactive' | 'out_of_stock'
+  status: 'active' | 'inactive' | 'out_of_stock' | 'deleted'
   views: number
   sales: number
   rating: number

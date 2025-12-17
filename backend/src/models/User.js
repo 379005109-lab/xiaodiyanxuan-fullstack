@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema({
   password: String,
   nickname: String,
   gender: { type: String, enum: ['male', 'female', ''], default: '' },
+  profileCompleted: { type: Boolean, default: false },
+  profileCompletedAt: Date,
   avatar: String,
   phone: String,
   email: String,

@@ -12,7 +12,7 @@ if ! command -v pm2 &> /dev/null; then
 fi
 
 # 进入项目目录
-cd /home/devbox/project/backend
+cd /home/devbox/project/1114/client/backend
 
 # 检查 node_modules 是否存在
 if [ ! -d "node_modules" ]; then

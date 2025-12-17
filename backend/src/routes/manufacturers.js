@@ -1,8 +1,11 @@
 const express = require('express')
+const mongoose = require('mongoose')
 const router = express.Router()
 const { auth } = require('../middleware/auth')
 const { list, listAll, get, create, update, remove } = require('../controllers/manufacturerController')
 const manufacturerAccountController = require('../controllers/manufacturerAccountController')
+const Product = require('../models/Product')
+const Category = require('../models/Category')
 
 // 需要认证
 router.use(auth)
@@ -32,6 +35,61 @@ router.get('/me', async (req, res) => {
     res.json({ success: true, data: manufacturer })
   } catch (error) {
     console.error('获取厂家信息失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+router.get('/:manufacturerId/product-categories', async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+
+    const mid = new mongoose.Types.ObjectId(manufacturerId)
+    const products = await Product.find({
+      status: 'active',
+      $or: [{ manufacturerId: mid }, { 'skus.manufacturerId': mid }]
+    }).select('category').lean()
+
+    const countByCategoryId = new Map()
+    for (const p of products) {
+      const c = p?.category
+      let categoryId = null
+      if (typeof c === 'string') {
+        categoryId = c
+      } else if (c && typeof c === 'object') {
+        categoryId = c._id || c.id || c.slug
+      }
+      if (!categoryId) continue
+      const key = String(categoryId)
+      countByCategoryId.set(key, (countByCategoryId.get(key) || 0) + 1)
+    }
+
+    const categoryIds = Array.from(countByCategoryId.keys())
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id))
+
+    const categories = categoryIds.length > 0
+      ? await Category.find({ _id: { $in: categoryIds } }).select('_id name parentId').lean()
+      : []
+
+    const categoryById = new Map(categories.map(c => [String(c._id), c]))
+    const data = Array.from(countByCategoryId.entries())
+      .map(([id, count]) => {
+        const cat = categoryById.get(id)
+        return {
+          id,
+          name: cat?.name || id,
+          parentId: cat?.parentId ? String(cat.parentId) : null,
+          count
+        }
+      })
+      .sort((a, b) => b.count - a.count)
+
+    res.json({ success: true, data })
+  } catch (error) {
+    console.error('获取厂家商品分类失败:', error)
     res.status(500).json({ success: false, message: '服务器错误' })
   }
 })

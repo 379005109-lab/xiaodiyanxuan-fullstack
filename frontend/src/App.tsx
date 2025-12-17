@@ -82,6 +82,8 @@ const CommissionSystem = lazy(() => import('./pages/admin/CommissionSystem'))
 const ChannelPartners = lazy(() => import('./pages/admin/ChannelPartners'))
 const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManagement'))
 
+const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
+
 // 厂家端页面
 const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
 const ManufacturerOrders = lazy(() => import('./pages/manufacturer/ManufacturerOrders'))
@@ -93,11 +95,13 @@ const ManufacturerSettings = lazy(() => import('./pages/manufacturer/Manufacture
 interface ProtectedRouteProps {
   children: React.ReactNode
   requireAdmin?: boolean
+  requireAdminPortal?: boolean
+  requirePermission?: string
   allowedRoles?: UserRole[]
   fallbackPath?: string
 }
 
-const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles, fallbackPath = '/' }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children, requireAdmin = false, requireAdminPortal = false, requirePermission, allowedRoles, fallbackPath = '/' }: ProtectedRouteProps) => {
   const { user, isAuthenticated, token } = useAuthStore()
   const [isReady, setIsReady] = useState(false)
   
@@ -126,6 +130,18 @@ const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles, fallback
     console.log('[ProtectedRoute] 未认证，重定向到登录页')
     return <Navigate to="/login" replace />
   }
+
+  if (requireAdminPortal) {
+    const hasPortalAccess =
+      user?.role === 'admin' ||
+      user?.role === 'super_admin' ||
+      user?.role === 'designer' ||
+      (user as any)?.permissions?.canAccessAdmin === true
+    if (!hasPortalAccess) {
+      console.log('[ProtectedRoute] 无管理后台访问权限，重定向到', fallbackPath)
+      return <Navigate to={fallbackPath} replace />
+    }
+  }
   
   if (requireAdmin && user?.role !== 'admin' && user?.role !== 'super_admin') {
     console.log('[ProtectedRoute] 权限不足，重定向到', fallbackPath)
@@ -136,8 +152,51 @@ const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles, fallback
     console.log('[ProtectedRoute] 角色不匹配，重定向到', fallbackPath)
     return <Navigate to={fallbackPath} replace />
   }
+
+  if (requirePermission) {
+    const hasPerm =
+      user?.role === 'super_admin' ||
+      user?.role === 'admin' ||
+      (user as any)?.permissions?.[requirePermission] === true
+    if (!hasPerm) {
+      console.log('[ProtectedRoute] 权限不足，重定向到', fallbackPath)
+      return <Navigate to={fallbackPath} replace />
+    }
+  }
   
   return <>{children}</>
+}
+
+const AdminIndexRedirect = () => {
+  const { user } = useAuthStore()
+
+  if ((user as any)?.manufacturerId && (user as any)?.permissions?.canAccessAdmin === true) {
+    if ((user as any)?.permissions?.canManageProducts === true) {
+      return <Navigate to="/admin/products" replace />
+    }
+    return <Navigate to="/admin/authorized-products" replace />
+  }
+
+  if (user?.role === 'designer') {
+    return <Navigate to="/admin/products" replace />
+  }
+
+  return <Navigate to="/admin/activity" replace />
+}
+
+const ProductManagementRoute = () => {
+  const { user } = useAuthStore()
+  const canAccess =
+    user?.role === 'admin' ||
+    user?.role === 'super_admin' ||
+    user?.role === 'designer' ||
+    (user as any)?.permissions?.canManageProducts === true
+
+  if (!canAccess) {
+    return <Navigate to="/admin" replace />
+  }
+
+  return <ProductManagement />
 }
 
 // 加载组件
@@ -161,6 +220,12 @@ function App() {
       // 检查是否已经完善过信息
       const hasCompletedBefore = localStorage.getItem(profileCompletedKey) === 'true'
       if (hasCompletedBefore) return
+
+      // 后端已标记完善信息，直接写入本地标记并退出
+      if ((user as any).profileCompleted === true) {
+        localStorage.setItem(profileCompletedKey, 'true')
+        return
+      }
       
       // 检查用户是否已完善信息（有nickname和gender）
       const hasNickname = (user as any).nickname && (user as any).nickname.trim() !== ''
@@ -281,23 +346,20 @@ function App() {
 
           {/* 后台路由 */}
           <Route path="/admin" element={
-            <ProtectedRoute allowedRoles={[ 'admin', 'super_admin', 'designer' ]}>
+            <ProtectedRoute requireAdminPortal>
               <AdminLayout />
             </ProtectedRoute>
           }>
-            <Route index element={<Navigate to="/admin/activity" replace />} />
-            <Route path="products" element={
-              <ProtectedRoute allowedRoles={['admin', 'super_admin', 'designer']}>
-                <ProductManagement />
-              </ProtectedRoute>
-            } />
+            <Route index element={<AdminIndexRedirect />} />
+            <Route path="products" element={<ProductManagementRoute />} />
+            <Route path="authorized-products" element={<AuthorizedProductPricing />} />
             <Route path="products/new" element={
-              <ProtectedRoute requireAdmin fallbackPath="/admin/products">
+              <ProtectedRoute requirePermission="canManageProducts" fallbackPath="/admin">
                 <ProductForm />
               </ProtectedRoute>
             } />
             <Route path="products/edit/:id" element={
-              <ProtectedRoute requireAdmin fallbackPath="/admin/products">
+              <ProtectedRoute requirePermission="canManageProducts" fallbackPath="/admin">
                 <ProductForm />
               </ProtectedRoute>
             } />
