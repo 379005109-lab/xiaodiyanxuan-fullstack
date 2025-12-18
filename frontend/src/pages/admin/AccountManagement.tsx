@@ -74,8 +74,15 @@ export default function AccountManagement() {
     const groups = new Map<string, { key: string; label: string; users: accountService.AccountUser[] }>()
 
     const getOwnerGroup = (u: accountService.AccountUser) => {
+      const mids: any = (u as any).manufacturerIds
+      if (Array.isArray(mids) && mids.length > 0) {
+        const first = mids[0]
+        const id = typeof first === 'string' ? String(first) : String(first?._id || '')
+        return { key: `m:${id}`, label: getManufacturerName(first) || '厂家' }
+      }
+
       const mid: any = (u as any).manufacturerId
-      if (!mid) return { key: 'platform', label: '平台' }
+      if (!mid) return { key: 'platform', label: '小迪严选（平台）' }
       const id = typeof mid === 'string' ? String(mid) : String(mid?._id || '')
       return { key: `m:${id}`, label: getManufacturerName(mid) || '厂家' }
     }
@@ -547,8 +554,7 @@ export default function AccountManagement() {
               </div>
               {activeTab !== 'customers' && (
                 <button
-                  onClick={async () => {
-                    await ensureOrganizationsLoaded()
+                  onClick={() => {
                     setEditingUser(null)
                     setShowUserModal(true)
                   }}
@@ -570,12 +576,18 @@ export default function AccountManagement() {
                     <select
                       multiple
                       value={batchManufacturerIds}
-                      onChange={(e) =>
-                        setBatchManufacturerIds(Array.from(e.target.selectedOptions).map(o => o.value))
-                      }
+                      onChange={(e) => {
+                        const values = Array.from(e.target.selectedOptions).map(o => o.value)
+                        if (values.includes('')) {
+                          setBatchManufacturerIds([''])
+                          return
+                        }
+                        setBatchManufacturerIds(values)
+                      }}
                       className="px-3 py-2 border rounded-lg min-w-64"
                       size={Math.min(6, Math.max(3, manufacturers.length))}
                     >
+                      <option value="">小迪严选（平台）</option>
                       {manufacturers.map((m: any) => (
                         <option key={m._id} value={m._id}>
                           {m.name || m.fullName || m._id}
@@ -583,7 +595,7 @@ export default function AccountManagement() {
                       ))}
                     </select>
                     <button
-                      onClick={() => applyBatchManufacturer(batchManufacturerIds)}
+                      onClick={() => applyBatchManufacturer(batchManufacturerIds.filter(v => v !== ''))}
                       disabled={batchAssigning}
                       className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
                     >
@@ -617,7 +629,6 @@ export default function AccountManagement() {
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">用户</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">角色</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">标签</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">组织</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">归属</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">状态</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">创建时间</th>
@@ -627,17 +638,17 @@ export default function AccountManagement() {
                 <tbody className="divide-y">
                   {loading ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-12 text-gray-500">加载中...</td>
+                      <td colSpan={8} className="text-center py-12 text-gray-500">加载中...</td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-12 text-gray-500">暂无数据</td>
+                      <td colSpan={8} className="text-center py-12 text-gray-500">暂无数据</td>
                     </tr>
                   ) : (
                     groupedUsers.flatMap((group) => [
                       (
                         <tr key={`group-${group.key}`} className="bg-gray-50">
-                          <td colSpan={9} className="px-4 py-2 text-sm font-medium text-gray-700">
+                          <td colSpan={8} className="px-4 py-2 text-sm font-medium text-gray-700">
                             {group.label}（{group.users.length}）
                           </td>
                         </tr>
@@ -698,21 +709,18 @@ export default function AccountManagement() {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
-                            {user.organizationId?.name || '-'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
                             {(() => {
                               const mids: any = (user as any).manufacturerIds
                               if (Array.isArray(mids) && mids.length > 0) {
                                 const names = mids
                                   .map((x: any) => getManufacturerName(x))
                                   .filter(Boolean)
-                                if (names.length === 0) return '平台'
+                                if (names.length === 0) return '小迪严选（平台）'
                                 return names.length > 1 ? `${names[0]} 等${names.length}` : names[0]
                               }
                               const mid: any = (user as any).manufacturerId
-                              if (!mid) return '平台'
-                              return getManufacturerName(mid) || '平台'
+                              if (!mid) return '小迪严选（平台）'
+                              return getManufacturerName(mid) || '小迪严选（平台）'
                             })()}
                           </td>
                           <td className="px-4 py-3">
@@ -745,8 +753,7 @@ export default function AccountManagement() {
                                 <History className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={async () => {
-                                  await ensureOrganizationsLoaded()
+                                onClick={() => {
                                   setEditingUser(user)
                                   setShowUserModal(true)
                                 }}
@@ -869,11 +876,13 @@ export default function AccountManagement() {
       {showUserModal && (
         <UserModal
           user={editingUser}
-          organizations={organizations}
           manufacturers={manufacturers}
           isDesigner={activeTab === 'designers'}
           onClose={() => setShowUserModal(false)}
-          onSave={() => { setShowUserModal(false); loadUsers() }}
+          onSave={() => {
+            setShowUserModal(false)
+            loadUsers()
+          }}
         />
       )}
 
@@ -1025,14 +1034,12 @@ function OrganizationModal({
 // 用户编辑模态框
 function UserModal({ 
   user, 
-  organizations,
   manufacturers,
   isDesigner,
   onClose, 
   onSave 
 }: { 
   user: accountService.AccountUser | null
-  organizations: accountService.Organization[]
   manufacturers: any[]
   isDesigner: boolean
   onClose: () => void
@@ -1063,7 +1070,6 @@ function UserModal({
     phone: user?.phone || '',
     email: user?.email || '',
     role: user?.role || (isDesigner ? USER_ROLES.DESIGNER : USER_ROLES.CUSTOMER),
-    organizationId: (user?.organizationId as any)?._id || '',
     manufacturerIds: initialManufacturerIds,
     status: user?.status || 'active',
   })
@@ -1072,11 +1078,9 @@ function UserModal({
   const parentUnit = (() => {
     if (formData.manufacturerIds.length > 0) {
       const names = formData.manufacturerIds.map(getManufacturerNameById).filter(Boolean)
-      return names.length > 1 ? `${names[0]} 等${names.length}` : (names[0] || '平台')
+      return names.length > 1 ? `${names[0]} 等${names.length}` : (names[0] || '小迪严选（平台）')
     }
-    const org = organizations.find(o => String(o._id) === String(formData.organizationId))
-    if (org) return org.name
-    return '平台'
+    return '小迪严选（平台）'
   })()
 
   const handleSubmit = async () => {
@@ -1169,15 +1173,18 @@ function UserModal({
                 <select
                   multiple
                   value={formData.manufacturerIds}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      manufacturerIds: Array.from(e.target.selectedOptions).map(o => o.value)
-                    })
-                  }
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions).map(o => o.value)
+                    if (values.includes('')) {
+                      setFormData({ ...formData, manufacturerIds: [] })
+                      return
+                    }
+                    setFormData({ ...formData, manufacturerIds: values })
+                  }}
                   className="w-full px-4 py-2 border rounded-lg"
                   size={Math.min(6, Math.max(3, manufacturers.length))}
                 >
+                  <option value="">小迪严选（平台）</option>
                   {manufacturers.map((m: any) => (
                     <option key={m._id} value={m._id}>
                       {m.name || m.fullName || m._id}
@@ -1211,22 +1218,6 @@ function UserModal({
                   <option value="customer">普通客户</option>
                 </select>
               </div>
-              
-              {['platform_admin', 'platform_staff', 'enterprise_admin', 'enterprise_staff'].includes(formData.role) && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">所属组织</label>
-                  <select
-                    value={formData.organizationId}
-                    onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg"
-                  >
-                    <option value="">选择组织</option>
-                    {organizations.map((org) => (
-                      <option key={org._id} value={org._id}>{org.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </>
           )}
           

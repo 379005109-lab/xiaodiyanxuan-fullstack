@@ -77,6 +77,7 @@ const ReferralManagement = lazy(() => import('./pages/admin/ReferralManagement')
 const ManufacturerOrderManagement = lazy(() => import('./pages/admin/ManufacturerOrderManagement'))
 const ImageSearchStats = lazy(() => import('./pages/admin/ImageSearchStats'))
 const AuthorizationManagement = lazy(() => import('./pages/admin/AuthorizationManagement'))
+const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManagement'))
 
 const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
 
@@ -404,6 +405,7 @@ function App() {
             <Route path="referrals" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
+            <Route path="tier-system" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
           </Route>
 
           {/* 厂家端路由 */}

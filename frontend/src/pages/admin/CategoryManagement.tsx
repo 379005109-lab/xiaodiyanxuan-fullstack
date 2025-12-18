@@ -264,7 +264,7 @@ export default function CategoryManagement() {
       _id: '', // 清空ID表示新建
       name: '',
       parentId: parentCategory._id,
-      level: 2, // 子分类为2级
+      level: (parentCategory.level || 1) + 1,
     } as any)
     setShowCategoryModal(true)
   }

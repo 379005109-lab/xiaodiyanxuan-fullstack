@@ -252,15 +252,10 @@ const createUser = async (req, res) => {
       return res.status(403).json(errorResponse('无权限创建该角色的用户'))
     }
     
-    // 组织归属检查
+    // 组织归属（可选）
     let targetOrgId = organizationId
-    if ([USER_ROLES.PLATFORM_STAFF, USER_ROLES.ENTERPRISE_ADMIN, USER_ROLES.ENTERPRISE_STAFF].includes(role)) {
-      if (!targetOrgId && currentUser.organizationId) {
-        targetOrgId = currentUser.organizationId
-      }
-      if (!targetOrgId) {
-        return res.status(400).json(errorResponse('平台/企业账号需要指定组织'))
-      }
+    if (!targetOrgId && currentUser.organizationId) {
+      targetOrgId = currentUser.organizationId
     }
     
     // 加密密码

@@ -36,6 +36,38 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
   const [parentCategories, setParentCategories] = useState<Category[]>([])
   const [manufacturers, setManufacturers] = useState<any[]>([])
 
+  const flatCategories = useMemo(() => {
+    const out: any[] = []
+    const walk = (nodes: any[]) => {
+      nodes.forEach((n) => {
+        if (!n) return
+        out.push(n)
+        const children = (n as any).children
+        if (Array.isArray(children) && children.length > 0) {
+          walk(children)
+        }
+      })
+    }
+    walk(allCategories as any)
+    return out as Category[]
+  }, [allCategories])
+
+  const flattenExternalCategories = (nodes: any[]): Category[] => {
+    const out: any[] = []
+    const walk = (list: any[]) => {
+      list.forEach((n) => {
+        if (!n) return
+        out.push(n)
+        const children = n.children
+        if (Array.isArray(children) && children.length > 0) {
+          walk(children)
+        }
+      })
+    }
+    walk(nodes)
+    return out
+  }
+
   useEffect(() => {
     const loadParentCategories = async () => {
       const allCats = await getAllCategories();
@@ -48,6 +80,27 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
     return (formData.manufacturerId || '').trim()
   }, [formData.manufacturerId])
 
+  const selectedParentCategory = useMemo(() => {
+    if (!formData.parentId) return null
+    return flatCategories.find(c => String(c._id) === String(formData.parentId)) || null
+  }, [flatCategories, formData.parentId])
+
+  const selectedParentManufacturerId = useMemo(() => {
+    const mid: any = (selectedParentCategory as any)?.manufacturerId
+    if (!mid) return ''
+    if (typeof mid === 'string') return String(mid)
+    return String(mid?._id || '')
+  }, [selectedParentCategory])
+
+  useEffect(() => {
+    if (!formData.parentId) return
+    const next = String(selectedParentManufacturerId || '')
+    const cur = String(formData.manufacturerId || '')
+    if (next !== cur) {
+      setFormData(prev => ({ ...prev, manufacturerId: next }))
+    }
+  }, [formData.parentId, selectedParentManufacturerId])
+
   useEffect(() => {
     const topLevel = allCategories
       .filter(cat => !cat.parentId || cat.parentId === null)
@@ -56,8 +109,28 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
         const midStr = typeof mid === 'string' ? mid : (mid?._id || '')
         return String(midStr || '') === String(selectedManufacturerId || '')
       })
-    setParentCategories(topLevel)
-  }, [allCategories, selectedManufacturerId])
+    void topLevel
+    const candidates = flatCategories
+      .filter(cat => {
+        const mid: any = (cat as any).manufacturerId
+        const midStr = typeof mid === 'string' ? mid : (mid?._id || '')
+        return String(midStr || '') === String(selectedManufacturerId || '')
+      })
+      .filter(cat => (cat.level || 1) < 3)
+      .filter(cat => {
+        if (!isEdit || !category?._id) return true
+        return String(cat._id) !== String(category._id)
+      })
+    setParentCategories(candidates)
+  }, [allCategories, flatCategories, selectedManufacturerId, isEdit, category?._id])
+
+  useEffect(() => {
+    if (!formData.parentId) return
+    const exists = parentCategories.some(c => String(c._id) === String(formData.parentId))
+    if (!exists) {
+      setFormData(prev => ({ ...prev, parentId: null }))
+    }
+  }, [parentCategories, formData.parentId])
 
   useEffect(() => {
     const loadManufacturers = async () => {
@@ -113,7 +186,8 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
     }
     
     const allCategories = await getAllCategories();
-    const sameManufacturerCategories = allCategories.filter(cat => {
+    const allFlat = flattenExternalCategories(allCategories as any)
+    const sameManufacturerCategories = allFlat.filter(cat => {
       const mid: any = (cat as any).manufacturerId
       const midStr = typeof mid === 'string' ? mid : (mid?._id || '')
       return String(midStr || '') === String(selectedManufacturerId || '')
@@ -126,12 +200,11 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
       return;
     }
 
-    // 根据是否有父分类确定层级
-    if (formData.parentId) {
-      formData.level = 2
-    } else {
-      formData.level = 1
-    }
+    const computedLevel = (() => {
+      if (!formData.parentId) return 1
+      const parent = flatCategories.find(c => String(c._id) === String(formData.parentId))
+      return (parent?.level || 1) + 1
+    })()
     
     // 获取同级分类的最大order值
     const sameLevelCategories = sameManufacturerCategories.filter(
@@ -148,7 +221,7 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
         image: formData.image,
         manufacturerId: formData.manufacturerId || null,
         parentId: formData.parentId,
-        level: formData.level,
+        level: computedLevel,
         status: formData.status,
         slug,
       }
@@ -218,8 +291,9 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
             </label>
             <select
               value={formData.manufacturerId || ''}
-              onChange={(e) => setFormData({ ...formData, manufacturerId: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, manufacturerId: e.target.value, parentId: null })}
               className="input w-full"
+              disabled={!!formData.parentId}
             >
               <option value="">平台（未分配厂家）</option>
               {manufacturers.map((m: any) => (

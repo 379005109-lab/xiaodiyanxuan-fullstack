@@ -6,7 +6,11 @@ export type { Category };
 // 获取所有分类
 export const getAllCategories = async (): Promise<Category[]> => {
   try {
-    const response = await apiClient.get('/categories');
+    const response = await apiClient.get('/categories', {
+      params: {
+        _ts: Date.now()
+      }
+    });
     const categories = response.data.data || [];
     // 确保每个分类都有 discounts 字段
     return categories.map((cat: any) => ({
