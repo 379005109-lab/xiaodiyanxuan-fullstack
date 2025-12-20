@@ -312,7 +312,7 @@ const listProducts = async (req, res) => {
       }
 
       const accessQuery = isDesigner
-        ? { _id: { $in: Array.from(authorizedProductIds) } }
+        ? { status: 'active' }
         : {
             $or: [
               { $or: [

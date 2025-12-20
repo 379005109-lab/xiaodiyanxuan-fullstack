@@ -388,8 +388,8 @@ export default function Header() {
                     我的地址
                   </Link>
                   
-                  {/* 管理后台入口 - 仅管理员可见 */}
-                  {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                  {/* 管理后台入口 - 管理员和设计师可见 */}
+                  {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'designer') && (
                     <Link
                       to="/admin"
                       onClick={() => setUserMenuOpen(false)}
