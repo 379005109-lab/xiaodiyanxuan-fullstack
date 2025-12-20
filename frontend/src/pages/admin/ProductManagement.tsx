@@ -29,6 +29,8 @@ export default function ProductManagement() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const canViewCostPrice = user?.role === 'super_admin' || user?.role === 'admin' || (user as any)?.permissions?.canViewCostPrice === true
+  const [designerDiscountEdits, setDesignerDiscountEdits] = useState<Record<string, string>>({})
+  const [savingDesignerDiscount, setSavingDesignerDiscount] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -142,6 +144,52 @@ export default function ProductManagement() {
       setLoading(false);
     }
   };
+
+  const saveDesignerProductDiscountOverride = async (product: Product) => {
+    const role = useAuthStore.getState().user?.role as UserRole | undefined
+    if (role !== 'designer') return
+
+    const p: any = product as any
+    const tierPricing = p?.tierPricing
+    const authorizationId = tierPricing?.authorizationId
+    if (!authorizationId) {
+      toast.error('未找到授权信息，无法保存单品折扣')
+      return
+    }
+
+    const raw = designerDiscountEdits[product._id]
+    const trimmed = (raw ?? '').toString().trim()
+
+    let discountRate: number | null
+    if (!trimmed) {
+      discountRate = null
+    } else {
+      const percent = Number(trimmed)
+      if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
+        toast.error('折扣请输入 1-100 的数字')
+        return
+      }
+      discountRate = percent / 100
+    }
+
+    setSavingDesignerDiscount(prev => ({ ...prev, [product._id]: true }))
+    try {
+      const resp = await apiClient.put(
+        `/authorizations/${authorizationId}/designer-product-discount/${product._id}`,
+        { discountRate }
+      )
+      if (resp.data?.success) {
+        toast.success('单品折扣已保存')
+        await loadProducts()
+      } else {
+        toast.error(resp.data?.message || '保存失败')
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '保存失败')
+    } finally {
+      setSavingDesignerDiscount(prev => ({ ...prev, [product._id]: false }))
+    }
+  }
 
   const handleToggleStatus = async (id: string) => {
     if (await toggleProductStatus(id)) {
@@ -2387,6 +2435,7 @@ export default function ProductManagement() {
   }
 
   const currentRole = useAuthStore.getState().user?.role as UserRole | undefined
+  const showCostColumn = canViewCostPrice || currentRole === 'designer'
   const getDiscountMultiplier = (categoryKey?: string) =>
     getRoleDiscountMultiplier(categoryLookup, currentRole, categoryKey)
 
@@ -2628,7 +2677,12 @@ export default function ProductManagement() {
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">厂家</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">分类</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">价格</th>
-                {canViewCostPrice && (
+                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">折后价(A)</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">返佣金额(B)</th>
+                {currentRole === 'designer' && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">单品折扣覆盖</th>
+                )}
+                {showCostColumn && (
                   <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
                 )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">SKU数量</th>
@@ -2763,12 +2817,71 @@ export default function ProductManagement() {
                     </div>
                   </td>
 
-                  {canViewCostPrice && (
+                  <td className="py-4 px-4">
+                    <div className="text-sm text-gray-700">
+                      {(() => {
+                        const p: any = product as any
+                        const v = Number(p?.tierPricing?.discountedPrice)
+                        if (!Number.isFinite(v) || v <= 0) return '-'
+                        return formatPrice(v)
+                      })()}
+                    </div>
+                  </td>
+
+                  <td className="py-4 px-4">
+                    <div className="text-sm text-gray-700">
+                      {(() => {
+                        const p: any = product as any
+                        const v = Number(p?.tierPricing?.commissionAmount)
+                        if (!Number.isFinite(v) || v < 0) return '-'
+                        return formatPrice(v)
+                      })()}
+                    </div>
+                  </td>
+
+                  {currentRole === 'designer' && (
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          step={1}
+                          className="input w-24"
+                          placeholder="默认"
+                          value={(() => {
+                            const v = designerDiscountEdits[product._id]
+                            if (v !== undefined) return v
+                            const p: any = product as any
+                            const rate = Number(p?.tierPricing?.overrideDiscountRate)
+                            if (Number.isFinite(rate) && rate > 0) return String(Math.round(rate * 100))
+                            return ''
+                          })()}
+                          onChange={(e) => {
+                            const next = e.target.value
+                            setDesignerDiscountEdits(prev => ({ ...prev, [product._id]: next }))
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={savingDesignerDiscount[product._id] === true}
+                          onClick={() => saveDesignerProductDiscountOverride(product)}
+                        >
+                          {savingDesignerDiscount[product._id] ? '保存中' : '保存'}
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">单位：%</div>
+                    </td>
+                  )}
+
+                  {showCostColumn && (
                     <td className="py-4 px-4">
                       <div className="text-sm text-gray-700">
                         {(() => {
                           const p: any = product as any
                           const cost = Number(
+                            p?.tierPricing?.netCostPrice ??
                             p.costPrice ??
                             p.takePrice ??
                             p?.skus?.[0]?.costPrice ??
@@ -2883,7 +2996,7 @@ export default function ProductManagement() {
                     exit={{ opacity: 0, height: 0 }}
                     className="bg-gray-50"
                   >
-                    <td colSpan={canViewCostPrice ? 10 : 9} className="py-4 px-4">
+                    <td colSpan={(showCostColumn ? 10 : 9) + 2 + (currentRole === 'designer' ? 1 : 0)} className="py-4 px-4">
                       <div className="space-y-2">
                         <div className="text-xs font-semibold text-gray-600 mb-2">SKU列表：</div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

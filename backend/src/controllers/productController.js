@@ -4,6 +4,7 @@ const browseHistoryService = require('../services/browseHistoryService')
 const FileService = require('../services/fileService')
 const Product = require('../models/Product')
 const Authorization = require('../models/Authorization')
+const TierSystem = require('../models/TierSystem')
 const Style = require('../models/Style')
 const { canViewCostPrice } = require('../services/priceService')
 
@@ -108,7 +109,7 @@ const getProductCostPrice = (product) => {
   return Number.isFinite(val) ? val : 0
 }
 
-const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1, allowCostPrice = false) => {
+const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1, allowCostPrice = false, tierPricing = null) => {
   const rawCostPrice = allowCostPrice ? getProductCostPrice(product) : 0
   const resolvedCostPrice = allowCostPrice
     ? (rawCostPrice > 0 ? rawCostPrice : (Number.isFinite(takePrice) ? takePrice : 0))
@@ -124,6 +125,116 @@ const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1, all
     takePrice,
     labelPrice1,
     ...(allowCostPrice && resolvedCostPrice > 0 ? { costPrice: resolvedCostPrice } : {}),
+    ...(tierPricing ? { tierPricing } : {}),
+  }
+}
+
+const getSkuRetailPrice = (sku) => {
+  if (!sku || typeof sku !== 'object') return 0
+  const price = Number(sku.price || 0)
+  const discountPrice = Number(sku.discountPrice || 0)
+  if (Number.isFinite(discountPrice) && discountPrice > 0 && discountPrice < price) return discountPrice
+  return Number.isFinite(price) ? price : 0
+}
+
+const getProductRetailPrice = (product) => {
+  const skus = Array.isArray(product?.skus) ? product.skus : []
+  const skuPrices = skus.map(getSkuRetailPrice).filter((v) => Number.isFinite(v) && v > 0)
+  if (skuPrices.length > 0) return Math.min(...skuPrices)
+  const base = Number(product?.basePrice || 0)
+  return Number.isFinite(base) ? base : 0
+}
+
+const pickTierRuleForUser = (tierDoc, user) => {
+  if (!tierDoc || !user) return { module: null, rule: null }
+  const modules = Array.isArray(tierDoc.roleModules) ? tierDoc.roleModules : []
+  const accounts = Array.isArray(tierDoc.authorizedAccounts) ? tierDoc.authorizedAccounts : []
+  const uid = (user._id || user.id)?.toString?.() || ''
+
+  const account = accounts.find((a) => String(a?.userId || '') === uid) || null
+  const module = account
+    ? modules.find((m) => String(m?._id || '') === String(account.roleModuleId || ''))
+    : modules.find((m) => String(m?.code || '') === String(user.role || ''))
+
+  const effectiveModule = module || modules.find((m) => m?.isActive !== false) || modules[0] || null
+  const rules = Array.isArray(effectiveModule?.discountRules) ? effectiveModule.discountRules : []
+  const ruleById = account?.discountRuleId
+    ? rules.find((r) => String(r?._id || '') === String(account.discountRuleId || ''))
+    : null
+  const rule = ruleById || rules.find((r) => r?.isDefault) || rules[0] || null
+  return { module: effectiveModule, rule }
+}
+
+const computeTierPricing = ({ tierDoc, user, product, auth }) => {
+  if (!tierDoc || !user || !product) return null
+
+  const { module, rule } = pickTierRuleForUser(tierDoc, user)
+  if (!module || !rule) return null
+
+  const minSaleDiscountRate = Number(tierDoc?.profitSettings?.minSaleDiscountRate ?? 1)
+  const safeMinSaleRate = Number.isFinite(minSaleDiscountRate) ? Math.max(0, Math.min(1, minSaleDiscountRate)) : 1
+
+  const retailPrice = getProductRetailPrice(product)
+  if (!Number.isFinite(retailPrice) || retailPrice <= 0) return null
+
+  // 单品折扣覆盖：优先读取授权里的 productPrices.discount（只覆盖折扣比例，不覆盖返佣）
+  let overrideDiscountRate = null
+  const pp = auth?.priceSettings?.productPrices
+  if (Array.isArray(pp)) {
+    const matched = pp.find((x) => String(x?.productId || '') === String(product?._id || ''))
+    const d = matched?.discount
+    if (typeof d === 'number' && Number.isFinite(d) && d > 0 && d <= 1) {
+      overrideDiscountRate = d
+    }
+  }
+
+  const discountType = rule.discountType || (typeof rule.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
+  const ruleDiscountRate = typeof rule.discountRate === 'number' && Number.isFinite(rule.discountRate)
+    ? Math.max(0, Math.min(1, rule.discountRate))
+    : 1
+  const minDiscountPrice = typeof rule.minDiscountPrice === 'number' && Number.isFinite(rule.minDiscountPrice)
+    ? Math.max(0, rule.minDiscountPrice)
+    : undefined
+
+  let discountedPrice = 0
+  if (overrideDiscountRate) {
+    discountedPrice = retailPrice * overrideDiscountRate
+  } else if (discountType === 'minPrice') {
+    discountedPrice = Number(minDiscountPrice || 0)
+  } else {
+    discountedPrice = retailPrice * ruleDiscountRate
+  }
+
+  // 全局最低折扣保护（基于 SKU 售价）
+  const minAllowed = retailPrice * safeMinSaleRate
+  discountedPrice = Math.max(discountedPrice, minAllowed)
+
+  discountedPrice = Math.round(discountedPrice)
+
+  const commissionRateRaw = typeof rule.commissionRate === 'number' && Number.isFinite(rule.commissionRate)
+    ? rule.commissionRate
+    : 0
+  const commissionRate = Math.max(0.01, Math.min(0.5, commissionRateRaw))
+  const commissionAmount = Math.round(discountedPrice * commissionRate)
+  const netCostPrice = Math.round(discountedPrice - commissionAmount)
+
+  return {
+    source: 'tierSystem',
+    authorizationId: auth?._id,
+    roleModuleId: module?._id,
+    roleModuleCode: module?.code,
+    roleModuleName: module?.name,
+    discountRuleId: rule?._id,
+    discountRuleName: rule?.name,
+    discountType,
+    discountRate: overrideDiscountRate ? overrideDiscountRate : (discountType === 'rate' ? ruleDiscountRate : undefined),
+    minDiscountPrice: discountType === 'minPrice' ? (minDiscountPrice ?? 0) : undefined,
+    overrideDiscountRate: overrideDiscountRate || undefined,
+    retailPrice,
+    discountedPrice,
+    commissionRate,
+    commissionAmount,
+    netCostPrice,
   }
 }
 
@@ -132,14 +243,22 @@ const listProducts = async (req, res) => {
     const { page = 1, pageSize = 100, search, categoryId, styleId, sortBy } = req.query
 
     const user = req.user
-    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+    if (
+      ((user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') || user?.role === 'designer')
+    ) {
+      const isDesigner = user?.role === 'designer'
       const authQuery = {
         status: 'active',
-        toManufacturer: user.manufacturerId,
         $or: [
           { validUntil: { $exists: false } },
           { validUntil: { $gt: new Date() } }
         ]
+      }
+
+      if (isDesigner) {
+        authQuery.toDesigner = user._id
+      } else {
+        authQuery.toManufacturer = user.manufacturerId
       }
 
       const authorizations = await Authorization.find(authQuery).lean()
@@ -161,15 +280,23 @@ const listProducts = async (req, res) => {
           })
         } else if (auth.scope === 'category') {
           const products = await Product.find({
-            $or: [
-              { manufacturerId: auth.fromManufacturer },
-              { 'skus.manufacturerId': auth.fromManufacturer },
-            ],
-            status: 'active',
-            $or: [
-              { category: { $in: auth.categories || [] } },
-              { 'category._id': { $in: auth.categories || [] } },
-              { 'category.id': { $in: auth.categories || [] } },
+            $and: [
+              {
+                $or: [
+                  { manufacturerId: auth.fromManufacturer },
+                  { 'skus.manufacturerId': auth.fromManufacturer },
+                ],
+              },
+              {
+                status: 'active',
+              },
+              {
+                $or: [
+                  { category: { $in: auth.categories || [] } },
+                  { 'category._id': { $in: auth.categories || [] } },
+                  { 'category.id': { $in: auth.categories || [] } },
+                ],
+              },
             ]
           }).select('_id').lean()
           products.forEach(p => {
@@ -184,33 +311,45 @@ const listProducts = async (req, res) => {
         }
       }
 
-      const accessQuery = {
-        $or: [
-          { $or: [
-            { manufacturerId: user.manufacturerId },
-            { 'skus.manufacturerId': user.manufacturerId },
-          ] },
-          { _id: { $in: Array.from(authorizedProductIds) } }
-        ]
-      }
+      const accessQuery = isDesigner
+        ? { _id: { $in: Array.from(authorizedProductIds) } }
+        : {
+            $or: [
+              { $or: [
+                { manufacturerId: user.manufacturerId },
+                { 'skus.manufacturerId': user.manufacturerId },
+              ] },
+              { _id: { $in: Array.from(authorizedProductIds) } }
+            ]
+          }
 
       if (search) {
         accessQuery.$text = { $search: search }
       }
 
       if (categoryId) {
-        accessQuery.$or = [
-          { manufacturerId: user.manufacturerId, $or: [
-            { 'category.id': categoryId },
-            { 'category._id': categoryId },
-            { category: categoryId },
-          ] },
-          { _id: { $in: Array.from(authorizedProductIds) }, $or: [
-            { 'category.id': categoryId },
-            { 'category._id': categoryId },
-            { category: categoryId },
-          ] },
-        ]
+        if (isDesigner) {
+          accessQuery.$or = [
+            { _id: { $in: Array.from(authorizedProductIds) }, $or: [
+              { 'category.id': categoryId },
+              { 'category._id': categoryId },
+              { category: categoryId },
+            ] },
+          ]
+        } else {
+          accessQuery.$or = [
+            { manufacturerId: user.manufacturerId, $or: [
+              { 'category.id': categoryId },
+              { 'category._id': categoryId },
+              { category: categoryId },
+            ] },
+            { _id: { $in: Array.from(authorizedProductIds) }, $or: [
+              { 'category.id': categoryId },
+              { 'category._id': categoryId },
+              { category: categoryId },
+            ] },
+          ]
+        }
       }
 
       if (styleId) {
@@ -224,15 +363,23 @@ const listProducts = async (req, res) => {
         .limit(parseInt(pageSize))
         .lean()
 
+      const ownerIds = Array.from(new Set(products.map(getProductOwnerManufacturerId).filter(Boolean)))
+      const tierDocs = ownerIds.length > 0
+        ? await TierSystem.find({ manufacturerId: { $in: ownerIds } }).lean()
+        : []
+      const tierByOwnerId = new Map((tierDocs || []).map((d) => [String(d.manufacturerId), d]))
+
       const shaped = products.map(p => {
         const ownerManufacturerId = getProductOwnerManufacturerId(p)
-        if (ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
-          return p
-        }
-
+        const tierDoc = ownerManufacturerId ? tierByOwnerId.get(ownerManufacturerId) : null
         const auth = authByProduct.get(p._id.toString())
+        const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth })
+
+        if (!isDesigner && ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
+          return { ...p, ...(tierPricing ? { tierPricing } : {}) }
+        }
         if (!auth) {
-          return sanitizeProductForAuthorizedViewer(p, 0, 0)
+          return sanitizeProductForAuthorizedViewer(p, 0, 0, false, tierPricing)
         }
 
         const takePrice = getAuthorizedTakePrice(auth, p)
@@ -240,7 +387,7 @@ const listProducts = async (req, res) => {
         const labelPrice1 = (p.authorizedLabelPrices && key) ? (p.authorizedLabelPrices[key] || takePrice) : takePrice
 
         const allow = allowCostPriceForUser(user)
-        return sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1, allow)
+        return sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1, allow, tierPricing)
       })
 
       return res.json(paginatedResponse(shaped, total, parseInt(page), parseInt(pageSize)))
@@ -281,9 +428,9 @@ const getProduct = async (req, res) => {
     const product = await getProductById(id)
 
     const user = req.user
-    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+    if ((user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') || user?.role === 'designer') {
       const ownerManufacturerId = getProductOwnerManufacturerId(product)
-      if (ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
+      if (user?.manufacturerId && ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
         return res.json(successResponse(product))
       }
 
@@ -296,7 +443,13 @@ const getProduct = async (req, res) => {
       const key = getAuthorizationViewerKey(user)
       const labelPrice1 = (product.authorizedLabelPrices && key) ? (product.authorizedLabelPrices[key] || takePrice) : takePrice
       const allow = allowCostPriceForUser(user)
-      return res.json(successResponse(sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1, allow)))
+
+      const tierDoc = ownerManufacturerId
+        ? await TierSystem.findOne({ manufacturerId: ownerManufacturerId }).lean()
+        : null
+      const tierPricing = computeTierPricing({ tierDoc, user, product, auth })
+
+      return res.json(successResponse(sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1, allow, tierPricing)))
     }
     
     // 异步记录浏览历史（如果用户已登录）

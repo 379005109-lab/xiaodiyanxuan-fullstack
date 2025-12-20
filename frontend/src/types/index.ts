@@ -192,6 +192,25 @@ export interface ProductFile {
   uploadTime?: string
 }
 
+export interface TierPricing {
+  source?: string
+  authorizationId?: string
+  roleModuleId?: any
+  roleModuleCode?: string
+  roleModuleName?: string
+  discountRuleId?: any
+  discountRuleName?: string
+  discountType?: 'rate' | 'minPrice' | string
+  discountRate?: number
+  minDiscountPrice?: number
+  overrideDiscountRate?: number
+  retailPrice?: number
+  discountedPrice?: number
+  commissionRate?: number
+  commissionAmount?: number
+  netCostPrice?: number
+}
+
 export interface Product {
   _id: string
   productCode?: string
@@ -203,6 +222,7 @@ export interface Product {
   basePrice: number
   takePrice?: number
   labelPrice1?: number
+  tierPricing?: TierPricing
   thumbnail?: string
   images: string[]
   skus: ProductSKU[]

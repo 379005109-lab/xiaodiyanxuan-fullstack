@@ -4,6 +4,7 @@ const mongoose = require('mongoose')
 const { auth } = require('../middleware/auth')
 const Authorization = require('../models/Authorization')
 const Product = require('../models/Product')
+const TierSystem = require('../models/TierSystem')
 const Manufacturer = require('../models/Manufacturer')
 const User = require('../models/User')
 
@@ -417,6 +418,95 @@ router.put('/:id', auth, async (req, res) => {
   } catch (error) {
     console.error('更新授权失败:', error)
     res.status(500).json({ success: false, message: '更新授权失败' })
+  }
+})
+
+router.put('/:id/designer-product-discount/:productId', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+    if (!user || user.role !== 'designer') {
+      return res.status(403).json({ success: false, message: '只有设计师可以修改单品折扣' })
+    }
+
+    const authorization = await Authorization.findById(req.params.id)
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+    if (!authorization.toDesigner || authorization.toDesigner.toString() !== req.userId.toString()) {
+      return res.status(403).json({ success: false, message: '无权限修改此授权' })
+    }
+    if (authorization.status !== 'active') {
+      return res.status(400).json({ success: false, message: '授权未生效，无法修改' })
+    }
+    if (authorization.validUntil && new Date() > new Date(authorization.validUntil)) {
+      return res.status(400).json({ success: false, message: '授权已过期，无法修改' })
+    }
+
+    const productId = req.params.productId
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ success: false, message: '商品ID无效' })
+    }
+
+    const product = await Product.findById(productId).lean()
+    if (!product) {
+      return res.status(404).json({ success: false, message: '商品不存在' })
+    }
+
+    const ownerManufacturerId = (product.manufacturerId?._id || product.manufacturerId || product?.skus?.[0]?.manufacturerId)
+    if (!ownerManufacturerId || ownerManufacturerId.toString() !== authorization.fromManufacturer.toString()) {
+      return res.status(400).json({ success: false, message: '该商品不属于此授权的厂家范围' })
+    }
+
+    if (authorization.scope === 'specific') {
+      const inList = Array.isArray(authorization.products) && authorization.products.some((p) => p.toString() === productId.toString())
+      if (!inList) {
+        return res.status(400).json({ success: false, message: '该商品不在授权范围内' })
+      }
+    } else if (authorization.scope === 'category') {
+      const categoryId = (product.category?._id || product.category?.id || product.category)
+      const allowed = Array.isArray(authorization.categories) && authorization.categories.some((c) => c.toString() === categoryId?.toString())
+      if (!allowed) {
+        return res.status(400).json({ success: false, message: '该商品分类不在授权范围内' })
+      }
+    }
+
+    const incoming = req.body?.discountRate
+    let discountRate = incoming === null || incoming === '' || incoming === undefined ? null : Number(incoming)
+
+    if (discountRate !== null) {
+      if (!Number.isFinite(discountRate) || discountRate <= 0 || discountRate > 1) {
+        return res.status(400).json({ success: false, message: '折扣比例无效' })
+      }
+
+      const tier = await TierSystem.findOne({ manufacturerId: ownerManufacturerId }).lean()
+      const minSaleDiscountRate = Number(tier?.profitSettings?.minSaleDiscountRate ?? 0)
+      if (Number.isFinite(minSaleDiscountRate) && minSaleDiscountRate > 0 && discountRate < minSaleDiscountRate) {
+        discountRate = minSaleDiscountRate
+      }
+    }
+
+    const next = Array.isArray(authorization.priceSettings?.productPrices)
+      ? [...authorization.priceSettings.productPrices]
+      : []
+
+    const idx = next.findIndex((x) => x?.productId?.toString?.() === productId.toString())
+    if (discountRate === null) {
+      if (idx >= 0) next.splice(idx, 1)
+    } else {
+      const value = { productId, discount: discountRate }
+      if (idx >= 0) next[idx] = { ...next[idx], ...value }
+      else next.push(value)
+    }
+
+    if (!authorization.priceSettings) authorization.priceSettings = {}
+    authorization.priceSettings.productPrices = next
+    authorization.updatedAt = new Date()
+    await authorization.save()
+
+    res.json({ success: true, data: authorization, message: '单品折扣已更新' })
+  } catch (error) {
+    console.error('更新单品折扣失败:', error)
+    res.status(500).json({ success: false, message: '更新单品折扣失败' })
   }
 })
 
