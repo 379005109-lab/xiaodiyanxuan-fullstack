@@ -52,11 +52,17 @@ const wxLogin = async (code) => {
     token,
     user: {
       id: user._id,
+      _id: user._id,
       openId: user.openId,
       nickname: user.nickname,
       avatar: user.avatar,
       gender: user.gender,
       profileCompleted: user.profileCompleted,
+      manufacturerId: user.manufacturerId || null,
+      manufacturerIds: user.manufacturerIds || [],
+      permissions: user.permissions || {},
+      accountType: user.accountType,
+      status: user.status,
       role: user.userType,
       userType: user.userType
     }
@@ -112,11 +118,17 @@ const usernamePasswordLogin = async (username, password) => {
     token,
     user: {
       id: user._id,
+      _id: user._id,
       username: user.username,
       nickname: user.nickname,
       avatar: user.avatar,
       gender: user.gender,
       profileCompleted: user.profileCompleted,
+      manufacturerId: user.manufacturerId || null,
+      manufacturerIds: user.manufacturerIds || [],
+      permissions: user.permissions || {},
+      accountType: user.accountType,
+      status: user.status,
       role: user.role || user.userType || 'customer',
       userType: user.role || user.userType || 'customer'
     }
@@ -149,11 +161,17 @@ const adminLogin = async (username, password) => {
     token,
     user: {
       id: user._id,
+      _id: user._id,
       username: user.username,
       nickname: user.nickname,
       avatar: user.avatar,
       gender: user.gender,
       profileCompleted: user.profileCompleted,
+      manufacturerId: user.manufacturerId || null,
+      manufacturerIds: user.manufacturerIds || [],
+      permissions: user.permissions || {},
+      accountType: user.accountType,
+      status: user.status,
       role: user.userType,
       userType: user.userType
     }
@@ -201,12 +219,18 @@ const loginOrRegisterWithPhone = async (phone) => {
     token,
     user: {
       id: user._id,
+      _id: user._id,
       phone: user.phone,
       username: user.username,
       nickname: user.nickname || user.username,
       avatar: user.avatar,
       gender: user.gender,
       profileCompleted: user.profileCompleted,
+      manufacturerId: user.manufacturerId || null,
+      manufacturerIds: user.manufacturerIds || [],
+      permissions: user.permissions || {},
+      accountType: user.accountType,
+      status: user.status,
       role: user.role || user.userType || 'customer',
       userType: user.role || user.userType || 'customer'
     }

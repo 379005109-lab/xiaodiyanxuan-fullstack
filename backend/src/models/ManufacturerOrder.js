@@ -12,8 +12,7 @@ const manufacturerOrderSchema = new mongoose.Schema({
   // 厂家信息
   manufacturerId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Manufacturer',
-    required: true
+    ref: 'Manufacturer'
   },
   manufacturerName: String,
   

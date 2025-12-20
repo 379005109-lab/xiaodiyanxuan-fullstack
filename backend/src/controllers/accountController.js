@@ -18,7 +18,12 @@ const normalizeManufacturerFields = (payload) => {
       ? payload.manufacturerIds.filter(Boolean)
       : []
     payload.manufacturerIds = ids
-    payload.manufacturerId = ids.length > 0 ? ids[0] : null
+
+    if (hasManufacturerId) {
+      if (payload.manufacturerId === '' || payload.manufacturerId === undefined) {
+        payload.manufacturerId = null
+      }
+    }
     return
   }
 
@@ -266,6 +271,24 @@ const createUser = async (req, res) => {
       manufacturerIds: req.body?.manufacturerIds
     }
     normalizeManufacturerFields(manufacturerPayload)
+
+    const isDesigner = role === USER_ROLES.DESIGNER || role === 'designer'
+    const isManufacturerStaffRole =
+      role === USER_ROLES.ENTERPRISE_ADMIN ||
+      role === USER_ROLES.ENTERPRISE_STAFF ||
+      role === 'enterprise_admin' ||
+      role === 'enterprise_staff'
+    if (isDesigner) {
+      manufacturerPayload.manufacturerId = null
+    } else if (
+      isManufacturerStaffRole &&
+      !Object.prototype.hasOwnProperty.call(req.body || {}, 'manufacturerId')
+    ) {
+      const ids = Array.isArray(manufacturerPayload.manufacturerIds)
+        ? manufacturerPayload.manufacturerIds.filter(Boolean)
+        : []
+      manufacturerPayload.manufacturerId = ids.length > 0 ? ids[0] : null
+    }
     
     const user = new User({
       username,
@@ -356,6 +379,27 @@ const updateUser = async (req, res) => {
     }
 
     normalizeManufacturerFields(updates)
+
+    const targetRole = updates.role || user.role
+    const targetIsDesigner = targetRole === USER_ROLES.DESIGNER || targetRole === 'designer'
+    const targetIsManufacturerStaffRole =
+      targetRole === USER_ROLES.ENTERPRISE_ADMIN ||
+      targetRole === USER_ROLES.ENTERPRISE_STAFF ||
+      targetRole === 'enterprise_admin' ||
+      targetRole === 'enterprise_staff'
+
+    if (targetIsDesigner) {
+      if (!Object.prototype.hasOwnProperty.call(updates, 'manufacturerId')) {
+        updates.manufacturerId = null
+      }
+    } else if (
+      Object.prototype.hasOwnProperty.call(updates, 'manufacturerIds') &&
+      !Object.prototype.hasOwnProperty.call(updates, 'manufacturerId') &&
+      (user.manufacturerId || targetIsManufacturerStaffRole)
+    ) {
+      const ids = Array.isArray(updates.manufacturerIds) ? updates.manufacturerIds.filter(Boolean) : []
+      updates.manufacturerId = ids.length > 0 ? ids[0] : null
+    }
     
     // 管理员可以修改任何角色，无需额外检查
     // 使用 findByIdAndUpdate 避免全字段验证问题

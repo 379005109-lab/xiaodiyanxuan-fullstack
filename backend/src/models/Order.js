@@ -12,6 +12,8 @@ const orderSchema = new mongoose.Schema({
   items: [{
     productId: String,
     productName: String,
+    manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+    manufacturerName: String,
     image: String,  // 商品图片
     price: Number,
     quantity: Number,
@@ -33,6 +35,8 @@ const orderSchema = new mongoose.Schema({
       products: [{
         productId: String,
         productName: String,
+        manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+        manufacturerName: String,
         image: String,  // 商品图片
         quantity: Number,
         materials: mongoose.Schema.Types.Mixed,  // 材质选择 { fabric: '半青皮-蓝色' }

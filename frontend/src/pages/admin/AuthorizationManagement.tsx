@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
+import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle, Copy } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 
 interface Authorization {
@@ -27,12 +27,30 @@ interface Authorization {
 }
 
 export default function AuthorizationManagement() {
-  const { token } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'granted' | 'received'>('granted')
+  const { token, user } = useAuthStore()
+  const isDesigner = user?.role === 'designer'
+  const isManufacturerUser = !!(user as any)?.manufacturerId
+
+  type TabKey = 'granted' | 'received' | 'pending_requests' | 'my_requests'
+  const [activeTab, setActiveTab] = useState<TabKey>('received')
   const [grantedAuths, setGrantedAuths] = useState<Authorization[]>([])
   const [receivedAuths, setReceivedAuths] = useState<Authorization[]>([])
+  const [pendingRequests, setPendingRequests] = useState<Authorization[]>([])
+  const [myRequests, setMyRequests] = useState<Authorization[]>([])
   const [loading, setLoading] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+
+  const [showApplyModal, setShowApplyModal] = useState(false)
+
+  const didInitTab = useRef(false)
+
+  useEffect(() => {
+    if (didInitTab.current) return
+    if (!user) return
+    const desired: TabKey = isDesigner ? 'received' : (isManufacturerUser ? 'granted' : 'received')
+    setActiveTab(desired)
+    didInitTab.current = true
+  }, [user, isDesigner, isManufacturerUser])
 
   useEffect(() => {
     loadAuthorizations()
@@ -41,9 +59,14 @@ export default function AuthorizationManagement() {
   const loadAuthorizations = async () => {
     setLoading(true)
     try {
-      const endpoint = activeTab === 'granted' 
-        ? '/api/authorizations/my-grants'
-        : '/api/authorizations/received'
+      const endpoint =
+        activeTab === 'granted'
+          ? '/api/authorizations/my-grants'
+          : activeTab === 'received'
+            ? '/api/authorizations/received'
+            : activeTab === 'pending_requests'
+              ? '/api/authorizations/designer-requests/pending'
+              : '/api/authorizations/designer-requests/my'
       
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}${endpoint}`, {
         headers: {
@@ -53,11 +76,10 @@ export default function AuthorizationManagement() {
       
       const data = await response.json()
       if (data.success) {
-        if (activeTab === 'granted') {
-          setGrantedAuths(data.data)
-        } else {
-          setReceivedAuths(data.data)
-        }
+        if (activeTab === 'granted') setGrantedAuths(data.data)
+        else if (activeTab === 'received') setReceivedAuths(data.data)
+        else if (activeTab === 'pending_requests') setPendingRequests(data.data)
+        else setMyRequests(data.data)
       } else {
         toast.error(data.message)
       }
@@ -66,6 +88,67 @@ export default function AuthorizationManagement() {
       toast.error('加载授权列表失败')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('已复制')
+    } catch {
+      toast.error('复制失败')
+    }
+  }
+
+  const handleApproveRequest = async (id: string) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/authorizations/designer-requests/${id}/approve`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({})
+        }
+      )
+      const data = await response.json()
+      if (data.success) {
+        toast.success('已通过')
+        loadAuthorizations()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      console.error('审核失败:', error)
+      toast.error('审核失败')
+    }
+  }
+
+  const handleRejectRequest = async (id: string) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/authorizations/designer-requests/${id}/reject`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({})
+        }
+      )
+      const data = await response.json()
+      if (data.success) {
+        toast.success('已拒绝')
+        loadAuthorizations()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      console.error('拒绝失败:', error)
+      toast.error('拒绝失败')
     }
   }
 
@@ -116,6 +199,19 @@ export default function AuthorizationManagement() {
   }
 
   const authorizations = activeTab === 'granted' ? grantedAuths : receivedAuths
+  const tabCounts: Record<TabKey, number> = {
+    granted: grantedAuths.length,
+    received: receivedAuths.length,
+    pending_requests: pendingRequests.length,
+    my_requests: myRequests.length
+  }
+
+  const tabs: Array<{ id: TabKey; label: string; visible: boolean }> = [
+    { id: 'granted', label: '我授权的', visible: !isDesigner && isManufacturerUser },
+    { id: 'received', label: '我收到的授权', visible: true },
+    { id: 'pending_requests', label: '待审核申请', visible: !isDesigner && isManufacturerUser },
+    { id: 'my_requests', label: '我的申请', visible: isDesigner }
+  ]
 
   return (
     <div className="p-6">
@@ -125,7 +221,7 @@ export default function AuthorizationManagement() {
           <h1 className="text-2xl font-bold text-gray-900">授权管理</h1>
           <p className="text-sm text-gray-500 mt-1">管理商品授权关系和拿货价格</p>
         </div>
-        {activeTab === 'granted' && (
+        {activeTab === 'granted' && !isDesigner && isManufacturerUser && (
           <button
             onClick={() => setShowCreateModal(true)}
             className="btn btn-primary flex items-center gap-2"
@@ -134,41 +230,39 @@ export default function AuthorizationManagement() {
             创建授权
           </button>
         )}
+
+        {activeTab === 'my_requests' && isDesigner && (
+          <button
+            onClick={() => setShowApplyModal(true)}
+            className="btn btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            申请厂家授权
+          </button>
+        )}
       </div>
 
       {/* 标签切换 */}
       <div className="mb-6 border-b border-gray-200">
         <div className="flex gap-8">
-          <button
-            onClick={() => setActiveTab('granted')}
-            className={`pb-3 px-1 border-b-2 transition-colors ${
-              activeTab === 'granted'
-                ? 'border-primary-600 text-primary-600 font-medium'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            我授权的
-            {grantedAuths.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-primary-100 text-primary-700 rounded-full text-xs">
-                {grantedAuths.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('received')}
-            className={`pb-3 px-1 border-b-2 transition-colors ${
-              activeTab === 'received'
-                ? 'border-primary-600 text-primary-600 font-medium'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            我收到的授权
-            {receivedAuths.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-primary-100 text-primary-700 rounded-full text-xs">
-                {receivedAuths.length}
-              </span>
-            )}
-          </button>
+          {tabs.filter(t => t.visible).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`pb-3 px-1 border-b-2 transition-colors ${
+                activeTab === t.id
+                  ? 'border-primary-600 text-primary-600 font-medium'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t.label}
+              {tabCounts[t.id] > 0 && (
+                <span className="ml-2 px-2 py-0.5 bg-primary-100 text-primary-700 rounded-full text-xs">
+                  {tabCounts[t.id]}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -177,6 +271,113 @@ export default function AuthorizationManagement() {
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
           <p className="mt-2 text-sm text-gray-500">加载中...</p>
+        </div>
+      ) : activeTab === 'pending_requests' ? (
+        pendingRequests.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 rounded-lg">
+            <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500">暂无待审核申请</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {pendingRequests.map((req) => (
+              <div
+                key={req._id}
+                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        设计师: {req.toDesigner?.nickname || req.toDesigner?.username || '未知'}
+                      </h3>
+                      {getStatusBadge(req.status)}
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-600">
+                      <span className="font-mono">ID: {req.toDesigner?._id || req.toDesigner}</span>
+                      <button
+                        onClick={() => copyText(String(req.toDesigner?._id || req.toDesigner || ''))}
+                        className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded"
+                        title="复制ID"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {req.notes && (
+                      <p className="mt-2 text-sm text-gray-500">{req.notes}</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleApproveRequest(req._id)}
+                      className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    >
+                      通过
+                    </button>
+                    <button
+                      onClick={() => handleRejectRequest(req._id)}
+                      className="px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    >
+                      拒绝
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : activeTab === 'my_requests' ? (
+        <div>
+          <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+            <div>
+              <div className="text-sm text-gray-600">我的设计师ID</div>
+              <div className="font-mono text-gray-900">{String((user as any)?._id || '')}</div>
+            </div>
+            <button
+              onClick={() => copyText(String((user as any)?._id || ''))}
+              className="px-3 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Copy className="w-4 h-4" />
+              复制
+            </button>
+          </div>
+
+          {myRequests.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-500">暂无申请记录</p>
+              <button
+                onClick={() => setShowApplyModal(true)}
+                className="mt-4 btn btn-secondary"
+              >
+                申请厂家授权
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {myRequests.map((req) => (
+                <div
+                  key={req._id}
+                  className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          厂家: {req.fromManufacturer?.fullName || req.fromManufacturer?.name || '未知厂家'}
+                        </h3>
+                        {getStatusBadge(req.status)}
+                      </div>
+                      {req.notes && (
+                        <p className="mt-2 text-sm text-gray-500">{req.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : authorizations.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -288,6 +489,126 @@ export default function AuthorizationManagement() {
           }}
         />
       )}
+
+      {showApplyModal && (
+        <DesignerApplyAuthorizationModal
+          token={token || ''}
+          onClose={() => setShowApplyModal(false)}
+          onSuccess={() => {
+            setShowApplyModal(false)
+            setActiveTab('my_requests')
+            loadAuthorizations()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function DesignerApplyAuthorizationModal({
+  token,
+  onClose,
+  onSuccess
+}: {
+  token: string
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [manufacturers, setManufacturers] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState({ manufacturerId: '', notes: '' })
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/manufacturers?pageSize=200`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const data = await response.json()
+        if (data.success || data.data) {
+          setManufacturers(data.data || [])
+        }
+      } catch (e) {
+        setManufacturers([])
+      }
+    }
+    load()
+  }, [token])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.manufacturerId) {
+      toast.error('请选择厂家')
+      return
+    }
+    setLoading(true)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/authorizations/designer-requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ manufacturerId: form.manufacturerId, notes: form.notes })
+      })
+      const data = await response.json()
+      if (data.success) {
+        toast.success('申请已提交')
+        onSuccess()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      console.error('申请失败:', error)
+      toast.error('申请失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">申请厂家授权</h2>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">选择厂家</label>
+            <select
+              value={form.manufacturerId}
+              onChange={(e) => setForm({ ...form, manufacturerId: e.target.value })}
+              className="input w-full"
+              required
+            >
+              <option value="">-- 请选择厂家 --</option>
+              {manufacturers.map((m) => (
+                <option key={m._id} value={m._id}>
+                  {m.fullName || m.name} {m.shortName ? `[${m.shortName}]` : ''} {m.code ? `- ${m.code}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">备注（可选）</label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              className="input w-full"
+              rows={3}
+              placeholder="说明你的合作需求..."
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={onClose} className="btn btn-secondary">
+              取消
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? '提交中...' : '提交申请'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

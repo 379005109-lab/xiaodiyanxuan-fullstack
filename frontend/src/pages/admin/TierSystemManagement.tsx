@@ -61,6 +61,8 @@ interface AuthorizedAccount {
   createdAt: string
 }
 
+const STORAGE_SELECTED_MANUFACTURER_KEY = 'tier_system_selected_manufacturer'
+
 // ==================== 预设角色模块 ====================
 
 const DEFAULT_ROLE_MODULES: Omit<RoleModule, '_id' | 'createdAt' | 'updatedAt'>[] = [
@@ -132,44 +134,20 @@ const DEFAULT_ROLE_MODULES: Omit<RoleModule, '_id' | 'createdAt' | 'updatedAt'>[
   }
 ]
 
-// 图标映射
-const ICON_MAP: Record<string, any> = {
-  UserCheck,
-  GitBranch,
-  Users,
-  Briefcase,
-  Store,
-  Layers,
-  Building2
-}
-
-// ==================== localStorage 操作 ====================
-
-const STORAGE_KEY = 'tier_system_data'
-const STORAGE_SELECTED_MANUFACTURER_KEY = 'tier_system_selected_manufacturer'
-
-const getTierStorageKey = (manufacturerId: string) => {
-  if (!manufacturerId) return STORAGE_KEY
-  return `${STORAGE_KEY}:${manufacturerId}`
-}
-
+// 分层体系存储结构
 interface TierSystemData {
+  profitSettings: {
+    minSaleDiscountRate: number
+  }
   roleModules: RoleModule[]
   authorizedAccounts: AuthorizedAccount[]
 }
 
-const loadTierSystemData = (manufacturerId: string): TierSystemData => {
-  try {
-    const data = localStorage.getItem(getTierStorageKey(manufacturerId))
-    if (data) {
-      return JSON.parse(data)
-    }
-  } catch (e) {
-    console.error('加载分层体系数据失败:', e)
-  }
-  
-  // 初始化默认数据
-  const defaultData: TierSystemData = {
+const createDefaultTierSystemData = (): TierSystemData => {
+  return {
+    profitSettings: {
+      minSaleDiscountRate: 1
+    },
     roleModules: DEFAULT_ROLE_MODULES.map((m, i) => ({
       ...m,
       _id: `role_${m.code}_${Date.now() + i}`,
@@ -188,13 +166,17 @@ const loadTierSystemData = (manufacturerId: string): TierSystemData => {
     })),
     authorizedAccounts: []
   }
-  
-  localStorage.setItem(getTierStorageKey(manufacturerId), JSON.stringify(defaultData))
-  return defaultData
 }
 
-const saveTierSystemData = (manufacturerId: string, data: TierSystemData) => {
-  localStorage.setItem(getTierStorageKey(manufacturerId), JSON.stringify(data))
+// 图标映射
+const ICON_MAP: Record<string, any> = {
+  UserCheck,
+  GitBranch,
+  Users,
+  Briefcase,
+  Store,
+  Layers,
+  Building2
 }
 
 // ==================== 主组件 ====================
@@ -212,7 +194,7 @@ export default function TierSystemManagement() {
   })
 
   const [activeTab, setActiveTab] = useState<'modules' | 'pool' | 'hierarchy'>('modules')
-  const [data, setData] = useState<TierSystemData>(() => loadTierSystemData(lockedManufacturerId || selectedManufacturerId || ''))
+  const [data, setData] = useState<TierSystemData>(() => createDefaultTierSystemData())
   const [selectedModule, setSelectedModule] = useState<RoleModule | null>(null)
   const [showModuleModal, setShowModuleModal] = useState(false)
   const [showRuleModal, setShowRuleModal] = useState(false)
@@ -256,15 +238,58 @@ export default function TierSystemManagement() {
 
   useEffect(() => {
     const mid = lockedManufacturerId || selectedManufacturerId || ''
-    setData(loadTierSystemData(mid))
-    setSelectedModule(null)
-    setExpandedNodes(new Set())
+    const loadRemote = async () => {
+      if (!mid) {
+        setData(createDefaultTierSystemData())
+        setSelectedModule(null)
+        setExpandedNodes(new Set())
+        return
+      }
+
+      try {
+        const params: any = { _ts: Date.now() }
+        if (isSuperAdmin && !lockedManufacturerId) params.manufacturerId = mid
+
+        const resp = await apiClient.get('/tier-system', { params })
+        const doc = resp.data?.data
+
+        if (!doc) {
+          const next = createDefaultTierSystemData()
+          setData(next)
+          await apiClient.put('/tier-system', { manufacturerId: mid, ...next })
+        } else {
+          const next: TierSystemData = {
+            profitSettings: {
+              minSaleDiscountRate: Number(doc?.profitSettings?.minSaleDiscountRate ?? 1)
+            },
+            roleModules: Array.isArray(doc.roleModules) ? doc.roleModules : [],
+            authorizedAccounts: Array.isArray(doc.authorizedAccounts) ? doc.authorizedAccounts : [],
+          }
+
+          if (!next.roleModules || next.roleModules.length === 0) {
+            next.roleModules = createDefaultTierSystemData().roleModules
+          }
+
+          setData(next)
+        }
+      } catch (e) {
+        console.error('加载分层体系数据失败:', e)
+        setData(createDefaultTierSystemData())
+      } finally {
+        setSelectedModule(null)
+        setExpandedNodes(new Set())
+      }
+    }
+
+    loadRemote()
   }, [lockedManufacturerId, selectedManufacturerId])
 
   // 保存数据
-  const saveData = (newData: TierSystemData) => {
+  const saveData = async (newData: TierSystemData) => {
+    const mid = lockedManufacturerId || selectedManufacturerId || ''
     setData(newData)
-    saveTierSystemData(lockedManufacturerId || selectedManufacturerId || '', newData)
+    if (!mid) return
+    await apiClient.put('/tier-system', { manufacturerId: mid, ...newData })
   }
 
   // 更新角色模块
@@ -275,10 +300,24 @@ export default function TierSystemManagement() {
         : m
     )
     saveData({ ...data, roleModules: newModules })
+      .then(() => toast.success('保存成功'))
+      .catch(() => toast.error('保存失败'))
     if (selectedModule?._id === moduleId) {
       setSelectedModule({ ...selectedModule, ...updates })
     }
-    toast.success('保存成功')
+  }
+
+  const updateProfitSettings = (updates: Partial<TierSystemData['profitSettings']>) => {
+    const next = {
+      ...data,
+      profitSettings: {
+        ...data.profitSettings,
+        ...updates
+      }
+    }
+    saveData(next)
+      .then(() => toast.success('保存成功'))
+      .catch(() => toast.error('保存失败'))
   }
 
   // 添加折扣规则
@@ -290,10 +329,11 @@ export default function TierSystemManagement() {
         : m
     )
     saveData({ ...data, roleModules: newModules })
+      .then(() => toast.success('规则添加成功'))
+      .catch(() => toast.error('保存失败'))
     if (selectedModule?._id === moduleId) {
       setSelectedModule({ ...selectedModule, discountRules: [...selectedModule.discountRules, newRule] })
     }
-    toast.success('规则添加成功')
   }
 
   // 更新折扣规则
@@ -308,13 +348,14 @@ export default function TierSystemManagement() {
         : m
     )
     saveData({ ...data, roleModules: newModules })
+      .then(() => toast.success('规则更新成功'))
+      .catch(() => toast.error('保存失败'))
     if (selectedModule?._id === moduleId) {
       setSelectedModule({ 
         ...selectedModule, 
         discountRules: selectedModule.discountRules.map(r => r._id === ruleId ? { ...r, ...updates } : r)
       })
     }
-    toast.success('规则更新成功')
   }
 
   // 删除折扣规则
@@ -331,13 +372,14 @@ export default function TierSystemManagement() {
         : m
     )
     saveData({ ...data, roleModules: newModules })
+      .then(() => toast.success('规则已删除'))
+      .catch(() => toast.error('保存失败'))
     if (selectedModule?._id === moduleId) {
       setSelectedModule({ 
         ...selectedModule, 
         discountRules: selectedModule.discountRules.filter(r => r._id !== ruleId)
       })
     }
-    toast.success('规则已删除')
   }
 
   return (
@@ -413,6 +455,8 @@ export default function TierSystemManagement() {
       {activeTab === 'pool' && (
         <ProfitPoolTab 
           modules={data.roleModules}
+          profitSettings={data.profitSettings}
+          onUpdateProfitSettings={updateProfitSettings}
           onUpdateModule={updateRoleModule}
         />
       )}
@@ -432,7 +476,11 @@ export default function TierSystemManagement() {
             }
             setExpandedNodes(newExpanded)
           }}
-          onSaveAccounts={(accounts) => saveData({ ...data, authorizedAccounts: accounts })}
+          onSaveAccounts={(accounts) => {
+            saveData({ ...data, authorizedAccounts: accounts })
+              .then(() => toast.success('保存成功'))
+              .catch(() => toast.error('保存失败'))
+          }}
         />
       )}
     </div>
@@ -847,9 +895,13 @@ function RuleEditModal({
 
 function ProfitPoolTab({
   modules,
+  profitSettings,
+  onUpdateProfitSettings,
   onUpdateModule
 }: {
   modules: RoleModule[]
+  profitSettings: { minSaleDiscountRate: number }
+  onUpdateProfitSettings: (updates: { minSaleDiscountRate: number }) => void
   onUpdateModule: (id: string, updates: Partial<RoleModule>) => void
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -876,6 +928,31 @@ function ProfitPoolTab({
           <p className="text-green-100 text-sm">可分配比例</p>
           <p className="text-3xl font-bold mt-1">{totalMaxRate - totalAllocated}%</p>
           <p className="text-green-200 text-xs mt-2">剩余可授权比例</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="p-4 border-b border-gray-200">
+          <h3 className="font-semibold text-gray-900">利润设置</h3>
+          <p className="text-sm text-gray-500 mt-1">设置最低售价折扣（基于 SKU 标价）</p>
+        </div>
+        <div className="p-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            最低售价折扣 ({Math.round((profitSettings?.minSaleDiscountRate ?? 1) * 100)}%)
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={profitSettings?.minSaleDiscountRate ?? 1}
+            onChange={(e) => onUpdateProfitSettings({ minSaleDiscountRate: parseFloat(e.target.value) })}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0%</span>
+            <span>100%</span>
+          </div>
         </div>
       </div>
 

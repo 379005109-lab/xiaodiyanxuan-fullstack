@@ -14,6 +14,7 @@ const skuSchema = new mongoose.Schema({
   materialDescriptions: mongoose.Schema.Types.Mixed,
   stock: { type: Number, default: 0 },
   price: { type: Number, default: 0 },
+  costPrice: { type: Number, default: 0 },
   discountPrice: Number,
   images: [String],
   length: Number,

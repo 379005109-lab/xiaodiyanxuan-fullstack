@@ -7,7 +7,12 @@ exports.getAccounts = async (req, res) => {
   try {
     const { manufacturerId } = req.params
     
-    const accounts = await User.find({ manufacturerId })
+    const accounts = await User.find({
+      $or: [
+        { manufacturerId },
+        { manufacturerIds: manufacturerId }
+      ]
+    })
       .select('-password')
       .sort({ createdAt: -1 })
     
@@ -72,14 +77,16 @@ exports.createAccount = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10)
     
     // 创建账号
+    const isDesigner = accountType === 'designer'
     const user = new User({
       username,
       password: hashedPassword,
       nickname: nickname || username,
-      manufacturerId,
+      manufacturerId: isDesigner ? null : manufacturerId,
+      manufacturerIds: [manufacturerId],
       accountType: accountType || 'normal',
-      role: accountType === 'designer' ? 'designer' : 'enterprise_staff',
-      userType: accountType === 'designer' ? 'designer' : 'enterprise_staff',
+      role: isDesigner ? 'designer' : 'enterprise_staff',
+      userType: isDesigner ? 'designer' : 'enterprise_staff',
       permissions: permissions || {},
       specialAccountConfig: {
         expiresAt: expiresAt ? new Date(expiresAt) : null
@@ -124,7 +131,13 @@ exports.updateAccount = async (req, res) => {
     const { manufacturerId, accountId } = req.params
     const { nickname, accountType, permissions, expiresAt, status } = req.body
     
-    const user = await User.findOne({ _id: accountId, manufacturerId })
+    const user = await User.findOne({
+      _id: accountId,
+      $or: [
+        { manufacturerId },
+        { manufacturerIds: manufacturerId }
+      ]
+    })
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -173,8 +186,19 @@ exports.updateAccount = async (req, res) => {
       }
       
       user.accountType = accountType
-      user.role = accountType === 'designer' ? 'designer' : 'enterprise_staff'
-      user.userType = accountType === 'designer' ? 'designer' : 'enterprise_staff'
+      const isDesigner = accountType === 'designer'
+      user.role = isDesigner ? 'designer' : 'enterprise_staff'
+      user.userType = isDesigner ? 'designer' : 'enterprise_staff'
+      if (isDesigner) {
+        user.manufacturerId = null
+        const existing = Array.isArray(user.manufacturerIds) ? user.manufacturerIds.map(String) : []
+        if (!existing.includes(String(manufacturerId))) {
+          user.manufacturerIds = [...(user.manufacturerIds || []), manufacturerId]
+        }
+      } else {
+        user.manufacturerId = manufacturerId
+        user.manufacturerIds = [manufacturerId]
+      }
     }
     
     if (nickname) user.nickname = nickname
@@ -206,7 +230,13 @@ exports.deleteAccount = async (req, res) => {
   try {
     const { manufacturerId, accountId } = req.params
     
-    const user = await User.findOne({ _id: accountId, manufacturerId })
+    const user = await User.findOne({
+      _id: accountId,
+      $or: [
+        { manufacturerId },
+        { manufacturerIds: manufacturerId }
+      ]
+    })
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -251,7 +281,13 @@ exports.resetPassword = async (req, res) => {
     const { manufacturerId, accountId } = req.params
     const { newPassword } = req.body
     
-    const user = await User.findOne({ _id: accountId, manufacturerId })
+    const user = await User.findOne({
+      _id: accountId,
+      $or: [
+        { manufacturerId },
+        { manufacturerIds: manufacturerId }
+      ]
+    })
     if (!user) {
       return res.status(404).json({
         success: false,

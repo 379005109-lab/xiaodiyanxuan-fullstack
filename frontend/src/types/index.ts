@@ -17,13 +17,14 @@ export type UserRole =
 export interface User {
   _id: string
   username: string
-  email: string
+  email?: string
   phone?: string
   nickname?: string
   gender?: 'male' | 'female' | ''
   profileCompleted?: boolean
   role: UserRole
-  manufacturerId?: string
+  manufacturerId?: string | null
+  manufacturerIds?: string[]
   accountType?: 'auth' | 'sub' | 'designer' | 'normal'
   permissions?: {
     canAccessAdmin?: boolean
@@ -35,9 +36,9 @@ export interface User {
     canViewReports?: boolean
   }
   avatar?: string
-  createdAt: string
-  updatedAt: string
-  status: 'active' | 'inactive' | 'banned'
+  createdAt?: string
+  updatedAt?: string
+  status?: 'active' | 'inactive' | 'banned' | 'expired'
   balance?: number
   calculatedRole?: string
   tags?: string[]
@@ -167,6 +168,7 @@ export interface ProductSKU {
   materialDescriptions?: Record<string, string>
   stock: number
   price: number
+  costPrice?: number
   discountPrice?: number
   images: string[]
   code?: string

@@ -97,7 +97,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
 
   const menuItems = role === 'designer'
     ? allMenuItems.filter(item =>
-        ['商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
+        ['授权管理', '商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
       )
     : allMenuItems
 

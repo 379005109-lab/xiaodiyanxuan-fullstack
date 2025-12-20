@@ -4,9 +4,19 @@ const ManufacturerOrder = require('../models/ManufacturerOrder');
 const Order = require('../models/Order');
 const Manufacturer = require('../models/Manufacturer');
 const mongoose = require('mongoose');
+const { auth, requireRole } = require('../middleware/auth')
+const { USER_ROLES } = require('../config/constants')
+
+const ADMIN_ROLES = [
+  USER_ROLES.SUPER_ADMIN,
+  USER_ROLES.PLATFORM_ADMIN,
+  USER_ROLES.ENTERPRISE_ADMIN,
+  'admin',
+  'super_admin'
+]
 
 // 分发订单到厂家
-router.post('/dispatch/:orderId', async (req, res) => {
+router.post('/dispatch/:orderId', auth, requireRole(ADMIN_ROLES), async (req, res) => {
   try {
     const { orderId } = req.params;
     
@@ -130,7 +140,7 @@ router.post('/dispatch/:orderId', async (req, res) => {
 });
 
 // 获取厂家订单列表（管理端）
-router.get('/', async (req, res) => {
+router.get('/', auth, requireRole(ADMIN_ROLES), async (req, res) => {
   try {
     const { page = 1, limit = 20, status, manufacturerId, keyword } = req.query;
     
@@ -169,57 +179,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// 获取指定厂家的订单列表（厂家端）
-router.get('/manufacturer/:manufacturerId', async (req, res) => {
-  try {
-    const { manufacturerId } = req.params;
-    const { page = 1, limit = 20, status } = req.query;
-    
-    const query = { manufacturerId };
-    if (status) query.status = status;
-    
-    const orders = await ManufacturerOrder.find(query)
-      .populate('orderId', 'orderNo status')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-    
-    const total = await ManufacturerOrder.countDocuments(query);
-    
-    // 统计数据
-    const stats = await ManufacturerOrder.aggregate([
-      { $match: { manufacturerId: new mongoose.Types.ObjectId(manufacturerId) } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-          confirmed: { $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] } },
-          processing: { $sum: { $cond: [{ $eq: ['$status', 'processing'] }, 1, 0] } },
-          shipped: { $sum: { $cond: [{ $eq: ['$status', 'shipped'] }, 1, 0] } },
-          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } }
-        }
-      }
-    ]);
-    
-    res.json({ 
-      success: true, 
-      data: orders,
-      stats: stats[0] || { total: 0, pending: 0, confirmed: 0, processing: 0, shipped: 0, completed: 0 },
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total
-      }
-    });
-  } catch (error) {
-    console.error('获取厂家订单列表失败:', error);
-    res.status(500).json({ success: false, message: '服务器错误' });
-  }
-});
-
 // 厂家确认订单
-router.put('/:id/confirm', async (req, res) => {
+router.put('/:id/confirm', auth, requireRole(ADMIN_ROLES), async (req, res) => {
   try {
     const { id } = req.params;
     const { manufacturerRemark } = req.body;
@@ -254,7 +215,7 @@ router.put('/:id/confirm', async (req, res) => {
 });
 
 // 更新厂家订单状态
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', auth, requireRole(ADMIN_ROLES), async (req, res) => {
   try {
     const { id } = req.params;
     const { status, trackingNo, trackingCompany, remark } = req.body;
@@ -301,7 +262,7 @@ router.put('/:id/status', async (req, res) => {
 });
 
 // 获取厂家订单详情
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth, requireRole(ADMIN_ROLES), async (req, res) => {
   try {
     const order = await ManufacturerOrder.findById(req.params.id)
       .populate('orderId', 'orderNo status totalAmount createdAt')
@@ -319,7 +280,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // 获取订单的分发记录
-router.get('/order/:orderId', async (req, res) => {
+router.get('/order/:orderId', auth, requireRole(ADMIN_ROLES), async (req, res) => {
   try {
     const orders = await ManufacturerOrder.find({ orderId: req.params.orderId })
       .populate('manufacturerId', 'name code');

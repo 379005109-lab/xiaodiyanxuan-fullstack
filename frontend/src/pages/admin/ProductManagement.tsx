@@ -28,6 +28,7 @@ interface Manufacturer {
 export default function ProductManagement() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const canViewCostPrice = user?.role === 'super_admin' || user?.role === 'admin' || (user as any)?.permissions?.canViewCostPrice === true
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -2627,6 +2628,9 @@ export default function ProductManagement() {
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">厂家</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">分类</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">价格</th>
+                {canViewCostPrice && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
+                )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">SKU数量</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">状态</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">创建时间</th>
@@ -2758,6 +2762,23 @@ export default function ProductManagement() {
                       })()}
                     </div>
                   </td>
+
+                  {canViewCostPrice && (
+                    <td className="py-4 px-4">
+                      <div className="text-sm text-gray-700">
+                        {(() => {
+                          const p: any = product as any
+                          const cost = Number(
+                            p.costPrice ??
+                            p.takePrice ??
+                            p?.skus?.[0]?.costPrice ??
+                            0
+                          )
+                          return formatPrice(cost)
+                        })()}
+                      </div>
+                    </td>
+                  )}
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{product.skus ? product.skus.length : 0}</span>
@@ -2862,7 +2883,7 @@ export default function ProductManagement() {
                     exit={{ opacity: 0, height: 0 }}
                     className="bg-gray-50"
                   >
-                    <td colSpan={9} className="py-4 px-4">
+                    <td colSpan={canViewCostPrice ? 10 : 9} className="py-4 px-4">
                       <div className="space-y-2">
                         <div className="text-xs font-semibold text-gray-600 mb-2">SKU列表：</div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

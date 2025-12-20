@@ -5,6 +5,7 @@ const FileService = require('../services/fileService')
 const Product = require('../models/Product')
 const Authorization = require('../models/Authorization')
 const Style = require('../models/Style')
+const { canViewCostPrice } = require('../services/priceService')
 
 const getProductOwnerManufacturerId = (product) => {
   if (!product) return null
@@ -82,7 +83,36 @@ const getAuthorizedTakePrice = (auth, product) => {
   return authModel.getAuthorizedPrice(product)
 }
 
-const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1) => {
+const allowCostPriceForUser = (user) => {
+  if (!user) return false
+  if (user.role === 'admin') return true
+  return canViewCostPrice(user)
+}
+
+const stripCostPriceFromProduct = (product) => {
+  if (!product || !Array.isArray(product.skus)) return product
+  return {
+    ...product,
+    skus: product.skus.map((sku) => {
+      if (!sku || typeof sku !== 'object') return sku
+      const { costPrice, ...rest } = sku
+      return rest
+    })
+  }
+}
+
+const getProductCostPrice = (product) => {
+  const sku = product?.skus?.[0]
+  if (!sku) return 0
+  const val = sku.costPrice
+  return Number.isFinite(val) ? val : 0
+}
+
+const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1, allowCostPrice = false) => {
+  const rawCostPrice = allowCostPrice ? getProductCostPrice(product) : 0
+  const resolvedCostPrice = allowCostPrice
+    ? (rawCostPrice > 0 ? rawCostPrice : (Number.isFinite(takePrice) ? takePrice : 0))
+    : 0
   return {
     _id: product._id,
     name: product.name,
@@ -93,6 +123,7 @@ const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1) => 
     status: product.status,
     takePrice,
     labelPrice1,
+    ...(allowCostPrice && resolvedCostPrice > 0 ? { costPrice: resolvedCostPrice } : {}),
   }
 }
 
@@ -207,7 +238,9 @@ const listProducts = async (req, res) => {
         const takePrice = getAuthorizedTakePrice(auth, p)
         const key = getAuthorizationViewerKey(user)
         const labelPrice1 = (p.authorizedLabelPrices && key) ? (p.authorizedLabelPrices[key] || takePrice) : takePrice
-        return sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1)
+
+        const allow = allowCostPriceForUser(user)
+        return sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1, allow)
       })
 
       return res.json(paginatedResponse(shaped, total, parseInt(page), parseInt(pageSize)))
@@ -233,7 +266,9 @@ const listProducts = async (req, res) => {
       })))
     }
     
-    res.json(paginatedResponse(result.products, result.total, result.page, result.pageSize))
+    const allow = allowCostPriceForUser(user)
+    const safeProducts = allow ? result.products : result.products.map(stripCostPriceFromProduct)
+    res.json(paginatedResponse(safeProducts, result.total, result.page, result.pageSize))
   } catch (err) {
     console.error('List products error:', err)
     res.status(500).json(errorResponse(err.message, 500))
@@ -260,7 +295,8 @@ const getProduct = async (req, res) => {
       const takePrice = getAuthorizedTakePrice(auth, product)
       const key = getAuthorizationViewerKey(user)
       const labelPrice1 = (product.authorizedLabelPrices && key) ? (product.authorizedLabelPrices[key] || takePrice) : takePrice
-      return res.json(successResponse(sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1)))
+      const allow = allowCostPriceForUser(user)
+      return res.json(successResponse(sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1, allow)))
     }
     
     // 异步记录浏览历史（如果用户已登录）
@@ -273,7 +309,8 @@ const getProduct = async (req, res) => {
       }).catch(err => console.error('记录浏览历史失败:', err))
     }
     
-    res.json(successResponse(product))
+    const allow = allowCostPriceForUser(user)
+    res.json(successResponse(allow ? product : stripCostPriceFromProduct(product)))
   } catch (err) {
     console.error('Get product error:', err)
     const status = err.status || 500

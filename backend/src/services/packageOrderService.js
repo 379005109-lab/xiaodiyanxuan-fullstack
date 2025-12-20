@@ -3,6 +3,7 @@ const User = require('../models/User')
 const { generateOrderNo } = require('../utils/helpers')
 const { ORDER_STATUS } = require('../config/constants')
 const { ValidationError } = require('../utils/errors')
+const { enrichItemsWithManufacturer, dispatchOrderToManufacturers } = require('./orderService')
 
 /**
  * 创建套餐订单
@@ -41,7 +42,7 @@ const createPackageOrder = async (userId, packageData, recipient, notes = '') =>
   packageData.selections.forEach(selection => {
     selection.products.forEach(product => {
       if (product.materialUpgrade) {
-        totalAmount += product.materialUpgrade * (product.quantity || 1)
+        totalAmount += Number(product.materialUpgrade || 0)
       }
     })
   })
@@ -57,10 +58,18 @@ const createPackageOrder = async (userId, packageData, recipient, notes = '') =>
   packageData.selections.forEach(selection => {
     selection.products.forEach(product => {
       if (product.materialUpgrade || product.upgradePrice) {
-        totalUpgradePrice += (product.materialUpgrade || product.upgradePrice || 0) * (product.quantity || 1)
+        totalUpgradePrice += Number(product.materialUpgrade || product.upgradePrice || 0)
       }
     })
   })
+
+  const enrichedSelections = await Promise.all((packageData.selections || []).map(async (selection) => {
+    const enrichedProducts = await enrichItemsWithManufacturer(selection.products || [])
+    return {
+      ...selection,
+      products: enrichedProducts
+    }
+  }))
   
   // 创建订单
   const order = await Order.create({
@@ -72,7 +81,7 @@ const createPackageOrder = async (userId, packageData, recipient, notes = '') =>
       packageName: packageData.packageName,
       packagePrice: packageData.packagePrice,
       totalUpgradePrice: totalUpgradePrice,
-      selections: packageData.selections
+      selections: enrichedSelections
     },
     subtotal: totalAmount,
     discountAmount: 0,
@@ -86,6 +95,8 @@ const createPackageOrder = async (userId, packageData, recipient, notes = '') =>
   console.log('✅ [PackageOrderService] Order ID:', order._id);
   console.log('✅ [PackageOrderService] Order No:', order.orderNo);
   console.log('✅ [PackageOrderService] Total Amount:', order.totalAmount);
+
+  await dispatchOrderToManufacturers(order)
   
   // 更新用户统计
   const user = await User.findById(userId)
