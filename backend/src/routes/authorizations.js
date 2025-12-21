@@ -494,12 +494,16 @@ router.put('/:id/designer-product-discount/:productId', auth, async (req, res) =
       if (idx >= 0) next.splice(idx, 1)
     } else {
       const value = { productId, discount: discountRate }
-      if (idx >= 0) next[idx] = { ...next[idx], ...value }
-      else next.push(value)
+      if (idx >= 0) {
+        next[idx] = value
+      } else {
+        next.push(value)
+      }
     }
 
     if (!authorization.priceSettings) authorization.priceSettings = {}
     authorization.priceSettings.productPrices = next
+    authorization.markModified('priceSettings')
     authorization.updatedAt = new Date()
     await authorization.save()
 

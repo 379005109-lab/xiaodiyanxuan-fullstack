@@ -267,10 +267,11 @@ const listProducts = async (req, res) => {
 
       for (const auth of authorizations) {
         if (auth.scope === 'all') {
+          const manufacturerOid = auth.fromManufacturer
           const products = await Product.find({
             $or: [
-              { manufacturerId: auth.fromManufacturer },
-              { 'skus.manufacturerId': auth.fromManufacturer },
+              { manufacturerId: manufacturerOid },
+              { 'skus.manufacturerId': manufacturerOid },
             ],
             status: 'active'
           }).select('_id').lean()
@@ -279,12 +280,13 @@ const listProducts = async (req, res) => {
             authByProduct.set(p._id.toString(), auth)
           })
         } else if (auth.scope === 'category') {
+          const manufacturerOid = auth.fromManufacturer
           const products = await Product.find({
             $and: [
               {
                 $or: [
-                  { manufacturerId: auth.fromManufacturer },
-                  { 'skus.manufacturerId': auth.fromManufacturer },
+                  { manufacturerId: manufacturerOid },
+                  { 'skus.manufacturerId': manufacturerOid },
                 ],
               },
               {
@@ -428,9 +430,39 @@ const getProduct = async (req, res) => {
     const product = await getProductById(id)
 
     const user = req.user
-    if ((user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') || user?.role === 'designer') {
+    if (user?.role === 'designer') {
+      if (product?.status !== 'active') {
+        return res.status(404).json(errorResponse('商品不存在', 404))
+      }
+
       const ownerManufacturerId = getProductOwnerManufacturerId(product)
-      if (user?.manufacturerId && ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
+      const auth = await findAuthorizationForUserAndProduct(user, product)
+
+      const tierDoc = ownerManufacturerId
+        ? await TierSystem.findOne({ manufacturerId: ownerManufacturerId }).lean()
+        : null
+      const tierPricing = computeTierPricing({ tierDoc, user, product, auth })
+
+      let takePrice
+      let labelPrice1
+      if (auth && !auth._isOwner) {
+        takePrice = getAuthorizedTakePrice(auth, product)
+        const key = getAuthorizationViewerKey(user)
+        labelPrice1 = (product.authorizedLabelPrices && key) ? (product.authorizedLabelPrices[key] || takePrice) : takePrice
+      }
+
+      const safeProduct = stripCostPriceFromProduct(product)
+      return res.json(successResponse({
+        ...safeProduct,
+        ...(typeof takePrice === 'number' ? { takePrice } : {}),
+        ...(typeof labelPrice1 === 'number' ? { labelPrice1 } : {}),
+        ...(tierPricing ? { tierPricing } : {}),
+      }))
+    }
+
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      const ownerManufacturerId = getProductOwnerManufacturerId(product)
+      if (ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
         return res.json(successResponse(product))
       }
 
