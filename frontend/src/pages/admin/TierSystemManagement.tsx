@@ -1238,12 +1238,20 @@ function HierarchyTab({
 
     // 检查比例是否超限
     let maxAvailable = module.maxProfitRate - module.currentAllocatedRate
+    
+    // 计算当前模块已分配的总比例
+    const currentModuleAllocated = accounts
+      .filter(a => a.roleModuleId === data.roleModuleId && !a.parentId)
+      .reduce((sum, a) => sum + a.allocatedRate, 0)
+    
     if (parentAccount) {
       maxAvailable = parentAccount.availableRate
+    } else {
+      maxAvailable = module.maxProfitRate - currentModuleAllocated
     }
     
     if (data.allocatedRate > maxAvailable) {
-      toast.error(`分配比例不能超过 ${maxAvailable}%`)
+      toast.error(`分配比例不能超过可用额度 ${maxAvailable.toFixed(1)}%`)
       return
     }
 
