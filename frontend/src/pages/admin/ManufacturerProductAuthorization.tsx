@@ -149,18 +149,24 @@ export default function ManufacturerProductAuthorization() {
   }, [categories])
 
   // 计算商品价格信息（根据分层体系配置）
+  // 价格计算逻辑：
+  // 标价10000元，最低折扣6折=6000元
+  // 设计师佣金 = 6000 × 40% = 2400元
+  // 工厂收入 = 6000 - 2400 = 3600元（固定）
+  // 如果8折成交=8000元，超出部分2000元归设计师
+  // 设计师总收入 = 2000 + 2400 = 4400元
   const getProductPricing = (product: ProductItem) => {
     const basePrice = product.basePrice || 0
     const skuPrices = product.skus?.map(s => s.price || 0).filter(p => p > 0) || []
     const discountPrices = product.skus?.map(s => s.discountPrice).filter(p => p && p > 0) || []
     
-    const minPrice = skuPrices.length > 0 ? Math.min(...skuPrices) : basePrice
+    // 标价（零售价）
+    const retailPrice = skuPrices.length > 0 ? Math.min(...skuPrices) : basePrice
     const maxPrice = skuPrices.length > 0 ? Math.max(...skuPrices) : basePrice
-    const retailPrice = discountPrices.length > 0 ? Math.min(...discountPrices) : minPrice
     
-    // 从分层体系配置中获取折扣率和返佣率
-    let discountRate = 0.9 // 默认9折
-    let commissionRate = 0.1 // 默认10%返佣
+    // 从分层体系配置中获取最低折扣率和佣金率
+    let minDiscountRate = 0.6 // 默认最低6折
+    let commissionRate = 0.4 // 默认40%佣金
     
     if (tierSystemConfig) {
       const modules = tierSystemConfig.roleModules || []
@@ -173,13 +179,11 @@ export default function ManufacturerProductAuthorization() {
       let targetRule = null
       
       if (userAccount) {
-        // 使用用户的授权配置
         targetModule = modules.find((m: any) => String(m._id) === String(userAccount.roleModuleId))
         if (targetModule && targetModule.discountRules) {
           targetRule = targetModule.discountRules.find((r: any) => String(r._id) === String(userAccount.discountRuleId))
         }
       } else {
-        // 使用默认角色配置
         targetModule = modules.find((m: any) => m.code === user?.role) || modules[0]
         if (targetModule && targetModule.discountRules) {
           targetRule = targetModule.discountRules.find((r: any) => r.isDefault) || targetModule.discountRules[0]
@@ -187,19 +191,26 @@ export default function ManufacturerProductAuthorization() {
       }
       
       if (targetRule) {
-        discountRate = targetRule.discountRate || 0.9
-        commissionRate = targetRule.commissionRate || 0.1
+        minDiscountRate = targetRule.discountRate || 0.6
+        commissionRate = targetRule.commissionRate || 0.4
       }
     }
     
-    const minDiscountPrice = retailPrice * discountRate
-    const commissionPrice = minDiscountPrice * commissionRate
+    // 最低折扣价（如6折）
+    const minDiscountPrice = retailPrice * minDiscountRate
+    
+    // 设计师佣金（基于最低折扣价）
+    const designerCommission = minDiscountPrice * commissionRate
+    
+    // 工厂固定收入
+    const factoryIncome = minDiscountPrice - designerCommission
     
     return {
-      priceRange: minPrice === maxPrice ? `¥${minPrice}` : `¥${minPrice} - ¥${maxPrice}`,
-      minDiscountPrice: `¥${minDiscountPrice.toFixed(2)}`,
-      commissionPrice: `¥${commissionPrice.toFixed(2)}`,
-      discountRate: `${(discountRate * 100).toFixed(0)}%`,
+      priceRange: retailPrice === maxPrice ? `¥${retailPrice}` : `¥${retailPrice} - ¥${maxPrice}`,
+      minDiscountPrice: `¥${minDiscountPrice.toFixed(0)}`,
+      commissionPrice: `¥${designerCommission.toFixed(0)}`,
+      factoryIncome: `¥${factoryIncome.toFixed(0)}`,
+      discountRate: `${(minDiscountRate * 10).toFixed(0)}折`,
       commissionRate: `${(commissionRate * 100).toFixed(0)}%`
     }
   }
