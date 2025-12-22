@@ -71,6 +71,7 @@ app.use('/api/concierge', require('./routes/concierge'))
 
 // 账号管理路由
 app.use('/api/accounts', require('./routes/accounts'))
+app.use('/api/users', require('./routes/users-batch'))
 
 // 文件上传路由
 app.use('/api/files', require('./routes/files'))

@@ -2679,10 +2679,10 @@ export default function ProductManagement() {
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">价格</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">折后价(A)</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">返佣金额(B)</th>
-                {currentRole === 'designer' && (
+                {currentRole === 'designer' && false && (
                   <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">单品折扣覆盖</th>
                 )}
-                {showCostColumn && (
+                {showCostColumn && currentRole !== 'designer' && (
                   <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
                 )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">SKU数量</th>
@@ -2742,7 +2742,7 @@ export default function ProductManagement() {
                   </td>
                   {/* 厂家列 */}
                   <td className="py-4 px-4">
-                    {editingManufacturer === product._id ? (
+                    {currentRole !== 'designer' && editingManufacturer === product._id ? (
                       <select
                         autoFocus
                         className="text-sm border border-gray-300 rounded px-2 py-1 w-24"
@@ -2759,11 +2759,11 @@ export default function ProductManagement() {
                       </select>
                     ) : (
                       <span 
-                        className="text-sm text-gray-700 cursor-pointer hover:text-primary hover:underline"
-                        onClick={() => setEditingManufacturer(product._id)}
-                        title="点击编辑厂家"
+                        className={`text-sm text-gray-700 ${currentRole !== 'designer' ? 'cursor-pointer hover:text-primary hover:underline' : ''}`}
+                        onClick={() => currentRole !== 'designer' && setEditingManufacturer(product._id)}
+                        title={currentRole !== 'designer' ? "点击编辑厂家" : ""}
                       >
-                        {getManufacturerName(getProductManufacturerId(product) || undefined)}
+                        {(product as any).manufacturerDisplayName || getManufacturerName(getProductManufacturerId(product) || undefined)}
                       </span>
                     )}
                   </td>
@@ -2787,18 +2787,37 @@ export default function ProductManagement() {
                   <td className="py-4 px-4">
                     <div className="flex flex-col">
                       {(() => {
-                        // 获取所有SKU的价格
+                        const p: any = product as any
+                        // 设计师优先使用后端返回的授权价格
+                        if (currentRole === 'designer') {
+                          const takePrice = Number(p?.takePrice)
+                          const labelPrice = Number(p?.labelPrice1)
+                          if (Number.isFinite(takePrice) && takePrice > 0) {
+                            return (
+                              <span className="font-medium text-primary-600">
+                                {formatPrice(takePrice)}
+                              </span>
+                            )
+                          }
+                          if (Number.isFinite(labelPrice) && labelPrice > 0) {
+                            return (
+                              <span className="font-medium text-primary-600">
+                                {formatPrice(labelPrice)}
+                              </span>
+                            )
+                          }
+                        }
+                        
+                        // 其他角色使用 SKU 价格计算
                         const prices = (product.skus || []).map(sku => ({
                           price: sku.price || 0,
                           discountPrice: sku.discountPrice || 0
                         }))
-                        // 找到最低价格
                         const minPrice = prices.length > 0 ? Math.min(...prices.map(p => p.discountPrice > 0 && p.discountPrice < p.price ? p.discountPrice : p.price)) : 0
-                        // 找到最低的划线价（原价）
                         const minOriginalPrice = prices.length > 0 ? Math.min(...prices.map(p => p.price)) : 0
                         const hasDiscount = prices.some(p => p.discountPrice > 0 && p.discountPrice < p.price)
                         
-                          const roleMultiplier = getDiscountMultiplier(product.category)
+                        const roleMultiplier = getDiscountMultiplier(product.category)
                         const finalPrice = Math.round(minPrice * roleMultiplier)
                         const finalOriginal = Math.round(minOriginalPrice * roleMultiplier)
                         return (
@@ -2839,7 +2858,7 @@ export default function ProductManagement() {
                     </div>
                   </td>
 
-                  {currentRole === 'designer' && (
+                  {currentRole === 'designer' && false && (
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-2">
                         <input
@@ -2875,7 +2894,7 @@ export default function ProductManagement() {
                     </td>
                   )}
 
-                  {showCostColumn && (
+                  {showCostColumn && currentRole !== 'designer' && (
                     <td className="py-4 px-4">
                       <div className="text-sm text-gray-700">
                         {(() => {
@@ -2931,61 +2950,65 @@ export default function ProductManagement() {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center justify-end space-x-2">
-                      <button
-                        onClick={() => navigate(`/admin/products/dashboard/${product._id}`)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="数据看板"
-                      >
-                        <BarChart3 className="h-4 w-4 text-purple-600" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleStatus(product._id)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title={product.status === 'active' ? '下架' : '上架'}
-                      >
-                        {product.status === 'active' ? (
-                          <EyeOff className="h-4 w-4 text-gray-600" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-gray-600" />
-                        )}
-                      </button>
-                      <label
-                        className={`p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer ${batchImageUploading ? 'opacity-50 pointer-events-none' : ''}`}
-                        title="选择文件夹上传图片"
-                      >
-                        <FolderOpen className="h-4 w-4 text-purple-600" />
-                        <input
-                          type="file"
-                          // @ts-ignore
-                          webkitdirectory=""
-                          // @ts-ignore
-                          directory=""
-                          multiple
-                          className="hidden"
-                          onChange={(e) => handleFolderUpload(e, product._id)}
-                          disabled={batchImageUploading}
-                        />
-                      </label>
-                      <button
-                        onClick={() => {
-                          if (currentRole === 'designer') {
-                            navigate(`/admin/products/designer-edit/${product._id}`)
-                          } else {
-                            navigate(`/admin/products/edit/${product._id}`)
-                          }
-                        }}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="编辑"
-                      >
-                        <Edit className="h-4 w-4 text-blue-600" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product._id, product.name)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="删除"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </button>
+                      {currentRole !== 'designer' && (
+                        <button
+                          onClick={() => navigate(`/admin/products/dashboard/${product._id}`)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="数据看板"
+                        >
+                          <BarChart3 className="h-4 w-4 text-purple-600" />
+                        </button>
+                      )}
+                      {currentRole !== 'designer' && (
+                        <button
+                          onClick={() => handleToggleStatus(product._id)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title={product.status === 'active' ? '下架' : '上架'}
+                        >
+                          {product.status === 'active' ? (
+                            <EyeOff className="h-4 w-4 text-gray-600" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-gray-600" />
+                          )}
+                        </button>
+                      )}
+                      {currentRole !== 'designer' && (
+                        <label
+                          className={`p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer ${batchImageUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                          title="选择文件夹上传图片"
+                        >
+                          <FolderOpen className="h-4 w-4 text-purple-600" />
+                          <input
+                            type="file"
+                            // @ts-ignore
+                            webkitdirectory=""
+                            // @ts-ignore
+                            directory=""
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handleFolderUpload(e, product._id)}
+                            disabled={batchImageUploading}
+                          />
+                        </label>
+                      )}
+                      {currentRole !== 'designer' && (
+                        <button
+                          onClick={() => navigate(`/admin/products/edit/${product._id}`)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="编辑"
+                        >
+                          <Edit className="h-4 w-4 text-blue-600" />
+                        </button>
+                      )}
+                      {currentRole !== 'designer' && (
+                        <button
+                          onClick={() => handleDelete(product._id, product.name)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="删除"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </motion.tr>

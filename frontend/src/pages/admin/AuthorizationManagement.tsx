@@ -198,6 +198,13 @@ export default function AuthorizationManagement() {
     return `指定商品 (${productsCount}个)`
   }
 
+  const formatDate = (value?: string) => {
+    if (!value) return ''
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return ''
+    return d.toLocaleDateString()
+  }
+
   const authorizations = activeTab === 'granted' ? grantedAuths : receivedAuths
   const tabCounts: Record<TabKey, number> = {
     granted: grantedAuths.length,
@@ -303,6 +310,11 @@ export default function AuthorizationManagement() {
                         <Copy className="w-4 h-4" />
                       </button>
                     </div>
+                    <div className="mt-2 text-sm text-gray-600">
+                      <span>申请时间: {formatDate(req.createdAt || (req as any).validFrom) || '-'}</span>
+                      <span className="mx-2">•</span>
+                      <span>有效期: {(req.validUntil ? formatDate(req.validUntil) : '永久有效') || '永久有效'}</span>
+                    </div>
                     {req.notes && (
                       <p className="mt-2 text-sm text-gray-500">{req.notes}</p>
                     )}
@@ -369,6 +381,11 @@ export default function AuthorizationManagement() {
                         </h3>
                         {getStatusBadge(req.status)}
                       </div>
+                      <div className="text-sm text-gray-600">
+                        <span>申请时间: {formatDate(req.createdAt || (req as any).validFrom) || '-'}</span>
+                        <span className="mx-2">•</span>
+                        <span>有效期: {(req.validUntil ? formatDate(req.validUntil) : '永久有效') || '永久有效'}</span>
+                      </div>
                       {req.notes && (
                         <p className="mt-2 text-sm text-gray-500">{req.notes}</p>
                       )}
@@ -418,12 +435,10 @@ export default function AuthorizationManagement() {
                     <span>授权范围: {getScopeLabel(auth.scope, auth.categories, auth.products?.length)}</span>
                     <span>•</span>
                     <span>全局折扣: {(auth.priceSettings.globalDiscount * 100).toFixed(0)}折</span>
-                    {auth.validUntil && (
-                      <>
-                        <span>•</span>
-                        <span>有效期至: {new Date(auth.validUntil).toLocaleDateString()}</span>
-                      </>
-                    )}
+                    <span>•</span>
+                    <span>生效: {formatDate(auth.validFrom) || '-'}</span>
+                    <span>•</span>
+                    <span>有效期: {auth.validUntil ? formatDate(auth.validUntil) : '永久有效'}</span>
                   </div>
                   {auth.notes && (
                     <p className="mt-2 text-sm text-gray-500">{auth.notes}</p>

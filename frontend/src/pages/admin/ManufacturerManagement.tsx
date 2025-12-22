@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/store/authStore'
 
 // 中文转拼音首字母（简化版）
 const pinyinMap: Record<string, string> = {
@@ -108,6 +110,18 @@ interface ManufacturerAccount {
 }
 
 export default function ManufacturerManagement() {
+  const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
+  const isManufacturerUser = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff' || (user as any)?.permissions?.canAccessAdmin === true
+
+  const canManageManufacturer = (manufacturerId: string) => {
+    if (isAdmin) return true
+    if (!myManufacturerId) return false
+    return String(manufacturerId) === myManufacturerId
+  }
+
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
@@ -469,6 +483,19 @@ export default function ManufacturerManagement() {
     }
   }
 
+  const handleOpenTierSystem = (item: Manufacturer) => {
+    localStorage.setItem('tier_system_selected_manufacturer', item._id)
+    navigate('/admin/tier-system')
+  }
+
+  const handleOpenProductAuthorization = (item: Manufacturer) => {
+    navigate(`/admin/manufacturers/${item._id}/product-authorization`)
+  }
+
+  const handleOpenAuthorizationRequests = () => {
+    navigate('/admin/manufacturers/authorization-requests')
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -477,13 +504,15 @@ export default function ManufacturerManagement() {
           厂家管理
         </h1>
         <div className="flex items-center gap-3">
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            新建厂家
-          </button>
+          {isAdmin && (
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              新建厂家
+            </button>
+          )}
         </div>
       </div>
 
@@ -579,12 +608,14 @@ export default function ManufacturerManagement() {
                       </span>
                     ) : null}
                   </span>
-                  <button
-                    onClick={() => openQuotaModal(item)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    设置配额
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => openQuotaModal(item)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      设置配额
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
@@ -609,27 +640,56 @@ export default function ManufacturerManagement() {
               </div>
 
               <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                <button
-                  onClick={() => openEditModal(item)}
-                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  <Edit className="w-4 h-4" />
-                  编辑
-                </button>
-                <button
-                  onClick={() => openAccountsModal(item)}
-                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                >
-                  <Key className="w-4 h-4" />
-                  账号
-                </button>
-                <button
-                  onClick={() => handleDelete(item._id)}
-                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  删除
-                </button>
+                {canManageManufacturer(item._id) ? (
+                  <>
+                    <button
+                      onClick={() => openEditModal(item)}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                      <Edit className="w-4 h-4" />
+                      编辑
+                    </button>
+                    <button
+                      onClick={() => openAccountsModal(item)}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <Key className="w-4 h-4" />
+                      账号
+                    </button>
+                    <button
+                      onClick={() => handleOpenTierSystem(item)}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                    >
+                      <Layers className="w-4 h-4" />
+                      分层管理
+                    </button>
+                    {(isAdmin || (isManufacturerUser && myManufacturerId && String(item._id) === String(myManufacturerId))) && (
+                      <button
+                        onClick={handleOpenAuthorizationRequests}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                      >
+                        <Shield className="w-4 h-4" />
+                        授权申请
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDelete(item._id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        删除
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    onClick={() => handleOpenProductAuthorization(item)}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    商品授权
+                  </button>
+                )}
               </div>
             </div>
           ))}

@@ -170,7 +170,7 @@ router.post('/designer-requests', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '只有设计师可以申请厂家授权' })
     }
 
-    const { manufacturerId, notes } = req.body
+    const { manufacturerId, notes, scope, categories, products, validUntil } = req.body
     if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
       return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
     }
@@ -191,19 +191,76 @@ router.post('/designer-requests', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: '已存在申请记录或已授权' })
     }
 
+    const normalizedScope = ['all', 'category', 'specific'].includes(scope) ? scope : 'all'
+
+    let normalizedCategories = []
+    let normalizedProducts = []
+
+    if (normalizedScope === 'category') {
+      if (!Array.isArray(categories) || categories.length === 0) {
+        return res.status(400).json({ success: false, message: '请选择要授权的分类' })
+      }
+      normalizedCategories = categories
+        .map((c) => String(c))
+        .filter((c) => c && c.length <= 128)
+        .slice(0, 200)
+    }
+
+    if (normalizedScope === 'specific') {
+      if (!Array.isArray(products) || products.length === 0) {
+        return res.status(400).json({ success: false, message: '请选择要授权的商品' })
+      }
+
+      const productIds = products
+        .map((p) => String(p))
+        .filter((p) => mongoose.Types.ObjectId.isValid(p))
+        .slice(0, 500)
+
+      if (productIds.length === 0) {
+        return res.status(400).json({ success: false, message: 'products 无效' })
+      }
+
+      const manufacturerOid = new mongoose.Types.ObjectId(manufacturerId)
+      const productOids = productIds.map((id) => new mongoose.Types.ObjectId(id))
+
+      const ownedProducts = await Product.find({
+        _id: { $in: productOids },
+        status: 'active',
+        $or: [{ manufacturerId: manufacturerOid }, { 'skus.manufacturerId': manufacturerOid }]
+      })
+        .select('_id')
+        .lean()
+
+      if ((ownedProducts || []).length !== productOids.length) {
+        return res.status(400).json({ success: false, message: '所选商品中包含无效商品或不属于该厂家' })
+      }
+
+      normalizedProducts = ownedProducts.map((p) => p._id)
+    }
+
+    let parsedValidUntil = undefined
+    if (validUntil !== undefined && validUntil !== null && String(validUntil).trim() !== '') {
+      const d = new Date(validUntil)
+      if (Number.isNaN(d.getTime())) {
+        return res.status(400).json({ success: false, message: 'validUntil 无效' })
+      }
+      parsedValidUntil = d
+    }
+
     const authorization = await Authorization.create({
       fromManufacturer: manufacturerId,
       toDesigner: req.userId,
       authorizationType: 'designer',
-      scope: 'all',
-      categories: [],
-      products: [],
+      scope: normalizedScope,
+      categories: normalizedCategories,
+      products: normalizedProducts,
       priceSettings: {
         globalDiscount: 1,
         categoryDiscounts: [],
         productPrices: []
       },
       status: 'pending',
+      ...(parsedValidUntil ? { validUntil: parsedValidUntil } : {}),
       notes,
       createdBy: req.userId
     })
@@ -240,16 +297,24 @@ router.get('/designer-requests/my', auth, async (req, res) => {
 router.get('/designer-requests/pending', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    if (!currentUser?.manufacturerId) {
-      return res.status(403).json({ success: false, message: '只有厂家用户可以查看授权申请' })
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+    
+    if (!isAdmin && !currentUser?.manufacturerId) {
+      return res.status(403).json({ success: false, message: '只有厂家用户或管理员可以查看授权申请' })
     }
 
-    const list = await Authorization.find({
-      fromManufacturer: currentUser.manufacturerId,
+    const query = {
       authorizationType: 'designer',
       status: 'pending'
-    })
+    }
+    
+    if (!isAdmin) {
+      query.fromManufacturer = currentUser.manufacturerId
+    }
+
+    const list = await Authorization.find(query)
       .populate('toDesigner', 'username nickname phone email')
+      .populate('fromManufacturer', 'fullName shortName name')
       .sort({ createdAt: -1 })
       .lean()
 
@@ -263,8 +328,10 @@ router.get('/designer-requests/pending', auth, async (req, res) => {
 router.put('/designer-requests/:id/approve', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    if (!currentUser?.manufacturerId) {
-      return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+    
+    if (!isAdmin && !currentUser?.manufacturerId) {
+      return res.status(403).json({ success: false, message: '只有厂家用户或管理员可以审核授权申请' })
     }
 
     const { id } = req.params
@@ -277,7 +344,11 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: '授权申请不存在' })
     }
 
-    if (authDoc.authorizationType !== 'designer' || authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId.toString()) {
+    if (authDoc.authorizationType !== 'designer') {
+      return res.status(403).json({ success: false, message: '只能审核设计师授权申请' })
+    }
+    
+    if (!isAdmin && authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId.toString()) {
       return res.status(403).json({ success: false, message: '无权限审核此申请' })
     }
 
@@ -321,8 +392,10 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
 router.put('/designer-requests/:id/reject', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    if (!currentUser?.manufacturerId) {
-      return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin'
+    
+    if (!isAdmin && !currentUser?.manufacturerId) {
+      return res.status(403).json({ success: false, message: '只有厂家用户或管理员可以审核授权申请' })
     }
 
     const { id } = req.params
@@ -335,7 +408,11 @@ router.put('/designer-requests/:id/reject', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: '授权申请不存在' })
     }
 
-    if (authDoc.authorizationType !== 'designer' || authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId.toString()) {
+    if (authDoc.authorizationType !== 'designer') {
+      return res.status(403).json({ success: false, message: '只能审核设计师授权申请' })
+    }
+    
+    if (!isAdmin && authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId.toString()) {
       return res.status(403).json({ success: false, message: '无权限审核此申请' })
     }
 

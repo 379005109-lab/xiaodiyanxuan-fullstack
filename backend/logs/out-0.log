@@ -1226,3 +1226,349 @@
 2025-11-19 11:52:01 +00:00: [0mGET / [33m404[0m 0.220 ms - 46[0m
 2025-11-19 11:53:07 +00:00: [0mGET / [33m404[0m 0.193 ms - 46[0m
 2025-11-19 11:56:10 +00:00: [0mGET / [33m404[0m 0.205 ms - 46[0m
+2025-12-20 07:57:38 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-20 07:57:38 +00:00: ✅ MongoDB 已连接
+2025-12-20 07:57:38 +00:00: 🚀 服务器运行在端口 8080
+2025-12-20 07:57:38 +00:00: 📝 环境: development
+2025-12-20 07:57:38 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-20 07:57:38 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-20 08:13:08 +00:00: [0mGET /api/authorizations/received [33m401[0m 5.129 ms - 67[0m
+2025-12-20 08:16:11 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.938 ms - 67[0m
+2025-12-20 08:16:12 +00:00: [0mGET /api/authorizations/designer-requests/my [33m401[0m 1.301 ms - 67[0m
+2025-12-20 08:16:17 +00:00: [0mGET /api/authorizations/designer-requests/my [33m401[0m 1.373 ms - 67[0m
+2025-12-20 08:16:19 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.686 ms - 67[0m
+2025-12-20 08:16:19 +00:00: [0mGET /api/authorizations/designer-requests/my [33m401[0m 1.175 ms - 67[0m
+2025-12-20 08:16:24 +00:00: [0mGET /api/authorizations/designer-requests/my [33m401[0m 1.186 ms - 67[0m
+2025-12-20 08:21:09 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.297 ms - 67[0m
+2025-12-20 08:21:13 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.563 ms - 67[0m
+2025-12-20 08:37:00 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.276 ms - 67[0m
+2025-12-20 09:04:49 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.272 ms - 67[0m
+2025-12-20 09:04:59 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.294 ms - 67[0m
+2025-12-20 09:38:02 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.379 ms - 67[0m
+2025-12-20 09:39:28 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.252 ms - 67[0m
+2025-12-20 09:40:07 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.273 ms - 67[0m
+2025-12-21 05:19:32 +00:00: [0mGET /api/authorizations/received [33m401[0m 2.731 ms - 67[0m
+2025-12-21 05:19:33 +00:00: [0mGET /api/authorizations/designer-requests/my [33m401[0m 1.576 ms - 67[0m
+2025-12-21 05:25:07 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.366 ms - 67[0m
+2025-12-21 14:07:06 +00:00: [0mPOST /api/auth/login [33m401[0m 120.752 ms - 66[0m
+2025-12-21 14:08:37 +00:00: [0mPOST /api/auth/login [32m200[0m 109.804 ms - 703[0m
+2025-12-21 14:32:17 +00:00: [0mPOST /api/auth/login [32m200[0m 91.080 ms - 703[0m
+2025-12-21 14:32:17 +00:00: [0mGET /api/users?role=designer&page=1&pageSize=20 [32m200[0m 9.906 ms - 2221[0m
+2025-12-21 14:33:35 +00:00: [0mPOST /api/auth/login [32m200[0m 91.781 ms - 739[0m
+2025-12-21 14:38:10 +00:00: [0mPOST /api/auth/login [32m200[0m 93.637 ms - 739[0m
+2025-12-21 14:38:10 +00:00: [0mGET /api/products?page=1&pageSize=5 [32m200[0m 12.838 ms - 85[0m
+2025-12-21 14:39:45 +00:00: [0mPOST /api/auth/login [32m200[0m 171.029 ms - 739[0m
+2025-12-21 14:39:45 +00:00: [0mGET /api/users/profile [32m200[0m 7.238 ms - 1074[0m
+2025-12-21 14:40:46 +00:00: 🔥 [商品列表] 总商品数: 313
+2025-12-21 14:40:46 +00:00: 🔥 [商品列表] 有styles的商品数: 5
+2025-12-21 14:40:46 +00:00: 🔥 [商品列表] 示例: [
+2025-12-21 14:40:46 +00:00:   { name: 'MTA23MJ', styles: [ '中古风' ] },
+2025-12-21 14:40:46 +00:00:   { name: 'MTA36MJ', styles: [ '中古风' ] }
+2025-12-21 14:40:46 +00:00: ]
+2025-12-21 14:40:46 +00:00: [0mGET /api/products?page=1&pageSize=5 [32m200[0m 7.615 ms - 5282[0m
+2025-12-21 14:42:06 +00:00: [0mPOST /api/auth/login [32m200[0m 93.242 ms - 739[0m
+2025-12-21 14:42:06 +00:00: [0mGET /api/products?page=1&pageSize=5 [32m200[0m 7.640 ms - 85[0m
+2025-12-21 14:44:31 +00:00: [0mPOST /api/auth/login [32m200[0m 91.927 ms - 739[0m
+2025-12-21 14:44:31 +00:00: [0mGET /api/products?page=1&pageSize=5 [32m200[0m 7.181 ms - 85[0m
+2025-12-21 14:48:08 +00:00: [0mPOST /api/auth/login [32m200[0m 91.940 ms - 739[0m
+2025-12-21 14:48:08 +00:00: [0mGET /api/products [32m200[0m 7.337 ms - 87[0m
+2025-12-21 14:50:21 +00:00: [0mGET /api/products/search?keyword=MTA&page=1&pageSize=5 [32m200[0m 4.995 ms - 85[0m
+2025-12-21 14:51:51 +00:00: [0mPOST /api/auth/login [32m200[0m 90.786 ms - 703[0m
+2025-12-21 14:51:51 +00:00: 🔥 [商品列表] 总商品数: 313
+2025-12-21 14:51:51 +00:00: 🔥 [商品列表] 有styles的商品数: 5
+2025-12-21 14:51:51 +00:00: 🔥 [商品列表] 示例: [
+2025-12-21 14:51:51 +00:00:   { name: 'MTA23MJ', styles: [ '中古风' ] },
+2025-12-21 14:51:51 +00:00:   { name: 'MTA36MJ', styles: [ '中古风' ] }
+2025-12-21 14:51:51 +00:00: ]
+2025-12-21 14:51:51 +00:00: [0mGET /api/products?page=1&pageSize=5 [32m200[0m 8.079 ms - 5352[0m
+2025-12-21 14:53:26 +00:00: 🔥 [商品列表] 总商品数: 0
+2025-12-21 14:53:26 +00:00: 🔥 [商品列表] 有styles的商品数: 0
+2025-12-21 14:53:26 +00:00: [0mGET /api/products?page=1&pageSize=5&search=MTA [32m200[0m 4.210 ms - 85[0m
+2025-12-21 14:55:25 +00:00: 🔥 [商品列表] 总商品数: 313
+2025-12-21 14:55:25 +00:00: 🔥 [商品列表] 有styles的商品数: 3
+2025-12-21 14:55:25 +00:00: 🔥 [商品列表] 示例: [
+2025-12-21 14:55:25 +00:00:   { name: 'MTA23MJ', styles: [ '中古风' ] },
+2025-12-21 14:55:25 +00:00:   { name: 'MTA36MJ', styles: [ '中古风' ] }
+2025-12-21 14:55:25 +00:00: ]
+2025-12-21 14:55:25 +00:00: [0mGET /api/products?page=1&pageSize=3 [32m200[0m 5.094 ms - 3263[0m
+2025-12-21 15:03:02 +00:00: 🔥 [商品列表] 总商品数: 313
+2025-12-21 15:03:02 +00:00: 🔥 [商品列表] 有styles的商品数: 1
+2025-12-21 15:03:02 +00:00: 🔥 [商品列表] 示例: [ { name: 'MTA23MJ', styles: [ '中古风' ] } ]
+2025-12-21 15:03:02 +00:00: [0mGET /api/products?page=1&pageSize=1 [32m200[0m 5.395 ms - 1159[0m
+2025-12-21 15:03:02 +00:00: [0mPOST /api/auth/login [32m200[0m 98.391 ms - 739[0m
+2025-12-21 15:03:02 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [33m403[0m 10.694 ms - 81[0m
+2025-12-21 15:05:26 +00:00: [0mGET /api/products/search?keyword=MTA23MJ&page=1&pageSize=5 [32m200[0m 4.105 ms - 1193[0m
+2025-12-21 15:07:02 +00:00: [0mPOST /api/auth/login [32m200[0m 96.753 ms - 739[0m
+2025-12-21 15:07:02 +00:00: [0mGET /api/products/search?keyword=MTA23MJ&page=1&pageSize=5 [32m200[0m 7.376 ms - 1193[0m
+2025-12-21 15:13:20 +00:00: [0mPOST /api/auth/login [32m200[0m 92.395 ms - 739[0m
+2025-12-21 15:13:20 +00:00: [0mGET /api/products?page=1&pageSize=3 [32m200[0m 7.218 ms - 85[0m
+2025-12-21 15:13:31 +00:00: 🔥 [商品列表] 总商品数: 313
+2025-12-21 15:13:31 +00:00: 🔥 [商品列表] 有styles的商品数: 100
+2025-12-21 15:13:31 +00:00: 🔥 [商品列表] 示例: [
+2025-12-21 15:13:31 +00:00:   { name: 'MTA23MJ', styles: [ '中古风' ] },
+2025-12-21 15:13:31 +00:00:   { name: 'MTA36MJ', styles: [ '中古风' ] }
+2025-12-21 15:13:31 +00:00: ]
+2025-12-21 15:13:31 +00:00: [0mGET /api/products?page=1 [32m200[0m 13.025 ms - 104343[0m
+2025-12-21 15:13:41 +00:00: 🔥 [商品列表] 总商品数: 313
+2025-12-21 15:13:41 +00:00: 🔥 [商品列表] 有styles的商品数: 2
+2025-12-21 15:13:41 +00:00: 🔥 [商品列表] 示例: [
+2025-12-21 15:13:41 +00:00:   { name: 'MTA23MJ', styles: [ '中古风' ] },
+2025-12-21 15:13:41 +00:00:   { name: 'MTA36MJ', styles: [ '中古风' ] }
+2025-12-21 15:13:41 +00:00: ]
+2025-12-21 15:13:41 +00:00: [0mGET /api/products?page=1&pageSize=2 [32m200[0m 4.940 ms - 2230[0m
+2025-12-21 15:15:08 +00:00: [0mPOST /api/auth/login [32m200[0m 91.101 ms - 739[0m
+2025-12-21 15:15:08 +00:00: [0mGET /api/products?page=1&pageSize=3 [32m200[0m 7.002 ms - 85[0m
+2025-12-21 15:15:29 +00:00: 
+2025-12-21 15:15:29 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:15:30 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:15:30 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:15:30 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:15:30 +00:00: 📝 环境: development
+2025-12-21 15:15:30 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:15:30 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:16:00 +00:00: [0mPOST /api/auth/login [32m200[0m 127.035 ms - 739[0m
+2025-12-21 15:16:00 +00:00: [0mGET /api/products?page=1&pageSize=3 [32m200[0m 17.093 ms - 1777[0m
+2025-12-21 15:16:35 +00:00: 🔥 [商品列表] 总商品数: 313
+2025-12-21 15:16:35 +00:00: 🔥 [商品列表] 有styles的商品数: 1
+2025-12-21 15:16:35 +00:00: 🔥 [商品列表] 示例: [ { name: 'MTA23MJ', styles: [ '中古风' ] } ]
+2025-12-21 15:16:35 +00:00: [0mGET /api/products?page=1&pageSize=1 [32m200[0m 8.336 ms - 1159[0m
+2025-12-21 15:16:36 +00:00: [0mPOST /api/auth/login [32m200[0m 92.502 ms - 739[0m
+2025-12-21 15:16:36 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [32m200[0m 13.335 ms - 1482[0m
+2025-12-21 15:17:04 +00:00: [0mPOST /api/auth/login [32m200[0m 92.105 ms - 739[0m
+2025-12-21 15:17:04 +00:00: [0mGET /api/authorizations/received [32m200[0m 10.033 ms - 26[0m
+2025-12-21 15:17:04 +00:00: [0mPUT /api/authorizations//designer-product-discount/69428cae21fd902a2f51630c [33m404[0m 1.536 ms - 46[0m
+2025-12-21 15:17:15 +00:00: [0mPOST /api/auth/login [32m200[0m 93.488 ms - 739[0m
+2025-12-21 15:17:15 +00:00: [0mGET /api/authorizations/received [32m200[0m 7.575 ms - 26[0m
+2025-12-21 15:17:44 +00:00: [0mPOST /api/auth/login [32m200[0m 91.864 ms - 739[0m
+2025-12-21 15:17:44 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 21.294 ms - 561[0m
+2025-12-21 15:18:10 +00:00: [0mPOST /api/auth/login [32m200[0m 92.055 ms - 739[0m
+2025-12-21 15:18:10 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [32m200[0m 10.086 ms - 1482[0m
+2025-12-21 15:18:23 +00:00: [0mPOST /api/auth/login [32m200[0m 95.158 ms - 739[0m
+2025-12-21 15:18:23 +00:00: [0mGET /api/products?page=1&pageSize=5 [32m200[0m 11.146 ms - 2906[0m
+2025-12-21 15:19:13 +00:00: [0mPOST /api/auth/login [32m200[0m 94.257 ms - 739[0m
+2025-12-21 15:19:13 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 14.627 ms - 561[0m
+2025-12-21 15:20:39 +00:00: [0mPOST /api/auth/login [32m200[0m 91.955 ms - 739[0m
+2025-12-21 15:20:39 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 15.142 ms - 561[0m
+2025-12-21 15:21:06 +00:00: 
+2025-12-21 15:21:06 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:21:07 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:21:07 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:21:07 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:21:07 +00:00: 📝 环境: development
+2025-12-21 15:21:07 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:21:07 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:21:49 +00:00: [0mPOST /api/auth/login [32m200[0m 136.208 ms - 739[0m
+2025-12-21 15:21:50 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 24.314 ms - 561[0m
+2025-12-21 15:23:19 +00:00: 
+2025-12-21 15:23:19 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:23:20 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:23:20 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:23:20 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:23:20 +00:00: 📝 环境: development
+2025-12-21 15:23:20 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:23:20 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:24:14 +00:00: [0mPOST /api/auth/login [32m200[0m 130.028 ms - 739[0m
+2025-12-21 15:24:14 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 24.877 ms - 561[0m
+2025-12-21 15:24:45 +00:00: [0mPOST /api/auth/login [32m200[0m 91.734 ms - 739[0m
+2025-12-21 15:24:45 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 16.816 ms - 561[0m
+2025-12-21 15:26:04 +00:00: 
+2025-12-21 15:26:04 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:26:05 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:26:05 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:26:05 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:26:05 +00:00: 📝 环境: development
+2025-12-21 15:26:05 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:26:05 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:27:07 +00:00: [0mPOST /api/auth/login [32m200[0m 128.173 ms - 739[0m
+2025-12-21 15:27:07 +00:00: [Designer Override] Incoming discountRate: 0.8 Parsed: 0.8
+2025-12-21 15:27:07 +00:00: [Designer Override] minSaleDiscountRate: 1
+2025-12-21 15:27:07 +00:00: [Designer Override] Clamping 0.8 to 1
+2025-12-21 15:27:07 +00:00: [Designer Override] Final discountRate: 1
+2025-12-21 15:27:07 +00:00: [Designer Override] Found existing at index: 0
+2025-12-21 15:27:07 +00:00: [Designer Override] Creating value object: {"productId":"69428cae21fd902a2f51630c","discount":1}
+2025-12-21 15:27:07 +00:00: [Designer Override] Replacing at index 0
+2025-12-21 15:27:07 +00:00: [Designer Override] Array after update: [{"productId":"69428cae21fd902a2f51630c","discount":1}]
+2025-12-21 15:27:07 +00:00: [Designer Override] Saved to DB
+2025-12-21 15:27:07 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 24.530 ms - 561[0m
+2025-12-21 15:27:48 +00:00: [0mPOST /api/auth/login [32m200[0m 93.081 ms - 739[0m
+2025-12-21 15:27:48 +00:00: [Designer Override] Incoming discountRate: 0.8 Parsed: 0.8
+2025-12-21 15:27:48 +00:00: [Designer Override] minSaleDiscountRate: 1
+2025-12-21 15:27:48 +00:00: [Designer Override] Clamping 0.8 to 1
+2025-12-21 15:27:48 +00:00: [Designer Override] Final discountRate: 1
+2025-12-21 15:27:48 +00:00: [Designer Override] Found existing at index: 0
+2025-12-21 15:27:48 +00:00: [Designer Override] Creating value object: {"productId":"69428cae21fd902a2f51630c","discount":1}
+2025-12-21 15:27:48 +00:00: [Designer Override] Replacing at index 0
+2025-12-21 15:27:48 +00:00: [Designer Override] Array after update: [{"productId":"69428cae21fd902a2f51630c","discount":1}]
+2025-12-21 15:27:48 +00:00: [Designer Override] Saved to DB
+2025-12-21 15:27:48 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 18.619 ms - 561[0m
+2025-12-21 15:28:10 +00:00: 
+2025-12-21 15:28:10 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:28:11 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:28:11 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:28:11 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:28:11 +00:00: 📝 环境: development
+2025-12-21 15:28:11 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:28:11 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:28:41 +00:00: [0mPOST /api/auth/login [32m200[0m 129.085 ms - 739[0m
+2025-12-21 15:28:41 +00:00: [Designer Override] Incoming discountRate: 0.8 Parsed: 0.8
+2025-12-21 15:28:41 +00:00: [Designer Override] minSaleDiscountRate: 1
+2025-12-21 15:28:41 +00:00: [Designer Override] Clamping 0.8 to 1
+2025-12-21 15:28:41 +00:00: [Designer Override] Final discountRate: 1
+2025-12-21 15:28:41 +00:00: [Designer Override] Found existing at index: 0
+2025-12-21 15:28:41 +00:00: [Designer Override] Creating value object: {"productId":"69428cae21fd902a2f51630c","discount":1}
+2025-12-21 15:28:41 +00:00: [Designer Override] Replacing at index 0
+2025-12-21 15:28:41 +00:00: [Designer Override] Array after update: [{"productId":"69428cae21fd902a2f51630c","discount":1}]
+2025-12-21 15:28:41 +00:00: [Designer Override] Saved to DB
+2025-12-21 15:28:41 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 26.660 ms - 561[0m
+2025-12-21 15:30:37 +00:00: 
+2025-12-21 15:30:37 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:30:38 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:30:38 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:30:38 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:30:38 +00:00: 📝 环境: development
+2025-12-21 15:30:38 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:30:38 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:31:20 +00:00: [0mPOST /api/auth/login [32m200[0m 132.968 ms - 739[0m
+2025-12-21 15:31:20 +00:00: [Designer Override] Incoming discountRate: 0.8 Parsed: 0.8
+2025-12-21 15:31:20 +00:00: [Designer Override] minSaleDiscountRate: 0.7
+2025-12-21 15:31:20 +00:00: [Designer Override] Final discountRate: 0.8
+2025-12-21 15:31:20 +00:00: [Designer Override] Found existing at index: 0
+2025-12-21 15:31:20 +00:00: [Designer Override] Creating value object: {"productId":"69428cae21fd902a2f51630c","discount":0.8}
+2025-12-21 15:31:20 +00:00: [Designer Override] Replacing at index 0
+2025-12-21 15:31:20 +00:00: [Designer Override] Array after update: [{"productId":"69428cae21fd902a2f51630c","discount":0.8}]
+2025-12-21 15:31:20 +00:00: [Designer Override] Saved to DB
+2025-12-21 15:31:20 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 26.549 ms - 563[0m
+2025-12-21 15:31:43 +00:00: [0mPOST /api/auth/login [32m200[0m 134.178 ms - 739[0m
+2025-12-21 15:31:43 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [32m200[0m 51.729 ms - 1481[0m
+2025-12-21 15:33:56 +00:00: [0mPOST /api/auth/login [32m200[0m 94.372 ms - 739[0m
+2025-12-21 15:33:56 +00:00: [Designer Override] Incoming discountRate: 0.65 Parsed: 0.65
+2025-12-21 15:33:56 +00:00: [Designer Override] minSaleDiscountRate: 0.7
+2025-12-21 15:33:56 +00:00: [Designer Override] Clamping 0.65 to 0.7
+2025-12-21 15:33:56 +00:00: [Designer Override] Final discountRate: 0.7
+2025-12-21 15:33:56 +00:00: [Designer Override] Found existing at index: 0
+2025-12-21 15:33:56 +00:00: [Designer Override] Creating value object: {"productId":"69428cae21fd902a2f51630c","discount":0.7}
+2025-12-21 15:33:56 +00:00: [Designer Override] Replacing at index 0
+2025-12-21 15:33:56 +00:00: [Designer Override] Array after update: [{"productId":"69428cae21fd902a2f51630c","discount":0.7}]
+2025-12-21 15:33:56 +00:00: [Designer Override] Saved to DB
+2025-12-21 15:33:56 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 17.070 ms - 563[0m
+2025-12-21 15:34:39 +00:00: [0mPOST /api/auth/login [32m200[0m 92.289 ms - 739[0m
+2025-12-21 15:34:39 +00:00: [Designer Override] Incoming discountRate: 0.85 Parsed: 0.85
+2025-12-21 15:34:39 +00:00: [Designer Override] minSaleDiscountRate: 0.7
+2025-12-21 15:34:39 +00:00: [Designer Override] Final discountRate: 0.85
+2025-12-21 15:34:39 +00:00: [Designer Override] Found existing at index: 0
+2025-12-21 15:34:39 +00:00: [Designer Override] Creating value object: {"productId":"69428cae21fd902a2f51630c","discount":0.85}
+2025-12-21 15:34:39 +00:00: [Designer Override] Replacing at index 0
+2025-12-21 15:34:39 +00:00: [Designer Override] Array after update: [{"productId":"69428cae21fd902a2f51630c","discount":0.85}]
+2025-12-21 15:34:39 +00:00: [Designer Override] Saved to DB
+2025-12-21 15:34:39 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 16.200 ms - 564[0m
+2025-12-21 15:34:39 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [32m200[0m 10.160 ms - 1481[0m
+2025-12-21 15:35:17 +00:00: 
+2025-12-21 15:35:17 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:35:18 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:35:18 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:35:18 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:35:18 +00:00: 📝 环境: development
+2025-12-21 15:35:18 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:35:18 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:35:53 +00:00: [0mPOST /api/auth/login [32m200[0m 127.923 ms - 739[0m
+2025-12-21 15:35:53 +00:00: [computeTierPricing] productPrices array: undefined
+2025-12-21 15:35:53 +00:00: [computeTierPricing] Looking for productId: new ObjectId("69428cae21fd902a2f51630c")
+2025-12-21 15:35:53 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [32m200[0m 17.945 ms - 1481[0m
+2025-12-21 15:37:17 +00:00: 
+2025-12-21 15:37:17 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:37:18 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:37:18 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:37:18 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:37:18 +00:00: 📝 环境: development
+2025-12-21 15:37:18 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:37:18 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:37:54 +00:00: [0mPOST /api/auth/login [32m200[0m 129.869 ms - 739[0m
+2025-12-21 15:37:54 +00:00: [findAuth] Found 0 authorizations
+2025-12-21 15:37:54 +00:00: [computeTierPricing] productPrices array: undefined
+2025-12-21 15:37:54 +00:00: [computeTierPricing] Looking for productId: new ObjectId("69428cae21fd902a2f51630c")
+2025-12-21 15:37:54 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [32m200[0m 17.206 ms - 1482[0m
+2025-12-21 15:39:26 +00:00: 
+2025-12-21 15:39:26 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:39:27 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:39:27 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:39:27 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:39:27 +00:00: 📝 环境: development
+2025-12-21 15:39:27 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:39:27 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:40:24 +00:00: [0mPOST /api/auth/login [32m200[0m 127.073 ms - 739[0m
+2025-12-21 15:40:24 +00:00: [findAuth] Designer user._id: new ObjectId("693291d267d9a95c0e583a46") type: object
+2025-12-21 15:40:24 +00:00: [findAuth] Query: {"status":"active","$or":[{"validUntil":{"$exists":false}},{"validUntil":{"$gt":"2025-12-21T15:40:24.945Z"}}],"toDesigner":"693291d267d9a95c0e583a46"}
+2025-12-21 15:40:24 +00:00: [findAuth] Found 0 authorizations
+2025-12-21 15:40:24 +00:00: [computeTierPricing] productPrices array: undefined
+2025-12-21 15:40:24 +00:00: [computeTierPricing] Looking for productId: new ObjectId("69428cae21fd902a2f51630c")
+2025-12-21 15:40:24 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [32m200[0m 18.014 ms - 1482[0m
+2025-12-21 15:45:36 +00:00: [0mPOST /api/auth/login [32m200[0m 95.194 ms - 739[0m
+2025-12-21 15:45:36 +00:00: [findAuth] Designer user._id: new ObjectId("693291d267d9a95c0e583a46") type: object
+2025-12-21 15:45:36 +00:00: [findAuth] Query: {"status":"active","$or":[{"validUntil":{"$exists":false}},{"validUntil":{"$gt":"2025-12-21T15:45:36.153Z"}}],"toDesigner":"693291d267d9a95c0e583a46"}
+2025-12-21 15:45:36 +00:00: [findAuth] Found 1 authorizations
+2025-12-21 15:45:36 +00:00: [findAuth] Returning auth with scope=all, has priceSettings: true has productPrices: true
+2025-12-21 15:45:36 +00:00: [computeTierPricing] productPrices array: [{"productId":"69428cae21fd902a2f51630c","discount":0.85,"_id":"6948138f5b98f2a65bfa95f1"}]
+2025-12-21 15:45:36 +00:00: [computeTierPricing] Looking for productId: new ObjectId("69428cae21fd902a2f51630c")
+2025-12-21 15:45:36 +00:00: [computeTierPricing] Matched override: {"productId":"69428cae21fd902a2f51630c","discount":0.85,"_id":"6948138f5b98f2a65bfa95f1"}
+2025-12-21 15:45:36 +00:00: [computeTierPricing] Using override discount: 0.85
+2025-12-21 15:45:36 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [32m200[0m 15.137 ms - 1592[0m
+2025-12-21 15:45:56 +00:00: [0mPOST /api/auth/login [32m200[0m 92.868 ms - 739[0m
+2025-12-21 15:45:56 +00:00: [computeTierPricing] productPrices array: [{"productId":"69428cae21fd902a2f51630c","discount":0.85,"_id":"6948138f5b98f2a65bfa95f1"}]
+2025-12-21 15:45:56 +00:00: [computeTierPricing] Looking for productId: new ObjectId("69428cae21fd902a2f51630c")
+2025-12-21 15:45:56 +00:00: [computeTierPricing] Matched override: {"productId":"69428cae21fd902a2f51630c","discount":0.85,"_id":"6948138f5b98f2a65bfa95f1"}
+2025-12-21 15:45:56 +00:00: [computeTierPricing] Using override discount: 0.85
+2025-12-21 15:45:56 +00:00: [computeTierPricing] productPrices array: [{"productId":"69428cae21fd902a2f51630c","discount":0.85,"_id":"6948138f5b98f2a65bfa95f1"}]
+2025-12-21 15:45:56 +00:00: [computeTierPricing] Looking for productId: new ObjectId("69428cae21fd902a2f516308")
+2025-12-21 15:45:56 +00:00: [computeTierPricing] Matched override: undefined
+2025-12-21 15:45:56 +00:00: [computeTierPricing] productPrices array: [{"productId":"69428cae21fd902a2f51630c","discount":0.85,"_id":"6948138f5b98f2a65bfa95f1"}]
+2025-12-21 15:45:56 +00:00: [computeTierPricing] Looking for productId: new ObjectId("69428cae21fd902a2f516304")
+2025-12-21 15:45:56 +00:00: [computeTierPricing] Matched override: undefined
+2025-12-21 15:45:56 +00:00: [0mGET /api/products?page=1&pageSize=3 [32m200[0m 21.803 ms - 2007[0m
+2025-12-21 15:47:29 +00:00: 
+2025-12-21 15:47:29 +00:00: 📛 收到关闭信号，正在关闭...
+2025-12-21 15:47:30 +00:00: ✅ GridFSBucket 初始化成功
+2025-12-21 15:47:30 +00:00: ✅ MongoDB 已连接
+2025-12-21 15:47:30 +00:00: 🚀 服务器运行在端口 8080
+2025-12-21 15:47:30 +00:00: 📝 环境: development
+2025-12-21 15:47:30 +00:00: 🔗 数据库: mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin
+2025-12-21 15:47:30 +00:00: 📍 健康检查: http://localhost:8080/health
+2025-12-21 15:48:31 +00:00: [0mPOST /api/auth/login [32m200[0m 126.383 ms - 739[0m
+2025-12-21 15:48:31 +00:00: [0mGET /api/products?page=1&pageSize=2 [32m200[0m 24.519 ms - 1377[0m
+2025-12-21 15:48:31 +00:00: [0mPUT /api/authorizations/69480e2d11283bd170a62ac8/designer-product-discount/69428cae21fd902a2f51630c [32m200[0m 19.331 ms - 563[0m
+2025-12-21 15:48:31 +00:00: [0mGET /api/products/69428cae21fd902a2f51630c [32m200[0m 14.617 ms - 1590[0m
+2025-12-21 15:56:16 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.873 ms - 67[0m
+2025-12-21 16:03:19 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.262 ms - 67[0m
+2025-12-22 01:18:32 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.627 ms - 67[0m
+2025-12-22 05:59:30 +00:00: [0mGET /products?pageSize=200 [33m404[0m 0.559 ms - 46[0m
+2025-12-22 05:59:30 +00:00: [0mGET /favorites?page=1&limit=10 [33m404[0m 0.406 ms - 46[0m
+2025-12-22 05:59:30 +00:00: [0mGET /categories?_ts=1766383170122 [33m404[0m 0.359 ms - 46[0m
+2025-12-22 05:59:30 +00:00: [0mGET /categories?_ts=1766383170121 [33m404[0m 0.240 ms - 46[0m
+2025-12-22 05:59:30 +00:00: [0mGET /products?limit=8&sort=-views [33m404[0m 0.281 ms - 46[0m
+2025-12-22 05:59:30 +00:00: [0mGET /favorites?page=1&limit=10 [33m404[0m 0.238 ms - 46[0m
+2025-12-22 05:59:30 +00:00: [0mGET /products?pageSize=200 [33m404[0m 0.160 ms - 46[0m
+2025-12-22 05:59:30 +00:00: [0mGET /categories?_ts=1766383170122 [33m404[0m 0.273 ms - 46[0m
+2025-12-22 05:59:30 +00:00: [0mGET /products?limit=8&sort=-views [33m404[0m 0.276 ms - 46[0m
+2025-12-22 05:59:30 +00:00: [0mGET /categories?_ts=1766383170122 [33m404[0m 0.362 ms - 46[0m
+2025-12-22 05:59:33 +00:00: [0mGET /dashboard/activity [33m404[0m 0.275 ms - 46[0m
+2025-12-22 05:59:33 +00:00: [0mGET /dashboard/activity [33m404[0m 0.299 ms - 46[0m
+2025-12-22 05:59:35 +00:00: [0mGET /manufacturers/all [33m404[0m 0.314 ms - 46[0m
+2025-12-22 05:59:35 +00:00: [0mGET /manufacturers/all [33m404[0m 0.265 ms - 46[0m
+2025-12-22 05:59:37 +00:00: [0mGET /manufacturers?keyword=&pageSize=100 [33m404[0m 0.251 ms - 46[0m
+2025-12-22 05:59:38 +00:00: [0mGET /manufacturers?keyword=&pageSize=100 [33m404[0m 0.257 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /categories?_ts=1766383181995 [33m404[0m 0.243 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /manufacturers?pageSize=100 [33m404[0m 0.241 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /products?pageSize=200 [33m404[0m 0.153 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /categories?_ts=1766383181995 [33m404[0m 0.369 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /manufacturers?pageSize=100 [33m404[0m 0.246 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /products?pageSize=200 [33m404[0m 0.176 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /categories/stats [33m404[0m 0.159 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /categories?_ts=1766383182530 [33m404[0m 0.162 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /manufacturers?pageSize=100 [33m404[0m 0.253 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /products?pageSize=200 [33m404[0m 0.229 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /categories?_ts=1766383182530 [33m404[0m 0.174 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /categories/stats [33m404[0m 0.170 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /categories?_ts=1766383182674 [33m404[0m 0.222 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /manufacturers?pageSize=100 [33m404[0m 0.225 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /products?pageSize=200 [33m404[0m 0.169 ms - 46[0m
+2025-12-22 05:59:42 +00:00: [0mGET /categories?_ts=1766383182674 [33m404[0m 0.372 ms - 46[0m
+2025-12-22 06:18:07 +00:00: [0mGET /api/authorizations/received [33m401[0m 1.578 ms - 67[0m

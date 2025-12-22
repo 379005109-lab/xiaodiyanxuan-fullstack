@@ -73,6 +73,9 @@ const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationMa
 const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingServiceRequestsPage'))
 const ActivityDashboard = lazy(() => import('./pages/admin/ActivityDashboard'))
 const ManufacturerManagement = lazy(() => import('./pages/admin/ManufacturerManagement'))
+const ManufacturerProductAuthorization = lazy(() => import('./pages/admin/ManufacturerProductAuthorization'))
+const ManufacturerAuthorizationRequests = lazy(() => import('./pages/admin/ManufacturerAuthorizationRequests'))
+const BatchAccountManagement = lazy(() => import('./pages/admin/BatchAccountManagement'))
 const ReferralManagement = lazy(() => import('./pages/admin/ReferralManagement'))
 const ManufacturerOrderManagement = lazy(() => import('./pages/admin/ManufacturerOrderManagement'))
 const ImageSearchStats = lazy(() => import('./pages/admin/ImageSearchStats'))
@@ -132,6 +135,10 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireAdminPortal = f
     const hasPortalAccess =
       user?.role === 'admin' ||
       user?.role === 'super_admin' ||
+      user?.role === 'platform_admin' ||
+      user?.role === 'platform_staff' ||
+      user?.role === 'enterprise_admin' ||
+      user?.role === 'enterprise_staff' ||
       user?.role === 'designer' ||
       (user as any)?.permissions?.canAccessAdmin === true
     if (!hasPortalAccess) {
@@ -374,6 +381,7 @@ function App() {
             <Route path="orders/trash" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderTrashPage /></ProtectedRoute>} />
             <Route path="order-dashboard" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderDashboard /></ProtectedRoute>} />
             <Route path="users" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><AccountManagement /></ProtectedRoute>} />
+            <Route path="users/batch" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BatchAccountManagement /></ProtectedRoute>} />
             <Route path="images" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><SiteImageManagement /></ProtectedRoute>} />
             <Route path="categories" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CategoryManagement /></ProtectedRoute>} />
             <Route path="materials" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><MaterialManagement /></ProtectedRoute>} />
@@ -400,12 +408,14 @@ function App() {
             <Route path="customization" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
             <Route path="activity" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
-            <Route path="manufacturers" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerManagement /></ProtectedRoute>} />
-            <Route path="authorizations" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><AuthorizationManagement /></ProtectedRoute>} />
+            <Route path="manufacturers" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerManagement /></ProtectedRoute>} />
+            <Route path="manufacturers/:manufacturerId/product-authorization" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerProductAuthorization /></ProtectedRoute>} />
+            <Route path="manufacturers/authorization-requests" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerAuthorizationRequests /></ProtectedRoute>} />
+            <Route path="authorizations" element={<Navigate to="/admin/manufacturers" replace />} />
             <Route path="referrals" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
-            <Route path="tier-system" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
+            <Route path="tier-system" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
           </Route>
 
           {/* 厂家端路由 */}

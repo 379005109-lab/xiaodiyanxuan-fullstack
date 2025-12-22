@@ -6,6 +6,7 @@ const Product = require('../models/Product')
 const Authorization = require('../models/Authorization')
 const TierSystem = require('../models/TierSystem')
 const Style = require('../models/Style')
+const Manufacturer = require('../models/Manufacturer')
 const { canViewCostPrice } = require('../services/priceService')
 
 const getProductOwnerManufacturerId = (product) => {
@@ -109,7 +110,7 @@ const getProductCostPrice = (product) => {
   return Number.isFinite(val) ? val : 0
 }
 
-const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1, allowCostPrice = false, tierPricing = null) => {
+const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1, allowCostPrice = false, tierPricing = null, manufacturerDisplayName = '小迪严选（平台）') => {
   const rawCostPrice = allowCostPrice ? getProductCostPrice(product) : 0
   const resolvedCostPrice = allowCostPrice
     ? (rawCostPrice > 0 ? rawCostPrice : (Number.isFinite(takePrice) ? takePrice : 0))
@@ -122,8 +123,12 @@ const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1, all
     thumbnail: product.thumbnail,
     images: product.images,
     status: product.status,
+    skus: product.skus || [],
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
     takePrice,
     labelPrice1,
+    manufacturerDisplayName,
     ...(allowCostPrice && resolvedCostPrice > 0 ? { costPrice: resolvedCostPrice } : {}),
     ...(tierPricing ? { tierPricing } : {}),
   }
@@ -313,8 +318,26 @@ const listProducts = async (req, res) => {
         }
       }
 
+      const platformManufacturerId = '6948fca5630729ca224ec425'
+      const onlyAuthorized = req.query.onlyAuthorized === 'true'
+      
       const accessQuery = isDesigner
-        ? { status: 'active' }
+        ? (
+            onlyAuthorized
+              ? { _id: { $in: Array.from(authorizedProductIds) }, status: 'active' }
+              : {
+                  $or: [
+                    { _id: { $in: Array.from(authorizedProductIds) } },
+                    { $or: [
+                      { manufacturerId: platformManufacturerId },
+                      { 'skus.manufacturerId': platformManufacturerId },
+                      { manufacturerId: { $exists: false } },
+                      { manufacturerId: null }
+                    ] }
+                  ],
+                  status: 'active'
+                }
+          )
         : {
             $or: [
               { $or: [
@@ -371,17 +394,27 @@ const listProducts = async (req, res) => {
         : []
       const tierByOwnerId = new Map((tierDocs || []).map((d) => [String(d.manufacturerId), d]))
 
+      const manufacturerDocs = ownerIds.length > 0
+        ? await Manufacturer.find({ _id: { $in: ownerIds } }).select('_id fullName shortName name').lean()
+        : []
+      const manufacturerById = new Map((manufacturerDocs || []).map((m) => [String(m._id), m]))
+
       const shaped = products.map(p => {
         const ownerManufacturerId = getProductOwnerManufacturerId(p)
         const tierDoc = ownerManufacturerId ? tierByOwnerId.get(ownerManufacturerId) : null
         const auth = authByProduct.get(p._id.toString())
         const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth })
 
+        const manufacturerDoc = ownerManufacturerId ? manufacturerById.get(ownerManufacturerId) : null
+        const manufacturerDisplayName = auth && manufacturerDoc
+          ? (manufacturerDoc.fullName || manufacturerDoc.shortName || manufacturerDoc.name || '未知厂家')
+          : '小迪严选（平台）'
+
         if (!isDesigner && ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
-          return { ...p, ...(tierPricing ? { tierPricing } : {}) }
+          return { ...p, manufacturerDisplayName, ...(tierPricing ? { tierPricing } : {}) }
         }
         if (!auth) {
-          return sanitizeProductForAuthorizedViewer(p, 0, 0, false, tierPricing)
+          return sanitizeProductForAuthorizedViewer(p, 0, 0, false, tierPricing, manufacturerDisplayName)
         }
 
         const takePrice = getAuthorizedTakePrice(auth, p)
@@ -389,7 +422,7 @@ const listProducts = async (req, res) => {
         const labelPrice1 = (p.authorizedLabelPrices && key) ? (p.authorizedLabelPrices[key] || takePrice) : takePrice
 
         const allow = allowCostPriceForUser(user)
-        return sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1, allow, tierPricing)
+        return sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1, allow, tierPricing, manufacturerDisplayName)
       })
 
       return res.json(paginatedResponse(shaped, total, parseInt(page), parseInt(pageSize)))

@@ -31,7 +31,9 @@ interface RoleModule {
 interface DiscountRule {
   _id: string
   name: string
-  discountRate: number  // 折扣比例，如0.85表示85折
+  discountType?: 'rate' | 'minPrice'
+  discountRate?: number  // 折扣比例，如0.85表示85折
+  minDiscountPrice?: number  // 最低折扣价（与折扣比例二选一）
   commissionRate: number  // 佣金/返点比例
   conditions: {
     minOrderAmount?: number
@@ -50,6 +52,7 @@ interface AuthorizedAccount {
   phone?: string
   roleModuleId: string
   roleModuleName: string
+  discountRuleId?: string
   parentId: string | null
   parentName?: string
   level: number  // 层级深度
@@ -155,6 +158,7 @@ const createDefaultTierSystemData = (): TierSystemData => {
         {
           _id: `rule_default_${m.code}`,
           name: '默认折扣',
+          discountType: 'rate',
           discountRate: 1 - (m.maxProfitRate / 100) * 0.5,
           commissionRate: (m.maxProfitRate / 100) * 0.3,
           conditions: {},
@@ -682,7 +686,22 @@ function RoleModulesTab({
                           </div>
                           <div className="mt-2 flex items-center gap-4 text-sm">
                             <span className="text-gray-600">
-                              折扣: <strong className="text-primary-600">{(rule.discountRate * 100).toFixed(0)}%</strong>
+                              {(() => {
+                                const t = rule.discountType || (typeof rule.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
+                                if (t === 'minPrice') {
+                                  return (
+                                    <>
+                                      最低价: <strong className="text-primary-600">¥{Number(rule.minDiscountPrice || 0).toFixed(0)}</strong>
+                                    </>
+                                  )
+                                }
+                                const rate = typeof rule.discountRate === 'number' ? rule.discountRate : 1
+                                return (
+                                  <>
+                                    折扣: <strong className="text-primary-600">{(rate * 100).toFixed(0)}%</strong>
+                                  </>
+                                )
+                              })()}
                             </span>
                             <span className="text-gray-600">
                               返点: <strong className="text-green-600">{(rule.commissionRate * 100).toFixed(1)}%</strong>
@@ -769,7 +788,9 @@ function RuleEditModal({
 }) {
   const [formData, setFormData] = useState({
     name: rule?.name || '',
-    discountRate: rule?.discountRate || 0.9,
+    discountType: (rule?.discountType || (typeof rule?.minDiscountPrice === 'number' ? 'minPrice' : 'rate')) as 'rate' | 'minPrice',
+    discountRate: typeof rule?.discountRate === 'number' ? rule.discountRate : 0.9,
+    minDiscountPrice: typeof rule?.minDiscountPrice === 'number' ? rule.minDiscountPrice : 0,
     commissionRate: rule?.commissionRate || 0.05,
     minOrderAmount: rule?.conditions.minOrderAmount || 0,
     minOrderCount: rule?.conditions.minOrderCount || 0
@@ -783,7 +804,9 @@ function RuleEditModal({
     }
     onSave({
       name: formData.name,
-      discountRate: formData.discountRate,
+      discountType: formData.discountType,
+      discountRate: formData.discountType === 'rate' ? formData.discountRate : undefined,
+      minDiscountPrice: formData.discountType === 'minPrice' ? formData.minDiscountPrice : undefined,
       commissionRate: formData.commissionRate,
       conditions: {
         minOrderAmount: formData.minOrderAmount || undefined,
@@ -815,23 +838,49 @@ function RuleEditModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              折扣比例 ({(formData.discountRate * 100).toFixed(0)}%)
-            </label>
-            <input
-              type="range"
-              min="0.5"
-              max="1"
-              step="0.01"
-              value={formData.discountRate}
-              onChange={(e) => setFormData({ ...formData, discountRate: parseFloat(e.target.value) })}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>5折</span>
-              <span>原价</span>
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">折扣规格</label>
+            <select
+              value={formData.discountType}
+              onChange={(e) => setFormData({ ...formData, discountType: e.target.value as any })}
+              className="input w-full"
+            >
+              <option value="rate">折扣比例</option>
+              <option value="minPrice">最低折扣价</option>
+            </select>
           </div>
+
+          {formData.discountType === 'rate' ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                折扣比例 ({(formData.discountRate * 100).toFixed(0)}%)
+              </label>
+              <input
+                type="range"
+                min="0.01"
+                max="1"
+                step="0.01"
+                value={formData.discountRate}
+                onChange={(e) => setFormData({ ...formData, discountRate: parseFloat(e.target.value) })}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>1%</span>
+                <span>100%</span>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">最低折扣价</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.minDiscountPrice}
+                onChange={(e) => setFormData({ ...formData, minDiscountPrice: parseFloat(e.target.value) || 0 })}
+                className="input w-full"
+                placeholder="如：5999"
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -839,16 +888,16 @@ function RuleEditModal({
             </label>
             <input
               type="range"
-              min="0"
-              max="0.3"
+              min="0.01"
+              max="0.5"
               step="0.005"
               value={formData.commissionRate}
               onChange={(e) => setFormData({ ...formData, commissionRate: parseFloat(e.target.value) })}
               className="w-full"
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>0%</span>
-              <span>30%</span>
+              <span>1%</span>
+              <span>50%</span>
             </div>
           </div>
 
@@ -1151,6 +1200,7 @@ function HierarchyTab({
     nickname: string
     phone: string
     roleModuleId: string
+    discountRuleId: string
     allocatedRate: number
     visibleCategoryIds: string[]
   }) => {
@@ -1175,6 +1225,17 @@ function HierarchyTab({
       return
     }
 
+    if (!data.discountRuleId) {
+      toast.error('请选择折扣规则')
+      return
+    }
+
+    const ruleExists = (module.discountRules || []).some(r => String(r._id) === String(data.discountRuleId))
+    if (!ruleExists) {
+      toast.error('折扣规则无效，请重新选择')
+      return
+    }
+
     // 检查比例是否超限
     let maxAvailable = module.maxProfitRate - module.currentAllocatedRate
     if (parentAccount) {
@@ -1194,6 +1255,7 @@ function HierarchyTab({
       phone: data.phone,
       roleModuleId: data.roleModuleId,
       roleModuleName: module.name,
+      discountRuleId: data.discountRuleId,
       parentId: parentAccount?._id || null,
       parentName: parentAccount?.username,
       level: parentAccount ? parentAccount.level + 1 : 1,
@@ -1219,6 +1281,7 @@ function HierarchyTab({
     const module = modules.find(m => m._id === account.roleModuleId)
     const Icon = module ? (ICON_MAP[module.icon] || Layers) : Users
     const visibleCount = account.visibleCategoryIds?.length || 0
+    const selectedRule = module?.discountRules?.find(r => String(r._id) === String(account.discountRuleId))
 
     return (
       <div key={account._id} className="select-none">
@@ -1265,6 +1328,8 @@ function HierarchyTab({
               <span>可授权: {account.availableRate}%</span>
               <span>•</span>
               <span>品类: {visibleCount > 0 ? `${visibleCount}个` : '全部'}</span>
+              <span>•</span>
+              <span>规则: {selectedRule?.name || '未设置'}</span>
             </div>
           </div>
           
@@ -1326,7 +1391,7 @@ function HierarchyTab({
           className="btn btn-primary flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
-          添加顶级账号
+          添加账号
         </button>
       </div>
 
@@ -1418,6 +1483,7 @@ function AddAccountModal({
     nickname: string
     phone: string
     roleModuleId: string
+    discountRuleId: string
     allocatedRate: number
     visibleCategoryIds: string[]
   }) => void
@@ -1435,6 +1501,7 @@ function AddAccountModal({
   const [formData, setFormData] = useState({
     accountId: '',
     roleModuleId: parentAccount?.roleModuleId || modules[0]?._id || '',
+    discountRuleId: parentAccount?.discountRuleId || '',
     allocatedRate: 5,
     visibilityMode: (parentHasCustomVisibility ? 'custom' : 'all') as 'all' | 'custom',
     visibleCategoryIds: (parentHasCustomVisibility ? parentVisibleCategoryIds : []) as string[]
@@ -1516,9 +1583,21 @@ function AddAccountModal({
   }, [manufacturerId])
 
   const selectedModule = modules.find(m => m._id === formData.roleModuleId)
+  const selectedRule = selectedModule?.discountRules?.find(r => String(r._id) === String(formData.discountRuleId))
   const maxRate = parentAccount 
     ? parentAccount.availableRate 
     : (selectedModule ? selectedModule.maxProfitRate - selectedModule.currentAllocatedRate : 0)
+
+  useEffect(() => {
+    if (!selectedModule) return
+    const rules = selectedModule.discountRules || []
+    if (rules.length === 0) return
+    const exists = rules.some(r => String(r._id) === String(formData.discountRuleId))
+    if (exists) return
+
+    const defaultRule = rules.find(r => r.isDefault) || rules[0]
+    setFormData(prev => ({ ...prev, discountRuleId: String(defaultRule?._id || '') }))
+  }, [selectedModule?._id])
 
   const allowedCategoryIds = parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0
     ? new Set(parentAccount.visibleCategoryIds.map(String))
@@ -1594,6 +1673,7 @@ function AddAccountModal({
       nickname: String(selected.nickname || selected.username || ''),
       phone: String(selected.phone || ''),
       roleModuleId: formData.roleModuleId,
+      discountRuleId: formData.discountRuleId,
       allocatedRate: formData.allocatedRate,
       visibleCategoryIds
     })
@@ -1604,7 +1684,7 @@ function AddAccountModal({
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-bold text-gray-900">
-            {parentAccount ? `添加下级账号（上级: ${parentAccount.nickname || parentAccount.username}）` : '添加顶级账号'}
+            {parentAccount ? `添加下级账号（上级: ${parentAccount.nickname || parentAccount.username}）` : '添加账号'}
           </h3>
         </div>
         
@@ -1778,6 +1858,36 @@ function AddAccountModal({
               <span>1%</span>
               <span>可分配上限: {maxRate}%</span>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">折扣规则 <span className="text-red-500">*</span></label>
+            <select
+              value={formData.discountRuleId}
+              onChange={(e) => setFormData({ ...formData, discountRuleId: e.target.value })}
+              className="input w-full"
+              required
+            >
+              <option value="">-- 请选择折扣规则 --</option>
+              {(selectedModule?.discountRules || []).map(r => (
+                <option key={r._id} value={r._id}>
+                  {r.name}{r.isDefault ? '（默认）' : ''}
+                </option>
+              ))}
+            </select>
+            {selectedRule && (
+              <div className="mt-2 text-xs text-gray-500">
+                <span className="mr-2">
+                  {(() => {
+                    const t = selectedRule.discountType || (typeof selectedRule.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
+                    if (t === 'minPrice') return `最低价 ¥${Number(selectedRule.minDiscountPrice || 0).toFixed(0)}`
+                    const rate = typeof selectedRule.discountRate === 'number' ? selectedRule.discountRate : 1
+                    return `折扣 ${(rate * 100).toFixed(0)}%`
+                  })()}
+                </span>
+                <span>返点 {(selectedRule.commissionRate * 100).toFixed(1)}%</span>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
