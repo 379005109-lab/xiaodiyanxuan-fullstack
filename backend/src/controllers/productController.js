@@ -1037,6 +1037,9 @@ module.exports = {
   updateProduct,
   deleteProduct,
   getProductCategories,
+  getProductStyles,
+  search,
+  bulkImport,
   updateProductPricing,
   getProductPricing
 }
