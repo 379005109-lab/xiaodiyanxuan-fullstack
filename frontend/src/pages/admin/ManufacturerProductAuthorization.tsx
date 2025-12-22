@@ -54,6 +54,7 @@ export default function ManufacturerProductAuthorization() {
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [tierSystemConfig, setTierSystemConfig] = useState<any>(null)
 
   useEffect(() => {
     const run = async () => {
@@ -65,15 +66,17 @@ export default function ManufacturerProductAuthorization() {
 
       setLoading(true)
       try {
-        const [mRes, cRes, pRes] = await Promise.all([
+        const [mRes, cRes, pRes, tRes] = await Promise.all([
           apiClient.get(`/manufacturers/${manufacturerId}`),
           apiClient.get(`/manufacturers/${manufacturerId}/product-categories`),
-          apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 5000 } })
+          apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 5000 } }),
+          apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } }))
         ])
 
         setManufacturer(mRes.data?.data || null)
         setCategories(cRes.data?.data || [])
         setProducts(pRes.data?.data || [])
+        setTierSystemConfig(tRes.data?.data || null)
       } catch (e: any) {
         toast.error(e?.response?.data?.message || '加载数据失败')
       } finally {
@@ -145,7 +148,7 @@ export default function ManufacturerProductAuthorization() {
     return { rootCategories, childrenMap }
   }, [categories])
 
-  // 计算商品价格信息
+  // 计算商品价格信息（根据分层体系配置）
   const getProductPricing = (product: ProductItem) => {
     const basePrice = product.basePrice || 0
     const skuPrices = product.skus?.map(s => s.price || 0).filter(p => p > 0) || []
@@ -153,15 +156,51 @@ export default function ManufacturerProductAuthorization() {
     
     const minPrice = skuPrices.length > 0 ? Math.min(...skuPrices) : basePrice
     const maxPrice = skuPrices.length > 0 ? Math.max(...skuPrices) : basePrice
-    const minDiscountPrice = discountPrices.length > 0 ? Math.min(...discountPrices) : minPrice * 0.9
+    const retailPrice = discountPrices.length > 0 ? Math.min(...discountPrices) : minPrice
     
-    // 假设返佣率为10%
-    const commissionPrice = minDiscountPrice * 0.1
+    // 从分层体系配置中获取折扣率和返佣率
+    let discountRate = 0.9 // 默认9折
+    let commissionRate = 0.1 // 默认10%返佣
+    
+    if (tierSystemConfig) {
+      const modules = tierSystemConfig.roleModules || []
+      const accounts = tierSystemConfig.authorizedAccounts || []
+      
+      // 查找当前用户的授权账号配置
+      const userAccount = accounts.find((a: any) => String(a.userId) === String(user?._id))
+      
+      let targetModule = null
+      let targetRule = null
+      
+      if (userAccount) {
+        // 使用用户的授权配置
+        targetModule = modules.find((m: any) => String(m._id) === String(userAccount.roleModuleId))
+        if (targetModule && targetModule.discountRules) {
+          targetRule = targetModule.discountRules.find((r: any) => String(r._id) === String(userAccount.discountRuleId))
+        }
+      } else {
+        // 使用默认角色配置
+        targetModule = modules.find((m: any) => m.code === user?.role) || modules[0]
+        if (targetModule && targetModule.discountRules) {
+          targetRule = targetModule.discountRules.find((r: any) => r.isDefault) || targetModule.discountRules[0]
+        }
+      }
+      
+      if (targetRule) {
+        discountRate = targetRule.discountRate || 0.9
+        commissionRate = targetRule.commissionRate || 0.1
+      }
+    }
+    
+    const minDiscountPrice = retailPrice * discountRate
+    const commissionPrice = minDiscountPrice * commissionRate
     
     return {
       priceRange: minPrice === maxPrice ? `¥${minPrice}` : `¥${minPrice} - ¥${maxPrice}`,
       minDiscountPrice: `¥${minDiscountPrice.toFixed(2)}`,
-      commissionPrice: `¥${commissionPrice.toFixed(2)}`
+      commissionPrice: `¥${commissionPrice.toFixed(2)}`,
+      discountRate: `${(discountRate * 100).toFixed(0)}%`,
+      commissionRate: `${(commissionRate * 100).toFixed(0)}%`
     }
   }
 
