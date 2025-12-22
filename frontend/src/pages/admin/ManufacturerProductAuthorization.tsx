@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
+import { ChevronRight, ChevronDown, Image as ImageIcon } from 'lucide-react'
 
 type Mode = 'category' | 'specific'
 
@@ -21,6 +22,11 @@ interface ProductItem {
   thumbnail?: string
   images?: string[]
   status?: string
+  basePrice?: number
+  skus?: Array<{
+    price?: number
+    discountPrice?: number
+  }>
 }
 
 export default function ManufacturerProductAuthorization() {
@@ -47,6 +53,7 @@ export default function ManufacturerProductAuthorization() {
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const run = async () => {
@@ -108,6 +115,54 @@ export default function ManufacturerProductAuthorization() {
 
   const toggleProduct = (id: string) => {
     setSelectedProductIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const toggleCategoryExpand = (id: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  // 构建分类树
+  const categoryTree = useMemo(() => {
+    const rootCategories = categories.filter(c => !c.parentId)
+    const childrenMap = new Map<string, CategoryItem[]>()
+    
+    categories.forEach(c => {
+      if (c.parentId) {
+        const children = childrenMap.get(c.parentId) || []
+        children.push(c)
+        childrenMap.set(c.parentId, children)
+      }
+    })
+
+    return { rootCategories, childrenMap }
+  }, [categories])
+
+  // 计算商品价格信息
+  const getProductPricing = (product: ProductItem) => {
+    const basePrice = product.basePrice || 0
+    const skuPrices = product.skus?.map(s => s.price || 0).filter(p => p > 0) || []
+    const discountPrices = product.skus?.map(s => s.discountPrice).filter(p => p && p > 0) || []
+    
+    const minPrice = skuPrices.length > 0 ? Math.min(...skuPrices) : basePrice
+    const maxPrice = skuPrices.length > 0 ? Math.max(...skuPrices) : basePrice
+    const minDiscountPrice = discountPrices.length > 0 ? Math.min(...discountPrices) : minPrice * 0.9
+    
+    // 假设返佣率为10%
+    const commissionPrice = minDiscountPrice * 0.1
+    
+    return {
+      priceRange: minPrice === maxPrice ? `¥${minPrice}` : `¥${minPrice} - ¥${maxPrice}`,
+      minDiscountPrice: `¥${minDiscountPrice.toFixed(2)}`,
+      commissionPrice: `¥${commissionPrice.toFixed(2)}`
+    }
   }
 
   const buildNotes = () => {
@@ -226,23 +281,24 @@ export default function ManufacturerProductAuthorization() {
               </div>
 
               {mode === 'category' ? (
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="mt-4">
                   {categories.length === 0 ? (
                     <div className="text-sm text-gray-500">该厂家暂无可用分类</div>
                   ) : (
-                    categories.map(c => (
-                      <label key={c.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={selectedCategoryIds.includes(String(c.id))}
-                            onChange={() => toggleCategory(String(c.id))}
-                          />
-                          <span className="text-sm text-gray-900 truncate">{c.name}</span>
-                        </div>
-                        <span className="text-xs text-gray-500">{c.count}件</span>
-                      </label>
-                    ))
+                    <div className="space-y-1">
+                      {categoryTree.rootCategories.map(c => (
+                        <CategoryTreeNode
+                          key={c.id}
+                          category={c}
+                          childrenMap={categoryTree.childrenMap}
+                          selectedIds={selectedCategoryIds}
+                          expandedIds={expandedCategories}
+                          onToggle={toggleCategory}
+                          onToggleExpand={toggleCategoryExpand}
+                          level={0}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
               ) : (
@@ -256,23 +312,60 @@ export default function ManufacturerProductAuthorization() {
                     />
                     <div className="text-sm text-gray-500 whitespace-nowrap">共 {filteredProducts.length} 个</div>
                   </div>
-                  <div className="max-h-[520px] overflow-auto space-y-2">
+                  <div className="max-h-[520px] overflow-auto space-y-3">
                     {filteredProducts.length === 0 ? (
                       <div className="text-sm text-gray-500">暂无商品</div>
                     ) : (
-                      filteredProducts.map(p => (
-                        <label key={p._id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center gap-2 min-w-0">
+                      filteredProducts.map(p => {
+                        const pricing = getProductPricing(p)
+                        return (
+                          <label key={p._id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={selectedProductIds.includes(String(p._id))}
                               onChange={() => toggleProduct(String(p._id))}
+                              className="mt-1"
                             />
-                            <span className="text-sm text-gray-900 truncate">{p.name}</span>
-                          </div>
-                          <span className="text-xs text-gray-500 font-mono">{p.productCode || ''}</span>
-                        </label>
-                      ))
+                            {/* 商品图片 */}
+                            <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
+                              {p.thumbnail || p.images?.[0] ? (
+                                <img
+                                  src={p.thumbnail || p.images?.[0]}
+                                  alt={p.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                    e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <ImageIcon className="w-6 h-6 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            {/* 商品信息 */}
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-900 truncate">{p.name}</div>
+                              <div className="text-xs text-gray-500 font-mono mt-1">{p.productCode || '无编码'}</div>
+                              <div className="grid grid-cols-3 gap-2 mt-2">
+                                <div>
+                                  <div className="text-xs text-gray-500">价格</div>
+                                  <div className="text-sm font-medium text-gray-900">{pricing.priceRange}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500">最低折扣价</div>
+                                  <div className="text-sm font-medium text-orange-600">{pricing.minDiscountPrice}</div>
+                                </div>
+                                <div>
+                                  <div className="text-xs text-gray-500">返佣价格</div>
+                                  <div className="text-sm font-medium text-green-600">{pricing.commissionPrice}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        )
+                      })
                     )}
                   </div>
                 </div>
@@ -356,6 +449,89 @@ export default function ManufacturerProductAuthorization() {
               <div className="text-sm text-gray-900 mt-1">{validUntil ? validUntil : '永久有效'}</div>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 树状分类节点组件
+interface CategoryTreeNodeProps {
+  category: CategoryItem
+  childrenMap: Map<string, CategoryItem[]>
+  selectedIds: string[]
+  expandedIds: Set<string>
+  onToggle: (id: string) => void
+  onToggleExpand: (id: string) => void
+  level: number
+}
+
+function CategoryTreeNode({
+  category,
+  childrenMap,
+  selectedIds,
+  expandedIds,
+  onToggle,
+  onToggleExpand,
+  level
+}: CategoryTreeNodeProps) {
+  const children = childrenMap.get(category.id) || []
+  const hasChildren = children.length > 0
+  const isExpanded = expandedIds.has(category.id)
+  const isSelected = selectedIds.includes(String(category.id))
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-100 hover:bg-gray-50"
+        style={{ marginLeft: `${level * 20}px` }}
+      >
+        {/* 展开/收起按钮 */}
+        {hasChildren ? (
+          <button
+            onClick={() => onToggleExpand(category.id)}
+            className="p-0.5 hover:bg-gray-200 rounded"
+            type="button"
+          >
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4 text-gray-600" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-gray-600" />
+            )}
+          </button>
+        ) : (
+          <span className="w-5" />
+        )}
+
+        {/* 复选框和分类名称 */}
+        <label className="flex items-center justify-between gap-3 flex-1 cursor-pointer">
+          <div className="flex items-center gap-2 min-w-0">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onToggle(String(category.id))}
+            />
+            <span className="text-sm text-gray-900 truncate">{category.name}</span>
+          </div>
+          <span className="text-xs text-gray-500">{category.count}件</span>
+        </label>
+      </div>
+
+      {/* 子分类 */}
+      {hasChildren && isExpanded && (
+        <div className="mt-1 space-y-1">
+          {children.map(child => (
+            <CategoryTreeNode
+              key={child.id}
+              category={child}
+              childrenMap={childrenMap}
+              selectedIds={selectedIds}
+              expandedIds={expandedIds}
+              onToggle={onToggle}
+              onToggleExpand={onToggleExpand}
+              level={level + 1}
+            />
+          ))}
         </div>
       )}
     </div>
