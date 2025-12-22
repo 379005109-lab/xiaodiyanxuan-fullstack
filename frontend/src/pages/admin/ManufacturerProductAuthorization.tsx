@@ -29,6 +29,7 @@ export default function ManufacturerProductAuthorization() {
   const { user } = useAuthStore()
 
   const isDesigner = user?.role === 'designer'
+  const isManufacturerUser = !!(user as any)?.manufacturerId
 
   const manufacturerId = String(params.manufacturerId || '')
 
@@ -146,8 +147,8 @@ export default function ManufacturerProductAuthorization() {
   }, [mode, selectedCategoryIds.length, selectedProductIds.length])
 
   const handleSubmit = async () => {
-    if (!isDesigner) {
-      toast.error('当前账号暂不支持发起授权申请，请使用设计师账号')
+    if (!isDesigner && !isManufacturerUser) {
+      toast.error('当前账号暂不支持发起授权申请，请使用设计师或厂家账号')
       return
     }
     if (!canSubmit) {
@@ -188,17 +189,12 @@ export default function ManufacturerProductAuthorization() {
         </div>
         <div className="flex items-center gap-3">
           <button className="btn btn-secondary" onClick={() => navigate('/admin/manufacturers')}>返回</button>
-          <button className="btn btn-primary" disabled={submitting || !canSubmit || !isDesigner} onClick={handleSubmit}>
+          <button className="btn btn-primary" disabled={submitting || !canSubmit || (!isDesigner && !isManufacturerUser)} onClick={handleSubmit}>
             {submitting ? '提交中...' : '提交申请'}
           </button>
         </div>
       </div>
 
-      {!isDesigner && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-          当前页面的“提交申请”暂仅支持设计师账号。厂家与厂家之间的商品授权申请流程将单独支持。
-        </div>
-      )}
 
       {loading ? (
         <div className="text-center py-12">
