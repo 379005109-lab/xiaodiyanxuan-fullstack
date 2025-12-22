@@ -26,11 +26,10 @@ export default function ManufacturerAuthorizationRequests() {
   const { user } = useAuthStore()
 
   const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
 
   const canAccess = useMemo(() => {
-    return isAdmin || !!myManufacturerId
-  }, [isAdmin, myManufacturerId])
+    return !!myManufacturerId
+  }, [myManufacturerId])
 
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<AuthorizationRequest[]>([])
@@ -116,7 +115,7 @@ export default function ManufacturerAuthorizationRequests() {
           </button>
         </div>
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-          当前账号没有绑定厂家，无法查看待审核申请。请使用厂家账号或管理员账号访问。
+          当前账号没有绑定厂家，无法查看待审核申请。请使用厂家账号访问。
         </div>
       </div>
     )
@@ -163,11 +162,6 @@ export default function ManufacturerAuthorizationRequests() {
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
                       待审核
                     </span>
-                    {isAdmin && req.fromManufacturer && (
-                      <span className="text-sm text-gray-600">
-                        厂家: {req.fromManufacturer.fullName || req.fromManufacturer.shortName || req.fromManufacturer.name}
-                      </span>
-                    )}
                   </div>
 
                   <div className="text-sm text-gray-600">
