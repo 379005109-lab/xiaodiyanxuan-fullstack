@@ -1037,13 +1037,6 @@ module.exports = {
   updateProduct,
   deleteProduct,
   getProductCategories,
-  uploadThumbnail,
-  uploadImages,
-  uploadVideos,
-  uploadFiles,
-  deleteFile,
-  deleteVideo,
-  deleteImage,
   updateProductPricing,
   getProductPricing
 }
