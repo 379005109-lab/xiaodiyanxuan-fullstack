@@ -41,6 +41,7 @@ const Dashboard = lazy(() => import('./pages/admin/Dashboard'))
 const ProductManagement = lazy(() => import('./pages/admin/ProductManagement'))
 const ProductForm = lazy(() => import('./pages/admin/ProductForm'))
 const ProductDashboard = lazy(() => import('./pages/admin/ProductDashboard'))
+const ProductPricingManagement = lazy(() => import('./pages/admin/ProductPricingManagement'))
 const OrderManagement = lazy(() => import('./pages/admin/OrderManagementNew2'))
 const UserManagement = lazy(() => import('./pages/admin/UserManagement'))
 const AccountManagement = lazy(() => import('./pages/admin/AccountManagement'))
@@ -375,6 +376,11 @@ function App() {
             <Route path="products/dashboard/:productId" element={
               <ProtectedRoute allowedRoles={['admin', 'super_admin', 'designer']}>
                 <ProductDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="products/pricing/:id" element={
+              <ProtectedRoute allowedRoles={['admin', 'super_admin', 'designer']}>
+                <ProductPricingManagement />
               </ProtectedRoute>
             } />
             <Route path="orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderManagement /></ProtectedRoute>} />
