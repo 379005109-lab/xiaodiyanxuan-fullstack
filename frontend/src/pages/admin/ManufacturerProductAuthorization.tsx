@@ -24,6 +24,8 @@ interface ProductItem {
   status?: string
   basePrice?: number
   skus?: Array<{
+    code?: string
+    spec?: string
     price?: number
     discountPrice?: number
   }>
@@ -54,6 +56,7 @@ export default function ManufacturerProductAuthorization() {
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set())
   const [tierSystemConfig, setTierSystemConfig] = useState<any>(null)
 
   useEffect(() => {
@@ -132,6 +135,18 @@ export default function ManufacturerProductAuthorization() {
     })
   }
 
+  const toggleProductExpand = (id: string) => {
+    setExpandedProducts(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
   // 构建分类树
   const categoryTree = useMemo(() => {
     const rootCategories = categories.filter(c => !c.parentId)
@@ -147,6 +162,52 @@ export default function ManufacturerProductAuthorization() {
 
     return { rootCategories, childrenMap }
   }, [categories])
+
+  // 计算SKU价格信息
+  const getSkuPricing = (skuPrice: number) => {
+    // 从分层体系配置中获取最低折扣率和佣金率
+    let minDiscountRate = 0.6 // 默认最低6折
+    let commissionRate = 0.4 // 默认40%佣金
+    
+    if (tierSystemConfig) {
+      const modules = tierSystemConfig.roleModules || []
+      const accounts = tierSystemConfig.authorizedAccounts || []
+      const userAccount = accounts.find((a: any) => String(a.userId) === String(user?._id))
+      
+      let targetModule = null
+      let targetRule = null
+      
+      if (userAccount) {
+        targetModule = modules.find((m: any) => String(m._id) === String(userAccount.roleModuleId))
+        if (targetModule && targetModule.discountRules) {
+          targetRule = targetModule.discountRules.find((r: any) => String(r._id) === String(userAccount.discountRuleId))
+        }
+      } else {
+        targetModule = modules.find((m: any) => m.code === user?.role) || modules[0]
+        if (targetModule && targetModule.discountRules) {
+          targetRule = targetModule.discountRules.find((r: any) => r.isDefault) || targetModule.discountRules[0]
+        }
+      }
+      
+      if (targetRule) {
+        minDiscountRate = targetRule.discountRate || 0.6
+        commissionRate = targetRule.commissionRate || 0.4
+      }
+    }
+    
+    const minDiscountPrice = skuPrice * minDiscountRate
+    const designerCommission = minDiscountPrice * commissionRate
+    const factoryIncome = minDiscountPrice - designerCommission
+    
+    return {
+      retailPrice: skuPrice,
+      minDiscountPrice,
+      designerCommission,
+      factoryIncome,
+      discountRate: minDiscountRate,
+      commissionRate
+    }
+  }
 
   // 计算商品价格信息（根据分层体系配置）
   // 价格计算逻辑：
@@ -367,53 +428,124 @@ export default function ManufacturerProductAuthorization() {
                       <div className="text-sm text-gray-500">暂无商品</div>
                     ) : (
                       filteredProducts.map(p => {
+                        const hasMultipleSkus = p.skus && p.skus.length > 1
+                        const isExpanded = expandedProducts.has(String(p._id))
                         const pricing = getProductPricing(p)
+                        
                         return (
-                          <label key={p._id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedProductIds.includes(String(p._id))}
-                              onChange={() => toggleProduct(String(p._id))}
-                              className="mt-1"
-                            />
-                            {/* 商品图片 */}
-                            <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
-                              {p.thumbnail || p.images?.[0] ? (
-                                <img
-                                  src={p.thumbnail || p.images?.[0]}
-                                  alt={p.name}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none'
-                                    e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>'
-                                  }}
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <ImageIcon className="w-6 h-6 text-gray-400" />
+                          <div key={p._id} className="border border-gray-200 rounded-lg overflow-hidden">
+                            {/* 主商品信息 */}
+                            <div className="flex items-start gap-3 p-3 bg-white hover:bg-gray-50">
+                              <input
+                                type="checkbox"
+                                checked={selectedProductIds.includes(String(p._id))}
+                                onChange={() => toggleProduct(String(p._id))}
+                                className="mt-1"
+                              />
+                              {/* 商品图片 */}
+                              <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
+                                {p.thumbnail || p.images?.[0] ? (
+                                  <img
+                                    src={p.thumbnail || p.images?.[0]}
+                                    alt={p.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const target = e.currentTarget
+                                      target.style.display = 'none'
+                                      const parent = target.parentElement
+                                      if (parent) {
+                                        const placeholder = document.createElement('div')
+                                        placeholder.className = 'w-full h-full flex items-center justify-center'
+                                        placeholder.innerHTML = '<svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>'
+                                        parent.appendChild(placeholder)
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <ImageIcon className="w-6 h-6 text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+                              {/* 商品信息 */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div className="font-medium text-gray-900 truncate">{p.name}</div>
+                                  {hasMultipleSkus && (
+                                    <button
+                                      onClick={() => toggleProductExpand(String(p._id))}
+                                      className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                      type="button"
+                                    >
+                                      {isExpanded ? (
+                                        <>
+                                          <ChevronDown className="w-3 h-3" />
+                                          收起SKU
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ChevronRight className="w-3 h-3" />
+                                          展开{p.skus.length}个SKU
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            {/* 商品信息 */}
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900 truncate">{p.name}</div>
-                              <div className="text-xs text-gray-500 font-mono mt-1">{p.productCode || '无编码'}</div>
-                              <div className="grid grid-cols-3 gap-2 mt-2">
-                                <div>
-                                  <div className="text-xs text-gray-500">价格</div>
-                                  <div className="text-sm font-medium text-gray-900">{pricing.priceRange}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-gray-500">最低折扣价</div>
-                                  <div className="text-sm font-medium text-orange-600">{pricing.minDiscountPrice}</div>
-                                </div>
-                                <div>
-                                  <div className="text-xs text-gray-500">返佣价格</div>
-                                  <div className="text-sm font-medium text-green-600">{pricing.commissionPrice}</div>
+                                <div className="text-xs text-gray-500 font-mono mt-1">{p.productCode || '无编码'}</div>
+                                <div className="grid grid-cols-3 gap-2 mt-2">
+                                  <div>
+                                    <div className="text-xs text-gray-500">价格</div>
+                                    <div className="text-sm font-medium text-gray-900">{pricing.priceRange}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-gray-500">最低折扣价</div>
+                                    <div className="text-sm font-medium text-orange-600">{pricing.minDiscountPrice}</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-gray-500">返佣价格</div>
+                                    <div className="text-sm font-medium text-green-600">{pricing.commissionPrice}</div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </label>
+                            
+                            {/* SKU列表 */}
+                            {hasMultipleSkus && isExpanded && (
+                              <div className="border-t border-gray-200 bg-gray-50 p-3 space-y-2">
+                                {p.skus.map((sku, index) => {
+                                  const skuPrice = sku.price || 0
+                                  const skuPricing = getSkuPricing(skuPrice)
+                                  
+                                  return (
+                                    <div key={index} className="bg-white p-2 rounded border border-gray-200">
+                                      <div className="text-xs text-gray-700 mb-1">
+                                        <span className="font-medium">SKU:</span> {sku.code || `SKU-${index + 1}`}
+                                        {sku.spec && <span className="ml-2">{sku.spec}</span>}
+                                      </div>
+                                      <div className="grid grid-cols-4 gap-2 text-xs">
+                                        <div>
+                                          <div className="text-gray-500">标价</div>
+                                          <div className="font-medium text-gray-900">¥{skuPrice}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-gray-500">{(skuPricing.discountRate * 10).toFixed(0)}折价</div>
+                                          <div className="font-medium text-orange-600">¥{skuPricing.minDiscountPrice.toFixed(0)}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-gray-500">设计师佣金</div>
+                                          <div className="font-medium text-green-600">¥{skuPricing.designerCommission.toFixed(0)}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-gray-500">工厂收入</div>
+                                          <div className="font-medium text-blue-600">¥{skuPricing.factoryIncome.toFixed(0)}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
                         )
                       })
                     )}
