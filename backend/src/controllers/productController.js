@@ -705,6 +705,10 @@ const createProduct = async (req, res) => {
 
     const productData = req.body
 
+    // 设置产品拥有者（谁上传谁就是拥有者）
+    productData.ownerId = req.user._id || req.user.id
+    productData.ownerName = req.user.nickname || req.user.username || req.user.name
+
     if (req.user.manufacturerId && req.user.role !== 'super_admin') {
       productData.manufacturerId = req.user.manufacturerId
     }
@@ -956,6 +960,76 @@ const bulkImport = async (req, res) => {
   }
 }
 
+// 更新产品分层定价配置
+const updateProductPricing = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { pricingMode, tierPricingConfig } = req.body
+
+    const product = await Product.findById(id)
+    if (!product) {
+      return res.status(404).json(errorResponse('商品不存在', 404))
+    }
+
+    // 检查权限：只有产品拥有者或super_admin可以修改定价
+    const isOwner = String(product.ownerId) === String(req.user._id || req.user.id)
+    const isSuperAdmin = req.user.role === 'super_admin'
+    
+    if (!isOwner && !isSuperAdmin) {
+      return res.status(403).json(errorResponse('只有产品拥有者可以修改定价配置', 403))
+    }
+
+    // 更新定价配置
+    const updateData = {}
+    if (pricingMode) {
+      updateData.pricingMode = pricingMode
+    }
+    if (tierPricingConfig) {
+      updateData.tierPricingConfig = tierPricingConfig
+    }
+    updateData.updatedAt = new Date()
+
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    )
+
+    res.json(successResponse(updatedProduct, '定价配置更新成功'))
+  } catch (err) {
+    console.error('Update product pricing error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
+// 获取产品定价配置
+const getProductPricing = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const product = await Product.findById(id)
+      .select('name ownerId ownerName pricingMode tierPricingConfig basePrice')
+      .populate('ownerId', 'username nickname')
+
+    if (!product) {
+      return res.status(404).json(errorResponse('商品不存在', 404))
+    }
+
+    // 检查权限：只有产品拥有者或super_admin可以查看定价配置
+    const isOwner = String(product.ownerId) === String(req.user._id || req.user.id)
+    const isSuperAdmin = req.user.role === 'super_admin'
+    
+    if (!isOwner && !isSuperAdmin) {
+      return res.status(403).json(errorResponse('只有产品拥有者可以查看定价配置', 403))
+    }
+
+    res.json(successResponse(product, '获取定价配置成功'))
+  } catch (err) {
+    console.error('Get product pricing error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
 module.exports = {
   listProducts,
   getProduct,
@@ -963,10 +1037,13 @@ module.exports = {
   updateProduct,
   deleteProduct,
   getProductCategories,
-  getProductStyles,
-  search,
   uploadThumbnail,
   uploadImages,
+  uploadVideos,
+  uploadFiles,
+  deleteFile,
+  deleteVideo,
   deleteImage,
-  bulkImport
+  updateProductPricing,
+  getProductPricing
 }

@@ -69,6 +69,25 @@ const productSchema = new mongoose.Schema({
   reviews: { type: Number, default: 0 },
   order: { type: Number, default: 0 },
   status: { type: String, enum: Object.values(PRODUCT_STATUS), default: PRODUCT_STATUS.ACTIVE },
+  // 产品拥有者权限相关字段
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // 产品拥有者（上传者）
+  ownerName: String, // 拥有者名称（冗余字段）
+  pricingMode: { 
+    type: String, 
+    enum: ['owner_managed', 'superior_managed'], 
+    default: 'owner_managed' 
+  }, // 定价模式：owner_managed=拥有者管理，superior_managed=上级管理
+  tierPricingConfig: { // 分层定价配置
+    enabled: { type: Boolean, default: false },
+    tiers: [{ // 层级定价规则
+      tierLevel: Number, // 层级等级
+      tierName: String, // 层级名称
+      discountRate: Number, // 折扣率（如0.8表示8折）
+      commissionRate: Number, // 分佣率（如0.1表示10%分佣）
+      minQuantity: { type: Number, default: 1 }, // 最小起订量
+      isActive: { type: Boolean, default: true }
+    }]
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 })
