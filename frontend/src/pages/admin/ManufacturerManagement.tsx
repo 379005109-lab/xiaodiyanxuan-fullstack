@@ -547,9 +547,79 @@ export default function ManufacturerManagement() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 ${isDesigner ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8' : 'md:grid-cols-2 lg:grid-cols-3 gap-4'}`}>
           {manufacturers.map((item) => (
-            <div
+            isDesigner ? (
+              // 设计师视图 - 使用elite-manufacturer-portal风格
+              <div
+                key={item._id}
+                className="bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden flex flex-col h-full cursor-pointer group"
+                onClick={() => handleOpenProductAuthorization(item)}
+              >
+                {/* Brand Hero Section */}
+                <div className="relative h-40 bg-[#f9fbfc] flex items-center justify-center p-8 overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <img 
+                    src={item.logo || 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=200&h=200&fit=crop'} 
+                    alt={item.fullName || item.name} 
+                    className="w-24 h-24 rounded-2xl object-cover shadow-2xl transform group-hover:scale-110 transition-transform duration-700 z-10 border-4 border-white"
+                  />
+                  {String(item._id) === '6948fca5630729ca224ec425' && (
+                    <div className="absolute top-4 right-4 bg-[#153e35] text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg z-20 tracking-widest uppercase">
+                      官方严选
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-8 flex flex-col flex-grow relative">
+                  <div className="mb-6">
+                    <h3 className="text-2xl font-black text-gray-900 group-hover:text-emerald-800 transition-colors leading-tight mb-1">{item.fullName || item.name}</h3>
+                    <span className="text-[10px] font-bold text-gray-300 tracking-widest uppercase">{item.code || 'N/A'}</span>
+                  </div>
+
+                  <div className="space-y-5 flex-grow">
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2"></span>
+                        品牌愿景
+                      </p>
+                      <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-medium italic">
+                        "{item.description || '致力于为设计师提供优质的家具产品和服务'}"
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mb-2 flex items-center">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 mr-2"></span>
+                        核心系列
+                      </p>
+                      <p className="text-sm text-gray-700 font-bold line-clamp-1">
+                        {item.description || '全系列家具产品'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-between">
+                    <div className="flex -space-x-3">
+                      {[1,2,3,4].map(i => (
+                        <div key={i} className="w-8 h-8 rounded-xl border-2 border-white bg-gray-100 overflow-hidden shadow-sm">
+                          <img src={`https://picsum.photos/seed/${item._id + i * 15}/32/32`} alt="" />
+                        </div>
+                      ))}
+                      <div className="w-8 h-8 rounded-xl border-2 border-white bg-[#153e35] flex items-center justify-center text-[10px] font-black text-white shadow-sm">
+                        ···
+                      </div>
+                    </div>
+                    <div className="flex items-center text-[#153e35] font-black text-xs group-hover:translate-x-1 transition-transform">
+                      进入品牌库
+                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // 管理员视图 - 保持原有的详细卡片
+              <div
               key={item._id}
               className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow"
             >
