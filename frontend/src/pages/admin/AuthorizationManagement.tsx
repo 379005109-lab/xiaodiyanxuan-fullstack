@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle, Copy } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import FolderSelectionModal from '@/components/FolderSelectionModal'
 
 interface Authorization {
   _id: string
@@ -39,8 +40,10 @@ export default function AuthorizationManagement() {
   const [myRequests, setMyRequests] = useState<Authorization[]>([])
   const [loading, setLoading] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
-
   const [showApplyModal, setShowApplyModal] = useState(false)
+  const [showFolderModal, setShowFolderModal] = useState(false)
+  const [selectedAuthId, setSelectedAuthId] = useState<string>('')
+  const [categories, setCategories] = useState<any[]>([])
 
   const didInitTab = useRef(false)
 
