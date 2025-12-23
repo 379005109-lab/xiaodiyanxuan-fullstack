@@ -147,6 +147,17 @@ export default function ManufacturerProductAuthorization() {
     })
   }
 
+  const isProductAuthorized = (productId: string) => {
+    return existingAuthorizations.some(auth => {
+      if (auth.scope === 'specific' && auth.products?.includes(productId)) return true
+      const product = productById.get(productId)
+      if (auth.scope === 'category' && product?.category && auth.categories?.some((catId: string) => 
+        String(product.category._id) === catId || String(product.category.id) === catId
+      )) return true
+      return false
+    })
+  }
+
   // 构建分类树
   const categoryTree = useMemo(() => {
     const rootCategories = categories.filter(c => !c.parentId)
@@ -436,6 +447,7 @@ export default function ManufacturerProductAuthorization() {
                         const hasMultipleSkus = p.skus && p.skus.length > 1
                         const isExpanded = expandedProducts.has(String(p._id))
                         const pricing = getProductPricing(p)
+                        const isAuthorized = isProductAuthorized(String(p._id))
                         
                         return (
                           <div key={p._id} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -476,6 +488,11 @@ export default function ManufacturerProductAuthorization() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <div className="font-medium text-gray-900 truncate">{p.name}</div>
+                                  {isAuthorized && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                      已授权
+                                    </span>
+                                  )}
                                   {hasMultipleSkus && (
                                     <button
                                       onClick={() => toggleProductExpand(String(p._id))}
