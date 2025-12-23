@@ -191,51 +191,56 @@ router.post('/designer-requests', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: '已存在申请记录或已授权' })
     }
 
-    const normalizedScope = ['all', 'category', 'specific'].includes(scope) ? scope : 'all'
+    const normalizedScope = ['all', 'category', 'specific', 'mixed'].includes(scope) ? scope : 'all'
 
     let normalizedCategories = []
     let normalizedProducts = []
 
-    if (normalizedScope === 'category') {
-      if (!Array.isArray(categories) || categories.length === 0) {
+    // 支持mixed模式：同时选择分类和商品
+    if (normalizedScope === 'category' || normalizedScope === 'mixed') {
+      if (Array.isArray(categories) && categories.length > 0) {
+        normalizedCategories = categories
+          .map((c) => String(c))
+          .filter((c) => c && c.length <= 128)
+          .slice(0, 200)
+      } else if (normalizedScope === 'category') {
         return res.status(400).json({ success: false, message: '请选择要授权的分类' })
       }
-      normalizedCategories = categories
-        .map((c) => String(c))
-        .filter((c) => c && c.length <= 128)
-        .slice(0, 200)
     }
 
-    if (normalizedScope === 'specific') {
-      if (!Array.isArray(products) || products.length === 0) {
+    if (normalizedScope === 'specific' || normalizedScope === 'mixed') {
+      if (Array.isArray(products) && products.length > 0) {
+        const productIds = products
+          .map((p) => String(p))
+          .filter((p) => mongoose.Types.ObjectId.isValid(p))
+          .slice(0, 500)
+
+        if (productIds.length > 0) {
+          const manufacturerOid = new mongoose.Types.ObjectId(manufacturerId)
+          const productOids = productIds.map((id) => new mongoose.Types.ObjectId(id))
+
+          const ownedProducts = await Product.find({
+            _id: { $in: productOids },
+            status: 'active',
+            $or: [{ manufacturerId: manufacturerOid }, { 'skus.manufacturerId': manufacturerOid }]
+          })
+            .select('_id')
+            .lean()
+
+          if ((ownedProducts || []).length !== productOids.length) {
+            return res.status(400).json({ success: false, message: '所选商品中包含无效商品或不属于该厂家' })
+          }
+
+          normalizedProducts = ownedProducts.map((p) => p._id)
+        }
+      } else if (normalizedScope === 'specific') {
         return res.status(400).json({ success: false, message: '请选择要授权的商品' })
       }
+    }
 
-      const productIds = products
-        .map((p) => String(p))
-        .filter((p) => mongoose.Types.ObjectId.isValid(p))
-        .slice(0, 500)
-
-      if (productIds.length === 0) {
-        return res.status(400).json({ success: false, message: 'products 无效' })
-      }
-
-      const manufacturerOid = new mongoose.Types.ObjectId(manufacturerId)
-      const productOids = productIds.map((id) => new mongoose.Types.ObjectId(id))
-
-      const ownedProducts = await Product.find({
-        _id: { $in: productOids },
-        status: 'active',
-        $or: [{ manufacturerId: manufacturerOid }, { 'skus.manufacturerId': manufacturerOid }]
-      })
-        .select('_id')
-        .lean()
-
-      if ((ownedProducts || []).length !== productOids.length) {
-        return res.status(400).json({ success: false, message: '所选商品中包含无效商品或不属于该厂家' })
-      }
-
-      normalizedProducts = ownedProducts.map((p) => p._id)
+    // mixed模式必须至少选择一个分类或商品
+    if (normalizedScope === 'mixed' && normalizedCategories.length === 0 && normalizedProducts.length === 0) {
+      return res.status(400).json({ success: false, message: '请至少选择一个分类或商品' })
     }
 
     let parsedValidUntil = undefined

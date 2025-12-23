@@ -308,8 +308,9 @@ export default function ManufacturerProductAuthorization() {
   }
 
   const canSubmit = useMemo(() => {
-    return selectedCategoryIds.length > 0 || selectedProductIds.length > 0
-  }, [selectedCategoryIds.length, selectedProductIds.length])
+    if (mode === 'category') return selectedCategoryIds.length > 0
+    return selectedProductIds.length > 0
+  }, [mode, selectedCategoryIds.length, selectedProductIds.length])
 
   const handleSubmit = async () => {
     if (!isDesigner && !isManufacturerUser) {
@@ -317,23 +318,17 @@ export default function ManufacturerProductAuthorization() {
       return
     }
     if (!canSubmit) {
-      toast.error('请选择至少一个分类或商品')
+      toast.error(mode === 'category' ? '请选择至少一个分类' : '请选择至少一个商品')
       return
     }
 
     setSubmitting(true)
     try {
-      const scope = selectedCategoryIds.length > 0 && selectedProductIds.length > 0 
-        ? 'mixed' 
-        : selectedCategoryIds.length > 0 
-          ? 'category' 
-          : 'specific'
-          
       await apiClient.post('/authorizations/designer-requests', {
         manufacturerId,
-        scope,
-        categories: selectedCategoryIds,
-        products: selectedProductIds,
+        scope: mode,
+        categories: mode === 'category' ? selectedCategoryIds : [],
+        products: mode === 'specific' ? selectedProductIds : [],
         validUntil: validUntil || undefined,
         notes: buildNotes()
       })
