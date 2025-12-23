@@ -69,17 +69,19 @@ export default function ManufacturerProductAuthorization() {
 
       setLoading(true)
       try {
-        const [mRes, cRes, pRes, tRes] = await Promise.all([
+        const [mRes, cRes, pRes, tRes, aRes] = await Promise.all([
           apiClient.get(`/manufacturers/${manufacturerId}`),
           apiClient.get(`/manufacturers/${manufacturerId}/product-categories`),
           apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 5000 } }),
-          apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } }))
+          apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } })),
+          apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'approved' } }).catch(() => ({ data: { data: [] } }))
         ])
 
         setManufacturer(mRes.data?.data || null)
         setCategories(cRes.data?.data || [])
         setProducts(pRes.data?.data || [])
         setTierSystemConfig(tRes.data?.data || null)
+        setExistingAuthorizations(aRes.data?.data || [])
       } catch (e: any) {
         toast.error(e?.response?.data?.message || '加载数据失败')
       } finally {
