@@ -1,0 +1,167 @@
+name: Build and Deploy Backend
+
+on:
+  push:
+    branches: [ main, test ]
+    paths:
+      - 'client/backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: 379005109-lab/xiaodiyanxuan-backend
+  NAMESPACE: ns-cxxiwxce
+  DEPLOYMENT_NAME: xiaodiyanxuan-api
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    # ============================================================================
+    # 构建阶段
+    # ============================================================================
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to Docker Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Generate image tags
+      id: meta
+      run: |
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        COMMIT_SHA=${{ github.sha }}
+        SHORT_SHA=${COMMIT_SHA:0:7}
+        
+        echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
+        echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+        echo "image_tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test" >> $GITHUB_OUTPUT
+        echo "image_latest=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_OUTPUT
+    
+    - name: Build and push image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./client/backend
+        file: ./client/backend/Dockerfile
+        push: true
+        tags: |
+          ${{ steps.meta.outputs.image_tag }}
+          ${{ steps.meta.outputs.image_latest }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+        cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+    
+    - name: Image build summary
+      run: |
+        echo "✅ 镜像构建成功"
+        echo "📦 镜像标签: ${{ steps.meta.outputs.image_tag }}"
+        echo "📦 最新标签: ${{ steps.meta.outputs.image_latest }}"
+    
+    # ============================================================================
+    # 部署阶段
+    # ============================================================================
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+    
+    - name: Configure kubectl
+      run: |
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+        
+        echo "✅ kubectl 已配置"
+        kubectl cluster-info || echo "集群信息获取受限（正常）"
+    
+    - name: Check deployment exists
+      run: |
+        if kubectl get deployment ${{ env.DEPLOYMENT_NAME }} -n ${{ env.NAMESPACE }} &> /dev/null; then
+          echo "✅ 部署已存在"
+          kubectl get deployment ${{ env.DEPLOYMENT_NAME }} -n ${{ env.NAMESPACE }} -o wide
+        else
+          echo "❌ 部署不存在: ${{ env.DEPLOYMENT_NAME }}"
+          exit 1
+        fi
+    
+    - name: Delete pods to force pull new image
+      run: |
+        echo "🔄 删除Pod强制拉取新镜像..."
+        kubectl delete pod -l app=${{ env.DEPLOYMENT_NAME }} -n ${{ env.NAMESPACE }}
+        echo "✅ Pod已删除"
+    
+    - name: Wait for rollout
+      run: |
+        echo "⏳ 等待部署完成..."
+        kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} \
+          -n ${{ env.NAMESPACE }} \
+          --timeout=5m
+        
+        echo "✅ 部署完成"
+    
+    # ============================================================================
+    # 验证阶段
+    # ============================================================================
+    - name: Verify deployment
+      run: |
+        echo "🔍 验证部署..."
+        echo ""
+        echo "Pod 状态:"
+        kubectl get pods -n ${{ env.NAMESPACE }} | grep ${{ env.DEPLOYMENT_NAME }} | grep -v test
+        echo ""
+        echo "部署状态:"
+        kubectl get deployment ${{ env.DEPLOYMENT_NAME }} -n ${{ env.NAMESPACE }} -o wide
+    
+    - name: Verify code update
+      run: |
+        echo "🔍 验证代码是否更新..."
+        sleep 10
+        POD_NAME=$(kubectl get pods -n ${{ env.NAMESPACE }} -l app=${{ env.DEPLOYMENT_NAME }} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        if [ -n "$POD_NAME" ]; then
+          echo "检查 tierPricing 函数..."
+          COUNT=$(kubectl exec $POD_NAME -n ${{ env.NAMESPACE }} -- grep -c "computeTierPricing" /app/src/controllers/productController.js 2>/dev/null || echo "0")
+          if [ "$COUNT" -gt "0" ]; then
+            echo "✅ 代码已更新 (找到 $COUNT 处 tierPricing 相关代码)"
+          else
+            echo "❌ 代码未更新"
+            exit 1
+          fi
+        fi
+    
+    - name: Deployment summary
+      if: success()
+      run: |
+        echo "✅ 部署成功！"
+        echo ""
+        echo "📊 部署信息:"
+        echo "  命名空间: ${{ env.NAMESPACE }}"
+        echo "  部署名称: ${{ env.DEPLOYMENT_NAME }}"
+        echo "  镜像标签: ${{ steps.meta.outputs.image_tag }}"
+        echo ""
+        echo "🔗 快速命令:"
+        echo "  查看日志: kubectl logs -f deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.NAMESPACE }}"
+        echo "  查看状态: kubectl get pods -n ${{ env.NAMESPACE }} | grep ${{ env.DEPLOYMENT_NAME }}"
+    
+    - name: Deployment failure notification
+      if: failure()
+      run: |
+        echo "❌ 部署失败！"
+        echo ""
+        echo "🔍 故障排查:"
+        echo "  1. 查看 Pod 事件: kubectl describe pod <pod-name> -n ${{ env.NAMESPACE }}"
+        echo "  2. 查看 Pod 日志: kubectl logs <pod-name> -n ${{ env.NAMESPACE }}"
+        exit 1
