@@ -245,7 +245,7 @@ const computeTierPricing = ({ tierDoc, user, product, auth }) => {
 
 const listProducts = async (req, res) => {
   try {
-    const { page = 1, pageSize = 100, search, categoryId, styleId, sortBy } = req.query
+    const { page = 1, pageSize = 10000, search, categoryId, styleId, sortBy } = req.query
 
     const user = req.user
     if (
