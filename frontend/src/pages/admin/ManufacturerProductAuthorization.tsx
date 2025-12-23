@@ -47,6 +47,7 @@ export default function ManufacturerProductAuthorization() {
 
   const [categories, setCategories] = useState<CategoryItem[]>([])
   const [products, setProducts] = useState<ProductItem[]>([])
+  const [existingAuthorizations, setExistingAuthorizations] = useState<any[]>([])
 
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
