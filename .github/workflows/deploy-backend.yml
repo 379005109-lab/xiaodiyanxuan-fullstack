@@ -39,7 +39,7 @@ jobs:
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
-        password: ${{ secrets.GHCR1_TOKEN }}
+        password: ${{ secrets.GHCR_PAT }}
     
     - name: Generate image tags
       id: meta
