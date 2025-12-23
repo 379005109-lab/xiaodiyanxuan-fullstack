@@ -93,6 +93,17 @@ const authorizationSchema = new mongoose.Schema({
   // 备注说明
   notes: String,
   
+  // 授权商品保存的文件夹分类（授权通过后，接收方需要指定保存位置）
+  savedToFolderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category'
+  },
+  savedToFolderName: String,  // 冗余字段，方便显示
+  isFolderSelected: {
+    type: Boolean,
+    default: false  // 是否已选择保存文件夹
+  },
+  
   // 创建和更新时间
   createdAt: {
     type: Date,
