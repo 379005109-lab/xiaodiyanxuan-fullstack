@@ -127,13 +127,21 @@ export default function EliteManufacturerProductAuthorization() {
     return result
   }
 
+  const getProductCategoryId = (product: ProductItem | undefined | null) => {
+    const c: any = product?.category
+    if (!c) return ''
+    if (typeof c === 'string') return String(c)
+    if (typeof c === 'object') return String(c._id || c.id || '')
+    return ''
+  }
+
   const isProductAuthorized = (productId: string) => {
     return existingAuthorizations.some(auth => {
       if (auth.scope === 'all') return true
       if ((auth.scope === 'specific' || auth.scope === 'mixed') && auth.products?.includes(productId)) return true
       const product = productById.get(productId)
       if ((auth.scope === 'category' || auth.scope === 'mixed') && product?.category && auth.categories?.some((catId: string) => {
-        const prodCatId = String(product.category._id || product.category.id || '')
+        const prodCatId = getProductCategoryId(product)
         return prodCatId === String(catId)
       })) return true
       return false
@@ -153,7 +161,7 @@ export default function EliteManufacturerProductAuthorization() {
   const getProductsByCategoryId = (catId: string) => {
     const ids = new Set(getDescendantCategoryIds(String(catId)))
     return filteredProducts.filter(p => {
-      const prodCatId = String(p.category?._id || p.category?.id || '')
+      const prodCatId = getProductCategoryId(p)
       return ids.has(prodCatId)
     })
   }
