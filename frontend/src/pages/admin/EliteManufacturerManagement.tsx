@@ -14,12 +14,65 @@ interface Manufacturer {
   status?: 'active' | 'inactive'
 }
 
+interface CategoryItem {
+  id: string
+  name: string
+  parentId: string | null
+  count: number
+}
+
+interface ManufacturerMeta {
+  totalProducts: number
+  topCategories: CategoryItem[]
+  previewImages: string[]
+  tierRule?: {
+    profitSettings?: {
+      minSaleDiscountRate?: number
+    }
+    discountRule?: {
+      discountType?: 'rate' | 'minPrice'
+      discountRate?: number
+      minDiscountPrice?: number
+      commissionRate?: number
+    }
+  } | null
+}
+
+const asyncPool = async <T, R>(poolLimit: number, array: T[], iteratorFn: (item: T) => Promise<R>) => {
+  const ret: Promise<R>[] = []
+  const executing: Promise<any>[] = []
+  for (const item of array) {
+    const p = Promise.resolve().then(() => iteratorFn(item))
+    ret.push(p)
+    if (poolLimit <= array.length) {
+      const e: Promise<any> = p.then(() => executing.splice(executing.indexOf(e), 1))
+      executing.push(e)
+      if (executing.length >= poolLimit) {
+        await Promise.race(executing)
+      }
+    }
+  }
+  return Promise.all(ret)
+}
+
 export default function EliteManufacturerManagement() {
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<Manufacturer[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [metaById, setMetaById] = useState<Record<string, ManufacturerMeta>>({})
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return items
+    return items.filter(m => {
+      const name = (m.fullName || m.name || '').toLowerCase()
+      const desc = (m.description || '').toLowerCase()
+      const code = (m.code || m.shortName || '').toLowerCase()
+      return name.includes(q) || desc.includes(q) || code.includes(q)
+    })
+  }, [items, searchQuery])
 
   const load = async () => {
     setLoading(true)
@@ -41,16 +94,69 @@ export default function EliteManufacturerManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery])
 
-  const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return items
-    return items.filter(m => {
-      const name = (m.fullName || m.name || '').toLowerCase()
-      const desc = (m.description || '').toLowerCase()
-      const code = (m.code || m.shortName || '').toLowerCase()
-      return name.includes(q) || desc.includes(q) || code.includes(q)
-    })
-  }, [items, searchQuery])
+  useEffect(() => {
+    const visible = filtered
+    const missing = visible.filter(m => !metaById[String(m._id)])
+    if (missing.length === 0) return
+
+    let cancelled = false
+
+    const loadMetaForOne = async (m: Manufacturer) => {
+      const id = String(m._id)
+      try {
+        const [catRes, prodRes, tierRes] = await Promise.all([
+          apiClient.get(`/manufacturers/${id}/product-categories`).catch(() => ({ data: { data: [] } })),
+          apiClient.get(`/manufacturers/${id}/products`, { params: { status: 'active', limit: 8 } }).catch(() => ({ data: { data: [] } })),
+          apiClient.get('/tier-system/effective', { params: { manufacturerId: id } }).catch(() => ({ data: { data: null } })),
+        ])
+
+        const categories: CategoryItem[] = Array.isArray(catRes.data?.data) ? catRes.data.data : []
+        const totalProducts = categories.reduce((sum, c) => sum + (Number(c.count) || 0), 0)
+
+        const products: any[] = Array.isArray(prodRes.data?.data) ? prodRes.data.data : []
+        const previewImages = products
+          .map(p => p?.thumbnail || p?.images?.[0])
+          .filter(Boolean)
+          .slice(0, 4)
+
+        const tierData = tierRes.data?.data || null
+        const tierRule = tierData ? { profitSettings: tierData.profitSettings, discountRule: tierData.discountRule } : null
+
+        const meta: ManufacturerMeta = {
+          totalProducts,
+          topCategories: categories.slice(0, 3),
+          previewImages,
+          tierRule,
+        }
+
+        if (!cancelled) {
+          setMetaById(prev => ({ ...prev, [id]: meta }))
+        }
+      } catch {
+        if (!cancelled) {
+          setMetaById(prev => ({
+            ...prev,
+            [id]: {
+              totalProducts: 0,
+              topCategories: [],
+              previewImages: [],
+              tierRule: null,
+            }
+          }))
+        }
+      }
+    }
+
+    const run = async () => {
+      await asyncPool(6, missing, loadMetaForOne)
+    }
+
+    run()
+
+    return () => {
+      cancelled = true
+    }
+  }, [filtered, metaById])
 
   const handleOpen = (m: Manufacturer) => {
     navigate(`/admin/manufacturers/${m._id}/product-authorization`)
@@ -119,6 +225,17 @@ export default function EliteManufacturerManagement() {
               const intro = m.shortName ? `核心系列：${m.shortName}` : '核心系列：暂无'
               const isOfficial = (m.name || '').includes('小迪严选') || (m.code || '').toUpperCase() === 'XDYX'
 
+              const meta = metaById[String(m._id)]
+              const discountRule = meta?.tierRule?.discountRule
+              const discountText = discountRule
+                ? (discountRule.discountType === 'minPrice'
+                    ? `最低¥${Number(discountRule.minDiscountPrice || 0).toFixed(0)}`
+                    : `${((Number(discountRule.discountRate || 1)) * 10).toFixed(1)}折`)
+                : '--'
+              const commissionText = discountRule?.commissionRate
+                ? `${(Number(discountRule.commissionRate) * 100).toFixed(0)}%`
+                : '--'
+
               return (
                 <div
                   key={m._id}
@@ -157,6 +274,18 @@ export default function EliteManufacturerManagement() {
                       <span className="text-[10px] font-bold text-gray-300 tracking-widest uppercase">{code}</span>
                     </div>
 
+                    <div className="flex flex-wrap gap-2 mb-6">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-50 text-gray-600 text-[11px] font-bold border border-gray-100">
+                        商品 {meta ? meta.totalProducts : '--'}
+                      </span>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-100">
+                        折扣 {discountText}
+                      </span>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-orange-50 text-orange-700 text-[11px] font-bold border border-orange-100">
+                        返佣 {commissionText}
+                      </span>
+                    </div>
+
                     <div className="space-y-5 flex-grow">
                       <div>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center">
@@ -183,12 +312,27 @@ export default function EliteManufacturerManagement() {
                           {intro}
                         </p>
                       </div>
+
+                      {meta?.topCategories?.length ? (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {meta.topCategories.slice(0, 3).map(c => (
+                            <span
+                              key={c.id}
+                              className="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-gray-100 text-gray-500 text-[10px] font-bold"
+                            >
+                              {c.name} · {c.count}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="mt-8 pt-6 border-t border-gray-50 flex items-center justify-between">
                       <div className="flex -space-x-3">
-                        {[1, 2, 3, 4].map(i => (
-                          <div key={i} className="w-8 h-8 rounded-xl border-2 border-white bg-gray-100 overflow-hidden shadow-sm" />
+                        {(meta?.previewImages?.length ? meta.previewImages : [null, null, null, null]).slice(0, 4).map((src, i) => (
+                          <div key={i} className="w-8 h-8 rounded-xl border-2 border-white bg-gray-100 overflow-hidden shadow-sm">
+                            {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : null}
+                          </div>
                         ))}
                         <div className="w-8 h-8 rounded-xl border-2 border-white bg-[#153e35] flex items-center justify-center text-[10px] font-black text-white shadow-sm">
                           ···

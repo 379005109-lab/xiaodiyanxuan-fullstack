@@ -46,6 +46,7 @@ export default function EliteManufacturerProductAuthorization() {
   const [existingAuthorizations, setExistingAuthorizations] = useState<any[]>([])
   const [tierSystemConfig, setTierSystemConfig] = useState<any>(null)
 
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([])
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const [expandedProductIds, setExpandedProductIds] = useState<string[]>([])
@@ -69,8 +70,8 @@ export default function EliteManufacturerProductAuthorization() {
           apiClient.get(`/manufacturers/${manufacturerId}`),
           apiClient.get(`/manufacturers/${manufacturerId}/product-categories`),
           apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 5000 } }),
-          apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } })),
-          apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'approved' } }).catch(() => ({ data: { data: [] } }))
+          apiClient.get('/tier-system/effective', { params: { manufacturerId } }).catch(() => ({ data: { data: null } })),
+          apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'approved' } }).catch(() => ({ data: { data: [] } })),
         ])
 
         setManufacturer(mRes.data?.data || null)
@@ -128,9 +129,10 @@ export default function EliteManufacturerProductAuthorization() {
 
   const isProductAuthorized = (productId: string) => {
     return existingAuthorizations.some(auth => {
-      if (auth.scope === 'specific' && auth.products?.includes(productId)) return true
+      if (auth.scope === 'all') return true
+      if ((auth.scope === 'specific' || auth.scope === 'mixed') && auth.products?.includes(productId)) return true
       const product = productById.get(productId)
-      if (auth.scope === 'category' && product?.category && auth.categories?.some((catId: string) => {
+      if ((auth.scope === 'category' || auth.scope === 'mixed') && product?.category && auth.categories?.some((catId: string) => {
         const prodCatId = String(product.category._id || product.category.id || '')
         return prodCatId === String(catId)
       })) return true
@@ -169,55 +171,57 @@ export default function EliteManufacturerProductAuthorization() {
     setSelectedProductIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  const handleSelectAllInCategory = (catId: string, checked: boolean) => {
-    const catProds = getProductsByCategoryId(catId).filter(p => !isProductAuthorized(String(p._id)))
-    const catIds = catProds.map(p => String(p._id))
-
-    if (checked) {
-      setSelectedProductIds(prev => Array.from(new Set([...prev, ...catIds])))
-    } else {
-      setSelectedProductIds(prev => prev.filter(id => !catIds.includes(id)))
-    }
+  const toggleCategorySelection = (catId: string) => {
+    const descIds = getDescendantCategoryIds(String(catId))
+    setSelectedCategoryIds(prev => {
+      const set = new Set(prev)
+      const isSelected = set.has(String(catId))
+      if (isSelected) {
+        descIds.forEach(id => set.delete(String(id)))
+      } else {
+        descIds.forEach(id => set.add(String(id)))
+      }
+      return Array.from(set)
+    })
   }
 
   const getSkuPricing = (skuPrice: number) => {
-    let minDiscountRate = 0.6
-    let commissionRate = 0.4
+    const profitSettings = tierSystemConfig?.profitSettings || {}
+    const rule = tierSystemConfig?.discountRule || null
 
-    if (tierSystemConfig) {
-      const modules = tierSystemConfig.roleModules || []
-      const accounts = tierSystemConfig.authorizedAccounts || []
-      const userAccount = accounts.find((a: any) => String(a.userId) === String(user?._id))
+    const minSaleDiscountRate = Number(profitSettings?.minSaleDiscountRate ?? 1)
+    const safeMinSaleRate = Number.isFinite(minSaleDiscountRate) ? Math.max(0, Math.min(1, minSaleDiscountRate)) : 1
 
-      let targetModule = null
-      let targetRule = null
+    const discountType = rule?.discountType || (typeof rule?.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
+    const ruleDiscountRate = typeof rule?.discountRate === 'number' && Number.isFinite(rule.discountRate)
+      ? Math.max(0, Math.min(1, rule.discountRate))
+      : 0.6
+    const minDiscountPrice = typeof rule?.minDiscountPrice === 'number' && Number.isFinite(rule.minDiscountPrice)
+      ? Math.max(0, rule.minDiscountPrice)
+      : 0
 
-      if (userAccount) {
-        targetModule = modules.find((m: any) => String(m._id) === String(userAccount.roleModuleId))
-        if (targetModule && targetModule.discountRules) {
-          targetRule = targetModule.discountRules.find((r: any) => String(r._id) === String(userAccount.discountRuleId))
-        }
-      } else {
-        targetModule = modules.find((m: any) => m.code === user?.role) || modules[0]
-        if (targetModule && targetModule.discountRules) {
-          targetRule = targetModule.discountRules.find((r: any) => r.isDefault) || targetModule.discountRules[0]
-        }
-      }
-
-      if (targetRule) {
-        minDiscountRate = targetRule.discountRate || 0.6
-        commissionRate = targetRule.commissionRate || 0.4
-      }
+    let discountedPrice = 0
+    if (discountType === 'minPrice') {
+      discountedPrice = minDiscountPrice
+    } else {
+      discountedPrice = skuPrice * ruleDiscountRate
     }
 
-    const minDiscountPrice = skuPrice * minDiscountRate
-    const designerCommission = minDiscountPrice * commissionRate
+    const minAllowed = skuPrice * safeMinSaleRate
+    discountedPrice = Math.max(discountedPrice, minAllowed)
+    discountedPrice = Math.round(discountedPrice)
+
+    const commissionRateRaw = typeof rule?.commissionRate === 'number' && Number.isFinite(rule.commissionRate)
+      ? rule.commissionRate
+      : 0.4
+    const commissionRate = Math.max(0, Math.min(0.5, commissionRateRaw))
+    const commission = Math.round(discountedPrice * commissionRate)
 
     return {
       listPrice: skuPrice,
-      discountPrice: minDiscountPrice,
-      commission: designerCommission,
-      discountRate: minDiscountRate
+      discountPrice: discountedPrice,
+      commission,
+      discountRate: discountType === 'rate' ? ruleDiscountRate : undefined
     }
   }
 
@@ -237,9 +241,15 @@ export default function EliteManufacturerProductAuthorization() {
     }
   }
 
-  const canSubmit = selectedProductIds.length > 0
+  const selectedRootCategories = categoryTree.rootCategories.filter(c => selectedCategoryIds.includes(String(c.id)))
+  const selectedCount = selectedRootCategories.length + selectedProductIds.length
+  const canSubmit = selectedCategoryIds.length > 0 || selectedProductIds.length > 0
 
   const buildNotes = () => {
+    const selectedCategoryNames = selectedRootCategories
+      .map(c => c.name)
+      .slice(0, 50)
+
     const selectedNames = selectedProductIds
       .map(id => productById.get(id))
       .filter(Boolean)
@@ -248,7 +258,21 @@ export default function EliteManufacturerProductAuthorization() {
 
     const lines: string[] = []
     if (notes.trim()) lines.push(notes.trim())
-    lines.push(`本次选品数量: ${selectedProductIds.length}`)
+
+    const scope = selectedCategoryIds.length > 0 && selectedProductIds.length > 0
+      ? 'mixed'
+      : selectedCategoryIds.length > 0
+        ? 'category'
+        : 'specific'
+
+    const scopeLabel = scope === 'mixed'
+      ? `混合(分类${selectedRootCategories.length}个 + 商品${selectedProductIds.length}个)`
+      : scope === 'category'
+        ? `按分类(${selectedRootCategories.length}个)`
+        : `指定商品(${selectedProductIds.length}个)`
+
+    lines.push(`申请范围: ${scopeLabel}`)
+    if (selectedCategoryNames.length > 0) lines.push(`分类: ${selectedCategoryNames.join('、')}${selectedRootCategories.length > selectedCategoryNames.length ? '…' : ''}`)
     if (selectedNames.length > 0) lines.push(`商品: ${selectedNames.join('、')}${selectedProductIds.length > selectedNames.length ? '…' : ''}`)
     return lines.join('\n')
   }
@@ -265,10 +289,16 @@ export default function EliteManufacturerProductAuthorization() {
 
     setSubmitting(true)
     try {
+      const scope = selectedCategoryIds.length > 0 && selectedProductIds.length > 0
+        ? 'mixed'
+        : selectedCategoryIds.length > 0
+          ? 'category'
+          : 'specific'
+
       await apiClient.post('/authorizations/designer-requests', {
         manufacturerId,
-        scope: 'specific',
-        categories: [],
+        scope,
+        categories: selectedCategoryIds,
         products: selectedProductIds,
         validUntil: validUntil || undefined,
         notes: buildNotes()
@@ -368,8 +398,7 @@ export default function EliteManufacturerProductAuthorization() {
                   const isOpen = expandedCategories.includes(catId)
                   const catProducts = getProductsByCategoryId(catId)
 
-                  const selectableCatProds = catProducts.filter(p => !isProductAuthorized(String(p._id)))
-                  const isAllSelected = selectableCatProds.length > 0 && selectableCatProds.every(p => selectedProductIds.includes(String(p._id)))
+                  const isCatSelected = selectedCategoryIds.includes(catId)
 
                   if (catProducts.length === 0 && productKeyword) return null
 
@@ -392,17 +421,17 @@ export default function EliteManufacturerProductAuthorization() {
                             <input
                               type="checkbox"
                               className="hidden"
-                              checked={isAllSelected}
-                              onChange={(e) => handleSelectAllInCategory(catId, e.target.checked)}
+                              checked={isCatSelected}
+                              onChange={() => toggleCategorySelection(catId)}
                             />
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isAllSelected ? 'bg-emerald-600 border-emerald-600' : 'border-gray-200 bg-white group-hover:border-emerald-300'}`}>
-                              {isAllSelected && (
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isCatSelected ? 'bg-emerald-600 border-emerald-600' : 'border-gray-200 bg-white group-hover:border-emerald-300'}`}>
+                              {isCatSelected && (
                                 <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               )}
                             </div>
-                            <span className={`text-xs font-bold transition-colors ${isAllSelected ? 'text-emerald-700' : 'text-gray-400'}`}>全选该类</span>
+                            <span className={`text-xs font-bold transition-colors ${isCatSelected ? 'text-emerald-700' : 'text-gray-400'}`}>选择该类</span>
                           </label>
                           <div onClick={() => toggleCategory(catId)} className={`cursor-pointer transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
                             <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -496,6 +525,9 @@ export default function EliteManufacturerProductAuthorization() {
                                         (prod.skus || []).map((sku, idx) => {
                                           const skuPrice = sku.price || 0
                                           const skuPricing = getSkuPricing(skuPrice)
+                                          const discountLabel = typeof skuPricing.discountRate === 'number'
+                                            ? `${(skuPricing.discountRate * 10).toFixed(0)}折价`
+                                            : '最低折扣价'
                                           return (
                                             <div key={`${productId}-${idx}`} className="bg-white rounded-xl p-3 border border-gray-100 flex items-center gap-4 shadow-sm">
                                               <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-100 shrink-0 overflow-hidden flex items-center justify-center">
@@ -514,7 +546,7 @@ export default function EliteManufacturerProductAuthorization() {
                                                   <p className="text-sm font-bold text-gray-900 leading-none">¥{skuPricing.listPrice}</p>
                                                 </div>
                                                 <div className="space-y-0.5">
-                                                  <p className="text-[10px] text-orange-400 font-medium">{(skuPricing.discountRate * 10).toFixed(0)}折价</p>
+                                                  <p className="text-[10px] text-orange-400 font-medium">{discountLabel}</p>
                                                   <p className="text-sm font-bold text-orange-600 leading-none">¥{skuPricing.discountPrice.toFixed(0)}</p>
                                                 </div>
                                                 <div className="space-y-0.5">
@@ -578,7 +610,7 @@ export default function EliteManufacturerProductAuthorization() {
                 <div className="flex justify-between items-center bg-black/20 rounded-2xl p-4 border border-white/5">
                   <div>
                     <p className="text-[10px] text-emerald-200 font-bold uppercase tracking-widest mb-1">本次新选</p>
-                    <p className="text-3xl font-black">{selectedProductIds.length}<span className="text-xs font-normal ml-1 opacity-50">件</span></p>
+                    <p className="text-3xl font-black">{selectedCount}<span className="text-xs font-normal ml-1 opacity-50">项</span></p>
                   </div>
                   <div className="w-px h-8 bg-white/10 mx-4"></div>
                   <div className="flex-grow">
@@ -587,9 +619,31 @@ export default function EliteManufacturerProductAuthorization() {
                   </div>
                 </div>
 
-                {selectedProductIds.length > 0 ? (
+                {selectedCount > 0 ? (
                   <div className="space-y-3">
                     <div className="max-h-60 overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                      {selectedRootCategories.map(cat => {
+                        const id = String(cat.id)
+                        return (
+                          <div key={`cat-${id}`} className="flex items-center gap-3 p-2 bg-white/5 rounded-xl border border-white/5">
+                            <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                              <svg className="w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h18M3 17h18" />
+                              </svg>
+                            </div>
+                            <div className="flex-grow min-w-0 text-[11px] font-bold truncate">{cat.name}</div>
+                            <button
+                              onClick={() => toggleCategorySelection(id)}
+                              className="text-white/30 hover:text-red-400"
+                              type="button"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        )
+                      })}
                       {selectedProductIds.map(id => {
                         const p = productById.get(id)
                         const img = p?.thumbnail || p?.images?.[0]
@@ -621,7 +675,7 @@ export default function EliteManufacturerProductAuthorization() {
                   </div>
                 ) : (
                   <div className="py-12 text-center bg-white/5 rounded-3xl border border-dashed border-white/10">
-                    <p className="text-sm text-emerald-200/40 font-medium">勾选商品开始申请</p>
+                    <p className="text-sm text-emerald-200/40 font-medium">勾选分类或商品开始申请</p>
                   </div>
                 )}
               </div>
