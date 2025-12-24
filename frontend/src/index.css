@@ -48,6 +48,31 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.28);
+    background-clip: padding-box;
+  }
+  
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  }
   
   /* Range slider 样式 */
   .slider::-webkit-slider-thumb {

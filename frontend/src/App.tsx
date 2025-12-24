@@ -75,6 +75,8 @@ const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingService
 const ActivityDashboard = lazy(() => import('./pages/admin/ActivityDashboard'))
 const ManufacturerManagement = lazy(() => import('./pages/admin/ManufacturerManagement'))
 const ManufacturerProductAuthorization = lazy(() => import('./pages/admin/ManufacturerProductAuthorization'))
+const EliteManufacturerManagement = lazy(() => import('./pages/admin/EliteManufacturerManagement'))
+const EliteManufacturerProductAuthorization = lazy(() => import('./pages/admin/EliteManufacturerProductAuthorization'))
 const ManufacturerAuthorizationRequests = lazy(() => import('./pages/admin/ManufacturerAuthorizationRequests'))
 const BatchAccountManagement = lazy(() => import('./pages/admin/BatchAccountManagement'))
 const ReferralManagement = lazy(() => import('./pages/admin/ReferralManagement'))
@@ -414,8 +416,8 @@ function App() {
             <Route path="customization" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
             <Route path="activity" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
-            <Route path="manufacturers" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerManagement /></ProtectedRoute>} />
-            <Route path="manufacturers/:manufacturerId/product-authorization" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerProductAuthorization /></ProtectedRoute>} />
+            <Route path="manufacturers" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><EliteManufacturerManagement /></ProtectedRoute>} />
+            <Route path="manufacturers/:manufacturerId/product-authorization" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><EliteManufacturerProductAuthorization /></ProtectedRoute>} />
             <Route path="manufacturers/authorization-requests" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerAuthorizationRequests /></ProtectedRoute>} />
             <Route path="authorizations" element={<Navigate to="/admin/manufacturers" replace />} />
             <Route path="referrals" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
