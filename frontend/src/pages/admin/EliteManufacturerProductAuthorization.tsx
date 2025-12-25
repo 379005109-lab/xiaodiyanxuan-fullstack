@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import apiClient from '@/lib/apiClient'
@@ -63,6 +63,8 @@ export default function EliteManufacturerProductAuthorization() {
   const [expandedProductIds, setExpandedProductIds] = useState<string[]>([])
   const [productKeyword, setProductKeyword] = useState('')
 
+  const didInitExpand = useRef(false)
+
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -119,11 +121,11 @@ export default function EliteManufacturerProductAuthorization() {
   }, [categories])
 
   useEffect(() => {
-    if (expandedCategories.length > 0) return
-    if (categoryTree.rootCategories.length > 0) {
-      setExpandedCategories([String(categoryTree.rootCategories[0].id)])
-    }
-  }, [categoryTree.rootCategories, expandedCategories.length])
+    if (didInitExpand.current) return
+    if (categoryTree.rootCategories.length === 0) return
+    didInitExpand.current = true
+    setExpandedCategories([String(categoryTree.rootCategories[0].id)])
+  }, [categoryTree.rootCategories])
 
   const getDescendantCategoryIds = (catId: string): string[] => {
     const result: string[] = []
@@ -585,12 +587,18 @@ export default function EliteManufacturerProductAuthorization() {
                                           const discountLabel = typeof skuPricing.discountRate === 'number'
                                             ? `${(skuPricing.discountRate * 10).toFixed(0)}折价`
                                             : '最低折扣价'
+                                          const skuImgRaw = (sku as any)?.image || (sku as any)?.images?.[0] || img
+                                          const skuImgSrc = skuImgRaw ? getThumbnailUrl(pickImageId(skuImgRaw), 96) : ''
                                           return (
                                             <div key={`${productId}-${idx}`} className="bg-white rounded-xl p-3 border border-gray-100 flex items-center gap-4 shadow-sm">
                                               <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-100 shrink-0 overflow-hidden flex items-center justify-center">
-                                                <svg className="w-6 h-6 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
-                                                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z" />
-                                                </svg>
+                                                {skuImgSrc ? (
+                                                  <img src={skuImgSrc} className="w-full h-full object-cover" alt={sku.spec || sku.code || ''} />
+                                                ) : (
+                                                  <svg className="w-6 h-6 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z" />
+                                                  </svg>
+                                                )}
                                               </div>
 
                                               <div className="grid grid-cols-4 flex-grow gap-4 items-center">
