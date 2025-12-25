@@ -58,6 +58,7 @@ interface AuthorizedAccount {
   level: number  // 层级深度
   allocatedRate: number  // 分配的比例
   availableRate: number  // 可再分配比例
+  distributionRate?: number  // 垂直权重比例（同一父节点下子节点合计≤100）
   visibleCategoryIds?: string[]
   children: AuthorizedAccount[]
   status: 'active' | 'suspended' | 'pending'
@@ -529,7 +530,13 @@ export default function TierSystemManagement() {
             setExpandedNodes(newExpanded)
           }}
           onSaveAccounts={(accounts) => {
-            saveData({ ...data, authorizedAccounts: accounts })
+            const nextModules = (data.roleModules || []).map((m) => {
+              const sumRoot = (accounts || [])
+                .filter(a => String(a.roleModuleId) === String(m._id) && !a.parentId)
+                .reduce((s, a) => s + Number(a.allocatedRate || 0), 0)
+              return { ...m, currentAllocatedRate: sumRoot }
+            })
+            saveData({ ...data, roleModules: nextModules, authorizedAccounts: accounts })
               .then(() => toast.success('保存成功'))
               .catch(() => toast.error('保存失败'))
           }}
@@ -1330,6 +1337,7 @@ function HierarchyTab({
   const [selectedModuleCode, setSelectedModuleCode] = useState<string>('all')
   const [showAddModal, setShowAddModal] = useState(false)
   const [parentAccount, setParentAccount] = useState<AuthorizedAccount | null>(null)
+  const [editingDistributionId, setEditingDistributionId] = useState<string | null>(null)
   const [manufacturerCategoryTree, setManufacturerCategoryTree] = useState<any[]>([])
   const [manufacturerProducts, setManufacturerProducts] = useState<any[]>([])
 
@@ -1379,6 +1387,10 @@ function HierarchyTab({
     return filteredAccounts.filter(a => a.parentId === parentId)
   }
 
+  const siblingsOf = (account: AuthorizedAccount) => {
+    return filteredAccounts.filter(a => String(a.parentId || '') === String(account.parentId || '') && String(a._id) !== String(account._id))
+  }
+
   // 添加账号
   const handleAddAccount = (data: {
     accountId: string
@@ -1388,6 +1400,7 @@ function HierarchyTab({
     roleModuleId: string
     discountRuleId: string
     allocatedRate: number
+    distributionRate: number
     visibleCategoryIds: string[]
   }) => {
     if (!manufacturerId) {
@@ -1441,6 +1454,15 @@ function HierarchyTab({
       return
     }
 
+    const siblingDistributionSum = accounts
+      .filter(a => String(a.parentId || '') === String(parentAccount?._id || ''))
+      .reduce((sum, a) => sum + Number((a as any).distributionRate ?? 0), 0)
+    const maxDistribution = 100 - siblingDistributionSum
+    if (data.distributionRate > maxDistribution) {
+      toast.error(`垂直权重不能超过可用额度 ${Math.max(0, maxDistribution).toFixed(0)}%`)
+      return
+    }
+
     const newAccount: AuthorizedAccount = {
       _id: `account_${Date.now()}`,
       userId: data.accountId,
@@ -1455,13 +1477,23 @@ function HierarchyTab({
       level: parentAccount ? parentAccount.level + 1 : 1,
       allocatedRate: data.allocatedRate,
       availableRate: data.allocatedRate,
+      distributionRate: Number.isFinite(data.distributionRate) ? data.distributionRate : 0,
       visibleCategoryIds: data.visibleCategoryIds,
       children: [],
       status: 'active',
       createdAt: new Date().toISOString()
     }
 
-    onSaveAccounts([...accounts, newAccount])
+    let nextAccounts = [...accounts, newAccount]
+    if (parentAccount) {
+      nextAccounts = nextAccounts.map(a => {
+        if (String(a._id) !== String(parentAccount._id)) return a
+        const prevAvail = Number(a.availableRate || 0)
+        return { ...a, availableRate: Math.max(0, prevAvail - Number(data.allocatedRate || 0)) }
+      })
+    }
+
+    onSaveAccounts(nextAccounts)
     setShowAddModal(false)
     setParentAccount(null)
     toast.success('账号添加成功')
@@ -1476,6 +1508,10 @@ function HierarchyTab({
     const Icon = module ? (ICON_MAP[module.icon] || Layers) : Users
     const visibleCount = account.visibleCategoryIds?.length || 0
     const selectedRule = module?.discountRules?.find(r => String(r._id) === String(account.discountRuleId))
+    const distributionRate = Number((account as any).distributionRate ?? 0)
+    const siblings = siblingsOf(account)
+    const siblingsSum = siblings.reduce((s, a) => s + Number((a as any).distributionRate ?? 0), 0)
+    const maxDistribution = Math.max(0, 100 - siblingsSum)
 
     return (
       <div key={account._id} className="select-none">
@@ -1516,6 +1552,36 @@ function HierarchyTab({
             </div>
             <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
               <span>{module?.name}</span>
+              <span>•</span>
+              <span>
+                垂直权重:
+                {editingDistributionId === account._id ? (
+                  <input
+                    type="number"
+                    min={0}
+                    max={maxDistribution + distributionRate}
+                    defaultValue={distributionRate}
+                    onBlur={(e) => {
+                      const v = Math.max(0, Math.min(maxDistribution + distributionRate, parseFloat(e.target.value) || 0))
+                      const next = (accounts || []).map(a => {
+                        if (String(a._id) !== String(account._id)) return a
+                        return { ...a, distributionRate: v }
+                      })
+                      onSaveAccounts(next)
+                      setEditingDistributionId(null)
+                    }}
+                    className="w-12 ml-1 text-xs bg-transparent outline-none border-b border-gray-200"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="ml-1 text-xs text-primary-600 hover:text-primary-700"
+                    onClick={() => setEditingDistributionId(account._id)}
+                  >
+                    {distributionRate}%
+                  </button>
+                )}
+              </span>
               <span>•</span>
               <span>分配: {account.allocatedRate}%</span>
               <span>•</span>
@@ -1640,6 +1706,7 @@ function HierarchyTab({
           manufacturerId={manufacturerId}
           manufacturerCategoryTree={manufacturerCategoryTree}
           manufacturerProducts={manufacturerProducts}
+          authorizedAccounts={accounts}
           existingUserIds={accounts.map(a => String(a.userId))}
           onClose={() => {
             setShowAddModal(false)
@@ -1660,6 +1727,7 @@ function AddAccountModal({
   manufacturerId,
   manufacturerCategoryTree,
   manufacturerProducts,
+  authorizedAccounts,
   existingUserIds,
   onClose,
   onSave
@@ -1669,6 +1737,7 @@ function AddAccountModal({
   manufacturerId: string
   manufacturerCategoryTree: any[]
   manufacturerProducts: any[]
+  authorizedAccounts: AuthorizedAccount[]
   existingUserIds: string[]
   onClose: () => void
   onSave: (data: {
@@ -1679,10 +1748,11 @@ function AddAccountModal({
     roleModuleId: string
     discountRuleId: string
     allocatedRate: number
+    distributionRate: number
     visibleCategoryIds: string[]
   }) => void
 }) {
-  const [accounts, setAccounts] = useState<any[]>([])
+  const [manufacturerAccounts, setManufacturerAccounts] = useState<any[]>([])
   const [accountKeyword, setAccountKeyword] = useState('')
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState<'multiple' | 'single'>('multiple')
@@ -1697,6 +1767,7 @@ function AddAccountModal({
     roleModuleId: parentAccount?.roleModuleId || modules[0]?._id || '',
     discountRuleId: parentAccount?.discountRuleId || '',
     allocatedRate: 5,
+    distributionRate: 0,
     visibilityMode: (parentHasCustomVisibility ? 'custom' : 'all') as 'all' | 'custom',
     visibleCategoryIds: (parentHasCustomVisibility ? parentVisibleCategoryIds : []) as string[]
   })
@@ -1761,16 +1832,16 @@ function AddAccountModal({
   useEffect(() => {
     const loadAccounts = async () => {
       if (!manufacturerId) {
-        setAccounts([])
+        setManufacturerAccounts([])
         return
       }
       try {
         const resp = await apiClient.get(`/manufacturers/${manufacturerId}/accounts`)
         const list = resp.data?.data || []
-        setAccounts(Array.isArray(list) ? list : [])
+        setManufacturerAccounts(Array.isArray(list) ? list : [])
       } catch (e) {
         console.error('加载厂家账号失败:', e)
-        setAccounts([])
+        setManufacturerAccounts([])
       }
     }
     loadAccounts()
@@ -1781,6 +1852,27 @@ function AddAccountModal({
   const maxRate = parentAccount 
     ? parentAccount.availableRate 
     : (selectedModule ? selectedModule.maxProfitRate - selectedModule.currentAllocatedRate : 0)
+
+  const siblingDistributionSum = useMemo(() => {
+    const pid = String(parentAccount?._id || '')
+    return (authorizedAccounts || [])
+      .filter(a => String(a.parentId || '') === pid)
+      .reduce((sum, a) => sum + Number((a as any).distributionRate ?? 0), 0)
+  }, [authorizedAccounts, parentAccount?._id])
+
+  const maxDistribution = Math.max(0, 100 - siblingDistributionSum)
+
+  useEffect(() => {
+    setFormData(prev => {
+      if (prev.distributionRate > maxDistribution) {
+        return { ...prev, distributionRate: maxDistribution }
+      }
+      if (prev.distributionRate === 0 && maxDistribution > 0) {
+        return { ...prev, distributionRate: Math.min(100, maxDistribution) }
+      }
+      return prev
+    })
+  }, [maxDistribution])
 
   useEffect(() => {
     if (!selectedModule) return
@@ -1825,7 +1917,7 @@ function AddAccountModal({
     })
   }
 
-  const filteredAccounts = accounts
+  const filteredAccounts = manufacturerAccounts
     .filter(a => !existingUserIds.includes(String(a._id)))
     .filter(a => {
       if (!accountKeyword.trim()) return true
@@ -1836,7 +1928,7 @@ function AddAccountModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    const selected = accounts.find(a => String(a._id) === String(formData.accountId))
+    const selected = manufacturerAccounts.find(a => String(a._id) === String(formData.accountId))
     if (!selected) {
       toast.error('请选择要绑定的账号')
       return
@@ -1861,6 +1953,11 @@ function AddAccountModal({
       return
     }
 
+    if (formData.distributionRate > maxDistribution) {
+      toast.error(`垂直权重不能超过可用额度 ${maxDistribution}%`)
+      return
+    }
+
     onSave({
       accountId: String(selected._id),
       username: String(selected.username || ''),
@@ -1869,6 +1966,7 @@ function AddAccountModal({
       roleModuleId: formData.roleModuleId,
       discountRuleId: formData.discountRuleId,
       allocatedRate: formData.allocatedRate,
+      distributionRate: formData.distributionRate,
       visibleCategoryIds
     })
   }
@@ -2033,6 +2131,25 @@ function AddAccountModal({
             {parentAccount && (
               <p className="text-xs text-gray-500 mt-1">下级账号继承上级的角色模块</p>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              垂直权重 ({formData.distributionRate}%)
+            </label>
+            <input
+              type="range"
+              min="0"
+              max={maxDistribution}
+              step="1"
+              value={formData.distributionRate}
+              onChange={(e) => setFormData({ ...formData, distributionRate: parseInt(e.target.value) || 0 })}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>0%</span>
+              <span>可用权重: {maxDistribution}%</span>
+            </div>
           </div>
 
           <div>
