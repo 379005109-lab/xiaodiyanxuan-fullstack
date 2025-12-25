@@ -90,6 +90,7 @@ export default function EliteManufacturerProductAuthorization() {
   }, [manufacturerId, navigate])
 
   const productById = useMemo(() => new Map(products.map(p => [String(p._id), p])), [products])
+  const categoryById = useMemo(() => new Map(categories.map(c => [String(c.id), c])), [categories])
 
   const categoryTree = useMemo(() => {
     const rootCategories = categories.filter(c => !c.parentId)
@@ -128,10 +129,31 @@ export default function EliteManufacturerProductAuthorization() {
   }
 
   const getProductCategoryId = (product: ProductItem | undefined | null) => {
+    const toIdString = (v: any): string => {
+      if (!v) return ''
+      if (typeof v === 'string' || typeof v === 'number') return String(v)
+      if (typeof v === 'object') {
+        if (typeof v.$oid === 'string') return v.$oid
+        if (typeof v.oid === 'string') return v.oid
+        if (typeof v.toHexString === 'function') return v.toHexString()
+        const s = String(v)
+        return s && s !== '[object Object]' ? s : ''
+      }
+      return ''
+    }
+
     const c: any = product?.category
     if (!c) return ''
     if (typeof c === 'string') return String(c)
-    if (typeof c === 'object') return String(c._id || c.id || '')
+    if (typeof c === 'object') {
+      return (
+        toIdString(c._id) ||
+        toIdString(c.id) ||
+        toIdString(c.slug) ||
+        toIdString(c.name) ||
+        toIdString(c)
+      )
+    }
     return ''
   }
 
@@ -160,9 +182,23 @@ export default function EliteManufacturerProductAuthorization() {
 
   const getProductsByCategoryId = (catId: string) => {
     const ids = new Set(getDescendantCategoryIds(String(catId)))
+    const nameKeys = new Set(
+      Array.from(ids)
+        .map(id => categoryById.get(String(id))?.name)
+        .filter(Boolean)
+        .map(n => String(n).trim().toLowerCase())
+    )
+
     return filteredProducts.filter(p => {
       const prodCatId = getProductCategoryId(p)
-      return ids.has(prodCatId)
+      if (prodCatId && ids.has(String(prodCatId))) return true
+
+      const c: any = (p as any)?.category
+      if (typeof c === 'string' && nameKeys.has(String(c).trim().toLowerCase())) return true
+      const prodCatName = typeof c === 'object' && c ? c.name : ''
+      if (prodCatName && nameKeys.has(String(prodCatName).trim().toLowerCase())) return true
+
+      return false
     })
   }
 
