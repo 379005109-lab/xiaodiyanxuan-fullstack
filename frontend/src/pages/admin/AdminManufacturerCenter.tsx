@@ -685,7 +685,7 @@ const ManufacturerEditDrawer = ({
                       <input value={form.fullName} onChange={e => setForm(prev => ({ ...prev, fullName: e.target.value }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold" />
                     </div>
                     <div>
-                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">厂家简称</div>
+                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">厂家简称（字母缩写）</div>
                       <input value={form.shortName} onChange={e => setForm(prev => ({ ...prev, shortName: e.target.value }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold" />
                     </div>
                   </div>

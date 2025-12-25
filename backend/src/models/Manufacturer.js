@@ -265,8 +265,8 @@ async function generateUniqueCode(shortName) {
 manufacturerSchema.pre('save', async function(next) {
   this.updatedAt = new Date()
   
-  // 自动生成编号（仅新建时）
-  if (this.isNew && !this.code && this.shortName) {
+  // 自动生成编号（缺失时自动补齐，兼容旧数据）
+  if (!this.code && this.shortName) {
     this.code = await generateUniqueCode(this.shortName)
   }
   

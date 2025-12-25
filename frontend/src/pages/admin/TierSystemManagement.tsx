@@ -208,6 +208,8 @@ export default function TierSystemManagement() {
     return saved || ''
   })
 
+  const [selectedManufacturerCommission, setSelectedManufacturerCommission] = useState<number>(0)
+
   const [activeTab, setActiveTab] = useState<'modules' | 'pool' | 'hierarchy' | 'reconciliation'>('modules')
   const [data, setData] = useState<TierSystemData>(() => createDefaultTierSystemData())
   const [selectedModule, setSelectedModule] = useState<RoleModule | null>(null)
@@ -298,6 +300,26 @@ export default function TierSystemManagement() {
 
     loadRemote()
   }, [lockedManufacturerId, selectedManufacturerId])
+
+  useEffect(() => {
+    const mid = lockedManufacturerId || selectedManufacturerId || ''
+    const run = async () => {
+      if (!mid) {
+        setSelectedManufacturerCommission(0)
+        return
+      }
+      try {
+        const params: any = { _ts: Date.now() }
+        if (isSuperAdmin && !lockedManufacturerId) params.manufacturerId = mid
+        const resp = await apiClient.get(`/manufacturers/${mid}`, { params })
+        const m = resp.data?.data
+        setSelectedManufacturerCommission(Number(m?.defaultCommission || 0))
+      } catch {
+        setSelectedManufacturerCommission(0)
+      }
+    }
+    run()
+  }, [lockedManufacturerId, selectedManufacturerId, isSuperAdmin])
 
   // 保存数据
   const saveData = async (newData: TierSystemData) => {
@@ -443,13 +465,13 @@ export default function TierSystemManagement() {
             active={activeTab === 'pool'} 
             onClick={() => setActiveTab('pool')}
             icon={<BarChart3 className="w-4 h-4" />}
-            label="毛利池管理"
+            label="角色全局阀值"
           />
           <TabButton 
             active={activeTab === 'hierarchy'} 
             onClick={() => setActiveTab('hierarchy')}
             icon={<GitBranch className="w-4 h-4" />}
-            label="授权层级"
+            label="垂直分配地图"
           />
           <TabButton
             active={activeTab === 'reconciliation'}
@@ -479,6 +501,15 @@ export default function TierSystemManagement() {
           profitSettings={data.profitSettings}
           onUpdateProfitSettings={updateProfitSettings}
           onUpdateModule={updateRoleModule}
+          commissionRate={selectedManufacturerCommission}
+          onUpdateCommissionRate={async (rate) => {
+            const mid = lockedManufacturerId || selectedManufacturerId || ''
+            if (!mid) return
+            if (!isSuperAdmin) return
+            setSelectedManufacturerCommission(rate)
+            await apiClient.put(`/manufacturers/${mid}`, { defaultCommission: rate })
+          }}
+          commissionEditable={isSuperAdmin && !lockedManufacturerId}
         />
       )}
       
@@ -1069,12 +1100,18 @@ function ProfitPoolTab({
   modules,
   profitSettings,
   onUpdateProfitSettings,
-  onUpdateModule
+  onUpdateModule,
+  commissionRate,
+  onUpdateCommissionRate,
+  commissionEditable
 }: {
   modules: RoleModule[]
   profitSettings: { minSaleDiscountRate: number }
   onUpdateProfitSettings: (updates: { minSaleDiscountRate: number }) => void
   onUpdateModule: (id: string, updates: Partial<RoleModule>) => void
+  commissionRate?: number
+  onUpdateCommissionRate?: (rate: number) => void
+  commissionEditable?: boolean
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState(0)
@@ -1106,7 +1143,7 @@ function ProfitPoolTab({
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="p-4 border-b border-gray-200">
           <h3 className="font-semibold text-gray-900">利润设置</h3>
-          <p className="text-sm text-gray-500 mt-1">设置最低售价折扣（基于 SKU 标价）</p>
+          <p className="text-sm text-gray-500 mt-1">设置最低售价折扣与总佣金池占比</p>
         </div>
         <div className="p-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1124,6 +1161,32 @@ function ProfitPoolTab({
           <div className="flex justify-between text-xs text-gray-500 mt-1">
             <span>0%</span>
             <span>100%</span>
+          </div>
+
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              总佣金池最大占比 ({Math.round(Number(commissionRate || 0))}%)
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={Number(commissionRate || 0)}
+              onChange={(e) => {
+                const v = parseInt(e.target.value) || 0
+                onUpdateCommissionRate?.(v)
+              }}
+              className="w-full"
+              disabled={!commissionEditable}
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>0%</span>
+              <span>100%</span>
+            </div>
+            {!commissionEditable ? (
+              <div className="mt-2 text-xs text-gray-400">仅管理员可修改</div>
+            ) : null}
           </div>
         </div>
       </div>
