@@ -49,14 +49,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
     { name: '设计管理', path: '/admin/designs', icon: Pencil },
     { name: '账号管理', path: '/admin/users', icon: Users },
     { name: '材质管理', path: '/admin/materials', icon: Palette },
-    { 
-      name: '厂家管理', 
-      path: '/admin/manufacturers', 
-      icon: Factory,
-      children: [
-        { name: '厂家列表', path: '/admin/manufacturers' },
-      ]
-    },
+    { name: '厂家管理', path: '/admin/manufacturers', icon: Factory },
     { name: '分层管理', path: '/admin/tier-system', icon: Layers },
     { name: '商品管理', path: '/admin/products', icon: Package },
     { name: '分类管理', path: '/admin/categories', icon: FolderTree },

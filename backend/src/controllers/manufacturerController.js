@@ -67,7 +67,7 @@ const get = async (req, res) => {
 // 创建厂家
 const create = async (req, res) => {
   try {
-    const { fullName, shortName, name, code, contactName, contactPhone, contactEmail, address, description, logo, status } = req.body
+    const { fullName, shortName, name, code, contactName, contactPhone, contactEmail, address, description, logo, status, isPreferred, expiryDate, styleTags, defaultDiscount, defaultCommission } = req.body
     
     // 支持新字段fullName，兼容旧字段name
     const manufacturerName = fullName || name
@@ -97,6 +97,11 @@ const create = async (req, res) => {
       address,
       description,
       logo,
+      isPreferred: Boolean(isPreferred),
+      expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+      styleTags: Array.isArray(styleTags) ? styleTags : undefined,
+      defaultDiscount: defaultDiscount !== undefined ? Number(defaultDiscount) : undefined,
+      defaultCommission: defaultCommission !== undefined ? Number(defaultCommission) : undefined,
       status: status || 'active'
     })
     
@@ -111,7 +116,7 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params
-    const { name, fullName, shortName, code, contactName, contactPhone, contactEmail, address, description, logo, status, accountQuota, settings } = req.body
+    const { name, fullName, shortName, code, contactName, contactPhone, contactEmail, address, description, logo, status, accountQuota, settings, isPreferred, expiryDate, styleTags, defaultDiscount, defaultCommission } = req.body
     
     const manufacturer = await Manufacturer.findById(id)
     if (!manufacturer) {
@@ -137,6 +142,11 @@ const update = async (req, res) => {
     if (address !== undefined) manufacturer.address = address
     if (description !== undefined) manufacturer.description = description
     if (logo !== undefined) manufacturer.logo = logo
+    if (isPreferred !== undefined) manufacturer.isPreferred = Boolean(isPreferred)
+    if (expiryDate !== undefined) manufacturer.expiryDate = expiryDate ? new Date(expiryDate) : null
+    if (styleTags !== undefined) manufacturer.styleTags = Array.isArray(styleTags) ? styleTags : []
+    if (defaultDiscount !== undefined) manufacturer.defaultDiscount = Number(defaultDiscount)
+    if (defaultCommission !== undefined) manufacturer.defaultCommission = Number(defaultCommission)
     if (status !== undefined) manufacturer.status = status
     
     // 更新账号配额

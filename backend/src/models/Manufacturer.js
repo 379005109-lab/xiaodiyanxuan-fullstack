@@ -60,6 +60,25 @@ const manufacturerSchema = new mongoose.Schema({
   logo: {
     type: String
   },
+  isPreferred: {
+    type: Boolean,
+    default: false
+  },
+  expiryDate: {
+    type: Date
+  },
+  styleTags: {
+    type: [String],
+    default: []
+  },
+  defaultDiscount: {
+    type: Number,
+    default: 0
+  },
+  defaultCommission: {
+    type: Number,
+    default: 0
+  },
   // 厂家设置信息
   settings: {
     // 公司电话

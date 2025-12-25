@@ -14,6 +14,11 @@ type Manufacturer = {
   logo?: any
   description?: string
   status?: 'active' | 'inactive'
+  isPreferred?: boolean
+  expiryDate?: string | Date | null
+  styleTags?: string[]
+  defaultDiscount?: number
+  defaultCommission?: number
   contactName?: string
   contactPhone?: string
   contactEmail?: string
@@ -81,6 +86,16 @@ const normalizeFileId = (v: any): string => {
   if (!raw) return ''
   if (raw.startsWith('/api/files/')) return raw.replace('/api/files/', '').split('?')[0]
   return raw
+}
+
+const formatDateYmd = (v: any): string => {
+  if (!v) return ''
+  const d = v instanceof Date ? v : new Date(v)
+  if (Number.isNaN(d.getTime())) return ''
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 const getLogoSrc = (logo: any, size: number) => {
@@ -707,6 +722,7 @@ export default function AdminManufacturerCenter() {
   const [activeM, setActiveM] = useState<Manufacturer | null>(null)
   const [showAccounts, setShowAccounts] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [editingField, setEditingField] = useState<{ id: string; field: string } | null>(null)
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -739,6 +755,74 @@ export default function AdminManufacturerCenter() {
     }
   }
 
+  const updateManufacturer = async (manufacturerId: string, payload: any) => {
+    const prev = items
+    setItems(prevItems =>
+      prevItems.map(x => {
+        if (String(x._id) !== String(manufacturerId)) return x
+        const next: any = { ...x, ...payload }
+        if (payload?.accountQuota) {
+          next.accountQuota = { ...(x as any).accountQuota, ...payload.accountQuota }
+        }
+        if (payload?.settings) {
+          next.settings = { ...(x as any).settings, ...payload.settings }
+        }
+        return next
+      })
+    )
+    try {
+      await apiClient.put(`/manufacturers/${manufacturerId}`, payload)
+    } catch (e: any) {
+      setItems(prev)
+      toast.error(e?.response?.data?.message || '保存失败')
+    }
+  }
+
+  const handleUpdateField = async (manufacturerId: string, field: string, value: string) => {
+    if (!manufacturerId) return
+
+    if (field === 'discount') {
+      await updateManufacturer(manufacturerId, { defaultDiscount: Number(value) || 0 })
+      return
+    }
+    if (field === 'commission') {
+      await updateManufacturer(manufacturerId, { defaultCommission: Number(value) || 0 })
+      return
+    }
+    if (field === 'expiryDate') {
+      await updateManufacturer(manufacturerId, { expiryDate: value ? new Date(value).toISOString() : null })
+      return
+    }
+    if (field === 'styleTags') {
+      const tags = value
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean)
+      await updateManufacturer(manufacturerId, { styleTags: tags })
+      return
+    }
+    if (field === 'quota-total') {
+      await updateManufacturer(manufacturerId, { accountQuota: { totalAccounts: Number(value) || 0 } })
+      return
+    }
+    if (field.startsWith('quota-')) {
+      const key = field.split('-')[1]
+      const nextVal = Number(value) || 0
+      const m = items.find(x => String(x._id) === String(manufacturerId))
+      const existing = m?.accountQuota || {}
+      const nextQuota = {
+        ...existing,
+        [key]: nextVal,
+      }
+      const sum = Number(nextQuota.authAccounts || 0) + Number(nextQuota.subAccounts || 0) + Number(nextQuota.designerAccounts || 0)
+      if (!('totalAccounts' in nextQuota) || Number(nextQuota.totalAccounts || 0) === 0) {
+        nextQuota.totalAccounts = sum
+      }
+      await updateManufacturer(manufacturerId, { accountQuota: nextQuota })
+      return
+    }
+  }
+
   const handleOpenTierSystem = (m: Manufacturer) => {
     localStorage.setItem('tier_system_selected_manufacturer', String(m._id))
     navigate('/admin/tier-system')
@@ -752,7 +836,7 @@ export default function AdminManufacturerCenter() {
     <div className="max-w-[1400px] mx-auto animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16 px-4">
         <div>
-          <h2 className="text-6xl font-black text-gray-900 tracking-tighter mb-4">厂家中心管理系统</h2>
+          <h2 className="text-6xl font-black text-gray-900 tracking-tighter mb-4">厂家管理</h2>
           <p className="text-gray-400 font-bold uppercase tracking-widest flex items-center gap-3">
             <span className="w-10 h-1 bg-[#153e35] rounded-full"></span>
             多级垂直分销链条与利润体系管控
@@ -795,10 +879,47 @@ export default function AdminManufacturerCenter() {
             const authCur = Number(quotaCur.authAccounts || 0)
             const subCur = Number(quotaCur.subAccounts || 0)
             const desCur = Number(quotaCur.designerAccounts || 0)
-            const totalQuota = authMax + subMax + desMax
+            const totalQuota = Number(quotaMax.totalAccounts || 0) || authMax + subMax + desMax
+            const isPreferred = Boolean(m.isPreferred)
+            const expiryText = formatDateYmd(m.expiryDate)
+            const tags = Array.isArray(m.styleTags) ? m.styleTags : []
+            const defaultDiscount = Number(m.defaultDiscount || 0)
+            const defaultCommission = Number(m.defaultCommission || 0)
 
             return (
-              <div key={String(m._id)} className="bg-white rounded-[3.5rem] border border-gray-100 shadow-2xl overflow-hidden flex flex-col hover:-translate-y-3 transition-all duration-700 group relative">
+              <div
+                key={String(m._id)}
+                className={`bg-white rounded-[3.5rem] border ${isPreferred ? 'border-amber-200 ring-4 ring-amber-50' : 'border-gray-100 shadow-gray-200/20'} shadow-2xl overflow-hidden flex flex-col hover:-translate-y-3 transition-all duration-700 group relative`}
+              >
+                <div className="absolute top-0 right-0 p-8 flex flex-col items-end gap-3 z-20">
+                  <button
+                    onClick={() => updateManufacturer(String(m._id), { isPreferred: !isPreferred })}
+                    className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${isPreferred ? 'bg-amber-100 text-amber-700 border-amber-200 shadow-xl' : 'bg-white text-gray-400 border-gray-100 hover:border-amber-200'}`}
+                    type="button"
+                  >
+                    {isPreferred ? '优质厂家 ★' : '设为优质'}
+                  </button>
+                  <div
+                    className="px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-500 border border-blue-100 cursor-pointer"
+                    onClick={() => setEditingField({ id: String(m._id), field: 'expiryDate' })}
+                  >
+                    {editingField?.id === String(m._id) && editingField?.field === 'expiryDate' ? (
+                      <input
+                        autoFocus
+                        type="date"
+                        defaultValue={expiryText}
+                        onBlur={e => {
+                          handleUpdateField(String(m._id), 'expiryDate', e.target.value)
+                          setEditingField(null)
+                        }}
+                        className="bg-transparent outline-none"
+                      />
+                    ) : (
+                      <>效期至: {expiryText || '--'}</>
+                    )}
+                  </div>
+                </div>
+
                 <div className="p-12 pb-8">
                   <div className="flex items-start gap-6 mb-10">
                     <div className="w-20 h-20 rounded-[2rem] bg-[#f9fbfc] border border-gray-100 p-4 shadow-inner flex items-center justify-center overflow-hidden">
@@ -806,27 +927,160 @@ export default function AdminManufacturerCenter() {
                     </div>
                     <div className="min-w-0 pr-24">
                       <h3 className="text-3xl font-black text-gray-900 leading-tight truncate">{name}</h3>
+                      <div className="flex flex-wrap gap-1.5 mt-2" onClick={() => setEditingField({ id: String(m._id), field: 'styleTags' })}>
+                        {editingField?.id === String(m._id) && editingField?.field === 'styleTags' ? (
+                          <input
+                            autoFocus
+                            defaultValue={tags.join(',')}
+                            onBlur={e => {
+                              handleUpdateField(String(m._id), 'styleTags', e.target.value)
+                              setEditingField(null)
+                            }}
+                            className="w-full text-[10px] font-black bg-transparent outline-none border-b border-gray-200"
+                          />
+                        ) : (
+                          <>
+                            {tags.map(tag => (
+                              <span key={tag} className="text-[9px] font-black px-2 py-0.5 bg-gray-50 text-gray-400 rounded-lg border">
+                                {tag}
+                              </span>
+                            ))}
+                            {!tags.length ? (
+                              <span className="text-[9px] font-black px-2 py-0.5 bg-gray-50 text-gray-300 rounded-lg border">点击添加标签</span>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
                       <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">{code}</div>
+                    </div>
+                  </div>
+
+                  <div className="mb-8 grid grid-cols-2 gap-4">
+                    <div
+                      className="bg-emerald-50/50 rounded-[2rem] p-6 border border-emerald-100 text-center cursor-pointer hover:bg-emerald-100/50 transition-all"
+                      onClick={() => setEditingField({ id: String(m._id), field: 'discount' })}
+                    >
+                      <p className="text-[9px] font-black text-emerald-700/60 uppercase tracking-widest mb-1">最低折扣</p>
+                      {editingField?.id === String(m._id) && editingField?.field === 'discount' ? (
+                        <input
+                          autoFocus
+                          type="number"
+                          defaultValue={defaultDiscount}
+                          onBlur={e => {
+                            handleUpdateField(String(m._id), 'discount', e.target.value)
+                            setEditingField(null)
+                          }}
+                          className="w-full text-center bg-transparent text-3xl font-black text-[#153e35] outline-none"
+                        />
+                      ) : (
+                        <p className="text-3xl font-black text-[#153e35]">{defaultDiscount}%</p>
+                      )}
+                    </div>
+                    <div
+                      className="bg-emerald-50/50 rounded-[2rem] p-6 border border-emerald-100 text-center cursor-pointer hover:bg-emerald-100/50 transition-all"
+                      onClick={() => setEditingField({ id: String(m._id), field: 'commission' })}
+                    >
+                      <p className="text-[9px] font-black text-emerald-700/60 uppercase tracking-widest mb-1">返佣比例</p>
+                      {editingField?.id === String(m._id) && editingField?.field === 'commission' ? (
+                        <input
+                          autoFocus
+                          type="number"
+                          defaultValue={defaultCommission}
+                          onBlur={e => {
+                            handleUpdateField(String(m._id), 'commission', e.target.value)
+                            setEditingField(null)
+                          }}
+                          className="w-full text-center bg-transparent text-3xl font-black text-emerald-600 outline-none"
+                        />
+                      ) : (
+                        <p className="text-3xl font-black text-emerald-600">{defaultCommission}%</p>
+                      )}
                     </div>
                   </div>
 
                   <div className="mb-10 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-black uppercase tracking-widest text-gray-400">账号总额</div>
-                      <div className="bg-gray-100 px-3 py-1 rounded-lg text-[9px] font-black text-gray-500">{totalQuota}</div>
+                      <div
+                        className="bg-gray-100 px-3 py-1 rounded-lg text-[9px] font-black text-gray-500 cursor-pointer"
+                        onClick={() => setEditingField({ id: String(m._id), field: 'quota-total' })}
+                      >
+                        {editingField?.id === String(m._id) && editingField?.field === 'quota-total' ? (
+                          <input
+                            autoFocus
+                            type="number"
+                            defaultValue={totalQuota}
+                            onBlur={e => {
+                              handleUpdateField(String(m._id), 'quota-total', e.target.value)
+                              setEditingField(null)
+                            }}
+                            className="w-16 text-center bg-transparent outline-none"
+                          />
+                        ) : (
+                          totalQuota
+                        )}
+                      </div>
                     </div>
                     <div className="bg-[#fcfdfd] rounded-[2.5rem] p-8 border border-gray-50 shadow-inner">
                       <div className="grid grid-cols-3 gap-6 text-center">
-                        <div>
-                          <p className="text-2xl font-black text-gray-900">{authCur}/{authMax}</p>
+                        <div
+                          className="cursor-pointer hover:bg-emerald-50 rounded-xl p-1 transition-all"
+                          onClick={() => setEditingField({ id: String(m._id), field: 'quota-authAccounts' })}
+                        >
+                          {editingField?.id === String(m._id) && editingField?.field === 'quota-authAccounts' ? (
+                            <input
+                              autoFocus
+                              type="number"
+                              defaultValue={authMax}
+                              onBlur={e => {
+                                handleUpdateField(String(m._id), 'quota-authAccounts', e.target.value)
+                                setEditingField(null)
+                              }}
+                              className="w-full text-center bg-transparent text-xl font-black text-gray-900 outline-none"
+                            />
+                          ) : (
+                            <p className="text-2xl font-black text-gray-900">{authCur}/{authMax}</p>
+                          )}
                           <p className="text-[9px] text-gray-400 font-black uppercase tracking-tighter mt-1">授权主号</p>
                         </div>
-                        <div>
-                          <p className="text-2xl font-black text-gray-900">{subCur}/{subMax}</p>
+                        <div
+                          className="cursor-pointer hover:bg-emerald-50 rounded-xl p-1 transition-all"
+                          onClick={() => setEditingField({ id: String(m._id), field: 'quota-subAccounts' })}
+                        >
+                          {editingField?.id === String(m._id) && editingField?.field === 'quota-subAccounts' ? (
+                            <input
+                              autoFocus
+                              type="number"
+                              defaultValue={subMax}
+                              onBlur={e => {
+                                handleUpdateField(String(m._id), 'quota-subAccounts', e.target.value)
+                                setEditingField(null)
+                              }}
+                              className="w-full text-center bg-transparent text-xl font-black text-gray-900 outline-none"
+                            />
+                          ) : (
+                            <p className="text-2xl font-black text-gray-900">{subCur}/{subMax}</p>
+                          )}
                           <p className="text-[9px] text-gray-400 font-black uppercase tracking-tighter mt-1">员工/子号</p>
                         </div>
-                        <div>
-                          <p className="text-2xl font-black text-gray-900">{desCur}/{desMax}</p>
+                        <div
+                          className="cursor-pointer hover:bg-emerald-50 rounded-xl p-1 transition-all"
+                          onClick={() => setEditingField({ id: String(m._id), field: 'quota-designerAccounts' })}
+                        >
+                          {editingField?.id === String(m._id) && editingField?.field === 'quota-designerAccounts' ? (
+                            <input
+                              autoFocus
+                              type="number"
+                              defaultValue={desMax}
+                              onBlur={e => {
+                                handleUpdateField(String(m._id), 'quota-designerAccounts', e.target.value)
+                                setEditingField(null)
+                              }}
+                              className="w-full text-center bg-transparent text-xl font-black text-gray-900 outline-none"
+                            />
+                          ) : (
+                            <p className="text-2xl font-black text-gray-900">{desCur}/{desMax}</p>
+                          )}
                           <p className="text-[9px] text-gray-400 font-black uppercase tracking-tighter mt-1">注册设计</p>
                         </div>
                       </div>
