@@ -1,4 +1,7 @@
 const TierSystem = require('../models/TierSystem')
+const ManufacturerOrder = require('../models/ManufacturerOrder')
+const Manufacturer = require('../models/Manufacturer')
+const mongoose = require('mongoose')
 const { successResponse, errorResponse } = require('../utils/response')
 
 const resolveManufacturerId = (req) => {
@@ -52,6 +55,73 @@ const upsertTierSystem = async (req, res) => {
     ).lean()
 
     return res.json(successResponse(doc, '保存成功'))
+  } catch (err) {
+    return res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
+const getReconciliation = async (req, res) => {
+  try {
+    const manufacturerId = resolveManufacturerId(req)
+    if (!manufacturerId) {
+      return res.status(400).json(errorResponse('manufacturerId is required', 400))
+    }
+
+    const manufacturer = await Manufacturer.findById(manufacturerId).select('_id name fullName shortName defaultCommission').lean()
+    if (!manufacturer) {
+      return res.status(404).json(errorResponse('manufacturer not found', 404))
+    }
+
+    const commissionRate = Number(manufacturer.defaultCommission || 0)
+
+    const endDate = req.query.endDate ? new Date(String(req.query.endDate)) : new Date()
+    const startDate = req.query.startDate
+      ? new Date(String(req.query.startDate))
+      : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      return res.status(400).json(errorResponse('invalid date range', 400))
+    }
+
+    const mid = new mongoose.Types.ObjectId(String(manufacturerId))
+    const pipeline = [
+      { $match: { manufacturerId: mid, status: 'completed' } },
+      { $addFields: { completedAtEffective: { $ifNull: ['$completedAt', '$updatedAt'] } } },
+      { $match: { completedAtEffective: { $gte: startDate, $lte: endDate } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$completedAtEffective' } },
+          orderCount: { $sum: 1 },
+          totalAmount: { $sum: '$totalAmount' }
+        }
+      },
+      { $sort: { _id: -1 } }
+    ]
+
+    const rows = await ManufacturerOrder.aggregate(pipeline)
+    const list = (rows || []).map(r => {
+      const total = Number(r.totalAmount || 0)
+      const settlementAmount = Math.round(total * (commissionRate / 100))
+      return {
+        date: r._id,
+        manufacturerId: String(manufacturer._id),
+        manufacturerName: manufacturer.fullName || manufacturer.name || manufacturer.shortName || '',
+        orderCount: Number(r.orderCount || 0),
+        totalAmount: total,
+        commissionRate,
+        settlementAmount,
+        status: 'pending'
+      }
+    })
+
+    return res.json(successResponse({
+      manufacturerId: String(manufacturer._id),
+      manufacturerName: manufacturer.fullName || manufacturer.name || manufacturer.shortName || '',
+      commissionRate,
+      startDate,
+      endDate,
+      list
+    }, 'ok'))
   } catch (err) {
     return res.status(500).json(errorResponse(err.message, 500))
   }
@@ -120,5 +190,6 @@ const getEffectiveTierRule = async (req, res) => {
 module.exports = {
   getTierSystem,
   upsertTierSystem,
-  getEffectiveTierRule
+  getEffectiveTierRule,
+  getReconciliation
 }

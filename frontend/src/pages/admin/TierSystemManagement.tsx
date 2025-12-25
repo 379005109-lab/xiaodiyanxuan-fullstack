@@ -146,6 +146,17 @@ interface TierSystemData {
   authorizedAccounts: AuthorizedAccount[]
 }
 
+interface ReconciliationRow {
+  date: string
+  manufacturerId: string
+  manufacturerName: string
+  orderCount: number
+  totalAmount: number
+  commissionRate: number
+  settlementAmount: number
+  status?: string
+}
+
 const createDefaultTierSystemData = (): TierSystemData => {
   return {
     profitSettings: {
@@ -197,7 +208,7 @@ export default function TierSystemManagement() {
     return saved || ''
   })
 
-  const [activeTab, setActiveTab] = useState<'modules' | 'pool' | 'hierarchy'>('modules')
+  const [activeTab, setActiveTab] = useState<'modules' | 'pool' | 'hierarchy' | 'reconciliation'>('modules')
   const [data, setData] = useState<TierSystemData>(() => createDefaultTierSystemData())
   const [selectedModule, setSelectedModule] = useState<RoleModule | null>(null)
   const [showModuleModal, setShowModuleModal] = useState(false)
@@ -440,6 +451,12 @@ export default function TierSystemManagement() {
             icon={<GitBranch className="w-4 h-4" />}
             label="授权层级"
           />
+          <TabButton
+            active={activeTab === 'reconciliation'}
+            onClick={() => setActiveTab('reconciliation')}
+            icon={<TrendingUp className="w-4 h-4" />}
+            label="垂直对账流水"
+          />
         </div>
       </div>
 
@@ -487,6 +504,112 @@ export default function TierSystemManagement() {
           }}
         />
       )}
+
+      {activeTab === 'reconciliation' && (
+        <ReconciliationTab
+          manufacturerId={lockedManufacturerId || selectedManufacturerId || ''}
+          isSuperAdmin={isSuperAdmin}
+          lockedManufacturerId={lockedManufacturerId}
+        />
+      )}
+    </div>
+  )
+}
+
+function ReconciliationTab({
+  manufacturerId,
+  isSuperAdmin,
+  lockedManufacturerId
+}: {
+  manufacturerId: string
+  isSuperAdmin: boolean
+  lockedManufacturerId: string
+}) {
+  const [loading, setLoading] = useState(false)
+  const [rows, setRows] = useState<ReconciliationRow[]>([])
+  const [meta, setMeta] = useState<{ manufacturerName?: string; commissionRate?: number } | null>(null)
+
+  useEffect(() => {
+    const run = async () => {
+      if (!manufacturerId) {
+        setRows([])
+        setMeta(null)
+        return
+      }
+
+      setLoading(true)
+      try {
+        const params: any = { _ts: Date.now() }
+        if (isSuperAdmin && !lockedManufacturerId) params.manufacturerId = manufacturerId
+        const resp = await apiClient.get('/tier-system/reconciliation', { params })
+        const data = resp.data?.data
+        const list = data?.list || []
+        setRows(Array.isArray(list) ? list : [])
+        setMeta({ manufacturerName: data?.manufacturerName, commissionRate: data?.commissionRate })
+      } catch (e) {
+        setRows([])
+        setMeta(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    run()
+  }, [manufacturerId, isSuperAdmin, lockedManufacturerId])
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-gray-200">
+        <div className="p-4 border-b border-gray-200">
+          <h3 className="font-semibold text-gray-900">结算历史对账</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            {meta?.manufacturerName ? `厂家：${meta.manufacturerName}；` : ''}
+            {meta?.commissionRate !== undefined ? `返佣比例：${meta.commissionRate}%` : '返佣比例：--'}
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="p-6 text-gray-500">加载中...</div>
+        ) : rows.length === 0 ? (
+          <div className="p-6 text-gray-500">暂无对账数据（需要有已完成的厂家订单才会产生流水）</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {rows.map(r => (
+              <div key={`${r.date}-${r.manufacturerId}`} className="p-4 hover:bg-gray-50 flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                  <div className="text-sm">
+                    <div className="text-gray-500 text-xs">对账周期</div>
+                    <div className="font-semibold text-gray-900">{r.date}</div>
+                  </div>
+                  <div className="text-sm">
+                    <div className="text-gray-500 text-xs">归属机构</div>
+                    <div className="font-semibold text-gray-900">{r.manufacturerName || '--'}</div>
+                  </div>
+                  <div className="text-sm">
+                    <div className="text-gray-500 text-xs">订单数</div>
+                    <div className="font-semibold text-gray-900">{Number(r.orderCount || 0)}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <div className="text-gray-500 text-xs">成交额</div>
+                    <div className="font-semibold text-gray-900">¥{Number(r.totalAmount || 0).toLocaleString()}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-gray-500 text-xs">分兑金额</div>
+                    <div className="font-semibold text-emerald-600">¥{Number(r.settlementAmount || 0).toLocaleString()}</div>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                    {r.status === 'done' ? '已核算' : '待处理'}
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-gray-300" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

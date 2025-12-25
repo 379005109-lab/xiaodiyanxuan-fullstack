@@ -233,6 +233,10 @@ router.put('/:id/status', auth, requireRole(ADMIN_ROLES), async (req, res) => {
       if (trackingNo) order.trackingNo = trackingNo;
       if (trackingCompany) order.trackingCompany = trackingCompany;
     }
+
+    if (status === 'completed') {
+      order.completedAt = new Date();
+    }
     
     if (remark) order.manufacturerRemark = remark;
     
