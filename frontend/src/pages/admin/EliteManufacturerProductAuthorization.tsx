@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
+import { getThumbnailUrl } from '@/services/uploadService'
 
 interface CategoryItem {
   id: string
@@ -37,6 +38,16 @@ export default function EliteManufacturerProductAuthorization() {
 
   const isDesigner = user?.role === 'designer'
   const isManufacturerUser = !!(user as any)?.manufacturerId
+
+  const pickImageId = (v: any): string => {
+    if (!v) return ''
+    if (typeof v === 'string' || typeof v === 'number') return String(v)
+    if (Array.isArray(v)) return pickImageId(v[0])
+    if (typeof v === 'object') {
+      return String(v.fileId || v.id || v._id || v.url || v.path || '')
+    }
+    return ''
+  }
 
   const [manufacturer, setManufacturer] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -369,6 +380,7 @@ export default function EliteManufacturerProductAuthorization() {
   const displayName = manufacturer?.fullName || manufacturer?.name || '品牌'
   const displayCode = manufacturer?.code || manufacturer?.shortName || ''
   const displayLogo = manufacturer?.logo
+  const displayLogoSrc = displayLogo ? getThumbnailUrl(pickImageId(displayLogo), 240) : ''
 
   return (
     <div className="min-h-screen bg-[#fcfdfd]">
@@ -379,7 +391,7 @@ export default function EliteManufacturerProductAuthorization() {
           <div className="relative z-10 shrink-0">
             {displayLogo ? (
               <img
-                src={displayLogo}
+                src={displayLogoSrc}
                 alt={displayName}
                 className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover shadow-xl border-4 border-white"
               />
@@ -494,6 +506,7 @@ export default function EliteManufacturerProductAuthorization() {
                             const isExpanded = expandedProductIds.includes(productId)
                             const pricing = getProductPricing(prod)
                             const img = prod.thumbnail || prod.images?.[0]
+                            const imgSrc = img ? getThumbnailUrl(pickImageId(img), 160) : ''
 
                             return (
                               <div key={productId} className="border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
@@ -517,7 +530,7 @@ export default function EliteManufacturerProductAuthorization() {
 
                                   <div className="w-16 h-16 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden shrink-0">
                                     {img ? (
-                                      <img src={img} className="w-full h-full object-cover" alt={prod.name} />
+                                      <img src={imgSrc} className="w-full h-full object-cover" alt={prod.name} />
                                     ) : (
                                       <svg className="w-8 h-8 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z" />
@@ -691,10 +704,11 @@ export default function EliteManufacturerProductAuthorization() {
                       {selectedProductIds.map(id => {
                         const p = productById.get(id)
                         const img = p?.thumbnail || p?.images?.[0]
+                        const imgSrc = img ? getThumbnailUrl(pickImageId(img), 80) : ''
                         return (
                           <div key={id} className="flex items-center gap-3 p-2 bg-white/5 rounded-xl border border-white/5">
                             {img ? (
-                              <img src={img} className="w-10 h-10 rounded-lg object-cover" alt={p?.name || ''} />
+                              <img src={imgSrc} className="w-10 h-10 rounded-lg object-cover" alt={p?.name || ''} />
                             ) : (
                               <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
                                 <svg className="w-5 h-5 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">

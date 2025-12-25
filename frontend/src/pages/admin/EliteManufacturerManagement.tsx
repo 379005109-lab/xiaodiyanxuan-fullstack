@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
+import { getThumbnailUrl } from '@/services/uploadService'
 
 interface Manufacturer {
   _id: string
@@ -57,6 +58,14 @@ const asyncPool = async <T, R>(poolLimit: number, array: T[], iteratorFn: (item:
 
 export default function EliteManufacturerManagement() {
   const navigate = useNavigate()
+
+  const pickImageId = (v: any): string => {
+    if (!v) return ''
+    if (typeof v === 'string' || typeof v === 'number') return String(v)
+    if (Array.isArray(v)) return pickImageId(v[0])
+    if (typeof v === 'object') return String(v.fileId || v.id || v._id || v.url || v.path || '')
+    return ''
+  }
 
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<Manufacturer[]>([])
@@ -251,7 +260,7 @@ export default function EliteManufacturerManagement() {
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     {m.logo ? (
                       <img
-                        src={m.logo}
+                        src={getThumbnailUrl(pickImageId(m.logo), 240)}
                         alt={name}
                         className="w-24 h-24 rounded-2xl object-cover shadow-2xl transform group-hover:scale-110 transition-transform duration-700 z-10 border-4 border-white"
                       />
@@ -331,7 +340,7 @@ export default function EliteManufacturerManagement() {
                       <div className="flex -space-x-3">
                         {(meta?.previewImages?.length ? meta.previewImages : [null, null, null, null]).slice(0, 4).map((src, i) => (
                           <div key={i} className="w-8 h-8 rounded-xl border-2 border-white bg-gray-100 overflow-hidden shadow-sm">
-                            {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : null}
+                            {src ? <img src={getThumbnailUrl(pickImageId(src), 80)} alt="" className="w-full h-full object-cover" /> : null}
                           </div>
                         ))}
                         <div className="w-8 h-8 rounded-xl border-2 border-white bg-[#153e35] flex items-center justify-center text-[10px] font-black text-white shadow-sm">

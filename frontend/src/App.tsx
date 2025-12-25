@@ -206,6 +206,18 @@ const ProductManagementRoute = () => {
   return <ProductManagement />
 }
 
+const ManufacturersRoute = () => {
+  const { user } = useAuthStore()
+  const isAdmin =
+    user?.role === 'admin' ||
+    user?.role === 'super_admin' ||
+    user?.role === 'platform_admin' ||
+    user?.role === 'platform_staff'
+
+  if (isAdmin) return <ManufacturerManagement />
+  return <EliteManufacturerManagement />
+}
+
 // 加载组件
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -416,7 +428,7 @@ function App() {
             <Route path="customization" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
             <Route path="activity" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
-            <Route path="manufacturers" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><EliteManufacturerManagement /></ProtectedRoute>} />
+            <Route path="manufacturers" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturersRoute /></ProtectedRoute>} />
             <Route path="manufacturers/:manufacturerId/product-authorization" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><EliteManufacturerProductAuthorization /></ProtectedRoute>} />
             <Route path="manufacturers/authorization-requests" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerAuthorizationRequests /></ProtectedRoute>} />
             <Route path="authorizations" element={<Navigate to="/admin/manufacturers" replace />} />
