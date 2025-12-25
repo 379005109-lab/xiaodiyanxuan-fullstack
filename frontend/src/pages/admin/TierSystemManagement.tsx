@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { 
   Plus, Edit2, Trash2, ChevronDown, ChevronRight, Users, 
@@ -40,6 +41,7 @@ interface DiscountRule {
     minOrderCount?: number
     memberLevel?: string
   }
+
   isDefault: boolean
 }
 
@@ -198,6 +200,7 @@ const ICON_MAP: Record<string, any> = {
 // ==================== 主组件 ====================
 
 export default function TierSystemManagement() {
+  const navigate = useNavigate()
   const { user } = useAuthStore()
   const lockedManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
   const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'admin'
@@ -210,6 +213,7 @@ export default function TierSystemManagement() {
   })
 
   const [selectedManufacturerCommission, setSelectedManufacturerCommission] = useState<number>(0)
+  const [selectedManufacturerMeta, setSelectedManufacturerMeta] = useState<{ name?: string; logo?: string } | null>(null)
 
   const [activeTab, setActiveTab] = useState<'modules' | 'pool' | 'hierarchy' | 'reconciliation'>('modules')
   const [data, setData] = useState<TierSystemData>(() => createDefaultTierSystemData())
@@ -217,7 +221,7 @@ export default function TierSystemManagement() {
   const [showModuleModal, setShowModuleModal] = useState(false)
   const [showRuleModal, setShowRuleModal] = useState(false)
   const [editingRule, setEditingRule] = useState<DiscountRule | null>(null)
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['__root__']))
 
   useEffect(() => {
     if (!isSuperAdmin) return
@@ -307,6 +311,7 @@ export default function TierSystemManagement() {
     const run = async () => {
       if (!mid) {
         setSelectedManufacturerCommission(0)
+        setSelectedManufacturerMeta(null)
         return
       }
       try {
@@ -315,8 +320,13 @@ export default function TierSystemManagement() {
         const resp = await apiClient.get(`/manufacturers/${mid}`, { params })
         const m = resp.data?.data
         setSelectedManufacturerCommission(Number(m?.defaultCommission || 0))
+        setSelectedManufacturerMeta({
+          name: String(m?.name || m?.fullName || ''),
+          logo: m?.logo ? String(m.logo) : ''
+        })
       } catch {
         setSelectedManufacturerCommission(0)
+        setSelectedManufacturerMeta(null)
       }
     }
     run()
@@ -519,6 +529,11 @@ export default function TierSystemManagement() {
           modules={data.roleModules}
           accounts={data.authorizedAccounts}
           manufacturerId={lockedManufacturerId || selectedManufacturerId || ''}
+          manufacturerName={selectedManufacturerMeta?.name || (user as any)?.manufacturerName || (user as any)?.manufacturer?.name || ''}
+          manufacturerLogo={selectedManufacturerMeta?.logo || ''}
+          profitSettings={data.profitSettings}
+          commissionRate={selectedManufacturerCommission}
+          onBack={() => navigate('/admin/manufacturers')}
           expandedNodes={expandedNodes}
           onToggleNode={(id) => {
             const newExpanded = new Set(expandedNodes)
@@ -1123,76 +1138,92 @@ function ProfitPoolTab({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState(0)
 
-  const totalMaxRate = modules.reduce((sum, m) => sum + m.maxProfitRate, 0)
-  const totalAllocated = modules.reduce((sum, m) => sum + m.currentAllocatedRate, 0)
+  const activeModules = useMemo(() => {
+    return (modules || []).filter(m => m.isActive)
+  }, [modules])
+
+  const [selectedRoleId, setSelectedRoleId] = useState<string>(() => {
+    return String(activeModules[0]?._id || modules[0]?._id || '')
+  })
+
+  useEffect(() => {
+    if (!selectedRoleId) {
+      setSelectedRoleId(String(activeModules[0]?._id || modules[0]?._id || ''))
+      return
+    }
+    const exists = (modules || []).some(m => String(m._id) === String(selectedRoleId))
+    if (!exists) {
+      setSelectedRoleId(String(activeModules[0]?._id || modules[0]?._id || ''))
+    }
+  }, [activeModules, modules, selectedRoleId])
+
+  const discountPercent = Math.round(Number(profitSettings?.minSaleDiscountRate ?? 1) * 100)
+  const commissionPercent = Math.round(Number(commissionRate || 0))
 
   return (
     <div className="space-y-6">
-      {/* 总览卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white">
-          <p className="text-primary-100 text-sm">总毛利池上限</p>
-          <p className="text-3xl font-bold mt-1">{totalMaxRate}%</p>
-          <p className="text-primary-200 text-xs mt-2">各业务线上限之和</p>
+      <div className="grid grid-cols-12 gap-6 max-w-6xl mx-auto">
+        <div className="col-span-12 md:col-span-4 space-y-3">
+          {(activeModules.length > 0 ? activeModules : modules).map(role => (
+            <button
+              key={role._id}
+              type="button"
+              onClick={() => setSelectedRoleId(String(role._id))}
+              className={`w-full p-6 rounded-[1.75rem] border transition-all flex items-center justify-between group ${String(selectedRoleId) === String(role._id)
+                ? 'bg-[#153e35] text-white shadow-xl border-[#153e35]'
+                : 'bg-white border-gray-100 hover:border-emerald-200 shadow-sm'
+              }`}
+            >
+              <span className="font-black text-sm uppercase tracking-widest">{role.name}</span>
+              <svg
+                className={`w-5 h-5 transition-transform ${String(selectedRoleId) === String(role._id) ? 'rotate-90 text-white' : 'text-gray-200'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ))}
         </div>
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
-          <p className="text-orange-100 text-sm">已分配比例</p>
-          <p className="text-3xl font-bold mt-1">{totalAllocated}%</p>
-          <p className="text-orange-200 text-xs mt-2">已授权给下级的比例</p>
-        </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
-          <p className="text-green-100 text-sm">可分配比例</p>
-          <p className="text-3xl font-bold mt-1">{totalMaxRate - totalAllocated}%</p>
-          <p className="text-green-200 text-xs mt-2">剩余可授权比例</p>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="p-4 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-900">利润设置</h3>
-          <p className="text-sm text-gray-500 mt-1">设置最低售价折扣与总佣金池占比</p>
-        </div>
-        <div className="p-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            最低售价折扣 ({Math.round((profitSettings?.minSaleDiscountRate ?? 1) * 100)}%)
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={profitSettings?.minSaleDiscountRate ?? 1}
-            onChange={(e) => onUpdateProfitSettings({ minSaleDiscountRate: parseFloat(e.target.value) })}
-            className="w-full"
-          />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>0%</span>
-            <span>100%</span>
-          </div>
-
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              总佣金池最大占比 ({Math.round(Number(commissionRate || 0))}%)
-            </label>
+        <div className="col-span-12 md:col-span-8 bg-white p-10 md:p-12 rounded-[2.5rem] border border-gray-50 shadow-sm space-y-12">
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-black uppercase tracking-widest text-gray-400">全链条最低折扣限制 (%)</label>
+              <span className="text-5xl font-black text-gray-900">{discountPercent}%</span>
+            </div>
             <input
               type="range"
+              className="w-full h-4 rounded-full appearance-none bg-emerald-100 accent-[#153e35]"
               min="0"
               max="100"
               step="1"
-              value={Number(commissionRate || 0)}
+              value={discountPercent}
+              onChange={(e) => onUpdateProfitSettings({ minSaleDiscountRate: (parseInt(e.target.value) || 0) / 100 })}
+            />
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-black uppercase tracking-widest text-gray-400">总佣金池最大占比 (%)</label>
+              <span className="text-5xl font-black text-emerald-600">{commissionPercent}%</span>
+            </div>
+            <input
+              type="range"
+              className="w-full h-4 rounded-full appearance-none bg-emerald-100 accent-emerald-500"
+              min="0"
+              max="100"
+              step="1"
+              value={commissionPercent}
               onChange={(e) => {
                 const v = parseInt(e.target.value) || 0
                 onUpdateCommissionRate?.(v)
               }}
-              className="w-full"
               disabled={!commissionEditable}
             />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>0%</span>
-              <span>100%</span>
-            </div>
             {!commissionEditable ? (
-              <div className="mt-2 text-xs text-gray-400">仅管理员可修改</div>
+              <div className="text-xs text-gray-400">仅管理员可修改</div>
             ) : null}
           </div>
         </div>
@@ -1323,6 +1354,11 @@ function HierarchyTab({
   modules,
   accounts,
   manufacturerId,
+  manufacturerName,
+  manufacturerLogo,
+  profitSettings,
+  commissionRate,
+  onBack,
   expandedNodes,
   onToggleNode,
   onSaveAccounts
@@ -1330,6 +1366,11 @@ function HierarchyTab({
   modules: RoleModule[]
   accounts: AuthorizedAccount[]
   manufacturerId: string
+  manufacturerName: string
+  manufacturerLogo: string
+  profitSettings: TierSystemData['profitSettings']
+  commissionRate: number
+  onBack: () => void
   expandedNodes: Set<string>
   onToggleNode: (id: string) => void
   onSaveAccounts: (accounts: AuthorizedAccount[]) => void
@@ -1337,7 +1378,6 @@ function HierarchyTab({
   const [selectedModuleCode, setSelectedModuleCode] = useState<string>('all')
   const [showAddModal, setShowAddModal] = useState(false)
   const [parentAccount, setParentAccount] = useState<AuthorizedAccount | null>(null)
-  const [editingDistributionId, setEditingDistributionId] = useState<string | null>(null)
   const [manufacturerCategoryTree, setManufacturerCategoryTree] = useState<any[]>([])
   const [manufacturerProducts, setManufacturerProducts] = useState<any[]>([])
 
@@ -1499,127 +1539,123 @@ function HierarchyTab({
     toast.success('账号添加成功')
   }
 
-  // 渲染树节点
-  const renderNode = (account: AuthorizedAccount, depth: number = 0) => {
+  const listPrice = 10000
+  const minSaleDiscountRate = Number(profitSettings?.minSaleDiscountRate ?? 1)
+
+  const calc = (dist: number) => {
+    const minPrice = listPrice * minSaleDiscountRate
+    const maxCommPool = minPrice * (Number(commissionRate || 0) / 100)
+    const nodeCommValue = maxCommPool * (Number(dist || 0) / 100)
+    return { minPrice, nodeCommValue }
+  }
+
+  const getNodeProductCount = (a: AuthorizedAccount) => {
+    const ids = Array.isArray(a.visibleCategoryIds) ? a.visibleCategoryIds : []
+    if (ids.length > 0) return ids.length
+    return manufacturerProducts.length
+  }
+
+  const siblingsOfBubble = (account: AuthorizedAccount) => {
+    return filteredAccounts.filter(a => String(a.parentId || '') === String(account.parentId || '') && String(a._id) !== String(account._id))
+  }
+
+  const renderBubbleNode = (account: AuthorizedAccount): any => {
     const children = getChildren(account._id)
     const hasChildren = children.length > 0
     const isExpanded = expandedNodes.has(account._id)
-    const module = modules.find(m => m._id === account.roleModuleId)
-    const Icon = module ? (ICON_MAP[module.icon] || Layers) : Users
-    const visibleCount = account.visibleCategoryIds?.length || 0
-    const selectedRule = module?.discountRules?.find(r => String(r._id) === String(account.discountRuleId))
+    const displayName = account.nickname || account.username
+
     const distributionRate = Number((account as any).distributionRate ?? 0)
-    const siblings = siblingsOf(account)
+    const siblings = siblingsOfBubble(account)
     const siblingsSum = siblings.reduce((s, a) => s + Number((a as any).distributionRate ?? 0), 0)
     const maxDistribution = Math.max(0, 100 - siblingsSum)
+    const { minPrice, nodeCommValue } = calc(distributionRate)
 
     return (
-      <div key={account._id} className="select-none">
-        <div 
-          className={`flex items-center gap-2 py-2 px-3 hover:bg-gray-50 rounded-lg transition-colors`}
-          style={{ marginLeft: depth * 24 }}
-        >
-          {/* 展开/收起按钮 */}
-          <button
-            onClick={() => hasChildren && onToggleNode(account._id)}
-            className={`p-1 rounded ${hasChildren ? 'hover:bg-gray-200' : ''}`}
-            disabled={!hasChildren}
-          >
-            {hasChildren ? (
-              isExpanded ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />
-            ) : (
-              <span className="w-4 h-4" />
-            )}
-          </button>
-          
-          {/* 图标 */}
-          <div className={`p-1.5 rounded-lg ${
-            account.status === 'active' ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-400'
-          }`}>
-            <Icon className="w-4 h-4" />
-          </div>
-          
-          {/* 账号信息 */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900">{account.nickname || account.username}</span>
-              <span className="text-xs text-gray-400">@{account.username}</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded ${
-                account.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-              }`}>
-                {account.status === 'active' ? '正常' : '暂停'}
+      <div key={account._id} className="flex flex-col items-center shrink-0">
+        <div className="w-80 p-8 rounded-[3rem] bg-white border-2 shadow-2xl relative transition-all duration-500 border-emerald-50 hover:border-[#153e35]">
+          <div className="flex items-center justify-between mb-6">
+            <div className="min-w-0">
+              <h5 className="text-base font-black text-gray-900 truncate">{displayName}</h5>
+              <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full border tracking-widest mt-1 inline-block bg-emerald-50 text-emerald-600 border-emerald-100">
+                自研节点
               </span>
             </div>
-            <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
-              <span>{module?.name}</span>
-              <span>•</span>
-              <span>
-                垂直权重:
-                {editingDistributionId === account._id ? (
-                  <input
-                    type="number"
-                    min={0}
-                    max={maxDistribution + distributionRate}
-                    defaultValue={distributionRate}
-                    onBlur={(e) => {
-                      const v = Math.max(0, Math.min(maxDistribution + distributionRate, parseFloat(e.target.value) || 0))
-                      const next = (accounts || []).map(a => {
-                        if (String(a._id) !== String(account._id)) return a
-                        return { ...a, distributionRate: v }
-                      })
-                      onSaveAccounts(next)
-                      setEditingDistributionId(null)
-                    }}
-                    className="w-12 ml-1 text-xs bg-transparent outline-none border-b border-gray-200"
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    className="ml-1 text-xs text-primary-600 hover:text-primary-700"
-                    onClick={() => setEditingDistributionId(account._id)}
-                  >
-                    {distributionRate}%
-                  </button>
-                )}
-              </span>
-              <span>•</span>
-              <span>分配: {account.allocatedRate}%</span>
-              <span>•</span>
-              <span>可授权: {account.availableRate}%</span>
-              <span>•</span>
-              <span>品类: {visibleCount > 0 ? `${visibleCount}个` : '全部'}</span>
-              <span>•</span>
-              <span>规则: {selectedRule?.name || '未设置'}</span>
+            <span className="text-xs font-black text-[#153e35] bg-gray-50 px-3 py-1 rounded-xl">{distributionRate}%</span>
+          </div>
+
+          <div className="bg-gray-50/50 p-6 rounded-[2rem] border border-gray-100 space-y-4 relative overflow-hidden">
+            <div className="flex justify-between items-end">
+              <div className="text-[10px]">
+                <p className="text-gray-400 font-bold uppercase">成交受限价</p>
+                <p className="font-black text-gray-900 text-lg">¥{minPrice.toLocaleString()}</p>
+              </div>
+              <div className="text-[10px] text-right">
+                <p className="text-gray-400 font-bold uppercase">垂直所得</p>
+                <p className="font-black text-emerald-600 text-lg">¥{nodeCommValue.toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden shadow-inner">
+              <div className="bg-[#153e35] h-full transition-all duration-1000" style={{ width: `${Math.max(0, Math.min(100, distributionRate))}%` }} />
             </div>
           </div>
-          
-          {/* 操作 */}
-          <div className="flex items-center gap-1">
+
+          <div className="mt-6 flex justify-between items-center">
             <button
+              type="button"
               onClick={() => {
                 setParentAccount(account)
                 setShowAddModal(true)
               }}
-              className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded"
-              title="添加下级"
+              className="text-[10px] font-black flex items-center gap-1 text-blue-500 hover:underline"
             >
-              <Plus className="w-4 h-4" />
+              + 添加下级
             </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[8px] font-bold text-gray-400 uppercase">垂直权重%</span>
+              <input
+                type="number"
+                min={0}
+                max={maxDistribution}
+                defaultValue={distributionRate}
+                onBlur={(e) => {
+                  const v = Math.max(0, Math.min(maxDistribution, parseFloat(e.target.value) || 0))
+                  const next = (accounts || []).map(a => {
+                    if (String(a._id) !== String(account._id)) return a
+                    return { ...a, distributionRate: v }
+                  })
+                  onSaveAccounts(next)
+                }}
+                className="w-12 bg-white border border-gray-100 rounded-lg text-[10px] text-center font-black outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between text-[10px] text-gray-400 font-bold">
+            <span>管理库房 ({getNodeProductCount(account)})</span>
+            <span>授权额度 {Number(account.allocatedRate || 0)}%</span>
+          </div>
+
+          {hasChildren ? (
             <button
-              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-              title="查看详情"
+              type="button"
+              onClick={() => onToggleNode(account._id)}
+              className={`absolute -bottom-5 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-white shadow-2xl border border-gray-100 flex items-center justify-center text-[#153e35] hover:bg-[#153e35] hover:text-white transition-all ${isExpanded ? 'rotate-180' : ''}`}
             >
-              <Eye className="w-4 h-4" />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
             </button>
-          </div>
+          ) : null}
         </div>
-        
-        {/* 子节点 */}
-        {hasChildren && isExpanded && (
-          <div className="border-l-2 border-gray-100 ml-5">
-            {children.map(child => renderNode(child, depth + 1))}
+
+        {hasChildren && isExpanded ? (
+          <div className="flex flex-col items-center">
+            <div className="w-px h-12 bg-emerald-100" />
+            <div className="flex gap-16 relative px-12">
+              <div className="absolute top-0 left-12 right-12 h-px bg-emerald-100" />
+              {children.map(renderBubbleNode)}
+            </div>
           </div>
-        )}
+        ) : null}
       </div>
     )
   }
@@ -1639,45 +1675,65 @@ function HierarchyTab({
               <option key={m._id} value={m.code}>{m.name}</option>
             ))}
           </select>
-          <span className="text-sm text-gray-500">
-            共 {filteredAccounts.length} 个账号
-          </span>
+          <span className="text-sm text-gray-500">共 {filteredAccounts.length} 个账号</span>
         </div>
-        <button
-          onClick={() => {
-            setParentAccount(null)
-            setShowAddModal(true)
-          }}
-          className="btn btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          添加账号
+        <button type="button" onClick={onBack} className="btn btn-secondary">
+          返回管理中心
         </button>
       </div>
 
       {/* 层级树 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="mb-4 pb-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">授权层级关系</h3>
-          <p className="text-sm text-gray-500 mt-1">展示多层级的授权关系，点击 + 按钮可添加下级</p>
+      <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
+        <div className="p-8 border-b bg-white flex items-center justify-between gap-6">
+          <div className="flex items-center gap-6 min-w-0">
+            <div className="w-16 h-16 bg-white rounded-[1.5rem] border shadow-sm p-2 flex items-center justify-center overflow-hidden">
+              {manufacturerLogo ? (
+                <img src={manufacturerLogo} alt={manufacturerName || 'manufacturer'} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gray-50 rounded-xl" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-2xl font-black text-gray-900 tracking-tight truncate">垂直分销利润地图</h2>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs truncate">
+                {manufacturerName || manufacturerId} • 基于垂直{Number(commissionRate || 0)}%佣金池独立分发
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setParentAccount(null)
+              setShowAddModal(true)
+            }}
+            className="bg-[#153e35] px-8 py-4 rounded-[1.5rem] text-white font-black shadow-xl"
+            type="button"
+          >
+            + 新建垂直体系分支
+          </button>
         </div>
-        
-        {rootAccounts.length === 0 ? (
-          <div className="text-center py-12">
-            <GitBranch className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500">暂无授权账号</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="mt-3 text-primary-600 hover:text-primary-700 text-sm"
-            >
-              添加第一个账号
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {rootAccounts.map(account => renderNode(account))}
-          </div>
-        )}
+
+        <div className="p-8 bg-[#fcfdfd]">
+          {rootAccounts.length === 0 ? (
+            <div className="text-center py-24">
+              <GitBranch className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+              <p className="text-gray-500">暂无授权账号</p>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                className="mt-3 text-primary-600 hover:text-primary-700 text-sm"
+              >
+                添加第一个账号
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-auto border-2 border-emerald-50 border-dashed rounded-[3rem] p-16 bg-emerald-50/10 min-h-[640px] flex justify-center">
+              <div className="origin-top">
+                {rootAccounts.map(renderBubbleNode)}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 图例说明 */}
@@ -1972,15 +2028,16 @@ function AddAccountModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-bold text-gray-900">
-            {parentAccount ? `添加下级账号（上级: ${parentAccount.nickname || parentAccount.username}）` : '添加账号'}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
+      <div className="relative w-full max-w-[720px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
+        <div className="px-10 py-8 border-b border-gray-100">
+          <h3 className="text-xl font-black text-gray-900">
+            {parentAccount ? '添加账号' : '添加账号'}
           </h3>
         </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+        <form onSubmit={handleSubmit} className="px-10 py-8 space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">绑定账号 <span className="text-red-500">*</span></label>
             <input
@@ -2202,10 +2259,17 @@ function AddAccountModal({
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-8 py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-bold hover:bg-gray-50"
+            >
               取消
             </button>
-            <button type="submit" className="btn btn-primary">
+            <button
+              type="submit"
+              className="px-10 py-3 rounded-2xl bg-[#153e35] text-white font-black shadow-xl"
+            >
               添加
             </button>
           </div>
