@@ -328,6 +328,10 @@ router.post('/manufacturer/login', async (req, res) => {
     if (manufacturer.status !== 'active') {
       return res.status(403).json({ success: false, message: '账户已被禁用' });
     }
+
+    if (manufacturer.expiryDate && new Date() > new Date(manufacturer.expiryDate)) {
+      return res.status(403).json({ success: false, message: '厂家效期已到期，请联系管理员续期' });
+    }
     
     // 生成 token
     const token = jwt.sign(
@@ -367,9 +371,20 @@ const verifyManufacturer = async (req, res, next) => {
     if (decoded.type !== 'manufacturer') {
       return res.status(403).json({ success: false, message: '无权访问' });
     }
-    
-    req.manufacturerId = decoded.id;
-    req.manufacturerName = decoded.name;
+
+    const manufacturer = await Manufacturer.findById(decoded.id).select('_id name status expiryDate').lean()
+    if (!manufacturer) {
+      return res.status(401).json({ success: false, message: '登录已过期，请重新登录' })
+    }
+    if (manufacturer.status !== 'active') {
+      return res.status(403).json({ success: false, message: '账户已被禁用' })
+    }
+    if (manufacturer.expiryDate && new Date() > new Date(manufacturer.expiryDate)) {
+      return res.status(403).json({ success: false, message: '厂家效期已到期，请联系管理员续期' })
+    }
+
+    req.manufacturerId = String(manufacturer._id);
+    req.manufacturerName = manufacturer.name;
     next();
   } catch (error) {
     res.status(401).json({ success: false, message: '登录已过期，请重新登录' });

@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken')
 const bcryptjs = require('bcryptjs')
 const User = require('../models/User')
+const Manufacturer = require('../models/Manufacturer')
 const { AuthenticationError } = require('../utils/errors')
 
 const generateToken = (userId) => {
@@ -41,6 +42,8 @@ const wxLogin = async (code) => {
       userType: 'customer'
     })
   }
+
+  await assertManufacturerNotExpired(user)
   
   user.lastLoginAt = new Date()
   await ensureProfileCompleted(user)
@@ -77,6 +80,27 @@ const verifyToken = (token) => {
   }
 }
 
+const assertManufacturerNotExpired = async (user) => {
+  if (!user) return
+  if (user.role === 'super_admin' || user.role === 'admin' || user.role === 'platform_admin') return
+
+  const mids = []
+  if (user.manufacturerId) mids.push(String(user.manufacturerId))
+  if (Array.isArray(user.manufacturerIds) && user.manufacturerIds.length) {
+    for (const id of user.manufacturerIds) {
+      const s = String(id)
+      if (s && !mids.includes(s)) mids.push(s)
+    }
+  }
+
+  if (!mids.length) return
+
+  const manufacturers = await Manufacturer.find({ _id: { $in: mids } }).select('status expiryDate').lean()
+  const now = new Date()
+  const expired = (manufacturers || []).some(m => m?.status === 'active' && m?.expiryDate && now > new Date(m.expiryDate))
+  if (expired) throw new AuthenticationError('厂家效期已到期')
+}
+
 const refreshToken = async (userId) => {
   const user = await User.findById(userId)
   if (!user) {
@@ -105,6 +129,8 @@ const usernamePasswordLogin = async (username, password) => {
   if (!isPasswordValid) {
     throw new AuthenticationError('密码错误')
   }
+
+  await assertManufacturerNotExpired(user)
   
   // 更新最后登录时间
   user.lastLoginAt = new Date()
@@ -148,6 +174,8 @@ const adminLogin = async (username, password) => {
   if (!isPasswordValid) {
     throw new AuthenticationError('密码错误')
   }
+
+  await assertManufacturerNotExpired(user)
   
   // 更新最后登录时间
   user.lastLoginAt = new Date()
@@ -206,6 +234,8 @@ const loginOrRegisterWithPhone = async (phone) => {
       status: 'active'
     })
   }
+
+  await assertManufacturerNotExpired(user)
   
   // 更新最后登录时间
   user.lastLoginAt = new Date()

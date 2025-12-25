@@ -1,6 +1,27 @@
 const jwt = require('jsonwebtoken')
 const { errorResponse } = require('../utils/response')
 const User = require('../models/User')
+const Manufacturer = require('../models/Manufacturer')
+
+const isManufacturerExpiredForUser = async (user) => {
+  if (!user) return false
+  if (user.role === 'super_admin' || user.role === 'admin' || user.role === 'platform_admin') return false
+
+  const mids = []
+  if (user.manufacturerId) mids.push(String(user.manufacturerId))
+  if (Array.isArray(user.manufacturerIds) && user.manufacturerIds.length) {
+    for (const id of user.manufacturerIds) {
+      const s = String(id)
+      if (s && !mids.includes(s)) mids.push(s)
+    }
+  }
+
+  if (!mids.length) return false
+
+  const manufacturers = await Manufacturer.find({ _id: { $in: mids } }).select('status expiryDate').lean()
+  const now = new Date()
+  return (manufacturers || []).some(m => m?.status === 'active' && m?.expiryDate && now > new Date(m.expiryDate))
+}
 
 const auth = async (req, res, next) => {
   try {
@@ -25,6 +46,10 @@ const auth = async (req, res, next) => {
     }
     if (user.status === 'expired') {
       return res.status(403).json(errorResponse('账号已过期', 403))
+    }
+
+    if (await isManufacturerExpiredForUser(user)) {
+      return res.status(403).json(errorResponse('厂家效期已到期', 403))
     }
     
     // 检查特殊账号是否过期
@@ -57,7 +82,9 @@ const optionalAuth = async (req, res, next) => {
       
       const user = await User.findById(decoded.userId).select('-password')
       if (user && user.status === 'active') {
-        req.user = user
+        if (!(await isManufacturerExpiredForUser(user))) {
+          req.user = user
+        }
       }
     }
     next()

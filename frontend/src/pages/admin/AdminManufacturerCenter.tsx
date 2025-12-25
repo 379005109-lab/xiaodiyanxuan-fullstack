@@ -29,6 +29,12 @@ type Manufacturer = {
     wechatQrCode?: string
     alipayQrCode?: string
     businessLicense?: string
+    paymentAccounts?: Array<{
+      type?: 'bank' | 'wechat' | 'alipay'
+      bankName?: string
+      accountName?: string
+      accountNumber?: string
+    }>
     bankInfo?: {
       bankName?: string
       accountName?: string
@@ -102,6 +108,14 @@ const getLogoSrc = (logo: any, size: number) => {
   const id = normalizeFileId(logo)
   if (!id) return ''
   return getThumbnailUrl(id, size)
+}
+
+const getAccountTypeLabel = (t: ManufacturerAccount['accountType']) => {
+  if (t === 'auth') return '主账号'
+  if (t === 'sub') return '子账号'
+  if (t === 'normal') return '合作账号'
+  if (t === 'designer') return '设计师'
+  return t
 }
 
 const AccountManagementModal = ({
@@ -294,7 +308,7 @@ const AccountManagementModal = ({
       <div className="relative w-full max-w-[1200px] bg-white rounded-[3rem] shadow-2xl overflow-hidden">
         <div className="p-10 border-b flex items-center justify-between bg-white">
           <div>
-            <div className="text-3xl font-black text-gray-900">账号分发管控中心</div>
+            <div className="text-3xl font-black text-gray-900">厂家账号管理</div>
             <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">{manufacturer?.name || ''}</div>
           </div>
           <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400" type="button">
@@ -317,10 +331,10 @@ const AccountManagementModal = ({
                 className="px-6 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold"
               >
                 <option value="all">全部</option>
-                <option value="auth">授权账号</option>
+                <option value="auth">主账号</option>
                 <option value="sub">子账号</option>
+                <option value="normal">合作账号</option>
                 <option value="designer">设计师</option>
-                <option value="normal">普通</option>
               </select>
             </div>
             <button onClick={openCreate} className="rounded-2xl px-8 py-3 bg-[#153e35] text-white font-black" type="button">
@@ -338,7 +352,7 @@ const AccountManagementModal = ({
                     <div className="flex items-center gap-3">
                       <div className={`w-2.5 h-2.5 rounded-full ${acc.status === 'active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
                       <div className="text-sm font-black text-gray-900 truncate">{acc.username}</div>
-                      <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{acc.accountType}</div>
+                      <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{getAccountTypeLabel(acc.accountType)}</div>
                     </div>
                     <div className="text-xs font-bold text-gray-400 mt-1 truncate">{acc.nickname || '-'}</div>
                   </div>
@@ -390,10 +404,10 @@ const AccountManagementModal = ({
                 <div>
                   <div className="text-xs font-black text-gray-400 uppercase tracking-widest">账号类型</div>
                   <select value={form.accountType} onChange={e => setForm(prev => ({ ...prev, accountType: e.target.value as any }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold">
-                    <option value="auth">授权账号</option>
+                    <option value="auth">主账号</option>
                     <option value="sub">子账号</option>
+                    <option value="normal">合作账号</option>
                     <option value="designer">设计师</option>
-                    <option value="normal">普通</option>
                   </select>
                 </div>
               </div>
@@ -457,6 +471,7 @@ const ManufacturerEditDrawer = ({
   const [form, setForm] = useState<{
     fullName: string
     shortName: string
+    code: string
     contactName: string
     contactPhone: string
     contactEmail: string
@@ -482,14 +497,38 @@ const ManufacturerEditDrawer = ({
         accountName: string
         accountNumber: string
       }
+      paymentAccounts: Array<{
+        type: 'bank' | 'wechat' | 'alipay'
+        bankName: string
+        accountName: string
+        accountNumber: string
+      }>
     }
   }>(null as any)
 
   const hydrate = (m?: Manufacturer | null) => {
     const quota = m?.accountQuota || {}
+    const paymentAccountsRaw = Array.isArray(m?.settings?.paymentAccounts) ? m?.settings?.paymentAccounts : []
+    const paymentAccounts = paymentAccountsRaw.length
+      ? paymentAccountsRaw.map((p: any) => ({
+          type: (p?.type || 'bank') as any,
+          bankName: p?.bankName || '',
+          accountName: p?.accountName || '',
+          accountNumber: p?.accountNumber || '',
+        }))
+      : [
+          {
+            type: 'bank' as const,
+            bankName: m?.settings?.bankInfo?.bankName || '',
+            accountName: m?.settings?.bankInfo?.accountName || '',
+            accountNumber: m?.settings?.bankInfo?.accountNumber || '',
+          },
+        ]
+
     setForm({
       fullName: m?.fullName || m?.name || '',
       shortName: m?.shortName || '',
+      code: m?.code || '',
       contactName: m?.contactName || '',
       contactPhone: m?.contactPhone || '',
       contactEmail: m?.contactEmail || '',
@@ -515,6 +554,7 @@ const ManufacturerEditDrawer = ({
           accountName: m?.settings?.bankInfo?.accountName || '',
           accountNumber: m?.settings?.bankInfo?.accountNumber || '',
         },
+        paymentAccounts,
       },
     })
   }
@@ -569,6 +609,8 @@ const ManufacturerEditDrawer = ({
         })
         toast.success('创建成功')
       } else {
+        const paymentAccounts = Array.isArray(form.settings.paymentAccounts) ? form.settings.paymentAccounts : []
+        const firstBank = paymentAccounts.find(p => p?.type === 'bank')
         await apiClient.put(`/manufacturers/${manufacturer!._id}`, {
           fullName: form.fullName,
           shortName: form.shortName,
@@ -586,7 +628,12 @@ const ManufacturerEditDrawer = ({
             alipayQrCode: normalizeFileId(form.settings.alipayQrCode),
             businessLicense: normalizeFileId(form.settings.businessLicense),
             companyAddress: form.settings.companyAddress,
-            bankInfo: form.settings.bankInfo,
+            bankInfo: {
+              bankName: firstBank?.bankName || form.settings.bankInfo.bankName,
+              accountName: firstBank?.accountName || form.settings.bankInfo.accountName,
+              accountNumber: firstBank?.accountNumber || form.settings.bankInfo.accountNumber,
+            },
+            paymentAccounts,
           },
           accountQuota: form.accountQuota,
         })
@@ -608,7 +655,7 @@ const ManufacturerEditDrawer = ({
       <div className="relative w-full max-w-4xl bg-white shadow-2xl h-full flex flex-col overflow-hidden">
         <div className="p-10 border-b bg-white flex items-center justify-between">
           <div>
-            <h2 className="text-4xl font-black text-gray-900 tracking-tight">{isCreate ? '品牌入驻申请' : '修改厂家核心资料'}</h2>
+            <h2 className="text-4xl font-black text-gray-900 tracking-tight">{isCreate ? '品牌入驻申请' : '资料编辑'}</h2>
             <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Global Identity & Certification</p>
           </div>
           <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400" type="button">
@@ -629,6 +676,10 @@ const ManufacturerEditDrawer = ({
                 </div>
                 <div className="md:col-span-2 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">厂家ID</div>
+                      <input value={form.code} disabled className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold text-gray-500" />
+                    </div>
                     <div>
                       <div className="text-xs font-black text-gray-400 uppercase tracking-widest">厂家全称</div>
                       <input value={form.fullName} onChange={e => setForm(prev => ({ ...prev, fullName: e.target.value }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold" />
@@ -680,7 +731,147 @@ const ManufacturerEditDrawer = ({
             </section>
 
             <section className="space-y-6">
-              <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-blue-500 pl-4">03. 账号配额</div>
+              <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-[#153e35] pl-4">03. 银行/三方结算信息</div>
+              <div className="space-y-4">
+                {(form.settings.paymentAccounts || []).map((p, idx) => (
+                  <div key={idx} className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        {(['bank', 'wechat', 'alipay'] as const).map(t => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => {
+                              setForm(prev => {
+                                const next = { ...prev }
+                                const arr = [...next.settings.paymentAccounts]
+                                arr[idx] = { ...arr[idx], type: t }
+                                next.settings = { ...next.settings, paymentAccounts: arr }
+                                return next
+                              })
+                            }}
+                            className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${p.type === t ? 'bg-[#153e35] text-white border-[#153e35]' : 'bg-gray-50 text-gray-500 border-gray-100'}`}
+                          >
+                            {t === 'bank' ? '银行' : t === 'wechat' ? '微信' : '支付宝'}
+                          </button>
+                        ))}
+                      </div>
+                      {(form.settings.paymentAccounts || []).length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForm(prev => {
+                              const next = { ...prev }
+                              const arr = [...next.settings.paymentAccounts]
+                              arr.splice(idx, 1)
+                              next.settings = { ...next.settings, paymentAccounts: arr }
+                              return next
+                            })
+                          }}
+                          className="text-[10px] font-black uppercase tracking-widest text-red-500"
+                        >
+                          移除该账户
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs font-black text-gray-400 uppercase tracking-widest">开户银行/平台全称</div>
+                        <input
+                          value={p.bankName}
+                          onChange={e => {
+                            const v = e.target.value
+                            setForm(prev => {
+                              const next = { ...prev }
+                              const arr = [...next.settings.paymentAccounts]
+                              arr[idx] = { ...arr[idx], bankName: v }
+                              next.settings = { ...next.settings, paymentAccounts: arr }
+                              return next
+                            })
+                          }}
+                          className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold"
+                          placeholder="招商银行 / 支付宝..."
+                        />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-gray-400 uppercase tracking-widest">收款人/实名姓名</div>
+                        <input
+                          value={p.accountName}
+                          onChange={e => {
+                            const v = e.target.value
+                            setForm(prev => {
+                              const next = { ...prev }
+                              const arr = [...next.settings.paymentAccounts]
+                              arr[idx] = { ...arr[idx], accountName: v }
+                              next.settings = { ...next.settings, paymentAccounts: arr }
+                              return next
+                            })
+                          }}
+                          className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="text-xs font-black text-gray-400 uppercase tracking-widest">卡号 / UID / 账号</div>
+                        <input
+                          value={p.accountNumber}
+                          onChange={e => {
+                            const v = e.target.value
+                            setForm(prev => {
+                              const next = { ...prev }
+                              const arr = [...next.settings.paymentAccounts]
+                              arr[idx] = { ...arr[idx], accountNumber: v }
+                              next.settings = { ...next.settings, paymentAccounts: arr }
+                              return next
+                            })
+                          }}
+                          className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm(prev => ({
+                      ...prev,
+                      settings: {
+                        ...prev.settings,
+                        paymentAccounts: [
+                          ...(prev.settings.paymentAccounts || []),
+                          { type: 'bank', bankName: '', accountName: '', accountNumber: '' }
+                        ]
+                      }
+                    }))
+                  }}
+                  className="w-full py-5 border-2 border-dashed border-gray-200 rounded-[2rem] text-xs font-black text-gray-500 hover:text-[#153e35]"
+                >
+                  + 新增财务结算方式
+                </button>
+              </div>
+            </section>
+
+            <section className="space-y-6">
+              <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-blue-500 pl-4">04. 资质合规：营业执照认证</div>
+              <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-[2.5rem] p-10">
+                <div className="max-w-md">
+                  <ImageUploader
+                    images={form.settings.businessLicense ? [form.settings.businessLicense] : []}
+                    onChange={imgs => setForm(prev => ({ ...prev, settings: { ...prev.settings, businessLicense: imgs[0] || '' } }))}
+                    multiple={false}
+                    label="上传营业执照"
+                  />
+                </div>
+                <div className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  需确保执照处于有效期内，公章清晰。支持 JPG、PDF 格式。
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-6">
+              <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-blue-500 pl-4">05. 账号配额</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-xs font-black text-gray-400 uppercase tracking-widest">授权主号配额</div>
@@ -922,9 +1113,24 @@ export default function AdminManufacturerCenter() {
 
                 <div className="p-12 pb-8">
                   <div className="flex items-start gap-6 mb-10">
-                    <div className="w-20 h-20 rounded-[2rem] bg-[#f9fbfc] border border-gray-100 p-4 shadow-inner flex items-center justify-center overflow-hidden">
-                      {logoSrc ? <img src={logoSrc} alt={name} className="w-full h-full object-contain" /> : null}
-                    </div>
+                    <button
+                      type="button"
+                      className="w-20 h-20 rounded-[2rem] bg-[#f9fbfc] border border-gray-100 p-4 shadow-inner flex items-center justify-center overflow-hidden cursor-pointer"
+                      onClick={() => {
+                        setActiveM(m)
+                        setShowEdit(true)
+                      }}
+                    >
+                      {logoSrc ? (
+                        <img
+                          src={logoSrc}
+                          alt={name}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div className="text-[10px] font-black text-gray-300">点击编辑</div>
+                      )}
+                    </button>
                     <div className="min-w-0 pr-24">
                       <h3 className="text-3xl font-black text-gray-900 leading-tight truncate">{name}</h3>
                       <div className="flex flex-wrap gap-1.5 mt-2" onClick={() => setEditingField({ id: String(m._id), field: 'styleTags' })}>
@@ -1000,9 +1206,9 @@ export default function AdminManufacturerCenter() {
 
                   <div className="mb-10 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-black uppercase tracking-widest text-gray-400">账号总额</div>
+                      <div className="text-sm font-black uppercase tracking-widest text-gray-400">账号总额</div>
                       <div
-                        className="bg-gray-100 px-3 py-1 rounded-lg text-[9px] font-black text-gray-500 cursor-pointer"
+                        className="bg-gray-100 px-4 py-2 rounded-xl text-sm font-black text-gray-700 cursor-pointer"
                         onClick={() => setEditingField({ id: String(m._id), field: 'quota-total' })}
                       >
                         {editingField?.id === String(m._id) && editingField?.field === 'quota-total' ? (
@@ -1014,10 +1220,10 @@ export default function AdminManufacturerCenter() {
                               handleUpdateField(String(m._id), 'quota-total', e.target.value)
                               setEditingField(null)
                             }}
-                            className="w-16 text-center bg-transparent outline-none"
+                            className="w-28 text-center bg-transparent outline-none"
                           />
                         ) : (
-                          totalQuota
+                          Number(totalQuota || 0).toLocaleString()
                         )}
                       </div>
                     </div>
@@ -1097,7 +1303,7 @@ export default function AdminManufacturerCenter() {
                     className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-emerald-700 transition-all shadow-sm"
                     type="button"
                   >
-                    账号管控
+                    厂家账号管理
                   </button>
                   <button
                     onClick={() => handleOpenProductAuthorization(m)}
@@ -1114,7 +1320,7 @@ export default function AdminManufacturerCenter() {
                     className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:border-[#153e35] transition-all shadow-sm"
                     type="button"
                   >
-                    核心档案
+                    资料编辑
                   </button>
                   <button
                     onClick={() => handleOpenTierSystem(m)}

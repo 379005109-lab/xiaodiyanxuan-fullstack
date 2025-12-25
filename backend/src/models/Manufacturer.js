@@ -105,6 +105,17 @@ const manufacturerSchema = new mongoose.Schema({
       accountName: String,
       accountNumber: String
     },
+
+    paymentAccounts: [{
+      type: {
+        type: String,
+        enum: ['bank', 'wechat', 'alipay'],
+        default: 'bank'
+      },
+      bankName: String,
+      accountName: String,
+      accountNumber: String
+    }],
     // 公司地址
     companyAddress: {
       type: String,
@@ -218,12 +229,12 @@ const manufacturerSchema = new mongoose.Schema({
   }
 })
 
-// 生成4位随机大写字母
-function generateRandomLetters(length = 4) {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+// 生成4位随机数字
+function generateRandomDigits(length = 4) {
+  const digits = '0123456789'
   let result = ''
   for (let i = 0; i < length; i++) {
-    result += letters.charAt(Math.floor(Math.random() * letters.length))
+    result += digits.charAt(Math.floor(Math.random() * digits.length))
   }
   return result
 }
@@ -235,11 +246,11 @@ async function generateUniqueCode(shortName) {
     (today.getMonth() + 1).toString().padStart(2, '0') +
     today.getDate().toString().padStart(2, '0')
   
-  // 生成4位随机字母
-  const randomLetters = generateRandomLetters(4)
+  // 生成4位随机数字
+  const randomDigits = generateRandomDigits(4)
   
-  // 组合编号：简称 + 日期 + 4位随机字母（如：GS20251211ABCD）
-  const code = `${shortName.toUpperCase()}${dateStr}${randomLetters}`
+  // 组合编号：简称 + 日期 + 4位随机数字（如：GS20251211XXXX）
+  const code = `${shortName.toUpperCase()}${dateStr}${randomDigits}`
   
   // 检查是否已存在
   const existing = await mongoose.model('Manufacturer').findOne({ code })
