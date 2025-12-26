@@ -215,7 +215,7 @@ export default function TierSystemManagement() {
   const [selectedManufacturerCommission, setSelectedManufacturerCommission] = useState<number>(0)
   const [selectedManufacturerMeta, setSelectedManufacturerMeta] = useState<{ name?: string; logo?: string } | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'modules' | 'pool' | 'hierarchy' | 'reconciliation'>('modules')
+  const [activeTab, setActiveTab] = useState<'hierarchy' | 'pool' | 'reconciliation'>('hierarchy')
   const [data, setData] = useState<TierSystemData>(() => createDefaultTierSystemData())
   const [selectedModule, setSelectedModule] = useState<RoleModule | null>(null)
   const [showModuleModal, setShowModuleModal] = useState(false)
@@ -435,7 +435,7 @@ export default function TierSystemManagement() {
       {/* 页头 */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">分层体系管理</h1>
-        <p className="text-sm text-gray-500 mt-1">管理角色模块、毛利池配置和多层级授权关系</p>
+        <p className="text-sm text-gray-500 mt-1">管理分层组织架构、收益设置和返佣对账</p>
         <div className="mt-4 flex items-center gap-3">
           <div className="text-sm text-gray-600 flex items-center gap-2">
             <Building2 className="w-4 h-4" />
@@ -467,45 +467,27 @@ export default function TierSystemManagement() {
       <div className="mb-6 border-b border-gray-200">
         <div className="flex gap-8">
           <TabButton 
-            active={activeTab === 'modules'} 
-            onClick={() => setActiveTab('modules')}
-            icon={<Layers className="w-4 h-4" />}
-            label="角色模块"
+            active={activeTab === 'hierarchy'} 
+            onClick={() => setActiveTab('hierarchy')}
+            icon={<GitBranch className="w-4 h-4" />}
+            label="分层组织架构"
           />
           <TabButton 
             active={activeTab === 'pool'} 
             onClick={() => setActiveTab('pool')}
             icon={<BarChart3 className="w-4 h-4" />}
-            label="角色全局阀值"
-          />
-          <TabButton 
-            active={activeTab === 'hierarchy'} 
-            onClick={() => setActiveTab('hierarchy')}
-            icon={<GitBranch className="w-4 h-4" />}
-            label="垂直分配地图"
+            label="收益设置"
           />
           <TabButton
             active={activeTab === 'reconciliation'}
             onClick={() => setActiveTab('reconciliation')}
             icon={<TrendingUp className="w-4 h-4" />}
-            label="垂直对账流水"
+            label="返佣对账"
           />
         </div>
       </div>
 
       {/* 内容区域 */}
-      {activeTab === 'modules' && (
-        <RoleModulesTab 
-          modules={data.roleModules}
-          selectedModule={selectedModule}
-          onSelectModule={setSelectedModule}
-          onUpdateModule={updateRoleModule}
-          onAddRule={addDiscountRule}
-          onUpdateRule={updateDiscountRule}
-          onDeleteRule={deleteDiscountRule}
-        />
-      )}
-      
       {activeTab === 'pool' && (
         <ProfitPoolTab 
           modules={data.roleModules}
@@ -614,7 +596,7 @@ function ReconciliationTab({
     <div className="space-y-6">
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="p-4 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-900">结算历史对账</h3>
+          <h3 className="font-semibold text-gray-900">返佣对账</h3>
           <p className="text-sm text-gray-500 mt-1">
             {meta?.manufacturerName ? `厂家：${meta.manufacturerName}；` : ''}
             {meta?.commissionRate !== undefined ? `返佣比例：${meta.commissionRate}%` : '返佣比例：--'}
@@ -1138,56 +1120,12 @@ function ProfitPoolTab({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState(0)
 
-  const activeModules = useMemo(() => {
-    return (modules || []).filter(m => m.isActive)
-  }, [modules])
-
-  const [selectedRoleId, setSelectedRoleId] = useState<string>(() => {
-    return String(activeModules[0]?._id || modules[0]?._id || '')
-  })
-
-  useEffect(() => {
-    if (!selectedRoleId) {
-      setSelectedRoleId(String(activeModules[0]?._id || modules[0]?._id || ''))
-      return
-    }
-    const exists = (modules || []).some(m => String(m._id) === String(selectedRoleId))
-    if (!exists) {
-      setSelectedRoleId(String(activeModules[0]?._id || modules[0]?._id || ''))
-    }
-  }, [activeModules, modules, selectedRoleId])
-
   const discountPercent = Math.round(Number(profitSettings?.minSaleDiscountRate ?? 1) * 100)
   const commissionPercent = Math.round(Number(commissionRate || 0))
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-12 gap-6 max-w-6xl mx-auto">
-        <div className="col-span-12 md:col-span-4 space-y-3">
-          {(activeModules.length > 0 ? activeModules : modules).map(role => (
-            <button
-              key={role._id}
-              type="button"
-              onClick={() => setSelectedRoleId(String(role._id))}
-              className={`w-full p-6 rounded-[1.75rem] border transition-all flex items-center justify-between group ${String(selectedRoleId) === String(role._id)
-                ? 'bg-[#153e35] text-white shadow-xl border-[#153e35]'
-                : 'bg-white border-gray-100 hover:border-emerald-200 shadow-sm'
-              }`}
-            >
-              <span className="font-black text-sm uppercase tracking-widest">{role.name}</span>
-              <svg
-                className={`w-5 h-5 transition-transform ${String(selectedRoleId) === String(role._id) ? 'rotate-90 text-white' : 'text-gray-200'}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          ))}
-        </div>
-
-        <div className="col-span-12 md:col-span-8 bg-white p-10 md:p-12 rounded-[2.5rem] border border-gray-50 shadow-sm space-y-12">
+      <div className="max-w-6xl mx-auto bg-white p-10 md:p-12 rounded-[2.5rem] border border-gray-50 shadow-sm space-y-12">
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <label className="text-xs font-black uppercase tracking-widest text-gray-400">全链条最低折扣限制 (%)</label>
@@ -1226,123 +1164,6 @@ function ProfitPoolTab({
               <div className="text-xs text-gray-400">仅管理员可修改</div>
             ) : null}
           </div>
-        </div>
-      </div>
-
-      {/* 业务线毛利池列表 */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="p-4 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-900">业务线毛利池配置</h3>
-          <p className="text-sm text-gray-500 mt-1">设置每条业务线的毛利上限，下级授权不能超过此上限</p>
-        </div>
-        
-        <div className="divide-y divide-gray-100">
-          {modules.sort((a, b) => a.sortOrder - b.sortOrder).map(module => {
-            const Icon = ICON_MAP[module.icon] || Layers
-            const usagePercent = module.maxProfitRate > 0 
-              ? (module.currentAllocatedRate / module.maxProfitRate) * 100 
-              : 0
-            
-            return (
-              <div key={module._id} className="p-4 hover:bg-gray-50">
-                <div className="flex items-center gap-4">
-                  <div className={`p-2.5 rounded-lg ${module.isActive ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-400'}`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{module.name}</span>
-                      <span className="text-xs text-gray-400">({module.code})</span>
-                      {!module.isActive && (
-                        <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">已禁用</span>
-                      )}
-                    </div>
-                    
-                    {/* 进度条 */}
-                    <div className="mt-2 flex items-center gap-3">
-                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-primary-400 to-primary-600 rounded-full transition-all"
-                          style={{ width: `${Math.min(usagePercent, 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-500 w-20">
-                        {module.currentAllocatedRate}% / {module.maxProfitRate}%
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* 编辑毛利上限 */}
-                  <div className="flex items-center gap-2">
-                    {editingId === module._id ? (
-                      <>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={editValue}
-                          onChange={(e) => setEditValue(parseInt(e.target.value) || 0)}
-                          className="w-20 input text-center"
-                          autoFocus
-                        />
-                        <span className="text-gray-500">%</span>
-                        <button
-                          onClick={() => {
-                            if (editValue < module.currentAllocatedRate) {
-                              toast.error('上限不能低于已分配比例')
-                              return
-                            }
-                            onUpdateModule(module._id, { maxProfitRate: editValue })
-                            setEditingId(null)
-                          }}
-                          className="p-1.5 text-green-600 hover:bg-green-50 rounded"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="p-1.5 text-gray-400 hover:bg-gray-100 rounded"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-lg font-bold text-primary-600">{module.maxProfitRate}%</span>
-                        <button
-                          onClick={() => {
-                            setEditingId(module._id)
-                            setEditValue(module.maxProfitRate)
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* 说明 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-700">
-            <p className="font-medium">毛利池规则说明</p>
-            <ul className="mt-2 space-y-1 text-blue-600">
-              <li>• 每条业务线有独立的毛利池上限，如设计师业务线上限40%</li>
-              <li>• 下级授权的比例之和不能超过上级的可分配比例</li>
-              <li>• 已分配比例 = 已授权给下级的比例总和</li>
-              <li>• 可分配比例 = 毛利池上限 - 已分配比例</li>
-            </ul>
-          </div>
-        </div>
       </div>
     </div>
   )
@@ -1694,7 +1515,7 @@ function HierarchyTab({
               )}
             </div>
             <div className="min-w-0">
-              <h2 className="text-2xl font-black text-gray-900 tracking-tight truncate">垂直分销利润地图</h2>
+              <h2 className="text-2xl font-black text-gray-900 tracking-tight truncate">分层组织架构</h2>
               <p className="text-gray-400 font-bold uppercase tracking-widest text-xs truncate">
                 {manufacturerName || manufacturerId} • 基于垂直{Number(commissionRate || 0)}%佣金池独立分发
               </p>

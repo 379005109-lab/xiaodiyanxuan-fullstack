@@ -71,7 +71,7 @@ export default function ProductsPage() {
 
   // 筛选条件 - 默认显示沙发类别
   const [filters, setFilters] = useState({
-    category: searchParams.get('category') || '沙发',
+    category: searchParams.get('category') || '',
     style: searchParams.get('style') || '',
     priceRange: searchParams.get('priceRange') || '',
     sort: searchParams.get('sort') || 'recommend',
@@ -320,8 +320,11 @@ export default function ProductsPage() {
       })
       
       // 检查商品分类是否匹配
-      const productCategory = String(product.category)
-      const productCategoryName = (product as any).categoryName || ''
+      const rawCategory: any = (product as any).category
+      const productCategory = typeof rawCategory === 'object'
+        ? String(rawCategory?._id || rawCategory?.id || '')
+        : String(rawCategory ?? '')
+      const productCategoryName = (product as any).categoryName || rawCategory?.name || rawCategory?.title || ''
       
       if (!allCategoryIds.has(productCategory) && !allCategoryIds.has(productCategoryName)) {
         return false
@@ -391,6 +394,17 @@ export default function ProductsPage() {
     
     return score
   }
+
+  const isLargeItemProduct = (product: Product): boolean => {
+    const name = String(product?.name || '')
+    const rawCategory: any = (product as any).category
+    const categoryName = String((product as any).categoryName || rawCategory?.name || rawCategory?.title || rawCategory?.slug || '')
+    const tags: string[] = Array.isArray((product as any).tags) ? (product as any).tags : []
+    const joined = `${name} ${categoryName} ${tags.join(' ')}`
+
+    const keywords = ['沙发', '床', '床垫', '茶几', '餐桌', '餐椅', '书桌', '衣柜', '柜']
+    return keywords.some(k => joined.includes(k))
+  }
   
   // 计算推荐评分（偏向新品和热门）
   const calculateRecommendScore = (product: Product): number => {
@@ -418,6 +432,12 @@ export default function ProductsPage() {
 
   // 排序
   const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const shouldPrioritizeLarge = !filters.category && !searchKeyword && filters.sort === 'recommend'
+    if (shouldPrioritizeLarge) {
+      const ar = isLargeItemProduct(a) ? 0 : 1
+      const br = isLargeItemProduct(b) ? 0 : 1
+      if (ar !== br) return ar - br
+    }
     switch (filters.sort) {
       case 'price-asc':
         return getDisplayPrice(a as any) - getDisplayPrice(b as any)
