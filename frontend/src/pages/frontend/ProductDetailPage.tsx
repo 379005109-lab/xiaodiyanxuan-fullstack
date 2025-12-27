@@ -459,6 +459,13 @@ const ProductDetailPage = () => {
 
   const isComboProduct = Boolean((product as any)?.isCombo);
 
+  const comboTotalPrice = useMemo(() => {
+    if (!product || !isComboProduct) return 0;
+    const allSkus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+    const selectedSkus = allSkus.filter(s => selectedSkuIds.includes(String(s._id)));
+    return selectedSkus.reduce((sum, sku) => sum + Number(getFinalPrice(sku) || 0), 0);
+  }, [product, isComboProduct, selectedSkuIds]);
+
   const galleryImages = useMemo(() => {
     if (isComboProduct) {
       const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
@@ -870,13 +877,6 @@ const ProductDetailPage = () => {
   })();
   
   const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : productDisplayPrice;
-
-  const comboTotalPrice = useMemo(() => {
-    if (!product || !isComboProduct) return 0;
-    const allSkus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
-    const selectedSkus = allSkus.filter(s => selectedSkuIds.includes(String(s._id)));
-    return selectedSkus.reduce((sum, sku) => sum + Number(getFinalPrice(sku) || 0), 0);
-  }, [product, isComboProduct, selectedSkuIds]);
 
   const displayPrice = isComboProduct ? comboTotalPrice : finalSkuPrice;
 
