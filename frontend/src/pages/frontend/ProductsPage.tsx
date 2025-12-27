@@ -395,10 +395,31 @@ export default function ProductsPage() {
     return score
   }
 
+  const categoryNameLookup = useMemo(() => {
+    const map = new Map<string, string>()
+    const walk = (cat: any) => {
+      if (!cat) return
+      const id = String(cat?._id || cat?.id || '')
+      const slug = String(cat?.slug || '')
+      const name = String(cat?.name || cat?.title || '')
+      if (id && name) map.set(id, name)
+      if (slug && name) map.set(slug, name)
+      if (name) map.set(name, name)
+      const children = Array.isArray(cat?.children) ? cat.children : []
+      children.forEach(walk)
+    }
+    ;(categories || []).forEach(walk)
+    return map
+  }, [categories])
+
   const isLargeItemProduct = (product: Product): boolean => {
     const name = String(product?.name || '')
     const rawCategory: any = (product as any).category
-    const categoryName = String((product as any).categoryName || rawCategory?.name || rawCategory?.title || rawCategory?.slug || '')
+    const categoryNameFromProduct = String((product as any).categoryName || rawCategory?.name || rawCategory?.title || '')
+    const categoryKey = typeof rawCategory === 'object'
+      ? String(rawCategory?._id || rawCategory?.id || rawCategory?.slug || rawCategory?.name || '')
+      : String(rawCategory ?? '')
+    const categoryName = categoryNameFromProduct || (categoryKey ? (categoryNameLookup.get(categoryKey) || '') : '')
     const tags: string[] = Array.isArray((product as any).tags) ? (product as any).tags : []
     const joined = `${name} ${categoryName} ${tags.join(' ')}`
 
