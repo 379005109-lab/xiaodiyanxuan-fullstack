@@ -361,6 +361,8 @@ const ProductDetailPage = () => {
   const [previewMaterialImage, setPreviewMaterialImage] = useState<string | null>(null);
   const [materialInfoModal, setMaterialInfoModal] = useState<{ open: boolean; section?: string; material?: string }>({ open: false });
   const [isAllImageModalOpen, setAllImageModalOpen] = useState(false);
+  const [thumbPage, setThumbPage] = useState(0);
+  const [thumbsPerPage, setThumbsPerPage] = useState(4);
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
   const [materialAssetMap, setMaterialAssetMap] = useState<Record<string, string>>({});
   const [materialSectionReady, setMaterialSectionReady] = useState(false); // 延迟渲染材质区域
@@ -816,6 +818,45 @@ const ProductDetailPage = () => {
 
   const currentImageIndex = useMemo(() => galleryImages.findIndex(img => img === mainImage), [galleryImages, mainImage]);
 
+  useEffect(() => {
+    const calcThumbsPerPage = () => {
+      const width = window.innerWidth;
+      if (width >= 1024) return 7;
+      if (width >= 768) return 6;
+      if (width >= 640) return 5;
+      return 4;
+    };
+
+    const update = () => setThumbsPerPage(calcThumbsPerPage());
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  const thumbTotalPages = useMemo(() => {
+    if (!galleryImages.length) return 1;
+    return Math.max(1, Math.ceil(galleryImages.length / Math.max(1, thumbsPerPage)));
+  }, [galleryImages.length, thumbsPerPage]);
+
+  const pagedThumbnails = useMemo(() => {
+    const safePerPage = Math.max(1, thumbsPerPage);
+    const start = thumbPage * safePerPage;
+    return galleryImages.slice(start, start + safePerPage);
+  }, [galleryImages, thumbPage, thumbsPerPage]);
+
+  useEffect(() => {
+    setThumbPage(prev => Math.min(prev, thumbTotalPages - 1));
+  }, [thumbTotalPages]);
+
+  useEffect(() => {
+    if (!galleryImages.length) return;
+    const index = galleryImages.findIndex(img => img === mainImage);
+    if (index < 0) return;
+    const safePerPage = Math.max(1, thumbsPerPage);
+    const nextPage = Math.floor(index / safePerPage);
+    setThumbPage(prev => (prev === nextPage ? prev : nextPage));
+  }, [galleryImages, mainImage, thumbsPerPage]);
+
   const handleImageNavigate = (direction: 'prev' | 'next') => {
     if (!galleryImages.length) return;
     const index = currentImageIndex >= 0 ? currentImageIndex : 0;
@@ -1001,9 +1042,9 @@ const ProductDetailPage = () => {
           <span className="text-gray-900 font-medium">{product.name}</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[640px_minmax(0,1fr)] gap-12 items-start">
           {/* Image Gallery */}
-          <div className="lg:sticky lg:top-8 lg:self-start">
+          <div className="lg:sticky lg:top-8 lg:self-start min-w-0">
             <div className="relative w-full bg-white rounded-3xl shadow-lg overflow-hidden">
               <div className="relative w-full aspect-[4/3]">
                 {/* 根据是否有材质预览图片决定布局 */}
@@ -1077,28 +1118,81 @@ const ProductDetailPage = () => {
                 </span>
               )}
             </div>
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-              {galleryImages.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setMainImage(img)}
-                  className={cn(
-                    'w-24 flex-shrink-0 border rounded-xl overflow-hidden transition-all',
-                    mainImage === img ? 'border-primary-600 ring-2 ring-primary-100' : 'border-gray-200'
-                  )}
-                >
-                  {isVideoFile(img) ? (
-                    <div className="w-full h-20 flex items-center justify-center bg-black text-white text-xs">视频</div>
-                  ) : (
-                    <img src={getThumbnailUrl(img, 100)} alt={`thumbnail ${idx + 1}`} className="w-full h-20 object-cover" loading="lazy" />
-                  )}
-                </button>
-              ))}
-            </div>
+            {galleryImages.length > 0 && (
+              <div className="mt-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setThumbPage(prev => Math.max(0, prev - 1))}
+                    disabled={thumbTotalPages <= 1 || thumbPage === 0}
+                    className={cn(
+                      'h-9 w-9 rounded-full border flex items-center justify-center transition-colors',
+                      thumbTotalPages <= 1 || thumbPage === 0
+                        ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    )}
+                    aria-label="上一页缩略图"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-3">
+                      {pagedThumbnails.map((img, idx) => {
+                        const absoluteIndex = thumbPage * Math.max(1, thumbsPerPage) + idx;
+                        return (
+                          <button
+                            key={`${img}-${absoluteIndex}`}
+                            type="button"
+                            onClick={() => setMainImage(img)}
+                            className={cn(
+                              'w-20 flex-shrink-0 border rounded-xl overflow-hidden transition-all',
+                              mainImage === img ? 'border-primary-600 ring-2 ring-primary-100' : 'border-gray-200'
+                            )}
+                          >
+                            {isVideoFile(img) ? (
+                              <div className="w-full h-16 flex items-center justify-center bg-black text-white text-xs">视频</div>
+                            ) : (
+                              <img
+                                src={getThumbnailUrl(img, 100)}
+                                alt={`thumbnail ${absoluteIndex + 1}`}
+                                className="w-full h-16 object-cover"
+                                loading="lazy"
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setThumbPage(prev => Math.min(thumbTotalPages - 1, prev + 1))}
+                    disabled={thumbTotalPages <= 1 || thumbPage >= thumbTotalPages - 1}
+                    className={cn(
+                      'h-9 w-9 rounded-full border flex items-center justify-center transition-colors',
+                      thumbTotalPages <= 1 || thumbPage >= thumbTotalPages - 1
+                        ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    )}
+                    aria-label="下一页缩略图"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {thumbTotalPages > 1 && (
+                  <div className="mt-2 text-center text-xs text-gray-400">
+                    {thumbPage + 1}/{thumbTotalPages}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
                 <p className="text-sm text-gray-400">产品系列</p>
