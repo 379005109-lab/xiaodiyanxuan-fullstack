@@ -1841,128 +1841,25 @@ function HierarchyTab({
     const nodeCommValue = maxCommPool * (Number(dist || 0) / 100)
     return { minPrice, nodeCommValue }
   }
-
   const getNodeProductCount = (a: AuthorizedAccount) => {
     const ids = Array.isArray(a.visibleCategoryIds) ? a.visibleCategoryIds : []
     if (ids.length > 0) return ids.length
     return manufacturerProducts.length
   }
 
-  const siblingsOfBubble = (account: AuthorizedAccount) => {
-    return filteredAccounts.filter(a => String(a.parentId || '') === String(account.parentId || '') && String(a._id) !== String(account._id))
-  }
+  const filteredAccounts = useMemo(() => {
+    if (selectedModuleCode === 'all') return accounts
+    return accounts.filter(a => {
+      const module = modules.find(m => String(m._id) === String(a.roleModuleId))
+      return module && module.code === selectedModuleCode
+    })
+  }, [accounts, modules, selectedModuleCode])
 
-  const renderBubbleNode = (account: AuthorizedAccount): any => {
-    const children = getChildren(account._id)
-    const hasChildren = children.length > 0
-    const isExpanded = expandedNodes.has(account._id)
-    const displayName = account.nickname || account.username
-
-    const distributionRate = Number((account as any).distributionRate ?? 0)
-    const siblings = siblingsOfBubble(account)
-    const siblingsSum = siblings.reduce((s, a) => s + Number((a as any).distributionRate ?? 0), 0)
-    const maxDistribution = Math.max(0, 100 - siblingsSum)
-    const { minPrice, nodeCommValue } = calc(distributionRate)
-
-    return (
-      <div key={account._id} className="flex flex-col items-center shrink-0">
-        <div className="w-80 p-8 rounded-[3rem] bg-white border-2 shadow-2xl relative transition-all duration-500 border-emerald-50 hover:border-[#153e35]">
-          <div className="flex items-center justify-between mb-6">
-            <div className="min-w-0">
-              <h5 className="text-base font-black text-gray-900 truncate">{displayName}</h5>
-              <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full border tracking-widest mt-1 inline-block bg-emerald-50 text-emerald-600 border-emerald-100">
-                自研节点
-              </span>
-            </div>
-            <span className="text-xs font-black text-[#153e35] bg-gray-50 px-3 py-1 rounded-xl">{distributionRate}%</span>
-          </div>
-
-          <div className="bg-gray-50/50 p-6 rounded-[2rem] border border-gray-100 space-y-4 relative overflow-hidden">
-            <div className="flex justify-between items-end">
-              <div className="text-[10px]">
-                <p className="text-gray-400 font-bold uppercase">成交受限价</p>
-                <p className="font-black text-gray-900 text-lg">¥{minPrice.toLocaleString()}</p>
-              </div>
-              <div className="text-[10px] text-right">
-                <p className="text-gray-400 font-bold uppercase">垂直所得</p>
-                <p className="font-black text-emerald-600 text-lg">¥{nodeCommValue.toLocaleString()}</p>
-              </div>
-            </div>
-            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden shadow-inner">
-              <div className="bg-[#153e35] h-full transition-all duration-1000" style={{ width: `${Math.max(0, Math.min(100, distributionRate))}%` }} />
-            </div>
-          </div>
-
-          <div className="mt-6 flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setParentAccount(account)
-                  setShowAddModal(true)
-                }}
-                className="text-[10px] font-black flex items-center gap-1 text-gray-500 hover:text-[#153e35] hover:underline"
-              >
-                绑定人员
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setProductAccount(account)
-                  setShowProductModal(true)
-                }}
-                className="text-[10px] font-black flex items-center gap-1 text-gray-500 hover:text-blue-600 hover:underline"
-              >
-                绑定商品
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[8px] font-bold text-gray-400 uppercase">垂直权重%</span>
-              <input
-                type="number"
-                min={0}
-                max={maxDistribution}
-                defaultValue={distributionRate}
-                onBlur={(e) => {
-                  const v = Math.max(0, Math.min(maxDistribution, parseFloat(e.target.value) || 0))
-                  const next = (accounts || []).map(a => {
-                    if (String(a._id) !== String(account._id)) return a
-                    return { ...a, distributionRate: v }
-                  })
-                  onSaveAccounts(next)
-                }}
-                className="w-12 bg-white border border-gray-100 rounded-lg text-[10px] text-center font-black outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between text-[10px] text-gray-400 font-bold">
-            <span>管理库房 ({getNodeProductCount(account)})</span>
-            <span>授权额度 {Number(account.allocatedRate || 0)}%</span>
-          </div>
-
-          {hasChildren ? (
-            <button
-              type="button"
-              onClick={() => onToggleNode(account._id)}
-              className={`absolute -bottom-5 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-white shadow-2xl border border-gray-100 flex items-center justify-center text-[#153e35] hover:bg-[#153e35] hover:text-white transition-all ${isExpanded ? 'rotate-180' : ''}`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-          ) : null}
-        </div>
-
-        {hasChildren && isExpanded ? (
-          <div className="flex flex-col items-center">
-            <div className="w-px h-12 bg-emerald-100" />
-            <div className="flex gap-16 relative px-12">
-              <div className="absolute top-0 left-12 right-12 h-px bg-emerald-100" />
-              {children.map(renderBubbleNode)}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    )
+  const handleAddAccounts = async (newAccounts: AuthorizedAccount[]) => {
+    const updated = [...accounts, ...newAccounts]
+    onSaveAccounts(updated)
+    setShowAddModal(false)
+    setParentAccount(null)
   }
 
   // duijie/nn风格的分层架构数据
