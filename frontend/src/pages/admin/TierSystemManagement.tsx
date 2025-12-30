@@ -1910,6 +1910,78 @@ function HierarchyTab({
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [zoomScale, setZoomScale] = useState(1)
+  
+  // 新增交互模态框状态
+  const [showPersonnelModal, setShowPersonnelModal] = useState(false)
+  const [showProductConfigModal, setShowProductConfigModal] = useState(false)
+  const [showProfileEditModal, setShowProfileEditModal] = useState(false)
+  const [selectedStaff, setSelectedStaff] = useState<any>(null)
+  const [canvasPosition, setCanvasPosition] = useState({ x: 0, y: 0 })
+  const [isTabPressed, setIsTabPressed] = useState(false)
+  const [editingCard, setEditingCard] = useState<string | null>(null)
+  const [editValues, setEditValues] = useState({ minDiscount: 0, distribution: 0 })
+
+  // TAB键控制画布移动
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        setIsTabPressed(true)
+      }
+    }
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        setIsTabPressed(false)
+      }
+    }
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isTabPressed && viewMode === 'map') {
+        setCanvasPosition(prev => ({
+          x: prev.x + e.movementX,
+          y: prev.y + e.movementY
+        }))
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('mousemove', handleMouseMove)
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('mousemove', handleMouseMove)
+    }
+  }, [isTabPressed, viewMode])
+  
+  // 点击处理函数
+  const handlePersonnelClick = (staff: any) => {
+    setSelectedStaff(staff)
+    setShowPersonnelModal(true)
+  }
+  
+  const handleProductClick = (staff: any) => {
+    setSelectedStaff(staff)
+    setShowProductConfigModal(true)
+  }
+  
+  const handleAvatarClick = (staff: any) => {
+    setSelectedStaff(staff)
+    setShowProfileEditModal(true)
+  }
+  
+  const handleCardEdit = (staffId: string, minDiscount: number, distribution: number) => {
+    setEditingCard(staffId)
+    setEditValues({ minDiscount, distribution })
+  }
+  
+  const saveCardEdit = (staffId: string) => {
+    // 这里可以调用API保存数据
+    console.log(`Saving ${staffId}:`, editValues)
+    setEditingCard(null)
+  }
 
   return (
     <div className="max-w-[1600px] mx-auto h-screen flex flex-col bg-[#fcfdfd] overflow-hidden">
@@ -1948,7 +2020,14 @@ function HierarchyTab({
         </button>
       </header>
 
-      <div className="flex-grow overflow-auto relative">
+      <div 
+        className="flex-grow overflow-auto p-12 bg-gray-50/50 relative" 
+        style={{ 
+          transform: `scale(${zoomScale}) translate(${canvasPosition.x}px, ${canvasPosition.y}px)`, 
+          transformOrigin: 'center center',
+          cursor: isTabPressed ? 'move' : 'default'
+        }}
+      >
         {viewMode === 'list' && (
           /* duijie/nn的列表视图 - 简单卡片 */
           <div className="p-20 max-w-5xl mx-auto space-y-10">
@@ -2075,7 +2154,10 @@ function HierarchyTab({
                 {hierarchyData.staffNodes.map((staff) => (
                   <div key={staff.id} className="w-64 p-8 bg-white rounded-[3rem] border border-gray-100 shadow-xl hover:shadow-2xl transition-all">
                     <div className="text-center mb-6">
-                      <div className="w-20 h-20 mx-auto mb-4 rounded-[2rem] overflow-hidden border-2 border-gray-100 shadow-inner">
+                      <div 
+                        onClick={() => handleAvatarClick(staff)}
+                        className="w-20 h-20 mx-auto mb-4 rounded-[2rem] overflow-hidden border-2 border-gray-100 shadow-inner cursor-pointer hover:border-emerald-400 transition-all"
+                      >
                         <img src={staff.avatar} alt={staff.name} className="w-full h-full object-cover" />
                       </div>
                       <h5 className="text-lg font-black text-gray-900 mb-1">{staff.name}</h5>
@@ -2085,24 +2167,66 @@ function HierarchyTab({
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className="bg-[#f0fff8] p-4 rounded-[1.5rem] border border-emerald-100 text-center">
+                      <div 
+                        onClick={() => handleCardEdit(staff.id, staff.minDiscount, staff.distribution)}
+                        className="bg-[#f0fff8] p-4 rounded-[1.5rem] border border-emerald-100 text-center cursor-pointer hover:border-emerald-300 transition-all"
+                      >
                         <p className="text-[8px] font-black text-emerald-700 uppercase mb-2">折扣</p>
-                        <div className="text-2xl font-black text-emerald-900">{staff.minDiscount}%</div>
+                        {editingCard === staff.id ? (
+                          <input 
+                            type="number" 
+                            value={editValues.minDiscount}
+                            onChange={(e) => setEditValues(prev => ({ ...prev, minDiscount: Number(e.target.value) }))}
+                            onBlur={() => saveCardEdit(staff.id)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveCardEdit(staff.id)}
+                            className="text-2xl font-black text-emerald-900 bg-transparent text-center w-full outline-none"
+                            autoFocus
+                          />
+                        ) : (
+                          <div className="text-2xl font-black text-emerald-900">{staff.minDiscount}%</div>
+                        )}
                       </div>
-                      <div className="bg-[#f0f9ff] p-4 rounded-[1.5rem] border border-blue-100 text-center">
+                      <div 
+                        onClick={() => handleCardEdit(staff.id, staff.minDiscount, staff.distribution)}
+                        className="bg-[#f0f9ff] p-4 rounded-[1.5rem] border border-blue-100 text-center cursor-pointer hover:border-blue-300 transition-all"
+                      >
                         <p className="text-[8px] font-black text-blue-700 uppercase mb-2">分润</p>
-                        <div className="text-2xl font-black text-blue-900">{staff.distribution}%</div>
+                        {editingCard === staff.id ? (
+                          <input 
+                            type="number" 
+                            value={editValues.distribution}
+                            onChange={(e) => setEditValues(prev => ({ ...prev, distribution: Number(e.target.value) }))}
+                            onBlur={() => saveCardEdit(staff.id)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveCardEdit(staff.id)}
+                            className="text-2xl font-black text-blue-900 bg-transparent text-center w-full outline-none"
+                            autoFocus
+                          />
+                        ) : (
+                          <div className="text-2xl font-black text-blue-900">{staff.distribution}%</div>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex gap-2">
-                      <button className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-[#153e35] transition-all uppercase tracking-widest">
+                      <button 
+                        onClick={() => handlePersonnelClick(staff)}
+                        className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-[#153e35] transition-all uppercase tracking-widest"
+                      >
                         绑定人员
                       </button>
-                      <button className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-blue-600 transition-all uppercase tracking-widest">
+                      <button 
+                        onClick={() => handleProductClick(staff)}
+                        className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-blue-600 transition-all uppercase tracking-widest"
+                      >
                         绑定商品
                       </button>
-                      <button className="w-12 h-10 bg-[#153e35] text-white rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                      <button 
+                        onClick={() => {
+                          setParentAccount(null)
+                          setShowAddModal(true)
+                        }}
+                        className="w-12 h-10 bg-[#153e35] text-white rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                      >
                         <Plus className="w-5 h-5" strokeWidth={3} />
                       </button>
                     </div>
@@ -2163,6 +2287,228 @@ function HierarchyTab({
             toast.success('保存成功')
           }}
         />
+      )}
+      
+      {/* 层级人员及角色规定模态框 (参考图2) */}
+      {showPersonnelModal && selectedStaff && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => setShowPersonnelModal(false)}>
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">层级人员及角色规定</h3>
+              <button onClick={() => setShowPersonnelModal(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 border rounded-lg">
+                <input type="checkbox" className="w-4 h-4" />
+                <span className="text-sm font-medium text-gray-700">年薪提成赋权</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full overflow-hidden">
+                    <img src={selectedStaff.avatar} alt={selectedStaff.name} className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-900">{selectedStaff.name}</div>
+                    <div className="text-sm text-gray-500">{selectedStaff.role}</div>
+                  </div>
+                </div>
+                <input type="checkbox" className="w-4 h-4" />
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                    <span className="text-orange-600 font-bold">广</span>
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-900">广州分销</div>
+                    <div className="text-sm text-gray-500">区域负责人</div>
+                  </div>
+                </div>
+                <input type="checkbox" className="w-4 h-4" />
+              </div>
+              
+              <select className="w-full p-3 border rounded-lg bg-white">
+                <option>一个或被绑定到每当的审设计师所推荐...</option>
+                <option>大区销售 (是市话:50%)</option>
+                <option>认证设计师 (是市话:70%)</option>
+                <option>普通销售 (是市话:85%)</option>
+              </select>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => setShowPersonnelModal(false)}
+                className="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消关联
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('保存人员设置')
+                  setShowPersonnelModal(false)
+                }}
+                className="flex-1 py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-emerald-700"
+              >
+                导入人员体系
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 商品分润配置模态框 (参考图1) */}
+      {showProductConfigModal && selectedStaff && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => setShowProductConfigModal(false)}>
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full mx-4 max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">商品分润配置</h3>
+              <button onClick={() => setShowProductConfigModal(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <div className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                <span className="font-medium text-gray-700">沙发系列</span>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <div className="w-6 h-6 bg-emerald-600 rounded text-white text-xs flex items-center justify-center">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <span className="font-bold text-emerald-700">床头柜类</span>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {[
+                { id: 'G625', name: 'G625床头柜', price: 1172, commission: 167 },
+                { id: 'G623', name: 'G623床头柜', price: 756, commission: 108 },
+                { id: 'G622', name: 'G622床头柜', price: 892, commission: 125 }
+              ].map((product) => (
+                <div key={product.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gray-100 rounded-lg"></div>
+                    <div>
+                      <div className="font-medium text-gray-900">{product.name}</div>
+                      <div className="text-sm text-gray-500">编号 #{product.id}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-emerald-600 font-medium">¥{product.price}</div>
+                    <div className="text-sm text-blue-600 font-medium">+{product.commission}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => setShowProductConfigModal(false)}
+                className="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消设置
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('保存商品配置')
+                  setShowProductConfigModal(false)
+                }}
+                className="flex-1 py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-emerald-700"
+              >
+                保存商品配置清单
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 编辑业务节点档案模态框 (参考图3) */}
+      {showProfileEditModal && selectedStaff && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => setShowProfileEditModal(false)}>
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">编辑业务节点档案</h3>
+              <button onClick={() => setShowProfileEditModal(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="text-center mb-6">
+              <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-4 border-gray-100 cursor-pointer hover:border-emerald-400 transition-all">
+                <img src={selectedStaff.avatar} alt={selectedStaff.name} className="w-full h-full object-cover" />
+              </div>
+              <h4 className="text-lg font-bold text-gray-900 mb-1">{selectedStaff.name}</h4>
+              <p className="text-sm text-gray-500">点击头像更换头像档案</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-2">姓名</label>
+                <input 
+                  type="text" 
+                  defaultValue={selectedStaff.name}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-2">职务&角色 (不可更改项目)</label>
+                <input 
+                  type="text" 
+                  value={selectedStaff.role}
+                  disabled
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-2">备注说明</label>
+                <textarea 
+                  placeholder="分别说明"
+                  rows={3}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => setShowProfileEditModal(false)}
+                className="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消修改
+              </button>
+              <button 
+                onClick={() => {
+                  console.log('保存档案修改')
+                  setShowProfileEditModal(false)
+                }}
+                className="flex-1 py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-emerald-700"
+              >
+                提交档案修改
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
