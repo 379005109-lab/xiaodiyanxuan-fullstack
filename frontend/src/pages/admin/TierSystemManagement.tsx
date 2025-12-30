@@ -1965,367 +1965,278 @@ function HierarchyTab({
     )
   }
 
-  // 按部门/组织分组，模拟图3的简化列表视图
-  const departmentGroups = useMemo(() => {
-    const groups: { [key: string]: AuthorizedAccount[] } = {}
-    
-    // 模拟部门数据，按图3样式
-    const mockDepartments = [
-      { id: 'huanan', name: '华南大区', icon: '🏢', description: '负责华南地区业务拓展' },
-      { id: 'huadong', name: '华东大区', icon: '🏙️', description: '负责华东地区业务拓展' },
-      { id: 'huabei', name: '华北大区', icon: '🏬', description: '负责华北地区业务拓展' },
-      { id: 'design', name: '设计中心', icon: '🎨', description: '专业设计团队' },
-      { id: 'partner', name: '渠道合伙人', icon: '🤝', description: '战略合作伙伴' },
-      { id: 'vip', name: 'VIP客户部', icon: '💎', description: '高端客户服务' }
+  // duijie/nn风格的分层架构数据
+  const hierarchyData = useMemo(() => {
+    // 总部节点
+    const headquarters = {
+      id: 'hq_1',
+      name: `${manufacturerName}旗舰总部`,
+      phone: '400-888-8888',
+      role: '总控节点',
+      distribution: 40,
+      minDiscount: 60,
+      authorized: 1,
+      productCount: 120,
+      status: 'normal',
+      linkedAccounts: filteredAccounts.slice(0, 2)
+    }
+
+    // 人员节点（模拟duijie/nn的人员卡片）
+    const staffNodes = [
+      {
+        id: 'staff_1',
+        name: '张分销经理',
+        avatar: 'https://i.pravatar.cc/150?u=staff_1',
+        role: '分销经理',
+        distribution: 15,
+        minDiscount: 75,
+        status: '正常在岗'
+      },
+      {
+        id: 'staff_2', 
+        name: '李设计师',
+        avatar: 'https://i.pravatar.cc/150?u=staff_2',
+        role: '认证设计师',
+        distribution: 10,
+        minDiscount: 70,
+        status: '正常在岗'
+      },
+      {
+        id: 'staff_3',
+        name: '王销售',
+        avatar: 'https://i.pravatar.cc/150?u=staff_3', 
+        role: '普通销售',
+        distribution: 10,
+        minDiscount: 80,
+        status: '正常在岗'
+      },
+      {
+        id: 'staff_4',
+        name: '赵合伙人',
+        avatar: 'https://i.pravatar.cc/150?u=staff_4',
+        role: '渠道合伙人', 
+        distribution: 10,
+        minDiscount: 65,
+        status: '正常在岗'
+      }
     ]
 
-    // 将现有账号分配到模拟部门
-    mockDepartments.forEach(dept => {
-      groups[dept.id] = filteredAccounts.filter((_, index) => index % mockDepartments.length === mockDepartments.indexOf(dept))
-    })
+    return { headquarters, staffNodes }
+  }, [filteredAccounts, manufacturerName])
 
-    return { groups, departments: mockDepartments }
-  }, [filteredAccounts])
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
+  const [zoomScale, setZoomScale] = useState(1)
 
   return (
-    <div className="space-y-6">
-      {/* 页面标题和操作 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+    <div className="max-w-[1600px] mx-auto h-screen flex flex-col bg-[#fcfdfd] overflow-hidden">
+      {/* duijie/nn风格的header */}
+      <header className="p-8 border-b bg-white flex items-center justify-between shrink-0 shadow-sm z-[60]">
+        <div className="flex items-center gap-8">
+          <div className="w-16 h-16 bg-white rounded-2xl border shadow-sm p-2 flex items-center justify-center overflow-hidden">
+            {manufacturerLogo ? (
+              <img src={manufacturerLogo} alt={manufacturerName || 'manufacturer'} className="w-full h-full object-cover rounded-xl" />
+            ) : (
+              <div className="w-full h-full bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 text-xs font-bold">
+                LOGO
+              </div>
+            )}
+          </div>
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">公司分层架构</h2>
-            <p className="text-sm text-gray-500 mt-1">按部门组织查看和管理分层架构，简化视图便于快速访问</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={selectedModuleCode}
-              onChange={(e) => setSelectedModuleCode(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg"
-            >
-              <option value="all">全部业务线</option>
-              {modules.filter(m => m.isActive).map(m => (
-                <option key={m._id} value={m.code}>{m.name}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => {
-                setParentAccount(null)
-                setShowAddModal(true)
-              }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              新增部门
-            </button>
+            <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase leading-none">分层架构管控系统</h2>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">{manufacturerName} • 全域部署</p>
           </div>
         </div>
+        <nav className="flex gap-8">
+          <button 
+            onClick={() => setViewMode('list')}
+            className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
+              viewMode === 'list' ? 'bg-[#153e35] text-white shadow-xl' : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            公司分层
+          </button>
+        </nav>
+        <button
+          onClick={onBack}
+          className="rounded-2xl px-10 py-4 font-black uppercase text-xs border-2 border-gray-100 text-gray-500 hover:text-[#153e35] hover:border-[#153e35] transition-all"
+        >
+          返回主控
+        </button>
+      </header>
 
-        {/* 统计信息 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 rounded-lg p-4">
-            <div className="text-blue-600 text-sm font-medium">总部门数</div>
-            <div className="text-2xl font-bold text-blue-900">{departmentGroups.departments.length}</div>
-          </div>
-          <div className="bg-green-50 rounded-lg p-4">
-            <div className="text-green-600 text-sm font-medium">总人员数</div>
-            <div className="text-2xl font-bold text-green-900">{filteredAccounts.length}</div>
-          </div>
-          <div className="bg-purple-50 rounded-lg p-4">
-            <div className="text-purple-600 text-sm font-medium">活跃部门</div>
-            <div className="text-2xl font-bold text-purple-900">
-              {departmentGroups.departments.filter(d => departmentGroups.groups[d.id].length > 0).length}
-            </div>
-          </div>
-          <div className="bg-orange-50 rounded-lg p-4">
-            <div className="text-orange-600 text-sm font-medium">佣金池占比</div>
-            <div className="text-2xl font-bold text-orange-900">{Number(commissionRate || 0)}%</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 视图切换和部门展示 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900">部门架构</h3>
-            <p className="text-sm text-gray-500 mt-1">选择不同视图查看部门信息和人员架构</p>
-          </div>
-          <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setSelectedModuleCode('list')}
-              className={`px-3 py-2 text-sm rounded-lg transition-colors ${
-                selectedModuleCode === 'list' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <List className="w-4 h-4 inline mr-2" />
-              列表视图
-            </button>
-            <button
-              onClick={() => setSelectedModuleCode('cards')}
-              className={`px-3 py-2 text-sm rounded-lg transition-colors ${
-                selectedModuleCode === 'cards' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Grid className="w-4 h-4 inline mr-2" />
-              卡片视图
-            </button>
-          </div>
-        </div>
-
-        {departmentGroups.departments.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <div className="text-sm">暂无部门信息</div>
-            <div className="text-xs text-gray-400 mt-1">请添加第一个部门</div>
-          </div>
-        ) : selectedModuleCode === 'cards' ? (
-          /* 卡片视图（图4样式） */
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {departmentGroups.departments.map((department) => {
-                const accounts = departmentGroups.groups[department.id] || []
-                const totalPeople = accounts.length
-                const totalDistribution = accounts.reduce((sum, acc) => sum + Number((acc as any).distributionRate || 0), 0)
-                const avgDistribution = totalPeople > 0 ? totalDistribution / totalPeople : 0
-
-                return (
-                  <div key={department.id} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
-                    {/* 卡片头部 - 部门信息 */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white text-xl shadow-lg">
-                          {department.icon}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-gray-900 text-lg">{department.name}</h4>
-                          <p className="text-xs text-gray-500 uppercase font-medium tracking-wider">{department.id}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs text-gray-500">总分润率</div>
-                        <div className="text-xl font-bold text-green-600">{totalDistribution.toFixed(1)}%</div>
-                      </div>
-                    </div>
-
-                    {/* 部门描述 */}
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{department.description}</p>
-
-                    {/* 统计信息 */}
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-blue-50 rounded-lg p-3">
-                        <div className="flex items-center gap-2">
-                          <Users className="w-4 h-4 text-blue-600" />
-                          <span className="text-xs font-medium text-blue-600">人员数量</span>
-                        </div>
-                        <div className="text-2xl font-bold text-blue-900 mt-1">{totalPeople}</div>
-                      </div>
-                      <div className="bg-green-50 rounded-lg p-3">
-                        <div className="flex items-center gap-2">
-                          <Percent className="w-4 h-4 text-green-600" />
-                          <span className="text-xs font-medium text-green-600">平均分润</span>
-                        </div>
-                        <div className="text-2xl font-bold text-green-900 mt-1">{avgDistribution.toFixed(1)}%</div>
-                      </div>
-                    </div>
-
-                    {/* 人员头像列表 */}
-                    {totalPeople > 0 && (
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-gray-500">部门成员</span>
-                          <span className="text-xs text-blue-600">{totalPeople}人</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex -space-x-2">
-                            {accounts.slice(0, 6).map((acc, index) => (
-                              <div
-                                key={acc._id}
-                                className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 border-2 border-white flex items-center justify-center text-xs font-bold text-gray-700 shadow-sm"
-                                title={`${acc.nickname || acc.username} - ${Number((acc as any).distributionRate || 0).toFixed(1)}%`}
-                              >
-                                {(acc.nickname || acc.username || '?').charAt(0).toUpperCase()}
-                              </div>
-                            ))}
-                            {totalPeople > 6 && (
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-white flex items-center justify-center text-xs font-bold text-blue-700 shadow-sm">
-                                +{totalPeople - 6}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 特殊标签 */}
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {accounts.some(acc => acc.productOverrides && Object.keys(acc.productOverrides).length > 0) && (
-                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
-                          商品配置
-                        </span>
-                      )}
-                      {totalDistribution > 50 && (
-                        <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
-                          高分润
-                        </span>
-                      )}
-                      {totalPeople >= 5 && (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
-                          大团队
-                        </span>
-                      )}
-                    </div>
-
-                    {/* 操作按钮 */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          toast.info(`查看${department.name}详情`)
-                        }}
-                        className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Eye className="w-4 h-4" />
-                        详情查看
-                      </button>
-                      <button
-                        onClick={() => {
-                          setParentAccount(accounts[0] || null)
-                          setShowAddModal(true)
-                        }}
-                        className="bg-gray-100 text-gray-600 py-2 px-3 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors"
-                        title="添加人员"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ) : (
-          /* 列表视图（图3样式） */
-          <div className="divide-y divide-gray-100">
-            {departmentGroups.departments.map((department) => {
-              const accounts = departmentGroups.groups[department.id] || []
-              const totalPeople = accounts.length
-              const totalDistribution = accounts.reduce((sum, acc) => sum + Number((acc as any).distributionRate || 0), 0)
-
-              return (
-                <div key={department.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    {/* 左侧：部门信息 */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-2xl">
-                        {department.icon}
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900 text-lg">{department.name}</h4>
-                        <p className="text-sm text-gray-500">{department.description}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                            {totalPeople} 人
-                          </span>
-                          <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                            分润率: {totalDistribution.toFixed(1)}%
-                          </span>
-                          {accounts.some(acc => acc.productOverrides && Object.keys(acc.productOverrides).length > 0) && (
-                            <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
-                              商品配置
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 右侧：操作按钮 */}
-                    <div className="flex items-center gap-3">
-                      <div className="text-right text-sm">
-                        <div className="text-gray-500">部门编号</div>
-                        <div className="font-semibold text-gray-900">{department.id.toUpperCase()}</div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          toast.info(`查看${department.name}详情`)
-                        }}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2"
-                      >
-                        <Eye className="w-4 h-4" />
-                        详情查看
-                      </button>
-                      <button
-                        onClick={() => {
-                          setParentAccount(accounts[0] || null)
-                          setShowAddModal(true)
-                        }}
-                        className="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm flex items-center gap-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        添加人员
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 快速预览人员信息 */}
-                  {totalPeople > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-gray-500">部门人员:</span>
-                          <div className="flex -space-x-2">
-                            {accounts.slice(0, 5).map((acc, index) => (
-                              <div
-                                key={acc._id}
-                                className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600"
-                                title={acc.nickname || acc.username}
-                              >
-                                {(acc.nickname || acc.username || '?').charAt(0).toUpperCase()}
-                              </div>
-                            ))}
-                            {totalPeople > 5 && (
-                              <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-500">
-                                +{totalPeople - 5}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            toast.info(`展开${department.name}人员列表`)
-                          }}
-                          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                        >
-                          查看全部 <ChevronRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+      <div className="flex-grow overflow-auto relative">
+        {viewMode === 'list' && (
+          /* duijie/nn的列表视图 - 简单卡片 */
+          <div className="p-20 max-w-5xl mx-auto space-y-10">
+            <div className="bg-white p-12 rounded-[4rem] border border-gray-100 flex items-center justify-between shadow-2xl hover:shadow-3xl transition-all group">
+              <div className="flex items-center gap-10">
+                <div className="w-24 h-24 rounded-[2.5rem] bg-gray-50 flex items-center justify-center border text-3xl font-black text-gray-300 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-all">
+                  {hierarchyData.headquarters.name.charAt(0)}
                 </div>
-              )
-            })}
+                <div>
+                  <h4 className="text-3xl font-black text-gray-900 mb-2">{hierarchyData.headquarters.name}</h4>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    下属业务节点: {hierarchyData.staffNodes.length} 个 • 默认分润比例 {hierarchyData.headquarters.distribution}%
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setViewMode('map')}
+                className="rounded-[2rem] px-14 py-6 bg-[#153e35] font-black uppercase text-sm tracking-widest shadow-2xl text-white hover:bg-emerald-900 transition-colors"
+              >
+                部署架构地图
+              </button>
+            </div>
           </div>
         )}
-      </div>
 
-      {/* 图例说明 */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">图例说明</h4>
-        <div className="flex flex-wrap gap-4 text-sm">
-          {modules.filter(m => m.isActive).map(m => {
-            const Icon = ICON_MAP[m.icon] || Layers
-            return (
-              <div key={m._id} className="flex items-center gap-2">
-                <div className="p-1 bg-primary-100 text-primary-600 rounded">
-                  <Icon className="w-3 h-3" />
+        {viewMode === 'map' && (
+          /* duijie/nn的架构地图视图 */
+          <div className="relative w-full h-full overflow-hidden bg-gray-50/50">
+            {/* 缩放控制面板 */}
+            <div className="absolute bottom-12 left-12 flex flex-col gap-4 z-[80]">
+              <button 
+                onClick={() => setZoomScale(p => Math.min(2, p + 0.1))} 
+                className="w-14 h-14 bg-white shadow-2xl rounded-2xl flex items-center justify-center text-[#153e35] hover:bg-gray-50 transition-colors"
+              >
+                <Plus className="w-8 h-8" strokeWidth={3} />
+              </button>
+              <button 
+                onClick={() => setZoomScale(1)} 
+                className="w-14 h-14 bg-white shadow-2xl rounded-2xl flex items-center justify-center text-gray-400 text-xs font-black uppercase tracking-tighter"
+              >
+                100%
+              </button>
+              <button 
+                onClick={() => setZoomScale(p => Math.max(0.3, p - 0.1))} 
+                className="w-14 h-14 bg-white shadow-2xl rounded-2xl flex items-center justify-center text-[#153e35] hover:bg-gray-50 transition-colors"
+              >
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth={3} d="M20 12H4" /></svg>
+              </button>
+            </div>
+
+            <div 
+              className="flex flex-col items-center justify-center min-h-full pb-60 pt-20 transition-transform duration-300 origin-center"
+              style={{ transform: `scale(${zoomScale})` }}
+            >
+              {/* 总部卡片 */}
+              <div className="w-[480px] p-12 bg-white rounded-[4.5rem] border-2 border-gray-100 shadow-2xl hover:border-[#153e35] transition-all relative mb-20">
+                <div className="flex justify-between items-start mb-10">
+                  <div className="group w-28 h-28 rounded-[2.8rem] bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden cursor-pointer hover:scale-105 transition-transform relative">
+                    <div className="w-full h-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-3xl font-black">
+                      {hierarchyData.headquarters.name.charAt(0)}
+                    </div>
+                  </div>
+                  <div className="text-right pt-2 flex-grow pl-6">
+                    <h4 className="text-2xl font-black text-gray-900 mb-1 truncate">{hierarchyData.headquarters.name}</h4>
+                    <div className="flex justify-end gap-2">
+                      <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full uppercase tracking-tighter">
+                        已绑定 {hierarchyData.headquarters.linkedAccounts?.length || 0} 人
+                      </span>
+                      <span className="text-[9px] font-black bg-gray-100 px-3 py-1 rounded-full text-gray-400 uppercase tracking-tighter">
+                        {hierarchyData.headquarters.role}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-gray-600">{m.name}</span>
+
+                <div className="grid grid-cols-2 gap-6 mb-10">
+                  <div className="bg-[#f0fff8] p-6 rounded-[2.5rem] border border-emerald-100 text-center">
+                    <p className="text-[9px] font-black text-emerald-700 uppercase mb-2">最低折扣</p>
+                    <div className="flex items-center justify-center">
+                      <span className="text-3xl font-black text-emerald-900">{hierarchyData.headquarters.minDiscount}</span>
+                      <span className="text-sm font-black text-emerald-900 ml-1">%</span>
+                    </div>
+                  </div>
+                  <div className="bg-[#f0f9ff] p-6 rounded-[2.5rem] border border-blue-100 text-center">
+                    <p className="text-[9px] font-black text-blue-700 uppercase mb-2">返佣比例</p>
+                    <div className="flex items-center justify-center">
+                      <span className="text-3xl font-black text-blue-900">{hierarchyData.headquarters.distribution}</span>
+                      <span className="text-sm font-black text-blue-900 ml-1">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 px-2">
+                  <button 
+                    onClick={() => {
+                      setParentAccount(null)
+                      setShowAddModal(true)
+                    }}
+                    className="flex-grow py-5 bg-white border border-gray-100 rounded-[1.8rem] text-[10px] font-black text-gray-500 hover:text-[#153e35] transition-all uppercase tracking-widest shadow-sm hover:shadow-md"
+                  >
+                    绑定人员
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setProductAccount(hierarchyData.headquarters as any)
+                      setShowProductModal(true)
+                    }}
+                    className="flex-grow py-5 bg-white border border-gray-100 rounded-[1.8rem] text-[10px] font-black text-gray-500 hover:text-blue-600 transition-all uppercase tracking-widest shadow-sm hover:shadow-md"
+                  >
+                    绑定商品
+                  </button>
+                  <button className="w-16 h-14 bg-[#153e35] text-white rounded-2xl flex items-center justify-center shadow-xl active:scale-90 transition-transform hover:bg-emerald-900">
+                    <Plus className="w-7 h-7" strokeWidth={3} />
+                  </button>
+                </div>
               </div>
-            )
-          })}
-        </div>
+
+              {/* 连接线 */}
+              <div className="w-px h-20 bg-gray-200" />
+
+              {/* 人员卡片网格 */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 px-12 relative">
+                <div className="absolute top-0 left-12 right-12 h-px bg-gray-200" />
+                {hierarchyData.staffNodes.map((staff) => (
+                  <div key={staff.id} className="w-64 p-8 bg-white rounded-[3rem] border border-gray-100 shadow-xl hover:shadow-2xl transition-all">
+                    <div className="text-center mb-6">
+                      <div className="w-20 h-20 mx-auto mb-4 rounded-[2rem] overflow-hidden border-2 border-gray-100 shadow-inner">
+                        <img src={staff.avatar} alt={staff.name} className="w-full h-full object-cover" />
+                      </div>
+                      <h5 className="text-lg font-black text-gray-900 mb-1">{staff.name}</h5>
+                      <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-full">
+                        {staff.status}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="bg-[#f0fff8] p-4 rounded-[1.5rem] border border-emerald-100 text-center">
+                        <p className="text-[8px] font-black text-emerald-700 uppercase mb-2">折扣</p>
+                        <div className="text-2xl font-black text-emerald-900">{staff.minDiscount}%</div>
+                      </div>
+                      <div className="bg-[#f0f9ff] p-4 rounded-[1.5rem] border border-blue-100 text-center">
+                        <p className="text-[8px] font-black text-blue-700 uppercase mb-2">分润</p>
+                        <div className="text-2xl font-black text-blue-900">{staff.distribution}%</div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-[#153e35] transition-all uppercase tracking-widest">
+                        绑定人员
+                      </button>
+                      <button className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-blue-600 transition-all uppercase tracking-widest">
+                        绑定商品
+                      </button>
+                      <button className="w-12 h-10 bg-[#153e35] text-white rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                        <Plus className="w-5 h-5" strokeWidth={3} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* 底部切换按钮 */}
+            <button 
+              onClick={() => setViewMode('list')} 
+              className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-white px-12 py-5 rounded-full shadow-2xl border-2 border-emerald-500 font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:scale-105 transition-all z-[70] text-emerald-700"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth={3} d="M4 6h16M4 12h16m-7 6h7" /></svg>
+              切换目录视图
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 添加账号模态框 */}
