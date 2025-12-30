@@ -1849,64 +1849,44 @@ function HierarchyTab({
 
   // 移除重复的声明，使用上面已定义的 filteredAccounts 和 handleAddAccounts
 
-  // duijie/nn风格的分层架构数据
+  // duijie/nn风格的分层架构数据 - 使用真实账号数据
   const hierarchyData = useMemo(() => {
     // 总部节点
     const headquarters = {
-      id: 'hq_1',
+      id: 'headquarters',
       name: `${manufacturerName}旗舰总部`,
       phone: '400-888-8888',
       role: '总控节点',
       distribution: 40,
       minDiscount: 60,
-      authorized: 1,
-      productCount: 120,
-      status: 'normal',
-      linkedAccounts: filteredAccounts.slice(0, 2)
+      avatar: manufacturerLogo || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
     }
 
-    // 人员节点（模拟duijie/nn的人员卡片）
-    const staffNodes = [
-      {
-        id: 'staff_1',
-        name: '张分销经理',
-        avatar: 'https://i.pravatar.cc/150?u=staff_1',
-        role: '分销经理',
-        distribution: 15,
-        minDiscount: 75,
-        status: '正常在岗'
-      },
-      {
-        id: 'staff_2', 
-        name: '李设计师',
-        avatar: 'https://i.pravatar.cc/150?u=staff_2',
-        role: '认证设计师',
-        distribution: 10,
-        minDiscount: 70,
-        status: '正常在岗'
-      },
-      {
-        id: 'staff_3',
-        name: '王销售',
-        avatar: 'https://i.pravatar.cc/150?u=staff_3', 
-        role: '普通销售',
-        distribution: 10,
-        minDiscount: 80,
-        status: '正常在岗'
-      },
-      {
-        id: 'staff_4',
-        name: '赵合伙人',
-        avatar: 'https://i.pravatar.cc/150?u=staff_4',
-        role: '渠道合伙人', 
-        distribution: 10,
-        minDiscount: 65,
-        status: '正常在岗'
+    // 人员节点 - 使用真实filteredAccounts数据
+    const staffNodes = filteredAccounts.map((account, index) => {
+      const module = modules.find(m => String(m._id) === String(account.roleModuleId))
+      const defaultRule = module?.discountRules?.find(r => r.isDefault) || module?.discountRules?.[0]
+      
+      return {
+        id: String(account._id),
+        name: account.nickname || account.username || `用户${index + 1}`,
+        avatar: account.avatar || `https://images.unsplash.com/photo-${1494790108755 + index}?w=150&h=150&fit=crop&crop=face`,
+        role: module?.name || '未分配角色',
+        distribution: Number(account.distributionRate || 0),
+        minDiscount: Number(defaultRule?.discountRate || 100),
+        status: account.status === 'active' ? '正常在岗' : '暂停',
+        phone: account.phone || '',
+        level: account.level || 1,
+        allocatedRate: Number(account.allocatedRate || 0),
+        availableRate: Number(account.availableRate || 0),
+        visibleCategoryIds: account.visibleCategoryIds || [],
+        parentId: account.parentId,
+        account: account // 保存完整的account对象用于操作
       }
-    ]
+    })
 
     return { headquarters, staffNodes }
-  }, [filteredAccounts, manufacturerName])
+  }, [filteredAccounts, manufacturerName, manufacturerLogo, modules])
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [zoomScale, setZoomScale] = useState(1)
@@ -1966,8 +1946,26 @@ function HierarchyTab({
   }
   
   const saveCardEdit = (staffId: string) => {
-    // 这里可以调用API保存数据
-    console.log(`Saving ${staffId}:`, editValues)
+    // 保存真实数据到accounts
+    const updatedAccounts = accounts.map(account => {
+      if (String(account._id) === staffId) {
+        const module = modules.find(m => String(m._id) === String(account.roleModuleId))
+        const updatedRules = module?.discountRules?.map(rule => {
+          if (rule.isDefault) {
+            return { ...rule, discountRate: editValues.minDiscount }
+          }
+          return rule
+        }) || []
+        
+        return {
+          ...account,
+          distributionRate: editValues.distribution
+        }
+      }
+      return account
+    })
+    
+    onSaveAccounts(updatedAccounts)
     setEditingCard(null)
   }
 
@@ -2339,7 +2337,16 @@ function HierarchyTab({
               </button>
               <button 
                 onClick={() => {
-                  console.log('保存人员设置')
+                  // 实际保存人员设置操作
+                  if (selectedStaff && selectedStaff.account) {
+                    const updatedAccounts = accounts.map(account => {
+                      if (String(account._id) === String(selectedStaff.account._id)) {
+                        return { ...account, status: 'active' as 'active' | 'suspended' | 'pending' }
+                      }
+                      return account
+                    })
+                    onSaveAccounts(updatedAccounts)
+                  }
                   setShowPersonnelModal(false)
                 }}
                 className="flex-1 py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-emerald-700"
@@ -2415,7 +2422,20 @@ function HierarchyTab({
               </button>
               <button 
                 onClick={() => {
-                  console.log('保存商品配置')
+                  // 实际保存商品配置操作
+                  if (selectedStaff && selectedStaff.account) {
+                    const updatedAccounts = accounts.map(account => {
+                      if (String(account._id) === String(selectedStaff.account._id)) {
+                        return { 
+                          ...account, 
+                          visibleCategoryIds: manufacturerCategoryTree.map(cat => cat._id),
+                          productOverrides: []
+                        }
+                      }
+                      return account
+                    })
+                    onSaveAccounts(updatedAccounts)
+                  }
                   setShowProductConfigModal(false)
                 }}
                 className="flex-1 py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-emerald-700"
@@ -2448,35 +2468,39 @@ function HierarchyTab({
               <p className="text-sm text-gray-500">点击头像更换头像档案</p>
             </div>
             
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-2">姓名</label>
-                <input 
-                  type="text" 
-                  defaultValue={selectedStaff.name}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+            <form>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">姓名</label>
+                  <input 
+                    type="text" 
+                    name="nickname"
+                    defaultValue={selectedStaff.name}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">职务&角色 (不可更改项目)</label>
+                  <input 
+                    type="text" 
+                    value={selectedStaff.role}
+                    disabled
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">备注说明</label>
+                  <textarea 
+                    name="notes"
+                    placeholder="分别说明"
+                    rows={3}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                  />
+                </div>
               </div>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-2">职务&角色 (不可更改项目)</label>
-                <input 
-                  type="text" 
-                  value={selectedStaff.role}
-                  disabled
-                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-2">备注说明</label>
-                <textarea 
-                  placeholder="分别说明"
-                  rows={3}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
-                />
-              </div>
-            </div>
+            </form>
             
             <div className="flex gap-3 mt-6">
               <button 
@@ -2487,7 +2511,24 @@ function HierarchyTab({
               </button>
               <button 
                 onClick={() => {
-                  console.log('保存档案修改')
+                  // 实际保存档案修改操作
+                  if (selectedStaff && selectedStaff.account) {
+                    const formData = new FormData(document.querySelector('form') as HTMLFormElement)
+                    const nickname = formData.get('nickname') as string
+                    const notes = formData.get('notes') as string
+                    
+                    const updatedAccounts = accounts.map(account => {
+                      if (String(account._id) === String(selectedStaff.account._id)) {
+                        return { 
+                          ...account, 
+                          nickname: nickname || account.nickname,
+                          notes: notes || account.notes || ''
+                        }
+                      }
+                      return account
+                    })
+                    onSaveAccounts(updatedAccounts)
+                  }
                   setShowProfileEditModal(false)
                 }}
                 className="flex-1 py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-emerald-700"
