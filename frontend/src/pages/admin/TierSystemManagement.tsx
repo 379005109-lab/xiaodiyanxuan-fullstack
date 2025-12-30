@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { 
@@ -1865,7 +1865,9 @@ function HierarchyTab({
     // 人员节点 - 使用真实filteredAccounts数据
     const staffNodes = filteredAccounts.map((account, index) => {
       const module = modules.find(m => String(m._id) === String(account.roleModuleId))
-      const defaultRule = module?.discountRules?.find(r => r.isDefault) || module?.discountRules?.[0]
+      const ruleFromAccount = (module?.discountRules || []).find(r => String(r._id) === String(account.discountRuleId))
+      const defaultRule = ruleFromAccount || module?.discountRules?.find(r => r.isDefault) || module?.discountRules?.[0]
+      const discountRate = typeof defaultRule?.discountRate === 'number' ? defaultRule.discountRate : 1
       
       return {
         id: String(account._id),
@@ -1873,7 +1875,7 @@ function HierarchyTab({
         avatar: account.avatar || `https://images.unsplash.com/photo-${1494790108755 + index}?w=150&h=150&fit=crop&crop=face`,
         role: module?.name || '未分配角色',
         distribution: Number(account.distributionRate || 0),
-        minDiscount: Number(defaultRule?.discountRate || 100),
+        minDiscount: Math.round(Math.max(0, Math.min(1, discountRate)) * 100),
         status: account.status === 'active' ? '正常在岗' : '暂停',
         phone: account.phone || '',
         level: account.level || 1,
@@ -1890,83 +1892,193 @@ function HierarchyTab({
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [zoomScale, setZoomScale] = useState(1)
-  
-  // 新增交互模态框状态
-  const [showPersonnelModal, setShowPersonnelModal] = useState(false)
-  const [showProductConfigModal, setShowProductConfigModal] = useState(false)
+
   const [showProfileEditModal, setShowProfileEditModal] = useState(false)
   const [selectedStaff, setSelectedStaff] = useState<any>(null)
-  const [canvasPosition, setCanvasPosition] = useState({ x: 0, y: 0 })
-  const [isTabPressed, setIsTabPressed] = useState(false)
-  const [editingCard, setEditingCard] = useState<string | null>(null)
-  const [editValues, setEditValues] = useState({ minDiscount: 0, distribution: 0 })
 
-  // 鼠标滚轮控制画布移动
+  // 地图：平移/缩放/拖拽
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({})
+  const [nodeDraft, setNodeDraft] = useState<Record<string, { minDiscount: number; distribution: number }>>({})
+
+  const panStateRef = useRef<{ active: boolean; pointerId: number | null; startClientX: number; startClientY: number; originX: number; originY: number }>({
+    active: false,
+    pointerId: null,
+    startClientX: 0,
+    startClientY: 0,
+    originX: 0,
+    originY: 0,
+  })
+
+  const dragStateRef = useRef<{ active: boolean; pointerId: number | null; nodeId: string | null; startClientX: number; startClientY: number; originX: number; originY: number }>({
+    active: false,
+    pointerId: null,
+    nodeId: null,
+    startClientX: 0,
+    startClientY: 0,
+    originX: 0,
+    originY: 0,
+  })
+
+  const staffIdsKey = useMemo(() => hierarchyData.staffNodes.map(s => String(s.id)).join('|'), [hierarchyData.staffNodes])
+
   useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
-      if (viewMode === 'map') {
-        e.preventDefault()
-        const sensitivity = 0.5
-        setCanvasPosition(prev => ({
-          x: prev.x - e.deltaX * sensitivity,
-          y: prev.y - e.deltaY * sensitivity
-        }))
-      }
+    if (viewMode !== 'map') return
+
+    setNodePositions(prev => {
+      const next = { ...prev }
+      if (!next['headquarters']) next['headquarters'] = { x: 0, y: -260 }
+
+      const n = hierarchyData.staffNodes.length
+      const gapX = 380
+      const baseY = 240
+      hierarchyData.staffNodes.forEach((s, idx) => {
+        const id = String(s.id)
+        if (next[id]) return
+        const offset = (idx - (n - 1) / 2) * gapX
+        next[id] = { x: offset, y: baseY }
+      })
+      return next
+    })
+
+    setNodeDraft(prev => {
+      const next = { ...prev }
+      hierarchyData.staffNodes.forEach((s) => {
+        const id = String(s.id)
+        if (next[id]) return
+        next[id] = { minDiscount: Number(s.minDiscount || 0), distribution: Number(s.distribution || 0) }
+      })
+      return next
+    })
+  }, [viewMode, staffIdsKey])
+
+  const commitNodeDraft = (nodeId: string) => {
+    const draft = nodeDraft[String(nodeId)]
+    if (!draft) return
+
+    const targetDiscountPct = Math.max(0, Math.min(100, Math.floor(Number(draft.minDiscount) || 0)))
+    const targetDist = Math.max(0, Math.min(100, Math.floor(Number(draft.distribution) || 0)))
+    const targetDiscountRate = targetDiscountPct / 100
+
+    const current = accounts.find(a => String(a._id) === String(nodeId))
+    if (!current) return
+
+    const module = modules.find(m => String(m._id) === String(current.roleModuleId))
+    const rules = module?.discountRules || []
+    if (rules.length === 0) {
+      toast.error('当前角色未配置折扣规则，无法设置最低折扣')
+      return
     }
-    
-    const canvasElement = document.querySelector('[data-canvas="true"]')
-    if (canvasElement) {
-      canvasElement.addEventListener('wheel', handleWheel, { passive: false })
-      
-      return () => {
-        canvasElement.removeEventListener('wheel', handleWheel)
+
+    const selectedRule = rules
+      .slice()
+      .sort((a, b) => {
+        const da = Math.abs((typeof a.discountRate === 'number' ? a.discountRate : 1) - targetDiscountRate)
+        const db = Math.abs((typeof b.discountRate === 'number' ? b.discountRate : 1) - targetDiscountRate)
+        return da - db
+      })[0]
+
+    const nextAccounts = accounts.map(a => {
+      if (String(a._id) !== String(nodeId)) return a
+      return {
+        ...a,
+        discountRuleId: selectedRule?._id ? String(selectedRule._id) : a.discountRuleId,
+        distributionRate: targetDist,
       }
-    }
-  }, [viewMode])
-  
-  // 点击处理函数
-  const handlePersonnelClick = (staff: any) => {
-    setSelectedStaff(staff)
-    setShowPersonnelModal(true)
+    })
+
+    onSaveAccounts(nextAccounts)
   }
-  
-  const handleProductClick = (staff: any) => {
-    setSelectedStaff(staff)
-    setShowProductConfigModal(true)
-  }
-  
+
   const handleAvatarClick = (staff: any) => {
     setSelectedStaff(staff)
     setShowProfileEditModal(true)
   }
-  
-  const handleCardEdit = (staffId: string, minDiscount: number, distribution: number) => {
-    setEditingCard(staffId)
-    setEditValues({ minDiscount, distribution })
+
+  const shouldIgnoreDragStart = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false
+    const tag = target.tagName.toLowerCase()
+    if (['input', 'textarea', 'select', 'button'].includes(tag)) return true
+    if (target.closest('input,textarea,select,button')) return true
+    return false
   }
-  
-  const saveCardEdit = (staffId: string) => {
-    // 保存真实数据到accounts
-    const updatedAccounts = accounts.map(account => {
-      if (String(account._id) === staffId) {
-        const module = modules.find(m => String(m._id) === String(account.roleModuleId))
-        const updatedRules = module?.discountRules?.map(rule => {
-          if (rule.isDefault) {
-            return { ...rule, discountRate: editValues.minDiscount }
-          }
-          return rule
-        }) || []
-        
-        return {
-          ...account,
-          distributionRate: editValues.distribution
-        }
-      }
-      return account
-    })
-    
-    onSaveAccounts(updatedAccounts)
-    setEditingCard(null)
+
+  // 中键按下拖动画布
+  const onCanvasPointerDown = (e: any) => {
+    if (viewMode !== 'map') return
+    if (e.button !== 1) return
+    e.preventDefault()
+    const st = panStateRef.current
+    st.active = true
+    st.pointerId = e.pointerId
+    st.startClientX = e.clientX
+    st.startClientY = e.clientY
+    st.originX = pan.x
+    st.originY = pan.y
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onCanvasPointerMove = (e: any) => {
+    const st = panStateRef.current
+    if (!st.active || st.pointerId !== e.pointerId) return
+    const dx = e.clientX - st.startClientX
+    const dy = e.clientY - st.startClientY
+    setPan({ x: st.originX + dx, y: st.originY + dy })
+  }
+
+  const onCanvasPointerUp = (e: any) => {
+    const st = panStateRef.current
+    if (st.pointerId !== e.pointerId) return
+    st.active = false
+    st.pointerId = null
+  }
+
+  const onCanvasWheel = (e: any) => {
+    if (viewMode !== 'map') return
+    e.preventDefault()
+    const sensitivity = 0.8
+    setPan(prev => ({
+      x: prev.x - Number(e.deltaX || 0) * sensitivity,
+      y: prev.y - Number(e.deltaY || 0) * sensitivity,
+    }))
+  }
+
+  // 节点拖拽
+  const onNodePointerDown = (nodeId: string) => (e: any) => {
+    if (viewMode !== 'map') return
+    if (e.button !== 0) return
+    if (shouldIgnoreDragStart(e.target)) return
+    e.preventDefault()
+    const pos = nodePositions[String(nodeId)] || { x: 0, y: 0 }
+    const st = dragStateRef.current
+    st.active = true
+    st.pointerId = e.pointerId
+    st.nodeId = String(nodeId)
+    st.startClientX = e.clientX
+    st.startClientY = e.clientY
+    st.originX = pos.x
+    st.originY = pos.y
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onNodePointerMove = (e: any) => {
+    const st = dragStateRef.current
+    if (!st.active || st.pointerId !== e.pointerId || !st.nodeId) return
+    const dx = (e.clientX - st.startClientX) / Math.max(0.01, zoomScale)
+    const dy = (e.clientY - st.startClientY) / Math.max(0.01, zoomScale)
+    const nodeId = st.nodeId
+    setNodePositions(prev => ({
+      ...prev,
+      [nodeId]: { x: st.originX + dx, y: st.originY + dy }
+    }))
+  }
+
+  const onNodePointerUp = (e: any) => {
+    const st = dragStateRef.current
+    if (st.pointerId !== e.pointerId) return
+    st.active = false
+    st.pointerId = null
+    st.nodeId = null
   }
 
   return (
@@ -2008,11 +2120,12 @@ function HierarchyTab({
 
       <div 
         data-canvas="true"
-        className="flex-grow overflow-auto p-12 bg-gray-50/50 relative" 
-        style={{ 
-          transform: `scale(${zoomScale}) translate(${canvasPosition.x}px, ${canvasPosition.y}px)`, 
-          transformOrigin: 'center center'
-        }}
+        className={`flex-grow bg-gray-50/50 relative ${viewMode === 'list' ? 'overflow-auto' : 'overflow-hidden'}`}
+        onPointerDown={onCanvasPointerDown}
+        onPointerMove={onCanvasPointerMove}
+        onPointerUp={onCanvasPointerUp}
+        onPointerCancel={onCanvasPointerUp}
+        onWheel={onCanvasWheel}
       >
         {viewMode === 'list' && (
           /* duijie/nn的列表视图 - 简单卡片 */
@@ -2064,12 +2177,29 @@ function HierarchyTab({
               </button>
             </div>
 
-            <div 
-              className="flex flex-col items-center justify-center min-h-full pb-60 pt-20 transition-transform duration-300 origin-center"
-              style={{ transform: `scale(${zoomScale})` }}
+            {/* 画布层（缩放+平移） */}
+            <div
+              className="absolute inset-0"
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomScale})`,
+                transformOrigin: 'center center'
+              }}
             >
-              {/* 总部卡片 */}
-              <div className="w-[480px] p-12 bg-white rounded-[4.5rem] border-2 border-gray-100 shadow-2xl hover:border-[#153e35] transition-all relative mb-20">
+              {/* 总部卡片（可拖拽） */}
+              <div
+                onPointerDown={onNodePointerDown('headquarters')}
+                onPointerMove={onNodePointerMove}
+                onPointerUp={onNodePointerUp}
+                onPointerCancel={onNodePointerUp}
+                className="w-[480px] p-12 bg-white rounded-[4.5rem] border-2 border-gray-100 shadow-2xl hover:border-[#153e35] transition-all relative"
+                style={{
+                  position: 'absolute',
+                  left: `calc(50% + ${(nodePositions['headquarters']?.x ?? 0)}px)`,
+                  top: `calc(50% + ${(nodePositions['headquarters']?.y ?? -260)}px)`,
+                  transform: 'translate(-50%, -50%)',
+                  touchAction: 'none'
+                }}
+              >
                 <div className="flex justify-between items-start mb-10">
                   <div className="group w-28 h-28 rounded-[2.8rem] bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden cursor-pointer hover:scale-105 transition-transform relative">
                     <div className="w-full h-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-3xl font-black">
@@ -2125,20 +2255,34 @@ function HierarchyTab({
                   >
                     绑定商品
                   </button>
-                  <button className="w-16 h-14 bg-[#153e35] text-white rounded-2xl flex items-center justify-center shadow-xl active:scale-90 transition-transform hover:bg-emerald-900">
+                  <button
+                    onClick={() => {
+                      setParentAccount(null)
+                      setShowAddModal(true)
+                    }}
+                    className="w-16 h-14 bg-[#153e35] text-white rounded-2xl flex items-center justify-center shadow-xl active:scale-90 transition-transform hover:bg-emerald-900"
+                  >
                     <Plus className="w-7 h-7" strokeWidth={3} />
                   </button>
                 </div>
               </div>
 
-              {/* 连接线 */}
-              <div className="w-px h-20 bg-gray-200" />
-
-              {/* 人员卡片网格 */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 px-12 relative">
-                <div className="absolute top-0 left-12 right-12 h-px bg-gray-200" />
-                {hierarchyData.staffNodes.map((staff) => (
-                  <div key={staff.id} className="w-64 p-8 bg-white rounded-[3rem] border border-gray-100 shadow-xl hover:shadow-2xl transition-all">
+              {hierarchyData.staffNodes.map((staff) => (
+                <div
+                  key={staff.id}
+                  onPointerDown={onNodePointerDown(String(staff.id))}
+                  onPointerMove={onNodePointerMove}
+                  onPointerUp={onNodePointerUp}
+                  onPointerCancel={onNodePointerUp}
+                  className="w-64 p-8 bg-white rounded-[3rem] border border-gray-100 shadow-xl hover:shadow-2xl transition-all"
+                  style={{
+                    position: 'absolute',
+                    left: `calc(50% + ${(nodePositions[String(staff.id)]?.x ?? 0)}px)`,
+                    top: `calc(50% + ${(nodePositions[String(staff.id)]?.y ?? 240)}px)`,
+                    transform: 'translate(-50%, -50%)',
+                    touchAction: 'none'
+                  }}
+                >
                     <div className="text-center mb-6">
                       <div 
                         onClick={() => handleAvatarClick(staff)}
@@ -2153,62 +2297,74 @@ function HierarchyTab({
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div 
-                        onClick={() => handleCardEdit(staff.id, staff.minDiscount, staff.distribution)}
-                        className="bg-[#f0fff8] p-4 rounded-[1.5rem] border border-emerald-100 text-center cursor-pointer hover:border-emerald-300 transition-all"
-                      >
+                      <div className="bg-[#f0fff8] p-4 rounded-[1.5rem] border border-emerald-100 text-center hover:border-emerald-300 transition-all">
                         <p className="text-[8px] font-black text-emerald-700 uppercase mb-2">折扣</p>
-                        {editingCard === staff.id ? (
-                          <input 
-                            type="number" 
-                            value={editValues.minDiscount}
-                            onChange={(e) => setEditValues(prev => ({ ...prev, minDiscount: Number(e.target.value) }))}
-                            onBlur={() => saveCardEdit(staff.id)}
-                            onKeyDown={(e) => e.key === 'Enter' && saveCardEdit(staff.id)}
-                            className="text-2xl font-black text-emerald-900 bg-transparent text-center w-full outline-none"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="text-2xl font-black text-emerald-900">{staff.minDiscount}%</div>
-                        )}
+                        <input
+                          type="number"
+                          value={nodeDraft[String(staff.id)]?.minDiscount ?? staff.minDiscount}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            setNodeDraft(prev => ({
+                              ...prev,
+                              [String(staff.id)]: {
+                                ...(prev[String(staff.id)] || { minDiscount: staff.minDiscount, distribution: staff.distribution }),
+                                minDiscount: v
+                              }
+                            }))
+                          }}
+                          onBlur={() => commitNodeDraft(String(staff.id))}
+                          onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
+                          className="text-2xl font-black text-emerald-900 bg-transparent text-center w-full outline-none"
+                        />
                       </div>
-                      <div 
-                        onClick={() => handleCardEdit(staff.id, staff.minDiscount, staff.distribution)}
-                        className="bg-[#f0f9ff] p-4 rounded-[1.5rem] border border-blue-100 text-center cursor-pointer hover:border-blue-300 transition-all"
-                      >
+                      <div className="bg-[#f0f9ff] p-4 rounded-[1.5rem] border border-blue-100 text-center hover:border-blue-300 transition-all">
                         <p className="text-[8px] font-black text-blue-700 uppercase mb-2">分润</p>
-                        {editingCard === staff.id ? (
-                          <input 
-                            type="number" 
-                            value={editValues.distribution}
-                            onChange={(e) => setEditValues(prev => ({ ...prev, distribution: Number(e.target.value) }))}
-                            onBlur={() => saveCardEdit(staff.id)}
-                            onKeyDown={(e) => e.key === 'Enter' && saveCardEdit(staff.id)}
-                            className="text-2xl font-black text-blue-900 bg-transparent text-center w-full outline-none"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="text-2xl font-black text-blue-900">{staff.distribution}%</div>
-                        )}
+                        <input
+                          type="number"
+                          value={nodeDraft[String(staff.id)]?.distribution ?? staff.distribution}
+                          onChange={(e) => {
+                            const v = Number(e.target.value)
+                            setNodeDraft(prev => ({
+                              ...prev,
+                              [String(staff.id)]: {
+                                ...(prev[String(staff.id)] || { minDiscount: staff.minDiscount, distribution: staff.distribution }),
+                                distribution: v
+                              }
+                            }))
+                          }}
+                          onBlur={() => commitNodeDraft(String(staff.id))}
+                          onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
+                          className="text-2xl font-black text-blue-900 bg-transparent text-center w-full outline-none"
+                        />
                       </div>
                     </div>
 
                     <div className="flex gap-2">
                       <button 
-                        onClick={() => handlePersonnelClick(staff)}
+                        onClick={() => {
+                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                          setParentAccount(acc)
+                          setShowAddModal(true)
+                        }}
                         className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-[#153e35] transition-all uppercase tracking-widest"
                       >
                         绑定人员
                       </button>
                       <button 
-                        onClick={() => handleProductClick(staff)}
+                        onClick={() => {
+                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                          if (!acc) return
+                          setProductAccount(acc)
+                          setShowProductModal(true)
+                        }}
                         className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-blue-600 transition-all uppercase tracking-widest"
                       >
                         绑定商品
                       </button>
                       <button 
                         onClick={() => {
-                          setParentAccount(null)
+                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                          setParentAccount(acc)
                           setShowAddModal(true)
                         }}
                         className="w-12 h-10 bg-[#153e35] text-white rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-transform"
@@ -2217,8 +2373,7 @@ function HierarchyTab({
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
+              ))}
             </div>
             
             {/* 底部切换按钮 */}
@@ -2275,178 +2430,6 @@ function HierarchyTab({
         />
       )}
       
-      {/* 层级人员及角色规定模态框 (参考图2) */}
-      {showPersonnelModal && selectedStaff && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => setShowPersonnelModal(false)}>
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-900">层级人员及角色规定</h3>
-              <button onClick={() => setShowPersonnelModal(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <input type="checkbox" className="w-4 h-4" />
-                <span className="text-sm font-medium text-gray-700">年薪提成赋权</span>
-              </div>
-              
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full overflow-hidden">
-                    <img src={selectedStaff.avatar} alt={selectedStaff.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900">{selectedStaff.name}</div>
-                    <div className="text-sm text-gray-500">{selectedStaff.role}</div>
-                  </div>
-                </div>
-                <input type="checkbox" className="w-4 h-4" />
-              </div>
-              
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                    <span className="text-orange-600 font-bold">广</span>
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900">广州分销</div>
-                    <div className="text-sm text-gray-500">区域负责人</div>
-                  </div>
-                </div>
-                <input type="checkbox" className="w-4 h-4" />
-              </div>
-              
-              <select className="w-full p-3 border rounded-lg bg-white">
-                <option>一个或被绑定到每当的审设计师所推荐...</option>
-                <option>大区销售 (是市话:50%)</option>
-                <option>认证设计师 (是市话:70%)</option>
-                <option>普通销售 (是市话:85%)</option>
-              </select>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button 
-                onClick={() => setShowPersonnelModal(false)}
-                className="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50"
-              >
-                取消关联
-              </button>
-              <button 
-                onClick={() => {
-                  // 实际保存人员设置操作
-                  if (selectedStaff && selectedStaff.account) {
-                    const updatedAccounts = accounts.map(account => {
-                      if (String(account._id) === String(selectedStaff.account._id)) {
-                        return { ...account, status: 'active' as 'active' | 'suspended' | 'pending' }
-                      }
-                      return account
-                    })
-                    onSaveAccounts(updatedAccounts)
-                  }
-                  setShowPersonnelModal(false)
-                }}
-                className="flex-1 py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-emerald-700"
-              >
-                导入人员体系
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* 商品分润配置模态框 (参考图1) */}
-      {showProductConfigModal && selectedStaff && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => setShowProductConfigModal(false)}>
-          <div className="bg-white rounded-3xl p-8 max-w-lg w-full mx-4 max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-gray-900">商品分润配置</h3>
-              <button onClick={() => setShowProductConfigModal(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="mb-4">
-              <div className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-                <span className="font-medium text-gray-700">沙发系列</span>
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                <div className="w-6 h-6 bg-emerald-600 rounded text-white text-xs flex items-center justify-center">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <span className="font-bold text-emerald-700">床头柜类</span>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              {[
-                { id: 'G625', name: 'G625床头柜', price: 1172, commission: 167 },
-                { id: 'G623', name: 'G623床头柜', price: 756, commission: 108 },
-                { id: 'G622', name: 'G622床头柜', price: 892, commission: 125 }
-              ].map((product) => (
-                <div key={product.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gray-100 rounded-lg"></div>
-                    <div>
-                      <div className="font-medium text-gray-900">{product.name}</div>
-                      <div className="text-sm text-gray-500">编号 #{product.id}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-emerald-600 font-medium">¥{product.price}</div>
-                    <div className="text-sm text-blue-600 font-medium">+{product.commission}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button 
-                onClick={() => setShowProductConfigModal(false)}
-                className="flex-1 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50"
-              >
-                取消设置
-              </button>
-              <button 
-                onClick={() => {
-                  // 实际保存商品配置操作
-                  if (selectedStaff && selectedStaff.account) {
-                    const updatedAccounts = accounts.map(account => {
-                      if (String(account._id) === String(selectedStaff.account._id)) {
-                        return { 
-                          ...account, 
-                          visibleCategoryIds: manufacturerCategoryTree.map(cat => cat._id),
-                          productOverrides: []
-                        }
-                      }
-                      return account
-                    })
-                    onSaveAccounts(updatedAccounts)
-                  }
-                  setShowProductConfigModal(false)
-                }}
-                className="flex-1 py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-emerald-700"
-              >
-                保存商品配置清单
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* 编辑业务节点档案模态框 (参考图3) */}
       {showProfileEditModal && selectedStaff && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => setShowProfileEditModal(false)}>
@@ -2493,7 +2476,6 @@ function HierarchyTab({
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-2">备注说明</label>
                   <textarea 
-                    name="notes"
                     placeholder="分别说明"
                     rows={3}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
@@ -2515,14 +2497,12 @@ function HierarchyTab({
                   if (selectedStaff && selectedStaff.account) {
                     const formData = new FormData(document.querySelector('form') as HTMLFormElement)
                     const nickname = formData.get('nickname') as string
-                    const notes = formData.get('notes') as string
                     
                     const updatedAccounts = accounts.map(account => {
                       if (String(account._id) === String(selectedStaff.account._id)) {
                         return { 
                           ...account, 
-                          nickname: nickname || account.nickname,
-                          notes: notes || account.notes || ''
+                          nickname: nickname || account.nickname
                         }
                       }
                       return account
