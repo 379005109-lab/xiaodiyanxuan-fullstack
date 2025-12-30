@@ -1706,6 +1706,21 @@ function HierarchyTab({
     return filteredAccounts.filter(a => String(a.parentId || '') === String(account.parentId || '') && String(a._id) !== String(account._id))
   }
 
+  const getMinDiscountPctFromAccount = (account: AuthorizedAccount | null, module: RoleModule | null) => {
+    if (!account || !module) return 60
+    const rules = module.discountRules || []
+    const r = account.discountRuleId ? rules.find(x => String(x._id) === String(account.discountRuleId)) : null
+    const chosen = r || rules.find(x => x.isDefault) || rules[0]
+    const rate = typeof chosen?.discountRate === 'number' && Number.isFinite(chosen.discountRate) ? chosen.discountRate : 1
+    return Math.round(Math.max(0, Math.min(1, rate)) * 100)
+  }
+
+  const getMaxCommissionPctFromAccount = (account: AuthorizedAccount | null) => {
+    if (!account) return 40
+    const v = Number((account as any).distributionRate ?? 0)
+    return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.floor(v))) : 0
+  }
+
   // 添加账号
   const handleAddAccounts = (items: Array<{
     accountId: string
@@ -1757,13 +1772,23 @@ function HierarchyTab({
       return
     }
 
-    const siblingDistributionSum = accounts
-      .filter(a => String(a.parentId || '') === String(parentAccount?._id || ''))
-      .reduce((sum, a) => sum + Number((a as any).distributionRate ?? 0), 0)
-    const maxDistribution = Math.max(0, 100 - siblingDistributionSum)
-    const sumNewDistribution = items.reduce((sum, it) => sum + Number(it.distributionRate || 0), 0)
-    if (sumNewDistribution > maxDistribution) {
-      toast.error(`垂直权重合计不能超过可用额度 ${maxDistribution.toFixed(0)}%`)
+    const parentMinDiscountPct = parentAccount ? getMinDiscountPctFromAccount(parentAccount, module) : 60
+    const parentMinRate = Math.max(0, Math.min(1, parentMinDiscountPct / 100))
+    const parentMaxCommissionPct = parentAccount ? getMaxCommissionPctFromAccount(parentAccount) : 40
+
+    const invalidDiscountByParent = items.find(it => {
+      const rule = (module.discountRules || []).find(r => String(r._id) === String(it.discountRuleId))
+      const v = typeof rule?.discountRate === 'number' && Number.isFinite(rule.discountRate) ? rule.discountRate : 1
+      return v < parentMinRate
+    })
+    if (invalidDiscountByParent) {
+      toast.error(`最低折扣不能低于上级限制 ${parentMinDiscountPct}%`)
+      return
+    }
+
+    const invalidCommissionByParent = items.find(it => Number(it.distributionRate || 0) > parentMaxCommissionPct)
+    if (invalidCommissionByParent) {
+      toast.error(`返佣比例不能超过上级限制 ${parentMaxCommissionPct}%`)
       return
     }
 
@@ -1794,6 +1819,8 @@ function HierarchyTab({
 
     const now = Date.now()
     const created = items.map((it, idx) => {
+      const parentMaxCommissionPct = parentAccount ? getMaxCommissionPctFromAccount(parentAccount) : 40
+      const safeDist = Math.max(0, Math.min(parentMaxCommissionPct, Math.floor(Number(it.distributionRate) || 0)))
       const newAccount: AuthorizedAccount = {
         _id: `account_${now}_${idx}`,
         userId: String(it.accountId),
@@ -1808,7 +1835,7 @@ function HierarchyTab({
         level: parentAccount ? parentAccount.level + 1 : 1,
         allocatedRate: Number(it.allocatedRate || 0),
         availableRate: Number(it.allocatedRate || 0),
-        distributionRate: Number.isFinite(Number(it.distributionRate)) ? Number(it.distributionRate) : 0,
+        distributionRate: safeDist,
         visibleCategoryIds: Array.isArray(it.visibleCategoryIds) ? it.visibleCategoryIds : [],
         children: [],
         status: 'active',
@@ -1890,6 +1917,70 @@ function HierarchyTab({
     return { headquarters, staffNodes }
   }, [filteredAccounts, manufacturerName, manufacturerLogo, modules])
 
+  const getAccountMinDiscountPct = (account: AuthorizedAccount | null): number => {
+    if (!account) return Number(hierarchyData.headquarters.minDiscount || 0)
+    const module = modules.find(m => String(m._id) === String(account.roleModuleId))
+    const rules = module?.discountRules || []
+    const r = account.discountRuleId ? rules.find(x => String(x._id) === String(account.discountRuleId)) : null
+    const chosen = r || rules.find(x => x.isDefault) || rules[0]
+    const rate = typeof chosen?.discountRate === 'number' && Number.isFinite(chosen.discountRate) ? chosen.discountRate : 1
+    return Math.round(Math.max(0, Math.min(1, rate)) * 100)
+  }
+
+  const getAccountMaxCommissionPct = (account: AuthorizedAccount | null): number => {
+    if (!account) return Number(hierarchyData.headquarters.distribution || 0)
+    const v = Number((account as any).distributionRate ?? 0)
+    return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.floor(v))) : 0
+  }
+
+  const getParentConstraints = (accountId: string) => {
+    const acc = accounts.find(a => String(a._id) === String(accountId)) || null
+    const parent = acc?.parentId ? (accounts.find(a => String(a._id) === String(acc.parentId)) || null) : null
+    const parentMinDiscount = getAccountMinDiscountPct(parent)
+    const parentMaxCommission = getAccountMaxCommissionPct(parent)
+    return { parentMinDiscount, parentMaxCommission }
+  }
+
+  const hierarchyGraph = useMemo(() => {
+    const nodes: Array<{ id: string; type: 'hq' | 'account'; parentId: string | null; data: any }> = []
+    const edges: Array<{ from: string; to: string }> = []
+
+    nodes.push({ id: 'headquarters', type: 'hq', parentId: null, data: hierarchyData.headquarters })
+
+    filteredAccounts.forEach(a => {
+      const id = String(a._id)
+      const pid = a.parentId ? String(a.parentId) : 'headquarters'
+      nodes.push({ id, type: 'account', parentId: pid, data: a })
+      edges.push({ from: pid, to: id })
+    })
+
+    // children map
+    const childrenById = new Map<string, string[]>()
+    nodes.forEach(n => childrenById.set(n.id, []))
+    edges.forEach(e => {
+      const arr = childrenById.get(e.from) || []
+      arr.push(e.to)
+      childrenById.set(e.from, arr)
+    })
+
+    // bfs depths
+    const depthById = new Map<string, number>()
+    depthById.set('headquarters', 0)
+    const q: string[] = ['headquarters']
+    while (q.length) {
+      const cur = q.shift()!
+      const d = depthById.get(cur) || 0
+      const kids = childrenById.get(cur) || []
+      kids.forEach(k => {
+        if (depthById.has(k)) return
+        depthById.set(k, d + 1)
+        q.push(k)
+      })
+    }
+
+    return { nodes, edges, childrenById, depthById }
+  }, [filteredAccounts, hierarchyData.headquarters])
+
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [zoomScale, setZoomScale] = useState(1)
 
@@ -1929,14 +2020,26 @@ function HierarchyTab({
       const next = { ...prev }
       if (!next['headquarters']) next['headquarters'] = { x: 0, y: -260 }
 
-      const n = hierarchyData.staffNodes.length
-      const gapX = 380
-      const baseY = 240
-      hierarchyData.staffNodes.forEach((s, idx) => {
-        const id = String(s.id)
-        if (next[id]) return
-        const offset = (idx - (n - 1) / 2) * gapX
-        next[id] = { x: offset, y: baseY }
+      const byDepth = new Map<number, string[]>()
+      hierarchyGraph.nodes.forEach(n => {
+        const d = hierarchyGraph.depthById.get(n.id)
+        if (typeof d !== 'number') return
+        const arr = byDepth.get(d) || []
+        arr.push(n.id)
+        byDepth.set(d, arr)
+      })
+
+      const gapX = 360
+      const gapY = 360
+      Array.from(byDepth.entries()).forEach(([depth, ids]) => {
+        if (depth === 0) return
+        const n = ids.length
+        ids.forEach((id, idx) => {
+          if (next[id]) return
+          const x = (idx - (n - 1) / 2) * gapX
+          const y = -260 + depth * gapY
+          next[id] = { x, y }
+        })
       })
       return next
     })
@@ -1956,8 +2059,12 @@ function HierarchyTab({
     const draft = nodeDraft[String(nodeId)]
     if (!draft) return
 
-    const targetDiscountPct = Math.max(0, Math.min(100, Math.floor(Number(draft.minDiscount) || 0)))
-    const targetDist = Math.max(0, Math.min(100, Math.floor(Number(draft.distribution) || 0)))
+    const { parentMinDiscount, parentMaxCommission } = getParentConstraints(String(nodeId))
+
+    const rawDiscountPct = Math.max(0, Math.min(100, Math.floor(Number(draft.minDiscount) || 0)))
+    const rawDist = Math.max(0, Math.min(100, Math.floor(Number(draft.distribution) || 0)))
+    const targetDiscountPct = Math.max(parentMinDiscount, rawDiscountPct)
+    const targetDist = Math.min(parentMaxCommission, rawDist)
     const targetDiscountRate = targetDiscountPct / 100
 
     const current = accounts.find(a => String(a._id) === String(nodeId))
@@ -1970,7 +2077,13 @@ function HierarchyTab({
       return
     }
 
-    const selectedRule = rules
+    const parentMinRate = parentMinDiscount / 100
+    const allowedRules = rules.filter(r => {
+      const v = typeof r.discountRate === 'number' && Number.isFinite(r.discountRate) ? r.discountRate : 1
+      return v >= parentMinRate
+    })
+    const pickFrom = allowedRules.length > 0 ? allowedRules : rules
+    const selectedRule = pickFrom
       .slice()
       .sort((a, b) => {
         const da = Math.abs((typeof a.discountRate === 'number' ? a.discountRate : 1) - targetDiscountRate)
@@ -2185,6 +2298,39 @@ function HierarchyTab({
                 transformOrigin: 'center center'
               }}
             >
+              {/* 连接线层（随拖拽更新） */}
+              <svg
+                className="absolute inset-0"
+                style={{ pointerEvents: 'none' }}
+                viewBox="-8000 -8000 16000 16000"
+                preserveAspectRatio="xMidYMid meet"
+              >
+                {hierarchyGraph.edges.map((e) => {
+                  const fromPos = nodePositions[String(e.from)]
+                  const toPos = nodePositions[String(e.to)]
+                  if (!fromPos || !toPos) return null
+
+                  const fromSize = e.from === 'headquarters' ? { w: 480, h: 420 } : { w: 256, h: 300 }
+                  const toSize = e.to === 'headquarters' ? { w: 480, h: 420 } : { w: 256, h: 300 }
+
+                  const x1 = fromPos.x
+                  const y1 = fromPos.y + fromSize.h / 2
+                  const x2 = toPos.x
+                  const y2 = toPos.y - toSize.h / 2
+
+                  const mx = (x1 + x2) / 2
+                  return (
+                    <path
+                      key={`${e.from}-${e.to}`}
+                      d={`M ${x1} ${y1} C ${mx} ${y1 + 80}, ${mx} ${y2 - 80}, ${x2} ${y2}`}
+                      fill="none"
+                      stroke="#d1d5db"
+                      strokeWidth={3}
+                    />
+                  )
+                })}
+              </svg>
+
               {/* 总部卡片（可拖拽） */}
               <div
                 onPointerDown={onNodePointerDown('headquarters')}
@@ -2298,7 +2444,7 @@ function HierarchyTab({
 
                     <div className="grid grid-cols-2 gap-4 mb-6">
                       <div className="bg-[#f0fff8] p-4 rounded-[1.5rem] border border-emerald-100 text-center hover:border-emerald-300 transition-all">
-                        <p className="text-[8px] font-black text-emerald-700 uppercase mb-2">折扣</p>
+                        <p className="text-[8px] font-black text-emerald-700 uppercase mb-2">最低折扣</p>
                         <input
                           type="number"
                           value={nodeDraft[String(staff.id)]?.minDiscount ?? staff.minDiscount}
@@ -2318,7 +2464,7 @@ function HierarchyTab({
                         />
                       </div>
                       <div className="bg-[#f0f9ff] p-4 rounded-[1.5rem] border border-blue-100 text-center hover:border-blue-300 transition-all">
-                        <p className="text-[8px] font-black text-blue-700 uppercase mb-2">分润</p>
+                        <p className="text-[8px] font-black text-blue-700 uppercase mb-2">返佣</p>
                         <input
                           type="number"
                           value={nodeDraft[String(staff.id)]?.distribution ?? staff.distribution}
@@ -2393,6 +2539,8 @@ function HierarchyTab({
         <AddAccountModal
           modules={modules}
           parentAccount={parentAccount}
+          parentMinDiscountPct={parentAccount ? getMinDiscountPctFromAccount(parentAccount, modules.find(m => String(m._id) === String(parentAccount.roleModuleId)) || null) : 60}
+          parentMaxCommissionPct={parentAccount ? getMaxCommissionPctFromAccount(parentAccount) : 40}
           manufacturerId={manufacturerId}
           manufacturerCategoryTree={manufacturerCategoryTree}
           manufacturerProducts={manufacturerProducts}
@@ -2781,10 +2929,10 @@ function ProductProfitModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
-      <div className="relative w-full max-w-[980px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
-        <div className="p-8 border-b border-gray-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-[560px] bg-white shadow-2xl overflow-hidden flex flex-col">
+        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h3 className="text-2xl font-black text-gray-900">商品分润配置</h3>
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">
@@ -2799,7 +2947,7 @@ function ProductProfitModal({
           </button>
         </div>
 
-        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <input
               value={keyword}
@@ -2861,7 +3009,7 @@ function ProductProfitModal({
           )}
         </div>
 
-        <div className="p-8 border-t border-gray-100 flex justify-end gap-4 bg-white">
+        <div className="p-6 border-t border-gray-100 flex justify-end gap-4 bg-white">
           <button type="button" onClick={onClose} className="px-8 py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-bold hover:bg-gray-50">
             取消
           </button>
@@ -2886,6 +3034,8 @@ function ProductProfitModal({
 function AddAccountModal({
   modules,
   parentAccount,
+  parentMinDiscountPct,
+  parentMaxCommissionPct,
   manufacturerId,
   manufacturerCategoryTree,
   manufacturerProducts,
@@ -2896,6 +3046,8 @@ function AddAccountModal({
 }: {
   modules: RoleModule[]
   parentAccount: AuthorizedAccount | null
+  parentMinDiscountPct: number
+  parentMaxCommissionPct: number
   manufacturerId: string
   manufacturerCategoryTree: any[]
   manufacturerProducts: any[]
@@ -3036,21 +3188,21 @@ function AddAccountModal({
   const selectedModule = modules.find(m => String(m._id) === String(formData.roleModuleId))
 
   const defaultRuleId = useMemo(() => {
-    const rules = selectedModule?.discountRules || []
+    const minRate = Math.max(0, Math.min(1, Number(parentMinDiscountPct || 0) / 100))
+    const rules = (selectedModule?.discountRules || []).filter(r => {
+      const v = typeof r.discountRate === 'number' && Number.isFinite(r.discountRate) ? r.discountRate : 1
+      return v >= minRate
+    })
     const def = rules.find(r => r.isDefault) || rules[0]
     return String(def?._id || '')
-  }, [selectedModule?._id])
+  }, [selectedModule?._id, parentMinDiscountPct])
 
   const [batchRuleId, setBatchRuleId] = useState('')
 
-  const siblingDistributionSum = useMemo(() => {
-    const pid = String(parentAccount?._id || '')
-    return (authorizedAccounts || [])
-      .filter(a => String(a.parentId || '') === pid)
-      .reduce((sum, a) => sum + Number((a as any).distributionRate ?? 0), 0)
-  }, [authorizedAccounts, parentAccount?._id])
-
-  const maxDistribution = Math.max(0, 100 - siblingDistributionSum)
+  const maxDistribution = useMemo(() => {
+    const v = Number(parentMaxCommissionPct || 0)
+    return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.floor(v))) : 0
+  }, [parentMaxCommissionPct])
 
   const currentModuleAllocated = useMemo(() => {
     const rid = String(formData.roleModuleId || '')
@@ -3231,7 +3383,7 @@ function AddAccountModal({
         const nextCfg = { ...cfg }
         if (!exists) {
           const allocated = Math.max(1, Math.floor(maxRate / Math.max(1, next.length)))
-          const dist = Math.floor(maxDistribution / Math.max(1, next.length))
+          const dist = maxDistribution
           nextCfg[id] = {
             discountRuleId: defaultRuleId,
             allocatedRate: allocated,
@@ -3266,7 +3418,7 @@ function AddAccountModal({
           })
         } else {
           const allocated = Math.max(1, Math.floor(maxRate / Math.max(1, next.length)))
-          const dist = Math.floor(maxDistribution / Math.max(1, next.length))
+          const dist = maxDistribution
           ids.forEach((id) => {
             if (nextCfg[id]) return
             nextCfg[id] = {
@@ -3315,11 +3467,12 @@ function AddAccountModal({
   }
 
   const applyBatchDistribution = (v: number) => {
+    const nextV = Math.max(0, Math.min(maxDistribution, Math.floor(Number(v) || 0)))
     setPerAccountConfig(prev => {
       const next = { ...prev }
       selectedAccountIds.forEach((id) => {
         const cur = next[id] || { discountRuleId: defaultRuleId, allocatedRate: 1, distributionRate: 0 }
-        next[id] = { ...cur, distributionRate: v }
+        next[id] = { ...cur, distributionRate: nextV }
       })
       return next
     })
@@ -3353,8 +3506,9 @@ function AddAccountModal({
       toast.error(`分配比例合计不能超过可用额度 ${maxRate.toFixed(1)}%`)
       return
     }
-    if (sumDistribution > maxDistribution) {
-      toast.error(`垂直权重合计不能超过可用额度 ${maxDistribution.toFixed(0)}%`)
+    const anyDistTooHigh = selectedAccountIds.some(id => Number(perAccountConfig[id]?.distributionRate || 0) > maxDistribution)
+    if (anyDistTooHigh) {
+      toast.error(`返佣比例不能超过上级限制 ${maxDistribution.toFixed(0)}%`)
       return
     }
 
@@ -3378,14 +3532,14 @@ function AddAccountModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
-      <div className="relative w-full max-w-[1200px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
-        <div className="px-10 py-8 border-b border-gray-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-[520px] bg-white shadow-2xl overflow-hidden flex flex-col">
+        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h3 className="text-2xl font-black text-gray-900">绑定人员</h3>
             <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">
-              已选 {selectedAccountIds.length} 人 • 分配 {sumAllocated.toFixed(1)}% / {maxRate.toFixed(1)}% • 权重 {sumDistribution.toFixed(0)}% / {maxDistribution.toFixed(0)}%
+              已选 {selectedAccountIds.length} 人 • 分配 {sumAllocated.toFixed(1)}% / {maxRate.toFixed(1)}% • 返佣上限 {maxDistribution.toFixed(0)}%
             </div>
           </div>
           <button type="button" onClick={onClose} className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 hover:text-rose-500 transition-all">
@@ -3393,8 +3547,8 @@ function AddAccountModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <form id="add-account-modal-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-6">
             <div className="bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6">
               <div className="flex items-center gap-3 mb-4">
                 <input
@@ -3483,8 +3637,7 @@ function AddAccountModal({
               </div>
             </div>
 
-            <div className="space-y-6">
-              <div className="bg-white border border-gray-100 rounded-[2rem] p-6 space-y-5">
+            <div className="bg-white border border-gray-100 rounded-[2rem] p-6 space-y-5">
                 <div>
                   <div className="text-xs font-black text-gray-400 uppercase tracking-widest">角色模块</div>
                   <select
@@ -3508,7 +3661,10 @@ function AddAccountModal({
                       onChange={(e) => applyBatchRule(e.target.value)}
                       disabled={!selectedModule}
                     >
-                      {(selectedModule?.discountRules || []).map(r => (
+                      {(selectedModule?.discountRules || []).filter(r => {
+                        const v = typeof r.discountRate === 'number' && Number.isFinite(r.discountRate) ? r.discountRate : 1
+                        return v >= Math.max(0, Math.min(1, Number(parentMinDiscountPct || 0) / 100))
+                      }).map(r => (
                         <option key={r._id} value={r._id}>{r.name}{r.isDefault ? '（默认）' : ''}</option>
                       ))}
                     </select>
@@ -3531,15 +3687,16 @@ function AddAccountModal({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest">批量权重%</div>
+                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest">批量返佣%</div>
                     <input
                       className="input w-full mt-2"
                       type="number"
                       min={0}
+                      max={maxDistribution}
                       step={1}
-                      defaultValue={selectedAccountIds.length ? Math.floor(maxDistribution / Math.max(1, selectedAccountIds.length)) : 0}
+                      defaultValue={maxDistribution}
                       onBlur={(e) => {
-                        const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
+                        const v = Math.max(0, Math.min(maxDistribution, Math.floor(Number(e.target.value) || 0)))
                         applyBatchDistribution(v)
                       }}
                     />
@@ -3649,101 +3806,104 @@ function AddAccountModal({
                 ) : null}
               </div>
 
-              <div className="bg-white border border-gray-100 rounded-[2rem] overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                  <div className="text-sm font-black text-gray-900">已选人员</div>
-                  <div className="text-xs text-gray-500">可用分配 {maxRate.toFixed(1)}% • 可用权重 {maxDistribution.toFixed(0)}%</div>
-                </div>
-                <div className="max-h-[340px] overflow-y-auto">
-                  {selectedAccounts.length === 0 ? (
-                    <div className="p-6 text-sm text-gray-500">请在左侧勾选要绑定的账号</div>
-                  ) : (
-                    <div className="divide-y divide-gray-100">
-                      {selectedAccounts.map((a) => {
-                        const id = String(a._id)
-                        const cfg = perAccountConfig[id] || { discountRuleId: defaultRuleId, allocatedRate: 0, distributionRate: 0 }
-                        return (
-                          <div key={id} className="p-5 flex items-center justify-between gap-4">
-                            <div className="min-w-0">
-                              <div className="text-sm font-black text-gray-900 truncate">{a.nickname || a.username || id}</div>
-                              <div className="text-[10px] text-gray-400 font-bold truncate">
-                                {a.username ? `@${a.username}` : ''}{a.phone ? ` • ${a.phone}` : ''}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 shrink-0">
-                              <select
-                                value={cfg.discountRuleId}
-                                onChange={(e) => {
-                                  const v = e.target.value
-                                  setPerAccountConfig(prev => ({
-                                    ...prev,
-                                    [id]: { ...prev[id], discountRuleId: v }
-                                  }))
-                                }}
-                                className="input h-10 text-xs"
-                              >
-                                {(selectedModule?.discountRules || []).map(r => (
-                                  <option key={r._id} value={r._id}>{r.name}{r.isDefault ? '（默认）' : ''}</option>
-                                ))}
-                              </select>
-                              <input
-                                type="number"
-                                min={0}
-                                step={1}
-                                value={cfg.allocatedRate}
-                                onChange={(e) => {
-                                  const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
-                                  setPerAccountConfig(prev => ({
-                                    ...prev,
-                                    [id]: { ...prev[id], allocatedRate: v }
-                                  }))
-                                }}
-                                className="input h-10 w-20 text-xs text-center"
-                                title="分配比例%"
-                              />
-                              <input
-                                type="number"
-                                min={0}
-                                step={1}
-                                value={cfg.distributionRate}
-                                onChange={(e) => {
-                                  const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
-                                  setPerAccountConfig(prev => ({
-                                    ...prev,
-                                    [id]: { ...prev[id], distributionRate: v }
-                                  }))
-                                }}
-                                className="input h-10 w-20 text-xs text-center"
-                                title="垂直权重%"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => toggleSelectAccount(id)}
-                                className="w-10 h-10 rounded-xl border border-gray-100 bg-white text-gray-400 hover:text-rose-500 hover:border-rose-200 transition-all"
-                              >
-                                <X className="w-4 h-4 mx-auto" />
-                              </button>
+            <div className="bg-white border border-gray-100 rounded-[2rem] overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="text-sm font-black text-gray-900">已选人员</div>
+                <div className="text-xs text-gray-500">可用分配 {maxRate.toFixed(1)}% • 返佣上限 {maxDistribution.toFixed(0)}%</div>
+              </div>
+              <div className="max-h-[340px] overflow-y-auto">
+                {selectedAccounts.length === 0 ? (
+                  <div className="p-6 text-sm text-gray-500">请在左侧勾选要绑定的账号</div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {selectedAccounts.map((a) => {
+                      const id = String(a._id)
+                      const cfg = perAccountConfig[id] || { discountRuleId: defaultRuleId, allocatedRate: 0, distributionRate: 0 }
+                      return (
+                        <div key={id} className="p-5 flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-sm font-black text-gray-900 truncate">{a.nickname || a.username || id}</div>
+                            <div className="text-[10px] text-gray-400 font-bold truncate">
+                              {a.username ? `@${a.username}` : ''}{a.phone ? ` • ${a.phone}` : ''}
                             </div>
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <select
+                              value={cfg.discountRuleId}
+                              onChange={(e) => {
+                                const v = e.target.value
+                                setPerAccountConfig(prev => ({
+                                  ...prev,
+                                  [id]: { ...prev[id], discountRuleId: v }
+                                }))
+                              }}
+                              className="input h-10 text-xs"
+                            >
+                              {(selectedModule?.discountRules || []).filter(r => {
+                                const v = typeof r.discountRate === 'number' && Number.isFinite(r.discountRate) ? r.discountRate : 1
+                                return v >= Math.max(0, Math.min(1, Number(parentMinDiscountPct || 0) / 100))
+                              }).map(r => (
+                                <option key={r._id} value={r._id}>{r.name}{r.isDefault ? '（默认）' : ''}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={cfg.allocatedRate}
+                              onChange={(e) => {
+                                const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
+                                setPerAccountConfig(prev => ({
+                                  ...prev,
+                                  [id]: { ...prev[id], allocatedRate: v }
+                                }))
+                              }}
+                              className="input h-10 w-20 text-xs text-center"
+                              title="分配比例%"
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              max={maxDistribution}
+                              step={1}
+                              value={cfg.distributionRate}
+                              onChange={(e) => {
+                                const v = Math.max(0, Math.min(maxDistribution, Math.floor(Number(e.target.value) || 0)))
+                                setPerAccountConfig(prev => ({
+                                  ...prev,
+                                  [id]: { ...prev[id], distributionRate: v }
+                                }))
+                              }}
+                              className="input h-10 w-20 text-xs text-center"
+                              title="返佣%"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => toggleSelectAccount(id)}
+                              className="w-10 h-10 rounded-xl border border-gray-100 bg-white text-gray-400 hover:text-rose-500 hover:border-rose-200 transition-all"
+                            >
+                              <X className="w-4 h-4 mx-auto" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-
-          <div className="flex justify-end gap-3 pt-8">
-            <button type="button" onClick={onClose} className="px-8 py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-bold hover:bg-gray-50">
-              取消
-            </button>
-            <button type="submit" className="px-10 py-3 rounded-2xl bg-[#153e35] text-white font-black shadow-xl">
-              绑定
-            </button>
-          </div>
         </form>
+
+        <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-white">
+          <button type="button" onClick={onClose} className="px-8 py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-bold hover:bg-gray-50">
+            取消
+          </button>
+          <button type="submit" className="px-10 py-3 rounded-2xl bg-[#153e35] text-white font-black shadow-xl" form="add-account-modal-form">
+            绑定
+          </button>
+        </div>
       </div>
     </div>
   )
