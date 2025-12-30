@@ -1941,6 +1941,53 @@ function HierarchyTab({
     return { parentMinDiscount, parentMaxCommission }
   }
 
+  const accountsCommissionKey = useMemo(() => {
+    return (accounts || [])
+      .map(a => `${String(a._id)}:${String(a.parentId || '')}:${String((a as any).distributionRate ?? '')}`)
+      .join('|')
+  }, [accounts])
+
+  useEffect(() => {
+    if (!accounts || accounts.length === 0) return
+
+    let changed = false
+    const next = accounts.map(a => {
+      const parent = a.parentId ? (accounts.find(p => String(p._id) === String(a.parentId)) || null) : null
+      const parentMax = parent ? getMaxCommissionPctFromAccount(parent) : 40
+      const cur = Math.max(0, Math.min(100, Math.floor(Number((a as any).distributionRate ?? 0) || 0)))
+      const safe = Math.max(0, Math.min(parentMax, cur))
+      if (safe !== cur) {
+        changed = true
+        return { ...a, distributionRate: safe }
+      }
+      return a
+    })
+
+    if (changed) {
+      onSaveAccounts(next)
+    }
+  }, [accountsCommissionKey])
+
+  useEffect(() => {
+    if (viewMode !== 'map') return
+    const el = canvasViewportRef.current
+    if (!el) return
+
+    const update = () => {
+      const rect = el.getBoundingClientRect()
+      setCanvasSize({ w: Math.max(1, Math.floor(rect.width)), h: Math.max(1, Math.floor(rect.height)) })
+    }
+
+    update()
+    const ro = new ResizeObserver(() => update())
+    ro.observe(el)
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      ro.disconnect()
+    }
+  }, [viewMode])
+
   const hierarchyGraph = useMemo(() => {
     const nodes: Array<{ id: string; type: 'hq' | 'account'; parentId: string | null; data: any }> = []
     const edges: Array<{ from: string; to: string }> = []
@@ -1988,6 +2035,8 @@ function HierarchyTab({
   const [selectedStaff, setSelectedStaff] = useState<any>(null)
 
   // 地图：平移/缩放/拖拽
+  const canvasViewportRef = useRef<HTMLDivElement | null>(null)
+  const [canvasSize, setCanvasSize] = useState({ w: 1, h: 1 })
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({})
   const [nodeDraft, setNodeDraft] = useState<Record<string, { minDiscount: number; distribution: number }>>({})
@@ -2267,7 +2316,7 @@ function HierarchyTab({
 
         {viewMode === 'map' && (
           /* duijie/nn的架构地图视图 */
-          <div className="relative w-full h-full overflow-hidden bg-gray-50/50">
+          <div ref={canvasViewportRef} className="relative w-full h-full overflow-hidden bg-gray-50/50">
             {/* 缩放控制面板 */}
             <div className="absolute bottom-12 left-12 flex flex-col gap-4 z-[80]">
               <button 
@@ -2302,8 +2351,8 @@ function HierarchyTab({
               <svg
                 className="absolute inset-0"
                 style={{ pointerEvents: 'none' }}
-                viewBox="-8000 -8000 16000 16000"
-                preserveAspectRatio="xMidYMid meet"
+                viewBox={`${-canvasSize.w / 2} ${-canvasSize.h / 2} ${canvasSize.w} ${canvasSize.h}`}
+                preserveAspectRatio="none"
               >
                 {hierarchyGraph.edges.map((e) => {
                   const fromPos = nodePositions[String(e.from)]
@@ -2324,8 +2373,8 @@ function HierarchyTab({
                       key={`${e.from}-${e.to}`}
                       d={`M ${x1} ${y1} C ${mx} ${y1 + 80}, ${mx} ${y2 - 80}, ${x2} ${y2}`}
                       fill="none"
-                      stroke="#d1d5db"
-                      strokeWidth={3}
+                      stroke="#9ca3af"
+                      strokeWidth={4}
                     />
                   )
                 })}
