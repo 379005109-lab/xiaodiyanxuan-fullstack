@@ -27,6 +27,7 @@ export default function Header() {
   const canEnterAdminPanel = isAdminUser || user?.role === 'designer'
 
   const hasManufacturerToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('manufacturerToken'))
+  const manufacturerEntryPath = hasManufacturerToken ? '/manufacturer/orders' : '/manufacturer/login'
   
   // 分类悬浮窗口状态
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
@@ -374,17 +375,14 @@ export default function Header() {
                     我的地址
                   </Link>
 
-                  {/* 厂家中心入口 - 厂家端登录后可见 */}
-                  {hasManufacturerToken && (
-                    <Link
-                      to="/manufacturer/orders"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
-                    >
-                      <LayoutDashboard className="w-4 h-4" />
-                      厂家中心
-                    </Link>
-                  )}
+                  <Link
+                    to={manufacturerEntryPath}
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    厂家中心
+                  </Link>
                   
                   {/* 管理后台入口 - 仅管理员可见 */}
                   {canEnterAdminPanel && (
