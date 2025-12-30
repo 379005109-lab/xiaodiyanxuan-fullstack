@@ -40,6 +40,8 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
   const { user } = useAuthStore()
   const role = user?.role
 
+  const isManufacturerSubAccount = role === 'enterprise_admin'
+
   const allMenuItems: MenuItem[] = [
     { name: '首页', path: '/admin', icon: Home },
     { name: '数据看板', path: '/admin/dashboard', icon: TrendingUp },
@@ -90,7 +92,27 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
     ? allMenuItems.filter(item =>
         ['商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
       )
-    : allMenuItems
+    : isManufacturerSubAccount
+      ? allMenuItems
+          .filter(item =>
+            ['材质管理', '厂家管理', '商品管理', '分类管理', '砍价管理', '订单管理'].includes(item.name)
+          )
+          .map(item => {
+            if (item.name === '砍价管理') {
+              return {
+                ...item,
+                children: [{ name: '砍价列表', path: '/admin/bargain' }],
+              }
+            }
+            if (item.name === '订单管理') {
+              return {
+                ...item,
+                children: [{ name: '订单列表', path: '/admin/orders' }],
+              }
+            }
+            return { ...item, children: undefined }
+          })
+      : allMenuItems
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev =>
