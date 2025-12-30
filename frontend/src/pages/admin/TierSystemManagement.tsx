@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
+import { getThumbnailUrl } from '@/services/uploadService'
 
 // ==================== 类型定义 ====================
 
@@ -62,6 +63,11 @@ interface AuthorizedAccount {
   availableRate: number  // 可再分配比例
   distributionRate?: number  // 垂直权重比例（同一父节点下子节点合计≤100）
   visibleCategoryIds?: string[]
+  productOverrides?: Array<{
+    productId: string
+    discountRate?: number
+    commissionRate?: number
+  }>
   children: AuthorizedAccount[]
   status: 'active' | 'suspended' | 'pending'
   createdAt: string
@@ -195,6 +201,21 @@ const ICON_MAP: Record<string, any> = {
   Store,
   Layers,
   Building2
+}
+
+const normalizeFileId = (v: any): string => {
+  if (!v) return ''
+  const raw = String(v)
+  if (!raw) return ''
+  if (raw.startsWith('/api/files/')) return raw.replace('/api/files/', '').split('?')[0]
+  return raw
+}
+
+const getLogoSrc = (logo: any, size: number) => {
+  const id = normalizeFileId(logo)
+  if (!id) return ''
+  if (id.startsWith('http://') || id.startsWith('https://')) return id
+  return getThumbnailUrl(id, size)
 }
 
 // ==================== 主组件 ====================
@@ -430,70 +451,93 @@ export default function TierSystemManagement() {
     }
   }
 
+  const currentManufacturerName =
+    selectedManufacturerMeta?.name ||
+    (user as any)?.manufacturerName ||
+    (user as any)?.manufacturer?.name ||
+    (lockedManufacturerId || selectedManufacturerId || '')
+
+  const currentManufacturerLogo = selectedManufacturerMeta?.logo || (user as any)?.manufacturer?.logo || ''
+  const logoSrc = currentManufacturerLogo ? getLogoSrc(currentManufacturerLogo, 160) : ''
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-[1600px] mx-auto">
       {/* 页头 */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">分层体系管理</h1>
-        <p className="text-sm text-gray-500 mt-1">管理分层组织架构、收益设置和返佣对账</p>
-        <div className="mt-4 flex items-center gap-3">
-          <div className="text-sm text-gray-600 flex items-center gap-2">
-            <Building2 className="w-4 h-4" />
-            <span>厂家</span>
+      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden mb-8">
+        <div className="p-8 flex items-center justify-between gap-8">
+          <div className="flex items-center gap-8 min-w-0">
+            <div className="w-16 h-16 rounded-2xl border bg-white overflow-hidden flex items-center justify-center">
+              {logoSrc ? (
+                <img src={logoSrc} alt={currentManufacturerName || 'manufacturer'} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gray-50" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-3xl font-black text-gray-900 tracking-tight truncate">分层架构管控系统</h1>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-2 truncate">
+                {currentManufacturerName || '--'}
+              </p>
+              {!lockedManufacturerId ? (
+                <div className="mt-4">
+                  <select
+                    value={selectedManufacturerId}
+                    onChange={(e) => setSelectedManufacturerId(e.target.value)}
+                    className="px-4 py-2 rounded-2xl bg-gray-50 border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-600"
+                    disabled={!isSuperAdmin}
+                  >
+                    <option value="">-- 请选择厂家 --</option>
+                    {manufacturers.map(m => (
+                      <option key={m._id} value={m._id}>
+                        {m.name || m.fullName || m._id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+            </div>
           </div>
-          {lockedManufacturerId ? (
-            <span className="text-sm text-gray-900">
-              {(user as any)?.manufacturerName || (user as any)?.manufacturer?.name || lockedManufacturerId}
-            </span>
-          ) : (
-            <select
-              value={selectedManufacturerId}
-              onChange={(e) => setSelectedManufacturerId(e.target.value)}
-              className="input"
-              disabled={!isSuperAdmin}
-            >
-              <option value="">-- 请选择厂家 --</option>
-              {manufacturers.map(m => (
-                <option key={m._id} value={m._id}>
-                  {m.name || m.fullName || m._id}
-                </option>
-              ))}
-            </select>
-          )}
+
+          <button
+            type="button"
+            onClick={() => navigate('/admin/manufacturers')}
+            className="rounded-2xl px-10 py-4 font-black uppercase text-xs border-2 border-gray-100 text-gray-500 hover:text-[#153e35] hover:border-[#153e35] transition-all"
+          >
+            返回主控
+          </button>
         </div>
       </div>
 
       {/* 标签切换 */}
-      <div className="mb-6 border-b border-gray-200">
-        <div className="flex gap-8">
-          <TabButton 
-            active={activeTab === 'hierarchy'} 
+      <div className="mb-8">
+        <div className="flex flex-wrap gap-3">
+          <TabButton
+            active={activeTab === 'hierarchy'}
             onClick={() => setActiveTab('hierarchy')}
             icon={<GitBranch className="w-4 h-4" />}
-            label="分层组织架构"
+            label="公司分层"
           />
-          <TabButton 
-            active={activeTab === 'pool'} 
+          <TabButton
+            active={activeTab === 'pool'}
             onClick={() => setActiveTab('pool')}
             icon={<BarChart3 className="w-4 h-4" />}
-            label="收益设置"
+            label="角色权限"
           />
           <TabButton
             active={activeTab === 'reconciliation'}
             onClick={() => setActiveTab('reconciliation')}
             icon={<TrendingUp className="w-4 h-4" />}
-            label="返佣对账"
+            label="分润对账"
           />
         </div>
       </div>
 
       {/* 内容区域 */}
       {activeTab === 'pool' && (
-        <ProfitPoolTab 
+        <RolesPermissionTab
           modules={data.roleModules}
           profitSettings={data.profitSettings}
           onUpdateProfitSettings={updateProfitSettings}
-          onUpdateModule={updateRoleModule}
           commissionRate={selectedManufacturerCommission}
           onUpdateCommissionRate={async (rate) => {
             const mid = lockedManufacturerId || selectedManufacturerId || ''
@@ -503,6 +547,12 @@ export default function TierSystemManagement() {
             await apiClient.put(`/manufacturers/${mid}`, { defaultCommission: rate })
           }}
           commissionEditable={isSuperAdmin && !lockedManufacturerId}
+          selectedModule={selectedModule}
+          onSelectModule={setSelectedModule}
+          onUpdateModule={updateRoleModule}
+          onAddRule={addDiscountRule}
+          onUpdateRule={updateDiscountRule}
+          onDeleteRule={deleteDiscountRule}
         />
       )}
       
@@ -511,8 +561,8 @@ export default function TierSystemManagement() {
           modules={data.roleModules}
           accounts={data.authorizedAccounts}
           manufacturerId={lockedManufacturerId || selectedManufacturerId || ''}
-          manufacturerName={selectedManufacturerMeta?.name || (user as any)?.manufacturerName || (user as any)?.manufacturer?.name || ''}
-          manufacturerLogo={selectedManufacturerMeta?.logo || ''}
+          manufacturerName={currentManufacturerName}
+          manufacturerLogo={logoSrc}
           profitSettings={data.profitSettings}
           commissionRate={selectedManufacturerCommission}
           onBack={() => navigate('/admin/manufacturers')}
@@ -649,6 +699,57 @@ function ReconciliationTab({
   )
 }
 
+function RolesPermissionTab({
+  modules,
+  profitSettings,
+  onUpdateProfitSettings,
+  commissionRate,
+  onUpdateCommissionRate,
+  commissionEditable,
+  selectedModule,
+  onSelectModule,
+  onUpdateModule,
+  onAddRule,
+  onUpdateRule,
+  onDeleteRule
+}: {
+  modules: RoleModule[]
+  profitSettings: TierSystemData['profitSettings']
+  onUpdateProfitSettings: (updates: Partial<TierSystemData['profitSettings']>) => void
+  commissionRate: number
+  onUpdateCommissionRate: (rate: number) => void
+  commissionEditable: boolean
+  selectedModule: RoleModule | null
+  onSelectModule: (m: RoleModule | null) => void
+  onUpdateModule: (id: string, updates: Partial<RoleModule>) => void
+  onAddRule: (moduleId: string, rule: Omit<DiscountRule, '_id'>) => void
+  onUpdateRule: (moduleId: string, ruleId: string, updates: Partial<DiscountRule>) => void
+  onDeleteRule: (moduleId: string, ruleId: string) => void
+}) {
+  return (
+    <div className="space-y-10">
+      <ProfitPoolTab
+        modules={modules}
+        profitSettings={profitSettings}
+        onUpdateProfitSettings={(u) => onUpdateProfitSettings(u)}
+        onUpdateModule={onUpdateModule}
+        commissionRate={commissionRate}
+        onUpdateCommissionRate={onUpdateCommissionRate}
+        commissionEditable={commissionEditable}
+      />
+      <RoleModulesTab
+        modules={modules}
+        selectedModule={selectedModule}
+        onSelectModule={onSelectModule}
+        onUpdateModule={onUpdateModule}
+        onAddRule={onAddRule}
+        onUpdateRule={onUpdateRule}
+        onDeleteRule={onDeleteRule}
+      />
+    </div>
+  )
+}
+
 // ==================== Tab 按钮组件 ====================
 
 function TabButton({ active, onClick, icon, label }: { 
@@ -660,11 +761,10 @@ function TabButton({ active, onClick, icon, label }: {
   return (
     <button
       onClick={onClick}
-      className={`pb-3 px-1 border-b-2 transition-colors flex items-center gap-2 ${
-        active
-          ? 'border-primary-600 text-primary-600 font-medium'
-          : 'border-transparent text-gray-500 hover:text-gray-700'
+      className={`px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+        active ? 'bg-[#153e35] text-white shadow-xl' : 'text-gray-400 hover:text-gray-600 bg-white border border-gray-100'
       }`}
+      type="button"
     >
       {icon}
       {label}
@@ -1201,6 +1301,8 @@ function HierarchyTab({
   const [parentAccount, setParentAccount] = useState<AuthorizedAccount | null>(null)
   const [manufacturerCategoryTree, setManufacturerCategoryTree] = useState<any[]>([])
   const [manufacturerProducts, setManufacturerProducts] = useState<any[]>([])
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [productAccount, setProductAccount] = useState<AuthorizedAccount | null>(null)
 
   useEffect(() => {
     const loadCategoriesAndProducts = async () => {
@@ -1253,7 +1355,7 @@ function HierarchyTab({
   }
 
   // 添加账号
-  const handleAddAccount = (data: {
+  const handleAddAccounts = (items: Array<{
     accountId: string
     username: string
     nickname: string
@@ -1263,101 +1365,119 @@ function HierarchyTab({
     allocatedRate: number
     distributionRate: number
     visibleCategoryIds: string[]
-  }) => {
+  }>) => {
     if (!manufacturerId) {
       toast.error('请先选择厂家')
       return
     }
 
-    if (!data.accountId) {
+    if (!Array.isArray(items) || items.length === 0) {
       toast.error('请选择要绑定的账号')
       return
     }
 
-    if (accounts.some(a => String(a.userId) === String(data.accountId))) {
-      toast.error('该账号已绑定在授权层级中')
+    const duplicated = items.find(it => accounts.some(a => String(a.userId) === String(it.accountId)))
+    if (duplicated) {
+      toast.error('存在已绑定账号，请取消勾选后再提交')
       return
     }
 
-    const module = modules.find(m => m._id === data.roleModuleId)
+    const roleModuleId = String(items[0]?.roleModuleId || '')
+    const module = modules.find(m => String(m._id) === roleModuleId)
     if (!module) {
       toast.error('请选择角色模块')
       return
     }
 
-    if (!data.discountRuleId) {
-      toast.error('请选择折扣规则')
+    const anyDifferentModule = items.some(it => String(it.roleModuleId) !== roleModuleId)
+    if (anyDifferentModule) {
+      toast.error('批量绑定仅支持同一角色模块')
       return
     }
 
-    const ruleExists = (module.discountRules || []).some(r => String(r._id) === String(data.discountRuleId))
-    if (!ruleExists) {
-      toast.error('折扣规则无效，请重新选择')
-      return
-    }
-
-    // 检查比例是否超限
-    let maxAvailable = module.maxProfitRate - module.currentAllocatedRate
-    
-    // 计算当前模块已分配的总比例
-    const currentModuleAllocated = accounts
-      .filter(a => a.roleModuleId === data.roleModuleId && !a.parentId)
-      .reduce((sum, a) => sum + a.allocatedRate, 0)
-    
-    if (parentAccount) {
-      maxAvailable = parentAccount.availableRate
-    } else {
-      maxAvailable = module.maxProfitRate - currentModuleAllocated
-    }
-    
-    if (data.allocatedRate > maxAvailable) {
-      toast.error(`分配比例不能超过可用额度 ${maxAvailable.toFixed(1)}%`)
+    const invalidRule = items.find(it => {
+      if (!it.discountRuleId) return true
+      const ok = (module.discountRules || []).some(r => String(r._id) === String(it.discountRuleId))
+      return !ok
+    })
+    if (invalidRule) {
+      toast.error('存在无效折扣规则，请重新选择')
       return
     }
 
     const siblingDistributionSum = accounts
       .filter(a => String(a.parentId || '') === String(parentAccount?._id || ''))
       .reduce((sum, a) => sum + Number((a as any).distributionRate ?? 0), 0)
-    const maxDistribution = 100 - siblingDistributionSum
-    if (data.distributionRate > maxDistribution) {
-      toast.error(`垂直权重不能超过可用额度 ${Math.max(0, maxDistribution).toFixed(0)}%`)
+    const maxDistribution = Math.max(0, 100 - siblingDistributionSum)
+    const sumNewDistribution = items.reduce((sum, it) => sum + Number(it.distributionRate || 0), 0)
+    if (sumNewDistribution > maxDistribution) {
+      toast.error(`垂直权重合计不能超过可用额度 ${maxDistribution.toFixed(0)}%`)
       return
     }
 
-    const newAccount: AuthorizedAccount = {
-      _id: `account_${Date.now()}`,
-      userId: data.accountId,
-      username: data.username,
-      nickname: data.nickname,
-      phone: data.phone,
-      roleModuleId: data.roleModuleId,
-      roleModuleName: module.name,
-      discountRuleId: data.discountRuleId,
-      parentId: parentAccount?._id || null,
-      parentName: parentAccount?.username,
-      level: parentAccount ? parentAccount.level + 1 : 1,
-      allocatedRate: data.allocatedRate,
-      availableRate: data.allocatedRate,
-      distributionRate: Number.isFinite(data.distributionRate) ? data.distributionRate : 0,
-      visibleCategoryIds: data.visibleCategoryIds,
-      children: [],
-      status: 'active',
-      createdAt: new Date().toISOString()
+    const currentModuleAllocated = accounts
+      .filter(a => a.roleModuleId === roleModuleId && !a.parentId)
+      .reduce((sum, a) => sum + a.allocatedRate, 0)
+    const maxAvailable = parentAccount
+      ? Number(parentAccount.availableRate || 0)
+      : Math.max(0, Number(module.maxProfitRate || 0) - currentModuleAllocated)
+    const sumNewAllocated = items.reduce((sum, it) => sum + Number(it.allocatedRate || 0), 0)
+    if (sumNewAllocated > maxAvailable) {
+      toast.error(`分配比例合计不能超过可用额度 ${maxAvailable.toFixed(1)}%`)
+      return
     }
 
-    let nextAccounts = [...accounts, newAccount]
+    const invalidVisibility = items.find(it => {
+      const ids = Array.isArray(it.visibleCategoryIds) ? it.visibleCategoryIds : []
+      if (parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0) {
+        const allowed = new Set(parentAccount.visibleCategoryIds.map(String))
+        return ids.some(x => !allowed.has(String(x)))
+      }
+      return false
+    })
+    if (invalidVisibility) {
+      toast.error('存在越级品类权限，请检查可见品类范围')
+      return
+    }
+
+    const now = Date.now()
+    const created = items.map((it, idx) => {
+      const newAccount: AuthorizedAccount = {
+        _id: `account_${now}_${idx}`,
+        userId: String(it.accountId),
+        username: String(it.username || ''),
+        nickname: String(it.nickname || it.username || ''),
+        phone: String(it.phone || ''),
+        roleModuleId: roleModuleId,
+        roleModuleName: module.name,
+        discountRuleId: String(it.discountRuleId),
+        parentId: parentAccount?._id || null,
+        parentName: parentAccount?.username,
+        level: parentAccount ? parentAccount.level + 1 : 1,
+        allocatedRate: Number(it.allocatedRate || 0),
+        availableRate: Number(it.allocatedRate || 0),
+        distributionRate: Number.isFinite(Number(it.distributionRate)) ? Number(it.distributionRate) : 0,
+        visibleCategoryIds: Array.isArray(it.visibleCategoryIds) ? it.visibleCategoryIds : [],
+        children: [],
+        status: 'active',
+        createdAt: new Date().toISOString()
+      }
+      return newAccount
+    })
+
+    let nextAccounts = [...accounts, ...created]
     if (parentAccount) {
       nextAccounts = nextAccounts.map(a => {
         if (String(a._id) !== String(parentAccount._id)) return a
         const prevAvail = Number(a.availableRate || 0)
-        return { ...a, availableRate: Math.max(0, prevAvail - Number(data.allocatedRate || 0)) }
+        return { ...a, availableRate: Math.max(0, prevAvail - sumNewAllocated) }
       })
     }
 
     onSaveAccounts(nextAccounts)
     setShowAddModal(false)
     setParentAccount(null)
-    toast.success('账号添加成功')
+    toast.success('绑定成功')
   }
 
   const listPrice = 10000
@@ -1422,16 +1542,28 @@ function HierarchyTab({
           </div>
 
           <div className="mt-6 flex justify-between items-center">
-            <button
-              type="button"
-              onClick={() => {
-                setParentAccount(account)
-                setShowAddModal(true)
-              }}
-              className="text-[10px] font-black flex items-center gap-1 text-blue-500 hover:underline"
-            >
-              + 添加下级
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setParentAccount(account)
+                  setShowAddModal(true)
+                }}
+                className="text-[10px] font-black flex items-center gap-1 text-gray-500 hover:text-[#153e35] hover:underline"
+              >
+                绑定人员
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProductAccount(account)
+                  setShowProductModal(true)
+                }}
+                className="text-[10px] font-black flex items-center gap-1 text-gray-500 hover:text-blue-600 hover:underline"
+              >
+                绑定商品
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-[8px] font-bold text-gray-400 uppercase">垂直权重%</span>
               <input
@@ -1589,9 +1721,391 @@ function HierarchyTab({
             setShowAddModal(false)
             setParentAccount(null)
           }}
-          onSave={handleAddAccount}
+          onSave={handleAddAccounts}
         />
       )}
+
+      {showProductModal && productAccount && (
+        <ProductProfitModal
+          account={productAccount}
+          modules={modules}
+          categoryTree={manufacturerCategoryTree}
+          products={manufacturerProducts}
+          profitSettings={profitSettings}
+          onClose={() => {
+            setShowProductModal(false)
+            setProductAccount(null)
+          }}
+          onSave={(overrides) => {
+            const next = (accounts || []).map(a => {
+              if (String(a._id) !== String(productAccount._id)) return a
+              return { ...a, productOverrides: overrides }
+            })
+            onSaveAccounts(next)
+            setShowProductModal(false)
+            setProductAccount(null)
+            toast.success('保存成功')
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ProductProfitModal({
+  account,
+  modules,
+  categoryTree,
+  products,
+  profitSettings,
+  onClose,
+  onSave
+}: {
+  account: AuthorizedAccount
+  modules: RoleModule[]
+  categoryTree: any[]
+  products: any[]
+  profitSettings: TierSystemData['profitSettings']
+  onClose: () => void
+  onSave: (overrides: NonNullable<AuthorizedAccount['productOverrides']>) => void
+}) {
+  const [keyword, setKeyword] = useState('')
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set())
+
+  const module = useMemo(() => {
+    return modules.find(m => String(m._id) === String(account.roleModuleId)) || null
+  }, [modules, account.roleModuleId])
+
+  const defaultRule = useMemo(() => {
+    const rules = Array.isArray(module?.discountRules) ? module!.discountRules : []
+    const byId = account.discountRuleId ? rules.find(r => String(r._id) === String(account.discountRuleId)) : null
+    return byId || rules.find(r => r.isDefault) || rules[0] || null
+  }, [module, account.discountRuleId])
+
+  const globalMinSaleDiscountRate = Number(profitSettings?.minSaleDiscountRate ?? 1)
+  const safeGlobalMinSaleDiscountRate = Number.isFinite(globalMinSaleDiscountRate)
+    ? Math.max(0, Math.min(1, globalMinSaleDiscountRate))
+    : 1
+
+  const defaultDiscountRate = useMemo(() => {
+    const rule = defaultRule
+    if (!rule) return 1
+    const discountType = rule.discountType || (typeof rule.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
+    if (discountType === 'rate') {
+      const v = typeof rule.discountRate === 'number' && Number.isFinite(rule.discountRate) ? rule.discountRate : 1
+      return Math.max(0, Math.min(1, v))
+    }
+    return 1
+  }, [defaultRule])
+
+  const defaultCommissionRate = useMemo(() => {
+    const v = typeof defaultRule?.commissionRate === 'number' && Number.isFinite(defaultRule.commissionRate)
+      ? defaultRule.commissionRate
+      : 0
+    return Math.max(0, Math.min(1, v))
+  }, [defaultRule])
+
+  const normalizeIdLocal = (x: any) => {
+    if (!x) return ''
+    const id = x?._id || x?.id || x
+    return id ? String(id) : ''
+  }
+
+  const visibleCategorySet = useMemo(() => {
+    const ids = Array.isArray(account.visibleCategoryIds) ? account.visibleCategoryIds : []
+    if (ids.length === 0) return null
+    return new Set(ids.map(String))
+  }, [account.visibleCategoryIds])
+
+  const basePriceOf = (p: any) => {
+    const fromFields = [p?.basePrice, p?.minPrice, p?.retailPrice, p?.price]
+      .map((v: any) => Number(v))
+      .find((v) => Number.isFinite(v) && v > 0)
+    if (fromFields) return fromFields
+    const skus = Array.isArray(p?.skus) ? p.skus : []
+    const skuPrices = skus
+      .map((s: any) => Number(s?.retailPrice ?? s?.price ?? s?.salePrice ?? s?.basePrice ?? 0))
+      .filter((v: number) => Number.isFinite(v) && v > 0)
+    if (skuPrices.length > 0) return Math.min(...skuPrices)
+    return 0
+  }
+
+  const initialOverrides = useMemo(() => {
+    const list = Array.isArray(account.productOverrides) ? account.productOverrides : []
+    const map = new Map<string, { discountRate?: number; commissionRate?: number }>()
+    list.forEach((o) => {
+      if (!o?.productId) return
+      map.set(String(o.productId), {
+        discountRate: typeof o.discountRate === 'number' ? o.discountRate : undefined,
+        commissionRate: typeof o.commissionRate === 'number' ? o.commissionRate : undefined,
+      })
+    })
+    return map
+  }, [account.productOverrides])
+
+  const [draft, setDraft] = useState<Record<string, { discountPct?: string; commissionPct?: string }>>(() => {
+    const obj: Record<string, { discountPct?: string; commissionPct?: string }> = {}
+    initialOverrides.forEach((v, k) => {
+      obj[k] = {
+        discountPct: typeof v.discountRate === 'number' ? String(Math.round(v.discountRate * 100)) : undefined,
+        commissionPct: typeof v.commissionRate === 'number' ? String(Math.round(v.commissionRate * 1000) / 10) : undefined
+      }
+    })
+    return obj
+  })
+
+  const toggleExpand = (id: string) => {
+    setExpandedCategoryIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const productsByCategoryId = useMemo(() => {
+    const map = new Map<string, any[]>()
+    ;(products || []).forEach((p: any) => {
+      const cid = normalizeIdLocal(p?.category?._id || p?.category?.id || p?.category)
+      if (!cid) return
+      const arr = map.get(cid) || []
+      arr.push(p)
+      map.set(cid, arr)
+    })
+    return map
+  }, [products])
+
+  const filterTreeByAllowed = (nodes: any[]): any[] => {
+    return (nodes || [])
+      .map((n: any) => {
+        const id = normalizeIdLocal(n)
+        const children = Array.isArray(n?.children) ? n.children : []
+        const nextChildren = filterTreeByAllowed(children)
+
+        const keepByAllowed = !visibleCategorySet || visibleCategorySet.has(id)
+        const hasProducts = (productsByCategoryId.get(id) || []).length > 0
+        const keep = keepByAllowed || nextChildren.length > 0 || hasProducts
+        if (!keep) return null
+
+        return { ...n, children: nextChildren }
+      })
+      .filter(Boolean)
+  }
+
+  const effectiveTree = useMemo(() => {
+    if (!categoryTree || categoryTree.length === 0) return []
+    return filterTreeByAllowed(categoryTree)
+  }, [categoryTree, visibleCategorySet, productsByCategoryId])
+
+  const buildOverrides = () => {
+    const out: NonNullable<AuthorizedAccount['productOverrides']> = []
+    Object.entries(draft).forEach(([productId, v]) => {
+      const rawDiscount = v.discountPct
+      const rawCommission = v.commissionPct
+
+      const discountRate = rawDiscount === undefined || rawDiscount === ''
+        ? undefined
+        : Math.max(0, Math.min(1, (Number(rawDiscount) || 0) / 100))
+      const commissionRate = rawCommission === undefined || rawCommission === ''
+        ? undefined
+        : Math.max(0, Math.min(1, (Number(rawCommission) || 0) / 100))
+
+      if (discountRate === undefined && commissionRate === undefined) return
+      out.push({ productId, ...(discountRate !== undefined ? { discountRate } : {}), ...(commissionRate !== undefined ? { commissionRate } : {}) })
+    })
+    return out
+  }
+
+  const renderProductRow = (p: any) => {
+    const pid = String(p?._id || p?.id || '')
+    if (!pid) return null
+    const name = String(p?.name || p?.title || p?.productName || p?.productCode || pid)
+    if (keyword.trim() && !name.toLowerCase().includes(keyword.trim().toLowerCase())) return null
+
+    const base = basePriceOf(p)
+    const existing = initialOverrides.get(pid)
+    const draftV = draft[pid] || {}
+
+    const draftDiscountRate = (() => {
+      if (draftV.discountPct === undefined || draftV.discountPct === '') return undefined
+      const n = Number(draftV.discountPct)
+      if (!Number.isFinite(n)) return undefined
+      return Math.max(0, Math.min(1, n / 100))
+    })()
+    const draftCommissionRate = (() => {
+      if (draftV.commissionPct === undefined || draftV.commissionPct === '') return undefined
+      const n = Number(draftV.commissionPct)
+      if (!Number.isFinite(n)) return undefined
+      return Math.max(0, Math.min(1, n / 100))
+    })()
+
+    const effectiveDiscountRate =
+      typeof draftDiscountRate === 'number'
+        ? draftDiscountRate
+        : (typeof existing?.discountRate === 'number' ? existing.discountRate : defaultDiscountRate)
+    const effectiveCommissionRate =
+      typeof draftCommissionRate === 'number'
+        ? draftCommissionRate
+        : (typeof existing?.commissionRate === 'number' ? existing.commissionRate : defaultCommissionRate)
+
+    const effectiveSaleRate = Math.max(effectiveDiscountRate, safeGlobalMinSaleDiscountRate)
+    const minPrice = Math.round(base * effectiveSaleRate)
+    const commAmt = Math.round(minPrice * effectiveCommissionRate)
+
+    return (
+      <div key={pid} className="bg-white border border-gray-100 rounded-2xl px-6 py-4 flex items-center justify-between gap-6">
+        <div className="min-w-0">
+          <div className="text-sm font-black text-gray-900 truncate">{name}</div>
+          <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+            标价 ¥{Number(base || 0).toLocaleString()} • 成交受限价 ¥{Number(minPrice || 0).toLocaleString()} • 预计分佣 ¥{Number(commAmt || 0).toLocaleString()}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-col items-end">
+            <div className="text-[9px] text-gray-400 font-black uppercase tracking-widest">折扣(%)</div>
+            <input
+              value={draftV.discountPct ?? ''}
+              onChange={(e) => {
+                const v = e.target.value
+                setDraft(prev => ({ ...prev, [pid]: { ...prev[pid], discountPct: v } }))
+              }}
+              className="w-16 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-xs font-black text-center outline-none"
+              placeholder="默认"
+              inputMode="numeric"
+            />
+          </div>
+
+          <div className="flex flex-col items-end">
+            <div className="text-[9px] text-gray-400 font-black uppercase tracking-widest">返点(%)</div>
+            <input
+              value={draftV.commissionPct ?? ''}
+              onChange={(e) => {
+                const v = e.target.value
+                setDraft(prev => ({ ...prev, [pid]: { ...prev[pid], commissionPct: v } }))
+              }}
+              className="w-16 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-xs font-black text-center outline-none"
+              placeholder="默认"
+              inputMode="decimal"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(prev => {
+                const next = { ...prev }
+                delete next[pid]
+                return next
+              })
+            }}
+            className="w-10 h-10 rounded-xl border border-gray-100 bg-white text-gray-400 hover:text-rose-500 hover:border-rose-200 transition-all"
+            title="清除覆盖"
+          >
+            <X className="w-4 h-4 mx-auto" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
+      <div className="relative w-full max-w-[980px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
+        <div className="p-8 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-black text-gray-900">商品分润配置</h3>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-2">
+              {account.nickname || account.username} • {module?.name || '未设置模块'}
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              说明：此处为分层体系管理配置，暂不影响线上实际授权价/结算。
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 hover:text-rose-500 transition-all">
+            <X className="w-6 h-6 mx-auto" />
+          </button>
+        </div>
+
+        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="搜索商品"
+              className="input flex-1 min-w-[240px]"
+            />
+            <div className="text-xs text-gray-500">
+              全局最低折扣保护：{Math.round(safeGlobalMinSaleDiscountRate * 100)}%
+            </div>
+          </div>
+
+          {effectiveTree.length === 0 ? (
+            <div className="text-sm text-gray-500">暂无可配置的品类/商品</div>
+          ) : (
+            <div className="space-y-4">
+              {(function renderTree(nodes: any[], depth: number = 0): any {
+                return nodes.map((n: any) => {
+                  const id = normalizeIdLocal(n)
+                  const name = String(n?.name || id)
+                  const children = Array.isArray(n?.children) ? n.children : []
+                  const prods = productsByCategoryId.get(id) || []
+                  const canExpand = children.length > 0 || prods.length > 0
+                  const isExpanded = expandedCategoryIds.has(id)
+
+                  return (
+                    <div key={id} style={{ marginLeft: depth * 12 }} className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => canExpand && toggleExpand(id)}
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center ${canExpand ? 'bg-gray-50 text-gray-600 hover:bg-gray-100' : 'bg-transparent text-gray-200'}`}
+                          disabled={!canExpand}
+                        >
+                          {canExpand ? (
+                            isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
+                          ) : (
+                            <span className="w-4 h-4" />
+                          )}
+                        </button>
+                        <div className="text-sm font-black text-gray-900">{name}</div>
+                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                          {prods.length > 0 ? `${prods.length} 商品` : ''}
+                        </div>
+                      </div>
+
+                      {isExpanded ? (
+                        <div className="space-y-3">
+                          {prods.slice(0, 200).map(renderProductRow)}
+                          {prods.length > 200 ? <div className="text-xs text-gray-400">仅展示前 200 个商品</div> : null}
+                          {children.length > 0 ? renderTree(children, depth + 1) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })
+              })(effectiveTree)}
+            </div>
+          )}
+        </div>
+
+        <div className="p-8 border-t border-gray-100 flex justify-end gap-4 bg-white">
+          <button type="button" onClick={onClose} className="px-8 py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-bold hover:bg-gray-50">
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = buildOverrides()
+              onSave(next)
+            }}
+            className="px-10 py-3 rounded-2xl bg-[#153e35] text-white font-black shadow-xl"
+          >
+            保存
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1617,7 +2131,7 @@ function AddAccountModal({
   authorizedAccounts: AuthorizedAccount[]
   existingUserIds: string[]
   onClose: () => void
-  onSave: (data: {
+  onSave: (items: Array<{
     accountId: string
     username: string
     nickname: string
@@ -1627,12 +2141,14 @@ function AddAccountModal({
     allocatedRate: number
     distributionRate: number
     visibleCategoryIds: string[]
-  }) => void
+  }>) => void
 }) {
   const [manufacturerAccounts, setManufacturerAccounts] = useState<any[]>([])
   const [accountKeyword, setAccountKeyword] = useState('')
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set())
+  const [expandedAccountGroups, setExpandedAccountGroups] = useState<Set<string>>(new Set(['auth', 'sub', 'designer', 'normal', 'unknown']))
   const [selectionMode, setSelectionMode] = useState<'multiple' | 'single'>('multiple')
+  const [organizationsById, setOrganizationsById] = useState<Record<string, { name: string; type?: string }>>({})
 
   const parentHasCustomVisibility = !!(parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0)
   const parentVisibleCategoryIds = parentHasCustomVisibility
@@ -1640,14 +2156,17 @@ function AddAccountModal({
     : []
 
   const [formData, setFormData] = useState({
-    accountId: '',
     roleModuleId: parentAccount?.roleModuleId || modules[0]?._id || '',
-    discountRuleId: parentAccount?.discountRuleId || '',
-    allocatedRate: 5,
-    distributionRate: 0,
     visibilityMode: (parentHasCustomVisibility ? 'custom' : 'all') as 'all' | 'custom',
     visibleCategoryIds: (parentHasCustomVisibility ? parentVisibleCategoryIds : []) as string[]
   })
+
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
+  const [perAccountConfig, setPerAccountConfig] = useState<Record<string, {
+    discountRuleId: string
+    allocatedRate: number
+    distributionRate: number
+  }>>({})
 
   const normalizeId = (x: any) => {
     if (!x) return ''
@@ -1724,11 +2243,34 @@ function AddAccountModal({
     loadAccounts()
   }, [manufacturerId])
 
-  const selectedModule = modules.find(m => m._id === formData.roleModuleId)
-  const selectedRule = selectedModule?.discountRules?.find(r => String(r._id) === String(formData.discountRuleId))
-  const maxRate = parentAccount 
-    ? parentAccount.availableRate 
-    : (selectedModule ? selectedModule.maxProfitRate - selectedModule.currentAllocatedRate : 0)
+  useEffect(() => {
+    const loadOrgs = async () => {
+      try {
+        const resp = await apiClient.get('/accounts/organizations', { params: { limit: 200 } })
+        const list = resp.data?.data?.list || resp.data?.data || resp.data?.list || []
+        const map: Record<string, { name: string; type?: string }> = {}
+        ;(Array.isArray(list) ? list : []).forEach((o: any) => {
+          const id = String(o?._id || o?.id || '')
+          if (!id) return
+          map[id] = { name: String(o?.name || id), type: o?.type ? String(o.type) : undefined }
+        })
+        setOrganizationsById(map)
+      } catch {
+        setOrganizationsById({})
+      }
+    }
+    loadOrgs()
+  }, [])
+
+  const selectedModule = modules.find(m => String(m._id) === String(formData.roleModuleId))
+
+  const defaultRuleId = useMemo(() => {
+    const rules = selectedModule?.discountRules || []
+    const def = rules.find(r => r.isDefault) || rules[0]
+    return String(def?._id || '')
+  }, [selectedModule?._id])
+
+  const [batchRuleId, setBatchRuleId] = useState('')
 
   const siblingDistributionSum = useMemo(() => {
     const pid = String(parentAccount?._id || '')
@@ -1739,28 +2281,18 @@ function AddAccountModal({
 
   const maxDistribution = Math.max(0, 100 - siblingDistributionSum)
 
-  useEffect(() => {
-    setFormData(prev => {
-      if (prev.distributionRate > maxDistribution) {
-        return { ...prev, distributionRate: maxDistribution }
-      }
-      if (prev.distributionRate === 0 && maxDistribution > 0) {
-        return { ...prev, distributionRate: Math.min(100, maxDistribution) }
-      }
-      return prev
-    })
-  }, [maxDistribution])
+  const currentModuleAllocated = useMemo(() => {
+    const rid = String(formData.roleModuleId || '')
+    return (authorizedAccounts || [])
+      .filter(a => String(a.roleModuleId) === rid && !a.parentId)
+      .reduce((sum, a) => sum + Number(a.allocatedRate || 0), 0)
+  }, [authorizedAccounts, formData.roleModuleId])
 
-  useEffect(() => {
-    if (!selectedModule) return
-    const rules = selectedModule.discountRules || []
-    if (rules.length === 0) return
-    const exists = rules.some(r => String(r._id) === String(formData.discountRuleId))
-    if (exists) return
-
-    const defaultRule = rules.find(r => r.isDefault) || rules[0]
-    setFormData(prev => ({ ...prev, discountRuleId: String(defaultRule?._id || '') }))
-  }, [selectedModule?._id])
+  const maxRate = useMemo(() => {
+    if (parentAccount) return Number(parentAccount.availableRate || 0)
+    if (!selectedModule) return 0
+    return Math.max(0, Number(selectedModule.maxProfitRate || 0) - currentModuleAllocated)
+  }, [parentAccount?._id, parentAccount?.availableRate, selectedModule?._id, currentModuleAllocated])
 
   const allowedCategoryIds = parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0
     ? new Set(parentAccount.visibleCategoryIds.map(String))
@@ -1774,6 +2306,15 @@ function AddAccountModal({
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAccountGroup = (groupId: string) => {
+    setExpandedAccountGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(groupId)) next.delete(groupId)
+      else next.add(groupId)
       return next
     })
   }
@@ -1794,304 +2335,641 @@ function AddAccountModal({
     })
   }
 
-  const filteredAccounts = manufacturerAccounts
-    .filter(a => !existingUserIds.includes(String(a._id)))
-    .filter(a => {
-      if (!accountKeyword.trim()) return true
-      const t = `${a.username || ''} ${a.nickname || ''} ${a.phone || ''}`.toLowerCase()
-      return t.includes(accountKeyword.trim().toLowerCase())
+  const getAccountTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      auth: '主账号',
+      sub: '子账号',
+      designer: '设计师',
+      normal: '普通账号'
+    }
+    return labels[type] || '其他'
+  }
+
+  const getOrgLabel = (orgId: string) => {
+    if (!orgId || orgId === 'no-org') return '未归属组织'
+    return organizationsById[orgId]?.name || orgId
+  }
+
+  const availableAccounts = useMemo(() => {
+    return (manufacturerAccounts || [])
+      .filter(a => !existingUserIds.includes(String(a._id)))
+      .filter(a => {
+        if (!accountKeyword.trim()) return true
+        const t = `${a.username || ''} ${a.nickname || ''} ${a.phone || ''}`.toLowerCase()
+        return t.includes(accountKeyword.trim().toLowerCase())
+      })
+  }, [manufacturerAccounts, existingUserIds, accountKeyword])
+
+  const groupedAccounts = useMemo(() => {
+    const hasOrg = availableAccounts.some(a => !!(a?.organizationId || a?.organization?._id))
+
+    if (hasOrg) {
+      const map = new Map<string, any[]>()
+      availableAccounts.forEach((a) => {
+        const orgId = String(a?.organizationId || a?.organization?._id || 'no-org')
+        const k = `org:${orgId}`
+        const arr = map.get(k) || []
+        arr.push(a)
+        map.set(k, arr)
+      })
+
+      const entries = Array.from(map.entries()).map(([key, accounts]) => {
+        const orgId = key.replace('org:', '')
+        return {
+          key,
+          orgId,
+          type: 'org',
+          label: getOrgLabel(orgId),
+          accounts,
+        }
+      })
+
+      entries.sort((a, b) => getOrgLabel(a.orgId).localeCompare(getOrgLabel(b.orgId)))
+      return entries
+    }
+
+    const map = new Map<string, any[]>()
+    availableAccounts.forEach((a) => {
+      const type = String(a?.accountType || 'unknown')
+      const arr = map.get(type) || []
+      arr.push(a)
+      map.set(type, arr)
     })
+
+    const order = ['auth', 'sub', 'designer', 'normal', 'unknown']
+    return order
+      .filter(k => map.has(k))
+      .map(k => ({ key: k, orgId: '', type: k, label: getAccountTypeLabel(k), accounts: map.get(k) || [] }))
+  }, [availableAccounts, organizationsById])
+
+  const groupedKeys = useMemo(() => {
+    return groupedAccounts.map((g: any) => String(g?.key || '')).filter(Boolean).join('|')
+  }, [groupedAccounts])
+
+  useEffect(() => {
+    const hasOrgGroups = groupedAccounts.some((g: any) => String(g?.key || '').startsWith('org:'))
+    if (!hasOrgGroups) return
+
+    setExpandedAccountGroups(prev => {
+      const anyOrgExpanded = Array.from(prev).some(k => String(k).startsWith('org:'))
+      if (anyOrgExpanded) return prev
+      return new Set(groupedAccounts.map((g: any) => String(g.key)))
+    })
+  }, [groupedKeys])
+
+  const selectedAccounts = useMemo(() => {
+    const set = new Set(selectedAccountIds.map(String))
+    return (manufacturerAccounts || []).filter(a => set.has(String(a._id)))
+  }, [manufacturerAccounts, selectedAccountIds])
+
+  useEffect(() => {
+    if (!selectedModule) return
+    const rules = selectedModule.discountRules || []
+    if (rules.length === 0) return
+
+    setBatchRuleId(prev => {
+      if (prev && rules.some(r => String(r._id) === String(prev))) return prev
+      return defaultRuleId
+    })
+
+    setPerAccountConfig(prev => {
+      let changed = false
+      const next = { ...prev }
+      selectedAccountIds.forEach((id) => {
+        const cur = next[id]
+        const ok = cur?.discountRuleId && rules.some(r => String(r._id) === String(cur.discountRuleId))
+        if (!ok) {
+          next[id] = {
+            discountRuleId: defaultRuleId,
+            allocatedRate: typeof cur?.allocatedRate === 'number' ? cur.allocatedRate : 1,
+            distributionRate: typeof cur?.distributionRate === 'number' ? cur.distributionRate : 0,
+          }
+          changed = true
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [selectedModule?._id, defaultRuleId, selectedAccountIds.join('|')])
+
+  const toggleSelectAccount = (id: string) => {
+    setSelectedAccountIds(prev => {
+      const exists = prev.includes(id)
+      const next = exists ? prev.filter(x => x !== id) : [...prev, id]
+
+      setPerAccountConfig(cfg => {
+        const nextCfg = { ...cfg }
+        if (!exists) {
+          const allocated = Math.max(1, Math.floor(maxRate / Math.max(1, next.length)))
+          const dist = Math.floor(maxDistribution / Math.max(1, next.length))
+          nextCfg[id] = {
+            discountRuleId: defaultRuleId,
+            allocatedRate: allocated,
+            distributionRate: dist,
+          }
+        } else {
+          delete nextCfg[id]
+        }
+        return nextCfg
+      })
+
+      return next
+    })
+  }
+
+  const toggleSelectGroup = (groupKey: string) => {
+    const group = groupedAccounts.find(g => g.key === groupKey)
+    if (!group) return
+    const ids = group.accounts.map(a => String(a._id))
+    setSelectedAccountIds(prev => {
+      const prevSet = new Set(prev.map(String))
+      const allSelected = ids.every(id => prevSet.has(id))
+      const next = allSelected
+        ? prev.filter(id => !ids.includes(String(id)))
+        : Array.from(new Set([...prev, ...ids]))
+
+      setPerAccountConfig(cfg => {
+        const nextCfg = { ...cfg }
+        if (allSelected) {
+          ids.forEach((id) => {
+            delete nextCfg[id]
+          })
+        } else {
+          const allocated = Math.max(1, Math.floor(maxRate / Math.max(1, next.length)))
+          const dist = Math.floor(maxDistribution / Math.max(1, next.length))
+          ids.forEach((id) => {
+            if (nextCfg[id]) return
+            nextCfg[id] = {
+              discountRuleId: defaultRuleId,
+              allocatedRate: allocated,
+              distributionRate: dist,
+            }
+          })
+        }
+        return nextCfg
+      })
+
+      return next
+    })
+  }
+
+  const sumAllocated = useMemo(() => {
+    return selectedAccountIds.reduce((sum, id) => sum + Number(perAccountConfig[id]?.allocatedRate || 0), 0)
+  }, [selectedAccountIds.join('|'), perAccountConfig])
+
+  const sumDistribution = useMemo(() => {
+    return selectedAccountIds.reduce((sum, id) => sum + Number(perAccountConfig[id]?.distributionRate || 0), 0)
+  }, [selectedAccountIds.join('|'), perAccountConfig])
+
+  const applyBatchRule = (ruleId: string) => {
+    setBatchRuleId(ruleId)
+    setPerAccountConfig(prev => {
+      const next = { ...prev }
+      selectedAccountIds.forEach((id) => {
+        const cur = next[id] || { discountRuleId: '', allocatedRate: 1, distributionRate: 0 }
+        next[id] = { ...cur, discountRuleId: ruleId }
+      })
+      return next
+    })
+  }
+
+  const applyBatchAllocated = (v: number) => {
+    setPerAccountConfig(prev => {
+      const next = { ...prev }
+      selectedAccountIds.forEach((id) => {
+        const cur = next[id] || { discountRuleId: defaultRuleId, allocatedRate: 1, distributionRate: 0 }
+        next[id] = { ...cur, allocatedRate: v }
+      })
+      return next
+    })
+  }
+
+  const applyBatchDistribution = (v: number) => {
+    setPerAccountConfig(prev => {
+      const next = { ...prev }
+      selectedAccountIds.forEach((id) => {
+        const cur = next[id] || { discountRuleId: defaultRuleId, allocatedRate: 1, distributionRate: 0 }
+        next[id] = { ...cur, distributionRate: v }
+      })
+      return next
+    })
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    const selected = manufacturerAccounts.find(a => String(a._id) === String(formData.accountId))
-    if (!selected) {
-      toast.error('请选择要绑定的账号')
+    if (!selectedModule?._id) {
+      toast.error('请选择角色模块')
       return
     }
-    if (!formData.roleModuleId) {
-      toast.error('请选择角色模块')
+    if (selectedAccountIds.length === 0) {
+      toast.error('请选择要绑定的账号')
       return
     }
 
     let visibleCategoryIds = formData.visibilityMode === 'custom' ? formData.visibleCategoryIds : []
-
     if (allowedCategoryIds && formData.visibilityMode === 'all') {
       visibleCategoryIds = Array.from(allowedCategoryIds)
     }
-
     if (allowedCategoryIds) {
       visibleCategoryIds = visibleCategoryIds.filter(id => allowedCategoryIds.has(String(id)))
     }
-
     if ((formData.visibilityMode === 'custom' || allowedCategoryIds) && visibleCategoryIds.length === 0) {
       toast.error('请选择至少一个可见品类')
       return
     }
 
-    if (formData.distributionRate > maxDistribution) {
-      toast.error(`垂直权重不能超过可用额度 ${maxDistribution}%`)
+    if (sumAllocated > maxRate) {
+      toast.error(`分配比例合计不能超过可用额度 ${maxRate.toFixed(1)}%`)
+      return
+    }
+    if (sumDistribution > maxDistribution) {
+      toast.error(`垂直权重合计不能超过可用额度 ${maxDistribution.toFixed(0)}%`)
       return
     }
 
-    onSave({
-      accountId: String(selected._id),
-      username: String(selected.username || ''),
-      nickname: String(selected.nickname || selected.username || ''),
-      phone: String(selected.phone || ''),
-      roleModuleId: formData.roleModuleId,
-      discountRuleId: formData.discountRuleId,
-      allocatedRate: formData.allocatedRate,
-      distributionRate: formData.distributionRate,
-      visibleCategoryIds
+    const payload = selectedAccounts.map((a) => {
+      const id = String(a._id)
+      const cfg = perAccountConfig[id]
+      return {
+        accountId: id,
+        username: String(a.username || ''),
+        nickname: String(a.nickname || a.username || ''),
+        phone: String(a.phone || ''),
+        roleModuleId: String(selectedModule._id),
+        discountRuleId: String(cfg?.discountRuleId || ''),
+        allocatedRate: Number(cfg?.allocatedRate || 0),
+        distributionRate: Number(cfg?.distributionRate || 0),
+        visibleCategoryIds
+      }
     })
+
+    onSave(payload)
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
-      <div className="relative w-full max-w-[720px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
-        <div className="px-10 py-8 border-b border-gray-100">
-          <h3 className="text-xl font-black text-gray-900">
-            {parentAccount ? '添加账号' : '添加账号'}
-          </h3>
+      <div className="relative w-full max-w-[1200px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
+        <div className="px-10 py-8 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-black text-gray-900">绑定人员</h3>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">
+              已选 {selectedAccountIds.length} 人 • 分配 {sumAllocated.toFixed(1)}% / {maxRate.toFixed(1)}% • 权重 {sumDistribution.toFixed(0)}% / {maxDistribution.toFixed(0)}%
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 hover:text-rose-500 transition-all">
+            <X className="w-6 h-6 mx-auto" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-10 py-8 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">绑定账号 <span className="text-red-500">*</span></label>
-            <input
-              type="text"
-              value={accountKeyword}
-              onChange={(e) => setAccountKeyword(e.target.value)}
-              className="input w-full mb-2"
-              placeholder="搜索账号（用户名/昵称/手机号）"
-            />
-            <select
-              value={formData.accountId}
-              onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
-              className="input w-full"
-              required
-            >
-              <option value="">-- 请选择账号 --</option>
-              {filteredAccounts.map(a => (
-                <option key={a._id} value={a._id}>
-                  {(a.nickname || a.username) || a._id} {a.username ? `@${a.username}` : ''} {a.phone ? `(${a.phone})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">可见品类</label>
-            <select
-              value={formData.visibilityMode}
-              onChange={(e) => {
-                const nextMode = e.target.value as any
-                setFormData(prev => ({
-                  ...prev,
-                  visibilityMode: nextMode,
-                  visibleCategoryIds: nextMode === 'custom'
-                    ? (parentHasCustomVisibility ? parentVisibleCategoryIds : [])
-                    : []
-                }))
-              }}
-              className="input w-full"
-            >
-              <option value="all">{parentHasCustomVisibility ? '全部（继承上级范围）' : '全部品类'}</option>
-              <option value="custom">自定义</option>
-            </select>
-            {parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0 && (
-              <p className="text-xs text-gray-500 mt-1">下级可选品类不会超出上级范围</p>
-            )}
-          </div>
-
-          {formData.visibilityMode === 'custom' && (
-            <div className="border border-gray-200 rounded-lg p-3 max-h-56 overflow-y-auto">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="text-xs text-gray-500">树状选择：分类 → 商品（商品仅展示，不保存）</div>
-                <select
-                  value={selectionMode}
-                  onChange={(e) => setSelectionMode(e.target.value as any)}
-                  className="input h-8 text-xs"
-                >
-                  <option value="multiple">多选</option>
-                  <option value="single">单选</option>
-                </select>
+        <form onSubmit={handleSubmit} className="p-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="text"
+                  value={accountKeyword}
+                  onChange={(e) => setAccountKeyword(e.target.value)}
+                  className="input w-full"
+                  placeholder="搜索账号（用户名/昵称/手机号）"
+                />
               </div>
 
-              {effectiveCategoryTree.length === 0 ? (
-                <p className="text-sm text-gray-500">该厂家暂无可选品类</p>
-              ) : (
-                <div className="space-y-1">
-                  {(function renderTree(nodes: any[], depth: number = 0): any {
-                    return nodes.map((n: any) => {
-                      const id = normalizeId(n)
-                      const children = Array.isArray(n?.children) ? n.children : []
-                      const prods = productsByCategoryId.get(id) || []
-                      const hasChildren = children.length > 0
-                      const hasProducts = prods.length > 0
-                      const canExpand = hasChildren || hasProducts
-                      const isExpanded = expandedCategoryIds.has(id)
-                      const checked = formData.visibleCategoryIds.includes(id)
+              <div className="max-h-[520px] overflow-y-auto space-y-3 pr-1">
+                {groupedAccounts.length === 0 ? (
+                  <div className="text-sm text-gray-500 py-10">暂无可绑定账号</div>
+                ) : (
+                  groupedAccounts.map(group => {
+                    const groupIds = group.accounts.map(a => String(a._id))
+                    const selectedSet = new Set(selectedAccountIds.map(String))
+                    const groupAllSelected = groupIds.length > 0 && groupIds.every(id => selectedSet.has(id))
+                    const groupExpanded = expandedAccountGroups.has(group.key)
 
-                      return (
-                        <div key={id} style={{ marginLeft: depth * 16 }}>
-                          <div className="flex items-center gap-2 hover:bg-gray-50 p-2 rounded">
+                    return (
+                      <div key={group.key} className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                        <div className="px-4 py-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
-                              className={`p-1 rounded ${canExpand ? 'hover:bg-gray-200' : ''}`}
-                              onClick={() => canExpand && toggleExpand(id)}
-                              disabled={!canExpand}
+                              onClick={() => toggleAccountGroup(group.key)}
+                              className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-600"
                             >
-                              {canExpand ? (
-                                isExpanded ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />
-                              ) : (
-                                <span className="w-4 h-4" />
-                              )}
+                              {groupExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                             </button>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleCategory(id)}
-                              className="rounded text-primary"
-                            />
-                            <span className="text-sm font-medium text-gray-900 truncate">{n?.name || id}</span>
-                            <span className="text-xs text-gray-400">
-                              {hasProducts ? `${prods.length}商品` : ''}
-                            </span>
+                            <div className="text-sm font-black text-gray-900">{group.label}</div>
+                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{group.accounts.length}</div>
                           </div>
 
-                          {isExpanded && (
-                            <div className="ml-8 border-l border-gray-100 pl-3 space-y-1">
-                              {hasProducts && (
-                                <div className="space-y-1">
-                                  {prods.slice(0, 50).map((p: any) => (
-                                    <div key={String(p._id)} className="text-xs text-gray-600 py-0.5 truncate">
-                                      {p.name || p.productCode || p._id}
-                                    </div>
-                                  ))}
-                                  {prods.length > 50 && (
-                                    <div className="text-xs text-gray-400">仅展示前 50 个商品</div>
-                                  )}
-                                </div>
-                              )}
-
-                              {hasChildren && (
-                                <div className="space-y-1">
-                                  {renderTree(children, depth + 1)}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectGroup(group.key)}
+                            className={`px-4 py-2 rounded-xl text-xs font-black border ${groupAllSelected ? 'bg-[#153e35] text-white border-[#153e35]' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                          >
+                            {groupAllSelected ? '取消全选' : '全选'}
+                          </button>
                         </div>
-                      )
-                    })
-                  })(effectiveCategoryTree)}
-                </div>
-              )}
-            </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">角色模块 <span className="text-red-500">*</span></label>
-            <select
-              value={formData.roleModuleId}
-              onChange={(e) => setFormData({ ...formData, roleModuleId: e.target.value })}
-              className="input w-full"
-              disabled={!!parentAccount}
-            >
-              {modules.filter(m => m.isActive).map(m => (
-                <option key={m._id} value={m._id}>{m.name}</option>
-              ))}
-            </select>
-            {parentAccount && (
-              <p className="text-xs text-gray-500 mt-1">下级账号继承上级的角色模块</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              垂直权重 ({formData.distributionRate}%)
-            </label>
-            <input
-              type="range"
-              min="0"
-              max={maxDistribution}
-              step="1"
-              value={formData.distributionRate}
-              onChange={(e) => setFormData({ ...formData, distributionRate: parseInt(e.target.value) || 0 })}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>0%</span>
-              <span>可用权重: {maxDistribution}%</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              分配比例 ({formData.allocatedRate}%)
-            </label>
-            <input
-              type="range"
-              min="1"
-              max={maxRate}
-              step="1"
-              value={formData.allocatedRate}
-              onChange={(e) => setFormData({ ...formData, allocatedRate: parseInt(e.target.value) })}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>1%</span>
-              <span>可分配上限: {maxRate}%</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">折扣规则 <span className="text-red-500">*</span></label>
-            <select
-              value={formData.discountRuleId}
-              onChange={(e) => setFormData({ ...formData, discountRuleId: e.target.value })}
-              className="input w-full"
-              required
-            >
-              <option value="">-- 请选择折扣规则 --</option>
-              {(selectedModule?.discountRules || []).map(r => (
-                <option key={r._id} value={r._id}>
-                  {r.name}{r.isDefault ? '（默认）' : ''}
-                </option>
-              ))}
-            </select>
-            {selectedRule && (
-              <div className="mt-2 text-xs text-gray-500">
-                <span className="mr-2">
-                  {(() => {
-                    const t = selectedRule.discountType || (typeof selectedRule.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
-                    if (t === 'minPrice') return `最低价 ¥${Number(selectedRule.minDiscountPrice || 0).toFixed(0)}`
-                    const rate = typeof selectedRule.discountRate === 'number' ? selectedRule.discountRate : 1
-                    return `折扣 ${(rate * 100).toFixed(0)}%`
-                  })()}
-                </span>
-                <span>返点 {(selectedRule.commissionRate * 100).toFixed(1)}%</span>
+                        {groupExpanded ? (
+                          <div className="px-2 pb-3">
+                            {group.accounts.map((a) => {
+                              const id = String(a._id)
+                              const checked = selectedAccountIds.includes(id)
+                              const typeLabel = getAccountTypeLabel(String(a?.accountType || 'unknown'))
+                              return (
+                                <label key={id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl hover:bg-gray-50">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => toggleSelectAccount(id)}
+                                    />
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-black text-gray-900 truncate">{a.nickname || a.username || id}</div>
+                                      <div className="text-[10px] text-gray-400 font-bold truncate">
+                                        {a.username ? `@${a.username}` : ''}{a.phone ? ` • ${a.phone}` : ''}
+                                      </div>
+                                      <div className="mt-1">
+                                        <span className="inline-block text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-50 border border-gray-100 text-gray-500">
+                                          {typeLabel}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {checked ? (
+                                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                      <Check className="w-4 h-4" />
+                                    </div>
+                                  ) : null}
+                                </label>
+                              )
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    )
+                  })
+                )}
               </div>
-            )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white border border-gray-100 rounded-[2rem] p-6 space-y-5">
+                <div>
+                  <div className="text-xs font-black text-gray-400 uppercase tracking-widest">角色模块</div>
+                  <select
+                    value={formData.roleModuleId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, roleModuleId: e.target.value }))}
+                    className="input w-full mt-2"
+                    disabled={!!parentAccount}
+                  >
+                    {modules.filter(m => m.isActive).map(m => (
+                      <option key={m._id} value={m._id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest">批量折扣规则</div>
+                    <select
+                      className="input w-full mt-2"
+                      value={batchRuleId}
+                      onChange={(e) => applyBatchRule(e.target.value)}
+                      disabled={!selectedModule}
+                    >
+                      {(selectedModule?.discountRules || []).map(r => (
+                        <option key={r._id} value={r._id}>{r.name}{r.isDefault ? '（默认）' : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest">批量分配%</div>
+                    <input
+                      className="input w-full mt-2"
+                      type="number"
+                      min={0}
+                      step={1}
+                      defaultValue={selectedAccountIds.length ? Math.max(1, Math.floor(maxRate / Math.max(1, selectedAccountIds.length))) : 1}
+                      onBlur={(e) => {
+                        const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
+                        applyBatchAllocated(v)
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest">批量权重%</div>
+                    <input
+                      className="input w-full mt-2"
+                      type="number"
+                      min={0}
+                      step={1}
+                      defaultValue={selectedAccountIds.length ? Math.floor(maxDistribution / Math.max(1, selectedAccountIds.length)) : 0}
+                      onBlur={(e) => {
+                        const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
+                        applyBatchDistribution(v)
+                      }}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest">可见品类</div>
+                    <select
+                      value={formData.visibilityMode}
+                      onChange={(e) => {
+                        const nextMode = e.target.value as any
+                        setFormData(prev => ({
+                          ...prev,
+                          visibilityMode: nextMode,
+                          visibleCategoryIds: nextMode === 'custom'
+                            ? (parentHasCustomVisibility ? parentVisibleCategoryIds : [])
+                            : []
+                        }))
+                      }}
+                      className="input w-full mt-2"
+                    >
+                      <option value="all">{parentHasCustomVisibility ? '全部（继承上级范围）' : '全部品类'}</option>
+                      <option value="custom">自定义</option>
+                    </select>
+                  </div>
+                </div>
+
+                {formData.visibilityMode === 'custom' ? (
+                  <div className="border border-gray-100 rounded-2xl p-4 max-h-56 overflow-y-auto">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="text-xs text-gray-500">树状选择：分类 → 商品（商品仅展示，不保存）</div>
+                      <select
+                        value={selectionMode}
+                        onChange={(e) => setSelectionMode(e.target.value as any)}
+                        className="input h-8 text-xs"
+                      >
+                        <option value="multiple">多选</option>
+                        <option value="single">单选</option>
+                      </select>
+                    </div>
+                    {effectiveCategoryTree.length === 0 ? (
+                      <div className="text-sm text-gray-500">该厂家暂无可选品类</div>
+                    ) : (
+                      <div className="space-y-1">
+                        {(function renderTree(nodes: any[], depth: number = 0): any {
+                          return nodes.map((n: any) => {
+                            const id = normalizeId(n)
+                            const children = Array.isArray(n?.children) ? n.children : []
+                            const prods = productsByCategoryId.get(id) || []
+                            const hasChildren = children.length > 0
+                            const hasProducts = prods.length > 0
+                            const canExpand = hasChildren || hasProducts
+                            const isExpanded = expandedCategoryIds.has(id)
+                            const checked = formData.visibleCategoryIds.includes(id)
+
+                            return (
+                              <div key={id} style={{ marginLeft: depth * 16 }}>
+                                <div className="flex items-center gap-2 hover:bg-gray-50 p-2 rounded">
+                                  <button
+                                    type="button"
+                                    className={`p-1 rounded ${canExpand ? 'hover:bg-gray-200' : ''}`}
+                                    onClick={() => canExpand && toggleExpand(id)}
+                                    disabled={!canExpand}
+                                  >
+                                    {canExpand ? (
+                                      isExpanded ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />
+                                    ) : (
+                                      <span className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleCategory(id)}
+                                  />
+                                  <span className="text-sm font-medium text-gray-900 truncate">{n?.name || id}</span>
+                                  <span className="text-xs text-gray-400">
+                                    {hasProducts ? `${prods.length}商品` : ''}
+                                  </span>
+                                </div>
+
+                                {isExpanded ? (
+                                  <div className="ml-8 border-l border-gray-100 pl-3 space-y-1">
+                                    {hasProducts ? (
+                                      <div className="space-y-1">
+                                        {prods.slice(0, 20).map((p: any) => (
+                                          <div key={String(p._id)} className="text-xs text-gray-600 py-0.5 truncate">
+                                            {p.name || p.productCode || p._id}
+                                          </div>
+                                        ))}
+                                        {prods.length > 20 ? <div className="text-xs text-gray-400">仅展示前 20 个商品</div> : null}
+                                      </div>
+                                    ) : null}
+                                    {hasChildren ? (
+                                      <div className="space-y-1">
+                                        {renderTree(children, depth + 1)}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                              </div>
+                            )
+                          })
+                        })(effectiveCategoryTree)}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="bg-white border border-gray-100 rounded-[2rem] overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <div className="text-sm font-black text-gray-900">已选人员</div>
+                  <div className="text-xs text-gray-500">可用分配 {maxRate.toFixed(1)}% • 可用权重 {maxDistribution.toFixed(0)}%</div>
+                </div>
+                <div className="max-h-[340px] overflow-y-auto">
+                  {selectedAccounts.length === 0 ? (
+                    <div className="p-6 text-sm text-gray-500">请在左侧勾选要绑定的账号</div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {selectedAccounts.map((a) => {
+                        const id = String(a._id)
+                        const cfg = perAccountConfig[id] || { discountRuleId: defaultRuleId, allocatedRate: 0, distributionRate: 0 }
+                        return (
+                          <div key={id} className="p-5 flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="text-sm font-black text-gray-900 truncate">{a.nickname || a.username || id}</div>
+                              <div className="text-[10px] text-gray-400 font-bold truncate">
+                                {a.username ? `@${a.username}` : ''}{a.phone ? ` • ${a.phone}` : ''}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0">
+                              <select
+                                value={cfg.discountRuleId}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  setPerAccountConfig(prev => ({
+                                    ...prev,
+                                    [id]: { ...prev[id], discountRuleId: v }
+                                  }))
+                                }}
+                                className="input h-10 text-xs"
+                              >
+                                {(selectedModule?.discountRules || []).map(r => (
+                                  <option key={r._id} value={r._id}>{r.name}{r.isDefault ? '（默认）' : ''}</option>
+                                ))}
+                              </select>
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={cfg.allocatedRate}
+                                onChange={(e) => {
+                                  const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
+                                  setPerAccountConfig(prev => ({
+                                    ...prev,
+                                    [id]: { ...prev[id], allocatedRate: v }
+                                  }))
+                                }}
+                                className="input h-10 w-20 text-xs text-center"
+                                title="分配比例%"
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={cfg.distributionRate}
+                                onChange={(e) => {
+                                  const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
+                                  setPerAccountConfig(prev => ({
+                                    ...prev,
+                                    [id]: { ...prev[id], distributionRate: v }
+                                  }))
+                                }}
+                                className="input h-10 w-20 text-xs text-center"
+                                title="垂直权重%"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => toggleSelectAccount(id)}
+                                className="w-10 h-10 rounded-xl border border-gray-100 bg-white text-gray-400 hover:text-rose-500 hover:border-rose-200 transition-all"
+                              >
+                                <X className="w-4 h-4 mx-auto" />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-8 py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-bold hover:bg-gray-50"
-            >
+          <div className="flex justify-end gap-3 pt-8">
+            <button type="button" onClick={onClose} className="px-8 py-3 rounded-2xl bg-white border border-gray-200 text-gray-700 font-bold hover:bg-gray-50">
               取消
             </button>
-            <button
-              type="submit"
-              className="px-10 py-3 rounded-2xl bg-[#153e35] text-white font-black shadow-xl"
-            >
-              添加
+            <button type="submit" className="px-10 py-3 rounded-2xl bg-[#153e35] text-white font-black shadow-xl">
+              绑定
             </button>
           </div>
         </form>
