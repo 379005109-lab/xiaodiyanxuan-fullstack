@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
+import ImageUploader from '@/components/admin/ImageUploader'
+import { getFileUrl } from '@/services/uploadService'
 
 // 中文转拼音首字母（简化版）
 const pinyinMap: Record<string, string> = {
@@ -58,6 +60,7 @@ interface Manufacturer {
   shortName?: string
   code?: string
   username?: string
+  logo?: string
   isPreferred?: boolean
   expiryDate?: string
   defaultDiscount?: number
@@ -82,6 +85,7 @@ export default function ManufacturerManagement() {
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState<Manufacturer | null>(null)
   const [formData, setFormData] = useState({
+    logo: '',
     fullName: '',
     shortName: '',
     isPreferred: false,
@@ -123,6 +127,28 @@ export default function ManufacturerManagement() {
     }
   }
 
+  const handleToggleStatus = async (item: Manufacturer) => {
+    try {
+      await apiClient.put(`/manufacturers/${item._id}`, {
+        status: item.status === 'active' ? 'inactive' : 'active',
+      })
+      fetchData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '更新状态失败')
+    }
+  }
+
+  const handleTogglePreferred = async (item: Manufacturer) => {
+    try {
+      await apiClient.put(`/manufacturers/${item._id}`, {
+        isPreferred: !item.isPreferred,
+      })
+      fetchData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '更新失败')
+    }
+  }
+
   useEffect(() => {
     fetchData()
   }, [keyword])
@@ -130,6 +156,7 @@ export default function ManufacturerManagement() {
   const openCreateModal = () => {
     setEditingItem(null)
     setFormData({
+      logo: '',
       fullName: '',
       shortName: '',
       isPreferred: false,
@@ -151,6 +178,7 @@ export default function ManufacturerManagement() {
   const openEditModal = (item: Manufacturer) => {
     setEditingItem(item)
     setFormData({
+      logo: item.logo || '',
       fullName: item.fullName || item.name || '',
       shortName: item.shortName || '',
       isPreferred: Boolean(item.isPreferred),
@@ -212,6 +240,7 @@ export default function ManufacturerManagement() {
     try {
       setSaving(true)
       const payload: any = {
+        logo: formData.logo || undefined,
         fullName: formData.fullName,
         shortName: formData.shortName,
         isPreferred: formData.isPreferred,
@@ -337,35 +366,54 @@ export default function ManufacturerManagement() {
           {manufacturers.map((item) => (
             <div
               key={item._id}
-              className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow"
+              className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all"
             >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-lg">{item.fullName || item.name}</h3>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    {item.shortName && <span className="font-medium text-primary">[{item.shortName}]</span>}
-                    {item.code && <span>编号：{item.code}</span>}
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-5">
+                  <div className="w-20 h-20 rounded-full bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                    <img
+                      src={getFileUrl(item.logo || '')}
+                      alt={item.fullName || item.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    {item.isPreferred && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                        优质厂家
-                      </span>
-                    )}
-                    {item.expiryDate && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                        效期至 {new Date(item.expiryDate).toISOString().slice(0, 10)}
-                      </span>
-                    )}
+                  <div>
+                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">
+                      {item.shortName || item.fullName || item.name}
+                    </h3>
+                    <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
+                      {item.code || ''}
+                    </div>
                   </div>
                 </div>
-                <span className={`px-2 py-1 text-xs rounded-full ${
-                  item.status === 'active' 
-                    ? 'bg-green-100 text-green-700' 
-                    : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {item.status === 'active' ? '启用' : '停用'}
-                </span>
+
+                <div className="flex flex-col items-end gap-3">
+                  <button
+                    onClick={() => handleTogglePreferred(item)}
+                    className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                      item.isPreferred
+                        ? 'bg-amber-100 text-amber-600 border border-amber-200'
+                        : 'bg-gray-50 text-gray-300 border border-gray-100'
+                    }`}
+                  >
+                    {item.isPreferred ? '优质厂家 ★' : '设为优质'}
+                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${item.status === 'active' ? 'text-emerald-700' : 'text-gray-400'}`}>
+                      {item.status === 'active' ? '启用' : '停用'}
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={item.status === 'active'}
+                        onChange={() => handleToggleStatus(item)}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 mb-3">
@@ -466,6 +514,35 @@ export default function ManufacturerManagement() {
             </div>
 
             <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  品牌头像/Logo
+                </label>
+                <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">
+                  <ImageUploader
+                    images={formData.logo ? [formData.logo] : []}
+                    onChange={(imgs) => setFormData({ ...formData, logo: imgs?.[0] || '' })}
+                    multiple={false}
+                    maxImages={1}
+                    label="上传Logo"
+                  />
+                </div>
+                {formData.logo && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border bg-white">
+                      <img src={getFileUrl(formData.logo)} alt="logo" className="w-full h-full object-cover" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, logo: '' })}
+                      className="text-sm text-gray-500 hover:text-red-600"
+                    >
+                      移除Logo
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   厂家全称 <span className="text-red-500">*</span>
