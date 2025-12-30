@@ -2030,6 +2030,7 @@ function HierarchyTab({
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [zoomScale, setZoomScale] = useState(1)
+  const enableNodeDrag = false
 
   const [showProfileEditModal, setShowProfileEditModal] = useState(false)
   const [selectedStaff, setSelectedStaff] = useState<any>(null)
@@ -2065,9 +2066,9 @@ function HierarchyTab({
   useEffect(() => {
     if (viewMode !== 'map') return
 
-    setNodePositions(prev => {
-      const next = { ...prev }
-      if (!next['headquarters']) next['headquarters'] = { x: 0, y: -260 }
+    setNodePositions(() => {
+      const next: Record<string, { x: number; y: number }> = {}
+      next['headquarters'] = { x: 0, y: -260 }
 
       const byDepth = new Map<number, string[]>()
       hierarchyGraph.nodes.forEach(n => {
@@ -2082,9 +2083,9 @@ function HierarchyTab({
       const gapY = 360
       Array.from(byDepth.entries()).forEach(([depth, ids]) => {
         if (depth === 0) return
+        ids.sort((a, b) => String(a).localeCompare(String(b)))
         const n = ids.length
         ids.forEach((id, idx) => {
-          if (next[id]) return
           const x = (idx - (n - 1) / 2) * gapX
           const y = -260 + depth * gapY
           next[id] = { x, y }
@@ -2208,6 +2209,7 @@ function HierarchyTab({
   // 节点拖拽
   const onNodePointerDown = (nodeId: string) => (e: any) => {
     if (viewMode !== 'map') return
+    if (!enableNodeDrag) return
     if (e.button !== 0) return
     if (shouldIgnoreDragStart(e.target)) return
     e.preventDefault()
@@ -2224,6 +2226,7 @@ function HierarchyTab({
   }
 
   const onNodePointerMove = (e: any) => {
+    if (!enableNodeDrag) return
     const st = dragStateRef.current
     if (!st.active || st.pointerId !== e.pointerId || !st.nodeId) return
     const dx = (e.clientX - st.startClientX) / Math.max(0.01, zoomScale)
@@ -2236,6 +2239,7 @@ function HierarchyTab({
   }
 
   const onNodePointerUp = (e: any) => {
+    if (!enableNodeDrag) return
     const st = dragStateRef.current
     if (st.pointerId !== e.pointerId) return
     st.active = false
@@ -2246,7 +2250,7 @@ function HierarchyTab({
   return (
     <div className="max-w-[1600px] mx-auto h-screen flex flex-col bg-[#fcfdfd] overflow-hidden">
       {/* duijie/nn风格的header */}
-      <header className="p-8 border-b bg-white flex items-center justify-between shrink-0 shadow-sm z-[60]">
+      <header className="hidden p-8 border-b bg-white flex items-center justify-between shrink-0 shadow-sm z-[60]">
         <div className="flex items-center gap-8">
           <div className="w-16 h-16 bg-white rounded-2xl border shadow-sm p-2 flex items-center justify-center overflow-hidden">
             {manufacturerLogo ? (
