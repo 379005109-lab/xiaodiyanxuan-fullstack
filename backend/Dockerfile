@@ -1,5 +1,5 @@
 # 构建阶段
-FROM node:18-alpine AS builder
+FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
 
@@ -7,15 +7,17 @@ WORKDIR /app
 COPY package*.json ./
 
 # 安装依赖
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # 最终阶段
-FROM node:18-alpine
+FROM node:18-bullseye-slim
 
 WORKDIR /app
 
 # 安装 dumb-init 用于优雅关闭
-RUN apk add --no-cache dumb-init
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends dumb-init \
+  && rm -rf /var/lib/apt/lists/*
 
 # 从构建阶段复制 node_modules
 COPY --from=builder /app/node_modules ./node_modules
