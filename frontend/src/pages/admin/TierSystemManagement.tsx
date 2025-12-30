@@ -1847,20 +1847,7 @@ function HierarchyTab({
     return manufacturerProducts.length
   }
 
-  const filteredAccounts = useMemo(() => {
-    if (selectedModuleCode === 'all') return accounts
-    return accounts.filter(a => {
-      const module = modules.find(m => String(m._id) === String(a.roleModuleId))
-      return module && module.code === selectedModuleCode
-    })
-  }, [accounts, modules, selectedModuleCode])
-
-  const handleAddAccounts = async (newAccounts: AuthorizedAccount[]) => {
-    const updated = [...accounts, ...newAccounts]
-    onSaveAccounts(updated)
-    setShowAddModal(false)
-    setParentAccount(null)
-  }
+  // 移除重复的声明，使用上面已定义的 filteredAccounts 和 handleAddAccounts
 
   // duijie/nn风格的分层架构数据
   const hierarchyData = useMemo(() => {
