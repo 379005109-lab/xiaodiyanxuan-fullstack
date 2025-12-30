@@ -1921,40 +1921,28 @@ function HierarchyTab({
   const [editingCard, setEditingCard] = useState<string | null>(null)
   const [editValues, setEditValues] = useState({ minDiscount: 0, distribution: 0 })
 
-  // TAB键控制画布移动
+  // 鼠标滚轮控制画布移动
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
+    const handleWheel = (e: WheelEvent) => {
+      if (viewMode === 'map') {
         e.preventDefault()
-        setIsTabPressed(true)
-      }
-    }
-    
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        setIsTabPressed(false)
-      }
-    }
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isTabPressed && viewMode === 'map') {
+        const sensitivity = 0.5
         setCanvasPosition(prev => ({
-          x: prev.x + e.movementX,
-          y: prev.y + e.movementY
+          x: prev.x - e.deltaX * sensitivity,
+          y: prev.y - e.deltaY * sensitivity
         }))
       }
     }
     
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    window.addEventListener('mousemove', handleMouseMove)
-    
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-      window.removeEventListener('mousemove', handleMouseMove)
+    const canvasElement = document.querySelector('[data-canvas="true"]')
+    if (canvasElement) {
+      canvasElement.addEventListener('wheel', handleWheel, { passive: false })
+      
+      return () => {
+        canvasElement.removeEventListener('wheel', handleWheel)
+      }
     }
-  }, [isTabPressed, viewMode])
+  }, [viewMode])
   
   // 点击处理函数
   const handlePersonnelClick = (staff: any) => {
@@ -2021,11 +2009,11 @@ function HierarchyTab({
       </header>
 
       <div 
+        data-canvas="true"
         className="flex-grow overflow-auto p-12 bg-gray-50/50 relative" 
         style={{ 
           transform: `scale(${zoomScale}) translate(${canvasPosition.x}px, ${canvasPosition.y}px)`, 
-          transformOrigin: 'center center',
-          cursor: isTabPressed ? 'move' : 'default'
+          transformOrigin: 'center center'
         }}
       >
         {viewMode === 'list' && (
