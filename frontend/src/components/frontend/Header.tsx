@@ -21,6 +21,12 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+
+  const isAdminUser = Boolean(user?.permissions?.canAccessAdmin) ||
+    ['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin'].includes(user?.role as any)
+  const canEnterAdminPanel = isAdminUser || user?.role === 'designer'
+
+  const hasManufacturerToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('manufacturerToken'))
   
   // 分类悬浮窗口状态
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
@@ -345,7 +351,7 @@ export default function Header() {
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-stone-100 py-2 z-50">
                   <div className="px-4 py-2 border-b border-stone-100">
                     <p className="text-sm font-medium text-primary">{(user as any)?.nickname || user?.phone || '用户'}</p>
-                    <p className="text-xs text-stone-400">{user?.role === 'admin' || user?.role === 'super_admin' ? '管理员' : '普通用户'}</p>
+                    <p className="text-xs text-stone-400">{isAdminUser ? '管理员' : user?.role === 'designer' ? '设计师' : '普通用户'}</p>
                   </div>
                   
                   {/* 编辑资料 */}
@@ -367,9 +373,21 @@ export default function Header() {
                     <MapPin className="w-4 h-4" />
                     我的地址
                   </Link>
+
+                  {/* 厂家中心入口 - 厂家端登录后可见 */}
+                  {hasManufacturerToken && (
+                    <Link
+                      to="/manufacturer/orders"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      厂家中心
+                    </Link>
+                  )}
                   
                   {/* 管理后台入口 - 仅管理员可见 */}
-                  {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                  {canEnterAdminPanel && (
                     <Link
                       to="/admin"
                       onClick={() => setUserMenuOpen(false)}

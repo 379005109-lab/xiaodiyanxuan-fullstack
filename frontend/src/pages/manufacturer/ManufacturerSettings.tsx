@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Save, Upload, Phone, CreditCard, Building, Image as ImageIcon, Loader2, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { getFileUrl } from '@/services/uploadService'
+import { uploadFile } from '@/services/uploadService'
+import apiClient from '@/lib/apiClient'
 
 interface ManufacturerSettings {
   logo: string
@@ -25,7 +27,6 @@ export default function ManufacturerSettingsPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [manufacturerId, setManufacturerId] = useState<string>('')
   const [formData, setFormData] = useState<ManufacturerSettings>({
     logo: '',
     settings: {
@@ -50,19 +51,17 @@ export default function ManufacturerSettingsPage() {
   const loadManufacturerInfo = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('manufacturerToken')
       
       // 获取当前用户的厂家信息
-      const response = await fetch('/api/manufacturers/me', {
+      const response = await apiClient.get('/manufacturer-orders/manufacturer/profile', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         }
       })
       
-      if (response.ok) {
-        const data = await response.json()
-        const manufacturer = data.data
-        setManufacturerId(manufacturer._id)
+      if (response.data.success) {
+        const manufacturer = response.data.data
         setFormData({
           logo: manufacturer.logo || '',
           settings: {
@@ -93,21 +92,10 @@ export default function ManufacturerSettingsPage() {
     if (!file) return
 
     try {
-      const token = localStorage.getItem('token')
-      const formDataUpload = new FormData()
-      formDataUpload.append('file', file)
+      const result = await uploadFile(file)
+      const imageUrl = result?.data?.fileId
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formDataUpload
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const imageUrl = data.url || data.fileId
+      if (imageUrl) {
 
         if (field === 'logo') {
           setFormData(prev => ({ ...prev, logo: imageUrl }))
@@ -139,32 +127,27 @@ export default function ManufacturerSettingsPage() {
   }
 
   const handleSave = async () => {
-    if (!manufacturerId) {
-      toast.error('厂家信息未加载')
-      return
-    }
-
     try {
       setSaving(true)
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('manufacturerToken')
 
-      const response = await fetch(`/api/manufacturers/${manufacturerId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      const response = await apiClient.put(
+        '/manufacturer-orders/manufacturer/profile',
+        {
           logo: formData.logo,
           settings: formData.settings
-        })
-      })
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      )
 
-      if (response.ok) {
+      if (response.data.success) {
         toast.success('设置保存成功')
       } else {
-        const errorData = await response.json()
-        toast.error(errorData.message || '保存失败')
+        toast.error(response.data.message || '保存失败')
       }
     } catch (error) {
       console.error('保存失败:', error)

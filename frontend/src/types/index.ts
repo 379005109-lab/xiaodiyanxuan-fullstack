@@ -1,5 +1,17 @@
 // 用户类型
-export type UserRole = 'super_admin' | 'admin' | 'designer' | 'distributor' | 'customer' | 'owner' | 'professional'
+export type UserRole =
+  | 'super_admin'
+  | 'admin'
+  | 'platform_admin'
+  | 'platform_staff'
+  | 'enterprise_admin'
+  | 'enterprise_staff'
+  | 'designer'
+  | 'special_guest'
+  | 'distributor'
+  | 'customer'
+  | 'owner'
+  | 'professional'
 
 export interface User {
   _id: string
@@ -9,6 +21,15 @@ export interface User {
   nickname?: string
   gender?: 'male' | 'female' | ''
   role: UserRole
+  permissions?: {
+    canAccessAdmin?: boolean
+    canViewCostPrice?: boolean
+    canDownloadMaterial?: boolean
+    canManageUsers?: boolean
+    canManageProducts?: boolean
+    canManageOrders?: boolean
+    canViewReports?: boolean
+  }
   avatar?: string
   createdAt: string
   updatedAt: string

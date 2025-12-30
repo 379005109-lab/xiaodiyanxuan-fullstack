@@ -57,6 +57,29 @@ const manufacturerSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  productIntro: {
+    type: String,
+    trim: true
+  },
+  styleTags: [{
+    type: String,
+    trim: true
+  }],
+  isPreferred: {
+    type: Boolean,
+    default: false
+  },
+  expiryDate: {
+    type: Date
+  },
+  defaultDiscount: {
+    type: Number,
+    default: 0
+  },
+  defaultCommission: {
+    type: Number,
+    default: 0
+  },
   logo: {
     type: String
   },

@@ -83,6 +83,15 @@ const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLo
 const ManufacturerOrders = lazy(() => import('./pages/manufacturer/ManufacturerOrders'))
 const ManufacturerSettings = lazy(() => import('./pages/manufacturer/ManufacturerSettings'))
 
+ const ADMIN_ACCESS_ROLES: UserRole[] = [
+   'admin',
+   'super_admin',
+   'platform_admin',
+   'platform_staff',
+   'enterprise_admin',
+ ]
+ const ADMIN_AND_DESIGNER_ROLES: UserRole[] = [...ADMIN_ACCESS_ROLES, 'designer']
+
 // 前台布局已在上方直接导入
 
 // 路由守卫
@@ -94,19 +103,43 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles, fallbackPath = '/' }: ProtectedRouteProps) => {
-  const { user, isAuthenticated, token } = useAuthStore()
+  const { user, isAuthenticated, token, logout } = useAuthStore()
   const [isReady, setIsReady] = useState(false)
+  const [authRecoveryTimedOut, setAuthRecoveryTimedOut] = useState(false)
+
+  const isAdminUser = Boolean((user as any)?.permissions?.canAccessAdmin) ||
+    (user ? ADMIN_ACCESS_ROLES.includes(user.role as UserRole) : false)
   
   // 等待 Zustand persist 中间件恢复状态
   useEffect(() => {
-    // 检查 localStorage 中是否有认证信息
-    const hasAuthData = localStorage.getItem('auth-storage')
     // 延迟一个 tick，确保 Zustand 已经恢复状态
     const timer = setTimeout(() => {
       setIsReady(true)
     }, 0)
     return () => clearTimeout(timer)
   }, [])
+
+  // 避免 token 存在但认证状态无法恢复导致永久卡死
+  useEffect(() => {
+    if (!isReady) return
+    if (token && !isAuthenticated) {
+      const timer = setTimeout(() => {
+        setAuthRecoveryTimedOut(true)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+    setAuthRecoveryTimedOut(false)
+  }, [isReady, token, isAuthenticated])
+
+  useEffect(() => {
+    if (!authRecoveryTimedOut) return
+    try {
+      localStorage.removeItem('auth-storage')
+      localStorage.removeItem('token')
+    } finally {
+      logout()
+    }
+  }, [authRecoveryTimedOut, logout])
   
   // 在初始化完成前显示加载状态
   if (!isReady) {
@@ -115,6 +148,9 @@ const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles, fallback
   
   // 如果有 token 但 isAuthenticated 为 false，等待状态恢复
   if (token && !isAuthenticated) {
+    if (authRecoveryTimedOut) {
+      return <Navigate to="/login" replace />
+    }
     return <div className="flex items-center justify-center h-screen bg-gray-50">恢复认证状态中...</div>
   }
   
@@ -123,7 +159,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, allowedRoles, fallback
     return <Navigate to="/login" replace />
   }
   
-  if (requireAdmin && user?.role !== 'admin' && user?.role !== 'super_admin') {
+  if (requireAdmin && !isAdminUser) {
     console.log('[ProtectedRoute] 权限不足，重定向到', fallbackPath)
     return <Navigate to={fallbackPath} replace />
   }
@@ -277,13 +313,13 @@ function App() {
 
           {/* 后台路由 */}
           <Route path="/admin" element={
-            <ProtectedRoute allowedRoles={[ 'admin', 'super_admin', 'designer' ]}>
+            <ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}>
               <AdminLayout />
             </ProtectedRoute>
           }>
             <Route index element={<Navigate to="/admin/activity" replace />} />
             <Route path="products" element={
-              <ProtectedRoute allowedRoles={['admin', 'super_admin', 'designer']}>
+              <ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}>
                 <ProductManagement />
               </ProtectedRoute>
             } />
@@ -303,7 +339,7 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="products/dashboard/:productId" element={
-              <ProtectedRoute allowedRoles={['admin', 'super_admin', 'designer']}>
+              <ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}>
                 <ProductDashboard />
               </ProtectedRoute>
             } />
@@ -317,14 +353,14 @@ function App() {
             <Route path="order-analysis" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderAnalysis /></ProtectedRoute>} />
             <Route path="refunds" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><RefundManagement /></ProtectedRoute>} />
             <Route path="coupons" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CouponManagement /></ProtectedRoute>} />
-            <Route path="packages" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><PackageListPage /></ProtectedRoute>} />
-            <Route path="packages/new" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><PackageManagementPage /></ProtectedRoute>} />
-            <Route path="packages/edit/:id" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><PackageManagementPage /></ProtectedRoute>} />
+            <Route path="packages" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}><PackageListPage /></ProtectedRoute>} />
+            <Route path="packages/new" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}><PackageManagementPage /></ProtectedRoute>} />
+            <Route path="packages/edit/:id" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}><PackageManagementPage /></ProtectedRoute>} />
             <Route path="packages/designer-edit/:id" element={<ProtectedRoute allowedRoles={['designer']}><DesignerPackageEditPage /></ProtectedRoute>} />
             <Route path="packages/profit/:id" element={<ProtectedRoute requireAdmin fallbackPath="/admin/packages"><PackageProfitPage /></ProtectedRoute>} />
-            <Route path="bargain" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><AdminBargainListPage /></ProtectedRoute>} />
-            <Route path="bargain/new" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><AdminBargainFormPage /></ProtectedRoute>} />
-            <Route path="bargain/edit/:id" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><AdminBargainFormPage /></ProtectedRoute>} />
+            <Route path="bargain" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}><AdminBargainListPage /></ProtectedRoute>} />
+            <Route path="bargain/new" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}><AdminBargainFormPage /></ProtectedRoute>} />
+            <Route path="bargain/edit/:id" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}><AdminBargainFormPage /></ProtectedRoute>} />
             <Route path="bargain-dashboard" element={<ProtectedRoute requireAdmin fallbackPath="/admin/bargain"><BargainDashboardPage /></ProtectedRoute>} />
             <Route path="dashboard" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><AdminDashboardPage /></ProtectedRoute>} />
             <Route path="designer-orders" element={<ProtectedRoute allowedRoles={['designer']}><DesignerOrdersPage /></ProtectedRoute>} />

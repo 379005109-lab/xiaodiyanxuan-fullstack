@@ -58,6 +58,12 @@ interface Manufacturer {
   shortName?: string
   code?: string
   username?: string
+  isPreferred?: boolean
+  expiryDate?: string
+  defaultDiscount?: number
+  defaultCommission?: number
+  productIntro?: string
+  styleTags?: string[]
   contactName?: string
   contactPhone?: string
   contactEmail?: string
@@ -78,6 +84,12 @@ export default function ManufacturerManagement() {
   const [formData, setFormData] = useState({
     fullName: '',
     shortName: '',
+    isPreferred: false,
+    expiryDate: '',
+    defaultDiscount: 0,
+    defaultCommission: 0,
+    styleTagsText: '',
+    productIntro: '',
     contactName: '',
     contactPhone: '',
     contactEmail: '',
@@ -120,6 +132,12 @@ export default function ManufacturerManagement() {
     setFormData({
       fullName: '',
       shortName: '',
+      isPreferred: false,
+      expiryDate: '',
+      defaultDiscount: 0,
+      defaultCommission: 0,
+      styleTagsText: '',
+      productIntro: '',
       contactName: '',
       contactPhone: '',
       contactEmail: '',
@@ -135,6 +153,12 @@ export default function ManufacturerManagement() {
     setFormData({
       fullName: item.fullName || item.name || '',
       shortName: item.shortName || '',
+      isPreferred: Boolean(item.isPreferred),
+      expiryDate: item.expiryDate ? item.expiryDate.slice(0, 10) : '',
+      defaultDiscount: item.defaultDiscount || 0,
+      defaultCommission: item.defaultCommission || 0,
+      styleTagsText: (item.styleTags || []).join(', '),
+      productIntro: item.productIntro || '',
       contactName: item.contactName || '',
       contactPhone: item.contactPhone || '',
       contactEmail: item.contactEmail || '',
@@ -187,11 +211,29 @@ export default function ManufacturerManagement() {
 
     try {
       setSaving(true)
+      const payload: any = {
+        fullName: formData.fullName,
+        shortName: formData.shortName,
+        isPreferred: formData.isPreferred,
+        expiryDate: formData.expiryDate || undefined,
+        defaultDiscount: formData.defaultDiscount,
+        defaultCommission: formData.defaultCommission,
+        productIntro: formData.productIntro,
+        styleTags: formData.styleTagsText
+          ? formData.styleTagsText.split(',').map(s => s.trim()).filter(Boolean)
+          : [],
+        contactName: formData.contactName,
+        contactPhone: formData.contactPhone,
+        contactEmail: formData.contactEmail,
+        address: formData.address,
+        description: formData.description,
+        status: formData.status,
+      }
       if (editingItem) {
-        await apiClient.put(`/manufacturers/${editingItem._id}`, formData)
+        await apiClient.put(`/manufacturers/${editingItem._id}`, payload)
         toast.success('更新成功')
       } else {
-        await apiClient.post('/manufacturers', formData)
+        await apiClient.post('/manufacturers', payload)
         toast.success('创建成功')
       }
       setShowModal(false)
@@ -304,6 +346,18 @@ export default function ManufacturerManagement() {
                     {item.shortName && <span className="font-medium text-primary">[{item.shortName}]</span>}
                     {item.code && <span>编号：{item.code}</span>}
                   </div>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {item.isPreferred && (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                        优质厂家
+                      </span>
+                    )}
+                    {item.expiryDate && (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                        效期至 {new Date(item.expiryDate).toISOString().slice(0, 10)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className={`px-2 py-1 text-xs rounded-full ${
                   item.status === 'active' 
@@ -312,6 +366,17 @@ export default function ManufacturerManagement() {
                 }`}>
                   {item.status === 'active' ? '启用' : '停用'}
                 </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-3 text-center">
+                  <div className="text-xs text-emerald-700">最低折扣</div>
+                  <div className="text-lg font-bold text-[#153e35]">{item.defaultDiscount || 0}%</div>
+                </div>
+                <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-center">
+                  <div className="text-xs text-blue-700">返佣比例</div>
+                  <div className="text-lg font-bold text-blue-700">{item.defaultCommission || 0}%</div>
+                </div>
               </div>
 
               <div className="space-y-2 text-sm text-gray-600 mb-3">
@@ -438,6 +503,78 @@ export default function ManufacturerManagement() {
                 <p className="text-xs text-gray-500 mt-1">
                   {editingItem ? '简称创建后不可修改' : '根据厂家全称中文自动提取拼音首字母，可手动修改'}
                 </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">优质厂家</label>
+                  <select
+                    value={formData.isPreferred ? 'yes' : 'no'}
+                    onChange={(e) => setFormData({ ...formData, isPreferred: e.target.value === 'yes' })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="no">否</option>
+                    <option value="yes">是</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">效期至</label>
+                  <input
+                    type="date"
+                    value={formData.expiryDate}
+                    onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">最低折扣(%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.defaultDiscount}
+                    onChange={(e) => setFormData({ ...formData, defaultDiscount: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="如：60"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">返佣比例(%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.defaultCommission}
+                    onChange={(e) => setFormData({ ...formData, defaultCommission: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="如：25"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">风格标签（逗号分隔）</label>
+                <input
+                  type="text"
+                  value={formData.styleTagsText}
+                  onChange={(e) => setFormData({ ...formData, styleTagsText: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  placeholder="如：意式极简, 全屋定制"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">产品介绍</label>
+                <textarea
+                  value={formData.productIntro}
+                  onChange={(e) => setFormData({ ...formData, productIntro: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                  placeholder="如：主打意式简约、现代极简系列..."
+                />
               </div>
 
               <div>

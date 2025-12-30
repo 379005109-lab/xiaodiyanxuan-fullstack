@@ -12,6 +12,8 @@ const list = async (req, res) => {
     if (keyword) {
       query.$or = [
         { name: { $regex: keyword, $options: 'i' } },
+        { fullName: { $regex: keyword, $options: 'i' } },
+        { shortName: { $regex: keyword, $options: 'i' } },
         { code: { $regex: keyword, $options: 'i' } },
         { contactName: { $regex: keyword, $options: 'i' } },
         { contactPhone: { $regex: keyword, $options: 'i' } }
@@ -67,7 +69,25 @@ const get = async (req, res) => {
 // 创建厂家
 const create = async (req, res) => {
   try {
-    const { fullName, shortName, name, code, contactName, contactPhone, contactEmail, address, description, logo, status } = req.body
+    const {
+      fullName,
+      shortName,
+      name,
+      code,
+      contactName,
+      contactPhone,
+      contactEmail,
+      address,
+      description,
+      productIntro,
+      styleTags,
+      isPreferred,
+      expiryDate,
+      defaultDiscount,
+      defaultCommission,
+      logo,
+      status,
+    } = req.body
     
     // 支持新字段fullName，兼容旧字段name
     const manufacturerName = fullName || name
@@ -96,6 +116,12 @@ const create = async (req, res) => {
       contactEmail,
       address,
       description,
+      productIntro,
+      styleTags,
+      isPreferred: Boolean(isPreferred),
+      expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+      defaultDiscount: defaultDiscount !== undefined ? Number(defaultDiscount) : undefined,
+      defaultCommission: defaultCommission !== undefined ? Number(defaultCommission) : undefined,
       logo,
       status: status || 'active'
     })
@@ -111,7 +137,24 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params
-    const { name, code, contactName, contactPhone, contactEmail, address, description, logo, status } = req.body
+    const {
+      name,
+      code,
+      contactName,
+      contactPhone,
+      contactEmail,
+      address,
+      description,
+      productIntro,
+      styleTags,
+      isPreferred,
+      expiryDate,
+      defaultDiscount,
+      defaultCommission,
+      logo,
+      status,
+      accountQuota,
+    } = req.body
     
     const manufacturer = await Manufacturer.findById(id)
     if (!manufacturer) {
@@ -127,14 +170,26 @@ const update = async (req, res) => {
     }
     
     manufacturer.name = name || manufacturer.name
-    manufacturer.code = code
+    if (code !== undefined) manufacturer.code = code
     manufacturer.contactName = contactName
     manufacturer.contactPhone = contactPhone
     manufacturer.contactEmail = contactEmail
     manufacturer.address = address
     manufacturer.description = description
+    if (productIntro !== undefined) manufacturer.productIntro = productIntro
+    if (styleTags !== undefined) manufacturer.styleTags = Array.isArray(styleTags) ? styleTags : []
+    if (isPreferred !== undefined) manufacturer.isPreferred = Boolean(isPreferred)
+    if (expiryDate !== undefined) manufacturer.expiryDate = expiryDate ? new Date(expiryDate) : null
+    if (defaultDiscount !== undefined) manufacturer.defaultDiscount = Number(defaultDiscount)
+    if (defaultCommission !== undefined) manufacturer.defaultCommission = Number(defaultCommission)
     manufacturer.logo = logo
     manufacturer.status = status || manufacturer.status
+    if (accountQuota && typeof accountQuota === 'object') {
+      manufacturer.accountQuota = {
+        ...(manufacturer.accountQuota || {}),
+        ...accountQuota
+      }
+    }
     
     await manufacturer.save()
     

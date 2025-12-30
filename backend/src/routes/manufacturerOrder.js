@@ -605,6 +605,36 @@ router.get('/manufacturer/profile', verifyManufacturer, async (req, res) => {
   }
 });
 
+// 更新厂家信息（厂家端）
+router.put('/manufacturer/profile', verifyManufacturer, async (req, res) => {
+  try {
+    const manufacturer = await Manufacturer.findById(req.manufacturerId);
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' });
+    }
+
+    const { logo, settings } = req.body || {};
+    if (logo !== undefined) manufacturer.logo = logo;
+
+    if (settings && typeof settings === 'object') {
+      manufacturer.settings = {
+        ...(manufacturer.settings || {}),
+        ...settings,
+        bankInfo: {
+          ...(manufacturer.settings?.bankInfo || {}),
+          ...(settings.bankInfo || {})
+        }
+      };
+    }
+
+    await manufacturer.save();
+    res.json({ success: true, data: manufacturer, message: '更新成功' });
+  } catch (error) {
+    console.error('更新厂家信息失败:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
 // 修改厂家密码
 router.post('/manufacturer/change-password', verifyManufacturer, async (req, res) => {
   try {
