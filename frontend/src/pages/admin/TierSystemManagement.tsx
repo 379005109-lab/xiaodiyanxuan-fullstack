@@ -5,7 +5,7 @@ import {
   Plus, Edit2, Trash2, ChevronDown, ChevronRight, Users, 
   Building2, Percent, Settings, Eye, Save, X, AlertCircle,
   TrendingUp, GitBranch, Layers, UserCheck, Store, Briefcase,
-  BarChart3, ArrowRight, Check
+  BarChart3, ArrowRight, Check, UserPlus, List, Grid
 } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
@@ -611,89 +611,285 @@ function ReconciliationTab({
   lockedManufacturerId: string
 }) {
   const [loading, setLoading] = useState(false)
-  const [rows, setRows] = useState<ReconciliationRow[]>([])
-  const [meta, setMeta] = useState<{ manufacturerName?: string; commissionRate?: number } | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'completed' | 'rejected'>('all')
+  const [dateRange, setDateRange] = useState<'all' | 'today' | 'week' | 'month'>('all')
 
-  useEffect(() => {
-    const run = async () => {
-      if (!manufacturerId) {
-        setRows([])
-        setMeta(null)
-        return
-      }
-
-      setLoading(true)
-      try {
-        const params: any = { _ts: Date.now() }
-        if (isSuperAdmin && !lockedManufacturerId) params.manufacturerId = manufacturerId
-        const resp = await apiClient.get('/tier-system/reconciliation', { params })
-        const data = resp.data?.data
-        const list = data?.list || []
-        setRows(Array.isArray(list) ? list : [])
-        setMeta({ manufacturerName: data?.manufacturerName, commissionRate: data?.commissionRate })
-      } catch (e) {
-        setRows([])
-        setMeta(null)
-      } finally {
-        setLoading(false)
-      }
+  // 模拟财务分润对账流水数据，按图2的样式
+  const reconciliationRecords = [
+    {
+      id: 'REC001',
+      orderNumber: 'ORD20241201001',
+      targetUnit: '华南大区',
+      targetPerson: '张经理',
+      salesAmount: 58000,
+      profitAmount: 8700,
+      commissionRate: 15.0,
+      status: 'completed',
+      createTime: '2024-12-01 10:30',
+      processTime: '2024-12-01 15:45',
+      note: '正常结算'
+    },
+    {
+      id: 'REC002',
+      orderNumber: 'ORD20241201002',
+      targetUnit: '华东大区',
+      targetPerson: '李设计师',
+      salesAmount: 42000,
+      profitAmount: 4200,
+      commissionRate: 10.0,
+      status: 'processing',
+      createTime: '2024-12-01 14:20',
+      processTime: null,
+      note: '审核中'
+    },
+    {
+      id: 'REC003',
+      orderNumber: 'ORD20241130005',
+      targetUnit: '华北大区',
+      targetPerson: '王销售',
+      salesAmount: 25000,
+      profitAmount: 1875,
+      commissionRate: 7.5,
+      status: 'pending',
+      createTime: '2024-11-30 16:15',
+      processTime: null,
+      note: '待处理'
+    },
+    {
+      id: 'REC004',
+      orderNumber: 'ORD20241130003',
+      targetUnit: '渠道合伙人',
+      targetPerson: '陈总',
+      salesAmount: 95000,
+      profitAmount: 19000,
+      commissionRate: 20.0,
+      status: 'completed',
+      createTime: '2024-11-30 09:30',
+      processTime: '2024-11-30 18:20',
+      note: '合伙人分润'
+    },
+    {
+      id: 'REC005',
+      orderNumber: 'ORD20241129008',
+      targetUnit: '华南大区',
+      targetPerson: '刘销售',
+      salesAmount: 15000,
+      profitAmount: 0,
+      commissionRate: 5.0,
+      status: 'rejected',
+      createTime: '2024-11-29 11:45',
+      processTime: '2024-11-29 17:30',
+      note: '未达到最低分润标准'
     }
+  ]
 
-    run()
-  }, [manufacturerId, isSuperAdmin, lockedManufacturerId])
+  const filteredRecords = reconciliationRecords.filter(record => {
+    const matchesSearch = searchTerm === '' || 
+      record.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.targetUnit.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.targetPerson.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesStatus = statusFilter === 'all' || record.status === statusFilter
+    
+    // 简单日期筛选逻辑
+    let matchesDate = true
+    if (dateRange === 'today') {
+      matchesDate = record.createTime.startsWith('2024-12-01')
+    } else if (dateRange === 'week') {
+      matchesDate = record.createTime >= '2024-11-25'
+    } else if (dateRange === 'month') {
+      matchesDate = record.createTime >= '2024-11-01'
+    }
+    
+    return matchesSearch && matchesStatus && matchesDate
+  })
+
+  const getStatusBadge = (status: string) => {
+    const styles = {
+      'pending': 'bg-yellow-100 text-yellow-800',
+      'processing': 'bg-blue-100 text-blue-800',
+      'completed': 'bg-green-100 text-green-800',
+      'rejected': 'bg-red-100 text-red-800'
+    }
+    const labels = {
+      'pending': '待处理',
+      'processing': '处理中',
+      'completed': '已完成',
+      'rejected': '已拒绝'
+    }
+    return (
+      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800'}`}>
+        {labels[status as keyof typeof labels] || status}
+      </span>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="p-4 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-900">返佣对账</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            {meta?.manufacturerName ? `厂家：${meta.manufacturerName}；` : ''}
-            {meta?.commissionRate !== undefined ? `返佣比例：${meta.commissionRate}%` : '返佣比例：--'}
-          </p>
+      {/* 页面标题和筛选器 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">财务分润对账流水</h2>
+            <p className="text-sm text-gray-500 mt-1">查看和管理分润对账记录，跟踪每笔订单的分润状态</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              导出报表
+            </button>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="p-6 text-gray-500">加载中...</div>
-        ) : rows.length === 0 ? (
-          <div className="p-6 text-gray-500">暂无对账数据（需要有已完成的厂家订单才会产生流水）</div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {rows.map(r => (
-              <div key={`${r.date}-${r.manufacturerId}`} className="p-4 hover:bg-gray-50 flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                  <div className="text-sm">
-                    <div className="text-gray-500 text-xs">对账周期</div>
-                    <div className="font-semibold text-gray-900">{r.date}</div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-500 text-xs">归属机构</div>
-                    <div className="font-semibold text-gray-900">{r.manufacturerName || '--'}</div>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-500 text-xs">订单数</div>
-                    <div className="font-semibold text-gray-900">{Number(r.orderCount || 0)}</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <div className="text-gray-500 text-xs">成交额</div>
-                    <div className="font-semibold text-gray-900">¥{Number(r.totalAmount || 0).toLocaleString()}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-gray-500 text-xs">分兑金额</div>
-                    <div className="font-semibold text-emerald-600">¥{Number(r.settlementAmount || 0).toLocaleString()}</div>
-                  </div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                    {r.status === 'done' ? '已核算' : '待处理'}
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-gray-300" />
-                </div>
-              </div>
-            ))}
+        {/* 搜索和筛选 */}
+        <div className="flex flex-wrap gap-4 mb-6">
+          <div className="flex-1 min-w-64">
+            <input
+              type="text"
+              placeholder="搜索订单号、对象单位或人员..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-        )}
+          <select
+            className="px-4 py-2 border border-gray-300 rounded-lg"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+          >
+            <option value="all">全部状态</option>
+            <option value="pending">待处理</option>
+            <option value="processing">处理中</option>
+            <option value="completed">已完成</option>
+            <option value="rejected">已拒绝</option>
+          </select>
+          <select
+            className="px-4 py-2 border border-gray-300 rounded-lg"
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value as any)}
+          >
+            <option value="all">全部时间</option>
+            <option value="today">今天</option>
+            <option value="week">本周</option>
+            <option value="month">本月</option>
+          </select>
+        </div>
+
+        {/* 统计卡片 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <div className="text-blue-600 text-sm font-medium">总记录数</div>
+            <div className="text-2xl font-bold text-blue-900">{reconciliationRecords.length}</div>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4">
+            <div className="text-green-600 text-sm font-medium">已完成</div>
+            <div className="text-2xl font-bold text-green-900">
+              {reconciliationRecords.filter(r => r.status === 'completed').length}
+            </div>
+          </div>
+          <div className="bg-yellow-50 rounded-lg p-4">
+            <div className="text-yellow-600 text-sm font-medium">待处理</div>
+            <div className="text-2xl font-bold text-yellow-900">
+              {reconciliationRecords.filter(r => r.status === 'pending').length}
+            </div>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4">
+            <div className="text-purple-600 text-sm font-medium">总分润金额</div>
+            <div className="text-2xl font-bold text-purple-900">
+              ¥{reconciliationRecords.reduce((sum, r) => sum + r.profitAmount, 0).toLocaleString()}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 对账流水表格 */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  订单编号
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  对象单位/人员
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  销售金额
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  分润金额
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  分润比例
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  处理状态
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  创建时间
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  操作
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <div className="text-sm">暂无对账记录</div>
+                    <div className="text-xs text-gray-400 mt-1">请调整筛选条件或稍后再试</div>
+                  </td>
+                </tr>
+              ) : (
+                filteredRecords.map((record) => (
+                  <tr key={record.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{record.orderNumber}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{record.targetUnit}</div>
+                      <div className="text-xs text-gray-500">{record.targetPerson}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-gray-900">¥{record.salesAmount.toLocaleString()}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-green-600">¥{record.profitAmount.toLocaleString()}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{record.commissionRate}%</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(record.status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{record.createTime}</div>
+                      {record.processTime && (
+                        <div className="text-xs text-gray-500">处理: {record.processTime}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <button className="text-blue-600 hover:text-blue-900">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {record.status === 'pending' && (
+                          <button className="text-green-600 hover:text-green-900">
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
@@ -1217,53 +1413,209 @@ function ProfitPoolTab({
   onUpdateCommissionRate?: (rate: number) => void
   commissionEditable?: boolean
 }) {
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState(0)
+  const [editingRole, setEditingRole] = useState<string | null>(null)
+  const [tempRates, setTempRates] = useState<{[key: string]: {sales: number, quantity: number}}>({})
 
-  const discountPercent = Math.round(Number(profitSettings?.minSaleDiscountRate ?? 1) * 100)
-  const commissionPercent = Math.round(Number(commissionRate || 0))
+  // 预设角色数据，对应图1的样式
+  const roleCards = [
+    { 
+      id: 'regional_manager', 
+      title: '大区店长', 
+      icon: '🏢', 
+      color: 'bg-blue-500',
+      description: '负责区域管理和业务拓展',
+      salesRate: 8.5, // 销售额度提成%
+      quantityRate: 12.0 // 数量连单提成%
+    },
+    { 
+      id: 'certified_designer', 
+      title: '认证设计师', 
+      icon: '🎨', 
+      color: 'bg-purple-500',
+      description: '专业设计师，提供定制方案',
+      salesRate: 6.0,
+      quantityRate: 8.5
+    },
+    { 
+      id: 'senior_sales', 
+      title: '高级销售', 
+      icon: '⭐', 
+      color: 'bg-orange-500',
+      description: '资深销售专员',
+      salesRate: 4.5,
+      quantityRate: 6.0
+    },
+    { 
+      id: 'regular_sales', 
+      title: '普通销售', 
+      icon: '👤', 
+      color: 'bg-green-500',
+      description: '普通销售人员',
+      salesRate: 3.0,
+      quantityRate: 4.0
+    },
+    { 
+      id: 'channel_partner', 
+      title: '渠道合伙人', 
+      icon: '🤝', 
+      color: 'bg-indigo-500',
+      description: '战略合作伙伴',
+      salesRate: 10.0,
+      quantityRate: 15.0
+    },
+    { 
+      id: 'vip_client', 
+      title: 'VIP客户', 
+      icon: '💎', 
+      color: 'bg-yellow-500',
+      description: '优质大客户',
+      salesRate: 2.0,
+      quantityRate: 3.5
+    }
+  ]
+
+  const handleEditRole = (roleId: string) => {
+    setEditingRole(roleId)
+    const role = roleCards.find(r => r.id === roleId)
+    if (role) {
+      setTempRates({
+        ...tempRates,
+        [roleId]: {
+          sales: role.salesRate,
+          quantity: role.quantityRate
+        }
+      })
+    }
+  }
+
+  const handleSaveRole = (roleId: string) => {
+    // 这里可以保存到后端
+    console.log('保存角色提成配置:', roleId, tempRates[roleId])
+    setEditingRole(null)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingRole(null)
+    setTempRates({})
+  }
 
   return (
     <div className="space-y-6">
-      <div className="max-w-6xl mx-auto bg-white p-10 md:p-12 rounded-[2.5rem] border border-gray-50 shadow-sm space-y-12">
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <label className="text-xs font-black uppercase tracking-widest text-gray-400">全链条最低折扣限制 (%)</label>
-              <span className="text-5xl font-black text-gray-900">{discountPercent}%</span>
-            </div>
-            <input
-              type="range"
-              className="w-full h-4 rounded-full appearance-none bg-emerald-100 accent-[#153e35]"
-              min="0"
-              max="100"
-              step="1"
-              value={discountPercent}
-              onChange={(e) => onUpdateProfitSettings({ minSaleDiscountRate: (parseInt(e.target.value) || 0) / 100 })}
-            />
+      {/* 全局配置区域 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">全局角色分润底线配置</h2>
+            <p className="text-sm text-gray-500 mt-1">设置各角色的销售额度提成和数量连单提成比例</p>
           </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="bg-gray-50 px-3 py-2 rounded-lg">
+              <span className="text-gray-500">全链条最低折扣：</span>
+              <span className="font-semibold text-gray-900">{Math.round(Number(profitSettings?.minSaleDiscountRate ?? 1) * 100)}%</span>
+            </div>
+            <div className="bg-emerald-50 px-3 py-2 rounded-lg">
+              <span className="text-emerald-600">总佣金池占比：</span>
+              <span className="font-semibold text-emerald-700">{Math.round(Number(commissionRate || 0))}%</span>
+            </div>
+          </div>
+        </div>
 
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <label className="text-xs font-black uppercase tracking-widest text-gray-400">总佣金池最大占比 (%)</label>
-              <span className="text-5xl font-black text-emerald-600">{commissionPercent}%</span>
+        {/* 角色卡片网格 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {roleCards.map((role) => (
+            <div key={role.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+              {/* 角色头部 */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 ${role.color} rounded-lg flex items-center justify-center text-white text-lg`}>
+                    {role.icon}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{role.title}</h3>
+                    <p className="text-xs text-gray-500">{role.description}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleEditRole(role.id)}
+                  className="text-gray-400 hover:text-blue-600 p-1 rounded"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 提成比例显示/编辑 */}
+              {editingRole === role.id ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">销售额度提成%</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      value={tempRates[role.id]?.sales || 0}
+                      onChange={(e) => setTempRates({
+                        ...tempRates,
+                        [role.id]: {
+                          ...tempRates[role.id],
+                          sales: parseFloat(e.target.value) || 0
+                        }
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">数量连单提成%</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      value={tempRates[role.id]?.quantity || 0}
+                      onChange={(e) => setTempRates({
+                        ...tempRates,
+                        [role.id]: {
+                          ...tempRates[role.id],
+                          quantity: parseFloat(e.target.value) || 0
+                        }
+                      })}
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => handleSaveRole(role.id)}
+                      className="flex-1 bg-blue-600 text-white text-xs py-2 px-3 rounded-lg hover:bg-blue-700"
+                    >
+                      保存
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      className="flex-1 bg-gray-100 text-gray-600 text-xs py-2 px-3 rounded-lg hover:bg-gray-200"
+                    >
+                      取消
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-blue-50 rounded-lg p-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-blue-600 font-medium">销售额度提成</span>
+                      <span className="text-lg font-bold text-blue-700">{role.salesRate}%</span>
+                    </div>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-green-600 font-medium">数量连单提成</span>
+                      <span className="text-lg font-bold text-green-700">{role.quantityRate}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            <input
-              type="range"
-              className="w-full h-4 rounded-full appearance-none bg-emerald-100 accent-emerald-500"
-              min="0"
-              max="100"
-              step="1"
-              value={commissionPercent}
-              onChange={(e) => {
-                const v = parseInt(e.target.value) || 0
-                onUpdateCommissionRate?.(v)
-              }}
-              disabled={!commissionEditable}
-            />
-            {!commissionEditable ? (
-              <div className="text-xs text-gray-400">仅管理员可修改</div>
-            ) : null}
-          </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -1613,80 +1965,349 @@ function HierarchyTab({
     )
   }
 
+  // 按部门/组织分组，模拟图3的简化列表视图
+  const departmentGroups = useMemo(() => {
+    const groups: { [key: string]: AuthorizedAccount[] } = {}
+    
+    // 模拟部门数据，按图3样式
+    const mockDepartments = [
+      { id: 'huanan', name: '华南大区', icon: '🏢', description: '负责华南地区业务拓展' },
+      { id: 'huadong', name: '华东大区', icon: '🏙️', description: '负责华东地区业务拓展' },
+      { id: 'huabei', name: '华北大区', icon: '🏬', description: '负责华北地区业务拓展' },
+      { id: 'design', name: '设计中心', icon: '🎨', description: '专业设计团队' },
+      { id: 'partner', name: '渠道合伙人', icon: '🤝', description: '战略合作伙伴' },
+      { id: 'vip', name: 'VIP客户部', icon: '💎', description: '高端客户服务' }
+    ]
+
+    // 将现有账号分配到模拟部门
+    mockDepartments.forEach(dept => {
+      groups[dept.id] = filteredAccounts.filter((_, index) => index % mockDepartments.length === mockDepartments.indexOf(dept))
+    })
+
+    return { groups, departments: mockDepartments }
+  }, [filteredAccounts])
+
   return (
     <div className="space-y-6">
-      {/* 筛选和操作栏 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <select
-            value={selectedModuleCode}
-            onChange={(e) => setSelectedModuleCode(e.target.value)}
-            className="input"
-          >
-            <option value="all">全部业务线</option>
-            {modules.filter(m => m.isActive).map(m => (
-              <option key={m._id} value={m.code}>{m.name}</option>
-            ))}
-          </select>
-          <span className="text-sm text-gray-500">共 {filteredAccounts.length} 个账号</span>
+      {/* 页面标题和操作 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">公司分层架构</h2>
+            <p className="text-sm text-gray-500 mt-1">按部门组织查看和管理分层架构，简化视图便于快速访问</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedModuleCode}
+              onChange={(e) => setSelectedModuleCode(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg"
+            >
+              <option value="all">全部业务线</option>
+              {modules.filter(m => m.isActive).map(m => (
+                <option key={m._id} value={m.code}>{m.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                setParentAccount(null)
+                setShowAddModal(true)
+              }}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              新增部门
+            </button>
+          </div>
         </div>
-        <button type="button" onClick={onBack} className="btn btn-secondary">
-          返回管理中心
-        </button>
-      </div>
 
-      {/* 层级树 */}
-      <div className="bg-white rounded-[3rem] border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-8 border-b bg-white flex items-center justify-between gap-6">
-          <div className="flex items-center gap-6 min-w-0">
-            <div className="w-16 h-16 bg-white rounded-[1.5rem] border shadow-sm p-2 flex items-center justify-center overflow-hidden">
-              {manufacturerLogo ? (
-                <img src={manufacturerLogo} alt={manufacturerName || 'manufacturer'} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gray-50 rounded-xl" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-2xl font-black text-gray-900 tracking-tight truncate">分层组织架构</h2>
-              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs truncate">
-                {manufacturerName || manufacturerId} • 基于垂直{Number(commissionRate || 0)}%佣金池独立分发
-              </p>
+        {/* 统计信息 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <div className="text-blue-600 text-sm font-medium">总部门数</div>
+            <div className="text-2xl font-bold text-blue-900">{departmentGroups.departments.length}</div>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4">
+            <div className="text-green-600 text-sm font-medium">总人员数</div>
+            <div className="text-2xl font-bold text-green-900">{filteredAccounts.length}</div>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4">
+            <div className="text-purple-600 text-sm font-medium">活跃部门</div>
+            <div className="text-2xl font-bold text-purple-900">
+              {departmentGroups.departments.filter(d => departmentGroups.groups[d.id].length > 0).length}
             </div>
           </div>
+          <div className="bg-orange-50 rounded-lg p-4">
+            <div className="text-orange-600 text-sm font-medium">佣金池占比</div>
+            <div className="text-2xl font-bold text-orange-900">{Number(commissionRate || 0)}%</div>
+          </div>
+        </div>
+      </div>
 
-          <button
-            onClick={() => {
-              setParentAccount(null)
-              setShowAddModal(true)
-            }}
-            className="bg-[#153e35] px-8 py-4 rounded-[1.5rem] text-white font-black shadow-xl"
-            type="button"
-          >
-            + 新建垂直体系分支
-          </button>
+      {/* 视图切换和部门展示 */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">部门架构</h3>
+            <p className="text-sm text-gray-500 mt-1">选择不同视图查看部门信息和人员架构</p>
+          </div>
+          <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setSelectedModuleCode('list')}
+              className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                selectedModuleCode === 'list' 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <List className="w-4 h-4 inline mr-2" />
+              列表视图
+            </button>
+            <button
+              onClick={() => setSelectedModuleCode('cards')}
+              className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                selectedModuleCode === 'cards' 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Grid className="w-4 h-4 inline mr-2" />
+              卡片视图
+            </button>
+          </div>
         </div>
 
-        <div className="p-8 bg-[#fcfdfd]">
-          {rootAccounts.length === 0 ? (
-            <div className="text-center py-24">
-              <GitBranch className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-              <p className="text-gray-500">暂无授权账号</p>
-              <button
-                type="button"
-                onClick={() => setShowAddModal(true)}
-                className="mt-3 text-primary-600 hover:text-primary-700 text-sm"
-              >
-                添加第一个账号
-              </button>
+        {departmentGroups.departments.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <div className="text-sm">暂无部门信息</div>
+            <div className="text-xs text-gray-400 mt-1">请添加第一个部门</div>
+          </div>
+        ) : selectedModuleCode === 'cards' ? (
+          /* 卡片视图（图4样式） */
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {departmentGroups.departments.map((department) => {
+                const accounts = departmentGroups.groups[department.id] || []
+                const totalPeople = accounts.length
+                const totalDistribution = accounts.reduce((sum, acc) => sum + Number((acc as any).distributionRate || 0), 0)
+                const avgDistribution = totalPeople > 0 ? totalDistribution / totalPeople : 0
+
+                return (
+                  <div key={department.id} className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+                    {/* 卡片头部 - 部门信息 */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white text-xl shadow-lg">
+                          {department.icon}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-gray-900 text-lg">{department.name}</h4>
+                          <p className="text-xs text-gray-500 uppercase font-medium tracking-wider">{department.id}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">总分润率</div>
+                        <div className="text-xl font-bold text-green-600">{totalDistribution.toFixed(1)}%</div>
+                      </div>
+                    </div>
+
+                    {/* 部门描述 */}
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{department.description}</p>
+
+                    {/* 统计信息 */}
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-blue-600" />
+                          <span className="text-xs font-medium text-blue-600">人员数量</span>
+                        </div>
+                        <div className="text-2xl font-bold text-blue-900 mt-1">{totalPeople}</div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Percent className="w-4 h-4 text-green-600" />
+                          <span className="text-xs font-medium text-green-600">平均分润</span>
+                        </div>
+                        <div className="text-2xl font-bold text-green-900 mt-1">{avgDistribution.toFixed(1)}%</div>
+                      </div>
+                    </div>
+
+                    {/* 人员头像列表 */}
+                    {totalPeople > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-500">部门成员</span>
+                          <span className="text-xs text-blue-600">{totalPeople}人</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-2">
+                            {accounts.slice(0, 6).map((acc, index) => (
+                              <div
+                                key={acc._id}
+                                className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 border-2 border-white flex items-center justify-center text-xs font-bold text-gray-700 shadow-sm"
+                                title={`${acc.nickname || acc.username} - ${Number((acc as any).distributionRate || 0).toFixed(1)}%`}
+                              >
+                                {(acc.nickname || acc.username || '?').charAt(0).toUpperCase()}
+                              </div>
+                            ))}
+                            {totalPeople > 6 && (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border-2 border-white flex items-center justify-center text-xs font-bold text-blue-700 shadow-sm">
+                                +{totalPeople - 6}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 特殊标签 */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {accounts.some(acc => acc.productOverrides && Object.keys(acc.productOverrides).length > 0) && (
+                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
+                          商品配置
+                        </span>
+                      )}
+                      {totalDistribution > 50 && (
+                        <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">
+                          高分润
+                        </span>
+                      )}
+                      {totalPeople >= 5 && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                          大团队
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 操作按钮 */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          toast.info(`查看${department.name}详情`)
+                        }}
+                        className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Eye className="w-4 h-4" />
+                        详情查看
+                      </button>
+                      <button
+                        onClick={() => {
+                          setParentAccount(accounts[0] || null)
+                          setShowAddModal(true)
+                        }}
+                        className="bg-gray-100 text-gray-600 py-2 px-3 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors"
+                        title="添加人员"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-          ) : (
-            <div className="overflow-auto border-2 border-emerald-50 border-dashed rounded-[3rem] p-16 bg-emerald-50/10 min-h-[640px] flex justify-center">
-              <div className="origin-top">
-                {rootAccounts.map(renderBubbleNode)}
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          /* 列表视图（图3样式） */
+          <div className="divide-y divide-gray-100">
+            {departmentGroups.departments.map((department) => {
+              const accounts = departmentGroups.groups[department.id] || []
+              const totalPeople = accounts.length
+              const totalDistribution = accounts.reduce((sum, acc) => sum + Number((acc as any).distributionRate || 0), 0)
+
+              return (
+                <div key={department.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    {/* 左侧：部门信息 */}
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-2xl">
+                        {department.icon}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 text-lg">{department.name}</h4>
+                        <p className="text-sm text-gray-500">{department.description}</p>
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                            {totalPeople} 人
+                          </span>
+                          <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                            分润率: {totalDistribution.toFixed(1)}%
+                          </span>
+                          {accounts.some(acc => acc.productOverrides && Object.keys(acc.productOverrides).length > 0) && (
+                            <span className="text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                              商品配置
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 右侧：操作按钮 */}
+                    <div className="flex items-center gap-3">
+                      <div className="text-right text-sm">
+                        <div className="text-gray-500">部门编号</div>
+                        <div className="font-semibold text-gray-900">{department.id.toUpperCase()}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          toast.info(`查看${department.name}详情`)
+                        }}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2"
+                      >
+                        <Eye className="w-4 h-4" />
+                        详情查看
+                      </button>
+                      <button
+                        onClick={() => {
+                          setParentAccount(accounts[0] || null)
+                          setShowAddModal(true)
+                        }}
+                        className="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        添加人员
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 快速预览人员信息 */}
+                  {totalPeople > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-500">部门人员:</span>
+                          <div className="flex -space-x-2">
+                            {accounts.slice(0, 5).map((acc, index) => (
+                              <div
+                                key={acc._id}
+                                className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600"
+                                title={acc.nickname || acc.username}
+                              >
+                                {(acc.nickname || acc.username || '?').charAt(0).toUpperCase()}
+                              </div>
+                            ))}
+                            {totalPeople > 5 && (
+                              <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-500">
+                                +{totalPeople - 5}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            toast.info(`展开${department.name}人员列表`)
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          查看全部 <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* 图例说明 */}
