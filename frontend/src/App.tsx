@@ -228,12 +228,15 @@ const ProtectedRoute = ({
 
 const AdminIndexRedirect = () => {
   const { user } = useAuthStore()
-  if (user?.role === 'enterprise_admin') {
-    return <Navigate to="/admin/products" replace />
+  const hasManufacturerId = Boolean((user as any)?.manufacturerId)
+  const canManageProducts = (user as any)?.permissions?.canManageProducts === true
+
+  if (hasManufacturerId) {
+    return <Navigate to="/admin/manufacturers" replace />
   }
 
-  if ((user as any)?.manufacturerId && (user as any)?.permissions?.canAccessAdmin === true) {
-    if ((user as any)?.permissions?.canManageProducts === true) {
+  if (user?.role === 'enterprise_admin') {
+    if (canManageProducts) {
       return <Navigate to="/admin/products" replace />
     }
     return <Navigate to="/admin/authorized-products" replace />
