@@ -1208,9 +1208,9 @@ export default function AdminManufacturerCenter() {
     }
   }
 
-  const handleOpenTierSystem = (m: Manufacturer) => {
+  const handleOpenTierSystem = (m: Manufacturer, tab?: 'hierarchy' | 'pool' | 'reconciliation') => {
     localStorage.setItem('tier_system_selected_manufacturer', String(m._id))
-    navigate('/admin/tier-system')
+    navigate(`/admin/tier-system${tab ? `?tab=${tab}` : ''}`)
   }
 
   const handleOpenProductAuthorization = (m: Manufacturer) => {
@@ -1488,7 +1488,7 @@ export default function AdminManufacturerCenter() {
                   </div>
                 </div>
 
-                <div className="mt-auto grid grid-cols-2 p-6 gap-4 bg-gray-50/50 border-t">
+                <div className="mt-auto grid grid-cols-3 p-6 gap-4 bg-gray-50/50 border-t">
                   <button
                     onClick={() => {
                       setActiveM(m)
@@ -1498,13 +1498,6 @@ export default function AdminManufacturerCenter() {
                     type="button"
                   >
                     厂家账号管理
-                  </button>
-                  <button
-                    onClick={() => handleOpenProductAuthorization(m)}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-indigo-700 transition-all shadow-sm"
-                    type="button"
-                  >
-                    选品授权
                   </button>
                   <button
                     onClick={() => {
@@ -1517,11 +1510,32 @@ export default function AdminManufacturerCenter() {
                     资料编辑
                   </button>
                   <button
-                    onClick={() => handleOpenTierSystem(m)}
+                    onClick={() => handleOpenTierSystem(m, 'hierarchy')}
                     className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-blue-700 transition-all shadow-sm"
                     type="button"
                   >
                     分层体系
+                  </button>
+                  <button
+                    onClick={() => handleOpenTierSystem(m, 'pool')}
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-emerald-700 transition-all shadow-sm"
+                    type="button"
+                  >
+                    角色授权
+                  </button>
+                  <button
+                    onClick={() => handleOpenTierSystem(m, 'reconciliation')}
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-indigo-700 transition-all shadow-sm"
+                    type="button"
+                  >
+                    返佣对账
+                  </button>
+                  <button
+                    onClick={() => handleOpenProductAuthorization(m)}
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-violet-700 transition-all shadow-sm"
+                    type="button"
+                  >
+                    选品授权
                   </button>
                 </div>
               </div>
