@@ -47,7 +47,7 @@ app.use(express.urlencoded({ extended: true, limit: '500mb' }))
 
 // 健康检查
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() })
+  res.json({ status: 'ok', timestamp: new Date(), gitSha: process.env.GIT_SHA || 'unknown' })
 })
 
 // API 路由

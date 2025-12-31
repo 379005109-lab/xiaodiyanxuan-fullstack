@@ -15,6 +15,9 @@ FROM node:18-bullseye-slim
 
 WORKDIR /app
 
+ARG GIT_SHA
+ENV GIT_SHA=$GIT_SHA
+
 # 安装 dumb-init 用于优雅关闭
 RUN apt-get update \
   && apt-get install -y --no-install-recommends dumb-init \
