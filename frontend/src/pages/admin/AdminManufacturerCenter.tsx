@@ -1243,7 +1243,7 @@ export default function AdminManufacturerCenter() {
             className="rounded-[2rem] px-12 py-5 bg-[#153e35] text-white font-black text-lg shadow-2xl shadow-emerald-900/40"
             type="button"
           >
-            + 品牌入驻
+            + 新建厂家
           </button>
         </div>
       </div>

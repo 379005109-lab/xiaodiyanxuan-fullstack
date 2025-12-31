@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3 } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -125,6 +125,8 @@ export default function ManufacturerManagement() {
   const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
   const isManufacturerUser = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff' || (user as any)?.permissions?.canAccessAdmin === true
 
+  const isFactoryPortal = !!myManufacturerId && !isAdmin
+
   const canManageManufacturer = (manufacturerId: string) => {
     if (isAdmin) return true
     if (!myManufacturerId) return false
@@ -134,6 +136,7 @@ export default function ManufacturerManagement() {
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
+  const [portalKeyword, setPortalKeyword] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState<Manufacturer | null>(null)
   const [formData, setFormData] = useState({
@@ -203,10 +206,12 @@ export default function ManufacturerManagement() {
     }
   })
 
+  const fetchKeyword = isAdmin ? keyword : ''
+
   const fetchData = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.get('/manufacturers', { params: { keyword, pageSize: 100 } })
+      const response = await apiClient.get('/manufacturers', { params: { keyword: fetchKeyword, pageSize: 100 } })
       setManufacturers(response.data.data || [])
     } catch (error) {
       console.error('获取厂家列表失败:', error)
@@ -240,7 +245,28 @@ export default function ManufacturerManagement() {
 
   useEffect(() => {
     fetchData()
-  }, [keyword])
+  }, [fetchKeyword])
+
+  const myManufacturer = useMemo(() => {
+    if (!myManufacturerId) return null
+    return manufacturers.find(m => String(m._id) === String(myManufacturerId)) || null
+  }, [manufacturers, myManufacturerId])
+
+  const otherManufacturers = useMemo(() => {
+    if (!myManufacturerId) return manufacturers
+    return manufacturers.filter(m => String(m._id) !== String(myManufacturerId))
+  }, [manufacturers, myManufacturerId])
+
+  const filteredOtherManufacturers = useMemo(() => {
+    const q = portalKeyword.trim().toLowerCase()
+    if (!q) return otherManufacturers
+    return otherManufacturers.filter(m => {
+      const name = (m.fullName || m.name || '').toLowerCase()
+      const code = (m.code || m.shortName || '').toLowerCase()
+      const contact = (m.contactName || '').toLowerCase()
+      return name.includes(q) || code.includes(q) || contact.includes(q)
+    })
+  }, [otherManufacturers, portalKeyword])
 
   const openCreateModal = () => {
     setEditingItem(null)
@@ -587,227 +613,399 @@ export default function ManufacturerManagement() {
         </div>
       </div>
 
-      {/* 搜索栏 */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="搜索厂家名称、编码、联系人..."
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
-        </div>
-      </div>
-
-      {/* 列表 */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      ) : manufacturers.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-          <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">暂无厂家数据</p>
-          <button
-            onClick={openCreateModal}
-            className="mt-4 text-primary hover:underline"
-          >
-            点击创建第一个厂家
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {manufacturers.map((item) => (
-            <div
-              key={item._id}
-              className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all"
-            >
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-5">
-                  <div className="w-20 h-20 rounded-full bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+      {isFactoryPortal ? (
+        <>
+          {myManufacturer ? (
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-8 shadow-sm">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+                <div className="flex items-start gap-5">
+                  <div className="w-20 h-20 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
                     <img
-                      src={getFileUrl(item.logo || '')}
-                      alt={item.fullName || item.name}
+                      src={getFileUrl(myManufacturer.logo || '')}
+                      alt={myManufacturer.fullName || myManufacturer.name}
                       className="w-full h-full object-cover"
                     />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">
-                      {item.shortName || item.fullName || item.name}
-                    </h3>
+                    <div className="text-sm text-gray-500">工厂门户</div>
+                    <h2 className="text-2xl font-black text-gray-900 tracking-tight mt-1">
+                      {myManufacturer.shortName || myManufacturer.fullName || myManufacturer.name}
+                    </h2>
                     <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
-                      {item.code || ''}
+                      {myManufacturer.code || ''}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-4 max-w-sm">
+                      <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-3 text-center">
+                        <div className="text-xs text-emerald-700">最低折扣</div>
+                        <div className="text-lg font-bold text-[#153e35]">{myManufacturer.defaultDiscount || 0}%</div>
+                      </div>
+                      <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-center">
+                        <div className="text-xs text-blue-700">返佣比例</div>
+                        <div className="text-lg font-bold text-blue-700">{myManufacturer.defaultCommission || 0}%</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-3">
+
+                <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => handleTogglePreferred(item)}
-                    className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      item.isPreferred
-                        ? 'bg-amber-100 text-amber-600 border border-amber-200'
-                        : 'bg-gray-50 text-gray-300 border border-gray-100'
-                    }`}
+                    onClick={() => openAccountsModal(myManufacturer)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
                   >
-                    {item.isPreferred ? '优质厂家 ★' : '设为优质'}
+                    <Key className="w-4 h-4" />
+                    账号管理
                   </button>
-
-                  <div className="flex items-center gap-3">
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${item.status === 'active' ? 'text-emerald-700' : 'text-gray-400'}`}>
-                      {item.status === 'active' ? '启用' : '停用'}
-                    </span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={item.status === 'active'}
-                        onChange={() => handleToggleStatus(item)}
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-3 text-center">
-                  <div className="text-xs text-emerald-700">最低折扣</div>
-                  <div className="text-lg font-bold text-[#153e35]">{item.defaultDiscount || 0}%</div>
-                </div>
-                <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-center">
-                  <div className="text-xs text-blue-700">返佣比例</div>
-                  <div className="text-lg font-bold text-blue-700">{item.defaultCommission || 0}%</div>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-sm text-gray-600 mb-3">
-                {item.contactName && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400">联系人：</span>
-                    {item.contactName}
-                  </div>
-                )}
-                {item.contactPhone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-gray-400" />
-                    {item.contactPhone}
-                  </div>
-                )}
-              </div>
-
-              {/* 账号配额信息 */}
-              <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-500">
-                    账号配额
-                    {item.accountQuota?.totalAccounts ? (
-                      <span className="ml-2 text-primary font-bold">
-                        (总配额: {item.accountQuota.totalAccounts})
-                      </span>
-                    ) : null}
-                  </span>
-                  {isAdmin && (
-                    <button
-                      onClick={() => openQuotaModal(item)}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      设置配额
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {item.accountUsage?.authAccounts || 0}/{item.accountQuota?.authAccounts || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">授权账号</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {item.accountUsage?.subAccounts || 0}/{item.accountQuota?.subAccounts || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">子账号</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {item.accountUsage?.designerAccounts || 0}/{item.accountQuota?.designerAccounts || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">设计师</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-3 border-t border-gray-100 flex-wrap">
-                {canManageManufacturer(item._id) ? (
-                  <>
-                    <button
-                      onClick={() => openEditModal(item)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                    >
-                      <Edit className="w-4 h-4" />
-                      编辑
-                    </button>
-                    <button
-                      onClick={() => openAccountsModal(item)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      <Key className="w-4 h-4" />
-                      账号
-                    </button>
-                    <button
-                      onClick={() => handleOpenTierSystem(item, 'hierarchy')}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                    >
-                      <Layers className="w-4 h-4" />
-                      分层体系
-                    </button>
-                    <button
-                      onClick={() => handleOpenTierSystem(item, 'pool')}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
-                    >
-                      <Shield className="w-4 h-4" />
-                      角色授权
-                    </button>
-                    <button
-                      onClick={() => handleOpenTierSystem(item, 'reconciliation')}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      返佣对账
-                    </button>
-                    {isManufacturerUser && myManufacturerId && String(item._id) === String(myManufacturerId) && (
-                      <button
-                        onClick={handleOpenAuthorizationRequests}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
-                      >
-                        <Shield className="w-4 h-4" />
-                        授权申请
-                      </button>
-                    )}
-                    {isAdmin && (
-                      <button
-                        onClick={() => handleDelete(item._id)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        删除
-                      </button>
-                    )}
-                  </>
-                ) : (
                   <button
-                    onClick={() => handleOpenProductAuthorization(item)}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                    onClick={() => openEditModal(myManufacturer)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    商品授权
+                    <Edit className="w-4 h-4" />
+                    资料编辑
                   </button>
-                )}
+                  <button
+                    onClick={() => handleOpenTierSystem(myManufacturer, 'hierarchy')}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
+                  >
+                    <Layers className="w-4 h-4" />
+                    分成体系
+                  </button>
+                  <button
+                    onClick={() => handleOpenTierSystem(myManufacturer, 'pool')}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-emerald-50 text-emerald-800 rounded-lg hover:bg-emerald-100 transition-colors"
+                  >
+                    <Shield className="w-4 h-4" />
+                    角色授权
+                  </button>
+                  <button
+                    onClick={() => handleOpenTierSystem(myManufacturer, 'reconciliation')}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    返佣对账
+                  </button>
+                  <button
+                    onClick={handleOpenAuthorizationRequests}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-amber-50 text-amber-800 rounded-lg hover:bg-amber-100 transition-colors"
+                  >
+                    <Shield className="w-4 h-4" />
+                    授权申请
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!confirm(myManufacturer.status === 'active' ? '确定要下架停运该品牌吗？' : '确定要恢复启用该品牌吗？')) return
+                      handleToggleStatus(myManufacturer)
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors"
+                  >
+                    <Power className="w-4 h-4" />
+                    {myManufacturer.status === 'active' ? '下架停运' : '恢复启用'}
+                  </button>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 mb-8">
+              当前账号已绑定厂家，但未能加载到厂家信息
+            </div>
+          )}
+
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">合作品牌</h3>
+              <p className="text-sm text-gray-500 mt-1">选择品牌提交经销授权申请</p>
+            </div>
+            <div className="relative max-w-md w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="搜索品牌名称、编码、联系人..."
+                value={portalKeyword}
+                onChange={(e) => setPortalKeyword(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : filteredOtherManufacturers.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+              <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">暂无可申请的品牌</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredOtherManufacturers.map((item) => (
+                <div key={item._id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-xl bg-gray-50 border flex items-center justify-center overflow-hidden">
+                        <img src={getFileUrl(item.logo || '')} alt={item.fullName || item.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">{item.shortName || item.fullName || item.name}</div>
+                        <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-1">{item.code || ''}</div>
+                      </div>
+                    </div>
+                    <div className="text-[10px] font-black uppercase tracking-widest">
+                      <span className={item.status === 'active' ? 'text-emerald-700' : 'text-gray-400'}>
+                        {item.status === 'active' ? '可申请' : '停用'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-3 text-center">
+                      <div className="text-xs text-emerald-700">最低折扣</div>
+                      <div className="text-lg font-bold text-[#153e35]">{item.defaultDiscount || 0}%</div>
+                    </div>
+                    <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-center">
+                      <div className="text-xs text-blue-700">返佣比例</div>
+                      <div className="text-lg font-bold text-blue-700">{item.defaultCommission || 0}%</div>
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={item.status !== 'active'}
+                    onClick={() => handleOpenProductAuthorization(item)}
+                    className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Shield className="w-4 h-4" />
+                    申请经销授权
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="mb-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="搜索厂家名称、编码、联系人..."
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : manufacturers.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+              <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">暂无厂家数据</p>
+              <button
+                onClick={openCreateModal}
+                className="mt-4 text-primary hover:underline"
+              >
+                点击创建第一个厂家
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {manufacturers.map((item) => (
+                <div
+                  key={item._id}
+                  className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all"
+                >
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-center gap-5">
+                      <div className="w-20 h-20 rounded-full bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                        <img
+                          src={getFileUrl(item.logo || '')}
+                          alt={item.fullName || item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-black text-gray-900 tracking-tight">
+                          {item.shortName || item.fullName || item.name}
+                        </h3>
+                        <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
+                          {item.code || ''}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-3">
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleTogglePreferred(item)}
+                          className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                            item.isPreferred
+                              ? 'bg-amber-100 text-amber-600 border border-amber-200'
+                              : 'bg-gray-50 text-gray-300 border border-gray-100'
+                          }`}
+                        >
+                          {item.isPreferred ? '优质厂家 ★' : '设为优质'}
+                        </button>
+                      )}
+
+                      {canManageManufacturer(item._id) && (
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${item.status === 'active' ? 'text-emerald-700' : 'text-gray-400'}`}>
+                            {item.status === 'active' ? '启用' : '停用'}
+                          </span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={item.status === 'active'}
+                              onChange={() => handleToggleStatus(item)}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-3 text-center">
+                      <div className="text-xs text-emerald-700">最低折扣</div>
+                      <div className="text-lg font-bold text-[#153e35]">{item.defaultDiscount || 0}%</div>
+                    </div>
+                    <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-center">
+                      <div className="text-xs text-blue-700">返佣比例</div>
+                      <div className="text-lg font-bold text-blue-700">{item.defaultCommission || 0}%</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-gray-600 mb-3">
+                    {item.contactName && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400">联系人：</span>
+                        {item.contactName}
+                      </div>
+                    )}
+                    {item.contactPhone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-gray-400" />
+                        {item.contactPhone}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-500">
+                        账号配额
+                        {item.accountQuota?.totalAccounts ? (
+                          <span className="ml-2 text-primary font-bold">
+                            (总配额: {item.accountQuota.totalAccounts})
+                          </span>
+                        ) : null}
+                      </span>
+                      {isAdmin && (
+                        <button
+                          onClick={() => openQuotaModal(item)}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          设置配额
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">
+                          {item.accountUsage?.authAccounts || 0}/{item.accountQuota?.authAccounts || 0}
+                        </div>
+                        <div className="text-xs text-gray-500">授权账号</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">
+                          {item.accountUsage?.subAccounts || 0}/{item.accountQuota?.subAccounts || 0}
+                        </div>
+                        <div className="text-xs text-gray-500">子账号</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">
+                          {item.accountUsage?.designerAccounts || 0}/{item.accountQuota?.designerAccounts || 0}
+                        </div>
+                        <div className="text-xs text-gray-500">设计师</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-3 border-t border-gray-100 flex-wrap">
+                    {canManageManufacturer(item._id) ? (
+                      <>
+                        <button
+                          onClick={() => openEditModal(item)}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                        >
+                          <Edit className="w-4 h-4" />
+                          编辑
+                        </button>
+                        <button
+                          onClick={() => openAccountsModal(item)}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Key className="w-4 h-4" />
+                          账号
+                        </button>
+                        <button
+                          onClick={() => handleOpenTierSystem(item, 'hierarchy')}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        >
+                          <Layers className="w-4 h-4" />
+                          分层体系
+                        </button>
+                        <button
+                          onClick={() => handleOpenTierSystem(item, 'pool')}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                        >
+                          <Shield className="w-4 h-4" />
+                          角色授权
+                        </button>
+                        <button
+                          onClick={() => handleOpenTierSystem(item, 'reconciliation')}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                        >
+                          <BarChart3 className="w-4 h-4" />
+                          返佣对账
+                        </button>
+                        {isManufacturerUser && myManufacturerId && String(item._id) === String(myManufacturerId) && (
+                          <button
+                            onClick={handleOpenAuthorizationRequests}
+                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                          >
+                            <Shield className="w-4 h-4" />
+                            授权申请
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDelete(item._id)}
+                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            删除
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenProductAuthorization(item)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                      >
+                        商品授权
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* 弹窗 */}
