@@ -5,7 +5,7 @@ import {
   Plus, Edit2, Trash2, ChevronDown, ChevronRight, Users, 
   Building2, Percent, Settings, Eye, Save, X, AlertCircle,
   TrendingUp, GitBranch, Layers, UserCheck, Store, Briefcase,
-  BarChart3, ArrowRight, Check, UserPlus, List, Grid
+  BarChart3, ArrowRight, Check, UserPlus, List, Grid, FileText, CheckCircle
 } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
