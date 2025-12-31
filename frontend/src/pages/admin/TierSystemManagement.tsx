@@ -1980,6 +1980,39 @@ function HierarchyTab({
     }
   }, [accountsCommissionKey])
 
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
+  const [zoomScale, setZoomScale] = useState(1)
+  const enableNodeDrag = false
+
+  const [showProfileEditModal, setShowProfileEditModal] = useState(false)
+  const [selectedStaff, setSelectedStaff] = useState<any>(null)
+
+  // 地图：平移/缩放/拖拽
+  const canvasViewportRef = useRef<HTMLDivElement | null>(null)
+  const [canvasSize, setCanvasSize] = useState({ w: 1, h: 1 })
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({})
+  const [nodeDraft, setNodeDraft] = useState<Record<string, { minDiscount: number; distribution: number }>>({})
+
+  const panStateRef = useRef<{ active: boolean; pointerId: number | null; startClientX: number; startClientY: number; originX: number; originY: number }>({
+    active: false,
+    pointerId: null,
+    startClientX: 0,
+    startClientY: 0,
+    originX: 0,
+    originY: 0,
+  })
+
+  const dragStateRef = useRef<{ active: boolean; pointerId: number | null; nodeId: string | null; startClientX: number; startClientY: number; originX: number; originY: number }>({
+    active: false,
+    pointerId: null,
+    nodeId: null,
+    startClientX: 0,
+    startClientY: 0,
+    originX: 0,
+    originY: 0,
+  })
+
   useEffect(() => {
     if (viewMode !== 'map') return
     const el = canvasViewportRef.current
@@ -2039,39 +2072,6 @@ function HierarchyTab({
 
     return { nodes, edges, childrenById, depthById }
   }, [filteredAccounts, hierarchyData.headquarters])
-
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
-  const [zoomScale, setZoomScale] = useState(1)
-  const enableNodeDrag = false
-
-  const [showProfileEditModal, setShowProfileEditModal] = useState(false)
-  const [selectedStaff, setSelectedStaff] = useState<any>(null)
-
-  // 地图：平移/缩放/拖拽
-  const canvasViewportRef = useRef<HTMLDivElement | null>(null)
-  const [canvasSize, setCanvasSize] = useState({ w: 1, h: 1 })
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({})
-  const [nodeDraft, setNodeDraft] = useState<Record<string, { minDiscount: number; distribution: number }>>({})
-
-  const panStateRef = useRef<{ active: boolean; pointerId: number | null; startClientX: number; startClientY: number; originX: number; originY: number }>({
-    active: false,
-    pointerId: null,
-    startClientX: 0,
-    startClientY: 0,
-    originX: 0,
-    originY: 0,
-  })
-
-  const dragStateRef = useRef<{ active: boolean; pointerId: number | null; nodeId: string | null; startClientX: number; startClientY: number; originX: number; originY: number }>({
-    active: false,
-    pointerId: null,
-    nodeId: null,
-    startClientX: 0,
-    startClientY: 0,
-    originX: 0,
-    originY: 0,
-  })
 
   const staffIdsKey = useMemo(() => hierarchyData.staffNodes.map(s => String(s.id)).join('|'), [hierarchyData.staffNodes])
 
