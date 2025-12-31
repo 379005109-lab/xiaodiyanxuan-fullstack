@@ -245,6 +245,18 @@ export default function TierSystemManagement() {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['__root__']))
 
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const tab = String(params.get('tab') || '').trim()
+      if (tab === 'hierarchy' || tab === 'pool' || tab === 'reconciliation') {
+        setActiveTab(tab)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
     if (!isSuperAdmin) return
     const loadManufacturers = async () => {
       try {

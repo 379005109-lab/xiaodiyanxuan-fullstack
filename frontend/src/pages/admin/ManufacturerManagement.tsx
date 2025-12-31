@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3 } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
@@ -483,9 +483,9 @@ export default function ManufacturerManagement() {
     }
   }
 
-  const handleOpenTierSystem = (item: Manufacturer) => {
+  const handleOpenTierSystem = (item: Manufacturer, tab?: 'hierarchy' | 'pool' | 'reconciliation') => {
     localStorage.setItem('tier_system_selected_manufacturer', item._id)
-    navigate('/admin/tier-system')
+    navigate(`/admin/tier-system${tab ? `?tab=${tab}` : ''}`)
   }
 
   const handleOpenProductAuthorization = (item: Manufacturer) => {
@@ -639,7 +639,7 @@ export default function ManufacturerManagement() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-2 pt-3 border-t border-gray-100 flex-wrap">
                 {canManageManufacturer(item._id) ? (
                   <>
                     <button
@@ -657,11 +657,25 @@ export default function ManufacturerManagement() {
                       账号
                     </button>
                     <button
-                      onClick={() => handleOpenTierSystem(item)}
+                      onClick={() => handleOpenTierSystem(item, 'hierarchy')}
                       className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                     >
                       <Layers className="w-4 h-4" />
-                      分层管理
+                      分层体系
+                    </button>
+                    <button
+                      onClick={() => handleOpenTierSystem(item, 'pool')}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                    >
+                      <Shield className="w-4 h-4" />
+                      角色授权
+                    </button>
+                    <button
+                      onClick={() => handleOpenTierSystem(item, 'reconciliation')}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      返佣对账
                     </button>
                     {isManufacturerUser && myManufacturerId && String(item._id) === String(myManufacturerId) && (
                       <button
