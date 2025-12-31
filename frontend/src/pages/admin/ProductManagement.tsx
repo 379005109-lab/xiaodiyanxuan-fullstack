@@ -30,6 +30,12 @@ export default function ProductManagement() {
   const { user } = useAuthStore()
   const isEnterpriseAdmin = user?.role === 'enterprise_admin'
   const canViewCostPrice = user?.role === 'super_admin' || user?.role === 'admin' || (user as any)?.permissions?.canViewCostPrice === true
+  const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
+  const isPlatformAdminUser =
+    user?.role === 'admin' ||
+    user?.role === 'super_admin' ||
+    user?.role === 'platform_admin' ||
+    user?.role === 'platform_staff'
   const [designerDiscountEdits, setDesignerDiscountEdits] = useState<Record<string, string>>({})
   const [savingDesignerDiscount, setSavingDesignerDiscount] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
@@ -87,7 +93,8 @@ export default function ProductManagement() {
 
   const getProductManufacturerId = (product: any): string => {
     if (!product) return ''
-    if (product.manufacturer) return product.manufacturer
+    const direct = product.manufacturerId?._id || product.manufacturerId || product.manufacturer
+    if (direct) return String(direct)
     const skus = product.skus || []
     return skus?.[0]?.manufacturerId || ''
   }
@@ -105,10 +112,13 @@ export default function ProductManagement() {
 
   // 加载商品数据
   useEffect(() => {
-    loadProducts()
     loadCategories()
     loadManufacturers()
   }, [])
+
+  useEffect(() => {
+    loadProducts()
+  }, [myManufacturerId, user?.role])
   
   const loadCategories = async () => {
     try {
@@ -136,7 +146,11 @@ export default function ProductManagement() {
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
         console.log('[ProductManagement] 加载商品数量:', response.data.length);
-        setProducts(response.data);
+        const rawProducts = response.data || []
+        const filteredProducts = (!isPlatformAdminUser && myManufacturerId)
+          ? rawProducts.filter((p: any) => String(getProductManufacturerId(p)) === String(myManufacturerId))
+          : rawProducts
+        setProducts(filteredProducts);
       }
     } catch (error) {
       console.error('[ProductManagement] 加载商品失败:', error);
