@@ -5,9 +5,15 @@ const FileService = require('../services/fileService')
 const Product = require('../models/Product')
 const Style = require('../models/Style')
 
+const isManufacturerScopedUser = (user) => {
+  return Boolean(user?.manufacturerId)
+}
+
 const listProducts = async (req, res) => {
   try {
     const { page = 1, pageSize = 100, search, categoryId, styleId, sortBy } = req.query
+
+    const manufacturerId = isManufacturerScopedUser(req.user) ? req.user.manufacturerId : undefined
     
     const result = await getProducts({
       page,
@@ -15,7 +21,8 @@ const listProducts = async (req, res) => {
       search,
       categoryId,
       styleId,
-      sortBy
+      sortBy,
+      manufacturerId
     })
     
     // 调试日志：检查返回的商品styles
@@ -87,7 +94,10 @@ const search = async (req, res) => {
       return res.status(400).json(errorResponse('Keyword is required', 400))
     }
     
-    const result = await searchProducts(keyword, page, pageSize)
+    const manufacturerId = isManufacturerScopedUser(req.user) ? req.user.manufacturerId : undefined
+    const result = manufacturerId
+      ? await searchProducts(keyword, page, pageSize, manufacturerId)
+      : await searchProducts(keyword, page, pageSize)
     res.json(paginatedResponse(result.products, result.total, result.page, result.pageSize))
   } catch (err) {
     console.error('Search error:', err)
@@ -223,6 +233,22 @@ const deleteImage = async (req, res) => {
 const createProduct = async (req, res) => {
   try {
     const productData = req.body
+
+    // 厂家体系账号创建商品时，强制归属到本厂家
+    if (isManufacturerScopedUser(req.user)) {
+      productData.manufacturerId = req.user.manufacturerId
+      if (!productData.manufacturerName && req.user.manufacturerName) {
+        productData.manufacturerName = req.user.manufacturerName
+      }
+      // 同时将SKU的厂家信息保持一致（如果存在）
+      if (productData.skus && Array.isArray(productData.skus)) {
+        productData.skus = productData.skus.map(sku => ({
+          ...sku,
+          manufacturerId: req.user.manufacturerId,
+          manufacturerName: productData.manufacturerName || sku.manufacturerName
+        }))
+      }
+    }
     
     // 调试日志：检查category字段
     console.log('🔥 [创建商品] 商品名称:', productData.name)
@@ -256,6 +282,27 @@ const updateProduct = async (req, res) => {
   try {
     const { id } = req.params
     const productData = req.body
+
+    // 厂家体系账号只能更新自己的商品，且不允许修改归属
+    if (isManufacturerScopedUser(req.user)) {
+      const existing = await Product.findById(id).select('manufacturerId').lean()
+      if (!existing) {
+        return res.status(404).json(errorResponse('商品不存在', 404))
+      }
+      if (existing.manufacturerId?.toString() !== req.user.manufacturerId?.toString()) {
+        return res.status(403).json(errorResponse('无权限修改该商品', 403))
+      }
+      delete productData.manufacturerId
+      delete productData.manufacturerName
+
+      if (productData.skus && Array.isArray(productData.skus)) {
+        productData.skus = productData.skus.map(sku => ({
+          ...sku,
+          manufacturerId: req.user.manufacturerId,
+          manufacturerName: sku.manufacturerName
+        }))
+      }
+    }
     
     // 调试日志：检查更新数据
     console.log('🔥 [更新商品] ID:', id)
@@ -316,6 +363,16 @@ const updateProduct = async (req, res) => {
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params
+
+    if (isManufacturerScopedUser(req.user)) {
+      const existing = await Product.findById(id).select('manufacturerId').lean()
+      if (!existing) {
+        return res.status(404).json(errorResponse('商品不存在', 404))
+      }
+      if (existing.manufacturerId?.toString() !== req.user.manufacturerId?.toString()) {
+        return res.status(403).json(errorResponse('无权限删除该商品', 403))
+      }
+    }
 
     const product = await Product.findByIdAndDelete(id)
 

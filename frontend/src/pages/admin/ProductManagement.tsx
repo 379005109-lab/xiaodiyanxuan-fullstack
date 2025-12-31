@@ -28,6 +28,7 @@ interface Manufacturer {
 export default function ProductManagement() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const isEnterpriseAdmin = user?.role === 'enterprise_admin'
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -245,6 +246,12 @@ export default function ProductManagement() {
     try {
       console.log('=== Excel导入开始 ===');
       console.log('总行数（包括表头）:', jsonData.length);
+
+      // enterprise_admin 不允许加载全量材质库数据
+      if (isEnterpriseAdmin) {
+        toast.error('当前账号无权限导入材质映射，请联系管理员授权')
+        return
+      }
 
       // 加载材质库数据用于自动匹配
       let allMaterials = await getAllMaterials();

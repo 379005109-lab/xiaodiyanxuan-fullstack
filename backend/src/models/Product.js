@@ -43,6 +43,8 @@ const productSchema = new mongoose.Schema({
   category: mongoose.Schema.Types.Mixed, // 支持字符串ID或对象
   style: mongoose.Schema.Types.Mixed,
   styles: [String], // 多个风格标签（现代风、轻奢风等）
+  manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+  manufacturerName: String, // 冗余字段，方便显示
   specifications: mongoose.Schema.Types.Mixed,
   skus: [skuSchema], // SKU数组
   materialsGroups: [{ // 材质分组数据
@@ -73,6 +75,7 @@ const productSchema = new mongoose.Schema({
 productSchema.index({ name: 'text', description: 'text' })
 productSchema.index({ category: 1 })
 productSchema.index({ style: 1 })
+productSchema.index({ manufacturerId: 1 })
 productSchema.index({ status: 1 })
 productSchema.index({ order: 1 })  // 排序字段索引
 

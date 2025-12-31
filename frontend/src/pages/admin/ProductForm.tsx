@@ -12,6 +12,7 @@ import { getAllCategories, Category } from '@/services/categoryService'
 import { imageCache } from '@/services/imageCache'
 import { uploadFile, getFileUrl, getThumbnailUrl } from '@/services/uploadService'
 import { getAllManufacturers, Manufacturer } from '@/services/manufacturerService'
+import { useAuthStore } from '@/store/authStore'
 
 const CATEGORY_STORAGE_KEY = 'productForm:lastCategory'
 
@@ -53,6 +54,8 @@ export default function ProductForm() {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = !!id
+  const { user } = useAuthStore()
+  const isEnterpriseAdmin = user?.role === 'enterprise_admin'
 
   // 分类数据
   const [categories, setCategories] = useState<Category[]>([])
@@ -414,6 +417,13 @@ export default function ProductForm() {
   // 添加材质类目并直接打开材质选择弹窗
   const handleAddMaterialCategory = (skuIndex: number, categoryKey: string) => {
     console.log('🔥 [添加材质类目] SKU索引:', skuIndex, '类目:', categoryKey)
+
+    if (isEnterpriseAdmin) {
+      toast.error('当前账号无权限配置材质，请联系管理员授权')
+      setShowAddCategoryModal(false)
+      setAddCategoryForSkuIndex(-1)
+      return
+    }
     
     const newSkus = [...formData.skus]
     if (!newSkus[skuIndex].materialCategories.includes(categoryKey)) {
@@ -1612,6 +1622,10 @@ export default function ProductForm() {
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    if (isEnterpriseAdmin) {
+                                      toast.error('当前账号无权限配置材质，请联系管理员授权')
+                                      return
+                                    }
                                     setSelectingMaterialForSkuIndex(index)
                                     setSelectingMaterialType(categoryKey)
                                     setShowMaterialSelectModal(true)

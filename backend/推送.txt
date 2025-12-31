@@ -1,0 +1,276 @@
+# 🚀 完整部署流程指南
+
+**最后更新**: 2025年12月23日 15:22 UTC
+
+---
+
+## 📋 快速部署命令
+
+当您需要部署代码更改时，只需执行以下步骤：
+
+### 步骤1：提交并推送代码到Git
+
+```bash
+cd /home/devbox/project/1114/client
+
+# 添加所有更改
+git add .
+
+# 提交更改（描述您的修改）
+git commit -m "feat: 您的功能描述"
+
+# 推送到test分支
+git push origin test
+```
+
+### 步骤2：等待GitHub Actions构建完成
+
+- **监控地址**: https://github.com/379005109-lab/xiaodiyanxuan-fullstack/actions
+- **等待时间**: 5-10分钟
+- **成功标志**: 绿色✅（Build Frontend 和 Build Backend）
+
+### 步骤3：重启Kubernetes服务
+
+```bash
+export KUBECONFIG="/home/devbox/project/kubeconfig (7).yaml"
+
+# 重启前端和后端
+kubectl rollout restart deployment/xiaodiyanxuan-frontend -n ns-cxxiwxce
+kubectl rollout restart deployment/xiaodiyanxuan-api -n ns-cxxiwxce
+
+# 等待部署完成
+kubectl rollout status deployment/xiaodiyanxuan-api -n ns-cxxiwxce --timeout=120s
+kubectl rollout status deployment/xiaodiyanxuan-frontend -n ns-cxxiwxce --timeout=120s
+```
+
+### 步骤4：验证部署
+
+```bash
+# 检查Pod状态
+kubectl get pods -n ns-cxxiwxce | grep xiaodiyanxuan
+
+# 测试API健康
+curl -k -s https://xuahitfkpixy.sealoshzh.site/health
+
+# 访问网站
+# https://xuahitfkpixy.sealoshzh.site
+```
+
+---
+
+## 🔧 关键配置信息
+
+### Git仓库
+- **仓库**: https://github.com/379005109-lab/xiaodiyanxuan-fullstack
+- **工作分支**: `test`
+- **代码路径**: `/home/devbox/project/1114/client`
+
+### GitHub Actions工作流
+- **前端工作流**: `.github/workflows/build-frontend.yml`
+- **后端工作流**: `.github/workflows/build-backend.yml`
+- **触发条件**: 推送到`test`或`main`分支，且修改了`frontend/**`或`backend/**`路径
+
+### GitHub Secrets配置
+- **Secret名称**: `GHCR_PAT`
+- **当前Token**: `***REDACTED***`
+- **配置地址**: https://github.com/379005109-lab/xiaodiyanxuan-fullstack/settings/secrets/actions
+
+### Docker镜像
+- **前端镜像**: `ghcr.io/379005109-lab/xiaodiyanxuan-frontend:test`
+- **后端镜像**: `ghcr.io/379005109-lab/xiaodiyanxuan-backend:test`
+
+### Kubernetes配置
+- **Kubeconfig**: `/home/devbox/project/kubeconfig (7).yaml`
+- **命名空间**: `ns-cxxiwxce`
+- **前端Deployment**: `xiaodiyanxuan-frontend`
+- **后端Deployment**: `xiaodiyanxuan-api`
+- **网站URL**: https://xuahitfkpixy.sealoshzh.site
+
+---
+
+## 🔄 完整部署流程图
+
+```
+1. 修改代码
+   ↓
+2. git add . && git commit -m "..." && git push origin test
+   ↓
+3. GitHub Actions自动触发
+   ↓
+4. 构建Docker镜像并推送到GHCR
+   ↓
+5. kubectl rollout restart（重启Kubernetes服务）
+   ↓
+6. Kubernetes拉取新镜像并重启Pod
+   ↓
+7. 部署完成，新功能生效
+```
+
+---
+
+## ⚠️ 常见问题和解决方案
+
+### 问题1：GitHub Actions失败 - GHCR认证被拒绝
+
+**错误信息**: `Error response from daemon: Get "https://ghcr.io/v2/": denied: denied`
+
+**解决方案**:
+1. 检查GHCR_PAT是否在GitHub Settings中正确配置
+2. 确认token有`write:packages`权限
+3. 重新生成token并更新Secret
+
+### 问题2：推送到Git但没有触发GitHub Actions
+
+**原因**: 工作流的`paths`配置不匹配
+
+**解决方案**:
+- 确保修改的文件在`frontend/**`或`backend/**`路径下
+- 或者手动触发工作流（workflow_dispatch）
+
+### 问题3：Kubernetes Pod没有更新
+
+**原因**: 镜像标签相同，Kubernetes不会拉取新镜像
+
+**解决方案**:
+```bash
+kubectl rollout restart deployment/xiaodiyanxuan-frontend -n ns-cxxiwxce
+kubectl rollout restart deployment/xiaodiyanxuan-api -n ns-cxxiwxce
+```
+
+### 问题4：网站没有变化
+
+**原因**: 浏览器缓存
+
+**解决方案**:
+- 清除浏览器缓存（Ctrl+Shift+Delete）
+- 强制刷新（Ctrl+Shift+R）
+- 使用无痕模式测试
+
+---
+
+## 📝 快速部署检查清单
+
+部署前检查：
+- [ ] 代码已在本地测试通过
+- [ ] Git工作目录干净（`git status`）
+- [ ] 在正确的分支（`test`）
+
+部署中检查：
+- [ ] Git推送成功
+- [ ] GitHub Actions显示绿色✅
+- [ ] 镜像已推送到GHCR
+
+部署后检查：
+- [ ] Kubernetes Pod已重启
+- [ ] Pod状态为Running
+- [ ] API健康检查通过
+- [ ] 网站可访问
+- [ ] 新功能已生效
+
+---
+
+## 🎯 一键部署脚本
+
+创建文件 `/home/devbox/project/1114/client/quick-deploy.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+echo "🚀 开始部署流程..."
+
+# 1. 提交并推送代码
+echo "📝 提交代码到Git..."
+git add .
+git commit -m "${1:-feat: update features}"
+git push origin test
+
+# 2. 等待GitHub Actions
+echo "⏳ 等待GitHub Actions构建（约5-10分钟）..."
+echo "   监控地址: https://github.com/379005109-lab/xiaodiyanxuan-fullstack/actions"
+echo ""
+echo "   等待构建完成后，按Enter继续..."
+read
+
+# 3. 重启Kubernetes服务
+echo "🔄 重启Kubernetes服务..."
+export KUBECONFIG="/home/devbox/project/kubeconfig (7).yaml"
+kubectl rollout restart deployment/xiaodiyanxuan-frontend -n ns-cxxiwxce
+kubectl rollout restart deployment/xiaodiyanxuan-api -n ns-cxxiwxce
+
+# 4. 等待部署完成
+echo "⏳ 等待部署完成..."
+kubectl rollout status deployment/xiaodiyanxuan-api -n ns-cxxiwxce --timeout=120s
+kubectl rollout status deployment/xiaodiyanxuan-frontend -n ns-cxxiwxce --timeout=120s
+
+# 5. 验证部署
+echo "✅ 部署完成！"
+echo ""
+echo "📊 Pod状态:"
+kubectl get pods -n ns-cxxiwxce | grep xiaodiyanxuan
+echo ""
+echo "🧪 API健康检查:"
+curl -k -s https://xuahitfkpixy.sealoshzh.site/health
+echo ""
+echo ""
+echo "🌐 网站地址: https://xuahitfkpixy.sealoshzh.site"
+echo "   请清除浏览器缓存后测试新功能"
+```
+
+**使用方法**:
+```bash
+cd /home/devbox/project/1114/client
+chmod +x quick-deploy.sh
+./quick-deploy.sh "您的提交信息"
+```
+
+---
+
+## 📞 紧急情况处理
+
+### 如果GitHub Actions持续失败
+
+**临时解决方案** - 手动部署到运行中的Pod:
+
+```bash
+# 1. 构建前端
+cd /home/devbox/project/1114/client/frontend
+npm run build
+
+# 2. 获取运行中的Pod名称
+export KUBECONFIG="/home/devbox/project/kubeconfig (7).yaml"
+FRONTEND_POD=$(kubectl get pods -n ns-cxxiwxce -l app=xiaodiyanxuan-frontend --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+API_POD=$(kubectl get pods -n ns-cxxiwxce -l app=xiaodiyanxuan-api --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+
+# 3. 复制文件到Pod
+kubectl exec $FRONTEND_POD -n ns-cxxiwxce -- rm -rf /usr/share/nginx/html/assets/* /usr/share/nginx/html/index.html
+kubectl cp ./frontend/dist/. ns-cxxiwxce/$FRONTEND_POD:/usr/share/nginx/html/
+
+# 4. 更新后端API（如果有修改）
+kubectl cp ./backend/src/routes/authorizations.js ns-cxxiwxce/$API_POD:/app/src/routes/authorizations.js
+```
+
+**注意**: 这种方式是临时的，Pod重启后会丢失更改。
+
+---
+
+## 🎓 部署逻辑总结
+
+### Git → GitHub Actions → GHCR → Kubernetes
+
+1. **开发者推送代码** → Git仓库（test分支）
+2. **GitHub Actions触发** → 检测到`frontend/**`或`backend/**`路径变更
+3. **构建Docker镜像** → 使用GHCR_PAT认证推送到GitHub Container Registry
+4. **Kubernetes拉取镜像** → 使用`kubectl rollout restart`强制拉取新镜像
+5. **Pod重启** → 使用新镜像启动，新功能生效
+
+### 关键要素
+
+- **Git分支**: `test`（开发）或`main`（生产）
+- **GitHub Secret**: `GHCR_PAT`（用于推送Docker镜像）
+- **镜像标签**: `test`（test分支）或`latest`（main分支）
+- **Kubernetes命令**: `kubectl rollout restart`（强制重启）
+
+---
+
+**保存此文档以便将来参考！**

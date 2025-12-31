@@ -95,7 +95,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
     : isManufacturerSubAccount
       ? allMenuItems
           .filter(item =>
-            ['材质管理', '厂家管理', '商品管理', '分类管理', '砍价管理', '订单管理'].includes(item.name)
+            ['厂家管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理'].includes(item.name)
           )
           .map(item => {
             if (item.name === '砍价管理') {
@@ -108,6 +108,13 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
               return {
                 ...item,
                 children: [{ name: '订单列表', path: '/admin/orders' }],
+              }
+            }
+            if (item.name === '账号管理') {
+              return {
+                ...item,
+                path: '/admin/enterprise-users',
+                children: undefined,
               }
             }
             return { ...item, children: undefined }

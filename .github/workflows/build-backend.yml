@@ -2,7 +2,7 @@ name: Build Backend
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, test ]
     paths:
       - 'backend/**'
       - '.github/workflows/build-backend.yml'
@@ -31,7 +31,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
@@ -39,7 +39,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix={{branch}}-
 
       - name: Build and push

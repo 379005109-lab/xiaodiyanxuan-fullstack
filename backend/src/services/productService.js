@@ -6,11 +6,14 @@ const { NotFoundError } = require('../utils/errors')
 
 const getProducts = async (filters = {}) => {
   // 默认按order字段升序排序（order值越小越靠前），其次按创建时间降序
-  const { page = 1, pageSize = 100, search, categoryId, styleId, sortBy = 'order -createdAt', status } = filters
+  const { page = 1, pageSize = 100, search, categoryId, styleId, sortBy = 'order -createdAt', status, manufacturerId } = filters
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
   // 默认不过滤状态，如果传了status参数才过滤
   const query = {}
+  if (manufacturerId) {
+    query.manufacturerId = manufacturerId
+  }
   if (status) {
     query.status = status
   }
@@ -59,11 +62,20 @@ const getStyles = async () => {
 }
 
 const searchProducts = async (keyword, page = 1, pageSize = 100) => {
+  let manufacturerId
+  // 兼容旧调用：searchProducts(keyword, page, pageSize) / searchProducts(keyword, page, pageSize, manufacturerId)
+  if (arguments.length >= 4) {
+    manufacturerId = arguments[3]
+  }
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
   const query = {
     status: 'active',
     $text: { $search: keyword }
+  }
+
+  if (manufacturerId) {
+    query.manufacturerId = manufacturerId
   }
   
   const total = await Product.countDocuments(query)

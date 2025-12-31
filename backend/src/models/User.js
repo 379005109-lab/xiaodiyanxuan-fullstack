@@ -23,6 +23,9 @@ const userSchema = new mongoose.Schema({
   
   // === 组织归属（平台/企业账号）===
   organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
+
+  // === 厂家归属（厂家体系账号）===
+  manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
   
   // === 功能权限 ===
   permissions: {
@@ -75,6 +78,7 @@ userSchema.index({ openId: 1 })
 userSchema.index({ email: 1 })
 userSchema.index({ role: 1 })
 userSchema.index({ organizationId: 1 })
+userSchema.index({ manufacturerId: 1 })
 userSchema.index({ status: 1 })
 userSchema.index({ 'specialAccountConfig.accessCode': 1 })
 
