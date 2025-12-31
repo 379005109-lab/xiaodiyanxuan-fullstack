@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight, Camera } from 'lucide-react'
+import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight, Camera, Factory } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useCartStore } from '@/store/cartStore'
