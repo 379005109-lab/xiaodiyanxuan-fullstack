@@ -128,6 +128,7 @@ const ProtectedRoute = ({
   const { user, isAuthenticated, token, logout } = useAuthStore()
   const [isReady, setIsReady] = useState(false)
   const [authRecoveryTimedOut, setAuthRecoveryTimedOut] = useState(false)
+  const [userRecoveryTimedOut, setUserRecoveryTimedOut] = useState(false)
 
   const isAdminUser = Boolean((user as any)?.permissions?.canAccessAdmin) ||
     (user ? ADMIN_ACCESS_ROLES.includes(user.role as UserRole) : false)
@@ -154,6 +155,17 @@ const ProtectedRoute = ({
   }, [isReady, token, isAuthenticated])
 
   useEffect(() => {
+    if (!isReady) return
+    if (token && isAuthenticated && !user) {
+      const timer = setTimeout(() => {
+        setUserRecoveryTimedOut(true)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+    setUserRecoveryTimedOut(false)
+  }, [isReady, token, isAuthenticated, user])
+
+  useEffect(() => {
     if (!authRecoveryTimedOut) return
     try {
       localStorage.removeItem('auth-storage')
@@ -162,6 +174,16 @@ const ProtectedRoute = ({
       logout()
     }
   }, [authRecoveryTimedOut, logout])
+
+  useEffect(() => {
+    if (!userRecoveryTimedOut) return
+    try {
+      localStorage.removeItem('auth-storage')
+      localStorage.removeItem('token')
+    } finally {
+      logout()
+    }
+  }, [userRecoveryTimedOut, logout])
   
   // 在初始化完成前显示加载状态
   if (!isReady) {
@@ -174,6 +196,13 @@ const ProtectedRoute = ({
       return <Navigate to="/login" replace />
     }
     return <div className="flex items-center justify-center h-screen bg-gray-50">恢复认证状态中...</div>
+  }
+
+  if (token && isAuthenticated && !user) {
+    if (userRecoveryTimedOut) {
+      return <Navigate to="/login" replace />
+    }
+    return <div className="flex items-center justify-center h-screen bg-gray-50">恢复用户信息中...</div>
   }
   
   if (!isAuthenticated) {
