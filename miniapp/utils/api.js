@@ -533,9 +533,31 @@ function getRecommendations(params = {}) {
   })
 }
 
+// 通用 POST 请求
+function post(url, data = {}, options = {}) {
+  return request({
+    url,
+    method: 'POST',
+    data,
+    ...options
+  })
+}
+
+// 通用 GET 请求
+function get(url, data = {}, options = {}) {
+  return request({
+    url,
+    method: 'GET',
+    data,
+    ...options
+  })
+}
+
 module.exports = {
   // 基础方法
   request,
+  post,
+  get,
   
   // 用户相关
   wxLogin,

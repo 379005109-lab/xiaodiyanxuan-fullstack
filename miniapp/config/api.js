@@ -4,10 +4,8 @@
 
 const config = {
   // Sealos 后端服务地址
-  // 当前后端地址：http://houduanceshi.ns-cxxiwxce:5000
-  // ⚠️ 需要配置为 HTTPS 域名才能在小程序中使用
-  // 请在 Sealos 中配置 Ingress 和域名，然后替换下面的地址
-  baseURL: 'https://pkochbpmcgaa.sealoshzh.site/api/miniapp',  // 请替换为实际的 HTTPS 地址
+  // 使用公共 API 域名
+  baseURL: 'https://api.xiaodiyanxuan.com/api',
   
   // 请求超时时间（毫秒）
   timeout: 10000,

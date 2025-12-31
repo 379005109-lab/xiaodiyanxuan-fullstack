@@ -2,7 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const router = express.Router()
 const { optionalAuth, auth } = require('../middleware/auth')
-const { listProducts, getProduct, createProduct, updateProduct, deleteProduct, getProductCategories, getProductStyles, search, bulkImport } = require('../controllers/productController')
+const { listProducts, getProduct, createProduct, updateProduct, deleteProduct, getProductCategories, getProductStyles, search, bulkImport, updateProductPricing, getProductPricing } = require('../controllers/productController')
 
 // 配置 multer
 const storage = multer.memoryStorage()
@@ -47,6 +47,12 @@ router.get('/', optionalAuth, listProducts)
 
 // DELETE /api/products/:productId/images/:imageIndex - Delete image
 // router.delete('/:productId/images/:imageIndex', authenticate, deleteImage)
+
+// GET /api/products/:id/pricing - Get product pricing config
+router.get('/:id/pricing', auth, getProductPricing)
+
+// PUT /api/products/:id/pricing - Update product pricing config
+router.put('/:id/pricing', auth, updateProductPricing)
 
 // GET /api/products/:id - Get product details
 router.get('/:id', optionalAuth, getProduct)

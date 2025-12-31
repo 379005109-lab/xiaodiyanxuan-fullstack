@@ -3,3 +3,9 @@ dist/
 
 backend/hh/
 kubeconfig*.yaml
+
+backend/logs/
+frontend/dist/
+frontend/dist.tar.gz
+frontend/.env
+frontend/.env.*

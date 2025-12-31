@@ -9,7 +9,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
-const DIST_DIR = path.join(__dirname, 'dist');
+const DIST_DIR_CANDIDATES = [
+  path.join(__dirname, 'dist'),
+  path.join(__dirname, 'frontend', 'dist'),
+];
+
+const DIST_DIR = DIST_DIR_CANDIDATES.find(dir => {
+  try {
+    return fs.existsSync(path.join(dir, 'index.html'));
+  } catch {
+    return false;
+  }
+}) || DIST_DIR_CANDIDATES[0];
 const BACKEND_URL = 'http://localhost:8080';
 
 const mimeTypes = {
@@ -141,4 +152,5 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running at http://0.0.0.0:${PORT}/`);
+  console.log(`Serving static files from: ${DIST_DIR}`);
 });

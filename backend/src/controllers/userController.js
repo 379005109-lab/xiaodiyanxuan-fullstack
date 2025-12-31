@@ -53,11 +53,24 @@ const updateProfile = async (req, res) => {
     if (email !== undefined) updateData.email = email
     if (gender !== undefined) updateData.gender = gender
     
-    const user = await User.findByIdAndUpdate(
+    let user = await User.findByIdAndUpdate(
       req.userId,
       updateData,
       { new: true }
     ).select('-password -__v')
+
+    if (user && !user.profileCompleted) {
+      const hasNickname = user.nickname && user.nickname.trim() !== ''
+      const hasGender = user.gender && ['male', 'female'].includes(user.gender)
+
+      if (hasNickname && hasGender) {
+        user = await User.findByIdAndUpdate(
+          req.userId,
+          { profileCompleted: true, profileCompletedAt: new Date() },
+          { new: true }
+        ).select('-password -__v')
+      }
+    }
     
     res.json(successResponse(user))
   } catch (err) {

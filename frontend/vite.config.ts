@@ -81,12 +81,13 @@ export default defineConfig({
     allowedHosts: [
       'localhost',
       '127.0.0.1',
+      'test-cxxiwxce.sealoshzh.site',
       'xuahitfkpixy.sealoshzh.site',
       'wangzhan.ns-cxxiwxce',
     ],
     proxy: {
       '/api': {
-        target: 'https://xuahitfkpixy.sealoshzh.site',
+        target: 'https://pkochbpmcgaa.sealoshzh.site',
         changeOrigin: true,
         secure: false,
       },

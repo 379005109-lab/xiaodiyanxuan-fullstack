@@ -29,6 +29,9 @@ export default function ProductManagement() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const isEnterpriseAdmin = user?.role === 'enterprise_admin'
+  const canViewCostPrice = user?.role === 'super_admin' || user?.role === 'admin' || (user as any)?.permissions?.canViewCostPrice === true
+  const [designerDiscountEdits, setDesignerDiscountEdits] = useState<Record<string, string>>({})
+  const [savingDesignerDiscount, setSavingDesignerDiscount] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -77,6 +80,28 @@ export default function ProductManagement() {
   }
   const [pendingMatches, setPendingMatches] = useState<PendingImageMatch[]>([])
   const [showMatchConfirmModal, setShowMatchConfirmModal] = useState(false)
+  
+  // 批量修改厂家状态
+  const [showBatchManufacturerModal, setShowBatchManufacturerModal] = useState(false)
+  const [batchManufacturerId, setBatchManufacturerId] = useState('')
+
+  const getProductManufacturerId = (product: any): string => {
+    if (!product) return ''
+    if (product.manufacturer) return product.manufacturer
+    const skus = product.skus || []
+    return skus?.[0]?.manufacturerId || ''
+  }
+
+  const applyManufacturerToSkus = (product: any, manufacturerId: string) => {
+    const selectedManufacturer = manufacturers.find(m => m._id === manufacturerId)
+    const manufacturerName = selectedManufacturer?.name || selectedManufacturer?.fullName || selectedManufacturer?.shortName || ''
+    const skus = product?.skus || []
+    return skus.map((sku: any) => ({
+      ...sku,
+      manufacturerId: manufacturerId ? manufacturerId : null,
+      manufacturerName: manufacturerId ? manufacturerName : null,
+    }))
+  }
 
   // 加载商品数据
   useEffect(() => {
@@ -107,7 +132,7 @@ export default function ProductManagement() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await getProducts({ pageSize: 200 });
+      const response = await getProducts({ pageSize: 10000 });
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
         console.log('[ProductManagement] 加载商品数量:', response.data.length);
@@ -120,6 +145,52 @@ export default function ProductManagement() {
       setLoading(false);
     }
   };
+
+  const saveDesignerProductDiscountOverride = async (product: Product) => {
+    const role = useAuthStore.getState().user?.role as UserRole | undefined
+    if (role !== 'designer') return
+
+    const p: any = product as any
+    const tierPricing = p?.tierPricing
+    const authorizationId = tierPricing?.authorizationId
+    if (!authorizationId) {
+      toast.error('未找到授权信息，无法保存单品折扣')
+      return
+    }
+
+    const raw = designerDiscountEdits[product._id]
+    const trimmed = (raw ?? '').toString().trim()
+
+    let discountRate: number | null
+    if (!trimmed) {
+      discountRate = null
+    } else {
+      const percent = Number(trimmed)
+      if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
+        toast.error('折扣请输入 1-100 的数字')
+        return
+      }
+      discountRate = percent / 100
+    }
+
+    setSavingDesignerDiscount(prev => ({ ...prev, [product._id]: true }))
+    try {
+      const resp = await apiClient.put(
+        `/authorizations/${authorizationId}/designer-product-discount/${product._id}`,
+        { discountRate }
+      )
+      if (resp.data?.success) {
+        toast.success('单品折扣已保存')
+        await loadProducts()
+      } else {
+        toast.error(resp.data?.message || '保存失败')
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '保存失败')
+    } finally {
+      setSavingDesignerDiscount(prev => ({ ...prev, [product._id]: false }))
+    }
+  }
 
   const handleToggleStatus = async (id: string) => {
     if (await toggleProductStatus(id)) {
@@ -141,15 +212,60 @@ export default function ProductManagement() {
     }
   };
 
+  // 批量更新商品厂家
+  const handleBatchUpdateManufacturer = async () => {
+    if (selectedIds.length === 0) {
+      toast.error('请先选择要修改的商品')
+      return
+    }
+    
+    try {
+      let successCount = 0
+      for (const id of selectedIds) {
+        try {
+          const targetProduct = products.find(p => p._id === id) as any
+          if (!targetProduct) {
+            console.error(`未找到商品 ${id}`)
+            continue
+          }
+
+          const updatedSkus = applyManufacturerToSkus(targetProduct, batchManufacturerId)
+          await updateProduct(id, { skus: updatedSkus })
+          successCount++
+        } catch (error) {
+          console.error(`更新商品 ${id} 厂家失败:`, error)
+        }
+      }
+      
+      toast.success(`成功修改 ${successCount} 个商品的厂家`)
+      setShowBatchManufacturerModal(false)
+      setBatchManufacturerId('')
+      await loadProducts()
+    } catch (error) {
+      console.error('批量修改厂家失败:', error)
+      toast.error('批量修改失败')
+    }
+  }
+
   // 快速更新商品厂家
   const handleUpdateManufacturer = async (productId: string, manufacturerId: string) => {
     try {
-      await updateProduct(productId, { manufacturer: manufacturerId || null })
+      const targetProduct = products.find(p => p._id === productId) as any
+      if (!targetProduct) {
+        toast.error('未找到商品')
+        return
+      }
+
+      const updatedSkus = applyManufacturerToSkus(targetProduct, manufacturerId)
+      await updateProduct(productId, { skus: updatedSkus })
       toast.success('厂家已更新')
       setEditingManufacturer(null)
       // 更新本地数据
       setProducts(prev => prev.map(p => 
-        p._id === productId ? { ...p, manufacturer: manufacturerId || undefined } : p
+        p._id === productId ? ({
+          ...(p as any),
+          skus: updatedSkus
+        } as any) : p
       ))
     } catch (error) {
       console.error('更新厂家失败:', error)
@@ -911,7 +1027,7 @@ export default function ProductManagement() {
       });
 
       let importedCount = 0, updatedCount = 0, totalSkuCount = 0;
-      const response = await getProducts({ pageSize: 200 });
+      const response = await getProducts({ pageSize: 10000 });
       const allProducts = response.success ? response.data : [];
 
       for (const [productKey, productData] of productMap.entries()) {
@@ -2326,6 +2442,7 @@ export default function ProductManagement() {
   }
 
   const currentRole = useAuthStore.getState().user?.role as UserRole | undefined
+  const showCostColumn = canViewCostPrice || currentRole === 'designer'
   const getDiscountMultiplier = (categoryKey?: string) =>
     getRoleDiscountMultiplier(categoryLookup, currentRole, categoryKey)
 
@@ -2416,13 +2533,22 @@ export default function ProductManagement() {
         </div>
         <div className="flex space-x-3">
           {selectedIds.length > 0 && (
-            <button
-              onClick={handleBatchDelete}
-              className="btn-secondary flex items-center bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
-            >
-              <Trash2 className="h-5 w-5 mr-2" />
-              批量删除 ({selectedIds.length})
-            </button>
+            <>
+              <button
+                onClick={() => setShowBatchManufacturerModal(true)}
+                className="btn-secondary flex items-center bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200"
+              >
+                <Edit className="h-5 w-5 mr-2" />
+                批量修改厂家 ({selectedIds.length})
+              </button>
+              <button
+                onClick={handleBatchDelete}
+                className="btn-secondary flex items-center bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
+              >
+                <Trash2 className="h-5 w-5 mr-2" />
+                批量删除 ({selectedIds.length})
+              </button>
+            </>
           )}
           {user?.role !== 'designer' && (
             <>
@@ -2558,6 +2684,14 @@ export default function ProductManagement() {
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">厂家</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">分类</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">价格</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">折后价(A)</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">返佣金额(B)</th>
+                {currentRole === 'designer' && false && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">单品折扣覆盖</th>
+                )}
+                {showCostColumn && currentRole !== 'designer' && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
+                )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">SKU数量</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">状态</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">创建时间</th>
@@ -2615,11 +2749,11 @@ export default function ProductManagement() {
                   </td>
                   {/* 厂家列 */}
                   <td className="py-4 px-4">
-                    {editingManufacturer === product._id ? (
+                    {currentRole !== 'designer' && editingManufacturer === product._id ? (
                       <select
                         autoFocus
                         className="text-sm border border-gray-300 rounded px-2 py-1 w-24"
-                        value={(product as any).manufacturer || ''}
+                        value={getProductManufacturerId(product) || ''}
                         onChange={(e) => handleUpdateManufacturer(product._id, e.target.value)}
                         onBlur={() => setEditingManufacturer(null)}
                       >
@@ -2632,11 +2766,11 @@ export default function ProductManagement() {
                       </select>
                     ) : (
                       <span 
-                        className="text-sm text-gray-700 cursor-pointer hover:text-primary hover:underline"
-                        onClick={() => setEditingManufacturer(product._id)}
-                        title="点击编辑厂家"
+                        className={`text-sm text-gray-700 ${currentRole !== 'designer' ? 'cursor-pointer hover:text-primary hover:underline' : ''}`}
+                        onClick={() => currentRole !== 'designer' && setEditingManufacturer(product._id)}
+                        title={currentRole !== 'designer' ? "点击编辑厂家" : ""}
                       >
-                        {getManufacturerName((product as any).manufacturer)}
+                        {(product as any).manufacturerDisplayName || getManufacturerName(getProductManufacturerId(product) || undefined)}
                       </span>
                     )}
                   </td>
@@ -2660,18 +2794,37 @@ export default function ProductManagement() {
                   <td className="py-4 px-4">
                     <div className="flex flex-col">
                       {(() => {
-                        // 获取所有SKU的价格
+                        const p: any = product as any
+                        // 设计师优先使用后端返回的授权价格
+                        if (currentRole === 'designer') {
+                          const takePrice = Number(p?.takePrice)
+                          const labelPrice = Number(p?.labelPrice1)
+                          if (Number.isFinite(takePrice) && takePrice > 0) {
+                            return (
+                              <span className="font-medium text-primary-600">
+                                {formatPrice(takePrice)}
+                              </span>
+                            )
+                          }
+                          if (Number.isFinite(labelPrice) && labelPrice > 0) {
+                            return (
+                              <span className="font-medium text-primary-600">
+                                {formatPrice(labelPrice)}
+                              </span>
+                            )
+                          }
+                        }
+                        
+                        // 其他角色使用 SKU 价格计算
                         const prices = (product.skus || []).map(sku => ({
                           price: sku.price || 0,
                           discountPrice: sku.discountPrice || 0
                         }))
-                        // 找到最低价格
                         const minPrice = prices.length > 0 ? Math.min(...prices.map(p => p.discountPrice > 0 && p.discountPrice < p.price ? p.discountPrice : p.price)) : 0
-                        // 找到最低的划线价（原价）
                         const minOriginalPrice = prices.length > 0 ? Math.min(...prices.map(p => p.price)) : 0
                         const hasDiscount = prices.some(p => p.discountPrice > 0 && p.discountPrice < p.price)
                         
-                          const roleMultiplier = getDiscountMultiplier(product.category)
+                        const roleMultiplier = getDiscountMultiplier(product.category)
                         const finalPrice = Math.round(minPrice * roleMultiplier)
                         const finalOriginal = Math.round(minOriginalPrice * roleMultiplier)
                         return (
@@ -2689,6 +2842,82 @@ export default function ProductManagement() {
                       })()}
                     </div>
                   </td>
+
+                  <td className="py-4 px-4">
+                    <div className="text-sm text-gray-700">
+                      {(() => {
+                        const p: any = product as any
+                        const v = Number(p?.tierPricing?.discountedPrice)
+                        if (!Number.isFinite(v) || v <= 0) return '-'
+                        return formatPrice(v)
+                      })()}
+                    </div>
+                  </td>
+
+                  <td className="py-4 px-4">
+                    <div className="text-sm text-gray-700">
+                      {(() => {
+                        const p: any = product as any
+                        const v = Number(p?.tierPricing?.commissionAmount)
+                        if (!Number.isFinite(v) || v < 0) return '-'
+                        return formatPrice(v)
+                      })()}
+                    </div>
+                  </td>
+
+                  {currentRole === 'designer' && false && (
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          step={1}
+                          className="input w-24"
+                          placeholder="默认"
+                          value={(() => {
+                            const v = designerDiscountEdits[product._id]
+                            if (v !== undefined) return v
+                            const p: any = product as any
+                            const rate = Number(p?.tierPricing?.overrideDiscountRate)
+                            if (Number.isFinite(rate) && rate > 0) return String(Math.round(rate * 100))
+                            return ''
+                          })()}
+                          onChange={(e) => {
+                            const next = e.target.value
+                            setDesignerDiscountEdits(prev => ({ ...prev, [product._id]: next }))
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={savingDesignerDiscount[product._id] === true}
+                          onClick={() => saveDesignerProductDiscountOverride(product)}
+                        >
+                          {savingDesignerDiscount[product._id] ? '保存中' : '保存'}
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">单位：%</div>
+                    </td>
+                  )}
+
+                  {showCostColumn && currentRole !== 'designer' && (
+                    <td className="py-4 px-4">
+                      <div className="text-sm text-gray-700">
+                        {(() => {
+                          const p: any = product as any
+                          const cost = Number(
+                            p?.tierPricing?.netCostPrice ??
+                            p.costPrice ??
+                            p.takePrice ??
+                            p?.skus?.[0]?.costPrice ??
+                            0
+                          )
+                          return formatPrice(cost)
+                        })()}
+                      </div>
+                    </td>
+                  )}
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{product.skus ? product.skus.length : 0}</span>
@@ -2728,61 +2957,65 @@ export default function ProductManagement() {
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center justify-end space-x-2">
-                      <button
-                        onClick={() => navigate(`/admin/products/dashboard/${product._id}`)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="数据看板"
-                      >
-                        <BarChart3 className="h-4 w-4 text-purple-600" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleStatus(product._id)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title={product.status === 'active' ? '下架' : '上架'}
-                      >
-                        {product.status === 'active' ? (
-                          <EyeOff className="h-4 w-4 text-gray-600" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-gray-600" />
-                        )}
-                      </button>
-                      <label
-                        className={`p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer ${batchImageUploading ? 'opacity-50 pointer-events-none' : ''}`}
-                        title="选择文件夹上传图片"
-                      >
-                        <FolderOpen className="h-4 w-4 text-purple-600" />
-                        <input
-                          type="file"
-                          // @ts-ignore
-                          webkitdirectory=""
-                          // @ts-ignore
-                          directory=""
-                          multiple
-                          className="hidden"
-                          onChange={(e) => handleFolderUpload(e, product._id)}
-                          disabled={batchImageUploading}
-                        />
-                      </label>
-                      <button
-                        onClick={() => {
-                          if (currentRole === 'designer') {
-                            navigate(`/admin/products/designer-edit/${product._id}`)
-                          } else {
-                            navigate(`/admin/products/edit/${product._id}`)
-                          }
-                        }}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="编辑"
-                      >
-                        <Edit className="h-4 w-4 text-blue-600" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product._id, product.name)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="删除"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </button>
+                      {currentRole !== 'designer' && (
+                        <button
+                          onClick={() => navigate(`/admin/products/dashboard/${product._id}`)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="数据看板"
+                        >
+                          <BarChart3 className="h-4 w-4 text-purple-600" />
+                        </button>
+                      )}
+                      {currentRole !== 'designer' && (
+                        <button
+                          onClick={() => handleToggleStatus(product._id)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title={product.status === 'active' ? '下架' : '上架'}
+                        >
+                          {product.status === 'active' ? (
+                            <EyeOff className="h-4 w-4 text-gray-600" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-gray-600" />
+                          )}
+                        </button>
+                      )}
+                      {currentRole !== 'designer' && (
+                        <label
+                          className={`p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer ${batchImageUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                          title="选择文件夹上传图片"
+                        >
+                          <FolderOpen className="h-4 w-4 text-purple-600" />
+                          <input
+                            type="file"
+                            // @ts-ignore
+                            webkitdirectory=""
+                            // @ts-ignore
+                            directory=""
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handleFolderUpload(e, product._id)}
+                            disabled={batchImageUploading}
+                          />
+                        </label>
+                      )}
+                      {currentRole !== 'designer' && (
+                        <button
+                          onClick={() => navigate(`/admin/products/edit/${product._id}`)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="编辑"
+                        >
+                          <Edit className="h-4 w-4 text-blue-600" />
+                        </button>
+                      )}
+                      {currentRole !== 'designer' && (
+                        <button
+                          onClick={() => handleDelete(product._id, product.name)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="删除"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </motion.tr>
@@ -2793,7 +3026,7 @@ export default function ProductManagement() {
                     exit={{ opacity: 0, height: 0 }}
                     className="bg-gray-50"
                   >
-                    <td colSpan={9} className="py-4 px-4">
+                    <td colSpan={(showCostColumn ? 10 : 9) + 2 + (currentRole === 'designer' ? 1 : 0)} className="py-4 px-4">
                       <div className="space-y-2">
                         <div className="text-xs font-semibold text-gray-600 mb-2">SKU列表：</div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -3085,6 +3318,54 @@ export default function ProductManagement() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 确认导入
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 批量修改厂家弹窗 */}
+      {showBatchManufacturerModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-semibold mb-4">批量修改厂家</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              已选中 {selectedIds.length} 个商品，选择要设置的厂家：
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                选择厂家
+              </label>
+              <select
+                value={batchManufacturerId}
+                onChange={(e) => setBatchManufacturerId(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="">无（清除厂家）</option>
+                {manufacturers.map(m => (
+                  <option key={m._id} value={m._id}>
+                    {m.shortName || m.fullName || m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowBatchManufacturerModal(false)
+                  setBatchManufacturerId('')
+                }}
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleBatchUpdateManufacturer}
+                className="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90"
+              >
+                确认修改
               </button>
             </div>
           </div>

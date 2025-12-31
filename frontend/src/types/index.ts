@@ -12,15 +12,20 @@ export type UserRole =
   | 'customer'
   | 'owner'
   | 'professional'
+  | 'user'
 
 export interface User {
   _id: string
   username: string
-  email: string
+  email?: string
   phone?: string
   nickname?: string
   gender?: 'male' | 'female' | ''
+  profileCompleted?: boolean
   role: UserRole
+  manufacturerId?: string | null
+  manufacturerIds?: string[]
+  accountType?: 'auth' | 'sub' | 'designer' | 'normal'
   permissions?: {
     canAccessAdmin?: boolean
     canViewCostPrice?: boolean
@@ -31,9 +36,9 @@ export interface User {
     canViewReports?: boolean
   }
   avatar?: string
-  createdAt: string
-  updatedAt: string
-  status: 'active' | 'inactive' | 'banned'
+  createdAt?: string
+  updatedAt?: string
+  status?: 'active' | 'inactive' | 'banned' | 'expired'
   balance?: number
   calculatedRole?: string
   tags?: string[]
@@ -163,6 +168,7 @@ export interface ProductSKU {
   materialDescriptions?: Record<string, string>
   stock: number
   price: number
+  costPrice?: number
   discountPrice?: number
   images: string[]
   code?: string
@@ -174,6 +180,8 @@ export interface ProductSKU {
   proFeature?: string
   status?: boolean
   sales?: number
+  manufacturerId?: string | null
+  manufacturerName?: string | null
 }
 
 export interface ProductFile {
@@ -182,6 +190,25 @@ export interface ProductFile {
   format?: string
   size?: number
   uploadTime?: string
+}
+
+export interface TierPricing {
+  source?: string
+  authorizationId?: string
+  roleModuleId?: any
+  roleModuleCode?: string
+  roleModuleName?: string
+  discountRuleId?: any
+  discountRuleName?: string
+  discountType?: 'rate' | 'minPrice' | string
+  discountRate?: number
+  minDiscountPrice?: number
+  overrideDiscountRate?: number
+  retailPrice?: number
+  discountedPrice?: number
+  commissionRate?: number
+  commissionAmount?: number
+  netCostPrice?: number
 }
 
 export interface Product {
@@ -193,13 +220,17 @@ export interface Product {
   style: ProductStyle
   styles?: string[]  // 多个风格标签（现代风、轻奢风等）
   basePrice: number
+  takePrice?: number
+  labelPrice1?: number
+  tierPricing?: TierPricing
+  thumbnail?: string
   images: string[]
   skus: ProductSKU[]
   isCombo: boolean
   comboItems?: string[]
   tags: string[]
   specifications: Record<string, string>
-  status: 'active' | 'inactive' | 'out_of_stock'
+  status: 'active' | 'inactive' | 'out_of_stock' | 'deleted'
   views: number
   sales: number
   rating: number
@@ -398,6 +429,7 @@ export interface Category {
   slug: string
   description?: string
   image?: string
+  manufacturerId?: string | { _id: string; name?: string } | null
   parentId?: string | null
   status: 'active' | 'inactive'
   order: number

@@ -79,6 +79,8 @@ export interface AccountUser {
   avatar?: string
   role: string
   organizationId?: Organization
+  manufacturerId?: { _id: string; name?: string } | string | null
+  manufacturerIds?: Array<{ _id: string; name?: string } | string>
   permissions?: {
     canAccessAdmin: boolean
     canViewCostPrice: boolean
@@ -184,6 +186,7 @@ export const setOrganizationDiscount = async (id: string, data: {
 export const getUsers = async (params?: {
   role?: string
   organizationId?: string
+  manufacturerId?: string | null
   status?: string
   keyword?: string
   page?: number
@@ -201,12 +204,17 @@ export const createUser = async (data: {
   email?: string
   role: string
   organizationId?: string
+  manufacturerId?: string | null
+  manufacturerIds?: string[]
 }) => {
   const response = await apiClient.post('/accounts/users', data)
   return response.data.data
 }
 
-export const updateUser = async (id: string, data: Partial<AccountUser>) => {
+export const updateUser = async (
+  id: string,
+  data: Partial<AccountUser> & { manufacturerId?: string | null; manufacturerIds?: string[]; organizationId?: string | null }
+) => {
   const response = await apiClient.put(`/accounts/users/${id}`, data)
   return response.data.data
 }

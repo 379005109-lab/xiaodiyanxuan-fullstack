@@ -55,6 +55,12 @@ const determineDefaultFilter = (skus: ProductSKU[]): SkuFilter => {
   return 'all';
 };
 
+const getProductDisplayPrice = (product: any): number => {
+  const raw = product?.labelPrice1 ?? product?.takePrice ?? product?.basePrice ?? 0
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : 0
+}
+
 const getInitialSkuForFilter = (skus: ProductSKU[], filter: SkuFilter) => {
   if (!skus.length) return null;
   if (filter === 'standard') return skus.find(sku => !sku.isPro) || skus[0];
@@ -343,6 +349,7 @@ const ProductDetailPage = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSku, setSelectedSku] = useState<ProductSKU | null>(null);
+  const [selectedSkuIds, setSelectedSkuIds] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState('');
   const [isShareModalOpen, setShareModalOpen] = useState(false);
@@ -354,6 +361,8 @@ const ProductDetailPage = () => {
   const [previewMaterialImage, setPreviewMaterialImage] = useState<string | null>(null);
   const [materialInfoModal, setMaterialInfoModal] = useState<{ open: boolean; section?: string; material?: string }>({ open: false });
   const [isAllImageModalOpen, setAllImageModalOpen] = useState(false);
+  const [thumbPage, setThumbPage] = useState(0);
+  const [thumbsPerPage, setThumbsPerPage] = useState(4);
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
   const [materialAssetMap, setMaterialAssetMap] = useState<Record<string, string>>({});
   const [materialSectionReady, setMaterialSectionReady] = useState(false); // 延迟渲染材质区域
@@ -444,36 +453,51 @@ const ProductDetailPage = () => {
   const defaultGalleryImages = useMemo(() => {
     if (!product) return [];
     const baseImages = Array.isArray(product.images) ? product.images : [];
-    const skuImages = product.skus.flatMap(sku => sku.images || []);
+    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : [];
+    const skuImages = skus.flatMap((sku: any) => sku.images || []);
     const merged = [...baseImages, ...skuImages].filter(Boolean);
     return Array.from(new Set(merged));
   }, [product]);
 
+  const isComboProduct = Boolean((product as any)?.isCombo);
+
+  const comboTotalPrice = useMemo(() => {
+    if (!product || !isComboProduct) return 0;
+    const allSkus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+    const selectedSkus = allSkus.filter(s => selectedSkuIds.includes(String(s._id)));
+    return selectedSkus.reduce((sum, sku) => sum + Number(getFinalPrice(sku) || 0), 0);
+  }, [product, isComboProduct, selectedSkuIds]);
+
   const galleryImages = useMemo(() => {
-    if (selectedSku?.images?.length) {
-      // 优先显示选中SKU的图片
-      const skuImages = selectedSku.images.filter(Boolean);
-      if (skuImages.length > 0) {
-        return skuImages;
-      }
+    if (isComboProduct) {
+      const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
+      const selectedSkus = allSkus.filter(s => selectedSkuIds.includes(String(s._id)));
+      const selectedImages = selectedSkus.flatMap(s => (s.images || [])).filter(Boolean);
+      const baseImages = Array.isArray(product?.images) ? product!.images.filter(Boolean) : [];
+      const merged = [...baseImages, ...selectedImages].filter(Boolean);
+      const uniq = Array.from(new Set(merged));
+      return uniq.length > 0 ? uniq : defaultGalleryImages;
     }
     return defaultGalleryImages;
-  }, [selectedSku, defaultGalleryImages]);
+  }, [defaultGalleryImages, isComboProduct, product, selectedSkuIds]);
 
   const filteredSkus = useMemo(() => {
     if (!product) return [];
-    if (activeFilter === 'standard') return product.skus.filter(sku => !sku.isPro);
-    if (activeFilter === 'pro') return product.skus.filter(sku => sku.isPro);
-    return product.skus;
+    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+    if (activeFilter === 'standard') return skus.filter(sku => !sku.isPro);
+    if (activeFilter === 'pro') return skus.filter(sku => sku.isPro);
+    return skus;
   }, [product, activeFilter]);
 
   // 根据商品实际的SKU动态生成可用的筛选选项
   const availableFilters = useMemo(() => {
-    if (!product || !product.skus || product.skus.length === 0) return [];
+    if (!product) return [];
+    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+    if (skus.length === 0) return [];
     
     const filters: { key: SkuFilter; label: string }[] = [];
-    const hasStandard = product.skus.some(sku => !sku.isPro);
-    const hasPro = product.skus.some(sku => sku.isPro);
+    const hasStandard = skus.some(sku => !sku.isPro);
+    const hasPro = skus.some(sku => sku.isPro);
     
     // 只有当同时有标准版和PRO版时才显示"全部款式"
     if (hasStandard && hasPro) {
@@ -502,10 +526,12 @@ const ProductDetailPage = () => {
         const fetchedProduct = await getProductById(id);
         setProduct(fetchedProduct);
         if (fetchedProduct) {
-          const defaultFilter = determineDefaultFilter(fetchedProduct.skus);
+          const fetchedSkus = Array.isArray((fetchedProduct as any).skus) ? ((fetchedProduct as any).skus as ProductSKU[]) : [];
+          const defaultFilter = determineDefaultFilter(fetchedSkus);
           setActiveFilter(defaultFilter);
-          const initialSku = getInitialSkuForFilter(fetchedProduct.skus, defaultFilter);
+          const initialSku = getInitialSkuForFilter(fetchedSkus, defaultFilter);
           setSelectedSku(initialSku);
+          setSelectedSkuIds([]);
           const firstSkuImage = initialSku?.images?.find(Boolean);
           const firstProductImage = fetchedProduct.images?.find(Boolean);
           setMainImage(firstSkuImage || firstProductImage || '');
@@ -528,7 +554,15 @@ const ProductDetailPage = () => {
     // 如果筛选后没有SKU，清空选中的SKU
     if (!filteredSkus.length) {
       setSelectedSku(null);
+      setSelectedSkuIds([]);
       setMaterialSelections({});
+      return;
+    }
+
+    if (isComboProduct) {
+      setSelectedSkuIds(prev => prev.filter(id => filteredSkus.some(s => String(s._id) === String(id))));
+      if (selectedSku && filteredSkus.some(s => s._id === selectedSku._id)) return;
+      setSelectedSku(filteredSkus[0]);
       return;
     }
     
@@ -541,7 +575,7 @@ const ProductDetailPage = () => {
     if (fallback?.images?.length) {
       setMainImage(fallback.images[0]);
     }
-  }, [filteredSkus, selectedSku]);
+  }, [filteredSkus, isComboProduct, selectedSku]);
 
   useEffect(() => {
     if (!galleryImages.length) return;
@@ -549,7 +583,7 @@ const ProductDetailPage = () => {
   }, [galleryImages]);
 
   useEffect(() => {
-    if (!selectedSku) {
+    if (!selectedSku || isComboProduct) {
       setMaterialSelections({});
       return;
     }
@@ -582,6 +616,18 @@ const ProductDetailPage = () => {
     const fallbackImage = defaultGalleryImages[0] || product?.images?.[0] || '';
     setMainImage(firstSkuImage || fallbackImage);
     setQuantity(1);
+  };
+
+  const handleToggleSku = (sku: ProductSKU) => {
+    setSelectedSku(sku);
+    const firstSkuImage = sku.images?.find(Boolean);
+    const fallbackImage = defaultGalleryImages[0] || product?.images?.[0] || '';
+    setMainImage(firstSkuImage || fallbackImage);
+    setSelectedSkuIds(prev => {
+      const id = String(sku._id);
+      if (prev.includes(id)) return prev.filter(x => x !== id);
+      return [...prev, id];
+    });
   };
 
   const syncFilterWithSku = (sku: ProductSKU) => {
@@ -669,7 +715,26 @@ const ProductDetailPage = () => {
   };
 
   const handleAddToCart = () => {
-    if (!product || !selectedSku) {
+    if (!product) {
+      toast.error('商品不存在');
+      return;
+    }
+
+    if (isComboProduct) {
+      const allSkus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+      const selectedSkus = allSkus.filter(s => selectedSkuIds.includes(String(s._id)));
+      if (selectedSkus.length === 0) {
+        toast.error('请选择商品规格');
+        return;
+      }
+      selectedSkus.forEach((sku) => {
+        addItem(product, sku, quantity, undefined, getFinalPrice(sku));
+      })
+      toast.success('已添加到购物车');
+      return;
+    }
+
+    if (!selectedSku) {
       toast.error('请选择商品规格');
       return;
     }
@@ -693,7 +758,26 @@ const ProductDetailPage = () => {
   };
 
   const handleBuyNow = () => {
-    if (!product || !selectedSku) {
+    if (!product) {
+      toast.error('商品不存在');
+      return;
+    }
+
+    if (isComboProduct) {
+      const allSkus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+      const selectedSkus = allSkus.filter(s => selectedSkuIds.includes(String(s._id)));
+      if (selectedSkus.length === 0) {
+        toast.error('请选择商品规格');
+        return;
+      }
+      selectedSkus.forEach((sku) => {
+        addItem(product, sku, quantity, undefined, getFinalPrice(sku));
+      })
+      navigate('/checkout');
+      return;
+    }
+
+    if (!selectedSku) {
       toast.error('请选择商品规格');
       return;
     }
@@ -734,6 +818,45 @@ const ProductDetailPage = () => {
 
   const currentImageIndex = useMemo(() => galleryImages.findIndex(img => img === mainImage), [galleryImages, mainImage]);
 
+  useEffect(() => {
+    const calcThumbsPerPage = () => {
+      const width = window.innerWidth;
+      if (width >= 1024) return 7;
+      if (width >= 768) return 6;
+      if (width >= 640) return 5;
+      return 4;
+    };
+
+    const update = () => setThumbsPerPage(calcThumbsPerPage());
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  const thumbTotalPages = useMemo(() => {
+    if (!galleryImages.length) return 1;
+    return Math.max(1, Math.ceil(galleryImages.length / Math.max(1, thumbsPerPage)));
+  }, [galleryImages.length, thumbsPerPage]);
+
+  const pagedThumbnails = useMemo(() => {
+    const safePerPage = Math.max(1, thumbsPerPage);
+    const start = thumbPage * safePerPage;
+    return galleryImages.slice(start, start + safePerPage);
+  }, [galleryImages, thumbPage, thumbsPerPage]);
+
+  useEffect(() => {
+    setThumbPage(prev => Math.min(prev, thumbTotalPages - 1));
+  }, [thumbTotalPages]);
+
+  useEffect(() => {
+    if (!galleryImages.length) return;
+    const index = galleryImages.findIndex(img => img === mainImage);
+    if (index < 0) return;
+    const safePerPage = Math.max(1, thumbsPerPage);
+    const nextPage = Math.floor(index / safePerPage);
+    setThumbPage(prev => (prev === nextPage ? prev : nextPage));
+  }, [galleryImages, mainImage, thumbsPerPage]);
+
   const handleImageNavigate = (direction: 'prev' | 'next') => {
     if (!galleryImages.length) return;
     const index = currentImageIndex >= 0 ? currentImageIndex : 0;
@@ -773,10 +896,11 @@ const ProductDetailPage = () => {
     return <div className="container-custom py-12 text-center">商品不存在</div>;
   }
 
-  const currentPrice = selectedSku ? selectedSku.price : product.basePrice;
+  const productDisplayPrice = getProductDisplayPrice(product as any);
+  const currentPrice = selectedSku ? selectedSku.price : productDisplayPrice;
   const discountPrice = selectedSku?.discountPrice;
   const normalizedSelectedMaterials = selectedSku ? normalizeMaterialSelection(selectedSku.material) : null;
-  const baseSkuPrice = selectedSku ? getBasePrice(selectedSku) : product.basePrice;
+  const baseSkuPrice = selectedSku ? getBasePrice(selectedSku) : productDisplayPrice;
   
   // 获取当前选中的材质（支持动态类目）
   const currentSelectedMaterials = (() => {
@@ -793,7 +917,9 @@ const ProductDetailPage = () => {
     return result;
   })();
   
-  const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : product.basePrice;
+  const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : productDisplayPrice;
+
+  const displayPrice = isComboProduct ? comboTotalPrice : finalSkuPrice;
 
   const isFavorited = product ? favorites.some(f => {
     if (!f || !f.product) return false;
@@ -916,9 +1042,9 @@ const ProductDetailPage = () => {
           <span className="text-gray-900 font-medium">{product.name}</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[640px_minmax(0,1fr)] gap-12 items-start">
           {/* Image Gallery */}
-          <div className="lg:sticky lg:top-8 lg:self-start">
+          <div className="lg:sticky lg:top-8 lg:self-start min-w-0">
             <div className="relative w-full bg-white rounded-3xl shadow-lg overflow-hidden">
               <div className="relative w-full aspect-[4/3]">
                 {/* 根据是否有材质预览图片决定布局 */}
@@ -992,28 +1118,81 @@ const ProductDetailPage = () => {
                 </span>
               )}
             </div>
-            <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-              {galleryImages.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setMainImage(img)}
-                  className={cn(
-                    'w-24 flex-shrink-0 border rounded-xl overflow-hidden transition-all',
-                    mainImage === img ? 'border-primary-600 ring-2 ring-primary-100' : 'border-gray-200'
-                  )}
-                >
-                  {isVideoFile(img) ? (
-                    <div className="w-full h-20 flex items-center justify-center bg-black text-white text-xs">视频</div>
-                  ) : (
-                    <img src={getThumbnailUrl(img, 100)} alt={`thumbnail ${idx + 1}`} className="w-full h-20 object-cover" loading="lazy" />
-                  )}
-                </button>
-              ))}
-            </div>
+            {galleryImages.length > 0 && (
+              <div className="mt-4">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setThumbPage(prev => Math.max(0, prev - 1))}
+                    disabled={thumbTotalPages <= 1 || thumbPage === 0}
+                    className={cn(
+                      'h-9 w-9 rounded-full border flex items-center justify-center transition-colors',
+                      thumbTotalPages <= 1 || thumbPage === 0
+                        ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    )}
+                    aria-label="上一页缩略图"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-3">
+                      {pagedThumbnails.map((img, idx) => {
+                        const absoluteIndex = thumbPage * Math.max(1, thumbsPerPage) + idx;
+                        return (
+                          <button
+                            key={`${img}-${absoluteIndex}`}
+                            type="button"
+                            onClick={() => setMainImage(img)}
+                            className={cn(
+                              'w-20 flex-shrink-0 border rounded-xl overflow-hidden transition-all',
+                              mainImage === img ? 'border-primary-600 ring-2 ring-primary-100' : 'border-gray-200'
+                            )}
+                          >
+                            {isVideoFile(img) ? (
+                              <div className="w-full h-16 flex items-center justify-center bg-black text-white text-xs">视频</div>
+                            ) : (
+                              <img
+                                src={getThumbnailUrl(img, 100)}
+                                alt={`thumbnail ${absoluteIndex + 1}`}
+                                className="w-full h-16 object-cover"
+                                loading="lazy"
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setThumbPage(prev => Math.min(thumbTotalPages - 1, prev + 1))}
+                    disabled={thumbTotalPages <= 1 || thumbPage >= thumbTotalPages - 1}
+                    className={cn(
+                      'h-9 w-9 rounded-full border flex items-center justify-center transition-colors',
+                      thumbTotalPages <= 1 || thumbPage >= thumbTotalPages - 1
+                        ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    )}
+                    aria-label="下一页缩略图"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {thumbTotalPages > 1 && (
+                  <div className="mt-2 text-center text-xs text-gray-400">
+                    {thumbPage + 1}/{thumbTotalPages}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
                 <p className="text-sm text-gray-400">产品系列</p>
@@ -1066,9 +1245,9 @@ const ProductDetailPage = () => {
               <p className="text-sm font-semibold text-gray-900 mb-2 truncate">{product.name}</p>
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-gray-500 text-sm">当前价格</span>
-                <span className="text-2xl font-bold text-red-600">{formatPrice(finalSkuPrice)}</span>
+                <span className="text-2xl font-bold text-red-600">{formatPrice(displayPrice)}</span>
                 {/* 只有当有折扣价且大于0，且原价大于折扣价时才显示划线价 */}
-                {!selectedSku?.isPro && discountPrice && discountPrice > 0 && currentPrice && currentPrice > discountPrice && (
+                {!isComboProduct && !selectedSku?.isPro && discountPrice && discountPrice > 0 && currentPrice && currentPrice > discountPrice && (
                   <>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">限时优惠</span>
                     <span className="text-xs text-gray-400 line-through">{formatPrice(currentPrice)}</span>
@@ -1139,7 +1318,9 @@ const ProductDetailPage = () => {
                         </div>
                       )}
                       {filteredSkus.map(sku => {
-                        const isSelected = selectedSku?._id === sku._id;
+                        const isSelected = isComboProduct
+                          ? selectedSkuIds.includes(String(sku._id))
+                          : selectedSku?._id === sku._id;
                         const skuFinalPrice = getFinalPrice(sku);
                         const specDetail = specificationList.find(spec => spec.name === sku.spec)?.value || `${sku.length}x${sku.width}x${sku.height}cm`;
                         return (
@@ -1147,7 +1328,11 @@ const ProductDetailPage = () => {
                             key={sku._id}
                             onClick={() => {
                               syncFilterWithSku(sku);
-                              handleSkuChange(sku);
+                              if (isComboProduct) {
+                                handleToggleSku(sku);
+                              } else {
+                                handleSkuChange(sku);
+                              }
                             }}
                             className={cn(
                               'w-full px-5 py-3 rounded-xl border text-left bg-white transition-shadow hover:shadow-md flex flex-col gap-1',
@@ -1177,7 +1362,7 @@ const ProductDetailPage = () => {
               </div>
 
               {/* Material Selection */}
-              {selectedSku && (
+              {selectedSku && !isComboProduct && (
                 <div className="border border-gray-200 rounded-2xl bg-white mt-4">
                   <button
                     type="button"
@@ -1674,7 +1859,7 @@ const ProductDetailPage = () => {
               </button>
             </div>
             <div className="p-4 overflow-auto grid grid-cols-2 md:grid-cols-3 gap-4">
-              {galleryImages.map((img, idx) => {
+              {defaultGalleryImages.map((img, idx) => {
                 const checked = selectedDownloadImages.includes(img);
                 return (
                   <button

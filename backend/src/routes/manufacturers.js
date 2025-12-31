@@ -1,7 +1,11 @@
 const express = require('express')
+const mongoose = require('mongoose')
 const router = express.Router()
 const { auth } = require('../middleware/auth')
 const { list, listAll, get, create, update, remove } = require('../controllers/manufacturerController')
+const manufacturerAccountController = require('../controllers/manufacturerAccountController')
+const Product = require('../models/Product')
+const Category = require('../models/Category')
 
 // 需要认证
 router.use(auth)
@@ -31,6 +35,91 @@ router.get('/me', async (req, res) => {
     res.json({ success: true, data: manufacturer })
   } catch (error) {
     console.error('获取厂家信息失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+router.get('/:manufacturerId/product-categories', async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+
+    const mid = new mongoose.Types.ObjectId(manufacturerId)
+    const products = await Product.find({
+      status: 'active',
+      $or: [{ manufacturerId: mid }, { 'skus.manufacturerId': mid }]
+    }).select('category').lean()
+
+    const countByCategoryId = new Map()
+    for (const p of products) {
+      const c = p?.category
+      let categoryId = null
+      if (typeof c === 'string') {
+        categoryId = c
+      } else if (c && typeof c === 'object') {
+        categoryId = c._id || c.id || c.slug
+      }
+      if (!categoryId) continue
+      const key = String(categoryId)
+      countByCategoryId.set(key, (countByCategoryId.get(key) || 0) + 1)
+    }
+
+    const categoryIds = Array.from(countByCategoryId.keys())
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id))
+
+    const categories = categoryIds.length > 0
+      ? await Category.find({ _id: { $in: categoryIds } }).select('_id name parentId').lean()
+      : []
+
+    const categoryById = new Map(categories.map(c => [String(c._id), c]))
+    const data = Array.from(countByCategoryId.entries())
+      .map(([id, count]) => {
+        const cat = categoryById.get(id)
+        return {
+          id,
+          name: cat?.name || id,
+          parentId: cat?.parentId ? String(cat.parentId) : null,
+          count
+        }
+      })
+      .sort((a, b) => b.count - a.count)
+
+    res.json({ success: true, data })
+  } catch (error) {
+    console.error('获取厂家商品分类失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+router.get('/:manufacturerId/products', async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+
+    const { status = 'active', limit = 2000 } = req.query
+
+    const mid = new mongoose.Types.ObjectId(manufacturerId)
+    const query = {
+      $or: [{ manufacturerId: mid }, { 'skus.manufacturerId': mid }]
+    }
+    if (status && status !== 'all') {
+      query.status = status
+    }
+
+    const products = await Product.find(query)
+      .select('_id name productCode category thumbnail images status basePrice skus')
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(limit) || 2000, 5000))
+      .lean()
+
+    res.json({ success: true, data: products })
+  } catch (error) {
+    console.error('获取厂家商品失败:', error)
     res.status(500).json({ success: false, message: '服务器错误' })
   }
 })
@@ -82,5 +171,35 @@ router.post('/:id/set-password', async (req, res) => {
     res.status(500).json({ success: false, message: '服务器错误' })
   }
 })
+
+// ========== 厂家账号管理 ==========
+
+// GET /api/manufacturers/:manufacturerId/accounts - 获取厂家的所有账号
+router.get('/:manufacturerId/accounts', manufacturerAccountController.getAccounts)
+
+// POST /api/manufacturers/:manufacturerId/accounts - 创建厂家账号
+router.post('/:manufacturerId/accounts', manufacturerAccountController.createAccount)
+
+// PUT /api/manufacturers/:manufacturerId/accounts/:accountId - 更新厂家账号
+router.put('/:manufacturerId/accounts/:accountId', manufacturerAccountController.updateAccount)
+
+// DELETE /api/manufacturers/:manufacturerId/accounts/:accountId - 删除厂家账号
+router.delete('/:manufacturerId/accounts/:accountId', manufacturerAccountController.deleteAccount)
+
+// POST /api/manufacturers/:manufacturerId/accounts/:accountId/reset-password - 重置账号密码
+router.post('/:manufacturerId/accounts/:accountId/reset-password', manufacturerAccountController.resetPassword)
+
+// ========== 厂家设置管理 ==========
+
+// PUT /api/manufacturers/:manufacturerId/settings - 更新厂家设置（LOGO、电话、收款信息）
+router.put('/:manufacturerId/settings', manufacturerAccountController.updateSettings)
+
+// ========== 企业认证 ==========
+
+// POST /api/manufacturers/:manufacturerId/certification - 提交企业认证
+router.post('/:manufacturerId/certification', manufacturerAccountController.submitCertification)
+
+// PUT /api/manufacturers/:manufacturerId/certification/review - 审核企业认证（管理员）
+router.put('/:manufacturerId/certification/review', manufacturerAccountController.reviewCertification)
 
 module.exports = router

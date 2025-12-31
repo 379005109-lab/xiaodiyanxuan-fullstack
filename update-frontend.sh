@@ -15,7 +15,7 @@ echo ""
 
 # 1. 构建前端
 echo -e "${YELLOW}[1/4] 构建前端代码...${NC}"
-cd /home/devbox/project/frontend
+cd /home/devbox/project/1114/client/frontend
 npm run build
 
 # 2. 打包dist目录

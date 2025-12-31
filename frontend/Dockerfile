@@ -1,4 +1,4 @@
-# 构建阶段 - Updated 2024-11-25
+# 构建阶段 - Updated 2024-12-13 - Force rebuild for test environment
 FROM node:18-alpine AS builder
 
 WORKDIR /app

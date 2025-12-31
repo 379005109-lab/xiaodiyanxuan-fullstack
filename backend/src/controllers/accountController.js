@@ -3,8 +3,40 @@ const crypto = require('crypto')
 const mongoose = require('mongoose')
 const User = require('../models/User')
 const Organization = require('../models/Organization')
+const Manufacturer = require('../models/Manufacturer')
 const { successResponse, errorResponse } = require('../utils/response')
 const { USER_ROLES, ORGANIZATION_TYPES } = require('../config/constants')
+
+const normalizeManufacturerFields = (payload) => {
+  if (!payload || typeof payload !== 'object') return
+
+  const hasManufacturerIds = Object.prototype.hasOwnProperty.call(payload, 'manufacturerIds')
+  const hasManufacturerId = Object.prototype.hasOwnProperty.call(payload, 'manufacturerId')
+
+  if (hasManufacturerIds) {
+    const ids = Array.isArray(payload.manufacturerIds)
+      ? payload.manufacturerIds.filter(Boolean)
+      : []
+    payload.manufacturerIds = ids
+
+    if (hasManufacturerId) {
+      if (payload.manufacturerId === '' || payload.manufacturerId === undefined) {
+        payload.manufacturerId = null
+      }
+    }
+    return
+  }
+
+  if (hasManufacturerId) {
+    if (payload.manufacturerId === '' || payload.manufacturerId === undefined) {
+      payload.manufacturerId = null
+      payload.manufacturerIds = []
+      return
+    }
+
+    payload.manufacturerIds = payload.manufacturerId ? [payload.manufacturerId] : []
+  }
+}
 
 // ==================== 组织管理 ====================
 
@@ -148,7 +180,7 @@ const setOrganizationDiscount = async (req, res) => {
  */
 const getUsers = async (req, res) => {
   try {
-    const { role, organizationId, status, keyword, page = 1, limit = 20 } = req.query
+    const { role, organizationId, manufacturerId, status, keyword, page = 1, limit = 20 } = req.query
     const currentUser = req.user
     
     const filter = {}
@@ -162,6 +194,13 @@ const getUsers = async (req, res) => {
       }
     } else {
       if (organizationId) filter.organizationId = organizationId
+      if (manufacturerId !== undefined) {
+        if (manufacturerId === '' || manufacturerId === null) {
+          filter.manufacturerId = null
+        } else {
+          filter.manufacturerId = manufacturerId
+        }
+      }
     }
     
     if (role) filter.role = role
@@ -179,6 +218,8 @@ const getUsers = async (req, res) => {
     const users = await User.find(filter)
       .select('-password')
       .populate('organizationId', 'name type code')
+      .populate('manufacturerId', 'name')
+      .populate('manufacturerIds', 'name fullName')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))
@@ -216,19 +257,38 @@ const createUser = async (req, res) => {
       return res.status(403).json(errorResponse('无权限创建该角色的用户'))
     }
     
-    // 组织归属检查
+    // 组织归属（可选）
     let targetOrgId = organizationId
-    if ([USER_ROLES.PLATFORM_STAFF, USER_ROLES.ENTERPRISE_ADMIN, USER_ROLES.ENTERPRISE_STAFF].includes(role)) {
-      if (!targetOrgId && currentUser.organizationId) {
-        targetOrgId = currentUser.organizationId
-      }
-      if (!targetOrgId) {
-        return res.status(400).json(errorResponse('平台/企业账号需要指定组织'))
-      }
+    if (!targetOrgId && currentUser.organizationId) {
+      targetOrgId = currentUser.organizationId
     }
     
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 10)
+
+    const manufacturerPayload = {
+      manufacturerId: req.body?.manufacturerId,
+      manufacturerIds: req.body?.manufacturerIds
+    }
+    normalizeManufacturerFields(manufacturerPayload)
+
+    const isDesigner = role === USER_ROLES.DESIGNER || role === 'designer'
+    const isManufacturerStaffRole =
+      role === USER_ROLES.ENTERPRISE_ADMIN ||
+      role === USER_ROLES.ENTERPRISE_STAFF ||
+      role === 'enterprise_admin' ||
+      role === 'enterprise_staff'
+    if (isDesigner) {
+      manufacturerPayload.manufacturerId = null
+    } else if (
+      isManufacturerStaffRole &&
+      !Object.prototype.hasOwnProperty.call(req.body || {}, 'manufacturerId')
+    ) {
+      const ids = Array.isArray(manufacturerPayload.manufacturerIds)
+        ? manufacturerPayload.manufacturerIds.filter(Boolean)
+        : []
+      manufacturerPayload.manufacturerId = ids.length > 0 ? ids[0] : null
+    }
     
     const user = new User({
       username,
@@ -238,6 +298,8 @@ const createUser = async (req, res) => {
       email,
       role,
       organizationId: targetOrgId,
+      manufacturerId: manufacturerPayload.manufacturerId,
+      manufacturerIds: manufacturerPayload.manufacturerIds,
       createdBy: currentUser._id,
     })
     
@@ -250,6 +312,18 @@ const createUser = async (req, res) => {
     
     const result = user.toObject()
     delete result.password
+
+    if (result.manufacturerId) {
+      const m = await Manufacturer.findById(result.manufacturerId).select('name fullName').lean()
+      result.manufacturerId = m || result.manufacturerId
+    }
+
+    if (Array.isArray(result.manufacturerIds) && result.manufacturerIds.length > 0) {
+      const ms = await Manufacturer.find({ _id: { $in: result.manufacturerIds } })
+        .select('name fullName')
+        .lean()
+      result.manufacturerIds = ms
+    }
     
     res.json(successResponse(result, '用户创建成功'))
   } catch (err) {
@@ -303,6 +377,29 @@ const updateUser = async (req, res) => {
     if (updates.organizationId === '' || updates.organizationId === undefined) {
       updates.organizationId = null
     }
+
+    normalizeManufacturerFields(updates)
+
+    const targetRole = updates.role || user.role
+    const targetIsDesigner = targetRole === USER_ROLES.DESIGNER || targetRole === 'designer'
+    const targetIsManufacturerStaffRole =
+      targetRole === USER_ROLES.ENTERPRISE_ADMIN ||
+      targetRole === USER_ROLES.ENTERPRISE_STAFF ||
+      targetRole === 'enterprise_admin' ||
+      targetRole === 'enterprise_staff'
+
+    if (targetIsDesigner) {
+      if (!Object.prototype.hasOwnProperty.call(updates, 'manufacturerId')) {
+        updates.manufacturerId = null
+      }
+    } else if (
+      Object.prototype.hasOwnProperty.call(updates, 'manufacturerIds') &&
+      !Object.prototype.hasOwnProperty.call(updates, 'manufacturerId') &&
+      (user.manufacturerId || targetIsManufacturerStaffRole)
+    ) {
+      const ids = Array.isArray(updates.manufacturerIds) ? updates.manufacturerIds.filter(Boolean) : []
+      updates.manufacturerId = ids.length > 0 ? ids[0] : null
+    }
     
     // 管理员可以修改任何角色，无需额外检查
     // 使用 findByIdAndUpdate 避免全字段验证问题
@@ -310,7 +407,11 @@ const updateUser = async (req, res) => {
       id,
       { $set: updates },
       { new: true, runValidators: false }  // 关闭验证器避免旧数据问题
-    ).select('-password')
+    )
+      .select('-password')
+      .populate('organizationId', 'name type code')
+      .populate('manufacturerId', 'name')
+      .populate('manufacturerIds', 'name fullName')
     
     if (!updatedUser) {
       return res.status(404).json(errorResponse('更新失败，用户不存在'))

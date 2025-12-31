@@ -1,172 +1,282 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Share2, Users, Clipboard, X as XIcon } from 'lucide-react';
-
-const mockBargainDetail = {
-  id: 1,
-  name: '质感沙发 · 莫兰迪灰',
-  originalPrice: 3999,
-  bargainPrice: 2199,
-  currentPrice: 2899,
-  helpers: [
-    { id: 1, name: '好友A', avatar: '/placeholder.svg', amount: 150 },
-    { id: 2, name: '设计师B', avatar: '/placeholder.svg', amount: 200 },
-    { id: 3, name: '好友C', avatar: '/placeholder.svg', amount: 100 },
-  ],
-  imageUrl: '/placeholder.svg',
-};
-
-interface BargainRule {
-  totalBargainPercent: number;
-  firstCutPercent: string;
-  nextFourCutsPercent: string;
-  remainingCutsPercent: string;
-  designerBonus: number;
-}
-
-// Helper to get a random number from a range string like '10-20'
-const getRandomFromRange = (range: string) => {
-  const [min, max] = range.split('-').map(Number);
-  return Math.random() * (max - min) + min;
-};
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { Share2, Users, Clipboard, X as XIcon, Loader2, Scissors, CheckCircle, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuthStore } from '@/store/authStore';
+import { useAuthModalStore } from '@/store/authModalStore';
+import { getFileUrl } from '@/services/uploadService';
 
 interface Helper {
-  id: number;
-  name: string;
-  avatar: string;
-  amount: number;
+  userId: string;
+  userName?: string;
+  userAvatar?: string;
+  helpedAt: string;
+  priceReduction: number;
 }
 
-interface BargainDetail {
-  id: number;
-  name: string;
+interface BargainData {
+  _id: string;
+  productId: string;
+  productName: string;
+  thumbnail: string;
   originalPrice: number;
-  bargainPrice: number;
+  targetPrice: number;
   currentPrice: number;
+  userId: string;
   helpers: Helper[];
-  imageUrl: string;
+  helpCount: number;
+  status: 'active' | 'completed' | 'expired' | 'cancelled';
+  expiresAt: string;
+  product?: {
+    coverImage?: string;
+    minCutAmount?: number;
+    maxCutAmount?: number;
+  };
 }
 
 const BargainDetailPage: React.FC = () => {
   const { id } = useParams();
-  const [detail, setDetail] = useState<BargainDetail>(mockBargainDetail);
-  const [showEgg, setShowEgg] = useState(false);
-  const [showServiceCoupon, setShowServiceCoupon] = useState(false);
+  const { isAuthenticated, token } = useAuthStore();
+  const { openLogin } = useAuthModalStore();
+  const [bargain, setBargain] = useState<BargainData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [helping, setHelping] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [lastCutAmount, setLastCutAmount] = useState<number | null>(null);
 
-  const handleBargain = () => {
-    const rules: BargainRule | null = JSON.parse(localStorage.getItem(`bargain_rules_${id}`) || 'null');
-    if (!rules) {
-      alert('该商品未配置砍价规则！');
+  useEffect(() => {
+    if (id) {
+      loadBargainDetail();
+    }
+  }, [id]);
+
+  const loadBargainDetail = async () => {
+    try {
+      const response = await fetch(`/api/bargains/${id}`);
+      const data = await response.json();
+      if (data.success) {
+        setBargain(data.data);
+      } else {
+        toast.error(data.message || '加载失败');
+      }
+    } catch (error) {
+      console.error('加载砍价详情失败:', error);
+      toast.error('加载失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 帮好友砍一刀
+  const handleHelp = async () => {
+    if (!isAuthenticated) {
+      openLogin();
       return;
     }
 
-    const totalBargainAmount = detail.originalPrice * (rules.totalBargainPercent / 100);
-    const helperCount = detail.helpers.length;
-    let bargainPercent = 0;
-
-    if (helperCount === 0) { // First cut by the initiator
-      bargainPercent = getRandomFromRange(rules.firstCutPercent);
-    } else if (helperCount >= 1 && helperCount <= 4) { // Next 4 helpers
-      // This is a simplified approach. A real implementation would need to ensure the sum matches the rule.
-      bargainPercent = getRandomFromRange(rules.nextFourCutsPercent) / 4;
-    } else { // Subsequent helpers
-      bargainPercent = getRandomFromRange(rules.remainingCutsPercent);
+    if (!bargain || bargain.status !== 'active') {
+      toast.error('该砍价活动已结束');
+      return;
     }
 
-    let amount = totalBargainAmount * (bargainPercent / 100);
-
-    // Simulate checking if the helper is a designer
-    let isDesigner = false;
-    const isNewDesigner = Math.random() < 0.15; // 15% chance to be a new designer
-
-    if (isNewDesigner) {
-      isDesigner = true;
-      amount += rules.designerBonus + 200; // Extra bonus for new designer
-      setShowEgg(true);
-      setTimeout(() => setShowEgg(false), 4000); // Hide egg message after 4s
-    } else {
-      isDesigner = Math.random() < 0.3;
-      if (isDesigner) {
-        amount += rules.designerBonus;
+    setHelping(true);
+    try {
+      const response = await fetch(`/api/bargains/${id}/help`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        const cutAmount = bargain.currentPrice - data.data.currentPrice;
+        setLastCutAmount(cutAmount);
+        setBargain(data.data);
+        toast.success(`砍掉 ¥${cutAmount.toFixed(0)}！`);
+        
+        // 3秒后隐藏砍价金额提示
+        setTimeout(() => setLastCutAmount(null), 3000);
+      } else {
+        toast.error(data.message || '帮砍失败');
       }
+    } catch (error) {
+      console.error('帮砍失败:', error);
+      toast.error('帮砍失败');
+    } finally {
+      setHelping(false);
     }
-
-    const helperName = isDesigner ? '设计师好友' : '新好友';
-
-    const newHelpers = [...detail.helpers, { id: Date.now(), name: helperName, avatar: '/placeholder.svg', amount: Math.round(amount) }];
-
-    if (newHelpers.length >= 5) {
-      setShowServiceCoupon(true);
-    }
-
-    setDetail(prev => ({
-      ...prev,
-      currentPrice: Math.max(prev.bargainPrice, prev.currentPrice - amount),
-      helpers: newHelpers,
-    }));
   };
 
-  const progress = ((detail.originalPrice - detail.currentPrice) / (detail.originalPrice - detail.bargainPrice)) * 100;
+  const getImageUrl = (img: string | undefined) => {
+    if (!img) return '/placeholder.svg';
+    if (img.startsWith('http') || img.startsWith('data:')) return img;
+    return getFileUrl(img);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+      </div>
+    );
+  }
+
+  if (!bargain) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8 text-center">
+        <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+        <p className="text-gray-500">砍价活动不存在或已失效</p>
+        <Link to="/bargain" className="mt-4 inline-block text-primary-600 hover:text-primary-700">
+          返回砍价列表 →
+        </Link>
+      </div>
+    );
+  }
+
+  const progress = bargain.originalPrice > bargain.targetPrice 
+    ? ((bargain.originalPrice - bargain.currentPrice) / (bargain.originalPrice - bargain.targetPrice)) * 100
+    : 0;
+  const isCompleted = bargain.status === 'completed';
+  const isExpired = bargain.status === 'expired' || new Date(bargain.expiresAt) < new Date();
 
   return (
-    <div className="bg-gray-100 min-h-screen p-4">
-      {showShareModal && <ShareModal onClose={() => setShowShareModal(false)} />}
-      <div className="bg-white rounded-lg shadow-md">
-        {showEgg && (
-          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
-            <p className="font-bold">助力彩蛋！</p>
-            <p>新设计师好友助力，额外砍掉200元！该设计师已获专属佣金券。</p>
-          </div>
-        )}
-        <div className="p-4 border-b">
-          <img src={detail.imageUrl} alt={detail.name} className="w-full h-64 object-cover rounded-lg" />
-          <h2 className="text-xl font-bold mt-4">{detail.name}</h2>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-sm text-gray-500 line-through">原价: ¥{detail.originalPrice}</span>
-          </div>
+    <div className="bg-gray-50 min-h-screen">
+      {showShareModal && <ShareModal bargain={bargain} onClose={() => setShowShareModal(false)} />}
+      
+      {/* 砍价成功/失效提示 */}
+      {lastCutAmount && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-50 animate-bounce">
+          <span className="font-bold">🎉 砍掉 ¥{lastCutAmount.toFixed(0)}！</span>
         </div>
-
-        {/* Progress */}
-        <div className="p-4 text-center">
-          <h3 className="text-lg font-semibold">当前价: <span className="text-red-500">¥{detail.currentPrice}</span></h3>
-          <div className="w-full bg-gray-200 rounded-full h-4 mt-2">
-            <div className="bg-orange-500 h-4 rounded-full text-white text-xs flex items-center justify-center" style={{ width: `${Math.min(progress, 100)}%` }}>
-              已砍{Math.min(progress, 100).toFixed(0)}%
+      )}
+      
+      <div className="max-w-lg mx-auto">
+        {/* 商品图片 */}
+        <div className="relative">
+          <img 
+            src={getImageUrl(bargain.thumbnail || bargain.product?.coverImage)} 
+            alt={bargain.productName} 
+            className="w-full h-64 object-cover"
+          />
+          {isCompleted && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="text-center text-white">
+                <CheckCircle className="w-16 h-16 mx-auto mb-2" />
+                <p className="text-xl font-bold">砍价成功！</p>
+              </div>
+            </div>
+          )}
+          {isExpired && !isCompleted && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="text-center text-white">
+                <AlertCircle className="w-16 h-16 mx-auto mb-2" />
+                <p className="text-xl font-bold">活动已结束</p>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="bg-white rounded-t-3xl -mt-6 relative z-10 shadow-lg">
+          {/* 商品信息 */}
+          <div className="p-6 border-b border-gray-100">
+            <h1 className="text-xl font-bold text-gray-900">{bargain.productName}</h1>
+            <div className="flex items-baseline gap-3 mt-2">
+              <span className="text-2xl font-bold text-red-600">¥{bargain.currentPrice.toFixed(0)}</span>
+              <span className="text-sm text-gray-400 line-through">原价 ¥{bargain.originalPrice}</span>
+              {isCompleted && (
+                <span className="px-2 py-0.5 bg-green-100 text-green-600 text-xs rounded-full">已达到目标价</span>
+              )}
             </div>
           </div>
-          <p className="text-sm text-gray-600 mt-2">已砍 <span className="font-bold text-green-500">¥{detail.originalPrice - detail.currentPrice}</span>，继续邀请好友砍价！</p>
-        </div>
 
-        {/* Share Button */}
-                <div className="p-4 flex gap-4">
-          <button onClick={() => setShowShareModal(true)} className="btn btn-primary flex-1 flex items-center justify-center gap-2">
-            <Share2 size={20} />
-            分享给好友
-          </button>
-          <button onClick={handleBargain} className="btn btn-secondary flex-1">帮好友砍一刀</button>
-        </div>
-
-        {showServiceCoupon && (
-          <div className="p-4 bg-blue-50 border-t border-b border-blue-200 text-center">
-            <h4 className="font-bold text-blue-600">恭喜！</h4>
-            <p className="text-sm text-blue-500">已获得「服务升级券」：下单即享免费上门测量与设计方案服务。</p>
+          {/* 砍价进度 */}
+          <div className="p-6">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="text-gray-600">砍价进度</span>
+              <span className="text-orange-600 font-medium">
+                已砍 ¥{(bargain.originalPrice - bargain.currentPrice).toFixed(0)}
+              </span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-orange-400 to-red-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
+              <span>¥{bargain.originalPrice}</span>
+              <span>目标价 ¥{bargain.targetPrice}</span>
+            </div>
           </div>
-        )}
 
-        {/* Helpers List */}
-        <div className="p-4 border-t">
-          <h4 className="font-semibold flex items-center gap-2"><Users size={20} /> 助力好友</h4>
-          <div className="mt-4 space-y-3">
-            {detail.helpers.map((helper: Helper) => (
-              <div key={helper.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img src={helper.avatar} alt={helper.name} className="w-10 h-10 rounded-full" />
-                  <span>{helper.name}</span>
-                </div>
-                <span className="font-semibold text-green-600">- ¥{helper.amount}</span>
+          {/* 操作按钮 */}
+          {!isCompleted && !isExpired && (
+            <div className="p-6 pt-0 flex gap-3">
+              <button 
+                onClick={() => setShowShareModal(true)} 
+                className="flex-1 py-3 border-2 border-orange-500 text-orange-500 rounded-full font-medium flex items-center justify-center gap-2 hover:bg-orange-50 transition-colors"
+              >
+                <Share2 size={18} />
+                分享给好友
+              </button>
+              <button 
+                onClick={handleHelp}
+                disabled={helping}
+                className="flex-1 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-full font-medium flex items-center justify-center gap-2 hover:from-red-600 hover:to-orange-600 transition-all disabled:opacity-50"
+              >
+                {helping ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Scissors size={18} />
+                    帮TA砍一刀
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* 助力好友列表 */}
+          <div className="p-6 border-t border-gray-100">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-4">
+              <Users size={18} />
+              助力好友 ({bargain.helpers?.length || 0}人)
+            </h3>
+            
+            {(!bargain.helpers || bargain.helpers.length === 0) ? (
+              <div className="text-center py-6 text-gray-400">
+                <p>还没有好友帮忙砍价</p>
+                <p className="text-sm mt-1">快分享给好友吧！</p>
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3">
+                {bargain.helpers.map((helper, index) => (
+                  <div key={index} className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-3">
+                      <img 
+                        src={helper.userAvatar || '/placeholder.svg'} 
+                        alt={helper.userName || '用户'} 
+                        className="w-10 h-10 rounded-full bg-gray-100"
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900">{helper.userName || '好友'}</p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(helper.helpedAt).toLocaleString('zh-CN', { 
+                            month: 'numeric', 
+                            day: 'numeric', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-green-600">-¥{helper.priceReduction}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -174,29 +284,49 @@ const BargainDetailPage: React.FC = () => {
   );
 };
 
-const ShareModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+const ShareModal: React.FC<{ bargain: BargainData; onClose: () => void }> = ({ bargain, onClose }) => {
+  const shareUrl = `${window.location.origin}/bargain/${bargain._id}`;
+  
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('已复制到剪贴板！');
+    toast.success('已复制到剪贴板！');
   };
 
+  const designerText = `这款${bargain.productName}我客户很喜欢，我正在砍价，设计师朋友帮忙点一下，你们的一刀比别人管用！\n${shareUrl}`;
+  const ownerText = `家里装修，看中了这款¥${bargain.originalPrice}的${bargain.productName}，砍到¥${bargain.targetPrice}就下单！大家帮帮忙！\n${shareUrl}`;
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
         <div className="p-4 border-b flex justify-between items-center">
-          <h3 className="font-bold text-lg">分享话术模板</h3>
-          <button onClick={onClose}><XIcon size={24} /></button>
+          <h3 className="font-bold text-lg">分享给好友</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
+            <XIcon size={20} />
+          </button>
         </div>
         <div className="p-4 space-y-4">
-          <div>
-            <h4 className="font-semibold">设计师分享：</h4>
-            <p className="text-sm text-gray-600 bg-gray-100 p-2 rounded mt-1">这款沙发我客户很喜欢，我正在砍价，设计师朋友帮忙点一下，你们的一刀比别人管用！</p>
-            <button onClick={() => copyToClipboard('这款沙发我客户很喜欢...')} className="btn btn-xs btn-secondary mt-1 flex items-center gap-1"><Clipboard size={14} /> 复制</button>
+          <div className="bg-orange-50 rounded-lg p-3">
+            <h4 className="font-semibold text-orange-700 mb-2">📋 设计师分享话术</h4>
+            <p className="text-sm text-gray-600 bg-white p-3 rounded border">{designerText}</p>
+            <button 
+              onClick={() => copyToClipboard(designerText)} 
+              className="mt-2 w-full py-2 bg-orange-500 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-1 hover:bg-orange-600"
+            >
+              <Clipboard size={14} /> 复制话术
+            </button>
           </div>
-          <div>
-            <h4 className="font-semibold">业主分享：</h4>
-            <p className="text-sm text-gray-600 bg-gray-100 p-2 rounded mt-1">家里装修，看中了这张5000块的床，我一刀砍了350！前5刀最值钱，大家帮帮忙，砍到4000就下单，还送免费上门服务！</p>
-            <button onClick={() => copyToClipboard('家里装修...')} className="btn btn-xs btn-secondary mt-1 flex items-center gap-1"><Clipboard size={14} /> 复制</button>
+          <div className="bg-blue-50 rounded-lg p-3">
+            <h4 className="font-semibold text-blue-700 mb-2">🏠 业主分享话术</h4>
+            <p className="text-sm text-gray-600 bg-white p-3 rounded border">{ownerText}</p>
+            <button 
+              onClick={() => copyToClipboard(ownerText)} 
+              className="mt-2 w-full py-2 bg-blue-500 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-1 hover:bg-blue-600"
+            >
+              <Clipboard size={14} /> 复制话术
+            </button>
+          </div>
+          <div className="text-center pt-2">
+            <p className="text-xs text-gray-400">复制后发送给微信好友或朋友圈</p>
           </div>
         </div>
       </div>

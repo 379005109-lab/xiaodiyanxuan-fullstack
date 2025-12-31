@@ -27,7 +27,7 @@ const list = async (req, res) => {
       .limit(parseInt(pageSize))
       .lean()
     
-    res.json(paginatedResponse(items, parseInt(page), parseInt(pageSize), total))
+    res.json(paginatedResponse(items, total, page, pageSize))
   } catch (err) {
     console.error('List manufacturers error:', err)
     res.status(500).json(errorResponse(err.message, 500))
@@ -111,15 +111,16 @@ const create = async (req, res) => {
       fullName: manufacturerName,
       shortName,
       name: manufacturerName, // 兼容旧字段
+      code,
       contactName,
       contactPhone,
       contactEmail,
       address,
       description,
       productIntro,
-      styleTags,
       isPreferred: Boolean(isPreferred),
       expiryDate: expiryDate ? new Date(expiryDate) : undefined,
+      styleTags: Array.isArray(styleTags) ? styleTags : [],
       defaultDiscount: defaultDiscount !== undefined ? Number(defaultDiscount) : undefined,
       defaultCommission: defaultCommission !== undefined ? Number(defaultCommission) : undefined,
       logo,
@@ -139,6 +140,8 @@ const update = async (req, res) => {
     const { id } = req.params
     const {
       name,
+      fullName,
+      shortName,
       code,
       contactName,
       contactPhone,
@@ -146,14 +149,15 @@ const update = async (req, res) => {
       address,
       description,
       productIntro,
-      styleTags,
-      isPreferred,
-      expiryDate,
-      defaultDiscount,
-      defaultCommission,
       logo,
       status,
       accountQuota,
+      settings,
+      isPreferred,
+      expiryDate,
+      styleTags,
+      defaultDiscount,
+      defaultCommission,
     } = req.body
     
     const manufacturer = await Manufacturer.findById(id)
@@ -169,30 +173,47 @@ const update = async (req, res) => {
       }
     }
     
-    manufacturer.name = name || manufacturer.name
+    // 更新基本信息
+    if (fullName !== undefined) manufacturer.fullName = fullName
+    if (shortName !== undefined) manufacturer.shortName = shortName
+    if (name !== undefined) manufacturer.name = name
     if (code !== undefined) manufacturer.code = code
-    manufacturer.contactName = contactName
-    manufacturer.contactPhone = contactPhone
-    manufacturer.contactEmail = contactEmail
-    manufacturer.address = address
-    manufacturer.description = description
+    if (contactName !== undefined) manufacturer.contactName = contactName
+    if (contactPhone !== undefined) manufacturer.contactPhone = contactPhone
+    if (contactEmail !== undefined) manufacturer.contactEmail = contactEmail
+    if (address !== undefined) manufacturer.address = address
+    if (description !== undefined) manufacturer.description = description
     if (productIntro !== undefined) manufacturer.productIntro = productIntro
-    if (styleTags !== undefined) manufacturer.styleTags = Array.isArray(styleTags) ? styleTags : []
+    if (logo !== undefined) manufacturer.logo = logo
     if (isPreferred !== undefined) manufacturer.isPreferred = Boolean(isPreferred)
     if (expiryDate !== undefined) manufacturer.expiryDate = expiryDate ? new Date(expiryDate) : null
+    if (styleTags !== undefined) manufacturer.styleTags = Array.isArray(styleTags) ? styleTags : []
     if (defaultDiscount !== undefined) manufacturer.defaultDiscount = Number(defaultDiscount)
     if (defaultCommission !== undefined) manufacturer.defaultCommission = Number(defaultCommission)
-    manufacturer.logo = logo
-    manufacturer.status = status || manufacturer.status
-    if (accountQuota && typeof accountQuota === 'object') {
+    if (status !== undefined) manufacturer.status = status
+    
+    // 更新账号配额
+    if (accountQuota !== undefined) {
+      // 需要将 Mongoose 子文档转为普通对象再合并，否则 spread 不生效
+      const existingQuota = manufacturer.accountQuota ? manufacturer.accountQuota.toObject() : {}
       manufacturer.accountQuota = {
-        ...(manufacturer.accountQuota || {}),
+        ...existingQuota,
         ...accountQuota
+      }
+      console.log('📊 更新账号配额:', { existingQuota, newQuota: accountQuota, merged: manufacturer.accountQuota })
+    }
+    
+    // 更新设置
+    if (settings !== undefined) {
+      manufacturer.settings = {
+        ...manufacturer.settings,
+        ...settings
       }
     }
     
     await manufacturer.save()
     
+    console.log('✅ 厂家更新成功:', id, { accountQuota, settings })
     res.json(successResponse(manufacturer, '更新成功'))
   } catch (err) {
     console.error('Update manufacturer error:', err)

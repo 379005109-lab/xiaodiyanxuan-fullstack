@@ -71,6 +71,7 @@ app.use('/api/concierge', require('./routes/concierge'))
 
 // 账号管理路由
 app.use('/api/accounts', require('./routes/accounts'))
+app.use('/api/users', require('./routes/users-batch'))
 
 // 文件上传路由
 app.use('/api/files', require('./routes/files'))
@@ -85,6 +86,8 @@ app.use('/api/referrals', require('./routes/referral'))
 app.use('/api/manufacturer-orders', require('./routes/manufacturerOrder'))
 app.use('/api/image-search', require('./routes/imageSearch'))
 app.use('/api/authorizations', require('./routes/authorizations'))
+app.use('/api/commission-system', require('./routes/commissionSystem'))
+app.use('/api/tier-system', require('./routes/tierSystem'))
 
 // 微信小程序专用接口
 app.use('/api/miniapp', require('./routes/miniapp'))

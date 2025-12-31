@@ -83,6 +83,25 @@ const manufacturerSchema = new mongoose.Schema({
   logo: {
     type: String
   },
+  isPreferred: {
+    type: Boolean,
+    default: false
+  },
+  expiryDate: {
+    type: Date
+  },
+  styleTags: {
+    type: [String],
+    default: []
+  },
+  defaultDiscount: {
+    type: Number,
+    default: 0
+  },
+  defaultCommission: {
+    type: Number,
+    default: 0
+  },
   // 厂家设置信息
   settings: {
     // 公司电话
@@ -109,6 +128,17 @@ const manufacturerSchema = new mongoose.Schema({
       accountName: String,
       accountNumber: String
     },
+
+    paymentAccounts: [{
+      type: {
+        type: String,
+        enum: ['bank', 'wechat', 'alipay'],
+        default: 'bank'
+      },
+      bankName: String,
+      accountName: String,
+      accountNumber: String
+    }],
     // 公司地址
     companyAddress: {
       type: String,
@@ -119,6 +149,57 @@ const manufacturerSchema = new mongoose.Schema({
       type: String
     }
   },
+  // 企业认证信息
+  certification: {
+    // 认证状态: pending(待审核), approved(已认证), rejected(已拒绝), none(未提交)
+    status: {
+      type: String,
+      enum: ['none', 'pending', 'approved', 'rejected'],
+      default: 'none'
+    },
+    // 营业执照图片
+    businessLicenseImage: {
+      type: String
+    },
+    // 统一社会信用代码
+    creditCode: {
+      type: String,
+      trim: true
+    },
+    // 企业名称（营业执照上的）
+    companyName: {
+      type: String,
+      trim: true
+    },
+    // 法人代表
+    legalRepresentative: {
+      type: String,
+      trim: true
+    },
+    // 开票信息
+    invoiceInfo: {
+      // 开票名称
+      name: { type: String, trim: true },
+      // 税号
+      taxNumber: { type: String, trim: true },
+      // 开户银行
+      bankName: { type: String, trim: true },
+      // 银行账号
+      bankAccount: { type: String, trim: true },
+      // 企业地址
+      address: { type: String, trim: true },
+      // 企业电话
+      phone: { type: String, trim: true }
+    },
+    // 认证时间
+    certifiedAt: {
+      type: Date
+    },
+    // 审核备注
+    reviewNote: {
+      type: String
+    }
+  },
   status: {
     type: String,
     enum: ['active', 'inactive'],
@@ -126,6 +207,10 @@ const manufacturerSchema = new mongoose.Schema({
   },
   // 账号配额（由超级管理员配置）
   accountQuota: {
+    totalAccounts: {
+      type: Number,
+      default: 0
+    },
     // 授权账号配额
     authAccounts: {
       type: Number,
@@ -167,12 +252,12 @@ const manufacturerSchema = new mongoose.Schema({
   }
 })
 
-// 生成4位随机大写字母
-function generateRandomLetters(length = 4) {
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+// 生成4位随机数字
+function generateRandomDigits(length = 4) {
+  const digits = '0123456789'
   let result = ''
   for (let i = 0; i < length; i++) {
-    result += letters.charAt(Math.floor(Math.random() * letters.length))
+    result += digits.charAt(Math.floor(Math.random() * digits.length))
   }
   return result
 }
@@ -184,11 +269,11 @@ async function generateUniqueCode(shortName) {
     (today.getMonth() + 1).toString().padStart(2, '0') +
     today.getDate().toString().padStart(2, '0')
   
-  // 生成4位随机字母
-  const randomLetters = generateRandomLetters(4)
+  // 生成4位随机数字
+  const randomDigits = generateRandomDigits(4)
   
-  // 组合编号：简称 + 日期 + 4位随机字母（如：GS20251211ABCD）
-  const code = `${shortName.toUpperCase()}${dateStr}${randomLetters}`
+  // 组合编号：简称 + 日期 + 4位随机数字（如：GS20251211XXXX）
+  const code = `${shortName.toUpperCase()}${dateStr}${randomDigits}`
   
   // 检查是否已存在
   const existing = await mongoose.model('Manufacturer').findOne({ code })
@@ -203,8 +288,8 @@ async function generateUniqueCode(shortName) {
 manufacturerSchema.pre('save', async function(next) {
   this.updatedAt = new Date()
   
-  // 自动生成编号（仅新建时）
-  if (this.isNew && !this.code && this.shortName) {
+  // 自动生成编号（缺失时自动补齐，兼容旧数据）
+  if (!this.code && this.shortName) {
     this.code = await generateUniqueCode(this.shortName)
   }
   

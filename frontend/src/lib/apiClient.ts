@@ -1,3 +1,4 @@
+// Build timestamp: 2024-12-13T10:25:00Z - Force rebuild to include test API detection
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
@@ -39,16 +40,16 @@ const getApiUrl = () => {
       return 'http://localhost:8080';
     }
     
-    // 如果是测试环境（test-cxxiwxce），使用测试后端API地址
+    // 如果是测试环境（test-cxxiwxce），使用相对路径（通过nginx代理到测试后端）
     if (hostname.includes('test-cxxiwxce')) {
-      const apiUrl = 'https://api-test-cxxiwxce.sealoshzh.site/api';
-      console.log(`✅ 测试环境，使用后端API: ${apiUrl}`);
+      const apiUrl = '/api';
+      console.log(`✅ 测试环境，使用相对路径API: ${apiUrl}`);
       return apiUrl;
     }
 
     // 如果是正式域名，使用阿里云CDN加速后的API域名
     if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
-      const apiUrl = 'https://api.xiaodiyanxuan.com/api';
+      const apiUrl = '/api';
       console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
       return apiUrl;
     }

@@ -264,7 +264,7 @@ export default function CategoryManagement() {
       _id: '', // 清空ID表示新建
       name: '',
       parentId: parentCategory._id,
-      level: 2, // 子分类为2级
+      level: (parentCategory.level || 1) + 1,
     } as any)
     setShowCategoryModal(true)
   }
@@ -356,6 +356,16 @@ export default function CategoryManagement() {
             {/* 层级 */}
             <div className="w-20 text-center text-sm text-gray-600">
               {category.level}
+            </div>
+
+            {/* 厂家 */}
+            <div className="w-40 text-sm text-gray-600 truncate">
+              {(() => {
+                const mid: any = (category as any).manufacturerId
+                if (!mid) return '平台'
+                if (typeof mid === 'string') return mid
+                return mid?.name || mid?._id || '平台'
+              })()}
             </div>
 
             {/* 商品数量 */}
@@ -597,6 +607,7 @@ export default function CategoryManagement() {
             <div className="w-8"></div>
             <div className="flex-1 text-sm font-medium text-gray-700">分类</div>
             <div className="w-20 text-center text-sm font-medium text-gray-700">层级</div>
+            <div className="w-40 text-sm font-medium text-gray-700">厂家</div>
             <div className="w-20 text-center text-sm font-medium text-gray-700">商品数量</div>
             <div className="w-32 text-center text-sm font-medium text-gray-700">状态</div>
             <div className="w-40 text-sm font-medium text-gray-700">创建时间</div>

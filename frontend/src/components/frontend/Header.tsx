@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight } from 'lucide-react'
+import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight, Camera } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useCartStore } from '@/store/cartStore'
@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'react'
 import { getAllCategories } from '@/services/categoryService'
 import { getFileUrl } from '@/services/uploadService'
 import SearchModal from './SearchModal'
+import ImageSearchModal from './ImageSearchModal'
 
 export default function Header() {
   const { isAuthenticated, user, logout } = useAuthStore()
@@ -20,6 +21,7 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
+  const [showImageSearchModal, setShowImageSearchModal] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
   const isAdminUser = Boolean(user?.permissions?.canAccessAdmin) ||
@@ -265,21 +267,39 @@ export default function Header() {
           
 
           {/* Search - 点击打开搜索模态框 */}
-          <button 
-            onClick={() => setShowSearchModal(true)}
-            className="hidden lg:flex items-center bg-stone-100/50 rounded-full px-4 py-2 hover:bg-stone-100 transition-all border border-transparent hover:border-primary/20 cursor-pointer"
-          >
-            <Search className="text-stone-400 w-4 h-4 mr-2" />
-            <span className="text-sm text-stone-400">搜索型号/产品...</span>
-          </button>
+          <div className="hidden lg:flex items-center gap-1">
+            <button 
+              onClick={() => setShowSearchModal(true)}
+              className="flex items-center bg-stone-100/50 rounded-l-full px-4 py-2 hover:bg-stone-100 transition-all border border-transparent hover:border-primary/20 cursor-pointer"
+            >
+              <Search className="text-stone-400 w-4 h-4 mr-2" />
+              <span className="text-sm text-stone-400">搜索型号/产品...</span>
+            </button>
+            <button 
+              onClick={() => setShowImageSearchModal(true)}
+              className="flex items-center bg-stone-100/50 rounded-r-full px-3 py-2 hover:bg-primary/10 transition-all border-l border-stone-200 cursor-pointer group"
+              title="以图搜索"
+            >
+              <Camera className="text-stone-400 w-4 h-4 group-hover:text-primary transition-colors" />
+            </button>
+          </div>
           
           {/* 移动端搜索图标 */}
-          <button 
-            onClick={() => setShowSearchModal(true)}
-            className="lg:hidden p-2 text-stone-500 hover:text-primary transition-colors"
-          >
-            <Search className="w-5 h-5" />
-          </button>
+          <div className="lg:hidden flex items-center gap-1">
+            <button 
+              onClick={() => setShowSearchModal(true)}
+              className="p-2 text-stone-500 hover:text-primary transition-colors"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setShowImageSearchModal(true)}
+              className="p-2 text-stone-500 hover:text-primary transition-colors"
+              title="以图搜索"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
+          </div>
           
           {/* Favorites */}
           <Link
@@ -377,10 +397,10 @@ export default function Header() {
 
                   <Link
                     to={manufacturerEntryPath}
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
                   >
-                    <LayoutDashboard className="w-4 h-4" />
+                    <Factory className="w-4 h-4 mr-2" />
                     厂家中心
                   </Link>
                   
@@ -389,7 +409,7 @@ export default function Header() {
                     <Link
                       to="/admin"
                       onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
                       <LayoutDashboard className="w-4 h-4" />
                       管理后台
@@ -439,6 +459,9 @@ export default function Header() {
       
       {/* 搜索模态框 */}
       <SearchModal isOpen={showSearchModal} onClose={() => setShowSearchModal(false)} />
+      
+      {/* 以图搜索模态框 */}
+      <ImageSearchModal isOpen={showImageSearchModal} onClose={() => setShowImageSearchModal(false)} />
     </header>
   )
 }

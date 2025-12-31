@@ -17,6 +17,7 @@ import {
   Activity,
   Factory,
   Shield,
+  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -51,7 +52,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
     { name: '账号管理', path: '/admin/users', icon: Users },
     { name: '材质管理', path: '/admin/materials', icon: Palette },
     { name: '厂家管理', path: '/admin/manufacturers', icon: Factory },
-    { name: '授权管理', path: '/admin/authorizations', icon: Shield },
+    { name: '分层管理', path: '/admin/tier-system', icon: Layers },
     { name: '商品管理', path: '/admin/products', icon: Package },
     { name: '分类管理', path: '/admin/categories', icon: FolderTree },
     { name: '套餐管理', path: '/admin/packages', icon: Package },
@@ -90,7 +91,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
 
   const menuItems = role === 'designer'
     ? allMenuItems.filter(item =>
-        ['商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
+        ['首页', '厂家管理', '授权管理', '商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
       )
     : isManufacturerSubAccount
       ? allMenuItems

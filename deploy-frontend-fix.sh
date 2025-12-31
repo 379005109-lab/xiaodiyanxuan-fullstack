@@ -12,7 +12,7 @@ echo ""
 # 1. 构建前端
 echo "📦 步骤 1/5: 构建前端..."
 echo "📦 Step 1/5: Building frontend..."
-cd /home/devbox/project/frontend
+cd /home/devbox/project/1114/client/frontend
 rm -rf dist
 npm run build
 

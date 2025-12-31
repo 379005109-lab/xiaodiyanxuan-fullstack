@@ -33,24 +33,40 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix={{branch}}-
+      - name: Set image tags
+        id: tags
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "primary_tag=latest" >> $GITHUB_OUTPUT
+            echo "use_cache=true" >> $GITHUB_OUTPUT
+          else
+            echo "primary_tag=test" >> $GITHUB_OUTPUT
+            echo "use_cache=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Build and push
+      - name: Build and push (with cache)
+        if: steps.tags.outputs.use_cache == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.tags.outputs.primary_tag }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Build and push (no cache for test)
+        if: steps.tags.outputs.use_cache == 'false'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.tags.outputs.primary_tag }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-${{ github.sha }}
+          no-cache: true
           platforms: linux/amd64

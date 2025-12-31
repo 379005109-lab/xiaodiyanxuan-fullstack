@@ -83,22 +83,28 @@ const uploadMultiple = async (req, res) => {
 const downloadFile = async (req, res) => {
   try {
     const { fileId } = req.params;
-    const { w, h, q } = req.query;
+    const { w, h, q, format } = req.query;
     const width = w ? parseInt(w) : null;
     const height = h ? parseInt(h) : null;
     const quality = q ? parseInt(q) : 80;
+    const outFormat = (format ? String(format) : 'webp').toLowerCase();
 
     const fileData = await FileService.getFile(fileId);
     const isImage = fileData.mimeType && fileData.mimeType.startsWith('image/');
 
     // 如果请求缩略图且是图片文件
     if (isImage && (width || height)) {
-      const cacheKey = `${fileId}_${width || 'auto'}_${height || 'auto'}_${quality}`;
+      const cacheKey = `${fileId}_${width || 'auto'}_${height || 'auto'}_${quality}_${outFormat}`;
       
       // 检查缓存
       if (thumbnailCache.has(cacheKey)) {
         const cached = thumbnailCache.get(cacheKey);
-        res.setHeader('Content-Type', 'image/webp');
+        const contentType = outFormat === 'jpeg' || outFormat === 'jpg'
+          ? 'image/jpeg'
+          : outFormat === 'png'
+            ? 'image/png'
+            : 'image/webp';
+        res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=31536000');
         res.setHeader('X-Thumbnail-Cache', 'HIT');
         return res.send(cached);
@@ -123,10 +129,18 @@ const downloadFile = async (req, res) => {
           });
         }
         
-        // 转换为 WebP 格式（更小的文件大小）
-        const thumbnailBuffer = await transformer
-          .webp({ quality })
-          .toBuffer();
+        let thumbnailBuffer;
+        let contentType = 'image/webp';
+        if (outFormat === 'jpeg' || outFormat === 'jpg') {
+          thumbnailBuffer = await transformer.jpeg({ quality }).toBuffer();
+          contentType = 'image/jpeg';
+        } else if (outFormat === 'png') {
+          thumbnailBuffer = await transformer.png().toBuffer();
+          contentType = 'image/png';
+        } else {
+          thumbnailBuffer = await transformer.webp({ quality }).toBuffer();
+          contentType = 'image/webp';
+        }
 
         // 缓存缩略图
         if (thumbnailCache.size >= THUMBNAIL_CACHE_MAX_SIZE) {
@@ -136,7 +150,7 @@ const downloadFile = async (req, res) => {
         }
         thumbnailCache.set(cacheKey, thumbnailBuffer);
 
-        res.setHeader('Content-Type', 'image/webp');
+        res.setHeader('Content-Type', contentType);
         res.setHeader('Cache-Control', 'public, max-age=31536000');
         res.setHeader('X-Thumbnail-Cache', 'MISS');
         return res.send(thumbnailBuffer);

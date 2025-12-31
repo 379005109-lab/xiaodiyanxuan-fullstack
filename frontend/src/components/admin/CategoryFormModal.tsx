@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { X, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { Category } from '@/types'
 import { createCategory, updateCategory, getAllCategories } from '@/services/categoryService'
+import { getAllManufacturers } from '@/services/manufacturerService'
 
 interface CategoryFormModalProps {
   category: Category | null
@@ -16,6 +17,9 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
   const [formData, setFormData] = useState({
     name: category?.name || '',
     image: category?.image || '',
+    manufacturerId: (typeof (category as any)?.manufacturerId === 'string'
+      ? ((category as any).manufacturerId as string)
+      : ((category as any)?.manufacturerId?._id as string) || '') as string,
     parentId: category?.parentId || null,
     level: category?.level || 1,
     status: category?.status || 'active' as 'active' | 'inactive',
@@ -28,16 +32,117 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
     ],
   })
 
+  const [allCategories, setAllCategories] = useState<Category[]>([])
   const [parentCategories, setParentCategories] = useState<Category[]>([])
+  const [manufacturers, setManufacturers] = useState<any[]>([])
+
+  const flatCategories = useMemo(() => {
+    const out: any[] = []
+    const walk = (nodes: any[]) => {
+      nodes.forEach((n) => {
+        if (!n) return
+        out.push(n)
+        const children = (n as any).children
+        if (Array.isArray(children) && children.length > 0) {
+          walk(children)
+        }
+      })
+    }
+    walk(allCategories as any)
+    return out as Category[]
+  }, [allCategories])
+
+  const flattenExternalCategories = (nodes: any[]): Category[] => {
+    const out: any[] = []
+    const walk = (list: any[]) => {
+      list.forEach((n) => {
+        if (!n) return
+        out.push(n)
+        const children = n.children
+        if (Array.isArray(children) && children.length > 0) {
+          walk(children)
+        }
+      })
+    }
+    walk(nodes)
+    return out
+  }
 
   useEffect(() => {
     const loadParentCategories = async () => {
       const allCats = await getAllCategories();
-      const topLevel = allCats.filter(cat => !cat.parentId || cat.parentId === null);
-      setParentCategories(topLevel);
+      setAllCategories(allCats)
     };
     loadParentCategories();
   }, []);
+
+  const selectedManufacturerId = useMemo(() => {
+    return (formData.manufacturerId || '').trim()
+  }, [formData.manufacturerId])
+
+  const selectedParentCategory = useMemo(() => {
+    if (!formData.parentId) return null
+    return flatCategories.find(c => String(c._id) === String(formData.parentId)) || null
+  }, [flatCategories, formData.parentId])
+
+  const selectedParentManufacturerId = useMemo(() => {
+    const mid: any = (selectedParentCategory as any)?.manufacturerId
+    if (!mid) return ''
+    if (typeof mid === 'string') return String(mid)
+    return String(mid?._id || '')
+  }, [selectedParentCategory])
+
+  useEffect(() => {
+    if (!formData.parentId) return
+    const next = String(selectedParentManufacturerId || '')
+    const cur = String(formData.manufacturerId || '')
+    if (next !== cur) {
+      setFormData(prev => ({ ...prev, manufacturerId: next }))
+    }
+  }, [formData.parentId, selectedParentManufacturerId])
+
+  useEffect(() => {
+    const topLevel = allCategories
+      .filter(cat => !cat.parentId || cat.parentId === null)
+      .filter(cat => {
+        const mid: any = (cat as any).manufacturerId
+        const midStr = typeof mid === 'string' ? mid : (mid?._id || '')
+        return String(midStr || '') === String(selectedManufacturerId || '')
+      })
+    void topLevel
+    const candidates = flatCategories
+      .filter(cat => {
+        const mid: any = (cat as any).manufacturerId
+        const midStr = typeof mid === 'string' ? mid : (mid?._id || '')
+        return String(midStr || '') === String(selectedManufacturerId || '')
+      })
+      .filter(cat => (cat.level || 1) < 3)
+      .filter(cat => {
+        if (!isEdit || !category?._id) return true
+        return String(cat._id) !== String(category._id)
+      })
+    setParentCategories(candidates)
+  }, [allCategories, flatCategories, selectedManufacturerId, isEdit, category?._id])
+
+  useEffect(() => {
+    if (!formData.parentId) return
+    const exists = parentCategories.some(c => String(c._id) === String(formData.parentId))
+    if (!exists) {
+      setFormData(prev => ({ ...prev, parentId: null }))
+    }
+  }, [parentCategories, formData.parentId])
+
+  useEffect(() => {
+    const loadManufacturers = async () => {
+      try {
+        const list = await getAllManufacturers()
+        setManufacturers(Array.isArray(list) ? list : [])
+      } catch (e) {
+        setManufacturers([])
+      }
+    }
+    loadManufacturers()
+  }, [])
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -81,23 +186,28 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
     }
     
     const allCategories = await getAllCategories();
+    const allFlat = flattenExternalCategories(allCategories as any)
+    const sameManufacturerCategories = allFlat.filter(cat => {
+      const mid: any = (cat as any).manufacturerId
+      const midStr = typeof mid === 'string' ? mid : (mid?._id || '')
+      return String(midStr || '') === String(selectedManufacturerId || '')
+    })
 
     // 检查slug唯一性
-    const existingCategory = allCategories.find(cat => cat.slug === slug);
+    const existingCategory = sameManufacturerCategories.find(cat => cat.slug === slug);
     if (existingCategory && (!isEdit || existingCategory._id !== category?._id)) {
       toast.error('分类名称已存在，请使用其他名称');
       return;
     }
 
-    // 根据是否有父分类确定层级
-    if (formData.parentId) {
-      formData.level = 2
-    } else {
-      formData.level = 1
-    }
+    const computedLevel = (() => {
+      if (!formData.parentId) return 1
+      const parent = flatCategories.find(c => String(c._id) === String(formData.parentId))
+      return (parent?.level || 1) + 1
+    })()
     
     // 获取同级分类的最大order值
-    const sameLevelCategories = allCategories.filter(
+    const sameLevelCategories = sameManufacturerCategories.filter(
       cat => cat.parentId === formData.parentId
     )
     const maxOrder = sameLevelCategories.length > 0 
@@ -109,8 +219,9 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
       const categoryData = {
         name: formData.name,
         image: formData.image,
+        manufacturerId: formData.manufacturerId || null,
         parentId: formData.parentId,
-        level: formData.level,
+        level: computedLevel,
         status: formData.status,
         slug,
       }
@@ -171,6 +282,26 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
               className="input w-full"
               required
             />
+          </div>
+
+          {/* 厂家 */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              厂家
+            </label>
+            <select
+              value={formData.manufacturerId || ''}
+              onChange={(e) => setFormData({ ...formData, manufacturerId: e.target.value, parentId: null })}
+              className="input w-full"
+              disabled={!!formData.parentId}
+            >
+              <option value="">平台（未分配厂家）</option>
+              {manufacturers.map((m: any) => (
+                <option key={m._id} value={m._id}>
+                  {m.name || m.fullName || m._id}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* 分类图片 */}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, User, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
+import apiClient from '@/lib/apiClient'
 
 interface UserProfileModalProps {
   isOpen: boolean
@@ -40,22 +41,15 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
 
     try {
       setLoading(true)
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/users/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          nickname: form.nickname.trim(),
-          gender: form.gender
-        })
+      const response = await apiClient.put('/users/profile', {
+        nickname: form.nickname.trim(),
+        gender: form.gender
       })
 
-      const data = await response.json()
-      if (data.success) {
+      const data = response.data
+      if (data?.success) {
         // 更新本地用户信息
-        updateUser({ ...user, nickname: form.nickname.trim(), gender: form.gender } as any)
+        updateUser({ nickname: form.nickname.trim(), gender: form.gender, profileCompleted: true } as any)
         
         // 标记已完善信息，下次不再弹窗
         const userId = (user as any)?._id || (user as any)?.id
@@ -66,7 +60,7 @@ export default function UserProfileModal({ isOpen, onClose }: UserProfileModalPr
         toast.success('信息保存成功！')
         onClose()
       } else {
-        toast.error(data.message || '保存失败')
+        toast.error(data?.message || '保存失败')
       }
     } catch (error) {
       console.error('Save profile error:', error)

@@ -2,9 +2,210 @@ const Order = require('../models/Order')
 const Cart = require('../models/Cart')
 const User = require('../models/User')
 const Coupon = require('../models/Coupon')
+const Product = require('../models/Product')
+const Manufacturer = require('../models/Manufacturer')
+const ManufacturerOrder = require('../models/ManufacturerOrder')
 const { generateOrderNo, calculatePagination } = require('../utils/helpers')
 const { ORDER_STATUS } = require('../config/constants')
 const { NotFoundError, ValidationError } = require('../utils/errors')
+
+const enrichItemsWithManufacturer = async (items) => {
+  const productIds = (items || [])
+    .map(i => i.productId || i.product)
+    .filter(Boolean)
+    .map(String)
+
+  if (productIds.length === 0) return items
+
+  const products = await Product.find({ _id: { $in: productIds } })
+    .select('_id manufacturerId')
+    .lean()
+
+  const productMap = new Map(products.map(p => [String(p._id), p]))
+
+  const manufacturerIds = products
+    .map(p => p.manufacturerId)
+    .filter(Boolean)
+    .map(String)
+
+  const manufacturers = manufacturerIds.length
+    ? await Manufacturer.find({ _id: { $in: manufacturerIds } })
+      .select('_id fullName name shortName')
+      .lean()
+    : []
+
+  const manufacturerNameMap = new Map(
+    manufacturers.map(m => [
+      String(m._id),
+      m.fullName || m.name || m.shortName || ''
+    ])
+  )
+
+  return (items || []).map(item => {
+    const productId = item.productId || item.product
+    const p = productId ? productMap.get(String(productId)) : null
+    const mid = item.manufacturerId || p?.manufacturerId
+    const inferredName = mid ? manufacturerNameMap.get(String(mid)) : undefined
+
+    return {
+      ...item,
+      productId: item.productId ?? item.product,
+      manufacturerId: item.manufacturerId || p?.manufacturerId,
+      manufacturerName: item.manufacturerName || inferredName
+    }
+  })
+}
+
+const formatSpecsForManufacturerOrder = (item) => {
+  const specs = item?.specifications || item?.specs || {}
+  const selected = item?.selectedMaterials || item?.materials || {}
+
+  const kv = []
+  for (const [k, v] of Object.entries(specs)) {
+    if (v === undefined || v === null || v === '') continue
+    kv.push(`${k}:${v}`)
+  }
+  for (const [k, v] of Object.entries(selected)) {
+    if (v === undefined || v === null || v === '') continue
+    kv.push(`${k}:${v}`)
+  }
+
+  return kv.join(' | ')
+}
+
+const dispatchOrderToManufacturers = async (order) => {
+  if (!order?._id) return []
+
+  const already = await ManufacturerOrder.findOne({ orderId: order._id }).select('_id').lean()
+  if (already) return []
+
+  const items = order.orderType === 'package'
+    ? (order.packageInfo?.selections || []).flatMap(s => (s.products || []).map(p => ({
+      ...p,
+      category: s.categoryName
+    })))
+    : (order.items || [])
+
+  if (!items.length) return []
+
+  let basePriceMap = null
+  let totalWeight = 0
+  if (order.orderType === 'package') {
+    const productIds = items
+      .map(i => i.productId || i.product)
+      .filter(Boolean)
+      .map(String)
+    const products = await Product.find({ _id: { $in: productIds } })
+      .select('_id basePrice')
+      .lean()
+    basePriceMap = new Map(products.map(p => [String(p._id), Number(p.basePrice || 0)]))
+
+    for (const item of items) {
+      const pid = item.productId || item.product
+      const qty = Number(item.quantity || 1)
+      const bp = pid ? (basePriceMap.get(String(pid)) || 0) : 0
+      const w = bp > 0 ? (bp * qty) : qty
+      totalWeight += w
+    }
+    if (!totalWeight) totalWeight = items.reduce((s, i) => s + Number(i.quantity || 1), 0) || 1
+  }
+
+  const groups = new Map()
+  for (const item of items) {
+    const manufacturerId = item.manufacturerId
+    const manufacturerName = item.manufacturerName
+
+    const key = manufacturerId ? String(manufacturerId) : 'unknown'
+    if (!groups.has(key)) {
+      groups.set(key, {
+        manufacturerId: manufacturerId || null,
+        manufacturerName: manufacturerName || '未分配厂家',
+        items: [],
+        totalAmount: 0,
+        weight: 0
+      })
+    }
+
+    const group = groups.get(key)
+    const quantity = Number(item.quantity || 1)
+
+    let derivedPrice = Number(item.price || 0)
+    if (order.orderType === 'package' && derivedPrice === 0) {
+      const pid = item.productId || item.product
+      const bp = pid && basePriceMap ? (basePriceMap.get(String(pid)) || 0) : 0
+      if (bp > 0) derivedPrice = bp
+    }
+    const subtotal = Number(item.subtotal || (derivedPrice * quantity) || 0)
+
+    group.items.push({
+      productId: item.productId || item.product,
+      productName: item.productName || item.name,
+      skuId: item.skuId,
+      skuName: item.skuName,
+      specs: formatSpecsForManufacturerOrder(item),
+      quantity,
+      price: derivedPrice,
+      subtotal,
+      image: item.image
+    })
+
+    if (order.orderType === 'package') {
+      const pid = item.productId || item.product
+      const bp = pid && basePriceMap ? (basePriceMap.get(String(pid)) || 0) : 0
+      const w = bp > 0 ? (bp * quantity) : quantity
+      group.weight += w
+    } else {
+      group.totalAmount += subtotal
+    }
+  }
+
+  if (order.orderType === 'package') {
+    const total = Number(order.totalAmount || 0)
+    const groupArr = Array.from(groups.values())
+    let remaining = total
+
+    for (let i = 0; i < groupArr.length; i += 1) {
+      const g = groupArr[i]
+      if (i === groupArr.length - 1) {
+        g.totalAmount = remaining
+      } else {
+        const ratio = g.weight / totalWeight
+        const allocated = Math.round(total * ratio)
+        g.totalAmount = allocated
+        remaining -= allocated
+      }
+    }
+  }
+
+  const createdOrders = []
+  for (const group of groups.values()) {
+    const manufacturerOrder = await ManufacturerOrder.create({
+      orderId: order._id,
+      orderNo: order.orderNo,
+      manufacturerId: group.manufacturerId,
+      manufacturerName: group.manufacturerName,
+      items: group.items,
+      totalAmount: group.totalAmount,
+      customerName: order.recipient?.name,
+      customerPhone: order.recipient?.phone,
+      customerAddress: order.recipient?.address,
+      logs: [{
+        action: 'dispatch',
+        content: '订单已分发',
+        operator: '系统',
+        createdAt: new Date()
+      }]
+    })
+    createdOrders.push(manufacturerOrder)
+  }
+
+  await Order.updateOne(
+    { _id: order._id },
+    { $set: { dispatchStatus: 'dispatched', dispatchedAt: new Date() } }
+  )
+
+  return createdOrders
+}
 
 const createOrder = async (userId, items, recipient, couponCode = null) => {
   console.log('🛒 [OrderService] createOrder called');
@@ -56,11 +257,13 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
   
   const orderNo = generateOrderNo();
   console.log('🛒 [OrderService] Generated orderNo:', orderNo);
+
+  const enrichedItems = await enrichItemsWithManufacturer(items)
   
   const order = await Order.create({
     orderNo,
     userId,
-    items,
+    items: enrichedItems,
     subtotal,
     discountAmount,
     totalAmount,
@@ -84,6 +287,8 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
   
   // Clear cart
   await Cart.updateOne({ userId }, { items: [] })
+
+  await dispatchOrderToManufacturers(order)
   
   return order
 }
@@ -166,6 +371,8 @@ const confirmReceipt = async (orderId, userId) => {
 
 module.exports = {
   createOrder,
+  enrichItemsWithManufacturer,
+  dispatchOrderToManufacturers,
   getOrders,
   getOrderById,
   cancelOrder,

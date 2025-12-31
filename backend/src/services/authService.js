@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken')
 const bcryptjs = require('bcryptjs')
 const User = require('../models/User')
+const Manufacturer = require('../models/Manufacturer')
 const { AuthenticationError } = require('../utils/errors')
 
 const generateToken = (userId) => {
@@ -9,6 +10,20 @@ const generateToken = (userId) => {
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE }
   )
+}
+
+const ensureProfileCompleted = async (user) => {
+  if (!user || user.profileCompleted) return user
+
+  const hasNickname = user.nickname && user.nickname.trim() !== ''
+  const hasGender = user.gender && ['male', 'female'].includes(user.gender)
+
+  if (hasNickname && hasGender) {
+    user.profileCompleted = true
+    if (!user.profileCompletedAt) user.profileCompletedAt = new Date()
+  }
+
+  return user
 }
 
 const wxLogin = async (code) => {
@@ -27,8 +42,11 @@ const wxLogin = async (code) => {
       userType: 'customer'
     })
   }
+
+  await assertManufacturerNotExpired(user)
   
   user.lastLoginAt = new Date()
+  await ensureProfileCompleted(user)
   await user.save()
   
   const token = generateToken(user._id)
@@ -37,14 +55,20 @@ const wxLogin = async (code) => {
     token,
     user: {
       id: user._id,
+      _id: user._id,
       openId: user.openId,
       phone: user.phone,
       nickname: user.nickname,
       avatar: user.avatar,
-      role: user.role || user.userType || 'customer',
-      userType: user.userType,
-      permissions: user.permissions,
+      gender: user.gender,
+      profileCompleted: user.profileCompleted,
+      manufacturerId: user.manufacturerId || null,
+      manufacturerIds: user.manufacturerIds || [],
+      permissions: user.permissions || {},
+      accountType: user.accountType,
       status: user.status,
+      role: user.role || user.userType || 'customer',
+      userType: user.role || user.userType || 'customer',
       organizationId: user.organizationId
     }
   }
@@ -56,6 +80,27 @@ const verifyToken = (token) => {
   } catch (err) {
     throw new AuthenticationError('Invalid token')
   }
+}
+
+const assertManufacturerNotExpired = async (user) => {
+  if (!user) return
+  if (user.role === 'super_admin' || user.role === 'admin' || user.role === 'platform_admin') return
+
+  const mids = []
+  if (user.manufacturerId) mids.push(String(user.manufacturerId))
+  if (Array.isArray(user.manufacturerIds) && user.manufacturerIds.length) {
+    for (const id of user.manufacturerIds) {
+      const s = String(id)
+      if (s && !mids.includes(s)) mids.push(s)
+    }
+  }
+
+  if (!mids.length) return
+
+  const manufacturers = await Manufacturer.find({ _id: { $in: mids } }).select('status expiryDate').lean()
+  const now = new Date()
+  const expired = (manufacturers || []).some(m => m?.status === 'active' && m?.expiryDate && now > new Date(m.expiryDate))
+  if (expired) throw new AuthenticationError('厂家效期已到期')
 }
 
 const refreshToken = async (userId) => {
@@ -86,9 +131,12 @@ const usernamePasswordLogin = async (username, password) => {
   if (!isPasswordValid) {
     throw new AuthenticationError('密码错误')
   }
+
+  await assertManufacturerNotExpired(user)
   
   // 更新最后登录时间
   user.lastLoginAt = new Date()
+  await ensureProfileCompleted(user)
   await user.save()
   
   // 生成 token
@@ -98,14 +146,20 @@ const usernamePasswordLogin = async (username, password) => {
     token,
     user: {
       id: user._id,
+      _id: user._id,
       username: user.username,
       phone: user.phone,
       nickname: user.nickname,
       avatar: user.avatar,
+      gender: user.gender,
+      profileCompleted: user.profileCompleted,
+      manufacturerId: user.manufacturerId || null,
+      manufacturerIds: user.manufacturerIds || [],
+      permissions: user.permissions || {},
+      accountType: user.accountType,
+      status: user.status,
       role: user.role || user.userType || 'customer',
       userType: user.role || user.userType || 'customer',
-      permissions: user.permissions,
-      status: user.status,
       organizationId: user.organizationId
     }
   }
@@ -124,9 +178,12 @@ const adminLogin = async (username, password) => {
   if (!isPasswordValid) {
     throw new AuthenticationError('密码错误')
   }
+
+  await assertManufacturerNotExpired(user)
   
   // 更新最后登录时间
   user.lastLoginAt = new Date()
+  await ensureProfileCompleted(user)
   await user.save()
   
   // 生成 token
@@ -136,8 +193,17 @@ const adminLogin = async (username, password) => {
     token,
     user: {
       id: user._id,
+      _id: user._id,
       username: user.username,
+      nickname: user.nickname,
       avatar: user.avatar,
+      gender: user.gender,
+      profileCompleted: user.profileCompleted,
+      manufacturerId: user.manufacturerId || null,
+      manufacturerIds: user.manufacturerIds || [],
+      permissions: user.permissions || {},
+      accountType: user.accountType,
+      status: user.status,
       role: user.userType,
       userType: user.userType
     }
@@ -172,9 +238,12 @@ const loginOrRegisterWithPhone = async (phone) => {
       status: 'active'
     })
   }
+
+  await assertManufacturerNotExpired(user)
   
   // 更新最后登录时间
   user.lastLoginAt = new Date()
+  await ensureProfileCompleted(user)
   await user.save()
   
   // 生成 token
@@ -184,10 +253,18 @@ const loginOrRegisterWithPhone = async (phone) => {
     token,
     user: {
       id: user._id,
+      _id: user._id,
       phone: user.phone,
       username: user.username,
       nickname: user.nickname || user.username,
       avatar: user.avatar,
+      gender: user.gender,
+      profileCompleted: user.profileCompleted,
+      manufacturerId: user.manufacturerId || null,
+      manufacturerIds: user.manufacturerIds || [],
+      permissions: user.permissions || {},
+      accountType: user.accountType,
+      status: user.status,
       role: user.role || user.userType || 'customer',
       userType: user.role || user.userType || 'customer',
       permissions: user.permissions,

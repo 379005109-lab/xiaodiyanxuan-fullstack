@@ -9,16 +9,29 @@ const Product = require('../models/Product')
  */
 const listCategories = async (req, res) => {
   try {
-    const { page, limit, status } = req.query
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    res.set('Pragma', 'no-cache')
+    res.set('Expires', '0')
+    res.set('Surrogate-Control', 'no-store')
+    const { page, limit, status, manufacturerId } = req.query
     
     let query = {}
     if (status) {
       query.status = status
     }
 
+    const user = req.user
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      query.manufacturerId = user.manufacturerId
+    } else if (manufacturerId) {
+      query.manufacturerId = manufacturerId
+    }
+
     // 如果没有分页参数，返回树状结构
     if (!page && !limit) {
-      const allCategories = await Category.find(query).sort({ order: 1, createdAt: -1 })
+      const allCategories = await Category.find(query)
+        .populate('manufacturerId', 'name')
+        .sort({ order: 1, createdAt: -1 })
       
       // 构建树状结构
       const categoryMap = {}
@@ -58,6 +71,7 @@ const listCategories = async (req, res) => {
     const skip = (page - 1) * limit
     const total = await Category.countDocuments(query)
     const categories = await Category.find(query)
+      .populate('manufacturerId', 'name')
       .sort({ order: 1, createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -81,7 +95,6 @@ const getCategory = async (req, res) => {
     if (!category) {
       return res.status(404).json(errorResponse('分类不存在', 404))
     }
-
     res.json(successResponse(category))
   } catch (err) {
     console.error('Get category error:', err)
@@ -95,7 +108,7 @@ const getCategory = async (req, res) => {
  */
 const createCategory = async (req, res) => {
   try {
-    let { name, description, order, status, icon, image, parentId, level, slug } = req.body
+    let { name, description, order, status, icon, image, parentId, level, slug, manufacturerId } = req.body
 
     if (!name) {
       return res.status(400).json(errorResponse('分类名称不能为空', 400))
@@ -110,18 +123,36 @@ const createCategory = async (req, res) => {
       }
     }
 
+    let resolvedManufacturerId = manufacturerId || null
+    let resolvedLevel = level || 1
+
+    if (parentId) {
+      const parentCat = await Category.findById(parentId).select('_id manufacturerId level')
+      if (!parentCat) {
+        return res.status(400).json(errorResponse('父分类不存在', 400))
+      }
+      resolvedManufacturerId = parentCat.manufacturerId || null
+      resolvedLevel = (parentCat.level || 1) + 1
+    }
+
     const category = new Category({
       name,
       slug,
       description,
       icon,
       image,
+      manufacturerId: resolvedManufacturerId,
       parentId: parentId || null,
-      level: level || 1,
+      level: resolvedLevel,
       order: order || 0,
       status: status || 'active',
       updatedAt: new Date()
     })
+
+    const user = req.user
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      category.manufacturerId = user.manufacturerId
+    }
 
     await category.save()
 
@@ -146,7 +177,18 @@ const createCategory = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params
-    const { name, description, order, status, image, icon, parentId, level, slug } = req.body
+    const { name, description, order, status, image, icon, parentId, level, slug, manufacturerId } = req.body
+
+    const existing = await Category.findById(id).select('_id manufacturerId parentId')
+    if (!existing) {
+      return res.status(404).json(errorResponse('分类不存在', 404))
+    }
+    const existingManufacturerId = existing.manufacturerId ? String(existing.manufacturerId) : ''
+
+    const nextParentId = parentId !== undefined ? (parentId || null) : (existing.parentId || null)
+    const existingParentId = existing.parentId ? String(existing.parentId) : ''
+    const nextParentIdStr = nextParentId ? String(nextParentId) : ''
+    const parentChanged = parentId !== undefined && existingParentId !== nextParentIdStr
 
     // 构建更新对象，只包含有值的字段
     const updateData = { updatedAt: new Date() }
@@ -159,6 +201,73 @@ const updateCategory = async (req, res) => {
     if (parentId !== undefined) updateData.parentId = parentId || null
     if (level !== undefined) updateData.level = level
     if (slug !== undefined) updateData.slug = slug
+    if (manufacturerId !== undefined) updateData.manufacturerId = manufacturerId || null
+
+    // 子分类：厂家/层级应继承父分类（避免 2/3 级分类厂家与 1 级不一致）
+    let parentCat = null
+    if (nextParentId) {
+      parentCat = await Category.findById(nextParentId).select('_id manufacturerId level')
+      if (!parentCat) {
+        return res.status(400).json(errorResponse('父分类不存在', 400))
+      }
+      updateData.manufacturerId = parentCat.manufacturerId || null
+      updateData.level = (parentCat.level || 1) + 1
+    }
+
+    const user = req.user
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      updateData.manufacturerId = user.manufacturerId
+    }
+
+    const targetManufacturerId = updateData.manufacturerId !== undefined
+      ? (updateData.manufacturerId || null)
+      : (existing.manufacturerId || null)
+    const targetManufacturerIdStr = targetManufacturerId ? String(targetManufacturerId) : ''
+    const manufacturerWillChange = targetManufacturerIdStr !== existingManufacturerId
+
+    // 若厂家将改变：预先检查目标厂家下 name/slug 唯一性，避免父级改完、子级改失败造成脏数据
+    let descendantIds = []
+    if (manufacturerWillChange) {
+      const queue = [existing._id]
+      const subtreeIds = [existing._id]
+      while (queue.length > 0) {
+        const children = await Category.find({ parentId: { $in: queue } }).select('_id').lean()
+        if (!children || children.length === 0) break
+        const ids = children.map(c => c._id)
+        subtreeIds.push(...ids)
+        queue.splice(0, queue.length, ...ids)
+      }
+
+      const subtreeDocs = await Category.find({ _id: { $in: subtreeIds } })
+        .select('name slug')
+        .lean()
+      const names = subtreeDocs.map(d => d.name).filter(Boolean)
+      const slugs = subtreeDocs.map(d => d.slug).filter(Boolean)
+
+      const nameConflict = names.length > 0
+        ? await Category.findOne({
+            manufacturerId: targetManufacturerId || null,
+            name: { $in: names },
+            _id: { $nin: subtreeIds }
+          }).select('_id name').lean()
+        : null
+      if (nameConflict) {
+        return res.status(400).json(errorResponse(`目标厂家下已存在同名分类：${nameConflict.name}，无法变更厂家`, 400))
+      }
+
+      const slugConflict = slugs.length > 0
+        ? await Category.findOne({
+            manufacturerId: targetManufacturerId || null,
+            slug: { $in: slugs },
+            _id: { $nin: subtreeIds }
+          }).select('_id slug').lean()
+        : null
+      if (slugConflict) {
+        return res.status(400).json(errorResponse(`目标厂家下已存在相同标识：${slugConflict.slug}，无法变更厂家`, 400))
+      }
+
+      descendantIds = subtreeIds.filter(x => String(x) !== String(existing._id))
+    }
 
     const category = await Category.findByIdAndUpdate(
       id,
@@ -168,6 +277,13 @@ const updateCategory = async (req, res) => {
 
     if (!category) {
       return res.status(404).json(errorResponse('分类不存在', 404))
+    }
+
+    if (manufacturerWillChange && descendantIds.length > 0) {
+      await Category.updateMany(
+        { _id: { $in: descendantIds } },
+        { $set: { manufacturerId: targetManufacturerId || null, updatedAt: new Date() } }
+      )
     }
 
     res.json(successResponse(category))
@@ -333,9 +449,19 @@ const batchSetDiscount = async (req, res) => {
  */
 const getCategoryStats = async (req, res) => {
   try {
-    const total = await Category.countDocuments()
-    const activeCount = await Category.countDocuments({ status: 'active' })
-    const inactiveCount = await Category.countDocuments({ status: 'inactive' })
+    const { manufacturerId } = req.query
+    const user = req.user
+
+    const query = {}
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
+      query.manufacturerId = user.manufacturerId
+    } else if (manufacturerId) {
+      query.manufacturerId = manufacturerId
+    }
+
+    const total = await Category.countDocuments(query)
+    const activeCount = await Category.countDocuments({ ...query, status: 'active' })
+    const inactiveCount = await Category.countDocuments({ ...query, status: 'inactive' })
 
     // 统计商品总数
     const totalProducts = await Product.countDocuments()

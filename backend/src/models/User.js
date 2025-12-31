@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema({
   password: String,
   nickname: String,
   gender: { type: String, enum: ['male', 'female', ''], default: '' },
+  profileCompleted: { type: Boolean, default: false },
+  profileCompletedAt: Date,
   avatar: String,
   phone: String,
   email: String,
@@ -26,6 +28,19 @@ const userSchema = new mongoose.Schema({
 
   // === 厂家归属（厂家体系账号）===
   manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+  
+  // === 厂家归属 ===
+  manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+
+  // === 厂家归属（多选）===
+  manufacturerIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' }],
+  
+  // === 账号类型（厂家账号用）===
+  accountType: { 
+    type: String, 
+    enum: ['auth', 'sub', 'designer', 'normal'],  // 授权账号、子账号、设计师账号、普通账号
+    default: 'normal'
+  },
   
   // === 功能权限 ===
   permissions: {

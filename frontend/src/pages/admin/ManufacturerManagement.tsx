@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3 } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
 import { getFileUrl } from '@/services/uploadService'
+import { useAuthStore } from '@/store/authStore'
 
 // 中文转拼音首字母（简化版）
 const pinyinMap: Record<string, string> = {
@@ -48,6 +50,7 @@ function generateRandomLetters(length: number = 4): string {
 }
 
 interface AccountQuota {
+  totalAccounts: number
   authAccounts: number
   subAccounts: number
   designerAccounts: number
@@ -76,9 +79,58 @@ interface Manufacturer {
   createdAt: string
   accountQuota?: AccountQuota
   accountUsage?: AccountQuota
+  logo?: string
+  settings?: {
+    phone?: string
+    servicePhone?: string
+    wechatQrCode?: string
+    alipayQrCode?: string
+    bankInfo?: {
+      bankName?: string
+      accountName?: string
+      accountNumber?: string
+    }
+  }
+  certification?: {
+    status: 'none' | 'pending' | 'approved' | 'rejected'
+    companyName?: string
+    creditCode?: string
+  }
+}
+
+interface ManufacturerAccount {
+  _id: string
+  username: string
+  nickname?: string
+  accountType: 'auth' | 'sub' | 'designer' | 'normal'
+  status: 'active' | 'inactive' | 'expired'
+  permissions: {
+    canAccessAdmin?: boolean
+    canViewCostPrice?: boolean
+    canDownloadMaterial?: boolean
+    canManageUsers?: boolean
+    canManageProducts?: boolean
+    canManageOrders?: boolean
+  }
+  specialAccountConfig?: {
+    expiresAt?: string
+  }
+  createdAt: string
 }
 
 export default function ManufacturerManagement() {
+  const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
+  const isManufacturerUser = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff' || (user as any)?.permissions?.canAccessAdmin === true
+
+  const canManageManufacturer = (manufacturerId: string) => {
+    if (isAdmin) return true
+    if (!myManufacturerId) return false
+    return String(manufacturerId) === myManufacturerId
+  }
+
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
@@ -99,7 +151,20 @@ export default function ManufacturerManagement() {
     contactEmail: '',
     address: '',
     description: '',
-    status: 'active' as 'active' | 'inactive'
+    status: 'active' as 'active' | 'inactive',
+    // 扩展字段
+    logo: '',
+    settings: {
+      phone: '',
+      servicePhone: '',
+      wechatQrCode: '',
+      alipayQrCode: '',
+      bankInfo: {
+        bankName: '',
+        accountName: '',
+        accountNumber: ''
+      }
+    }
   })
   const [saving, setSaving] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
@@ -109,9 +174,33 @@ export default function ManufacturerManagement() {
   const [showQuotaModal, setShowQuotaModal] = useState(false)
   const [quotaTarget, setQuotaTarget] = useState<Manufacturer | null>(null)
   const [quotaForm, setQuotaForm] = useState({
+    totalAccounts: 0,
     authAccounts: 0,
     subAccounts: 0,
     designerAccounts: 0
+  })
+  
+  // 账号管理
+  const [showAccountsModal, setShowAccountsModal] = useState(false)
+  const [accountsTarget, setAccountsTarget] = useState<Manufacturer | null>(null)
+  const [accounts, setAccounts] = useState<ManufacturerAccount[]>([])
+  const [accountsLoading, setAccountsLoading] = useState(false)
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false)
+  const [editingAccount, setEditingAccount] = useState<ManufacturerAccount | null>(null)
+  const [accountForm, setAccountForm] = useState({
+    username: '',
+    password: '',
+    nickname: '',
+    accountType: 'sub' as 'auth' | 'sub' | 'designer',
+    expiresAt: '',
+    permissions: {
+      canAccessAdmin: false,
+      canViewCostPrice: false,
+      canDownloadMaterial: false,
+      canManageUsers: false,
+      canManageProducts: false,
+      canManageOrders: false
+    }
   })
 
   const fetchData = async () => {
@@ -170,7 +259,15 @@ export default function ManufacturerManagement() {
       contactEmail: '',
       address: '',
       description: '',
-      status: 'active'
+      status: 'active',
+      logo: '',
+      settings: {
+        phone: '',
+        servicePhone: '',
+        wechatQrCode: '',
+        alipayQrCode: '',
+        bankInfo: { bankName: '', accountName: '', accountNumber: '' }
+      }
     })
     setShowModal(true)
   }
@@ -192,7 +289,19 @@ export default function ManufacturerManagement() {
       contactEmail: item.contactEmail || '',
       address: item.address || '',
       description: item.description || '',
-      status: item.status
+      status: item.status,
+      logo: item.logo || '',
+      settings: {
+        phone: item.settings?.phone || '',
+        servicePhone: item.settings?.servicePhone || '',
+        wechatQrCode: item.settings?.wechatQrCode || '',
+        alipayQrCode: item.settings?.alipayQrCode || '',
+        bankInfo: {
+          bankName: item.settings?.bankInfo?.bankName || '',
+          accountName: item.settings?.bankInfo?.accountName || '',
+          accountNumber: item.settings?.bankInfo?.accountNumber || ''
+        }
+      }
     })
     setShowModal(true)
   }
@@ -225,6 +334,135 @@ export default function ManufacturerManagement() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // 账号管理相关函数
+  const openAccountsModal = async (item: Manufacturer) => {
+    setAccountsTarget(item)
+    setShowAccountsModal(true)
+    await fetchAccounts(item._id)
+  }
+
+  const fetchAccounts = async (manufacturerId: string) => {
+    try {
+      setAccountsLoading(true)
+      const response = await apiClient.get(`/manufacturers/${manufacturerId}/accounts`)
+      setAccounts(response.data.data || [])
+    } catch (error) {
+      console.error('获取账号列表失败:', error)
+      toast.error('获取账号列表失败')
+    } finally {
+      setAccountsLoading(false)
+    }
+  }
+
+  const openCreateAccountModal = () => {
+    setEditingAccount(null)
+    setAccountForm({
+      username: '',
+      password: '',
+      nickname: '',
+      accountType: 'sub',
+      expiresAt: '',
+      permissions: {
+        canAccessAdmin: false,
+        canViewCostPrice: false,
+        canDownloadMaterial: false,
+        canManageUsers: false,
+        canManageProducts: false,
+        canManageOrders: false
+      }
+    })
+    setShowCreateAccountModal(true)
+  }
+
+  const openEditAccountModal = (account: ManufacturerAccount) => {
+    setEditingAccount(account)
+    setAccountForm({
+      username: account.username,
+      password: '',
+      nickname: account.nickname || '',
+      accountType: account.accountType as 'auth' | 'sub' | 'designer',
+      expiresAt: account.specialAccountConfig?.expiresAt?.slice(0, 10) || '',
+      permissions: {
+        canAccessAdmin: account.permissions?.canAccessAdmin || false,
+        canViewCostPrice: account.permissions?.canViewCostPrice || false,
+        canDownloadMaterial: account.permissions?.canDownloadMaterial || false,
+        canManageUsers: account.permissions?.canManageUsers || false,
+        canManageProducts: account.permissions?.canManageProducts || false,
+        canManageOrders: account.permissions?.canManageOrders || false
+      }
+    })
+    setShowCreateAccountModal(true)
+  }
+
+  const handleSaveAccount = async () => {
+    if (!accountsTarget) return
+    if (!editingAccount && !accountForm.username.trim()) {
+      toast.error('请输入用户名')
+      return
+    }
+    if (!editingAccount && (!accountForm.password.trim() || accountForm.password.length < 6)) {
+      toast.error('密码至少6位')
+      return
+    }
+
+    try {
+      setSaving(true)
+      if (editingAccount) {
+        await apiClient.put(`/manufacturers/${accountsTarget._id}/accounts/${editingAccount._id}`, {
+          nickname: accountForm.nickname,
+          accountType: accountForm.accountType,
+          expiresAt: accountForm.expiresAt || null,
+          permissions: accountForm.permissions
+        })
+        toast.success('账号更新成功')
+      } else {
+        await apiClient.post(`/manufacturers/${accountsTarget._id}/accounts`, accountForm)
+        toast.success('账号创建成功')
+      }
+      setShowCreateAccountModal(false)
+      await fetchAccounts(accountsTarget._id)
+      fetchData() // 刷新厂家列表以更新使用量
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '操作失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteAccount = async (accountId: string) => {
+    if (!accountsTarget) return
+    if (!confirm('确定要删除该账号吗？')) return
+
+    try {
+      await apiClient.delete(`/manufacturers/${accountsTarget._id}/accounts/${accountId}`)
+      toast.success('账号已删除')
+      await fetchAccounts(accountsTarget._id)
+      fetchData() // 刷新厂家列表以更新使用量
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '删除失败')
+    }
+  }
+
+  const getAccountTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'auth': '授权账号',
+      'sub': '子账号',
+      'designer': '设计师',
+      'normal': '普通账号'
+    }
+    return labels[type] || type
+  }
+
+  const getAccountTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      'auth': 'bg-purple-100 text-purple-700',
+      'sub': 'bg-blue-100 text-blue-700',
+      'designer': 'bg-green-100 text-green-700',
+      'normal': 'bg-gray-100 text-gray-700'
+    }
+    return colors[type] || 'bg-gray-100 text-gray-700'
   }
 
   const handleSave = async () => {
@@ -290,6 +528,7 @@ export default function ManufacturerManagement() {
   const openQuotaModal = (item: Manufacturer) => {
     setQuotaTarget(item)
     setQuotaForm({
+      totalAccounts: item.accountQuota?.totalAccounts || 0,
       authAccounts: item.accountQuota?.authAccounts || 0,
       subAccounts: item.accountQuota?.subAccounts || 0,
       designerAccounts: item.accountQuota?.designerAccounts || 0
@@ -315,20 +554,37 @@ export default function ManufacturerManagement() {
     }
   }
 
+  const handleOpenTierSystem = (item: Manufacturer, tab?: 'hierarchy' | 'pool' | 'reconciliation') => {
+    localStorage.setItem('tier_system_selected_manufacturer', item._id)
+    navigate(`/admin/tier-system${tab ? `?tab=${tab}` : ''}`)
+  }
+
+  const handleOpenProductAuthorization = (item: Manufacturer) => {
+    navigate(`/admin/manufacturers/${item._id}/product-authorization`)
+  }
+
+  const handleOpenAuthorizationRequests = () => {
+    navigate('/admin/manufacturers/authorization-requests')
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Factory className="w-6 h-6" />
-          厂家信息管理
+          <Factory className="w-7 h-7" />
+          厂家管理
         </h1>
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          新建厂家
-        </button>
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              新建厂家
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 搜索栏 */}
@@ -386,7 +642,6 @@ export default function ManufacturerManagement() {
                     </div>
                   </div>
                 </div>
-
                 <div className="flex flex-col items-end gap-3">
                   <button
                     onClick={() => handleTogglePreferred(item)}
@@ -445,13 +700,22 @@ export default function ManufacturerManagement() {
               {/* 账号配额信息 */}
               <div className="bg-gray-50 rounded-lg p-3 mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-500">账号配额</span>
-                  <button
-                    onClick={() => openQuotaModal(item)}
-                    className="text-xs text-primary hover:underline"
-                  >
-                    设置配额
-                  </button>
+                  <span className="text-xs font-medium text-gray-500">
+                    账号配额
+                    {item.accountQuota?.totalAccounts ? (
+                      <span className="ml-2 text-primary font-bold">
+                        (总配额: {item.accountQuota.totalAccounts})
+                      </span>
+                    ) : null}
+                  </span>
+                  {isAdmin && (
+                    <button
+                      onClick={() => openQuotaModal(item)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      设置配额
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
@@ -475,28 +739,71 @@ export default function ManufacturerManagement() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                <button
-                  onClick={() => openEditModal(item)}
-                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  <Edit className="w-4 h-4" />
-                  编辑
-                </button>
-                <button
-                  onClick={() => openPasswordModal(item)}
-                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                >
-                  <Key className="w-4 h-4" />
-                  账号
-                </button>
-                <button
-                  onClick={() => handleDelete(item._id)}
-                  className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  删除
-                </button>
+              <div className="flex items-center gap-2 pt-3 border-t border-gray-100 flex-wrap">
+                {canManageManufacturer(item._id) ? (
+                  <>
+                    <button
+                      onClick={() => openEditModal(item)}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                      <Edit className="w-4 h-4" />
+                      编辑
+                    </button>
+                    <button
+                      onClick={() => openAccountsModal(item)}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <Key className="w-4 h-4" />
+                      账号
+                    </button>
+                    <button
+                      onClick={() => handleOpenTierSystem(item, 'hierarchy')}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                    >
+                      <Layers className="w-4 h-4" />
+                      分层体系
+                    </button>
+                    <button
+                      onClick={() => handleOpenTierSystem(item, 'pool')}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                    >
+                      <Shield className="w-4 h-4" />
+                      角色授权
+                    </button>
+                    <button
+                      onClick={() => handleOpenTierSystem(item, 'reconciliation')}
+                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      返佣对账
+                    </button>
+                    {isManufacturerUser && myManufacturerId && String(item._id) === String(myManufacturerId) && (
+                      <button
+                        onClick={handleOpenAuthorizationRequests}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                      >
+                        <Shield className="w-4 h-4" />
+                        授权申请
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDelete(item._id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        删除
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    onClick={() => handleOpenProductAuthorization(item)}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    商品授权
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -721,6 +1028,236 @@ export default function ManufacturerManagement() {
                 />
               </div>
 
+              {/* 扩展信息 - 仅编辑时显示 */}
+              {editingItem && (
+                <>
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">企业信息设置</h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">企业LOGO（图片URL）</label>
+                        <input
+                          type="text"
+                          value={formData.logo}
+                          onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          placeholder="请输入LOGO图片URL"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">公司电话</label>
+                          <input
+                            type="text"
+                            value={formData.settings.phone}
+                            onChange={(e) => setFormData({ ...formData, settings: { ...formData.settings, phone: e.target.value } })}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="公司电话"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">客服电话</label>
+                          <input
+                            type="text"
+                            value={formData.settings.servicePhone}
+                            onChange={(e) => setFormData({ ...formData, settings: { ...formData.settings, servicePhone: e.target.value } })}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="客服电话"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">收款信息</h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">银行开户行</label>
+                        <input
+                          type="text"
+                          value={formData.settings.bankInfo.bankName}
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            settings: { 
+                              ...formData.settings, 
+                              bankInfo: { ...formData.settings.bankInfo, bankName: e.target.value } 
+                            } 
+                          })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          placeholder="如：中国工商银行佛山分行"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">户名</label>
+                          <input
+                            type="text"
+                            value={formData.settings.bankInfo.accountName}
+                            onChange={(e) => setFormData({ 
+                              ...formData, 
+                              settings: { 
+                                ...formData.settings, 
+                                bankInfo: { ...formData.settings.bankInfo, accountName: e.target.value } 
+                              } 
+                            })}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="公司名称"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">银行账号</label>
+                          <input
+                            type="text"
+                            value={formData.settings.bankInfo.accountNumber}
+                            onChange={(e) => setFormData({ 
+                              ...formData, 
+                              settings: { 
+                                ...formData.settings, 
+                                bankInfo: { ...formData.settings.bankInfo, accountNumber: e.target.value } 
+                              } 
+                            })}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="银行账号"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">微信企业收款码（URL）</label>
+                          <input
+                            type="text"
+                            value={formData.settings.wechatQrCode}
+                            onChange={(e) => setFormData({ ...formData, settings: { ...formData.settings, wechatQrCode: e.target.value } })}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="微信收款码图片URL"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">支付宝企业收款码（URL）</label>
+                          <input
+                            type="text"
+                            value={formData.settings.alipayQrCode}
+                            onChange={(e) => setFormData({ ...formData, settings: { ...formData.settings, alipayQrCode: e.target.value } })}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            placeholder="支付宝收款码图片URL"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 企业认证信息 */}
+                  <div className="border-t pt-4 mt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-900">企业认证</h3>
+                      {editingItem?.certification?.status && (
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          editingItem.certification.status === 'approved' 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : editingItem.certification.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : editingItem.certification.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {editingItem.certification.status === 'approved' ? '已认证' :
+                           editingItem.certification.status === 'pending' ? '待审核' :
+                           editingItem.certification.status === 'rejected' ? '已拒绝' : '未提交'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <p className="text-xs text-gray-500 mb-4">
+                      上传营业执照和开票信息，经审核后将获得"已认证"标识
+                    </p>
+                    
+                    <div className="space-y-4 bg-blue-50 rounded-lg p-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">营业执照（图片URL）</label>
+                        <input
+                          type="text"
+                          value={(editingItem as any)?.certification?.businessLicenseImage || ''}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                          placeholder="厂家通过API提交"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">统一社会信用代码</label>
+                          <input
+                            type="text"
+                            value={(editingItem as any)?.certification?.creditCode || ''}
+                            readOnly
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                            placeholder="厂家通过API提交"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">企业名称</label>
+                          <input
+                            type="text"
+                            value={(editingItem as any)?.certification?.companyName || ''}
+                            readOnly
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                            placeholder="厂家通过API提交"
+                          />
+                        </div>
+                      </div>
+                      
+                      {editingItem?.certification?.status === 'pending' && (
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!confirm('确定通过该企业认证吗？')) return
+                              try {
+                                await apiClient.put(`/manufacturers/${editingItem._id}/certification/review`, {
+                                  status: 'approved'
+                                })
+                                toast.success('认证已通过')
+                                fetchData()
+                                setShowModal(false)
+                              } catch (error: any) {
+                                toast.error(error.response?.data?.message || '操作失败')
+                              }
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                          >
+                            通过认证
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const reason = prompt('请输入拒绝原因：')
+                              if (!reason) return
+                              try {
+                                await apiClient.put(`/manufacturers/${editingItem._id}/certification/review`, {
+                                  status: 'rejected',
+                                  reviewNote: reason
+                                })
+                                toast.success('已拒绝认证')
+                                fetchData()
+                                setShowModal(false)
+                              } catch (error: any) {
+                                toast.error(error.response?.data?.message || '操作失败')
+                              }
+                            }}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+                          >
+                            拒绝
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">状态</label>
                 <select
@@ -821,57 +1358,93 @@ export default function ManufacturerManagement() {
             </div>
 
             <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  授权账号配额
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-blue-700 mb-2">
+                  总账号配额（由管理员设置）
                 </label>
                 <input
                   type="number"
                   min="0"
-                  value={quotaForm.authAccounts}
-                  onChange={(e) => setQuotaForm({ ...quotaForm, authAccounts: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="0"
+                  value={quotaForm.totalAccounts}
+                  onChange={(e) => setQuotaForm({ ...quotaForm, totalAccounts: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                  placeholder="如：500"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  当前已使用：{quotaTarget.accountUsage?.authAccounts || 0} 个
+                <p className="text-xs text-blue-600 mt-2">
+                  厂家可在此总配额范围内，自行分配各类型账号数量
                 </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  子账号配额
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={quotaForm.subAccounts}
-                  onChange={(e) => setQuotaForm({ ...quotaForm, subAccounts: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="0"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  当前已使用：{quotaTarget.accountUsage?.subAccounts || 0} 个
-                </p>
+
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-gray-600 mb-3">分配明细（厂家可自行调整）：</p>
+                
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      授权账号
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quotaForm.authAccounts}
+                      onChange={(e) => setQuotaForm({ ...quotaForm, authAccounts: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      已用：{quotaTarget.accountUsage?.authAccounts || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      子账号
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quotaForm.subAccounts}
+                      onChange={(e) => setQuotaForm({ ...quotaForm, subAccounts: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      已用：{quotaTarget.accountUsage?.subAccounts || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      设计师账号
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quotaForm.designerAccounts}
+                      onChange={(e) => setQuotaForm({ ...quotaForm, designerAccounts: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      已用：{quotaTarget.accountUsage?.designerAccounts || 0}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-3 text-sm">
+                  <span className="text-gray-500">已分配：</span>
+                  <span className={`font-medium ${
+                    (quotaForm.authAccounts + quotaForm.subAccounts + quotaForm.designerAccounts) > quotaForm.totalAccounts 
+                      ? 'text-red-600' 
+                      : 'text-green-600'
+                  }`}>
+                    {quotaForm.authAccounts + quotaForm.subAccounts + quotaForm.designerAccounts}
+                  </span>
+                  <span className="text-gray-500"> / {quotaForm.totalAccounts} 个</span>
+                  {(quotaForm.authAccounts + quotaForm.subAccounts + quotaForm.designerAccounts) > quotaForm.totalAccounts && (
+                    <span className="text-red-500 text-xs ml-2">（超出总配额）</span>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  设计师账号配额
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={quotaForm.designerAccounts}
-                  onChange={(e) => setQuotaForm({ ...quotaForm, designerAccounts: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="0"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  当前已使用：{quotaTarget.accountUsage?.designerAccounts || 0} 个
-                </p>
-              </div>
+
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-sm text-yellow-700">
-                  ⚠️ 设置配额后，厂家可在配额范围内创建对应类型的账号
+                  ⚠️ 厂家登录后可在总配额范围内，根据实际经营需要调整各类账号分配
                 </p>
               </div>
             </div>
@@ -890,6 +1463,220 @@ export default function ManufacturerManagement() {
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 保存配额
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 账号管理弹窗 */}
+      {showAccountsModal && accountsTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">
+                账号管理 - {accountsTarget.fullName || accountsTarget.name}
+              </h2>
+              <button
+                onClick={() => setShowAccountsModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <div className="text-sm text-gray-600">
+                配额使用：
+                <span className="text-purple-600 font-medium ml-2">授权 {accountsTarget.accountUsage?.authAccounts || 0}/{accountsTarget.accountQuota?.authAccounts || 0}</span>
+                <span className="text-blue-600 font-medium ml-3">子账号 {accountsTarget.accountUsage?.subAccounts || 0}/{accountsTarget.accountQuota?.subAccounts || 0}</span>
+                <span className="text-green-600 font-medium ml-3">设计师 {accountsTarget.accountUsage?.designerAccounts || 0}/{accountsTarget.accountQuota?.designerAccounts || 0}</span>
+              </div>
+              <button
+                onClick={openCreateAccountModal}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                新建账号
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {accountsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              ) : accounts.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  暂无账号，点击"新建账号"创建
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {accounts.map((account) => (
+                    <div key={account._id} className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-gray-900">{account.nickname || account.username}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs ${getAccountTypeColor(account.accountType)}`}>
+                            {getAccountTypeLabel(account.accountType)}
+                          </span>
+                          {account.status !== 'active' && (
+                            <span className="px-2 py-0.5 rounded text-xs bg-red-100 text-red-700">
+                              {account.status === 'expired' ? '已过期' : '已禁用'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500 flex items-center gap-4">
+                          <span>用户名: {account.username}</span>
+                          {account.specialAccountConfig?.expiresAt && (
+                            <span>
+                              到期: {new Date(account.specialAccountConfig.expiresAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1 flex flex-wrap gap-2">
+                          {account.permissions?.canAccessAdmin && <span className="bg-gray-200 px-1.5 py-0.5 rounded">后台</span>}
+                          {account.permissions?.canViewCostPrice && <span className="bg-gray-200 px-1.5 py-0.5 rounded">成本价</span>}
+                          {account.permissions?.canDownloadMaterial && <span className="bg-gray-200 px-1.5 py-0.5 rounded">下载</span>}
+                          {account.permissions?.canManageOrders && <span className="bg-gray-200 px-1.5 py-0.5 rounded">订单</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEditAccountModal(account)}
+                          className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          编辑
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAccount(account._id)}
+                          className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 创建/编辑账号弹窗 */}
+      {showCreateAccountModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {editingAccount ? '编辑账号' : '新建账号'}
+              </h2>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {!editingAccount && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">用户名 *</label>
+                    <input
+                      type="text"
+                      value={accountForm.username}
+                      onChange={(e) => setAccountForm({ ...accountForm, username: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="请输入用户名"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">密码 *</label>
+                    <input
+                      type="password"
+                      value={accountForm.password}
+                      onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="请输入密码（至少6位）"
+                    />
+                  </div>
+                </>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">昵称</label>
+                <input
+                  type="text"
+                  value={accountForm.nickname}
+                  onChange={(e) => setAccountForm({ ...accountForm, nickname: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  placeholder="请输入昵称"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">账号类型</label>
+                <select
+                  value={accountForm.accountType}
+                  onChange={(e) => setAccountForm({ ...accountForm, accountType: e.target.value as 'auth' | 'sub' | 'designer' })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="auth">授权账号</option>
+                  <option value="sub">子账号</option>
+                  <option value="designer">设计师账号</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">到期时间</label>
+                <input
+                  type="date"
+                  value={accountForm.expiresAt}
+                  onChange={(e) => setAccountForm({ ...accountForm, expiresAt: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                <p className="text-xs text-gray-500 mt-1">留空表示永久有效</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">权限设置</label>
+                <div className="space-y-2">
+                  {[
+                    { key: 'canAccessAdmin', label: '访问后台' },
+                    { key: 'canViewCostPrice', label: '查看成本价' },
+                    { key: 'canDownloadMaterial', label: '下载素材' },
+                    { key: 'canManageOrders', label: '管理订单' },
+                    { key: 'canManageProducts', label: '管理商品' },
+                    { key: 'canManageUsers', label: '管理用户' }
+                  ].map((perm) => (
+                    <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={accountForm.permissions[perm.key as keyof typeof accountForm.permissions]}
+                        onChange={(e) => setAccountForm({
+                          ...accountForm,
+                          permissions: { ...accountForm.permissions, [perm.key]: e.target.checked }
+                        })}
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="text-sm text-gray-700">{perm.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowCreateAccountModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveAccount}
+                disabled={saving}
+                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                保存
               </button>
             </div>
           </div>

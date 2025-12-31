@@ -41,7 +41,8 @@ export default function ProfileCompleteModal({ isOpen, onClose }: ProfileComplet
         // 更新本地用户状态
         updateUser({
           nickname: form.nickname.trim(),
-          gender: form.gender as 'male' | 'female' | ''
+          gender: form.gender as 'male' | 'female' | '',
+          profileCompleted: true
         })
         
         // 标记用户已完善信息，防止反复弹窗
