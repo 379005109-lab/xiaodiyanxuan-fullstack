@@ -2625,136 +2625,123 @@ function HierarchyTab({
         {viewMode === 'map' && (
           /* duijie/nn的架构地图视图 */
           <div ref={canvasViewportRef} className="relative w-full h-full overflow-hidden bg-gray-50/50">
+            {/* 统一顶部控制栏 */}
             <div
-              className="fixed top-6 left-6 z-[90]"
+              className="fixed top-0 left-0 right-0 z-[90] bg-white border-b border-gray-200 shadow-sm"
               onWheel={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-4 flex items-center gap-4">
-                <div>
-                  <div className="text-xs font-black text-gray-400 uppercase tracking-widest">当前可见</div>
-                  <div className="text-lg font-black text-gray-900">{visibleNodeCount} / {totalNodeCount}</div>
-                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">节点（人员 {visibleStaffNodes.length} / {totalStaffNodeCount}）</div>
+              <div className="flex items-center justify-between px-6 py-4">
+                {/* 左侧：节点统计和层级控制 */}
+                <div className="flex items-center gap-6">
+                  <div className="text-sm font-medium text-gray-600">
+                    {tooManyVisible ? (
+                      <span className="text-red-600">显示 {MAX_VISIBLE_STAFF_NODES} / {visibleStaffNodes.length} 节点</span>
+                    ) : (
+                      <span>显示 {visibleStaffNodes.length} 节点</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">层级:</span>
+                    <button 
+                      onClick={() => expandToDepth(0)}
+                      className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                    >
+                      收起
+                    </button>
+                    <button 
+                      onClick={() => expandToDepth(1)}
+                      className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                    >
+                      1级
+                    </button>
+                    <button 
+                      onClick={() => expandToDepth(2)}
+                      className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                    >
+                      2级
+                    </button>
+                    <button 
+                      onClick={() => expandToDepth(3)}
+                      className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                    >
+                      全部
+                    </button>
+                  </div>
                 </div>
-                <div className="w-px h-10 bg-gray-100" />
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => expandToDepth(0)}
-                    className="px-4 py-3 rounded-xl border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#153e35]"
+
+                {/* 中间：搜索框 */}
+                <div className="flex-1 max-w-md mx-8 relative">
+                  <input
+                    value={nodeSearch}
+                    onChange={(e) => setNodeSearch(e.target.value)}
+                    placeholder="搜索节点..."
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:border-[#153e35] focus:ring-1 focus:ring-[#153e35]"
+                  />
+                  {searchMatches.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto z-10">
+                      {searchMatches.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            expandPathTo(String(m.id))
+                            setFocusedNodeId(String(m.id))
+                            focusNode(String(m.id))
+                            setNodeSearch('')
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
+                        >
+                          <div className="text-sm font-medium text-gray-900">{m.label || m.id}</div>
+                          {m.extra && <div className="text-xs text-gray-500 mt-1">{m.extra}</div>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 右侧：缩放控制和视图切换 */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setZoomScale(p => Math.max(0.3, p - 0.1))} 
+                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth={2} d="M20 12H4" /></svg>
+                    </button>
+                    <span className="text-sm text-gray-500 px-2">{Math.round(zoomScale * 100)}%</span>
+                    <button 
+                      onClick={() => setZoomScale(p => Math.min(2, p + 0.1))} 
+                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-600 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => fitToView({ maxZoom: 1.2 }, Array.from(visibleNodeIdSet))}
+                      className="px-3 py-1.5 bg-[#153e35] text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors"
+                    >
+                      适应屏幕
+                    </button>
+                  </div>
+                  <div className="w-px h-6 bg-gray-300"></div>
+                  <button 
+                    onClick={() => setViewMode('list')} 
+                    className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors flex items-center gap-2"
                   >
-                    全收起
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => expandToDepth(1)}
-                    className="px-4 py-3 rounded-xl border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#153e35]"
-                  >
-                    展开1层
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => expandToDepth(2)}
-                    className="px-4 py-3 rounded-xl border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#153e35]"
-                  >
-                    展开2层
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!window.confirm('展开全部节点可能会造成页面卡顿，确定要展开全部吗？')) return
-                      expandToDepth(3)
-                    }}
-                    className="px-4 py-3 rounded-xl border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#153e35]"
-                  >
-                    全展开
-                  </button>
-                  <div className="w-px h-10 bg-gray-100" />
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className="px-4 py-3 rounded-xl border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#153e35]"
-                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
                     目录视图
                   </button>
                 </div>
               </div>
-              {tooManyVisible ? (
-                <div className="mt-3 bg-white rounded-2xl shadow-2xl border border-red-100 px-5 py-4">
-                  <div className="text-xs font-black text-red-600">当前展开节点过多，为避免卡顿，地图最多渲染 {MAX_VISIBLE_STAFF_NODES} 个人员节点。</div>
-                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">建议：全收起 / 展开1层 / 使用搜索定位</div>
-                </div>
-              ) : null}
-            </div>
 
-            <div
-              className="fixed top-6 right-6 z-[90] w-[320px]"
-              onWheel={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-4">
-                <input
-                  value={nodeSearch}
-                  onChange={(e) => setNodeSearch(e.target.value)}
-                  placeholder="搜索人员/总部…"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm font-bold outline-none focus:border-emerald-400"
-                />
-                {searchMatches.length > 0 ? (
-                  <div className="mt-3 max-h-[360px] overflow-auto">
-                    {searchMatches.map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => {
-                          expandPathTo(String(m.id))
-                          setFocusedNodeId(String(m.id))
-                          focusNode(String(m.id))
-                          setNodeSearch('')
-                        }}
-                        className="w-full text-left px-3 py-3 rounded-xl hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="text-sm font-black text-gray-900 truncate">{m.label || m.id}</div>
-                        {m.extra ? <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate">{m.extra}</div> : null}
-                      </button>
-                    ))}
+              {/* 警告提示 */}
+              {tooManyVisible && (
+                <div className="px-6 pb-3">
+                  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+                    <div className="text-xs text-red-600 font-medium">节点过多，已限制显示前 {MAX_VISIBLE_STAFF_NODES} 个以避免卡顿</div>
                   </div>
-                ) : null}
-              </div>
-            </div>
-
-            {/* 缩放控制面板 */}
-            <div
-              className="fixed bottom-6 left-6 flex flex-col gap-4 z-[80]"
-              onWheel={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <button 
-                onClick={() => setZoomScale(p => Math.min(2, p + 0.1))} 
-                className="w-14 h-14 bg-white shadow-2xl rounded-2xl flex items-center justify-center text-[#153e35] hover:bg-gray-50 transition-colors"
-              >
-                <Plus className="w-8 h-8" strokeWidth={3} />
-              </button>
-              <button
-                onClick={() => fitToView({ maxZoom: 1.2 }, Array.from(visibleNodeIdSet))}
-                className="w-14 h-14 bg-white shadow-2xl rounded-2xl flex items-center justify-center text-gray-500 text-xs font-black uppercase tracking-tighter"
-              >
-                FIT
-              </button>
-              <button 
-                onClick={() => {
-                  setZoomScale(1)
-                  setPan({ x: 0, y: 0 })
-                }} 
-                className="w-14 h-14 bg-white shadow-2xl rounded-2xl flex items-center justify-center text-gray-400 text-xs font-black uppercase tracking-tighter"
-              >
-                100%
-              </button>
-              <button 
-                onClick={() => setZoomScale(p => Math.max(0.3, p - 0.1))} 
-                className="w-14 h-14 bg-white shadow-2xl rounded-2xl flex items-center justify-center text-[#153e35] hover:bg-gray-50 transition-colors"
-              >
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth={3} d="M20 12H4" /></svg>
-              </button>
+                </div>
+              )}
             </div>
 
             {focusedNodeId ? (
@@ -2846,7 +2833,7 @@ function HierarchyTab({
                 preserveAspectRatio="none"
               >
                 {hierarchyGraph.edges.map((e) => {
-                  const renderNodeIdSet = new Set<string>(['headquarters', ...visibleStaffNodesForRender.map(s => String(s.id))])
+                  const renderNodeIdSet = new Set<string>(['headquarters', ...visibleStaffNodes.map(s => String(s.id))])
                   if (!renderNodeIdSet.has(String(e.from)) || !renderNodeIdSet.has(String(e.to))) return null
                   const fromPos = nodePositions[String(e.from)]
                   const toPos = nodePositions[String(e.to)]
@@ -2896,7 +2883,7 @@ function HierarchyTab({
                   <button
                     type="button"
                     onClick={onToggleExpandClick('headquarters')}
-                    className="absolute top-4 left-4 w-9 h-9 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
+                    className="absolute top-4 right-4 w-9 h-9 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
                     title={expandedNodes.has('headquarters') ? '收起下级' : '展开下级'}
                   >
                     {expandedNodes.has('headquarters') ? <ChevronDown className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
@@ -2948,7 +2935,7 @@ function HierarchyTab({
                     <button
                       type="button"
                       onClick={onToggleExpandClick(String(staff.id))}
-                      className="absolute top-4 left-4 w-9 h-9 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
+                      className="absolute top-4 right-4 w-8 h-8 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
                       title={expandedNodes.has(String(staff.id)) ? '收起下级' : '展开下级'}
                     >
                       {expandedNodes.has(String(staff.id)) ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
@@ -3588,53 +3575,41 @@ function ProductProfitModal({
 
     return (
       <div key={pid} className={`bg-white border rounded-2xl overflow-hidden hover:border-emerald-100 ${checked ? 'border-[#153e35] ring-2 ring-emerald-50' : 'border-gray-100'}`}>
-        <div className="px-6 py-4 flex items-center justify-between gap-6">
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleSelectProducts([pid])}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') toggleSelectProducts([pid])
-            }}
-            className="flex items-center gap-4 min-w-0 text-left cursor-pointer"
-          >
+        <div className="px-6 py-4">
+          <div className="flex items-start gap-4 mb-4">
             <input
               type="checkbox"
               checked={checked}
-              onClick={(e) => e.stopPropagation()}
               onChange={() => toggleSelectProducts([pid])}
-              className="w-5 h-5 accent-[#153e35]"
+              className="w-5 h-5 accent-[#153e35] mt-1 flex-shrink-0"
             />
-            <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
+            <div className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 overflow-hidden flex-shrink-0">
               {imgUrl ? <img src={imgUrl} alt={name} className="w-full h-full object-cover" /> : null}
             </div>
-            <div className="min-w-0">
-              <div className="text-sm font-black text-gray-900 truncate">{name}</div>
-              <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+            <div className="min-w-0 flex-1">
+              <div className="text-lg font-bold text-gray-900 mb-2 leading-tight">{name}</div>
+              <div className="text-sm text-gray-500 mb-2">
                 标价 ¥{Number(base || 0).toLocaleString()}
               </div>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm text-gray-400">
                   SKU {skuList.length}{skuSummary ? ` • ${skuSummary}` : ''}
-                </div>
+                </span>
                 {skuList.length > 0 && (
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleSkuExpansion(pid)
-                    }}
-                    className="text-xs text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1"
+                    onClick={() => toggleSkuExpansion(pid)}
+                    className="text-sm text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1"
                   >
                     {isSkuExpanded ? (
                       <>
-                        <ChevronDown className="w-3 h-3" />
-                        收起
+                        <ChevronDown className="w-4 h-4" />
+                        收起详情
                       </>
                     ) : (
                       <>
-                        <ChevronRight className="w-3 h-3" />
-                        展开
+                        <ChevronRight className="w-4 h-4" />
+                        展开详情
                       </>
                     )}
                   </button>
@@ -3643,73 +3618,72 @@ function ProductProfitModal({
             </div>
           </div>
 
-        <div className="flex items-center gap-6 shrink-0">
-          <div className="text-right">
-            <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest">最低折扣价</div>
-            <div className="text-sm font-black text-gray-900">¥{Number(minDiscountPrice || 0).toLocaleString()}</div>
-            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">折扣 {rateToPct(minAllowedRate)}%</div>
-          </div>
-          <div className="text-right">
-            <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest">返佣金额</div>
-            <div className="text-sm font-black text-gray-900">¥{Number(commissionAmount || 0).toLocaleString()}</div>
-            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">返佣 {commissionToPct(effectiveCommissionRate)}%</div>
-          </div>
-
-          {checked ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={1}
-                placeholder="折扣%"
-                value={prodOverride?.discountRate != null ? rateToPct(prodOverride.discountRate) : ''}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (!v) {
-                    setProductOverrideField(pid, { discountRate: null })
-                    return
-                  }
-                  const r = pctToRate(v)
-                  setProductOverrideField(pid, { discountRate: r == null ? null : Math.max(r, safeGlobalMinSaleDiscountRate) })
-                }}
-                className="w-24 bg-gray-50 border rounded-xl px-3 py-2 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
-                title="商品最低折扣%（留空表示继承品类/规则）"
-              />
-              <input
-                type="number"
-                min={0}
-                max={Math.round(safeCommissionMax * 100)}
-                step={1}
-                placeholder="返佣%"
-                value={prodOverride?.commissionRate != null ? commissionToPct(prodOverride.commissionRate) : ''}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (!v) {
-                    setProductOverrideField(pid, { commissionRate: null })
-                    return
-                  }
-                  const r = pctToRate(v)
-                  setProductOverrideField(pid, { commissionRate: r == null ? null : Math.max(0, Math.min(safeCommissionMax, r)) })
-                }}
-                className="w-24 bg-gray-50 border rounded-xl px-3 py-2 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
-                title="商品返佣%（留空表示继承品类/规则）"
-              />
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-gray-50 p-4 rounded-xl">
+              <div className="text-xs text-gray-500 font-medium mb-1">最低折扣价</div>
+              <div className="text-xl font-bold text-gray-900">¥{Number(minDiscountPrice || 0).toLocaleString()}</div>
+              <div className="text-xs text-gray-400 mt-1">折扣 {rateToPct(minAllowedRate)}%</div>
             </div>
-            ) : null}
-
-            {checked ? (
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <Check className="w-5 h-5" />
-              </div>
-            ) : (
-              <div className="w-10 h-10 rounded-2xl bg-gray-50 text-gray-300 flex items-center justify-center shrink-0">
-                <Check className="w-5 h-5" />
-              </div>
-            )}
+            <div className="bg-gray-50 p-4 rounded-xl">
+              <div className="text-xs text-gray-500 font-medium mb-1">返佣金额</div>
+              <div className="text-xl font-bold text-gray-900">¥{Number(commissionAmount || 0).toLocaleString()}</div>
+              <div className="text-xs text-gray-400 mt-1">返佣 {commissionToPct(effectiveCommissionRate)}%</div>
+            </div>
           </div>
+
+          {checked && (
+            <div className="border-t border-gray-100 pt-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">自定义折扣%</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    placeholder="留空继承规则"
+                    value={prodOverride?.discountRate != null ? rateToPct(prodOverride.discountRate) : ''}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (!v) {
+                        setProductOverrideField(pid, { discountRate: null })
+                        return
+                      }
+                      const r = pctToRate(v)
+                      setProductOverrideField(pid, { discountRate: r == null ? null : Math.max(r, safeGlobalMinSaleDiscountRate) })
+                    }}
+                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#153e35] focus:ring-1 focus:ring-[#153e35]"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">自定义返佣%</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={Math.round(safeCommissionMax * 100)}
+                    step={1}
+                    placeholder="留空继承规则"
+                    value={prodOverride?.commissionRate != null ? commissionToPct(prodOverride.commissionRate) : ''}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (!v) {
+                        setProductOverrideField(pid, { commissionRate: null })
+                        return
+                      }
+                      const r = pctToRate(v)
+                      setProductOverrideField(pid, { commissionRate: r == null ? null : Math.max(0, Math.min(safeCommissionMax, r)) })
+                    }}
+                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#153e35] focus:ring-1 focus:ring-[#153e35]"
+                  />
+                </div>
+                <div className="flex items-end pb-2">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <Check className="w-6 h-6" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* SKU详情展开区域 */}
