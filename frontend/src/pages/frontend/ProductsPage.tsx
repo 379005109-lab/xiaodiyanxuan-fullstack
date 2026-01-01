@@ -338,7 +338,9 @@ export default function ProductsPage() {
       // 添加调试日志
       console.log(`🔍 风格筛选: 商品"${product.name}" 的风格:`, productStyles, '| 筛选条件:', filters.style, '| 匹配:', productStyles.includes(filters.style))
       
-      if (!Array.isArray(productStyles) || !productStyles.includes(filters.style)) {
+      // 只在有styles字段且筛选条件不匹配时过滤掉
+      // 没有styles字段的商品在没有风格筛选时应该显示
+      if (Array.isArray(productStyles) && productStyles.length > 0 && !productStyles.includes(filters.style)) {
         return false
       }
     }
