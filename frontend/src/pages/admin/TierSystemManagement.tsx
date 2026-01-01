@@ -2009,10 +2009,7 @@ function HierarchyTab({
   const getMaxVerticalCommissionPctForAccount = (accountId: string) => {
     const used = getVerticalAncestorCommissionSumPct(accountId)
     const maxAllowed = Math.max(0, Math.min(100, headquartersCommissionCapPct - used))
-    
-    // 允许每个节点使用完整的40%上限进行分配
-    const testMax = Math.min(100, headquartersCommissionCapPct)
-    return testMax
+    return maxAllowed
   }
 
   useEffect(() => {
@@ -2179,25 +2176,7 @@ function HierarchyTab({
   }, [hierarchyGraph, expandedNodes])
 
   const visibleStaffNodes = useMemo(() => {
-    // 首先按展开状态过滤
-    const expandedFiltered = hierarchyData.staffNodes.filter((s) => visibleNodeIdSet.has(String(s.id)))
-    
-    // 实现层级可见性控制：只显示自己建立的层级
-    // 假设level 1-2是自己建立的，level 3+是合作方建立的（可根据实际业务调整）
-    const currentUserMaxLevel = 2 // 可以根据当前用户权限动态设置
-    
-    return expandedFiltered.filter((s) => {
-      const level = s.level || 1
-      
-      // 如果是自己建立的层级（1-2级），正常显示
-      if (level <= currentUserMaxLevel) {
-        return true
-      }
-      
-      // 如果是合作方层级（3级及以上），隐藏具体信息但保留结构
-      // 这里可以选择完全隐藏或显示为占位符
-      return false // 暂时完全隐藏，只在连线中保留结构
-    })
+    return hierarchyData.staffNodes.filter((s) => visibleNodeIdSet.has(String(s.id)))
   }, [hierarchyData.staffNodes, visibleNodeIdSet])
 
   const hasChildren = (nodeId: string) => {
