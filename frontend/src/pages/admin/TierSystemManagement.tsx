@@ -42,7 +42,6 @@ interface DiscountRule {
     minOrderCount?: number
     memberLevel?: string
   }
-
   isDefault: boolean
 }
 
@@ -64,6 +63,11 @@ interface AuthorizedAccount {
   distributionRate?: number  // 垂直权重比例（同一父节点下子节点合计≤100）
   visibleCategoryIds?: string[]
   visibleProductIds?: string[]
+  categoryOverrides?: Array<{
+    categoryId: string
+    discountRate?: number
+    commissionRate?: number
+  }>
   productOverrides?: Array<{
     productId: string
     discountRate?: number
@@ -1747,10 +1751,6 @@ function HierarchyTab({
     nickname: string
     phone: string
     roleModuleId: string
-    discountRuleId: string
-    allocatedRate: number
-    distributionRate: number
-    visibleCategoryIds: string[]
   }>) => {
     if (!manufacturerId) {
       toast.error('请先选择厂家')
@@ -1768,78 +1768,41 @@ function HierarchyTab({
       return
     }
 
-    const roleModuleId = String(items[0]?.roleModuleId || '')
-    const module = modules.find(m => String(m._id) === roleModuleId)
-    if (!module) {
-      toast.error('请选择角色模块')
-      return
-    }
-
-    const anyDifferentModule = items.some(it => String(it.roleModuleId) !== roleModuleId)
-    if (anyDifferentModule) {
-      toast.error('批量绑定仅支持同一角色模块')
-      return
-    }
-
-    const invalidRule = items.find(it => {
-      if (!it.discountRuleId) return true
-      const ok = (module.discountRules || []).some(r => String(r._id) === String(it.discountRuleId))
-      return !ok
-    })
-    if (invalidRule) {
-      toast.error('存在无效折扣规则，请重新选择')
-      return
-    }
-
-    const parentMinDiscountPct = parentAccount ? getMinDiscountPctFromAccount(parentAccount, module) : 60
+    const parentModule = parentAccount
+      ? (modules.find(m => String(m._id) === String(parentAccount.roleModuleId)) || null)
+      : null
+    const parentMinDiscountPct = parentAccount ? getMinDiscountPctFromAccount(parentAccount, parentModule) : 60
     const parentMinRate = Math.max(0, Math.min(1, parentMinDiscountPct / 100))
-    const parentMaxCommissionPct = parentAccount ? getMaxCommissionPctFromAccount(parentAccount) : 40
 
-    const invalidDiscountByParent = items.find(it => {
-      const rule = (module.discountRules || []).find(r => String(r._id) === String(it.discountRuleId))
-      const v = typeof rule?.discountRate === 'number' && Number.isFinite(rule.discountRate) ? rule.discountRate : 1
-      return v < parentMinRate
+    const pickDefaultRuleId = (m: RoleModule | undefined | null) => {
+      const rules = Array.isArray(m?.discountRules) ? m!.discountRules : []
+      const candidates = rules.filter((r) => {
+        const v = typeof r.discountRate === 'number' && Number.isFinite(r.discountRate) ? r.discountRate : 1
+        return v >= parentMinRate
+      })
+      const chosen = candidates.find(r => r.isDefault) || candidates[0] || null
+      return chosen?._id ? String(chosen._id) : ''
+    }
+
+    const invalidRole = items.find((it) => {
+      const roleModuleId = String(it.roleModuleId || '')
+      return !modules.some((m) => m?.isActive && String(m._id) === roleModuleId)
     })
-    if (invalidDiscountByParent) {
-      toast.error(`最低折扣不能低于上级限制 ${parentMinDiscountPct}%`)
-      return
-    }
-
-    const invalidCommissionByParent = items.find(it => Number(it.distributionRate || 0) > parentMaxCommissionPct)
-    if (invalidCommissionByParent) {
-      toast.error(`返佣比例不能超过上级限制 ${parentMaxCommissionPct}%`)
-      return
-    }
-
-    const currentModuleAllocated = accounts
-      .filter(a => a.roleModuleId === roleModuleId && !a.parentId)
-      .reduce((sum, a) => sum + a.allocatedRate, 0)
-    const maxAvailable = parentAccount
-      ? Number(parentAccount.availableRate || 0)
-      : Math.max(0, Number(module.maxProfitRate || 0) - currentModuleAllocated)
-    const sumNewAllocated = items.reduce((sum, it) => sum + Number(it.allocatedRate || 0), 0)
-    if (sumNewAllocated > maxAvailable) {
-      toast.error(`分配比例合计不能超过可用额度 ${maxAvailable.toFixed(1)}%`)
-      return
-    }
-
-    const invalidVisibility = items.find(it => {
-      const ids = Array.isArray(it.visibleCategoryIds) ? it.visibleCategoryIds : []
-      if (parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0) {
-        const allowed = new Set(parentAccount.visibleCategoryIds.map(String))
-        return ids.some(x => !allowed.has(String(x)))
-      }
-      return false
-    })
-    if (invalidVisibility) {
-      toast.error('存在越级品类权限，请检查可见品类范围')
+    if (invalidRole) {
+      toast.error('请选择有效角色')
       return
     }
 
     const now = Date.now()
     const created = items.map((it, idx) => {
-      const parentMaxCommissionPct = parentAccount ? getMaxCommissionPctFromAccount(parentAccount) : 40
-      const safeDist = Math.max(0, Math.min(parentMaxCommissionPct, Math.floor(Number(it.distributionRate) || 0)))
+      const roleModuleId = String(it.roleModuleId || '')
+      const module = modules.find(m => String(m._id) === roleModuleId && m.isActive)
+      if (!module) return null
+      const ruleId = pickDefaultRuleId(module)
+      if (!ruleId) {
+        toast.error(`角色「${module.name}」缺少满足上级最低折扣 ${parentMinDiscountPct}% 的规则`)
+        return null
+      }
       const newAccount: AuthorizedAccount = {
         _id: `account_${now}_${idx}`,
         userId: String(it.accountId),
@@ -1848,14 +1811,14 @@ function HierarchyTab({
         phone: String(it.phone || ''),
         roleModuleId: roleModuleId,
         roleModuleName: module.name,
-        discountRuleId: String(it.discountRuleId),
+        discountRuleId: ruleId,
         parentId: parentAccount?._id || null,
         parentName: parentAccount?.username,
         level: parentAccount ? parentAccount.level + 1 : 1,
-        allocatedRate: Number(it.allocatedRate || 0),
-        availableRate: Number(it.allocatedRate || 0),
-        distributionRate: safeDist,
-        visibleCategoryIds: Array.isArray(it.visibleCategoryIds) ? it.visibleCategoryIds : [],
+        allocatedRate: 0,
+        availableRate: 0,
+        distributionRate: 0,
+        visibleCategoryIds: parentAccount?.visibleCategoryIds ? parentAccount.visibleCategoryIds.map(String) : [],
         children: [],
         status: 'active',
         createdAt: new Date().toISOString()
@@ -1863,16 +1826,11 @@ function HierarchyTab({
       return newAccount
     })
 
-    let nextAccounts = [...accounts, ...created]
-    if (parentAccount) {
-      nextAccounts = nextAccounts.map(a => {
-        if (String(a._id) !== String(parentAccount._id)) return a
-        const prevAvail = Number(a.availableRate || 0)
-        return { ...a, availableRate: Math.max(0, prevAvail - sumNewAllocated) }
-      })
+    if (created.some((x) => !x)) {
+      return
     }
 
-    onSaveAccounts(nextAccounts)
+    onSaveAccounts([...accounts, ...(created as AuthorizedAccount[])])
     setShowAddModal(false)
     setParentAccount(null)
     toast.success('绑定成功')
@@ -3022,11 +2980,7 @@ function HierarchyTab({
           modules={modules}
           parentAccount={parentAccount}
           parentMinDiscountPct={parentAccount ? getMinDiscountPctFromAccount(parentAccount, modules.find(m => String(m._id) === String(parentAccount.roleModuleId)) || null) : 60}
-          parentMaxCommissionPct={parentAccount ? getMaxCommissionPctFromAccount(parentAccount) : 40}
           manufacturerId={manufacturerId}
-          manufacturerCategoryTree={manufacturerCategoryTree}
-          manufacturerProducts={manufacturerProducts}
-          authorizedAccounts={accounts}
           existingUserIds={accounts.map(a => String(a.userId))}
           onClose={() => {
             setShowAddModal(false)
@@ -3048,15 +3002,21 @@ function HierarchyTab({
             setShowProductModal(false)
             setProductAccount(null)
           }}
-          onSave={(visibleProductIds) => {
+          onSave={({ visibleProductIds, categoryOverrides, productOverrides }) => {
             const next = (accounts || []).map(a => {
               if (String(a._id) !== String(productAccount._id)) return a
-              if (visibleProductIds === null) {
-                const clone: any = { ...a }
-                delete clone.visibleProductIds
-                return clone
-              }
-              return { ...a, visibleProductIds: Array.isArray(visibleProductIds) ? visibleProductIds : [] }
+
+              const clone: any = { ...a }
+              if (visibleProductIds === null) delete clone.visibleProductIds
+              else clone.visibleProductIds = Array.isArray(visibleProductIds) ? visibleProductIds : []
+
+              if (Array.isArray(categoryOverrides) && categoryOverrides.length > 0) clone.categoryOverrides = categoryOverrides
+              else delete clone.categoryOverrides
+
+              if (Array.isArray(productOverrides) && productOverrides.length > 0) clone.productOverrides = productOverrides
+              else delete clone.productOverrides
+
+              return clone
             })
             onSaveAccounts(next)
             setShowProductModal(false)
@@ -3176,7 +3136,11 @@ function ProductProfitModal({
   profitSettings: TierSystemData['profitSettings']
   inheritedProductIds: string[]
   onClose: () => void
-  onSave: (visibleProductIds: string[] | null) => void
+  onSave: (payload: {
+    visibleProductIds: string[] | null
+    categoryOverrides: Array<{ categoryId: string; discountRate?: number; commissionRate?: number }> | null
+    productOverrides: Array<{ productId: string; discountRate?: number; commissionRate?: number }> | null
+  }) => void
 }) {
   const [keyword, setKeyword] = useState('')
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set())
@@ -3213,6 +3177,110 @@ function ProductProfitModal({
       : 0
     return Math.max(0, Math.min(1, v))
   }, [defaultRule])
+
+  const safeCommissionMax = 0.4
+
+  const clampRate = (v: any) => {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return null
+    return Math.max(0, Math.min(1, n))
+  }
+
+  const clampCommissionRate = (v: any) => {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return null
+    return Math.max(0, Math.min(safeCommissionMax, n))
+  }
+
+  const pctToRate = (pct: any) => {
+    const n = Number(pct)
+    if (!Number.isFinite(n)) return null
+    return Math.max(0, Math.min(1, n / 100))
+  }
+
+  const rateToPct = (rate: any) => {
+    const n = Number(rate)
+    if (!Number.isFinite(n)) return ''
+    return String(Math.round(Math.max(0, Math.min(1, n)) * 100))
+  }
+
+  const commissionToPct = (rate: any) => {
+    const n = Number(rate)
+    if (!Number.isFinite(n)) return ''
+    return String(Math.round(Math.max(0, Math.min(safeCommissionMax, n)) * 100))
+  }
+
+  const [categoryOverrideById, setCategoryOverrideById] = useState<Record<string, { discountRate?: number; commissionRate?: number }>>(() => {
+    const list = Array.isArray((account as any)?.categoryOverrides) ? (account as any).categoryOverrides : []
+    const next: Record<string, { discountRate?: number; commissionRate?: number }> = {}
+    ;(Array.isArray(list) ? list : []).forEach((x: any) => {
+      const cid = String(x?.categoryId || '')
+      if (!cid) return
+      const d = clampRate(x?.discountRate)
+      const c = clampCommissionRate(x?.commissionRate)
+      const item: any = {}
+      if (d !== null) item.discountRate = d
+      if (c !== null) item.commissionRate = c
+      next[cid] = item
+    })
+    return next
+  })
+
+  const [productOverrideById, setProductOverrideById] = useState<Record<string, { discountRate?: number; commissionRate?: number }>>(() => {
+    const list = Array.isArray((account as any)?.productOverrides) ? (account as any).productOverrides : []
+    const next: Record<string, { discountRate?: number; commissionRate?: number }> = {}
+    ;(Array.isArray(list) ? list : []).forEach((x: any) => {
+      const pid = String(x?.productId || '')
+      if (!pid) return
+      const d = clampRate(x?.discountRate)
+      const c = clampCommissionRate(x?.commissionRate)
+      const item: any = {}
+      if (d !== null) item.discountRate = d
+      if (c !== null) item.commissionRate = c
+      next[pid] = item
+    })
+    return next
+  })
+
+  const setCategoryOverrideField = (categoryId: string, patch: { discountRate?: number | null; commissionRate?: number | null }) => {
+    setCategoryOverrideById((prev) => {
+      const cur = prev[categoryId] || {}
+      const nextItem: any = { ...cur }
+      if ('discountRate' in patch) {
+        if (patch.discountRate === null) delete nextItem.discountRate
+        else nextItem.discountRate = patch.discountRate
+      }
+      if ('commissionRate' in patch) {
+        if (patch.commissionRate === null) delete nextItem.commissionRate
+        else nextItem.commissionRate = patch.commissionRate
+      }
+      const hasAny = typeof nextItem.discountRate === 'number' || typeof nextItem.commissionRate === 'number'
+      const next = { ...prev }
+      if (!hasAny) delete next[categoryId]
+      else next[categoryId] = nextItem
+      return next
+    })
+  }
+
+  const setProductOverrideField = (productId: string, patch: { discountRate?: number | null; commissionRate?: number | null }) => {
+    setProductOverrideById((prev) => {
+      const cur = prev[productId] || {}
+      const nextItem: any = { ...cur }
+      if ('discountRate' in patch) {
+        if (patch.discountRate === null) delete nextItem.discountRate
+        else nextItem.discountRate = patch.discountRate
+      }
+      if ('commissionRate' in patch) {
+        if (patch.commissionRate === null) delete nextItem.commissionRate
+        else nextItem.commissionRate = patch.commissionRate
+      }
+      const hasAny = typeof nextItem.discountRate === 'number' || typeof nextItem.commissionRate === 'number'
+      const next = { ...prev }
+      if (!hasAny) delete next[productId]
+      else next[productId] = nextItem
+      return next
+    })
+  }
 
   const normalizeIdLocal = (x: any) => {
     if (!x) return ''
@@ -3282,14 +3350,37 @@ function ProductProfitModal({
   const productsByCategoryId = useMemo(() => {
     const map = new Map<string, any[]>()
     ;(products || []).forEach((p: any) => {
-      const cid = normalizeIdLocal(p?.category?._id || p?.category?.id || p?.category)
-      if (!cid) return
-      const arr = map.get(cid) || []
-      arr.push(p)
-      map.set(cid, arr)
+      const raw = p?.category
+      const ids: string[] = []
+      const push = (v: any) => {
+        const id = normalizeIdLocal(v)
+        if (id) ids.push(id)
+      }
+      if (Array.isArray(p?.categories)) p.categories.forEach((c: any) => push(c))
+      else if (Array.isArray(raw)) raw.forEach((c: any) => push(c))
+      else if (raw) push(raw?._id || raw?.id || raw)
+      const uniq = Array.from(new Set(ids.filter(Boolean)))
+      uniq.forEach((cid) => {
+        const arr = map.get(cid) || []
+        arr.push(p)
+        map.set(cid, arr)
+      })
     })
     return map
   }, [products])
+
+  const categoryIdsOfProduct = (p: any): string[] => {
+    const raw = p?.category
+    const ids: string[] = []
+    const push = (v: any) => {
+      const id = normalizeIdLocal(v)
+      if (id) ids.push(id)
+    }
+    if (Array.isArray(p?.categories)) p.categories.forEach((c: any) => push(c))
+    else if (Array.isArray(raw)) raw.forEach((c: any) => push(c))
+    else if (raw) push(raw?._id || raw?.id || raw)
+    return Array.from(new Set(ids.filter(Boolean)))
+  }
 
   const productById = useMemo(() => {
     return new Map<string, any>((products || []).map((p: any) => [String(p?._id || p?.id || ''), p]))
@@ -3366,35 +3457,121 @@ function ProductProfitModal({
     const base = basePriceOf(p)
     const checked = selectedProductIdSet.has(pid)
 
+    const img =
+      (Array.isArray(p?.images) ? p.images[0] : null) ||
+      p?.image ||
+      p?.cover ||
+      p?.thumbnail ||
+      p?.mainImage ||
+      ''
+    const imgUrl = typeof img === 'string' ? img : (img?.url ? String(img.url) : '')
+
+    const categoryIds = categoryIdsOfProduct(p)
+    const primaryCategoryId = categoryIds[0] || ''
+
+    const catOverride = primaryCategoryId ? categoryOverrideById[primaryCategoryId] : undefined
+    const prodOverride = productOverrideById[pid]
+    const effectiveDiscountRateRaw =
+      (typeof prodOverride?.discountRate === 'number' ? prodOverride.discountRate : undefined) ??
+      (typeof catOverride?.discountRate === 'number' ? catOverride.discountRate : undefined) ??
+      defaultDiscountRate
+    const effectiveDiscountRate = Math.max(0, Math.min(1, Number(effectiveDiscountRateRaw) || 0))
+    const minAllowedRate = Math.max(effectiveDiscountRate, safeGlobalMinSaleDiscountRate)
+    const minDiscountPrice = Math.round(Number(base || 0) * minAllowedRate)
+
+    const effectiveCommissionRateRaw =
+      (typeof prodOverride?.commissionRate === 'number' ? prodOverride.commissionRate : undefined) ??
+      (typeof catOverride?.commissionRate === 'number' ? catOverride.commissionRate : undefined) ??
+      defaultCommissionRate
+    const effectiveCommissionRate = Math.max(0, Math.min(safeCommissionMax, Number(effectiveCommissionRateRaw) || 0))
+    const commissionAmount = Math.round(minDiscountPrice * effectiveCommissionRate)
+
     return (
-      <label key={pid} className="bg-white border border-gray-100 rounded-2xl px-6 py-4 flex items-center justify-between gap-6 cursor-pointer hover:border-emerald-100">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <input
-              type="checkbox"
-              checked={checked}
-              onChange={() => toggleSelectProducts([pid])}
-              className="w-5 h-5 accent-[#153e35]"
-            />
-            <div className="min-w-0">
-              <div className="text-sm font-black text-gray-900 truncate">{name}</div>
-              <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-                标价 ¥{Number(base || 0).toLocaleString()}
-              </div>
+      <div key={pid} className={`bg-white border rounded-2xl px-6 py-4 flex items-center justify-between gap-6 hover:border-emerald-100 ${checked ? 'border-[#153e35] ring-2 ring-emerald-50' : 'border-gray-100'}`}>
+        <button type="button" onClick={() => toggleSelectProducts([pid])} className="flex items-center gap-4 min-w-0 text-left">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => toggleSelectProducts([pid])}
+            className="w-5 h-5 accent-[#153e35]"
+          />
+          <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
+            {imgUrl ? <img src={imgUrl} alt={name} className="w-full h-full object-cover" /> : null}
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-black text-gray-900 truncate">{name}</div>
+            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+              标价 ¥{Number(base || 0).toLocaleString()}
             </div>
           </div>
-        </div>
+        </button>
 
-        {checked ? (
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <Check className="w-5 h-5" />
+        <div className="flex items-center gap-6 shrink-0">
+          <div className="text-right">
+            <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest">最低折扣价</div>
+            <div className="text-sm font-black text-gray-900">¥{Number(minDiscountPrice || 0).toLocaleString()}</div>
+            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">折扣 {rateToPct(minAllowedRate)}%</div>
           </div>
-        ) : (
-          <div className="w-10 h-10 rounded-2xl bg-gray-50 text-gray-300 flex items-center justify-center shrink-0">
-            <Check className="w-5 h-5" />
+          <div className="text-right">
+            <div className="text-[10px] text-gray-400 font-black uppercase tracking-widest">返佣金额</div>
+            <div className="text-sm font-black text-gray-900">¥{Number(commissionAmount || 0).toLocaleString()}</div>
+            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">返佣 {commissionToPct(effectiveCommissionRate)}%</div>
           </div>
-        )}
-      </label>
+
+          {checked ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                placeholder="折扣%"
+                value={prodOverride?.discountRate != null ? rateToPct(prodOverride.discountRate) : ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (!v) {
+                    setProductOverrideField(pid, { discountRate: null })
+                    return
+                  }
+                  const r = pctToRate(v)
+                  setProductOverrideField(pid, { discountRate: r == null ? null : Math.max(r, safeGlobalMinSaleDiscountRate) })
+                }}
+                className="w-24 bg-gray-50 border rounded-xl px-3 py-2 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
+                title="商品最低折扣%（留空表示继承品类/规则）"
+              />
+              <input
+                type="number"
+                min={0}
+                max={Math.round(safeCommissionMax * 100)}
+                step={1}
+                placeholder="返佣%"
+                value={prodOverride?.commissionRate != null ? commissionToPct(prodOverride.commissionRate) : ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (!v) {
+                    setProductOverrideField(pid, { commissionRate: null })
+                    return
+                  }
+                  const r = pctToRate(v)
+                  setProductOverrideField(pid, { commissionRate: r == null ? null : Math.max(0, Math.min(safeCommissionMax, r)) })
+                }}
+                className="w-24 bg-gray-50 border rounded-xl px-3 py-2 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
+                title="商品返佣%（留空表示继承品类/规则）"
+              />
+            </div>
+          ) : null}
+
+          {checked ? (
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Check className="w-5 h-5" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-2xl bg-gray-50 text-gray-300 flex items-center justify-center shrink-0">
+              <Check className="w-5 h-5" />
+            </div>
+          )}
+        </div>
+      </div>
     )
   }
 
@@ -3462,6 +3639,10 @@ function ProductProfitModal({
                     const canExpand = children.length > 0 || prods.length > 0
                     const isExpanded = expandedCategoryIds.has(id)
 
+                    const catOverride = categoryOverrideById[id]
+                    const catDiscountPct = catOverride?.discountRate != null ? rateToPct(catOverride.discountRate) : ''
+                    const catCommissionPct = catOverride?.commissionRate != null ? commissionToPct(catOverride.commissionRate) : ''
+
                     const subtreeIds = subtreeProductIdsByCategoryId.get(id) || []
                     const selectedCount = subtreeIds.reduce((sum, pid) => sum + (selectedProductIdSet.has(String(pid)) ? 1 : 0), 0)
                     const allSelected = subtreeIds.length > 0 && selectedCount === subtreeIds.length
@@ -3491,6 +3672,46 @@ function ProductProfitModal({
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={1}
+                                placeholder="品类折扣%"
+                                value={catDiscountPct}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  if (!v) {
+                                    setCategoryOverrideField(id, { discountRate: null })
+                                    return
+                                  }
+                                  const r = pctToRate(v)
+                                  setCategoryOverrideField(id, { discountRate: r == null ? null : Math.max(r, safeGlobalMinSaleDiscountRate) })
+                                }}
+                                className="w-24 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
+                                title="品类最低折扣%（留空表示继承规则）"
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                max={Math.round(safeCommissionMax * 100)}
+                                step={1}
+                                placeholder="品类返佣%"
+                                value={catCommissionPct}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  if (!v) {
+                                    setCategoryOverrideField(id, { commissionRate: null })
+                                    return
+                                  }
+                                  const r = pctToRate(v)
+                                  setCategoryOverrideField(id, { commissionRate: r == null ? null : Math.max(0, Math.min(safeCommissionMax, r)) })
+                                }}
+                                className="w-24 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
+                                title="品类返佣%（留空表示继承规则）"
+                              />
+                            </div>
                             {subtreeIds.length > 0 ? (
                               <button
                                 type="button"
@@ -3596,15 +3817,45 @@ function ProductProfitModal({
           <button
             type="button"
             onClick={() => {
+              const categoryOverrides = Object.entries(categoryOverrideById)
+                .map(([categoryId, v]) => {
+                  const item: any = { categoryId }
+                  if (typeof v?.discountRate === 'number') item.discountRate = v.discountRate
+                  if (typeof v?.commissionRate === 'number') item.commissionRate = v.commissionRate
+                  return item
+                })
+                .filter((x: any) => x.categoryId && (typeof x.discountRate === 'number' || typeof x.commissionRate === 'number'))
+
+              const productOverrides = Object.entries(productOverrideById)
+                .map(([productId, v]) => {
+                  const item: any = { productId }
+                  if (typeof v?.discountRate === 'number') item.discountRate = v.discountRate
+                  if (typeof v?.commissionRate === 'number') item.commissionRate = v.commissionRate
+                  return item
+                })
+                .filter((x: any) => x.productId && (typeof x.discountRate === 'number' || typeof x.commissionRate === 'number'))
+
               if (mode === 'inherit') {
-                onSave(null)
+                onSave({
+                  visibleProductIds: null,
+                  categoryOverrides: categoryOverrides.length > 0 ? categoryOverrides : null,
+                  productOverrides: productOverrides.length > 0 ? productOverrides : null,
+                })
                 return
               }
               if (account.parentId && sameAsInherited) {
-                onSave(null)
+                onSave({
+                  visibleProductIds: null,
+                  categoryOverrides: categoryOverrides.length > 0 ? categoryOverrides : null,
+                  productOverrides: productOverrides.length > 0 ? productOverrides : null,
+                })
                 return
               }
-              onSave(Array.isArray(selectedProductIds) ? selectedProductIds : [])
+              onSave({
+                visibleProductIds: Array.isArray(selectedProductIds) ? selectedProductIds : [],
+                categoryOverrides: categoryOverrides.length > 0 ? categoryOverrides : null,
+                productOverrides: productOverrides.length > 0 ? productOverrides : null,
+              })
             }}
             className="px-12 py-3 rounded-2xl bg-[#153e35] text-white font-black shadow-xl"
           >
@@ -3622,11 +3873,7 @@ function AddAccountModal({
   modules,
   parentAccount,
   parentMinDiscountPct,
-  parentMaxCommissionPct,
   manufacturerId,
-  manufacturerCategoryTree,
-  manufacturerProducts,
-  authorizedAccounts,
   existingUserIds,
   onClose,
   onSave
@@ -3634,11 +3881,7 @@ function AddAccountModal({
   modules: RoleModule[]
   parentAccount: AuthorizedAccount | null
   parentMinDiscountPct: number
-  parentMaxCommissionPct: number
   manufacturerId: string
-  manufacturerCategoryTree: any[]
-  manufacturerProducts: any[]
-  authorizedAccounts: AuthorizedAccount[]
   existingUserIds: string[]
   onClose: () => void
   onSave: (items: Array<{
@@ -3647,93 +3890,36 @@ function AddAccountModal({
     nickname: string
     phone: string
     roleModuleId: string
-    discountRuleId: string
-    allocatedRate: number
-    distributionRate: number
-    visibleCategoryIds: string[]
   }>) => void
 }) {
   const [manufacturerAccounts, setManufacturerAccounts] = useState<any[]>([])
   const [accountKeyword, setAccountKeyword] = useState('')
-  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set())
   const [expandedAccountGroups, setExpandedAccountGroups] = useState<Set<string>>(new Set(['auth', 'sub', 'designer', 'normal', 'unknown']))
   const [selectionMode, setSelectionMode] = useState<'multiple' | 'single'>('multiple')
   const [organizationsById, setOrganizationsById] = useState<Record<string, { name: string; type?: string }>>({})
 
-  const parentHasCustomVisibility = !!(parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0)
-  const parentVisibleCategoryIds = parentHasCustomVisibility
-    ? parentAccount!.visibleCategoryIds!.map(String)
-    : []
-
-  const [formData, setFormData] = useState({
-    roleModuleId: parentAccount?.roleModuleId || modules[0]?._id || '',
-    visibilityMode: (parentHasCustomVisibility ? 'custom' : 'all') as 'all' | 'custom',
-    visibleCategoryIds: (parentHasCustomVisibility ? parentVisibleCategoryIds : []) as string[]
-  })
-
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
-  const [perAccountConfig, setPerAccountConfig] = useState<Record<string, {
-    discountRuleId: string
-    allocatedRate: number
-    distributionRate: number
-  }>>({})
 
-  const normalizeId = (x: any) => {
-    if (!x) return ''
-    if (typeof x === 'string') return x
-    return String(x._id || x.id || '')
-  }
+  const activeModules = useMemo(() => {
+    return (modules || []).filter((m) => m?.isActive)
+  }, [modules])
 
-  const getProductCategoryIds = (p: any): string[] => {
-    const ids: string[] = []
-    const c = p?.category
+  const defaultRoleModuleId = useMemo(() => {
+    const byParent = parentAccount?.roleModuleId ? String(parentAccount.roleModuleId) : ''
+    if (byParent && activeModules.some((m) => String(m._id) === byParent)) return byParent
+    return activeModules[0]?._id ? String(activeModules[0]._id) : ''
+  }, [parentAccount?._id, parentAccount?.roleModuleId, activeModules])
 
-    const push = (v: any) => {
-      const id = normalizeId(v)
-      if (id) ids.push(id)
-    }
+  const [roleByAccountId, setRoleByAccountId] = useState<Record<string, string>>({})
 
-    if (Array.isArray(p?.categories)) {
-      p.categories.forEach((cc: any) => push(cc))
-    } else if (Array.isArray(c)) {
-      c.forEach((cc: any) => push(cc))
-    } else if (c) {
-      push(c)
-      if (typeof c === 'object') {
-        push((c as any)._id)
-        push((c as any).id)
-      }
-    }
-
-    return Array.from(new Set(ids.filter(Boolean)))
-  }
-
-  const productsByCategoryId = useMemo(() => {
-    const map = new Map<string, any[]>()
-    ;(manufacturerProducts || []).forEach((p: any) => {
-      const ids = getProductCategoryIds(p)
-      ids.forEach((cid) => {
-        const prev = map.get(cid) || []
-        prev.push(p)
-        map.set(cid, prev)
-      })
-    })
-    return map
-  }, [manufacturerProducts])
-
-  const filterTreeByAllowed = (nodes: any[], allowed: Set<string> | null): any[] => {
-    return (nodes || [])
-      .map((n: any) => {
-        const id = normalizeId(n)
-        const rawChildren = Array.isArray(n?.children) ? n.children : []
-        const nextChildren = filterTreeByAllowed(rawChildren, allowed)
-
-        const keep = !allowed || allowed.has(id) || nextChildren.length > 0
-        if (!keep) return null
-        return { ...n, children: nextChildren }
-      })
-      .filter(Boolean)
-  }
+  useEffect(() => {
+    if (selectionMode !== 'single') return
+    if (selectedAccountIds.length <= 1) return
+    const keep = String(selectedAccountIds[0] || '')
+    if (!keep) return
+    setSelectedAccountIds([keep])
+    setRoleByAccountId((m) => ({ ...m, [keep]: m[keep] || defaultRoleModuleId }))
+  }, [selectionMode, selectedAccountIds.join('|'), defaultRoleModuleId])
 
   useEffect(() => {
     const loadAccounts = async () => {
@@ -3772,54 +3958,6 @@ function AddAccountModal({
     loadOrgs()
   }, [])
 
-  const selectedModule = modules.find(m => String(m._id) === String(formData.roleModuleId))
-
-  const defaultRuleId = useMemo(() => {
-    const minRate = Math.max(0, Math.min(1, Number(parentMinDiscountPct || 0) / 100))
-    const rules = (selectedModule?.discountRules || []).filter(r => {
-      const v = typeof r.discountRate === 'number' && Number.isFinite(r.discountRate) ? r.discountRate : 1
-      return v >= minRate
-    })
-    const def = rules.find(r => r.isDefault) || rules[0]
-    return String(def?._id || '')
-  }, [selectedModule?._id, parentMinDiscountPct])
-
-  const [batchRuleId, setBatchRuleId] = useState('')
-
-  const maxDistribution = useMemo(() => {
-    const v = Number(parentMaxCommissionPct || 0)
-    return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.floor(v))) : 0
-  }, [parentMaxCommissionPct])
-
-  const currentModuleAllocated = useMemo(() => {
-    const rid = String(formData.roleModuleId || '')
-    return (authorizedAccounts || [])
-      .filter(a => String(a.roleModuleId) === rid && !a.parentId)
-      .reduce((sum, a) => sum + Number(a.allocatedRate || 0), 0)
-  }, [authorizedAccounts, formData.roleModuleId])
-
-  const maxRate = useMemo(() => {
-    if (parentAccount) return Number(parentAccount.availableRate || 0)
-    if (!selectedModule) return 0
-    return Math.max(0, Number(selectedModule.maxProfitRate || 0) - currentModuleAllocated)
-  }, [parentAccount?._id, parentAccount?.availableRate, selectedModule?._id, currentModuleAllocated])
-
-  const allowedCategoryIds = parentAccount?.visibleCategoryIds && parentAccount.visibleCategoryIds.length > 0
-    ? new Set(parentAccount.visibleCategoryIds.map(String))
-    : null
-  const effectiveCategoryTree = useMemo(() => {
-    return filterTreeByAllowed(manufacturerCategoryTree || [], allowedCategoryIds)
-  }, [manufacturerCategoryTree, allowedCategoryIds])
-
-  const toggleExpand = (id: string) => {
-    setExpandedCategoryIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
   const toggleAccountGroup = (groupId: string) => {
     setExpandedAccountGroups(prev => {
       const next = new Set(prev)
@@ -3829,19 +3967,21 @@ function AddAccountModal({
     })
   }
 
-  const toggleCategory = (id: string) => {
-    if (allowedCategoryIds && !allowedCategoryIds.has(String(id))) return
-    setFormData(prev => {
-      const exists = prev.visibleCategoryIds.includes(id)
+  const toggleSelectAccount = (id: string) => {
+    setSelectedAccountIds(prev => {
+      const exists = prev.includes(id)
       if (selectionMode === 'single') {
-        return { ...prev, visibleCategoryIds: exists ? [] : [id] }
+        const next = exists ? [] : [id]
+        if (next.length === 1) {
+          setRoleByAccountId((m) => ({ ...m, [id]: m[id] || defaultRoleModuleId }))
+        }
+        return next
       }
-      return {
-        ...prev,
-        visibleCategoryIds: exists
-          ? prev.visibleCategoryIds.filter(x => x !== id)
-          : [...prev.visibleCategoryIds, id]
+      const next = exists ? prev.filter(x => x !== id) : [...prev, id]
+      if (!exists) {
+        setRoleByAccountId((m) => ({ ...m, [id]: m[id] || defaultRoleModuleId }))
       }
+      return next
     })
   }
 
@@ -3932,64 +4072,11 @@ function AddAccountModal({
     return (manufacturerAccounts || []).filter(a => set.has(String(a._id)))
   }, [manufacturerAccounts, selectedAccountIds])
 
-  useEffect(() => {
-    if (!selectedModule) return
-    const rules = selectedModule.discountRules || []
-    if (rules.length === 0) return
-
-    setBatchRuleId(prev => {
-      if (prev && rules.some(r => String(r._id) === String(prev))) return prev
-      return defaultRuleId
-    })
-
-    setPerAccountConfig(prev => {
-      let changed = false
-      const next = { ...prev }
-      selectedAccountIds.forEach((id) => {
-        const cur = next[id]
-        const ok = cur?.discountRuleId && rules.some(r => String(r._id) === String(cur.discountRuleId))
-        if (!ok) {
-          next[id] = {
-            discountRuleId: defaultRuleId,
-            allocatedRate: typeof cur?.allocatedRate === 'number' ? cur.allocatedRate : 1,
-            distributionRate: typeof cur?.distributionRate === 'number' ? cur.distributionRate : 0,
-          }
-          changed = true
-        }
-      })
-      return changed ? next : prev
-    })
-  }, [selectedModule?._id, defaultRuleId, selectedAccountIds.join('|')])
-
-  const toggleSelectAccount = (id: string) => {
-    setSelectedAccountIds(prev => {
-      const exists = prev.includes(id)
-      const next = exists ? prev.filter(x => x !== id) : [...prev, id]
-
-      setPerAccountConfig(cfg => {
-        const nextCfg = { ...cfg }
-        if (!exists) {
-          const allocated = Math.max(1, Math.floor(maxRate / Math.max(1, next.length)))
-          const dist = maxDistribution
-          nextCfg[id] = {
-            discountRuleId: defaultRuleId,
-            allocatedRate: allocated,
-            distributionRate: dist,
-          }
-        } else {
-          delete nextCfg[id]
-        }
-        return nextCfg
-      })
-
-      return next
-    })
-  }
-
   const toggleSelectGroup = (groupKey: string) => {
+    if (selectionMode === 'single') return
     const group = groupedAccounts.find(g => g.key === groupKey)
     if (!group) return
-    const ids = group.accounts.map(a => String(a._id))
+    const ids = group.accounts.map((a: any) => String(a._id))
     setSelectedAccountIds(prev => {
       const prevSet = new Set(prev.map(String))
       const allSelected = ids.every(id => prevSet.has(id))
@@ -3997,121 +4084,44 @@ function AddAccountModal({
         ? prev.filter(id => !ids.includes(String(id)))
         : Array.from(new Set([...prev, ...ids]))
 
-      setPerAccountConfig(cfg => {
-        const nextCfg = { ...cfg }
-        if (allSelected) {
+      if (!allSelected) {
+        setRoleByAccountId((m) => {
+          const mm = { ...m }
           ids.forEach((id) => {
-            delete nextCfg[id]
+            mm[id] = mm[id] || defaultRoleModuleId
           })
-        } else {
-          const allocated = Math.max(1, Math.floor(maxRate / Math.max(1, next.length)))
-          const dist = maxDistribution
-          ids.forEach((id) => {
-            if (nextCfg[id]) return
-            nextCfg[id] = {
-              discountRuleId: defaultRuleId,
-              allocatedRate: allocated,
-              distributionRate: dist,
-            }
-          })
-        }
-        return nextCfg
-      })
+          return mm
+        })
+      }
 
-      return next
-    })
-  }
-
-  const sumAllocated = useMemo(() => {
-    return selectedAccountIds.reduce((sum, id) => sum + Number(perAccountConfig[id]?.allocatedRate || 0), 0)
-  }, [selectedAccountIds.join('|'), perAccountConfig])
-
-  const sumDistribution = useMemo(() => {
-    return selectedAccountIds.reduce((sum, id) => sum + Number(perAccountConfig[id]?.distributionRate || 0), 0)
-  }, [selectedAccountIds.join('|'), perAccountConfig])
-
-  const applyBatchRule = (ruleId: string) => {
-    setBatchRuleId(ruleId)
-    setPerAccountConfig(prev => {
-      const next = { ...prev }
-      selectedAccountIds.forEach((id) => {
-        const cur = next[id] || { discountRuleId: '', allocatedRate: 1, distributionRate: 0 }
-        next[id] = { ...cur, discountRuleId: ruleId }
-      })
-      return next
-    })
-  }
-
-  const applyBatchAllocated = (v: number) => {
-    setPerAccountConfig(prev => {
-      const next = { ...prev }
-      selectedAccountIds.forEach((id) => {
-        const cur = next[id] || { discountRuleId: defaultRuleId, allocatedRate: 1, distributionRate: 0 }
-        next[id] = { ...cur, allocatedRate: v }
-      })
-      return next
-    })
-  }
-
-  const applyBatchDistribution = (v: number) => {
-    const nextV = Math.max(0, Math.min(maxDistribution, Math.floor(Number(v) || 0)))
-    setPerAccountConfig(prev => {
-      const next = { ...prev }
-      selectedAccountIds.forEach((id) => {
-        const cur = next[id] || { discountRuleId: defaultRuleId, allocatedRate: 1, distributionRate: 0 }
-        next[id] = { ...cur, distributionRate: nextV }
-      })
       return next
     })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!selectedModule?._id) {
-      toast.error('请选择角色模块')
-      return
-    }
     if (selectedAccountIds.length === 0) {
       toast.error('请选择要绑定的账号')
       return
     }
 
-    let visibleCategoryIds = formData.visibilityMode === 'custom' ? formData.visibleCategoryIds : []
-    if (allowedCategoryIds && formData.visibilityMode === 'all') {
-      visibleCategoryIds = Array.from(allowedCategoryIds)
-    }
-    if (allowedCategoryIds) {
-      visibleCategoryIds = visibleCategoryIds.filter(id => allowedCategoryIds.has(String(id)))
-    }
-    if ((formData.visibilityMode === 'custom' || allowedCategoryIds) && visibleCategoryIds.length === 0) {
-      toast.error('请选择至少一个可见品类')
-      return
-    }
-
-    if (sumAllocated > maxRate) {
-      toast.error(`分配比例合计不能超过可用额度 ${maxRate.toFixed(1)}%`)
-      return
-    }
-    const anyDistTooHigh = selectedAccountIds.some(id => Number(perAccountConfig[id]?.distributionRate || 0) > maxDistribution)
-    if (anyDistTooHigh) {
-      toast.error(`返佣比例不能超过上级限制 ${maxDistribution.toFixed(0)}%`)
+    const missingRole = selectedAccounts.find((a) => {
+      const id = String(a?._id || '')
+      return !String(roleByAccountId[id] || '')
+    })
+    if (missingRole) {
+      toast.error('请为已选账号选择角色')
       return
     }
 
     const payload = selectedAccounts.map((a) => {
       const id = String(a._id)
-      const cfg = perAccountConfig[id]
       return {
         accountId: id,
         username: String(a.username || ''),
         nickname: String(a.nickname || a.username || ''),
         phone: String(a.phone || ''),
-        roleModuleId: String(selectedModule._id),
-        discountRuleId: String(cfg?.discountRuleId || ''),
-        allocatedRate: Number(cfg?.allocatedRate || 0),
-        distributionRate: Number(cfg?.distributionRate || 0),
-        visibleCategoryIds
+        roleModuleId: String(roleByAccountId[id] || '')
       }
     })
 
@@ -4121,17 +4131,25 @@ function AddAccountModal({
   return (
     <div className="fixed inset-0 z-[120]">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full max-w-[1240px] bg-white rounded-l-[4rem] shadow-2xl flex overflow-hidden">
-        <div className="w-[60%] flex flex-col border-r border-gray-100 bg-[#fcfdfd]">
-          <div className="p-12 border-b bg-white space-y-6">
-            <div className="flex justify-between items-center gap-6">
-              <div className="min-w-0">
-                <h2 className="text-4xl font-black text-gray-900 tracking-tighter">绑定人员</h2>
-                <p className="text-sm font-bold text-gray-400 mt-2 uppercase tracking-widest truncate">
-                  已选 {selectedAccountIds.length} 人 • 分配 {sumAllocated.toFixed(1)}% / {maxRate.toFixed(1)}% • 返佣上限 {maxDistribution.toFixed(0)}%
-                </p>
-              </div>
-              <div className="relative w-[360px] shrink-0">
+      <form onSubmit={handleSubmit} className="absolute right-0 top-0 h-full w-full max-w-[1240px] bg-white rounded-l-[4rem] shadow-2xl flex flex-col overflow-hidden">
+        <div className="p-12 border-b bg-white space-y-6">
+          <div className="flex justify-between items-center gap-6">
+            <div className="min-w-0">
+              <h2 className="text-4xl font-black text-gray-900 tracking-tighter">绑定人员</h2>
+              <p className="text-sm font-bold text-gray-400 mt-2 uppercase tracking-widest truncate">
+                已选 {selectedAccountIds.length} 人 • 最低折扣继承下限 {Math.floor(Number(parentMinDiscountPct || 0))}%
+              </p>
+            </div>
+            <div className="flex items-center gap-4 shrink-0">
+              <select
+                value={selectionMode}
+                onChange={(e) => setSelectionMode(e.target.value as any)}
+                className="px-4 py-3 rounded-2xl border border-gray-200 bg-white text-xs font-black"
+              >
+                <option value="multiple">多选</option>
+                <option value="single">单选</option>
+              </select>
+              <div className="relative w-[360px]">
                 <input
                   type="text"
                   value={accountKeyword}
@@ -4140,375 +4158,138 @@ function AddAccountModal({
                   className="w-full pl-6 pr-6 py-4 bg-gray-50 border rounded-2xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none transition-all"
                 />
               </div>
+              <button type="button" onClick={onClose} className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 hover:text-rose-500 transition-all">
+                <X className="w-8 h-8" />
+              </button>
             </div>
           </div>
+        </div>
 
-          <div className="flex-grow overflow-y-auto p-12 space-y-4 custom-scrollbar">
-            {groupedAccounts.length === 0 ? (
-              <div className="text-sm text-gray-500 py-10">暂无可绑定账号</div>
-            ) : (
-              groupedAccounts.map((group: any) => {
-                const groupIds = group.accounts.map((a: any) => String(a._id))
-                const selectedSet = new Set(selectedAccountIds.map(String))
-                const groupAllSelected = groupIds.length > 0 && groupIds.every((id: string) => selectedSet.has(id))
-                const groupExpanded = expandedAccountGroups.has(group.key)
+        <div className="flex-1 overflow-y-auto p-12 space-y-4 custom-scrollbar bg-[#fcfdfd]">
+          {groupedAccounts.length === 0 ? (
+            <div className="text-sm text-gray-500 py-10">暂无可绑定账号</div>
+          ) : (
+            groupedAccounts.map((group: any) => {
+              const groupIds = group.accounts.map((a: any) => String(a._id))
+              const selectedSet = new Set(selectedAccountIds.map(String))
+              const groupAllSelected = selectionMode === 'multiple' && groupIds.length > 0 && groupIds.every((id: string) => selectedSet.has(id))
+              const groupExpanded = expandedAccountGroups.has(group.key)
 
-                return (
-                  <div key={group.key} className="bg-white border border-gray-100 rounded-[2.5rem] overflow-hidden shadow-sm">
-                    <div className="p-8 flex items-center justify-between gap-6">
-                      <button
-                        type="button"
-                        onClick={() => toggleAccountGroup(group.key)}
-                        className="flex items-center gap-4 min-w-0"
-                      >
-                        <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-600">
-                          {groupExpanded ? <ChevronDown className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-xl font-black text-gray-900 truncate">{group.label}</div>
-                          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{group.accounts.length} 个账号</div>
-                        </div>
-                      </button>
+              return (
+                <div key={group.key} className="bg-white border border-gray-100 rounded-[2.5rem] overflow-hidden shadow-sm">
+                  <div className="p-8 flex items-center justify-between gap-6">
+                    <button
+                      type="button"
+                      onClick={() => toggleAccountGroup(group.key)}
+                      className="flex items-center gap-4 min-w-0"
+                    >
+                      <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-600">
+                        {groupExpanded ? <ChevronDown className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xl font-black text-gray-900 truncate">{group.label}</div>
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{group.accounts.length} 个账号</div>
+                      </div>
+                    </button>
 
-                      <button
-                        type="button"
-                        onClick={() => toggleSelectGroup(group.key)}
-                        className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${groupAllSelected ? 'bg-[#153e35] text-white border-[#153e35] shadow-lg' : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200'}`}
-                      >
-                        {groupAllSelected ? '取消全选' : '全选'}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      disabled={selectionMode === 'single'}
+                      onClick={() => toggleSelectGroup(group.key)}
+                      className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${selectionMode === 'single' ? 'bg-gray-50 text-gray-300 border-gray-100' : (groupAllSelected ? 'bg-[#153e35] text-white border-[#153e35] shadow-lg' : 'bg-white text-gray-500 border-gray-100 hover:border-gray-200')}`}
+                    >
+                      {groupAllSelected ? '取消全选' : '全选'}
+                    </button>
+                  </div>
 
-                    {groupExpanded ? (
-                      <div className="px-6 pb-8 space-y-3">
-                        {group.accounts.map((a: any) => {
-                          const id = String(a._id)
-                          const checked = selectedAccountIds.includes(id)
-                          const typeLabel = getAccountTypeLabel(String(a?.accountType || 'unknown'))
-                          return (
-                            <label
-                              key={id}
-                              className={`p-6 rounded-[2rem] border cursor-pointer transition-all flex items-center justify-between gap-6 ${checked ? 'border-[#153e35] ring-4 ring-emerald-50 bg-white shadow-xl' : 'border-gray-100 bg-white hover:border-emerald-100 shadow-sm'}`}
+                  {groupExpanded ? (
+                    <div className="px-6 pb-8 space-y-3">
+                      {group.accounts.map((a: any) => {
+                        const id = String(a._id)
+                        const checked = selectedAccountIds.includes(id)
+                        const typeLabel = getAccountTypeLabel(String(a?.accountType || 'unknown'))
+                        const roleId = String(roleByAccountId[id] || '')
+                        return (
+                          <div
+                            key={id}
+                            className={`p-6 rounded-[2rem] border transition-all flex items-center justify-between gap-6 ${checked ? 'border-[#153e35] ring-4 ring-emerald-50 bg-white shadow-xl' : 'border-gray-100 bg-white hover:border-emerald-100 shadow-sm'}`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleSelectAccount(id)}
+                              className="flex items-center gap-6 min-w-0 text-left"
                             >
-                              <div className="flex items-center gap-6 min-w-0">
+                              {selectionMode === 'single' ? (
+                                <input
+                                  type="radio"
+                                  name="tier-bind-account"
+                                  checked={checked}
+                                  onChange={() => toggleSelectAccount(id)}
+                                  className="w-6 h-6 accent-[#153e35]"
+                                />
+                              ) : (
                                 <input
                                   type="checkbox"
                                   checked={checked}
                                   onChange={() => toggleSelectAccount(id)}
                                   className="w-6 h-6 accent-[#153e35]"
                                 />
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <div className="text-base font-black text-gray-900 truncate">{a.nickname || a.username || id}</div>
-                                    <span className="text-[8px] px-3 py-1 rounded-full font-black uppercase tracking-widest bg-gray-50 text-gray-500 border border-gray-100">
-                                      {typeLabel}
-                                    </span>
-                                  </div>
-                                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1 truncate">
-                                    {a.username ? `@${a.username}` : ''}{a.phone ? ` • ${a.phone}` : ''}
-                                  </div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="text-base font-black text-gray-900 truncate">{a.nickname || a.username || id}</div>
+                                  <span className="text-[8px] px-3 py-1 rounded-full font-black uppercase tracking-widest bg-gray-50 text-gray-500 border border-gray-100">
+                                    {typeLabel}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1 truncate">
+                                  {a.username ? `@${a.username}` : ''}{a.phone ? ` • ${a.phone}` : ''}
                                 </div>
                               </div>
+                            </button>
+
+                            <div className="flex items-center gap-3 shrink-0">
+                              <select
+                                value={roleId}
+                                disabled={!checked || activeModules.length === 0}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  setRoleByAccountId((m) => ({ ...m, [id]: v }))
+                                }}
+                                className={`w-56 bg-gray-50 border rounded-2xl px-4 py-3 text-xs font-black shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none ${!checked ? 'opacity-50' : ''}`}
+                              >
+                                <option value="">选择角色</option>
+                                {activeModules.map((m) => (
+                                  <option key={m._id} value={m._id}>{m.name}</option>
+                                ))}
+                              </select>
+
                               {checked ? (
                                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
                                   <Check className="w-6 h-6" />
                                 </div>
                               ) : null}
-                            </label>
-                          )
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </div>
-
-        <form id="add-account-modal-form" onSubmit={handleSubmit} className="w-[40%] flex flex-col bg-white overflow-hidden">
-          <div className="p-12 border-b border-gray-100 flex items-center justify-between bg-white">
-            <div className="min-w-0">
-              <h3 className="text-3xl font-black text-gray-900 leading-none">配置绑定规则</h3>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-3">
-                可用分配 {maxRate.toFixed(1)}% • 返佣上限 {maxDistribution.toFixed(0)}%
-              </p>
-            </div>
-            <button type="button" onClick={onClose} className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 hover:text-rose-500 transition-all">
-              <X className="w-8 h-8" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-12 space-y-8 custom-scrollbar">
-            <div className="bg-white border border-gray-100 rounded-[3rem] p-10 space-y-8">
-              <div>
-                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">角色模块</div>
-                <select
-                  value={formData.roleModuleId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, roleModuleId: e.target.value }))}
-                  className="w-full bg-gray-50 border rounded-2xl px-6 py-4 font-black text-sm shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none transition-all mt-3"
-                  disabled={!!parentAccount}
-                >
-                  {modules.filter(m => m.isActive).map(m => (
-                    <option key={m._id} value={m._id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">批量折扣规则</div>
-                <select
-                  className="w-full bg-gray-50 border rounded-2xl px-6 py-4 font-black text-sm shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none transition-all mt-3"
-                  value={batchRuleId}
-                  onChange={(e) => applyBatchRule(e.target.value)}
-                  disabled={!selectedModule}
-                >
-                  {(selectedModule?.discountRules || []).filter(r => {
-                    const v = typeof r.discountRate === 'number' && Number.isFinite(r.discountRate) ? r.discountRate : 1
-                    return v >= Math.max(0, Math.min(1, Number(parentMinDiscountPct || 0) / 100))
-                  }).map(r => (
-                    <option key={r._id} value={r._id}>{r.name}{r.isDefault ? '（默认）' : ''}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">批量分配%</div>
-                  <input
-                    className="w-full bg-gray-50 border rounded-2xl px-6 py-4 font-black text-sm shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none transition-all mt-3"
-                    type="number"
-                    min={0}
-                    step={1}
-                    defaultValue={selectedAccountIds.length ? Math.max(1, Math.floor(maxRate / Math.max(1, selectedAccountIds.length))) : 1}
-                    onBlur={(e) => {
-                      const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
-                      applyBatchAllocated(v)
-                    }}
-                  />
-                </div>
-                <div>
-                  <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">批量返佣%</div>
-                  <input
-                    className="w-full bg-gray-50 border rounded-2xl px-6 py-4 font-black text-sm shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none transition-all mt-3"
-                    type="number"
-                    min={0}
-                    max={maxDistribution}
-                    step={1}
-                    defaultValue={maxDistribution}
-                    onBlur={(e) => {
-                      const v = Math.max(0, Math.min(maxDistribution, Math.floor(Number(e.target.value) || 0)))
-                      applyBatchDistribution(v)
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">可见品类</div>
-                <select
-                  value={formData.visibilityMode}
-                  onChange={(e) => {
-                    const nextMode = e.target.value as any
-                    setFormData(prev => ({
-                      ...prev,
-                      visibilityMode: nextMode,
-                      visibleCategoryIds: nextMode === 'custom'
-                        ? (parentHasCustomVisibility ? parentVisibleCategoryIds : [])
-                        : []
-                    }))
-                  }}
-                  className="w-full bg-gray-50 border rounded-2xl px-6 py-4 font-black text-sm shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none transition-all mt-3"
-                >
-                  <option value="all">{parentHasCustomVisibility ? '全部（继承上级范围）' : '全部品类'}</option>
-                  <option value="custom">自定义</option>
-                </select>
-              </div>
-
-              {formData.visibilityMode === 'custom' ? (
-                <div className="border border-gray-100 rounded-[2.5rem] p-6 bg-gray-50/50">
-                  <div className="flex items-center justify-between gap-4 mb-4">
-                    <div className="text-xs text-gray-500">树状选择：分类 → 商品（商品仅展示，不保存）</div>
-                    <select
-                      value={selectionMode}
-                      onChange={(e) => setSelectionMode(e.target.value as any)}
-                      className="input h-10 text-xs"
-                    >
-                      <option value="multiple">多选</option>
-                      <option value="single">单选</option>
-                    </select>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {effectiveCategoryTree.length === 0 ? (
-                      <div className="text-sm text-gray-500">该厂家暂无可选品类</div>
-                    ) : (
-                      <div className="space-y-2">
-                        {(function renderTree(nodes: any[], depth: number = 0): any {
-                          return nodes.map((n: any) => {
-                            const id = normalizeId(n)
-                            const children = Array.isArray(n?.children) ? n.children : []
-                            const prods = productsByCategoryId.get(id) || []
-                            const hasChildren = children.length > 0
-                            const hasProducts = prods.length > 0
-                            const canExpand = hasChildren || hasProducts
-                            const isExpanded = expandedCategoryIds.has(id)
-                            const checked = formData.visibleCategoryIds.includes(id)
-
-                            return (
-                              <div key={id} style={{ marginLeft: depth * 14 }} className="space-y-2">
-                                <div className="flex items-center gap-3 hover:bg-white p-3 rounded-2xl border border-transparent hover:border-gray-100 transition-colors">
-                                  <button
-                                    type="button"
-                                    className={`w-10 h-10 rounded-2xl flex items-center justify-center ${canExpand ? 'bg-white border border-gray-100 text-gray-600' : 'bg-transparent text-gray-200'}`}
-                                    onClick={() => canExpand && toggleExpand(id)}
-                                    disabled={!canExpand}
-                                  >
-                                    {canExpand ? (
-                                      isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />
-                                    ) : (
-                                      <span className="w-5 h-5" />
-                                    )}
-                                  </button>
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => toggleCategory(id)}
-                                    className="w-5 h-5 accent-[#153e35]"
-                                  />
-                                  <div className="min-w-0">
-                                    <div className="text-sm font-black text-gray-900 truncate">{n?.name || id}</div>
-                                    <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-                                      {hasProducts ? `${prods.length} 商品` : ''}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {isExpanded ? (
-                                  <div className="ml-10 border-l border-gray-100 pl-4 space-y-2">
-                                    {hasProducts ? (
-                                      <div className="space-y-1">
-                                        {prods.slice(0, 12).map((p: any) => (
-                                          <div key={String(p._id)} className="text-xs text-gray-600 py-0.5 truncate">
-                                            {p.name || p.productCode || p._id}
-                                          </div>
-                                        ))}
-                                        {prods.length > 12 ? <div className="text-xs text-gray-400">仅展示前 12 个商品</div> : null}
-                                      </div>
-                                    ) : null}
-                                    {hasChildren ? (
-                                      <div className="space-y-2">
-                                        {renderTree(children, depth + 1)}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                ) : null}
-                              </div>
-                            )
-                          })
-                        })(effectiveCategoryTree)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="bg-white border border-gray-100 rounded-[3rem] overflow-hidden">
-              <div className="px-10 py-6 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                  <div className="text-lg font-black text-gray-900">已选人员</div>
-                  <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-                    {selectedAccounts.length} 人
-                  </div>
-                </div>
-              </div>
-              <div className="max-h-[380px] overflow-y-auto">
-                {selectedAccounts.length === 0 ? (
-                  <div className="p-10 text-sm text-gray-500">请在左侧勾选要绑定的账号</div>
-                ) : (
-                  <div className="divide-y divide-gray-100">
-                    {selectedAccounts.map((a: any) => {
-                      const id = String(a._id)
-                      const cfg = perAccountConfig[id] || { discountRuleId: defaultRuleId, allocatedRate: 0, distributionRate: 0 }
-                      return (
-                        <div key={id} className="p-8 flex items-start justify-between gap-6">
-                          <div className="min-w-0">
-                            <div className="text-base font-black text-gray-900 truncate">{a.nickname || a.username || id}</div>
-                            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1 truncate">
-                              {a.username ? `@${a.username}` : ''}{a.phone ? ` • ${a.phone}` : ''}
                             </div>
                           </div>
+                        )
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })
+          )}
+        </div>
 
-                          <div className="grid grid-cols-3 gap-3 shrink-0">
-                            <select
-                              value={cfg.discountRuleId}
-                              onChange={(e) => {
-                                const v = e.target.value
-                                setPerAccountConfig(prev => ({
-                                  ...prev,
-                                  [id]: { ...prev[id], discountRuleId: v }
-                                }))
-                              }}
-                              className="w-44 bg-gray-50 border rounded-2xl px-4 py-3 text-xs font-black shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
-                            >
-                              {(selectedModule?.discountRules || []).filter(r => {
-                                const v = typeof r.discountRate === 'number' && Number.isFinite(r.discountRate) ? r.discountRate : 1
-                                return v >= Math.max(0, Math.min(1, Number(parentMinDiscountPct || 0) / 100))
-                              }).map(r => (
-                                <option key={r._id} value={r._id}>{r.name}{r.isDefault ? '（默认）' : ''}</option>
-                              ))}
-                            </select>
-                            <input
-                              type="number"
-                              min={0}
-                              step={1}
-                              value={cfg.allocatedRate}
-                              onChange={(e) => {
-                                const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
-                                setPerAccountConfig(prev => ({
-                                  ...prev,
-                                  [id]: { ...prev[id], allocatedRate: v }
-                                }))
-                              }}
-                              className="w-24 bg-gray-50 border rounded-2xl px-4 py-3 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
-                              title="分配比例%"
-                            />
-                            <input
-                              type="number"
-                              min={0}
-                              max={maxDistribution}
-                              step={1}
-                              value={cfg.distributionRate}
-                              onChange={(e) => {
-                                const v = Math.max(0, Math.min(maxDistribution, Math.floor(Number(e.target.value) || 0)))
-                                setPerAccountConfig(prev => ({
-                                  ...prev,
-                                  [id]: { ...prev[id], distributionRate: v }
-                                }))
-                              }}
-                              className="w-24 bg-gray-50 border rounded-2xl px-4 py-3 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
-                              title="返佣%"
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="p-12 border-t bg-white flex gap-6 shrink-0 shadow-inner">
-            <button type="button" onClick={onClose} className="flex-grow rounded-3xl py-6 font-black uppercase text-xs tracking-widest border-2 border-gray-200 bg-white hover:bg-gray-50">
-              取消
-            </button>
-            <button type="submit" className="flex-grow rounded-3xl py-6 bg-[#153e35] text-white font-black shadow-2xl uppercase text-xs tracking-widest">
-              确认绑定
-            </button>
-          </div>
-        </form>
-      </div>
+        <div className="p-12 border-t bg-white flex gap-6 shrink-0 shadow-inner">
+          <button type="button" onClick={onClose} className="flex-grow rounded-3xl py-6 font-black uppercase text-xs tracking-widest border-2 border-gray-200 bg-white hover:bg-gray-50">
+            取消
+          </button>
+          <button type="submit" className="flex-grow rounded-3xl py-6 bg-[#153e35] text-white font-black shadow-2xl uppercase text-xs tracking-widest">
+            确认绑定
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
