@@ -2227,8 +2227,8 @@ function HierarchyTab({
         layoutMeta.set(id, { ux: x, depth: 1 })
       })
 
-      const gapX = 360
-      const gapY = 360
+      const gapX = 420
+      const gapY = 420
       const xs = Array.from(layoutMeta.values()).map(v => v.ux)
       const minX = xs.length ? Math.min(...xs) : 0
       const maxX = xs.length ? Math.max(...xs) : 0
@@ -2602,7 +2602,11 @@ function HierarchyTab({
         {viewMode === 'map' && (
           /* duijie/nn的架构地图视图 */
           <div ref={canvasViewportRef} className="relative w-full h-full overflow-hidden bg-gray-50/50">
-            <div className="absolute top-8 left-8 z-[90]">
+            <div
+              className="fixed top-6 left-6 z-[90]"
+              onWheel={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-4 flex items-center gap-4">
                 <div>
                   <div className="text-xs font-black text-gray-400 uppercase tracking-widest">当前可见</div>
@@ -2642,6 +2646,14 @@ function HierarchyTab({
                   >
                     全展开
                   </button>
+                  <div className="w-px h-10 bg-gray-100" />
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className="px-4 py-3 rounded-xl border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#153e35]"
+                  >
+                    目录视图
+                  </button>
                 </div>
               </div>
               {tooManyVisible ? (
@@ -2652,7 +2664,11 @@ function HierarchyTab({
               ) : null}
             </div>
 
-            <div className="absolute top-8 right-8 z-[90] w-[320px]">
+            <div
+              className="fixed top-6 right-6 z-[90] w-[320px]"
+              onWheel={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-4">
                 <input
                   value={nodeSearch}
@@ -2684,7 +2700,11 @@ function HierarchyTab({
             </div>
 
             {/* 缩放控制面板 */}
-            <div className="absolute bottom-12 left-12 flex flex-col gap-4 z-[80]">
+            <div
+              className="fixed bottom-6 left-6 flex flex-col gap-4 z-[80]"
+              onWheel={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <button 
                 onClick={() => setZoomScale(p => Math.min(2, p + 0.1))} 
                 className="w-14 h-14 bg-white shadow-2xl rounded-2xl flex items-center justify-center text-[#153e35] hover:bg-gray-50 transition-colors"
@@ -3144,6 +3164,7 @@ function ProductProfitModal({
   modules,
   categoryTree,
   products,
+  profitSettings,
   inheritedProductIds,
   onClose,
   onSave
@@ -3378,9 +3399,9 @@ function ProductProfitModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[120]">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full max-w-[1280px] bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col h-[90vh]">
+      <div className="absolute right-0 top-0 h-full w-full max-w-[1040px] bg-white rounded-l-[3rem] shadow-2xl overflow-hidden flex flex-col">
         <div className="px-10 py-8 border-b border-gray-100 flex items-center justify-between bg-white">
           <div className="min-w-0">
             <h3 className="text-3xl font-black text-gray-900">绑定商品</h3>
@@ -4098,9 +4119,9 @@ function AddAccountModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
+    <div className="fixed inset-0 z-[120]">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
-      <div className="relative w-full max-w-[1440px] bg-white rounded-[4rem] shadow-2xl flex h-[90vh] overflow-hidden">
+      <div className="absolute right-0 top-0 h-full w-full max-w-[1240px] bg-white rounded-l-[4rem] shadow-2xl flex overflow-hidden">
         <div className="w-[60%] flex flex-col border-r border-gray-100 bg-[#fcfdfd]">
           <div className="p-12 border-b bg-white space-y-6">
             <div className="flex justify-between items-center gap-6">
