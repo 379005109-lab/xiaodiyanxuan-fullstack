@@ -222,8 +222,8 @@ export default function ProductsPage() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      // 加载所有商品（增加 pageSize 到 2000）
-      const response = await getAllProducts({ pageSize: 2000 });
+      // 加载所有商品（移除数量限制）
+      const response = await getAllProducts({ pageSize: 50000 });
       if (response.success && response.data) {
         // 只显示上架的商品
         const activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');

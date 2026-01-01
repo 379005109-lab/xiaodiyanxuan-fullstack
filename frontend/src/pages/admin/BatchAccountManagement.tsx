@@ -51,7 +51,7 @@ export default function BatchAccountManagement() {
   const loadAccounts = async () => {
     setLoading(true)
     try {
-      const params: any = { pageSize: 500 }
+      const params: any = { pageSize: 10000 }
       if (filterRole) params.role = filterRole
       if (filterStatus) params.status = filterStatus
 

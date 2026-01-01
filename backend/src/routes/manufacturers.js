@@ -114,7 +114,7 @@ router.get('/:manufacturerId/products', async (req, res) => {
     const products = await Product.find(query)
       .select('_id name productCode category thumbnail images status basePrice skus')
       .sort({ createdAt: -1 })
-      .limit(Math.min(Number(limit) || 2000, 5000))
+      .limit(Math.min(Number(limit) || 10000, 20000))
       .lean()
 
     res.json({ success: true, data: products })

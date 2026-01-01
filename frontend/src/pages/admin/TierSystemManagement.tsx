@@ -1716,7 +1716,7 @@ function HierarchyTab({
       try {
         const [catResp, prodResp] = await Promise.all([
           apiClient.get('/categories', { params: { manufacturerId, _ts: Date.now() } }),
-          apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'all', limit: 5000 } })
+          apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'all', limit: 10000 } })
         ])
 
         const catList = catResp.data?.data || []

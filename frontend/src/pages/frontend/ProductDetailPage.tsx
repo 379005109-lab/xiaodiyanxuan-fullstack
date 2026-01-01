@@ -1202,7 +1202,7 @@ const ProductDetailPage = () => {
           <span className="text-gray-900 font-medium">{product.name}</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[640px_minmax(0,1fr)] gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[800px_minmax(0,1fr)] gap-8 items-start">
           {/* Image Gallery */}
           <div className="lg:sticky lg:top-8 lg:self-start min-w-0">
             <div className="relative w-full bg-white rounded-3xl shadow-lg overflow-hidden">

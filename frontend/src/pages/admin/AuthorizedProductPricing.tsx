@@ -21,7 +21,7 @@ export default function AuthorizedProductPricing() {
   const load = async () => {
     setLoading(true)
     try {
-      const resp = await getProducts({ pageSize: 500 })
+      const resp = await getProducts({ pageSize: 10000 })
       if (resp?.success) {
         setProducts(resp.data || [])
       } else {
