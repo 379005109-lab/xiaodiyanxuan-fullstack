@@ -77,7 +77,7 @@ kubectl delete pod -l app=xiaodiyanxuan-frontend -n ns-cxxiwxce --kubeconfig="ku
 ## ❓ 为什么会这样？
 
 **Docker镜像的`latest`标签问题**：
-- GitHub Actions构建新镜像 → 推送到 ghcr.io 
+- GitHub Actions构建新镜像 → 推送到 Registry
 - 标签仍然是 `latest`
 - Kubernetes认为镜像没变，不拉取新版本
 - 需要**强制删除Pod**让Kubernetes重新拉取

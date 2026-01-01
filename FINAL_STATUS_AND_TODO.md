@@ -139,8 +139,8 @@ cd /path/to/xiaodiyanxuan-fullstack
 git pull origin main
 
 cd backend
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-backend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 ```
 
 #### 2. 构建前端镜像（可选）
@@ -148,8 +148,8 @@ docker push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
 ```bash
 cd frontend
 npm run build
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-frontend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-frontend:latest
 ```
 
 #### 3. 更新Kubernetes

@@ -27,8 +27,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest
-        imagePullPolicy: IfNotPresent
+        image: registry.sealoshzh.site/xiaodiyanxuan-frontend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
           name: http

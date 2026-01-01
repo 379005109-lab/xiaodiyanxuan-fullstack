@@ -12,7 +12,7 @@
 
 ### 后端
 - **版本**: v21
-- **镜像**: `ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest`
+- **镜像**: `registry.sealoshzh.site/xiaodiyanxuan-backend:latest`
 - **Pod状态**: ✅ Running (2/2)
 - **请求体限制**: 100MB
 - **部署时间**: 刚刚
@@ -200,7 +200,7 @@ ConfigMap: xiaodiyanxuan-frontend-html
 ```bash
 # GitHub Actions自动构建
 工作流: backend-build.yml
-镜像: ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+镜像: registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 构建时间: ~3分钟
 
 # Kubernetes部署

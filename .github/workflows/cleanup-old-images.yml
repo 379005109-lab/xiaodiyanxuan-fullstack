@@ -1,31 +1,15 @@
 name: Cleanup Old Docker Images
 
 on:
-  schedule:
-    # 每周日凌晨2点执行
-    - cron: '0 2 * * 0'
   workflow_dispatch: # 允许手动触发
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     permissions:
-      packages: write
       contents: read
     
     steps:
-      - name: Cleanup old frontend images
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: 'xiaodiyanxuan-frontend'
-          package-type: 'container'
-          min-versions-to-keep: 5
-          delete-only-untagged-versions: 'false'
-      
-      - name: Cleanup old backend images
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: 'xiaodiyanxuan-backend'
-          package-type: 'container'
-          min-versions-to-keep: 5
-          delete-only-untagged-versions: 'false'
+      - name: No-op
+        run: |
+          echo "Container image cleanup is not configured for this project. Nothing to cleanup here."

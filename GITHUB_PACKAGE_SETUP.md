@@ -1,30 +1,17 @@
-# 🔧 GitHub Container Registry 403 错误 - 完整解决方案
+# 🔧 Docker Registry 403 错误 - 完整解决方案
 
 ## 当前问题
 
-GitHub Actions 无法推送镜像到 `ghcr.io/379005109-lab/xiaodiyanxuan-backend`
-错误：`403 Forbidden`
+GitHub Actions 无法推送镜像到 `registry.sealoshzh.site/xiaodiyanxuan-backend`
+错误：`403 Forbidden` / `denied`
 
 ---
 
-## ✅ 解决方案 A：创建个人访问令牌（最可靠）
+## ✅ 解决方案 A：配置 Registry 凭证（推荐）
 
-### 第1步：创建 PAT (Personal Access Token)
+### 第1步：准备 Registry 用户名/密码
 
-1. **访问**：https://github.com/settings/tokens/new
-
-2. **配置令牌**：
-   - **Note (备注)**: `GHCR Package Write`
-   - **Expiration (过期时间)**: `No expiration` 或 `90 days`
-   - **Select scopes (选择权限)**:
-     - ✅ `write:packages` - 上传包到 GitHub Package Registry
-     - ✅ `read:packages` - 从 GitHub Package Registry 下载包
-     - ✅ `delete:packages` - 从 GitHub Package Registry 删除包
-     - ✅ `repo` (可选，如果是私有仓库)
-
-3. **点击** `Generate token` 按钮
-
-4. **复制令牌** - ⚠️ 只显示一次！立即复制保存！
+请使用 `registry.sealoshzh.site` 的账号（用户名/密码）。
 
 ---
 
@@ -35,24 +22,27 @@ GitHub Actions 无法推送镜像到 `ghcr.io/379005109-lab/xiaodiyanxuan-backen
 2. **点击** `New repository secret` 按钮
 
 3. **填写**：
-   - **Name**: `GHCR_TOKEN`
-   - **Secret**: 粘贴刚才复制的 PAT
+   - **Name**: `REGISTRY_USERNAME`
+   - **Secret**: Registry 用户名
+4. **再添加一个**：
+   - **Name**: `REGISTRY_PASSWORD`
+   - **Secret**: Registry 密码
    
 4. **点击** `Add secret`
 
 ---
 
-### 第3步：更新工作流（我来做）
+### 第3步：更新工作流（已更新）
 
-需要修改 `.github/workflows/backend-build.yml`：
+需要修改 `.github/workflows/build-backend.yml` / `.github/workflows/build-frontend.yml`：
 
 ```yaml
 - name: Log in to Container Registry
   uses: docker/login-action@v3
   with:
-    registry: ghcr.io
-    username: ${{ github.repository_owner }}
-    password: ${{ secrets.GHCR_TOKEN }}  # 使用 PAT
+    registry: registry.sealoshzh.site
+    username: ${{ secrets.REGISTRY_USERNAME }}
+    password: ${{ secrets.REGISTRY_PASSWORD }}
 ```
 
 ---
@@ -67,25 +57,12 @@ GitHub Actions 无法推送镜像到 `ghcr.io/379005109-lab/xiaodiyanxuan-backen
 
 ---
 
-## ✅ 解决方案 B：修改 Package 可见性（如果 Package 已存在）
+## ✅ 解决方案 B：确认 Registry 权限
 
-### 如果 `xiaodiyanxuan-backend` package 已经存在：
+如果仍然出现 403/denied：
 
-1. **访问你的 Packages**：
-   https://github.com/379005109-lab?tab=packages
-
-2. **找到** `xiaodiyanxuan-backend` 并点击
-
-3. **点击** `Package settings`
-
-4. **在 "Manage Actions access" 部分**：
-   - 点击 `Add Repository`
-   - 搜索并添加 `379005109-lab/xiaodiyanxuan-fullstack`
-   - 权限选择 `Write`
-
-5. **保存设置**
-
-6. **重新运行** GitHub Actions
+1. 确认 `REGISTRY_USERNAME` / `REGISTRY_PASSWORD` 正确
+2. 确认该账号对 `registry.sealoshzh.site/xiaodiyanxuan-backend` / `.../xiaodiyanxuan-frontend` 有推送权限
 
 ---
 
@@ -108,12 +85,10 @@ bash manual-deploy.sh
 
 ## 📋 推荐执行顺序
 
-### 方案 A（推荐）：使用 PAT
+### 方案 A（推荐）：配置 Registry Secrets
 
-1. ✅ 创建 PAT（5分钟）
-2. ✅ 添加到 Secrets（1分钟）
-3. ✅ 我修改工作流配置（已完成）
-4. ✅ 重新运行构建（2分钟）
+1. ✅ 配置 `REGISTRY_USERNAME` / `REGISTRY_PASSWORD`（1分钟）
+2. ✅ 重新运行构建（2分钟）
 
 **总耗时：10 分钟**
 
@@ -132,7 +107,7 @@ bash manual-deploy.sh
 
 ### 检查 GitHub Actions：
 - ✅ "Build and push Docker image" 步骤通过
-- ✅ 看到 "pushed to ghcr.io" 的日志
+- ✅ 看到 "pushed" 的日志
 
 ### 检查接口：
 ```bash

@@ -71,13 +71,12 @@ curl -k -s https://xuahitfkpixy.sealoshzh.site/health
 - **触发条件**: 推送到`test`或`main`分支，且修改了`frontend/**`或`backend/**`路径
 
 ### GitHub Secrets配置
-- **Secret名称**: `GHCR_PAT`
-- **当前Token**: `***REDACTED***`
+- **Secret名称**: `REGISTRY_USERNAME` / `REGISTRY_PASSWORD`
 - **配置地址**: https://github.com/379005109-lab/xiaodiyanxuan-fullstack/settings/secrets/actions
 
 ### Docker镜像
-- **前端镜像**: `ghcr.io/379005109-lab/xiaodiyanxuan-frontend:test`
-- **后端镜像**: `ghcr.io/379005109-lab/xiaodiyanxuan-backend:test`
+- **前端镜像**: `registry.sealoshzh.site/xiaodiyanxuan-frontend:test`
+- **后端镜像**: `registry.sealoshzh.site/xiaodiyanxuan-backend:test`
 
 ### Kubernetes配置
 - **Kubeconfig**: `/home/devbox/project/kubeconfig (7).yaml`
@@ -97,7 +96,7 @@ curl -k -s https://xuahitfkpixy.sealoshzh.site/health
    ↓
 3. GitHub Actions自动触发
    ↓
-4. 构建Docker镜像并推送到GHCR
+4. 构建Docker镜像并推送到 Registry
    ↓
 5. kubectl rollout restart（重启Kubernetes服务）
    ↓
@@ -110,14 +109,13 @@ curl -k -s https://xuahitfkpixy.sealoshzh.site/health
 
 ## ⚠️ 常见问题和解决方案
 
-### 问题1：GitHub Actions失败 - GHCR认证被拒绝
+### 问题1：GitHub Actions失败 - Registry 认证被拒绝
 
-**错误信息**: `Error response from daemon: Get "https://ghcr.io/v2/": denied: denied`
+**错误信息**: `denied: requested access to the resource is denied`
 
 **解决方案**:
-1. 检查GHCR_PAT是否在GitHub Settings中正确配置
-2. 确认token有`write:packages`权限
-3. 重新生成token并更新Secret
+1. 检查 `REGISTRY_USERNAME` / `REGISTRY_PASSWORD` 是否在 GitHub Settings 中正确配置
+2. 确认 registry 账号有推送权限
 
 ### 问题2：推送到Git但没有触发GitHub Actions
 
@@ -158,7 +156,7 @@ kubectl rollout restart deployment/xiaodiyanxuan-api -n ns-cxxiwxce
 部署中检查：
 - [ ] Git推送成功
 - [ ] GitHub Actions显示绿色✅
-- [ ] 镜像已推送到GHCR
+- [ ] 镜像已推送到 Registry
 
 部署后检查：
 - [ ] Kubernetes Pod已重启
@@ -256,18 +254,18 @@ kubectl cp ./backend/src/routes/authorizations.js ns-cxxiwxce/$API_POD:/app/src/
 
 ## 🎓 部署逻辑总结
 
-### Git → GitHub Actions → GHCR → Kubernetes
+### Git → GitHub Actions → Registry → Kubernetes
 
 1. **开发者推送代码** → Git仓库（test分支）
 2. **GitHub Actions触发** → 检测到`frontend/**`或`backend/**`路径变更
-3. **构建Docker镜像** → 使用GHCR_PAT认证推送到GitHub Container Registry
+3. **构建Docker镜像** → 推送到 Registry
 4. **Kubernetes拉取镜像** → 使用`kubectl rollout restart`强制拉取新镜像
 5. **Pod重启** → 使用新镜像启动，新功能生效
 
 ### 关键要素
 
 - **Git分支**: `test`（开发）或`main`（生产）
-- **GitHub Secret**: `GHCR_PAT`（用于推送Docker镜像）
+- **GitHub Secret**: `REGISTRY_USERNAME` / `REGISTRY_PASSWORD`（用于推送Docker镜像）
 - **镜像标签**: `test`（test分支）或`latest`（main分支）
 - **Kubernetes命令**: `kubectl rollout restart`（强制重启）
 

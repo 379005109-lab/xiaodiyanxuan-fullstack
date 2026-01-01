@@ -13,11 +13,9 @@ spec:
       labels:
         app: xiaodiyanxuan-frontend
     spec:
-      imagePullSecrets:
-        - name: ghcr-credentials
       containers:
       - name: frontend
-        image: ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest
+        image: registry.sealoshzh.site/xiaodiyanxuan-frontend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80

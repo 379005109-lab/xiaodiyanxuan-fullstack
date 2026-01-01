@@ -337,13 +337,13 @@ if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'desig
 ```bash
 # 后端
 cd backend
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-backend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 
 # 前端
 cd frontend
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-frontend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-frontend:latest
 ```
 
 ### 2. 更新Kubernetes

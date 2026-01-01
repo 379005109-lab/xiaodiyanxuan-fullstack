@@ -101,8 +101,8 @@ git pull origin main
 
 # 2. 构建后端镜像
 cd backend
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-backend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 
 # 3. 更新Kubernetes
 export KUBECONFIG="/path/to/kubeconfig (7).yaml"
