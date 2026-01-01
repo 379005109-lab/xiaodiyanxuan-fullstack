@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getProductById } from '@/services/productService';
 import { getMaterialImagesByNames, clearMaterialImageCache } from '@/services/materialService';
+import { recordBrowse } from '@/services/browseHistoryService';
 import { Product, ProductSKU, ProductFile } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoriteStore } from '@/store/favoriteStore';
@@ -577,6 +578,12 @@ const ProductDetailPage = () => {
       try {
         const fetchedProduct = await getProductById(id);
         setProduct(fetchedProduct);
+        
+        // 记录用户浏览历史（异步，不影响页面加载）
+        if (fetchedProduct) {
+          recordBrowse(id, 'web').catch(err => console.warn('记录浏览历史失败:', err));
+        }
+        
         if (fetchedProduct) {
           const fetchedSkus = Array.isArray((fetchedProduct as any).skus) ? ((fetchedProduct as any).skus as ProductSKU[]) : [];
           const defaultFilter = determineDefaultFilter(fetchedSkus);

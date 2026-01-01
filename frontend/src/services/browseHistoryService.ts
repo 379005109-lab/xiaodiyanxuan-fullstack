@@ -42,6 +42,21 @@ export interface BrowseStats {
   }[]
 }
 
+// 记录浏览历史
+export const recordBrowse = async (productId: string, source: 'web' | 'miniapp' | 'admin' | 'share' = 'web') => {
+  try {
+    const response = await apiClient.post('/browse-history', {
+      productId,
+      source
+    })
+    return response.data
+  } catch (error) {
+    // 静默失败，不影响用户体验
+    console.warn('Failed to record browse history:', error)
+    return null
+  }
+}
+
 // 获取用户的浏览历史
 export const getUserBrowseHistory = async (
   userId: string,
