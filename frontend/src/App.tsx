@@ -280,11 +280,13 @@ const AdminIndexRedirect = () => {
 
 const ProductManagementRoute = () => {
   const { user } = useAuthStore()
+  const hasManufacturerId = Boolean((user as any)?.manufacturerId)
   const canAccess =
     user?.role === 'admin' ||
     user?.role === 'super_admin' ||
     user?.role === 'designer' ||
-    (user as any)?.permissions?.canManageProducts === true
+    (user as any)?.permissions?.canManageProducts === true ||
+    hasManufacturerId
 
   if (!canAccess) {
     return <Navigate to="/admin" replace />

@@ -79,7 +79,6 @@ interface Manufacturer {
   createdAt: string
   accountQuota?: AccountQuota
   accountUsage?: AccountQuota
-  logo?: string
   settings?: {
     phone?: string
     servicePhone?: string
@@ -156,7 +155,6 @@ export default function ManufacturerManagement() {
     description: '',
     status: 'active' as 'active' | 'inactive',
     // 扩展字段
-    logo: '',
     settings: {
       phone: '',
       servicePhone: '',
@@ -286,7 +284,6 @@ export default function ManufacturerManagement() {
       address: '',
       description: '',
       status: 'active',
-      logo: '',
       settings: {
         phone: '',
         servicePhone: '',
@@ -316,7 +313,6 @@ export default function ManufacturerManagement() {
       address: item.address || '',
       description: item.description || '',
       status: item.status,
-      logo: item.logo || '',
       settings: {
         phone: item.settings?.phone || '',
         servicePhone: item.settings?.servicePhone || '',

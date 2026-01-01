@@ -32,7 +32,7 @@ const authorizationSchema = new mongoose.Schema({
   // 授权商品范围
   scope: {
     type: String,
-    enum: ['all', 'category', 'specific'],  // 全部商品、按分类、指定商品
+    enum: ['all', 'category', 'specific', 'mixed'],  // 全部商品、按分类、指定商品
     default: 'all'
   },
   

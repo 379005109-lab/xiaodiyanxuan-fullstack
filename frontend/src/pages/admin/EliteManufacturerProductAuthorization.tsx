@@ -352,7 +352,8 @@ export default function EliteManufacturerProductAuthorization() {
           ? 'category'
           : 'specific'
 
-      await apiClient.post('/authorizations/designer-requests', {
+      const endpoint = isDesigner ? '/authorizations/designer-requests' : '/authorizations/manufacturer-requests'
+      await apiClient.post(endpoint, {
         manufacturerId,
         scope,
         categories: selectedCategoryIds,

@@ -75,6 +75,17 @@ const findAuthorizationForUserAndProduct = async (user, product) => {
       const ok = auth.products.some(p => p?.toString?.() === product._id?.toString?.())
       if (ok) return auth
     }
+
+    if (auth.scope === 'mixed') {
+      if (categoryId && Array.isArray(auth.categories)) {
+        const okCategory = auth.categories.some(c => c?.toString?.() === categoryId)
+        if (okCategory) return auth
+      }
+      if (Array.isArray(auth.products)) {
+        const okProduct = auth.products.some(p => p?.toString?.() === product._id?.toString?.())
+        if (okProduct) return auth
+      }
+    }
   }
 
   return null
@@ -315,6 +326,39 @@ const listProducts = async (req, res) => {
             authByProduct.set(p._id.toString(), auth)
           })
         } else if (auth.scope === 'specific') {
+          ;(auth.products || []).forEach(pid => {
+            authorizedProductIds.add(pid.toString())
+            authByProduct.set(pid.toString(), auth)
+          })
+        } else if (auth.scope === 'mixed') {
+          const manufacturerOid = auth.fromManufacturer
+          if (Array.isArray(auth.categories) && auth.categories.length > 0) {
+            const products = await Product.find({
+              $and: [
+                {
+                  $or: [
+                    { manufacturerId: manufacturerOid },
+                    { 'skus.manufacturerId': manufacturerOid },
+                  ],
+                },
+                {
+                  status: 'active',
+                },
+                {
+                  $or: [
+                    { category: { $in: auth.categories || [] } },
+                    { 'category._id': { $in: auth.categories || [] } },
+                    { 'category.id': { $in: auth.categories || [] } },
+                  ],
+                },
+              ]
+            }).select('_id').lean()
+            products.forEach(p => {
+              authorizedProductIds.add(p._id.toString())
+              authByProduct.set(p._id.toString(), auth)
+            })
+          }
+
           ;(auth.products || []).forEach(pid => {
             authorizedProductIds.add(pid.toString())
             authByProduct.set(pid.toString(), auth)
