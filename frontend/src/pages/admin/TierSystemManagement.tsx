@@ -2006,6 +2006,14 @@ function HierarchyTab({
     return sum
   }
 
+  const getMaxVerticalCommissionPctForAccount = (accountId: string) => {
+    const used = getVerticalAncestorCommissionSumPct(accountId)
+    const maxAllowed = Math.max(0, Math.min(100, headquartersCommissionCapPct - used))
+    
+    // 允许每个节点使用完整的40%上限进行分配
+    const testMax = Math.min(100, headquartersCommissionCapPct)
+    return testMax
+  }
 
   useEffect(() => {
     if (!accounts || accounts.length === 0) return
@@ -3245,15 +3253,6 @@ function ProductProfitModal({
     const n = Number(v)
     if (!Number.isFinite(n)) return null
     return Math.max(0, Math.min(safeCommissionMax, n))
-  }
-
-  const getMaxVerticalCommissionPctForAccount = (accountId: string) => {
-    const used = getVerticalAncestorCommissionSumPct(accountId)
-    const maxAllowed = Math.max(0, Math.min(100, headquartersCommissionCapPct - used))
-    
-    // 允许每个节点使用完整的40%上限进行分配
-    const testMax = Math.min(100, headquartersCommissionCapPct)
-    return testMax
   }
 
   const pctToRate = (pct: any) => {
