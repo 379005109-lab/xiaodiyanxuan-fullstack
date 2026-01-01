@@ -2932,7 +2932,7 @@ function HierarchyTab({
                   onPointerUp={onNodePointerUp}
                   onPointerCancel={onNodePointerUp}
                   onClick={onNodeClick(String(staff.id))}
-                  className="w-[240px] p-4 bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all"
+                  className="w-[300px] p-6 bg-white rounded-3xl border border-gray-200 shadow-lg hover:shadow-xl transition-all"
                   style={{
                     position: 'absolute',
                     left: `${canvasSize.w / 2 + (nodePositions[String(staff.id)]?.x ?? 0)}px`,
@@ -2940,38 +2940,46 @@ function HierarchyTab({
                     transform: 'translate(-50%, -50%)',
                   }}
                 >
+                  {/* 展开/收起按钮 */}
                   {hasChildren(String(staff.id)) ? (
                     <button
                       type="button"
                       onClick={onToggleExpandClick(String(staff.id))}
-                      className="absolute top-4 right-4 w-8 h-8 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
+                      className="absolute top-4 right-4 w-9 h-9 rounded-2xl bg-[#0f172a] text-white flex items-center justify-center hover:bg-gray-800 transition-colors"
                       title={expandedNodes.has(String(staff.id)) ? '收起下级' : '展开下级'}
                     >
                       {expandedNodes.has(String(staff.id)) ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                     </button>
                   ) : null}
-                  <div className="flex items-center gap-3 mb-3">
+
+                  {/* 头像和基本信息 */}
+                  <div className="flex flex-col items-center text-center mb-6">
                     <button
                       type="button"
                       onClick={() => handleAvatarClick(staff)}
-                      className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden hover:ring-2 hover:ring-blue-200 transition-all flex-shrink-0"
+                      className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden hover:ring-2 hover:ring-blue-200 transition-all mb-3"
                     >
                       <img src={staff.avatar} alt={staff.name} className="w-full h-full object-cover" />
                     </button>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-base font-bold text-gray-900 truncate">{staff.name}</h4>
-                      <p className="text-sm text-gray-500 truncate">{staff.role}</p>
-                    </div>
+                    <h4 className="text-lg font-bold text-gray-900 mb-1">{staff.name}</h4>
+                    <button
+                      type="button"
+                      onClick={() => handleAvatarClick(staff)}
+                      className="text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                    >
+                      {staff.role}
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-green-50 p-2 rounded-lg text-center">
-                      <div className="text-xs text-green-600 font-medium mb-1">折扣</div>
-                      <div className="text-lg font-bold text-green-700">{staff.minDiscount}</div>
-                      <div className="text-xs text-green-600">%</div>
+                  {/* 折扣和返佣显示 */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-green-50 p-4 rounded-2xl text-center">
+                      <div className="text-sm text-green-700 font-medium mb-2">最低折扣</div>
+                      <div className="text-3xl font-bold text-green-800 mb-1">{staff.minDiscount}</div>
+                      <div className="text-xs text-green-600 font-medium">%</div>
                     </div>
-                    <div className="bg-blue-50 p-2 rounded-lg text-center">
-                      <div className="text-xs text-blue-600 font-medium mb-1">返佣</div>
+                    <div className="bg-blue-50 p-4 rounded-2xl text-center">
+                      <div className="text-sm text-blue-700 font-medium mb-2">返佣比例</div>
                       <input
                         type="number"
                         value={nodeDraft[String(staff.id)]?.distribution ?? staff.distribution}
@@ -2989,9 +2997,9 @@ function HierarchyTab({
                         }}
                         onBlur={() => commitNodeDraft(String(staff.id))}
                         onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
-                        className="text-lg font-bold text-blue-800 bg-transparent text-center w-full outline-none"
+                        className="text-3xl font-bold text-blue-800 bg-transparent text-center w-full outline-none mb-1"
                       />
-                      <div className="text-xs text-blue-600">%</div>
+                      <div className="text-xs text-blue-600 font-medium">%</div>
                     </div>
                   </div>
                 </div>
