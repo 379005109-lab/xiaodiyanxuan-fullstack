@@ -1959,15 +1959,41 @@ function HierarchyTab({
       .join('|')
   }, [accounts])
 
+  const headquartersCommissionCapPct = useMemo(() => {
+    const v = Number(commissionRate ?? 40)
+    return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.floor(v))) : 40
+  }, [commissionRate])
+
+  const getVerticalAncestorCommissionSumPct = (accountId: string) => {
+    const visited = new Set<string>()
+    let sum = 0
+    let cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
+    while (cur && cur.parentId) {
+      const pid = String(cur.parentId)
+      if (!pid || visited.has(pid)) break
+      visited.add(pid)
+      const parent = (accounts || []).find((x) => String(x._id) === pid) || null
+      if (!parent) break
+      const pct = Math.max(0, Math.min(100, Math.floor(Number((parent as any).distributionRate ?? 0) || 0)))
+      sum += pct
+      cur = parent
+    }
+    return sum
+  }
+
+  const getMaxVerticalCommissionPctForAccount = (accountId: string) => {
+    const used = getVerticalAncestorCommissionSumPct(accountId)
+    return Math.max(0, Math.min(100, headquartersCommissionCapPct - used))
+  }
+
   useEffect(() => {
     if (!accounts || accounts.length === 0) return
 
     let changed = false
     const next = accounts.map(a => {
-      const parent = a.parentId ? (accounts.find(p => String(p._id) === String(a.parentId)) || null) : null
-      const parentMax = parent ? getMaxCommissionPctFromAccount(parent) : 40
       const cur = Math.max(0, Math.min(100, Math.floor(Number((a as any).distributionRate ?? 0) || 0)))
-      const safe = Math.max(0, Math.min(parentMax, cur))
+      const maxAllowed = getMaxVerticalCommissionPctForAccount(String(a._id))
+      const safe = Math.max(0, Math.min(maxAllowed, cur))
       if (safe !== cur) {
         changed = true
         return { ...a, distributionRate: safe }
@@ -2232,10 +2258,12 @@ function HierarchyTab({
       const pos = nodePositions[id]
       if (!pos) return
       const sz = getNodeSize(String(id))
-      minX = Math.min(minX, pos.x - sz.w / 2)
-      maxX = Math.max(maxX, pos.x + sz.w / 2)
-      minY = Math.min(minY, pos.y - sz.h / 2)
-      maxY = Math.max(maxY, pos.y + sz.h / 2)
+      const bx = canvasSize.w / 2 + pos.x
+      const by = canvasSize.h / 2 + pos.y
+      minX = Math.min(minX, bx - sz.w / 2)
+      maxX = Math.max(maxX, bx + sz.w / 2)
+      minY = Math.min(minY, by - sz.h / 2)
+      maxY = Math.max(maxY, by + sz.h / 2)
     })
 
     if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) return
@@ -2252,13 +2280,15 @@ function HierarchyTab({
     const cy = (minY + maxY) / 2
 
     setZoomScale(nextZoom)
-    setPan({ x: -cx * nextZoom, y: -cy * nextZoom })
+    setPan({ x: canvasSize.w / 2 - cx * nextZoom, y: canvasSize.h / 2 - cy * nextZoom })
   }
 
   const focusNode = (nodeId: string) => {
     const pos = nodePositions[String(nodeId)]
     if (!pos) return
-    setPan({ x: -pos.x * zoomScale, y: -pos.y * zoomScale })
+    const bx = canvasSize.w / 2 + pos.x
+    const by = canvasSize.h / 2 + pos.y
+    setPan({ x: canvasSize.w / 2 - bx * zoomScale, y: canvasSize.h / 2 - by * zoomScale })
   }
 
   const expandPathTo = (nodeId: string) => {
@@ -2291,12 +2321,13 @@ function HierarchyTab({
     const draft = nodeDraft[String(nodeId)]
     if (!draft) return
 
-    const { parentMinDiscount, parentMaxCommission } = getParentConstraints(String(nodeId))
+    const { parentMinDiscount } = getParentConstraints(String(nodeId))
+    const maxVerticalCommissionPct = getMaxVerticalCommissionPctForAccount(String(nodeId))
 
     const rawDiscountPct = Math.max(0, Math.min(100, Math.floor(Number(draft.minDiscount) || 0)))
     const rawDist = Math.max(0, Math.min(100, Math.floor(Number(draft.distribution) || 0)))
     const targetDiscountPct = Math.max(parentMinDiscount, rawDiscountPct)
-    const targetDist = Math.min(parentMaxCommission, rawDist)
+    const targetDist = Math.min(maxVerticalCommissionPct, rawDist)
     const targetDiscountRate = targetDiscountPct / 100
 
     const current = accounts.find(a => String(a._id) === String(nodeId))
@@ -2487,7 +2518,7 @@ function HierarchyTab({
   }
 
   return (
-    <div className="max-w-[1600px] mx-auto h-screen flex flex-col bg-[#fcfdfd] overflow-hidden">
+    <div className="w-full h-[calc(100vh-320px)] min-h-[640px] flex flex-col bg-[#fcfdfd] overflow-hidden">
       {/* duijie/nn风格的header */}
       <header className="hidden p-8 border-b bg-white flex items-center justify-between shrink-0 shadow-sm z-[60]">
         <div className="flex items-center gap-8">
@@ -2697,14 +2728,14 @@ function HierarchyTab({
               className="absolute inset-0"
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomScale})`,
-                transformOrigin: 'center center'
+                transformOrigin: '0 0'
               }}
             >
               {/* 连接线层（随拖拽更新） */}
               <svg
                 className="absolute inset-0"
                 style={{ pointerEvents: 'none' }}
-                viewBox={`${-canvasSize.w / 2} ${-canvasSize.h / 2} ${canvasSize.w} ${canvasSize.h}`}
+                viewBox={`0 0 ${canvasSize.w} ${canvasSize.h}`}
                 preserveAspectRatio="none"
               >
                 {hierarchyGraph.edges.map((e) => {
@@ -2717,10 +2748,10 @@ function HierarchyTab({
                   const fromSize = e.from === 'headquarters' ? { w: 480, h: 420 } : { w: 256, h: 300 }
                   const toSize = e.to === 'headquarters' ? { w: 480, h: 420 } : { w: 256, h: 300 }
 
-                  const x1 = fromPos.x
-                  const y1 = fromPos.y + fromSize.h / 2
-                  const x2 = toPos.x
-                  const y2 = toPos.y - toSize.h / 2
+                  const x1 = canvasSize.w / 2 + fromPos.x
+                  const y1 = canvasSize.h / 2 + fromPos.y + fromSize.h / 2
+                  const x2 = canvasSize.w / 2 + toPos.x
+                  const y2 = canvasSize.h / 2 + toPos.y - toSize.h / 2
 
                   const mx = (x1 + x2) / 2
                   const isFocused = focusedNodeId && (String(e.from) === focusedNodeId || String(e.to) === focusedNodeId)
@@ -2748,8 +2779,8 @@ function HierarchyTab({
                 className="w-[480px] p-12 bg-white rounded-[4.5rem] border-2 border-gray-100 shadow-2xl hover:border-[#153e35] transition-all relative"
                 style={{
                   position: 'absolute',
-                  left: `calc(50% + ${(nodePositions['headquarters']?.x ?? 0)}px)`,
-                  top: `calc(50% + ${(nodePositions['headquarters']?.y ?? -260)}px)`,
+                  left: `${canvasSize.w / 2 + (nodePositions['headquarters']?.x ?? 0)}px`,
+                  top: `${canvasSize.h / 2 + (nodePositions['headquarters']?.y ?? -260)}px`,
                   transform: 'translate(-50%, -50%)',
                   touchAction: 'none'
                 }}
@@ -2848,8 +2879,8 @@ function HierarchyTab({
                   className="w-64 p-8 bg-white rounded-[3rem] border border-gray-100 shadow-xl hover:shadow-2xl transition-all"
                   style={{
                     position: 'absolute',
-                    left: `calc(50% + ${(nodePositions[String(staff.id)]?.x ?? 0)}px)`,
-                    top: `calc(50% + ${(nodePositions[String(staff.id)]?.y ?? 240)}px)`,
+                    left: `${canvasSize.w / 2 + (nodePositions[String(staff.id)]?.x ?? 0)}px`,
+                    top: `${canvasSize.h / 2 + (nodePositions[String(staff.id)]?.y ?? 240)}px`,
                     transform: 'translate(-50%, -50%)',
                     touchAction: 'none'
                   }}
@@ -2908,6 +2939,7 @@ function HierarchyTab({
                         <input
                           type="number"
                           value={nodeDraft[String(staff.id)]?.distribution ?? staff.distribution}
+                          max={getMaxVerticalCommissionPctForAccount(String(staff.id))}
                           onChange={(e) => {
                             const v = Number(e.target.value)
                             setNodeDraft(prev => ({
@@ -3288,6 +3320,39 @@ function ProductProfitModal({
     return id ? String(id) : ''
   }
 
+  const getProductImageSrc = (p: any, size: number = 96) => {
+    const pick = (v: any) => {
+      if (!v) return ''
+      if (typeof v === 'string') return v
+      if (typeof v?.url === 'string') return String(v.url)
+      if (typeof v?.fileId === 'string') return String(v.fileId)
+      if (typeof v?._id === 'string') return String(v._id)
+      return ''
+    }
+
+    const img =
+      (Array.isArray(p?.images) ? p.images[0] : null) ||
+      p?.image ||
+      p?.cover ||
+      p?.thumbnail ||
+      p?.mainImage ||
+      ''
+
+    let raw = pick(img)
+    if (!raw) {
+      const skus = Array.isArray(p?.skus) ? p.skus : []
+      const skuImg = skus
+        .map((s: any) => (Array.isArray(s?.images) ? s.images[0] : null) || s?.image || s?.thumbnail || '')
+        .map(pick)
+        .find((x: string) => !!x)
+      raw = skuImg || ''
+    }
+    if (!raw) return ''
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/api/')) return raw
+    if (raw.startsWith('/')) return raw
+    return getThumbnailUrl(raw, size)
+  }
+
   const visibleCategorySet = useMemo(() => {
     const ids = Array.isArray(account.visibleCategoryIds) ? account.visibleCategoryIds : []
     if (ids.length === 0) return null
@@ -3457,14 +3522,14 @@ function ProductProfitModal({
     const base = basePriceOf(p)
     const checked = selectedProductIdSet.has(pid)
 
-    const img =
-      (Array.isArray(p?.images) ? p.images[0] : null) ||
-      p?.image ||
-      p?.cover ||
-      p?.thumbnail ||
-      p?.mainImage ||
-      ''
-    const imgUrl = typeof img === 'string' ? img : (img?.url ? String(img.url) : '')
+    const imgUrl = getProductImageSrc(p, 120)
+
+    const skuList = Array.isArray(p?.skus) ? p.skus : []
+    const skuCodes = skuList
+      .map((s: any) => String(s?.code || s?.skuCode || s?.productCode || ''))
+      .map((s: string) => s.trim())
+      .filter(Boolean)
+    const skuSummary = skuCodes.length > 0 ? skuCodes.slice(0, 3).join(' / ') : ''
 
     const categoryIds = categoryIdsOfProduct(p)
     const primaryCategoryId = categoryIds[0] || ''
@@ -3502,6 +3567,9 @@ function ProductProfitModal({
             <div className="text-sm font-black text-gray-900 truncate">{name}</div>
             <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
               标价 ¥{Number(base || 0).toLocaleString()}
+            </div>
+            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+              SKU {skuList.length}{skuSummary ? ` • ${skuSummary}` : ''}
             </div>
           </div>
         </button>
@@ -4131,12 +4199,12 @@ function AddAccountModal({
   return (
     <div className="fixed inset-0 z-[120]">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={onClose} />
-      <form onSubmit={handleSubmit} className="absolute right-0 top-0 h-full w-full max-w-[1240px] bg-white rounded-l-[4rem] shadow-2xl flex flex-col overflow-hidden">
+      <form onSubmit={handleSubmit} className="absolute right-0 top-0 h-full w-full max-w-[920px] bg-white rounded-l-[4rem] shadow-2xl flex flex-col overflow-hidden">
         <div className="p-12 border-b bg-white space-y-6">
           <div className="flex justify-between items-center gap-6">
             <div className="min-w-0">
-              <h2 className="text-4xl font-black text-gray-900 tracking-tighter">绑定人员</h2>
-              <p className="text-sm font-bold text-gray-400 mt-2 uppercase tracking-widest truncate">
+              <h3 className="text-4xl font-black text-gray-900 mb-3">绑定人员</h3>
+              <p className="text-sm text-gray-500 font-medium truncate">
                 已选 {selectedAccountIds.length} 人 • 最低折扣继承下限 {Math.floor(Number(parentMinDiscountPct || 0))}%
               </p>
             </div>
