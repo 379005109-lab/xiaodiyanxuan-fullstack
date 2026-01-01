@@ -2718,7 +2718,10 @@ export default function ProductManagement() {
                 <motion.tr
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.02 }}
+                  transition={{ 
+                    delay: filteredProducts.length > 100 ? 0 : index * 0.02,
+                    duration: filteredProducts.length > 100 ? 0.1 : 0.3
+                  }}
                   className={`border-b border-gray-100 hover:bg-gray-50 cursor-move ${
                     draggedProduct?._id === product._id ? 'opacity-50' : ''
                   } ${
