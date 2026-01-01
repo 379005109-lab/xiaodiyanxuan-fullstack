@@ -535,6 +535,12 @@ export default function TierSystemManagement() {
             label="公司分层"
           />
           <TabButton
+            active={activeTab === 'pool'}
+            onClick={() => setActiveTab('pool')}
+            icon={<BarChart3 className="w-4 h-4" />}
+            label="角色权限"
+          />
+          <TabButton
             active={activeTab === 'reconciliation'}
             onClick={() => setActiveTab('reconciliation')}
             icon={<TrendingUp className="w-4 h-4" />}
@@ -544,7 +550,18 @@ export default function TierSystemManagement() {
       </div>
 
       {/* 内容区域 */}
-      
+      {activeTab === 'pool' && (
+        <RolesPermissionTab
+          modules={data.roleModules}
+          profitSettings={data.profitSettings}
+          onUpdateProfitSettings={handleUpdateProfitSettings}
+          onUpdateModule={handleUpdateRoleModule}
+          commissionRate={data.profitSettings?.maxCommissionRate}
+          onUpdateCommissionRate={handleUpdateCommissionRate}
+          commissionEditable={true}
+        />
+      )}
+
       {activeTab === 'hierarchy' && (
         <HierarchyTab
           modules={data.roleModules}
@@ -1967,6 +1984,15 @@ function HierarchyTab({
     const visited = new Set<string>()
     let sum = 0
     let cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
+    
+    // 包含当前节点的返佣
+    if (cur) {
+      const currentPct = Math.max(0, Math.min(100, Math.floor(Number((cur as any).distributionRate ?? 0) || 0)))
+      sum += currentPct
+      visited.add(String(cur._id))
+    }
+    
+    // 累计所有父级返佣
     while (cur && cur.parentId) {
       const pid = String(cur.parentId)
       if (!pid || visited.has(pid)) break
@@ -1981,14 +2007,23 @@ function HierarchyTab({
   }
 
   const getMaxVerticalCommissionPctForAccount = (accountId: string) => {
-    const used = getVerticalAncestorCommissionSumPct(accountId)
-    const maxAllowed = Math.max(0, Math.min(100, headquartersCommissionCapPct - used))
-    console.log(`Account ${accountId}: ancestorSum=${used}, headquarters=${headquartersCommissionCapPct}, maxAllowed=${maxAllowed}`)
+    // 计算父级链条的返佣总和（不包含当前节点）
+    const visited = new Set<string>()
+    let ancestorSum = 0
+    let cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
     
-    // 临时：允许每个节点使用完整的40%上限进行测试
-    const testMax = Math.min(100, headquartersCommissionCapPct)
-    console.log(`Test allowing full ${testMax}% for account ${accountId}`)
-    return testMax
+    while (cur && cur.parentId) {
+      const pid = String(cur.parentId)
+      if (!pid || visited.has(pid)) break
+      visited.add(pid)
+      const parent = (accounts || []).find((x) => String(x._id) === pid) || null
+      if (!parent) break
+      const pct = Math.max(0, Math.min(100, Math.floor(Number((parent as any).distributionRate ?? 0) || 0)))
+      ancestorSum += pct
+      cur = parent
+    }
+    
+    return Math.max(0, Math.min(100, headquartersCommissionCapPct - ancestorSum))
   }
 
   useEffect(() => {
@@ -2841,19 +2876,15 @@ function HierarchyTab({
                 })}
               </svg>
 
-              {/* 总部卡片（可拖拽） */}
+              {/* 总部卡片（固定在顶部） */}
               <div
-                onPointerDown={onNodePointerDown('headquarters')}
-                onPointerMove={onNodePointerMove}
-                onPointerUp={onNodePointerUp}
-                onPointerCancel={onNodePointerUp}
                 onClick={onNodeClick('headquarters')}
-                className="w-[280px] p-6 bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all relative"
+                className="w-[280px] p-6 bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all relative z-20"
                 style={{
-                  position: 'absolute',
-                  left: `${canvasSize.w / 2 + (nodePositions['headquarters']?.x ?? 0)}px`,
-                  top: `${canvasSize.h / 2 + (nodePositions['headquarters']?.y ?? -260)}px`,
-                  transform: 'translate(-50%, -50%)',
+                  position: 'fixed',
+                  left: '50%',
+                  top: '120px',
+                  transform: 'translate(-50%, 0)',
                   touchAction: 'none'
                 }}
               >
@@ -2936,23 +2967,7 @@ function HierarchyTab({
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-green-50 p-2 rounded-lg text-center">
                       <div className="text-xs text-green-600 font-medium mb-1">折扣</div>
-                      <input
-                        type="number"
-                        value={nodeDraft[String(staff.id)]?.minDiscount ?? staff.minDiscount}
-                        onChange={(e) => {
-                          const v = Number(e.target.value)
-                          setNodeDraft(prev => ({
-                            ...prev,
-                            [String(staff.id)]: {
-                              ...(prev[String(staff.id)] || { minDiscount: staff.minDiscount, distribution: staff.distribution }),
-                              minDiscount: v
-                            }
-                          }))
-                        }}
-                        onBlur={() => commitNodeDraft(String(staff.id))}
-                        onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
-                        className="text-lg font-bold text-green-800 bg-transparent text-center w-full outline-none"
-                      />
+                      <div className="text-lg font-bold text-green-700">{staff.minDiscount}</div>
                       <div className="text-xs text-green-600">%</div>
                     </div>
                     <div className="bg-blue-50 p-2 rounded-lg text-center">
@@ -3210,6 +3225,15 @@ function ProductProfitModal({
     const n = Number(v)
     if (!Number.isFinite(n)) return null
     return Math.max(0, Math.min(safeCommissionMax, n))
+  }
+
+  const getMaxVerticalCommissionPctForAccount = (accountId: string) => {
+    const used = getVerticalAncestorCommissionSumPct(accountId)
+    const maxAllowed = Math.max(0, Math.min(100, headquartersCommissionCapPct - used))
+    
+    // 允许每个节点使用完整的40%上限进行分配
+    const testMax = Math.min(100, headquartersCommissionCapPct)
+    return testMax
   }
 
   const pctToRate = (pct: any) => {
