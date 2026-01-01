@@ -2190,7 +2190,25 @@ function HierarchyTab({
   }, [hierarchyGraph, expandedNodes])
 
   const visibleStaffNodes = useMemo(() => {
-    return hierarchyData.staffNodes.filter((s) => visibleNodeIdSet.has(String(s.id)))
+    // 首先按展开状态过滤
+    const expandedFiltered = hierarchyData.staffNodes.filter((s) => visibleNodeIdSet.has(String(s.id)))
+    
+    // 实现层级可见性控制：只显示自己建立的层级
+    // 假设level 1-2是自己建立的，level 3+是合作方建立的（可根据实际业务调整）
+    const currentUserMaxLevel = 2 // 可以根据当前用户权限动态设置
+    
+    return expandedFiltered.filter((s) => {
+      const level = s.level || 1
+      
+      // 如果是自己建立的层级（1-2级），正常显示
+      if (level <= currentUserMaxLevel) {
+        return true
+      }
+      
+      // 如果是合作方层级（3级及以上），隐藏具体信息但保留结构
+      // 这里可以选择完全隐藏或显示为占位符
+      return false // 暂时完全隐藏，只在连线中保留结构
+    })
   }, [hierarchyData.staffNodes, visibleNodeIdSet])
 
   const hasChildren = (nodeId: string) => {
@@ -3106,12 +3124,13 @@ function HierarchyTab({
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">职务&角色 (不可更改项目)</label>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">职务&角色</label>
                   <input 
                     type="text" 
-                    value={selectedStaff.role}
-                    disabled
-                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                    name="role"
+                    defaultValue={selectedStaff.role}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="请输入职务角色"
                   />
                 </div>
                 
@@ -3567,21 +3586,31 @@ function ProductProfitModal({
     const categoryIds = categoryIdsOfProduct(p)
     const primaryCategoryId = categoryIds[0] || ''
 
+    // 获取当前账户的最低折扣设置
+    const accountMinDiscount = getAccountMinDiscountPct(account) || 60 // 默认60%
+    const accountMinDiscountRate = accountMinDiscount / 100
+    
     const catOverride = primaryCategoryId ? categoryOverrideById[primaryCategoryId] : undefined
     const prodOverride = productOverrideById[pid]
+    
+    // 使用账户卡片设定的最低折扣率，不允许低于此标准
     const effectiveDiscountRateRaw =
       (typeof prodOverride?.discountRate === 'number' ? prodOverride.discountRate : undefined) ??
       (typeof catOverride?.discountRate === 'number' ? catOverride.discountRate : undefined) ??
-      defaultDiscountRate
-    const effectiveDiscountRate = Math.max(0, Math.min(1, Number(effectiveDiscountRateRaw) || 0))
-    const minAllowedRate = Math.max(effectiveDiscountRate, safeGlobalMinSaleDiscountRate)
-    const minDiscountPrice = Math.round(Number(base || 0) * minAllowedRate)
+      accountMinDiscountRate
+    const effectiveDiscountRate = Math.max(accountMinDiscountRate, Math.min(1, Number(effectiveDiscountRateRaw) || 0))
+    const minDiscountPrice = Math.round(Number(base || 0) * effectiveDiscountRate)
 
+    // 获取当前账户的返佣设置
+    const accountCommissionPct = account?.distributionRate || staff?.distribution || 0
+    const accountCommissionRate = accountCommissionPct / 100
+    
     const effectiveCommissionRateRaw =
       (typeof prodOverride?.commissionRate === 'number' ? prodOverride.commissionRate : undefined) ??
       (typeof catOverride?.commissionRate === 'number' ? catOverride.commissionRate : undefined) ??
-      defaultCommissionRate
+      accountCommissionRate
     const effectiveCommissionRate = Math.max(0, Math.min(safeCommissionMax, Number(effectiveCommissionRateRaw) || 0))
+    // 返佣基于最低折扣价计算
     const commissionAmount = Math.round(minDiscountPrice * effectiveCommissionRate)
 
     return (
