@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { 
-  Plus, Edit2, Trash2, ChevronDown, ChevronRight, Users, 
+  Plus, Minus, Edit2, Trash2, ChevronDown, ChevronRight, Users, 
   Building2, Percent, Settings, Eye, Save, X, AlertCircle,
   TrendingUp, GitBranch, Layers, UserCheck, Store, Briefcase,
   BarChart3, ArrowRight, Check, UserPlus, List, Grid, FileText, CheckCircle
@@ -2242,7 +2242,7 @@ function HierarchyTab({
   }, [viewMode, staffIdsKey])
 
   const getNodeSize = (nodeId: string) => {
-    return nodeId === 'headquarters' ? { w: 480, h: 420 } : { w: 256, h: 300 }
+    return nodeId === 'headquarters' ? { w: 280, h: 200 } : { w: 240, h: 160 }
   }
 
   const fitToView = (opts?: { minZoom?: number; maxZoom?: number }, idsOverride?: string[]) => {
@@ -2745,8 +2745,8 @@ function HierarchyTab({
                   const toPos = nodePositions[String(e.to)]
                   if (!fromPos || !toPos) return null
 
-                  const fromSize = e.from === 'headquarters' ? { w: 480, h: 420 } : { w: 256, h: 300 }
-                  const toSize = e.to === 'headquarters' ? { w: 480, h: 420 } : { w: 256, h: 300 }
+                  const fromSize = e.from === 'headquarters' ? { w: 280, h: 200 } : { w: 240, h: 160 }
+                  const toSize = e.to === 'headquarters' ? { w: 280, h: 200 } : { w: 240, h: 160 }
 
                   const x1 = canvasSize.w / 2 + fromPos.x
                   const y1 = canvasSize.h / 2 + fromPos.y + fromSize.h / 2
@@ -2776,7 +2776,7 @@ function HierarchyTab({
                 onPointerUp={onNodePointerUp}
                 onPointerCancel={onNodePointerUp}
                 onClick={onNodeClick('headquarters')}
-                className="w-[480px] p-12 bg-white rounded-[4.5rem] border-2 border-gray-100 shadow-2xl hover:border-[#153e35] transition-all relative"
+                className="w-[280px] p-6 bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all relative"
                 style={{
                   position: 'absolute',
                   left: `${canvasSize.w / 2 + (nodePositions['headquarters']?.x ?? 0)}px`,
@@ -2793,56 +2793,51 @@ function HierarchyTab({
                     title={expandedNodes.has('headquarters') ? '收起下级' : '展开下级'}
                   >
                     {expandedNodes.has('headquarters') ? <ChevronDown className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
-                    {!expandedNodes.has('headquarters') && getSubtreeCount('headquarters') > 0 ? (
-                      <span className="absolute -bottom-2 -right-2 min-w-7 h-7 px-2 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center shadow-lg">
-                        {getSubtreeCount('headquarters')}
-                      </span>
-                    ) : null}
                   </button>
                 ) : null}
-
-                <div className="flex justify-between items-start mb-10">
-                  <div className="group w-28 h-28 rounded-[2.8rem] bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden cursor-pointer hover:scale-105 transition-transform relative">
-                    <div className="w-full h-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-3xl font-black">
-                      {hierarchyData.headquarters.name.charAt(0)}
-                    </div>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden flex items-center justify-center text-white text-xl font-black">
+                    {manufacturerLogo ? (
+                      <img src={manufacturerLogo} alt={hierarchyData.headquarters.name} className="w-full h-full object-cover" />
+                    ) : (
+                      hierarchyData.headquarters.name.charAt(0)
+                    )}
                   </div>
-                  <div className="text-right pt-2 flex-grow pl-6">
-                    <h4 className="text-2xl font-black text-gray-900 mb-1 truncate">{hierarchyData.headquarters.name}</h4>
-                    <div className="flex justify-end gap-2">
-                      <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full uppercase tracking-tighter">
-                        已绑定 {hierarchyData.staffNodes.length} 人
-                      </span>
-                      <span className="text-[9px] font-black bg-gray-100 px-3 py-1 rounded-full text-gray-400 uppercase tracking-tighter">
-                        {hierarchyData.headquarters.role}
-                      </span>
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 truncate">{hierarchyData.headquarters.name}</h3>
+                    <p className="text-sm text-gray-500">{hierarchyData.headquarters.role}</p>
                   </div>
+                  {hasChildren('headquarters') ? (
+                    <button
+                      onClick={onToggleExpandClick('headquarters')}
+                      className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all"
+                    >
+                      {expandedNodes?.has('headquarters') ? (
+                        <Minus className="w-4 h-4 text-gray-600" />
+                      ) : (
+                        <Plus className="w-4 h-4 text-gray-600" />
+                      )}
+                    </button>
+                  ) : null}
                 </div>
 
-                <div className="grid grid-cols-2 gap-6 mb-10">
-                  <div className="bg-[#f0fff8] p-6 rounded-[2.5rem] border border-emerald-100 text-center">
-                    <p className="text-[9px] font-black text-emerald-700 uppercase mb-2">最低折扣</p>
-                    <div className="flex items-center justify-center">
-                      <span className="text-3xl font-black text-emerald-900">{hierarchyData.headquarters.minDiscount}</span>
-                      <span className="text-sm font-black text-emerald-900 ml-1">%</span>
-                    </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-green-50 p-3 rounded-xl text-center">
+                    <div className="text-xs text-green-600 font-medium mb-1">最低折扣</div>
+                    <div className="text-xl font-bold text-green-800">{hierarchyData.headquarters.minDiscount}%</div>
                   </div>
-                  <div className="bg-[#f0f9ff] p-6 rounded-[2.5rem] border border-blue-100 text-center">
-                    <p className="text-[9px] font-black text-blue-700 uppercase mb-2">返佣比例</p>
-                    <div className="flex items-center justify-center">
-                      <span className="text-3xl font-black text-blue-900">{hierarchyData.headquarters.distribution}</span>
-                      <span className="text-sm font-black text-blue-900 ml-1">%</span>
-                    </div>
+                  <div className="bg-blue-50 p-3 rounded-xl text-center">
+                    <div className="text-xs text-blue-600 font-medium mb-1">返佣上限</div>
+                    <div className="text-xl font-bold text-blue-800">{hierarchyData.headquarters.distribution}%</div>
                   </div>
                 </div>
 
                 <div className="flex gap-4 px-2">
                   <button 
                     onClick={() => {
-                      setParentAccount(null)
-                      setShowAddModal(true)
-                    }}
+                    setParentAccount(null)
+                    setShowAddModal(true)
+                  }}
                     className="flex-grow py-5 bg-white border border-gray-100 rounded-[1.8rem] text-[10px] font-black text-gray-500 hover:text-[#153e35] transition-all uppercase tracking-widest shadow-sm hover:shadow-md"
                   >
                     绑定人员
@@ -2876,125 +2871,135 @@ function HierarchyTab({
                   onPointerUp={onNodePointerUp}
                   onPointerCancel={onNodePointerUp}
                   onClick={onNodeClick(String(staff.id))}
-                  className="w-64 p-8 bg-white rounded-[3rem] border border-gray-100 shadow-xl hover:shadow-2xl transition-all"
+                  className="w-[240px] p-4 bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all"
                   style={{
                     position: 'absolute',
                     left: `${canvasSize.w / 2 + (nodePositions[String(staff.id)]?.x ?? 0)}px`,
                     top: `${canvasSize.h / 2 + (nodePositions[String(staff.id)]?.y ?? 240)}px`,
                     transform: 'translate(-50%, -50%)',
-                    touchAction: 'none'
                   }}
                 >
+                  {hasChildren(String(staff.id)) ? (
+                    <button
+                      onClick={onToggleExpandClick(String(staff.id))}
+                      className="absolute top-4 left-4 w-9 h-9 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
+                      title={expandedNodes.has(String(staff.id)) ? '收起下级' : '展开下级'}
+                    >
+                      {expandedNodes.has(String(staff.id)) ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                    </button>
+                  ) : null}
+                  <div className="flex items-center gap-3 mb-3">
+                    <button
+                      onClick={() => handleAvatarClick(staff)}
+                      className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden hover:ring-2 hover:ring-blue-200 transition-all flex-shrink-0"
+                    >
+                      <img src={staff.avatar} alt={staff.name} className="w-full h-full object-cover" />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-base font-bold text-gray-900 truncate">{staff.name}</h4>
+                      <p className="text-sm text-gray-500 truncate">{staff.role}</p>
+                    </div>
                     {hasChildren(String(staff.id)) ? (
                       <button
-                        type="button"
                         onClick={onToggleExpandClick(String(staff.id))}
-                        className="absolute top-4 left-4 w-9 h-9 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
-                        title={expandedNodes.has(String(staff.id)) ? '收起下级' : '展开下级'}
+                        className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all flex-shrink-0"
                       >
-                        {expandedNodes.has(String(staff.id)) ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                        {!expandedNodes.has(String(staff.id)) && getSubtreeCount(String(staff.id)) > 0 ? (
-                          <span className="absolute -bottom-2 -right-2 min-w-6 h-6 px-2 rounded-full bg-gray-900 text-white text-[9px] font-black flex items-center justify-center shadow-lg">
-                            {getSubtreeCount(String(staff.id))}
-                          </span>
-                        ) : null}
+                        {expandedNodes?.has(String(staff.id)) ? (
+                          <Minus className="w-3 h-3 text-gray-600" />
+                        ) : (
+                          <Plus className="w-3 h-3 text-gray-600" />
+                        )}
                       </button>
                     ) : null}
-                    <div className="text-center mb-6">
-                      <div 
-                        onClick={() => handleAvatarClick(staff)}
-                        className="w-20 h-20 mx-auto mb-4 rounded-[2rem] overflow-hidden border-2 border-gray-100 shadow-inner cursor-pointer hover:border-emerald-400 transition-all"
-                      >
-                        <img src={staff.avatar} alt={staff.name} className="w-full h-full object-cover" />
-                      </div>
-                      <h5 className="text-lg font-black text-gray-900 mb-1">{staff.name}</h5>
-                      <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-full">
-                        {staff.status}
-                      </p>
-                    </div>
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className="bg-[#f0fff8] p-4 rounded-[1.5rem] border border-emerald-100 text-center hover:border-emerald-300 transition-all">
-                        <p className="text-[8px] font-black text-emerald-700 uppercase mb-2">最低折扣</p>
-                        <input
-                          type="number"
-                          value={nodeDraft[String(staff.id)]?.minDiscount ?? staff.minDiscount}
-                          onChange={(e) => {
-                            const v = Number(e.target.value)
-                            setNodeDraft(prev => ({
-                              ...prev,
-                              [String(staff.id)]: {
-                                ...(prev[String(staff.id)] || { minDiscount: staff.minDiscount, distribution: staff.distribution }),
-                                minDiscount: v
-                              }
-                            }))
-                          }}
-                          onBlur={() => commitNodeDraft(String(staff.id))}
-                          onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
-                          className="text-2xl font-black text-emerald-900 bg-transparent text-center w-full outline-none"
-                        />
-                      </div>
-                      <div className="bg-[#f0f9ff] p-4 rounded-[1.5rem] border border-blue-100 text-center hover:border-blue-300 transition-all">
-                        <p className="text-[8px] font-black text-blue-700 uppercase mb-2">返佣</p>
-                        <input
-                          type="number"
-                          value={nodeDraft[String(staff.id)]?.distribution ?? staff.distribution}
-                          max={getMaxVerticalCommissionPctForAccount(String(staff.id))}
-                          onChange={(e) => {
-                            const v = Number(e.target.value)
-                            setNodeDraft(prev => ({
-                              ...prev,
-                              [String(staff.id)]: {
-                                ...(prev[String(staff.id)] || { minDiscount: staff.minDiscount, distribution: staff.distribution }),
-                                distribution: v
-                              }
-                            }))
-                          }}
-                          onBlur={() => commitNodeDraft(String(staff.id))}
-                          onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
-                          className="text-2xl font-black text-blue-900 bg-transparent text-center w-full outline-none"
-                        />
-                      </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-green-50 p-2 rounded-lg text-center">
+                      <div className="text-xs text-green-600 font-medium mb-1">折扣</div>
+                      <input
+                        type="number"
+                        value={nodeDraft[String(staff.id)]?.minDiscount ?? staff.minDiscount}
+                        onChange={(e) => {
+                          const v = Number(e.target.value)
+                          setNodeDraft(prev => ({
+                            ...prev,
+                            [String(staff.id)]: {
+                              ...(prev[String(staff.id)] || { minDiscount: staff.minDiscount, distribution: staff.distribution }),
+                              minDiscount: v
+                            }
+                          }))
+                        }}
+                        onBlur={() => commitNodeDraft(String(staff.id))}
+                        onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
+                        className="text-lg font-bold text-green-800 bg-transparent text-center w-full outline-none"
+                      />
+                      <div className="text-xs text-green-600">%</div>
                     </div>
-
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => {
-                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                          setParentAccount(acc)
-                          setShowAddModal(true)
+                    <div className="bg-blue-50 p-2 rounded-lg text-center">
+                      <div className="text-xs text-blue-600 font-medium mb-1">返佣</div>
+                      <input
+                        type="number"
+                        value={nodeDraft[String(staff.id)]?.distribution ?? staff.distribution}
+                        max={getMaxVerticalCommissionPctForAccount(String(staff.id))}
+                        onChange={(e) => {
+                          const v = Number(e.target.value)
+                          setNodeDraft(prev => ({
+                            ...prev,
+                            [String(staff.id)]: {
+                              ...(prev[String(staff.id)] || { minDiscount: staff.minDiscount, distribution: staff.distribution }),
+                              distribution: v
+                            }
+                          }))
                         }}
-                        className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-[#153e35] transition-all uppercase tracking-widest"
-                      >
-                        绑定人员
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                          if (!acc) return
-                          setProductAccount(acc)
-                          setShowProductModal(true)
-                        }}
-                        className="flex-grow py-3 bg-white border border-gray-100 rounded-[1.2rem] text-[9px] font-black text-gray-500 hover:text-blue-600 transition-all uppercase tracking-widest"
-                      >
-                        绑定商品
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                          setParentAccount(acc)
-                          setShowAddModal(true)
-                        }}
-                        className="w-12 h-10 bg-[#153e35] text-white rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-transform"
-                      >
-                        <Plus className="w-5 h-5" strokeWidth={3} />
-                      </button>
+                        onBlur={() => commitNodeDraft(String(staff.id))}
+                        onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
+                        className="text-lg font-bold text-blue-800 bg-transparent text-center w-full outline-none"
+                      />
+                      <div className="text-xs text-blue-600">%</div>
                     </div>
                   </div>
+
+                  <div className="flex gap-2 mt-3">
+                    <button 
+                      onClick={() => {
+                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                        setParentAccount(acc)
+                        setShowAddModal(true)
+                      }}
+                      className="flex-1 py-2 bg-gray-50 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all"
+                    >
+                      绑定人员
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                        if (!acc) return
+                        setProductAccount(acc)
+                        setShowProductModal(true)
+                      }}
+                      className="flex-1 py-2 bg-blue-50 rounded-lg text-xs font-medium text-blue-600 hover:bg-blue-100 transition-all"
+                    >
+                      绑定商品
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                        setParentAccount(acc)
+                        setShowAddModal(true)
+                      }}
+                      className="w-8 h-8 bg-green-500 text-white rounded-lg flex items-center justify-center hover:bg-green-600 transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
-            
-            {/* 底部切换按钮 */}
+          </div>
+        )}
+        
+        {viewMode === 'map' && (
+          /* 底部切换按钮 */
             <button 
               onClick={() => setViewMode('list')} 
               className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-white px-12 py-5 rounded-full shadow-2xl border-2 border-emerald-500 font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:scale-105 transition-all z-[70] text-emerald-700"
@@ -3002,7 +3007,6 @@ function HierarchyTab({
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth={3} d="M4 6h16M4 12h16m-7 6h7" /></svg>
               切换目录视图
             </button>
-          </div>
         )}
       </div>
 
@@ -3165,17 +3169,14 @@ function ProductProfitModal({
   modules: RoleModule[]
   categoryTree: any[]
   products: any[]
-  profitSettings: TierSystemData['profitSettings']
+  profitSettings: any
   inheritedProductIds: string[]
   onClose: () => void
-  onSave: (payload: {
-    visibleProductIds: string[] | null
-    categoryOverrides: Array<{ categoryId: string; discountRate?: number; commissionRate?: number }> | null
-    productOverrides: Array<{ productId: string; discountRate?: number; commissionRate?: number }> | null
-  }) => void
+  onSave: (data: { visibleProductIds: string[] | null, categoryOverrides: any, productOverrides: any }) => void
 }) {
   const [keyword, setKeyword] = useState('')
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set())
+  const [expandedSkuProducts, setExpandedSkuProducts] = useState<Set<string>>(new Set())
 
   const module = useMemo(() => {
     return modules.find(m => String(m._id) === String(account.roleModuleId)) || null
@@ -3513,6 +3514,18 @@ function ProductProfitModal({
     })
   }
 
+  const toggleSkuExpansion = (productId: string) => {
+    setExpandedSkuProducts(prev => {
+      const next = new Set(prev)
+      if (next.has(productId)) {
+        next.delete(productId)
+      } else {
+        next.add(productId)
+      }
+      return next
+    })
+  }
+
   const renderProductRow = (p: any) => {
     const pid = String(p?._id || p?.id || '')
     if (!pid) return null
@@ -3530,6 +3543,7 @@ function ProductProfitModal({
       .map((s: string) => s.trim())
       .filter(Boolean)
     const skuSummary = skuCodes.length > 0 ? skuCodes.slice(0, 3).join(' / ') : ''
+    const isSkuExpanded = expandedSkuProducts.has(pid)
 
     const categoryIds = categoryIdsOfProduct(p)
     const primaryCategoryId = categoryIds[0] || ''
@@ -3552,27 +3566,52 @@ function ProductProfitModal({
     const commissionAmount = Math.round(minDiscountPrice * effectiveCommissionRate)
 
     return (
-      <div key={pid} className={`bg-white border rounded-2xl px-6 py-4 flex items-center justify-between gap-6 hover:border-emerald-100 ${checked ? 'border-[#153e35] ring-2 ring-emerald-50' : 'border-gray-100'}`}>
-        <button type="button" onClick={() => toggleSelectProducts([pid])} className="flex items-center gap-4 min-w-0 text-left">
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={() => toggleSelectProducts([pid])}
-            className="w-5 h-5 accent-[#153e35]"
-          />
-          <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
-            {imgUrl ? <img src={imgUrl} alt={name} className="w-full h-full object-cover" /> : null}
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-black text-gray-900 truncate">{name}</div>
-            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-              标价 ¥{Number(base || 0).toLocaleString()}
+      <div key={pid} className={`bg-white border rounded-2xl overflow-hidden hover:border-emerald-100 ${checked ? 'border-[#153e35] ring-2 ring-emerald-50' : 'border-gray-100'}`}>
+        <div className="px-6 py-4 flex items-center justify-between gap-6">
+          <button type="button" onClick={() => toggleSelectProducts([pid])} className="flex items-center gap-4 min-w-0 text-left">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => toggleSelectProducts([pid])}
+              className="w-5 h-5 accent-[#153e35]"
+            />
+            <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
+              {imgUrl ? <img src={imgUrl} alt={name} className="w-full h-full object-cover" /> : null}
             </div>
-            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-              SKU {skuList.length}{skuSummary ? ` • ${skuSummary}` : ''}
+            <div className="min-w-0">
+              <div className="text-sm font-black text-gray-900 truncate">{name}</div>
+              <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                标价 ¥{Number(base || 0).toLocaleString()}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                  SKU {skuList.length}{skuSummary ? ` • ${skuSummary}` : ''}
+                </div>
+                {skuList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleSkuExpansion(pid)
+                    }}
+                    className="text-xs text-blue-500 hover:text-blue-700 font-medium flex items-center gap-1"
+                  >
+                    {isSkuExpanded ? (
+                      <>
+                        <ChevronDown className="w-3 h-3" />
+                        收起
+                      </>
+                    ) : (
+                      <>
+                        <ChevronRight className="w-3 h-3" />
+                        展开
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        </button>
+          </button>
 
         <div className="flex items-center gap-6 shrink-0">
           <div className="text-right">
@@ -3627,18 +3666,55 @@ function ProductProfitModal({
                 title="商品返佣%（留空表示继承品类/规则）"
               />
             </div>
-          ) : null}
+            ) : null}
 
-          {checked ? (
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <Check className="w-5 h-5" />
-            </div>
-          ) : (
-            <div className="w-10 h-10 rounded-2xl bg-gray-50 text-gray-300 flex items-center justify-center shrink-0">
-              <Check className="w-5 h-5" />
-            </div>
-          )}
+            {checked ? (
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <Check className="w-5 h-5" />
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-2xl bg-gray-50 text-gray-300 flex items-center justify-center shrink-0">
+                <Check className="w-5 h-5" />
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* SKU详情展开区域 */}
+        {isSkuExpanded && skuList.length > 0 && (
+          <div className="px-6 pb-4 border-t border-gray-50 bg-gray-50/30">
+            <div className="text-xs font-bold text-gray-600 mb-3 mt-3">SKU 详情</div>
+            <div className="grid gap-3">
+              {skuList.map((sku: any, index: number) => {
+                const skuCode = String(sku?.code || sku?.skuCode || sku?.productCode || `SKU-${index + 1}`)
+                const skuPrice = Number(sku?.retailPrice || sku?.price || sku?.salePrice || sku?.basePrice || 0)
+                const skuSpec = String(sku?.spec || sku?.specification || '')
+                const skuColor = String(sku?.color || '')
+                const skuMaterial = String(sku?.material || '')
+                const skuImg = getProductImageSrc(sku, 64)
+                
+                return (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100">
+                    <div className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-100 overflow-hidden shrink-0">
+                      {skuImg ? <img src={skuImg} alt={skuCode} className="w-full h-full object-cover" /> : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-bold text-gray-900 truncate">{skuCode}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {[skuSpec, skuColor, skuMaterial].filter(Boolean).join(' • ') || '暂无规格信息'}
+                      </div>
+                      {skuPrice > 0 && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          ¥{skuPrice.toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
