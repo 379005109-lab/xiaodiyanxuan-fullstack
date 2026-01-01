@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bell, Menu, User, LogOut, Settings, ExternalLink, X, Lock, Phone, Camera } from 'lucide-react'
+import { Bell, Menu, User, LogOut, Settings, ExternalLink, X, Lock, Phone, Camera, Image } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -284,6 +284,17 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* 功能菜单 */}
+              <div className="border-b border-gray-100">
+                <button
+                  onClick={() => { navigate('/admin/images'); setShowSettings(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Image className="h-4 w-4" />
+                  网站图片管理
                 </button>
               </div>
 

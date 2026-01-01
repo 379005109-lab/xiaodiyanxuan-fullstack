@@ -46,15 +46,22 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
   const allMenuItems: MenuItem[] = [
     { name: '首页', path: '/admin', icon: Home },
     { name: '数据看板', path: '/admin/dashboard', icon: TrendingUp },
-    { name: '用户活跃度', path: '/admin/activity', icon: Activity },
-    { name: '网站图片管理', path: '/admin/images', icon: Image },
-    { name: '设计管理', path: '/admin/designs', icon: Pencil },
+    // { name: '用户活跃度', path: '/admin/activity', icon: Activity }, // 隐藏
+    // { name: '网站图片管理', path: '/admin/images', icon: Image }, // 移到设置菜单
+    // { name: '设计管理', path: '/admin/designs', icon: Pencil }, // 隐藏
     { name: '账号管理', path: '/admin/users', icon: Users },
     { name: '材质管理', path: '/admin/materials', icon: Palette },
     { name: '厂家管理', path: '/admin/manufacturers', icon: Factory },
-    { name: '分层管理', path: '/admin/tier-system', icon: Layers },
-    { name: '商品管理', path: '/admin/products', icon: Package },
-    { name: '分类管理', path: '/admin/categories', icon: FolderTree },
+    // { name: '分层管理', path: '/admin/tier-system', icon: Layers }, // 隐藏
+    {
+      name: '商品管理',
+      path: '/admin/products',
+      icon: Package,
+      children: [
+        { name: '商品列表', path: '/admin/products' },
+        { name: '商品分类', path: '/admin/categories' },
+      ]
+    },
     { name: '套餐管理', path: '/admin/packages', icon: Package },
     {
       name: '砍价管理',
