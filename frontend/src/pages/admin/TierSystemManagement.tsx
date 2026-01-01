@@ -1012,55 +1012,70 @@ function RoleModulesTab({
   const [editingRule, setEditingRule] = useState<DiscountRule | null>(null)
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-6">
       {/* 左侧：模块列表 */}
-      <div className="lg:col-span-1">
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <h3 className="font-semibold text-gray-900">角色模块列表</h3>
-            <p className="text-xs text-gray-500 mt-1">点击模块编辑折扣规则</p>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {modules.sort((a, b) => a.sortOrder - b.sortOrder).map(module => {
-              const Icon = ICON_MAP[module.icon] || Layers
-              return (
-                <button
-                  key={module._id}
-                  onClick={() => onSelectModule(module)}
-                  className={`w-full p-4 text-left hover:bg-gray-50 transition-colors ${
-                    selectedModule?._id === module._id ? 'bg-primary-50 border-l-4 border-primary-500' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${
-                      module.isActive ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-400'
-                    }`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{module.name}</span>
-                        {!module.isActive && (
-                          <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">已禁用</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 truncate">{module.description}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {modules
+          .slice()
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((module) => {
+            const rules = Array.isArray(module.discountRules) ? module.discountRules : []
+            const defaultRule = rules.find(r => r.isDefault) || rules[0] || null
+            const defaultDiscountPct = Math.round(Math.max(0, Math.min(1, Number(defaultRule?.discountRate ?? 1))) * 100)
+            const defaultCommissionPct = Math.round(Math.max(0, Math.min(1, Number(defaultRule?.commissionRate ?? 0))) * 100)
+            const isSelected = selectedModule?._id === module._id
+            return (
+              <div
+                key={module._id}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelectModule(module)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') onSelectModule(module)
+                }}
+                className={`bg-white rounded-[2.5rem] border shadow-sm hover:shadow-lg transition-all p-8 text-left cursor-pointer ${
+                  isSelected ? 'border-emerald-200 ring-2 ring-emerald-100' : 'border-gray-100'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest">系统角色及基准分润配置</div>
+                    <div className="mt-2 text-2xl font-black text-gray-900 truncate">{module.name}</div>
+                    <div className="mt-2 text-sm text-gray-500 line-clamp-2">{module.description}</div>
                   </div>
-                  <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-                    <span>毛利上限: <strong className="text-primary-600">{module.maxProfitRate}%</strong></span>
-                    <span>规则数: {module.discountRules.length}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onUpdateModule(module._id, { isActive: !module.isActive })
+                    }}
+                    className={`px-4 py-2 rounded-full text-xs font-black transition-colors ${
+                      module.isActive
+                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    激活权限
+                  </button>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 rounded-2xl p-5">
+                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest">最高授权折扣 (%)</div>
+                    <div className="mt-2 text-3xl font-black text-gray-900">{defaultDiscountPct}</div>
                   </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+                  <div className="bg-gray-50 rounded-2xl p-5">
+                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest">默认分润比例 (%)</div>
+                    <div className="mt-2 text-3xl font-black text-gray-900">{defaultCommissionPct}</div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
       </div>
 
       {/* 右侧：模块详情和规则编辑 */}
-      <div className="lg:col-span-2">
+      <div>
         {selectedModule ? (
           <div className="bg-white rounded-lg border border-gray-200">
             {/* 模块信息 */}
@@ -1083,6 +1098,7 @@ function RoleModulesTab({
                 </div>
                 <div className="flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={() => onUpdateModule(selectedModule._id, { isActive: !selectedModule.isActive })}
                     className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                       selectedModule.isActive 
@@ -1091,6 +1107,13 @@ function RoleModulesTab({
                     }`}
                   >
                     {selectedModule.isActive ? '已启用' : '已禁用'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSelectModule(null)}
+                    className="px-3 py-1.5 text-sm rounded-lg transition-colors bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  >
+                    关闭
                   </button>
                 </div>
               </div>
@@ -1119,6 +1142,7 @@ function RoleModulesTab({
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900">折扣规则配置</h3>
                 <button
+                  type="button"
                   onClick={() => {
                     setEditingRule(null)
                     setShowRuleModal(true)
@@ -1135,6 +1159,7 @@ function RoleModulesTab({
                   <Settings className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                   <p className="text-gray-500">暂无折扣规则</p>
                   <button
+                    type="button"
                     onClick={() => {
                       setEditingRule(null)
                       setShowRuleModal(true)
@@ -1192,6 +1217,7 @@ function RoleModulesTab({
                         </div>
                         <div className="flex items-center gap-1">
                           <button
+                            type="button"
                             onClick={() => {
                               setEditingRule(rule)
                               setShowRuleModal(true)
@@ -1202,6 +1228,7 @@ function RoleModulesTab({
                           </button>
                           {!rule.isDefault && (
                             <button
+                              type="button"
                               onClick={() => onDeleteRule(selectedModule._id, rule._id)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                             >
@@ -2418,6 +2445,13 @@ function HierarchyTab({
   const tooManyVisible = visibleStaffNodes.length > MAX_VISIBLE_STAFF_NODES
   const visibleStaffNodesForRender = tooManyVisible ? visibleStaffNodes.slice(0, MAX_VISIBLE_STAFF_NODES) : visibleStaffNodes
 
+  const focusedNodeName = useMemo(() => {
+    if (!focusedNodeId) return ''
+    if (focusedNodeId === 'headquarters') return String(hierarchyData.headquarters?.name || '总部')
+    const hit = hierarchyData.staffNodes.find((s) => String(s.id) === String(focusedNodeId))
+    return String(hit?.name || focusedNodeId)
+  }, [focusedNodeId, hierarchyData.headquarters, hierarchyData.staffNodes])
+
   const expandToDepth = (depth: number) => {
     onSetExpandedNodes(() => {
       const next = new Set<string>(['__root__'])
@@ -2723,6 +2757,79 @@ function HierarchyTab({
               </button>
             </div>
 
+            {focusedNodeId ? (
+              <div
+                className="fixed bottom-6 right-6 z-[90] w-[360px]"
+                onWheel={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">已选节点</div>
+                      <div className="text-sm font-black text-gray-900 truncate">{focusedNodeName}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFocusedNodeId(null)}
+                      className="w-8 h-8 rounded-xl bg-gray-50 text-gray-400 hover:text-gray-600"
+                      title="取消选中"
+                    >
+                      <X className="w-4 h-4 mx-auto" />
+                    </button>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!focusedNodeId || focusedNodeId === 'headquarters') {
+                          setParentAccount(null)
+                        } else {
+                          const acc = accounts.find(a => String(a._id) === String(focusedNodeId)) || null
+                          setParentAccount(acc)
+                        }
+                        setShowAddModal(true)
+                      }}
+                      className="py-2 rounded-xl bg-gray-50 text-xs font-black text-gray-700 hover:bg-gray-100"
+                    >
+                      绑定人员
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!focusedNodeId || focusedNodeId === 'headquarters') {
+                          setProductAccount(hierarchyData.headquarters as any)
+                        } else {
+                          const acc = accounts.find(a => String(a._id) === String(focusedNodeId)) || null
+                          if (!acc) return
+                          setProductAccount(acc)
+                        }
+                        setShowProductModal(true)
+                      }}
+                      className="py-2 rounded-xl bg-blue-50 text-xs font-black text-blue-700 hover:bg-blue-100"
+                    >
+                      绑定商品
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!focusedNodeId || focusedNodeId === 'headquarters') {
+                          setParentAccount(null)
+                        } else {
+                          const acc = accounts.find(a => String(a._id) === String(focusedNodeId)) || null
+                          setParentAccount(acc)
+                        }
+                        setShowAddModal(true)
+                      }}
+                      className="py-2 rounded-xl bg-[#153e35] text-xs font-black text-white hover:bg-emerald-900"
+                    >
+                      添加下级
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {/* 画布层（缩放+平移） */}
             <div
               className="absolute inset-0"
@@ -2789,7 +2896,7 @@ function HierarchyTab({
                   <button
                     type="button"
                     onClick={onToggleExpandClick('headquarters')}
-                    className="absolute top-10 left-10 w-12 h-12 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
+                    className="absolute top-4 left-4 w-9 h-9 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
                     title={expandedNodes.has('headquarters') ? '收起下级' : '展开下级'}
                   >
                     {expandedNodes.has('headquarters') ? <ChevronDown className="w-6 h-6" /> : <ChevronRight className="w-6 h-6" />}
@@ -2807,18 +2914,6 @@ function HierarchyTab({
                     <h3 className="text-lg font-bold text-gray-900 truncate">{hierarchyData.headquarters.name}</h3>
                     <p className="text-sm text-gray-500">{hierarchyData.headquarters.role}</p>
                   </div>
-                  {hasChildren('headquarters') ? (
-                    <button
-                      onClick={onToggleExpandClick('headquarters')}
-                      className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all"
-                    >
-                      {expandedNodes?.has('headquarters') ? (
-                        <Minus className="w-4 h-4 text-gray-600" />
-                      ) : (
-                        <Plus className="w-4 h-4 text-gray-600" />
-                      )}
-                    </button>
-                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -2830,36 +2925,6 @@ function HierarchyTab({
                     <div className="text-xs text-blue-600 font-medium mb-1">返佣上限</div>
                     <div className="text-xl font-bold text-blue-800">{hierarchyData.headquarters.distribution}%</div>
                   </div>
-                </div>
-
-                <div className="flex gap-4 px-2">
-                  <button 
-                    onClick={() => {
-                    setParentAccount(null)
-                    setShowAddModal(true)
-                  }}
-                    className="flex-grow py-5 bg-white border border-gray-100 rounded-[1.8rem] text-[10px] font-black text-gray-500 hover:text-[#153e35] transition-all uppercase tracking-widest shadow-sm hover:shadow-md"
-                  >
-                    绑定人员
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setProductAccount(hierarchyData.headquarters as any)
-                      setShowProductModal(true)
-                    }}
-                    className="flex-grow py-5 bg-white border border-gray-100 rounded-[1.8rem] text-[10px] font-black text-gray-500 hover:text-blue-600 transition-all uppercase tracking-widest shadow-sm hover:shadow-md"
-                  >
-                    绑定商品
-                  </button>
-                  <button
-                    onClick={() => {
-                      setParentAccount(null)
-                      setShowAddModal(true)
-                    }}
-                    className="w-16 h-14 bg-[#153e35] text-white rounded-2xl flex items-center justify-center shadow-xl active:scale-90 transition-transform hover:bg-emerald-900"
-                  >
-                    <Plus className="w-7 h-7" strokeWidth={3} />
-                  </button>
                 </div>
               </div>
 
@@ -2881,6 +2946,7 @@ function HierarchyTab({
                 >
                   {hasChildren(String(staff.id)) ? (
                     <button
+                      type="button"
                       onClick={onToggleExpandClick(String(staff.id))}
                       className="absolute top-4 left-4 w-9 h-9 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-gray-600 hover:text-[#153e35]"
                       title={expandedNodes.has(String(staff.id)) ? '收起下级' : '展开下级'}
@@ -2890,6 +2956,7 @@ function HierarchyTab({
                   ) : null}
                   <div className="flex items-center gap-3 mb-3">
                     <button
+                      type="button"
                       onClick={() => handleAvatarClick(staff)}
                       className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden hover:ring-2 hover:ring-blue-200 transition-all flex-shrink-0"
                     >
@@ -2899,18 +2966,6 @@ function HierarchyTab({
                       <h4 className="text-base font-bold text-gray-900 truncate">{staff.name}</h4>
                       <p className="text-sm text-gray-500 truncate">{staff.role}</p>
                     </div>
-                    {hasChildren(String(staff.id)) ? (
-                      <button
-                        onClick={onToggleExpandClick(String(staff.id))}
-                        className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all flex-shrink-0"
-                      >
-                        {expandedNodes?.has(String(staff.id)) ? (
-                          <Minus className="w-3 h-3 text-gray-600" />
-                        ) : (
-                          <Plus className="w-3 h-3 text-gray-600" />
-                        )}
-                      </button>
-                    ) : null}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -2957,40 +3012,6 @@ function HierarchyTab({
                       />
                       <div className="text-xs text-blue-600">%</div>
                     </div>
-                  </div>
-
-                  <div className="flex gap-2 mt-3">
-                    <button 
-                      onClick={() => {
-                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                        setParentAccount(acc)
-                        setShowAddModal(true)
-                      }}
-                      className="flex-1 py-2 bg-gray-50 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 transition-all"
-                    >
-                      绑定人员
-                    </button>
-                    <button 
-                      onClick={() => {
-                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                        if (!acc) return
-                        setProductAccount(acc)
-                        setShowProductModal(true)
-                      }}
-                      className="flex-1 py-2 bg-blue-50 rounded-lg text-xs font-medium text-blue-600 hover:bg-blue-100 transition-all"
-                    >
-                      绑定商品
-                    </button>
-                    <button 
-                      onClick={() => {
-                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                        setParentAccount(acc)
-                        setShowAddModal(true)
-                      }}
-                      className="w-8 h-8 bg-green-500 text-white rounded-lg flex items-center justify-center hover:bg-green-600 transition-all"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
               ))}
@@ -3568,10 +3589,19 @@ function ProductProfitModal({
     return (
       <div key={pid} className={`bg-white border rounded-2xl overflow-hidden hover:border-emerald-100 ${checked ? 'border-[#153e35] ring-2 ring-emerald-50' : 'border-gray-100'}`}>
         <div className="px-6 py-4 flex items-center justify-between gap-6">
-          <button type="button" onClick={() => toggleSelectProducts([pid])} className="flex items-center gap-4 min-w-0 text-left">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => toggleSelectProducts([pid])}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') toggleSelectProducts([pid])
+            }}
+            className="flex items-center gap-4 min-w-0 text-left cursor-pointer"
+          >
             <input
               type="checkbox"
               checked={checked}
+              onClick={(e) => e.stopPropagation()}
               onChange={() => toggleSelectProducts([pid])}
               className="w-5 h-5 accent-[#153e35]"
             />
@@ -3611,7 +3641,7 @@ function ProductProfitModal({
                 )}
               </div>
             </div>
-          </button>
+          </div>
 
         <div className="flex items-center gap-6 shrink-0">
           <div className="text-right">
@@ -3634,6 +3664,7 @@ function ProductProfitModal({
                 step={1}
                 placeholder="折扣%"
                 value={prodOverride?.discountRate != null ? rateToPct(prodOverride.discountRate) : ''}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => {
                   const v = e.target.value
                   if (!v) {
@@ -3653,6 +3684,7 @@ function ProductProfitModal({
                 step={1}
                 placeholder="返佣%"
                 value={prodOverride?.commissionRate != null ? commissionToPct(prodOverride.commissionRate) : ''}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => {
                   const v = e.target.value
                   if (!v) {
