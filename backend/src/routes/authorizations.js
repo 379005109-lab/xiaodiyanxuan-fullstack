@@ -213,7 +213,7 @@ router.post('/designer-requests', auth, async (req, res) => {
         const productIds = products
           .map((p) => String(p))
           .filter((p) => mongoose.Types.ObjectId.isValid(p))
-          .slice(0, 500)
+          .slice(0, 10000)
 
         if (productIds.length > 0) {
           const manufacturerOid = new mongoose.Types.ObjectId(manufacturerId)
@@ -492,7 +492,7 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
         const productIds = products
           .map((p) => String(p))
           .filter((p) => mongoose.Types.ObjectId.isValid(p))
-          .slice(0, 500)
+          .slice(0, 10000)
 
         if (productIds.length > 0) {
           const manufacturerOid = new mongoose.Types.ObjectId(manufacturerId)

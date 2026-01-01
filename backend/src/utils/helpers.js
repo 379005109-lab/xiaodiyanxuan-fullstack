@@ -15,7 +15,7 @@ const generateCouponCode = () => {
 // Calculate pagination
 const calculatePagination = (page = 1, pageSize = 100) => {
   const pageNum = Math.max(1, parseInt(page) || 1)
-  const size = Math.max(1, Math.min(500, parseInt(pageSize) || 100))
+  const size = Math.max(1, Math.min(50000, parseInt(pageSize) || 100))
   const skip = (pageNum - 1) * size
   return { page: pageNum, pageSize: size, skip }
 }
