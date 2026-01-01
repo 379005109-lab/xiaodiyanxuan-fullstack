@@ -12,6 +12,7 @@ env:
   REGISTRY: registry.sealoshzh.site
   IMAGE_NAME: xiaodiyanxuan-frontend
   DOCKER_BUILDKIT: 1
+  REGISTRY_HTTP: true
 
 jobs:
   build:
