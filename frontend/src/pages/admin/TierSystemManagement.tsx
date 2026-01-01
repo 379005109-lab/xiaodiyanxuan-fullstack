@@ -535,12 +535,6 @@ export default function TierSystemManagement() {
             label="公司分层"
           />
           <TabButton
-            active={activeTab === 'pool'}
-            onClick={() => setActiveTab('pool')}
-            icon={<BarChart3 className="w-4 h-4" />}
-            label="角色权限"
-          />
-          <TabButton
             active={activeTab === 'reconciliation'}
             onClick={() => setActiveTab('reconciliation')}
             icon={<TrendingUp className="w-4 h-4" />}
@@ -550,28 +544,6 @@ export default function TierSystemManagement() {
       </div>
 
       {/* 内容区域 */}
-      {activeTab === 'pool' && (
-        <RolesPermissionTab
-          modules={data.roleModules}
-          profitSettings={data.profitSettings}
-          onUpdateProfitSettings={updateProfitSettings}
-          commissionRate={selectedManufacturerCommission}
-          onUpdateCommissionRate={async (rate) => {
-            const mid = lockedManufacturerId || selectedManufacturerId || ''
-            if (!mid) return
-            if (!isSuperAdmin) return
-            setSelectedManufacturerCommission(rate)
-            await apiClient.put(`/manufacturers/${mid}`, { defaultCommission: rate })
-          }}
-          commissionEditable={isSuperAdmin && !lockedManufacturerId}
-          selectedModule={selectedModule}
-          onSelectModule={setSelectedModule}
-          onUpdateModule={updateRoleModule}
-          onAddRule={addDiscountRule}
-          onUpdateRule={updateDiscountRule}
-          onDeleteRule={deleteDiscountRule}
-        />
-      )}
       
       {activeTab === 'hierarchy' && (
         <HierarchyTab
@@ -2238,8 +2210,8 @@ function HierarchyTab({
         layoutMeta.set(id, { ux: x, depth: 1 })
       })
 
-      const gapX = 420
-      const gapY = 420
+      const gapX = 320
+      const gapY = 300
       const xs = Array.from(layoutMeta.values()).map(v => v.ux)
       const minX = xs.length ? Math.min(...xs) : 0
       const maxX = xs.length ? Math.max(...xs) : 0
@@ -2833,7 +2805,7 @@ function HierarchyTab({
                 preserveAspectRatio="none"
               >
                 {hierarchyGraph.edges.map((e) => {
-                  const renderNodeIdSet = new Set<string>(['headquarters', ...visibleStaffNodes.map(s => String(s.id))])
+                  const renderNodeIdSet = new Set<string>(['headquarters', ...visibleStaffNodesForRender.map(s => String(s.id))])
                   if (!renderNodeIdSet.has(String(e.from)) || !renderNodeIdSet.has(String(e.to))) return null
                   const fromPos = nodePositions[String(e.from)]
                   const toPos = nodePositions[String(e.to)]
@@ -2984,7 +2956,8 @@ function HierarchyTab({
                         value={nodeDraft[String(staff.id)]?.distribution ?? staff.distribution}
                         max={getMaxVerticalCommissionPctForAccount(String(staff.id))}
                         onChange={(e) => {
-                          const v = Number(e.target.value)
+                          const maxAllowed = getMaxVerticalCommissionPctForAccount(String(staff.id))
+                          const v = Math.max(0, Math.min(maxAllowed, Number(e.target.value) || 0))
                           setNodeDraft(prev => ({
                             ...prev,
                             [String(staff.id)]: {
