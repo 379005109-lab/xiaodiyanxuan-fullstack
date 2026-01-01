@@ -3053,6 +3053,7 @@ function HierarchyTab({
           products={manufacturerProducts}
           profitSettings={profitSettings}
           inheritedProductIds={getInheritedVisibleProductIds(productAccount) || []}
+          getMaxVerticalCommissionPctForAccount={getMaxVerticalCommissionPctForAccount}
           onClose={() => {
             setShowProductModal(false)
             setProductAccount(null)
@@ -3192,6 +3193,7 @@ function ProductProfitModal({
   products,
   profitSettings,
   inheritedProductIds,
+  getMaxVerticalCommissionPctForAccount,
   onClose,
   onSave
 }: {
@@ -3201,6 +3203,7 @@ function ProductProfitModal({
   products: any[]
   profitSettings: any
   inheritedProductIds: string[]
+  getMaxVerticalCommissionPctForAccount: (accountId: string) => number
   onClose: () => void
   onSave: (data: { visibleProductIds: string[] | null, categoryOverrides: any, productOverrides: any }) => void
 }) {
@@ -3579,7 +3582,7 @@ function ProductProfitModal({
     const primaryCategoryId = categoryIds[0] || ''
 
     // 获取当前账户的最低折扣设置
-    const accountMinDiscount = getAccountMinDiscountPct(account) || 60 // 默认60%
+    const accountMinDiscount = account?.minDiscountPct || 60 // 默认60%
     const accountMinDiscountRate = accountMinDiscount / 100
     
     const catOverride = primaryCategoryId ? categoryOverrideById[primaryCategoryId] : undefined
@@ -3594,7 +3597,7 @@ function ProductProfitModal({
     const minDiscountPrice = Math.round(Number(base || 0) * effectiveDiscountRate)
 
     // 获取当前账户的返佣设置
-    const accountCommissionPct = account?.distributionRate || staff?.distribution || 0
+    const accountCommissionPct = account?.distributionRate || 0
     const accountCommissionRate = accountCommissionPct / 100
     
     const effectiveCommissionRateRaw =
@@ -3654,7 +3657,7 @@ function ProductProfitModal({
             <div className="bg-gray-50 p-4 rounded-xl">
               <div className="text-xs text-gray-500 font-medium mb-1">最低折扣价</div>
               <div className="text-xl font-bold text-gray-900">¥{Number(minDiscountPrice || 0).toLocaleString()}</div>
-              <div className="text-xs text-gray-400 mt-1">折扣 {rateToPct(minAllowedRate)}%</div>
+              <div className="text-xs text-gray-400 mt-1">折扣 {rateToPct(effectiveDiscountRate)}%</div>
             </div>
             <div className="bg-gray-50 p-4 rounded-xl">
               <div className="text-xs text-gray-500 font-medium mb-1">返佣金额</div>
