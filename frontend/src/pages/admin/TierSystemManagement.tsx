@@ -1985,14 +1985,7 @@ function HierarchyTab({
     let sum = 0
     let cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
     
-    // 包含当前节点的返佣
-    if (cur) {
-      const currentPct = Math.max(0, Math.min(100, Math.floor(Number((cur as any).distributionRate ?? 0) || 0)))
-      sum += currentPct
-      visited.add(String(cur._id))
-    }
-    
-    // 累计所有父级返佣
+    // 只计算祖先节点的返佣，不包含当前节点
     while (cur && cur.parentId) {
       const pid = String(cur.parentId)
       if (!pid || visited.has(pid)) break
@@ -2988,6 +2981,11 @@ function HierarchyTab({
                         className="text-xl font-bold text-blue-800 bg-transparent text-center w-full outline-none"
                       />
                       <div className="text-xs text-blue-600">%</div>
+                      {!isSkuExpanded && skuList.length > 0 && (
+                        <div className="text-xs text-gray-400 truncate">
+                          {skuList.length}个SKU
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3607,7 +3605,7 @@ function ProductProfitModal({
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm text-gray-400">
-                  SKU {skuList.length}{skuSummary ? ` • ${skuSummary}` : ''}
+                  {isSkuExpanded ? `SKU ${skuList.length}${skuSummary ? ` • ${skuSummary}` : ''}` : `${skuList.length}个SKU`}
                 </span>
                 {skuList.length > 0 && (
                   <button
@@ -3725,9 +3723,17 @@ function ProductProfitModal({
                       </div>
                       {skuPrice > 0 && (
                         <div className="text-xs text-gray-400 mt-1">
-                          ¥{skuPrice.toLocaleString()}
+                          标价 ¥{skuPrice.toLocaleString()}
                         </div>
                       )}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-green-600 font-medium">
+                        最低折扣价: ¥{Math.round(skuPrice * effectiveDiscountRate).toLocaleString()}
+                      </div>
+                      <div className="text-xs text-blue-600 font-medium mt-1">
+                        返佣金额: ¥{Math.round(skuPrice * effectiveDiscountRate * effectiveCommissionRate).toLocaleString()}
+                      </div>
                     </div>
                   </div>
                 )
@@ -3785,9 +3791,6 @@ function ProductProfitModal({
                   </button>
                 </div>
               ) : null}
-              <div className="text-xs text-gray-500 shrink-0">
-                全局最低折扣保护：{Math.round(safeGlobalMinSaleDiscountRate * 100)}%
-              </div>
             </div>
 
             {effectiveTree.length === 0 ? (
