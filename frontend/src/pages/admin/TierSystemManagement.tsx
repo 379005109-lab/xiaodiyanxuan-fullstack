@@ -2981,11 +2981,6 @@ function HierarchyTab({
                         className="text-xl font-bold text-blue-800 bg-transparent text-center w-full outline-none"
                       />
                       <div className="text-xs text-blue-600">%</div>
-                      {!isSkuExpanded && skuList.length > 0 && (
-                        <div className="text-xs text-gray-400 truncate">
-                          {skuList.length}个SKU
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -3100,7 +3095,7 @@ function HierarchyTab({
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                   >
                     <option value="">请选择角色</option>
-                    {data.roleModules?.map((roleModule: any) => (
+                    {modules?.map((roleModule: any) => (
                       <option key={roleModule._id} value={roleModule.name}>
                         {roleModule.name}
                       </option>
@@ -3558,9 +3553,9 @@ function ProductProfitModal({
     const categoryIds = categoryIdsOfProduct(p)
     const primaryCategoryId = categoryIds[0] || ''
 
-    // 获取当前账户的最低折扣设置
-    const accountMinDiscount = account?.minDiscountPct || 60 // 默认60%
-    const accountMinDiscountRate = accountMinDiscount / 100
+    // 获取当前账户的最低折扣设置（从卡片读取，如60%）
+    const accountMinDiscountPct = (account as any)?.minDiscount || 60
+    const accountMinDiscountRate = accountMinDiscountPct / 100
     
     const catOverride = primaryCategoryId ? categoryOverrideById[primaryCategoryId] : undefined
     const prodOverride = productOverrideById[pid]
@@ -3573,8 +3568,8 @@ function ProductProfitModal({
     const effectiveDiscountRate = Math.max(accountMinDiscountRate, Math.min(1, Number(effectiveDiscountRateRaw) || 0))
     const minDiscountPrice = Math.round(Number(base || 0) * effectiveDiscountRate)
 
-    // 获取当前账户的返佣设置
-    const accountCommissionPct = account?.distributionRate || 0
+    // 获取当前账户的返佣设置（从卡片读取，如40%）
+    const accountCommissionPct = (account as any)?.distribution || account?.distributionRate || 0
     const accountCommissionRate = accountCommissionPct / 100
     
     const effectiveCommissionRateRaw =
