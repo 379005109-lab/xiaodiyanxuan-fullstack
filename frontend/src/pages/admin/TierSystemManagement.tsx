@@ -370,6 +370,19 @@ export default function TierSystemManagement() {
     run()
   }, [lockedManufacturerId, selectedManufacturerId, isSuperAdmin])
 
+  const updateManufacturerCommission = async (rate: number) => {
+    const mid = lockedManufacturerId || selectedManufacturerId || ''
+    if (!mid) return
+    const v = Math.max(0, Math.min(100, Math.floor(Number(rate) || 0)))
+    setSelectedManufacturerCommission(v)
+    try {
+      await apiClient.put(`/manufacturers/${mid}`, { defaultCommission: v })
+      toast.success('保存成功')
+    } catch {
+      toast.error('保存失败')
+    }
+  }
+
   // 保存数据
   const saveData = async (newData: TierSystemData) => {
     const mid = lockedManufacturerId || selectedManufacturerId || ''
@@ -554,11 +567,16 @@ export default function TierSystemManagement() {
         <RolesPermissionTab
           modules={data.roleModules}
           profitSettings={data.profitSettings}
-          onUpdateProfitSettings={handleUpdateProfitSettings}
-          onUpdateModule={handleUpdateRoleModule}
-          commissionRate={data.profitSettings?.maxCommissionRate}
-          onUpdateCommissionRate={handleUpdateCommissionRate}
+          onUpdateProfitSettings={updateProfitSettings}
+          commissionRate={selectedManufacturerCommission}
+          onUpdateCommissionRate={updateManufacturerCommission}
           commissionEditable={true}
+          selectedModule={selectedModule}
+          onSelectModule={setSelectedModule}
+          onUpdateModule={updateRoleModule}
+          onAddRule={addDiscountRule}
+          onUpdateRule={updateDiscountRule}
+          onDeleteRule={deleteDiscountRule}
         />
       )}
 
@@ -1980,50 +1998,105 @@ function HierarchyTab({
     return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.floor(v))) : 40
   }, [commissionRate])
 
-  const getVerticalAncestorCommissionSumPct = (accountId: string) => {
-    const visited = new Set<string>()
-    let sum = 0
-    let cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
-    
-    // 只计算祖先节点的返佣，不包含当前节点
-    while (cur && cur.parentId) {
-      const pid = String(cur.parentId)
-      if (!pid || visited.has(pid)) break
-      visited.add(pid)
-      const parent = (accounts || []).find((x) => String(x._id) === pid) || null
-      if (!parent) break
-      const pct = Math.max(0, Math.min(100, Math.floor(Number((parent as any).distributionRate ?? 0) || 0)))
-      sum += pct
-      cur = parent
-    }
-    return sum
+  const getParentKeyForAccount = (a: AuthorizedAccount | null) => {
+    if (!a) return 'headquarters'
+    return a.parentId ? String(a.parentId) : 'headquarters'
   }
 
+  const getParentMaxCommissionPct = (parentKey: string) => {
+    if (parentKey === 'headquarters') return headquartersCommissionCapPct
+    const p = (accounts || []).find((x) => String(x._id) === String(parentKey)) || null
+    const v = Number((p as any)?.distributionRate ?? 0)
+    return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.floor(v))) : 0
+  }
+
+  const getChildrenSumCommissionPct = (parentKey: string, excludeId?: string) => {
+    return (accounts || [])
+      .filter((x) => getParentKeyForAccount(x) === String(parentKey) && (!excludeId || String(x._id) !== String(excludeId)))
+      .reduce((s, x) => s + Math.max(0, Math.min(100, Math.floor(Number((x as any).distributionRate ?? 0) || 0))), 0)
+  }
+
+  // 同一父节点下：子节点返佣合计 <= 父节点返佣上限（总部=40%）
   const getMaxVerticalCommissionPctForAccount = (accountId: string) => {
-    const used = getVerticalAncestorCommissionSumPct(accountId)
-    const maxAllowed = Math.max(0, Math.min(100, headquartersCommissionCapPct - used))
-    return maxAllowed
+    const cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
+    const parentKey = getParentKeyForAccount(cur)
+    const parentMax = getParentMaxCommissionPct(parentKey)
+    const usedBySiblings = getChildrenSumCommissionPct(parentKey, String(accountId))
+    return Math.max(0, Math.min(100, parentMax - usedBySiblings))
   }
 
+  // 若历史数据出现超标（例如同一父节点下 40+23>40），自动按比例缩放到上限
   useEffect(() => {
     if (!accounts || accounts.length === 0) return
 
-    let changed = false
-    const next = accounts.map(a => {
-      const cur = Math.max(0, Math.min(100, Math.floor(Number((a as any).distributionRate ?? 0) || 0)))
-      const maxAllowed = getMaxVerticalCommissionPctForAccount(String(a._id))
-      const safe = Math.max(0, Math.min(maxAllowed, cur))
-      if (safe !== cur) {
-        changed = true
-        return { ...a, distributionRate: safe }
-      }
-      return a
+    const idxById = new Map<string, number>()
+    accounts.forEach((a, i) => idxById.set(String(a._id), i))
+
+    const groups = new Map<string, string[]>()
+    ;(accounts || []).forEach((a) => {
+      const key = getParentKeyForAccount(a)
+      const arr = groups.get(key) || []
+      arr.push(String(a._id))
+      groups.set(key, arr)
     })
 
-    if (changed) {
-      onSaveAccounts(next)
-    }
-  }, [accountsCommissionKey])
+    let changed = false
+    const next = accounts.slice().map((a) => ({ ...a }))
+
+    groups.forEach((childIds, parentKey) => {
+      const limit = Math.max(0, Math.min(100, Math.floor(getParentMaxCommissionPct(parentKey))))
+      const items = childIds
+        .map((id) => {
+          const idx = idxById.get(String(id))
+          const a = typeof idx === 'number' ? accounts[idx] : null
+          const cur = a ? Math.max(0, Math.min(100, Math.floor(Number((a as any).distributionRate ?? 0) || 0))) : 0
+          return { id: String(id), idx: typeof idx === 'number' ? idx : -1, cur }
+        })
+        .filter((x) => x.idx >= 0)
+
+      const sum = items.reduce((s, x) => s + x.cur, 0)
+      if (sum <= limit) return
+      if (sum <= 0) {
+        items.forEach((x) => {
+          if (next[x.idx].distributionRate !== 0) {
+            changed = true
+            next[x.idx].distributionRate = 0
+          }
+        })
+        return
+      }
+
+      const scale = limit / sum
+      const scaled = items.map((x) => {
+        const raw = x.cur * scale
+        const flo = Math.floor(raw)
+        return { ...x, flo, frac: raw - flo }
+      })
+      let used = scaled.reduce((s, x) => s + x.flo, 0)
+      let remain = Math.max(0, limit - used)
+      scaled
+        .slice()
+        .sort((a, b) => b.frac - a.frac)
+        .forEach((x) => {
+          if (remain <= 0) return
+          x.flo += 1
+          remain -= 1
+        })
+
+      scaled.forEach((x) => {
+        const v = Math.max(0, Math.min(100, Math.floor(x.flo)))
+        const old = Math.max(0, Math.min(100, Math.floor(Number((next[x.idx] as any).distributionRate ?? 0) || 0)))
+        if (v !== old) {
+          changed = true
+          next[x.idx].distributionRate = v
+        }
+      })
+    })
+
+    if (changed) onSaveAccounts(next)
+  }, [accountsCommissionKey, headquartersCommissionCapPct])
+
+  // distributionRate 的矫正已由上面的按父节点分组归一化处理
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('map')
   const [zoomScale, setZoomScale] = useState(1)
@@ -2325,16 +2398,21 @@ function HierarchyTab({
     })
   }
 
+  const visibleRenderKey = useMemo(
+    () => visibleStaffNodesForRender.map((s) => String(s.id)).join('|'),
+    [visibleStaffNodesForRender]
+  )
+
   const didAutoFitRef = useRef<string>('')
   useEffect(() => {
     if (viewMode !== 'map') return
-    const key = `${staffIdsKey}|${canvasSize.w}x${canvasSize.h}`
+    const key = `${visibleRenderKey}|${canvasSize.w}x${canvasSize.h}`
     if (didAutoFitRef.current === key) return
     if (!canvasSize.w || !canvasSize.h) return
     if (Object.keys(nodePositions || {}).length === 0) return
     didAutoFitRef.current = key
     fitToView({ maxZoom: 1.2 })
-  }, [viewMode, staffIdsKey, canvasSize.w, canvasSize.h, Object.keys(nodePositions || {}).length])
+  }, [viewMode, visibleRenderKey, canvasSize.w, canvasSize.h, Object.keys(nodePositions || {}).length])
 
   const commitNodeDraft = (nodeId: string) => {
     const draft = nodeDraft[String(nodeId)]
