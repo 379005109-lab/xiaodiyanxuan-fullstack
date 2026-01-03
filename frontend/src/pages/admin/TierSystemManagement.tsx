@@ -1214,13 +1214,6 @@ function RoleModulesTab({
                               返点: <strong className="text-green-600">{(rule.commissionRate * 100).toFixed(1)}%</strong>
                             </span>
                           </div>
-                          {(rule.conditions.minOrderAmount || rule.conditions.minOrderCount) && (
-                            <div className="mt-2 text-xs text-gray-500">
-                              条件: 
-                              {rule.conditions.minOrderAmount && ` 最低订单金额 ¥${rule.conditions.minOrderAmount}`}
-                              {rule.conditions.minOrderCount && ` 最低订单数 ${rule.conditions.minOrderCount}`}
-                            </div>
-                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           <button
@@ -1300,9 +1293,7 @@ function RuleEditModal({
     discountType: (rule?.discountType || (typeof rule?.minDiscountPrice === 'number' ? 'minPrice' : 'rate')) as 'rate' | 'minPrice',
     discountRate: typeof rule?.discountRate === 'number' ? rule.discountRate : 0.9,
     minDiscountPrice: typeof rule?.minDiscountPrice === 'number' ? rule.minDiscountPrice : 0,
-    commissionRate: rule?.commissionRate || 0.05,
-    minOrderAmount: rule?.conditions.minOrderAmount || 0,
-    minOrderCount: rule?.conditions.minOrderCount || 0
+    commissionRate: rule?.commissionRate || 0.05
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1317,10 +1308,7 @@ function RuleEditModal({
       discountRate: formData.discountType === 'rate' ? formData.discountRate : undefined,
       minDiscountPrice: formData.discountType === 'minPrice' ? formData.minDiscountPrice : undefined,
       commissionRate: formData.commissionRate,
-      conditions: {
-        minOrderAmount: formData.minOrderAmount || undefined,
-        minOrderCount: formData.minOrderCount || undefined
-      }
+      conditions: {}
     })
   }
 
@@ -1410,30 +1398,6 @@ function RuleEditModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">最低订单金额</label>
-              <input
-                type="number"
-                min="0"
-                value={formData.minOrderAmount}
-                onChange={(e) => setFormData({ ...formData, minOrderAmount: parseInt(e.target.value) || 0 })}
-                className="input w-full"
-                placeholder="0表示无限制"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">最低订单数</label>
-              <input
-                type="number"
-                min="0"
-                value={formData.minOrderCount}
-                onChange={(e) => setFormData({ ...formData, minOrderCount: parseInt(e.target.value) || 0 })}
-                className="input w-full"
-                placeholder="0表示无限制"
-              />
-            </div>
-          </div>
 
           <div className="flex justify-end gap-3 pt-4">
             <button type="button" onClick={onClose} className="btn btn-secondary">
@@ -1449,232 +1413,6 @@ function RuleEditModal({
   )
 }
 
-// ==================== 毛利池管理标签页 ====================
-
-function ProfitPoolTab({
-  modules,
-  profitSettings,
-  onUpdateProfitSettings,
-  onUpdateModule,
-  commissionRate,
-  onUpdateCommissionRate,
-  commissionEditable
-}: {
-  modules: RoleModule[]
-  profitSettings: { minSaleDiscountRate: number }
-  onUpdateProfitSettings: (updates: { minSaleDiscountRate: number }) => void
-  onUpdateModule: (id: string, updates: Partial<RoleModule>) => void
-  commissionRate?: number
-  onUpdateCommissionRate?: (rate: number) => void
-  commissionEditable?: boolean
-}) {
-  const [editingRole, setEditingRole] = useState<string | null>(null)
-  const [tempRates, setTempRates] = useState<{[key: string]: {sales: number, quantity: number}}>({})
-
-  // 预设角色数据，对应图1的样式
-  const roleCards = [
-    { 
-      id: 'regional_manager', 
-      title: '大区店长', 
-      icon: '🏢', 
-      color: 'bg-blue-500',
-      description: '负责区域管理和业务拓展',
-      salesRate: 8.5, // 销售额度提成%
-      quantityRate: 12.0 // 数量连单提成%
-    },
-    { 
-      id: 'certified_designer', 
-      title: '认证设计师', 
-      icon: '🎨', 
-      color: 'bg-purple-500',
-      description: '专业设计师，提供定制方案',
-      salesRate: 6.0,
-      quantityRate: 8.5
-    },
-    { 
-      id: 'senior_sales', 
-      title: '高级销售', 
-      icon: '⭐', 
-      color: 'bg-orange-500',
-      description: '资深销售专员',
-      salesRate: 4.5,
-      quantityRate: 6.0
-    },
-    { 
-      id: 'regular_sales', 
-      title: '普通销售', 
-      icon: '👤', 
-      color: 'bg-green-500',
-      description: '普通销售人员',
-      salesRate: 3.0,
-      quantityRate: 4.0
-    },
-    { 
-      id: 'channel_partner', 
-      title: '渠道合伙人', 
-      icon: '🤝', 
-      color: 'bg-indigo-500',
-      description: '战略合作伙伴',
-      salesRate: 10.0,
-      quantityRate: 15.0
-    },
-    { 
-      id: 'vip_client', 
-      title: 'VIP客户', 
-      icon: '💎', 
-      color: 'bg-yellow-500',
-      description: '优质大客户',
-      salesRate: 2.0,
-      quantityRate: 3.5
-    }
-  ]
-
-  const handleEditRole = (roleId: string) => {
-    setEditingRole(roleId)
-    const role = roleCards.find(r => r.id === roleId)
-    if (role) {
-      setTempRates({
-        ...tempRates,
-        [roleId]: {
-          sales: role.salesRate,
-          quantity: role.quantityRate
-        }
-      })
-    }
-  }
-
-  const handleSaveRole = (roleId: string) => {
-    // 这里可以保存到后端
-    console.log('保存角色提成配置:', roleId, tempRates[roleId])
-    setEditingRole(null)
-  }
-
-  const handleCancelEdit = () => {
-    setEditingRole(null)
-    setTempRates({})
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* 全局配置区域 */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">全局角色分润底线配置</h2>
-            <p className="text-sm text-gray-500 mt-1">设置各角色的销售额度提成和数量连单提成比例</p>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <div className="bg-gray-50 px-3 py-2 rounded-lg">
-              <span className="text-gray-500">全链条最低折扣：</span>
-              <span className="font-semibold text-gray-900">{Math.round(Number(profitSettings?.minSaleDiscountRate ?? 1) * 100)}%</span>
-            </div>
-            <div className="bg-emerald-50 px-3 py-2 rounded-lg">
-              <span className="text-emerald-600">总佣金池占比：</span>
-              <span className="font-semibold text-emerald-700">{Math.round(Number(commissionRate || 0))}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 角色卡片网格 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {roleCards.map((role) => (
-            <div key={role.id} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-              {/* 角色头部 */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 ${role.color} rounded-lg flex items-center justify-center text-white text-lg`}>
-                    {role.icon}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{role.title}</h3>
-                    <p className="text-xs text-gray-500">{role.description}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleEditRole(role.id)}
-                  className="text-gray-400 hover:text-blue-600 p-1 rounded"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* 提成比例显示/编辑 */}
-              {editingRole === role.id ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">销售额度提成%</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      value={tempRates[role.id]?.sales || 0}
-                      onChange={(e) => setTempRates({
-                        ...tempRates,
-                        [role.id]: {
-                          ...tempRates[role.id],
-                          sales: parseFloat(e.target.value) || 0
-                        }
-                      })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">数量连单提成%</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="100"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      value={tempRates[role.id]?.quantity || 0}
-                      onChange={(e) => setTempRates({
-                        ...tempRates,
-                        [role.id]: {
-                          ...tempRates[role.id],
-                          quantity: parseFloat(e.target.value) || 0
-                        }
-                      })}
-                    />
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      onClick={() => handleSaveRole(role.id)}
-                      className="flex-1 bg-blue-600 text-white text-xs py-2 px-3 rounded-lg hover:bg-blue-700"
-                    >
-                      保存
-                    </button>
-                    <button
-                      onClick={handleCancelEdit}
-                      className="flex-1 bg-gray-100 text-gray-600 text-xs py-2 px-3 rounded-lg hover:bg-gray-200"
-                    >
-                      取消
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="bg-blue-50 rounded-lg p-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-blue-600 font-medium">销售额度提成</span>
-                      <span className="text-lg font-bold text-blue-700">{role.salesRate}%</span>
-                    </div>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-green-600 font-medium">数量连单提成</span>
-                      <span className="text-lg font-bold text-green-700">{role.quantityRate}%</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ==================== 授权层级标签页 ====================
 
@@ -3157,8 +2895,30 @@ function HierarchyTab({
             </div>
             
             <div className="text-center mb-6">
-              <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-4 border-gray-100 cursor-pointer hover:border-emerald-400 transition-all">
+              <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-4 border-gray-100 cursor-pointer hover:border-emerald-400 transition-all relative group">
                 <img src={selectedStaff.avatar} alt={selectedStaff.name} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      const reader = new FileReader()
+                      reader.onload = (e) => {
+                        const newAvatar = e.target?.result as string
+                        setSelectedStaff({ ...selectedStaff, avatar: newAvatar })
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                  }}
+                />
               </div>
               <h4 className="text-lg font-bold text-gray-900 mb-1">{selectedStaff.name}</h4>
               <p className="text-sm text-gray-500">点击头像更换头像档案</p>
