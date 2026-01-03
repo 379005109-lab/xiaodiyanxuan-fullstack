@@ -952,15 +952,6 @@ function RolesPermissionTab({
 }) {
   return (
     <div className="space-y-10">
-      <ProfitPoolTab
-        modules={modules}
-        profitSettings={profitSettings}
-        onUpdateProfitSettings={(u) => onUpdateProfitSettings(u)}
-        onUpdateModule={onUpdateModule}
-        commissionRate={commissionRate}
-        onUpdateCommissionRate={onUpdateCommissionRate}
-        commissionEditable={commissionEditable}
-      />
       <RoleModulesTab
         modules={modules}
         selectedModule={selectedModule}
