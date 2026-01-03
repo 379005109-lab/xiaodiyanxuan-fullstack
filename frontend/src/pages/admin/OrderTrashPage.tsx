@@ -45,7 +45,7 @@ export default function OrderTrashPage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/trash/list?page=${page}&pageSize=20`, {
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/trash/list?page=${page}&pageSize=10000`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -99,7 +99,7 @@ export default function OrderManagementNew2() {
         return
       }
       
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?pageSize=100', {
+      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?pageSize=10000', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

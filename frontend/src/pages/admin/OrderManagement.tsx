@@ -48,7 +48,7 @@ export default function OrderManagement() {
       }
       
       // 从API获取订单数据
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?page=' + page + '&pageSize=10', {
+      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?page=' + page + '&pageSize=10000', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
