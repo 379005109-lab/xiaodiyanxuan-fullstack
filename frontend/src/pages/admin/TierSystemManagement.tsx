@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { 
@@ -1987,6 +1987,11 @@ function HierarchyTab({
     return { parentMinDiscount, parentMaxCommission }
   }
 
+  const getParentKeyForAccount = useCallback((a: AuthorizedAccount | null) => {
+    if (!a) return 'headquarters'
+    return a.parentId ? String(a.parentId) : 'headquarters'
+  }, [])
+
   const accountsCommissionKey = useMemo(() => {
     return (accounts || [])
       .map(a => `${String(a._id)}:${String(a.parentId || '')}:${String((a as any).distributionRate ?? '')}`)
@@ -1998,31 +2003,26 @@ function HierarchyTab({
     return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.floor(v))) : 40
   }, [commissionRate])
 
-  const getParentKeyForAccount = (a: AuthorizedAccount | null) => {
-    if (!a) return 'headquarters'
-    return a.parentId ? String(a.parentId) : 'headquarters'
-  }
-
-  const getParentMaxCommissionPct = (parentKey: string) => {
+  const getParentMaxCommissionPct = useCallback((parentKey: string) => {
     if (parentKey === 'headquarters') return headquartersCommissionCapPct
     const p = (accounts || []).find((x) => String(x._id) === String(parentKey)) || null
     const v = Number((p as any)?.distributionRate ?? 0)
     return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.floor(v))) : 0
-  }
+  }, [accounts, headquartersCommissionCapPct])
 
-  const getChildrenSumCommissionPct = (parentKey: string, excludeId?: string) => {
+  const getChildrenSumCommissionPct = useCallback((parentKey: string, excludeId?: string) => {
     return (accounts || [])
       .filter((x) => getParentKeyForAccount(x) === String(parentKey) && (!excludeId || String(x._id) !== String(excludeId)))
       .reduce((s, x) => s + Math.max(0, Math.min(100, Math.floor(Number((x as any).distributionRate ?? 0) || 0))), 0)
-  }
+  }, [accounts, getParentKeyForAccount])
 
-  const getMaxVerticalCommissionPctForAccount = (accountId: string) => {
+  const getMaxVerticalCommissionPctForAccount = useCallback((accountId: string) => {
     const cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
     const parentKey = getParentKeyForAccount(cur)
     const parentMax = getParentMaxCommissionPct(parentKey)
     const usedBySiblings = getChildrenSumCommissionPct(parentKey, String(accountId))
     return Math.max(0, Math.min(100, parentMax - usedBySiblings))
-  }
+  }, [accounts, getParentKeyForAccount, getParentMaxCommissionPct, getChildrenSumCommissionPct])
 
   useEffect(() => {
     if (!accounts || accounts.length === 0) return
