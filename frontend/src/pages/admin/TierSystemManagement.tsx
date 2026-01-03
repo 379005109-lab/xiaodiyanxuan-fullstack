@@ -2037,10 +2037,25 @@ function HierarchyTab({
   }, [accounts])
 
   const getMaxVerticalCommissionPctForAccount = useCallback((accountId: string) => {
-    const parentChainUsed = getParentChainCommissionUsed(accountId)
-    const remaining = Math.max(0, headquartersCommissionCapPct - parentChainUsed)
-    return Math.max(0, Math.min(100, remaining))
-  }, [accounts, getParentChainCommissionUsed, headquartersCommissionCapPct])
+    const cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
+    if (!cur) return 0
+    
+    // 如果是顶级节点，直接从总部预算分配
+    if (!cur.parentId) return headquartersCommissionCapPct
+    
+    // 找到父节点
+    const parent = (accounts || []).find((x) => String(x._id) === String(cur.parentId)) || null
+    if (!parent) return headquartersCommissionCapPct
+    
+    // 计算父节点的最大预算
+    const parentMaxBudget = getMaxVerticalCommissionPctForAccount(String(parent._id))
+    
+    // 父节点自己用了多少
+    const parentUsed = Math.max(0, Math.min(100, Math.floor(Number((parent as any).distributionRate ?? 0) || 0)))
+    
+    // 父节点剩余预算就是当前节点的最大可用预算
+    return Math.max(0, parentMaxBudget - parentUsed)
+  }, [accounts, headquartersCommissionCapPct])
 
   useEffect(() => {
     if (!accounts || accounts.length === 0) return
