@@ -905,7 +905,7 @@ export default function OrderManagementNew2() {
                   className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-1"
                 >
                   <Edit2 className="w-4 h-4" />
-                  改价
+                  测试改价按钮
                 </button>
                 {/* 导出订单清单图片按钮 */}
                 <button 
