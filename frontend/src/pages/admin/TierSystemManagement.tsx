@@ -950,6 +950,7 @@ function RolesPermissionTab({
   onUpdateRule: (moduleId: string, ruleId: string, updates: Partial<DiscountRule>) => void
   onDeleteRule: (moduleId: string, ruleId: string) => void
 }) {
+  // 角色权限管理标签页
   return (
     <div className="space-y-10">
       <RoleModulesTab
