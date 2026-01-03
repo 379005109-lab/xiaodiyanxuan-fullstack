@@ -2020,6 +2020,7 @@ function HierarchyTab({
     let sum = 0
     let cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
     
+    // 从当前节点开始，向上遍历所有父节点，累加它们的返佣
     while (cur && cur.parentId) {
       const parentId = String(cur.parentId)
       const parent = (accounts || []).find((x) => String(x._id) === parentId) || null
