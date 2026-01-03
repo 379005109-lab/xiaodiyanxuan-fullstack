@@ -2016,26 +2016,30 @@ function HierarchyTab({
       .reduce((s, x) => s + Math.max(0, Math.min(100, Math.floor(Number((x as any).distributionRate ?? 0) || 0))), 0)
   }, [accounts, getParentKeyForAccount])
 
-  const getVerticalChainCommissionSum = useCallback((accountId: string) => {
+  const getParentChainCommissionUsed = useCallback((accountId: string) => {
     let sum = 0
     let cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
     
     while (cur && cur.parentId) {
-      const commission = Math.max(0, Math.min(100, Math.floor(Number((cur as any).distributionRate ?? 0) || 0)))
-      sum += commission
-      
       const parentId = String(cur.parentId)
-      cur = (accounts || []).find((x) => String(x._id) === parentId) || null
+      const parent = (accounts || []).find((x) => String(x._id) === parentId) || null
+      if (parent) {
+        const commission = Math.max(0, Math.min(100, Math.floor(Number((parent as any).distributionRate ?? 0) || 0)))
+        sum += commission
+        cur = parent
+      } else {
+        break
+      }
     }
     
     return sum
   }, [accounts])
 
   const getMaxVerticalCommissionPctForAccount = useCallback((accountId: string) => {
-    const verticalChainSum = getVerticalChainCommissionSum(accountId)
-    const remaining = Math.max(0, headquartersCommissionCapPct - verticalChainSum)
+    const parentChainUsed = getParentChainCommissionUsed(accountId)
+    const remaining = Math.max(0, headquartersCommissionCapPct - parentChainUsed)
     return Math.max(0, Math.min(100, remaining))
-  }, [accounts, getVerticalChainCommissionSum, headquartersCommissionCapPct])
+  }, [accounts, getParentChainCommissionUsed, headquartersCommissionCapPct])
 
   useEffect(() => {
     if (!accounts || accounts.length === 0) return
@@ -2076,36 +2080,10 @@ function HierarchyTab({
         })
         return
       }
-
-      const scale = limit / sum
-      const scaled = items.map((x) => {
-        const raw = x.cur * scale
-        const flo = Math.floor(raw)
-        return { ...x, flo, frac: raw - flo }
-      })
-      let used = scaled.reduce((s, x) => s + x.flo, 0)
-      let remain = Math.max(0, limit - used)
-      scaled
-        .slice()
-        .sort((a, b) => b.frac - a.frac)
-        .forEach((x) => {
-          if (remain <= 0) return
-          x.flo += 1
-          remain -= 1
-        })
-
-      scaled.forEach((x) => {
-        const v = Math.max(0, Math.min(100, Math.floor(x.flo)))
-        const old = Math.max(0, Math.min(100, Math.floor(Number((next[x.idx] as any).distributionRate ?? 0) || 0)))
-        if (v !== old) {
-          changed = true
-          next[x.idx].distributionRate = v
-        }
-      })
     })
 
     if (changed) onSaveAccounts(next)
-  }, [accountsCommissionKey, headquartersCommissionCapPct])
+  }, [accountsCommissionKey, headquartersCommissionCapPct, getParentChainCommissionUsed, getMaxVerticalCommissionPctForAccount])
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('map')
   const [zoomScale, setZoomScale] = useState(1)
