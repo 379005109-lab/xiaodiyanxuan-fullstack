@@ -2394,21 +2394,7 @@ function HierarchyTab({
     })
   }
 
-  const visibleRenderKey = useMemo(
-    () => visibleStaffNodesForRender.map((s) => String(s.id)).join('|'),
-    [visibleStaffNodesForRender]
-  )
-
   const didAutoFitRef = useRef<string>('')
-  useEffect(() => {
-    if (viewMode !== 'map') return
-    const key = `${visibleRenderKey}|${canvasSize.w}x${canvasSize.h}`
-    if (didAutoFitRef.current === key) return
-    if (!canvasSize.w || !canvasSize.h) return
-    if (Object.keys(nodePositions || {}).length === 0) return
-    didAutoFitRef.current = key
-    fitToView({ maxZoom: 1.2 })
-  }, [viewMode, visibleRenderKey, canvasSize.w, canvasSize.h, Object.keys(nodePositions || {}).length])
 
   const commitNodeDraft = (nodeId: string) => {
     const draft = nodeDraft[String(nodeId)]
@@ -2487,21 +2473,22 @@ function HierarchyTab({
     const q = nodeSearch.trim().toLowerCase()
     if (!q) return [] as Array<{ id: string; label: string; extra?: string }>
     const items: Array<{ id: string; label: string; extra?: string }> = []
-
-    const hqLabel = String(hierarchyData.headquarters?.name || '总部')
-    if (hqLabel.toLowerCase().includes(q)) {
-      items.push({ id: 'headquarters', label: hqLabel, extra: '总部' })
-    }
-
+    items.push({ id: 'headquarters', label: hierarchyData.headquarters?.name || '总部' })
     hierarchyData.staffNodes.forEach((s) => {
-      const label = String(s.name || '')
-      const extra = String(s.status || '')
-      const hay = `${label} ${extra}`.toLowerCase()
-      if (hay.includes(q)) items.push({ id: String(s.id), label, extra })
+      const n = String(s.name || s.id || '').toLowerCase()
+      const e = String(s.account?.email || '').toLowerCase()
+      const p = String(s.phone || '').toLowerCase()
+      const r = modules.find(m => String(m._id) === String(s.account?.roleModuleId))?.name || ''
+      if (n.includes(q) || e.includes(q) || p.includes(q) || r.toLowerCase().includes(q)) {
+        items.push({
+          id: String(s.id),
+          label: String(s.name || s.id || ''),
+          extra: [s.account?.email, s.phone, r].filter(Boolean).join(' · ')
+        })
+      }
     })
-
-    return items.slice(0, 30)
-  }, [nodeSearch, hierarchyData.headquarters, hierarchyData.staffNodes])
+    return items.slice(0, 8)
+  }, [nodeSearch, hierarchyData.headquarters, hierarchyData.staffNodes, modules])
 
   const visibleNodeCount = visibleNodeIdSet.size
   const totalNodeCount = hierarchyGraph.nodes.length
@@ -2510,6 +2497,21 @@ function HierarchyTab({
   const MAX_VISIBLE_STAFF_NODES = 180
   const tooManyVisible = visibleStaffNodes.length > MAX_VISIBLE_STAFF_NODES
   const visibleStaffNodesForRender = tooManyVisible ? visibleStaffNodes.slice(0, MAX_VISIBLE_STAFF_NODES) : visibleStaffNodes
+
+  const visibleRenderKey = useMemo(
+    () => visibleStaffNodesForRender.map((s) => String(s.id)).join('|'),
+    [visibleStaffNodesForRender]
+  )
+
+  useEffect(() => {
+    if (viewMode !== 'map') return
+    const key = `${visibleRenderKey}|${canvasSize.w}x${canvasSize.h}`
+    if (didAutoFitRef.current === key) return
+    if (!canvasSize.w || !canvasSize.h) return
+    if (Object.keys(nodePositions || {}).length === 0) return
+    didAutoFitRef.current = key
+    fitToView({ maxZoom: 1.2 })
+  }, [viewMode, visibleRenderKey, canvasSize.w, canvasSize.h, Object.keys(nodePositions || {}).length])
 
   const focusedNodeName = useMemo(() => {
     if (!focusedNodeId) return ''
