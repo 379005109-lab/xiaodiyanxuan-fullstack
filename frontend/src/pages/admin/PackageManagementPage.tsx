@@ -125,7 +125,7 @@ const PackageManagementPage: React.FC = () => {
         
         // 加载商品
         console.log('🔄 开始加载商品...');
-        const productsResponse = await getProducts({ pageSize: 200 });
+        const productsResponse = await getProducts({ pageSize: 10000 });
         console.log('📦 商品API返回:', productsResponse);
         console.log('📦 返回类型:', typeof productsResponse, Array.isArray(productsResponse));
         
