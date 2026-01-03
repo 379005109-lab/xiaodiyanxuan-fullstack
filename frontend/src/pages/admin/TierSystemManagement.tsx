@@ -1042,20 +1042,33 @@ function RoleModulesTab({
                     <div className="mt-2 text-2xl font-black text-gray-900 truncate">{module.name}</div>
                     <div className="mt-2 text-sm text-gray-500 line-clamp-2">{module.description}</div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onUpdateModule(module._id, { isActive: !module.isActive })
-                    }}
-                    className={`px-4 py-2 rounded-full text-xs font-black transition-colors ${
-                      module.isActive
-                        ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    激活权限
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelectModule(module)
+                      }}
+                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="编辑规则"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onUpdateModule(module._id, { isActive: !module.isActive })
+                      }}
+                      className={`px-4 py-2 rounded-full text-xs font-black transition-colors ${
+                        module.isActive
+                          ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      激活权限
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-6 grid grid-cols-2 gap-4">
@@ -1140,33 +1153,12 @@ function RoleModulesTab({
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900">折扣规则配置</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingRule(null)
-                    setShowRuleModal(true)
-                  }}
-                  className="btn btn-primary btn-sm flex items-center gap-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  添加规则
-                </button>
               </div>
 
               {selectedModule.discountRules.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-lg">
                   <Settings className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                   <p className="text-gray-500">暂无折扣规则</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingRule(null)
-                      setShowRuleModal(true)
-                    }}
-                    className="mt-2 text-primary-600 hover:text-primary-700 text-sm"
-                  >
-                    添加第一条规则
-                  </button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -2934,6 +2926,22 @@ function HierarchyTab({
                     name="role"
                     defaultValue={selectedStaff.role}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                    onChange={(e) => {
+                      const selectedRoleName = e.target.value
+                      const selectedRoleModule = modules?.find((m: any) => m.name === selectedRoleName)
+                      if (selectedRoleModule) {
+                        const defaultRule = selectedRoleModule.discountRules?.find((r: any) => r.isDefault) || selectedRoleModule.discountRules?.[0]
+                        if (defaultRule) {
+                          // 更新选中员工的角色和默认规则
+                          setSelectedStaff({
+                            ...selectedStaff,
+                            role: selectedRoleName,
+                            defaultDiscount: Math.round(Math.max(0, Math.min(1, Number(defaultRule.discountRate ?? 1))) * 100),
+                            defaultCommission: Math.round(Math.max(0, Math.min(1, Number(defaultRule.commissionRate ?? 0))) * 100)
+                          })
+                        }
+                      }
+                    }}
                   >
                     <option value="">请选择角色</option>
                     {modules?.map((roleModule: any) => (
@@ -2948,6 +2956,23 @@ function HierarchyTab({
                     ]}
                   </select>
                 </div>
+
+                {/* 显示角色默认折扣和返佣 */}
+                {selectedStaff.defaultDiscount && selectedStaff.defaultCommission && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">角色默认配置</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-blue-700">默认折扣：</span>
+                        <span className="font-semibold">{selectedStaff.defaultDiscount}%</span>
+                      </div>
+                      <div>
+                        <span className="text-blue-700">默认返佣：</span>
+                        <span className="font-semibold">{selectedStaff.defaultCommission}%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-2">备注说明</label>
@@ -2973,12 +2998,38 @@ function HierarchyTab({
                   if (selectedStaff && selectedStaff.account) {
                     const formData = new FormData(document.querySelector('form') as HTMLFormElement)
                     const nickname = formData.get('nickname') as string
+                    const role = formData.get('role') as string
                     
                     const updatedAccounts = accounts.map(account => {
                       if (String(account._id) === String(selectedStaff.account._id)) {
+                        const updates: any = { 
+                          nickname: nickname || account.nickname
+                        }
+                        
+                        // 保存头像更改
+                        if (selectedStaff.avatar !== account.avatar) {
+                          updates.avatar = selectedStaff.avatar
+                        }
+                        
+                        // 保存角色更改并设置默认折扣和返佣
+                        if (role && role !== selectedStaff.role) {
+                          const roleModule = modules?.find((m: any) => m.name === role)
+                          if (roleModule) {
+                            updates.roleModuleId = roleModule._id
+                            updates.roleModuleName = roleModule.name
+                            
+                            // 设置该角色的默认折扣规则
+                            const defaultRule = roleModule.discountRules?.find((r: any) => r.isDefault) || roleModule.discountRules?.[0]
+                            if (defaultRule) {
+                              updates.discountRuleId = defaultRule._id
+                              updates.distributionRate = Number(defaultRule.commissionRate ?? 0)
+                            }
+                          }
+                        }
+                        
                         return { 
                           ...account, 
-                          nickname: nickname || account.nickname
+                          ...updates
                         }
                       }
                       return account
