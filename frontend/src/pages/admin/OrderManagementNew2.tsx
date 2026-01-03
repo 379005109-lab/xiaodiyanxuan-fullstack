@@ -859,7 +859,7 @@ export default function OrderManagementNew2() {
                     onClick={() => setShowPaymentModal(true)}
                     className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
                   >
-                    测试按钮
+                    标记已付
                   </button>
                 )}
                 {/* 已付款 -> 发货 */}
@@ -890,9 +890,12 @@ export default function OrderManagementNew2() {
                     取消
                   </button>
                 )}
-                {/* 改价按钮 - 临时显示所有状态以测试部署 */}
+                {/* 改价按钮 */}
                 <button 
-                  onClick={() => openPriceModal(selectedOrder._id)}
+                  onClick={() => {
+                    console.log('改价按钮点击了', selectedOrder._id)
+                    openPriceModal(selectedOrder._id)
+                  }}
                   className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-1"
                 >
                   <Edit2 className="w-4 h-4" />
