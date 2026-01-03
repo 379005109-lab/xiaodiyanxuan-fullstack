@@ -681,7 +681,7 @@ const PackageManagementPage: React.FC = () => {
           })));
           
           // 尝试按分类过滤商品
-          // 如果没有匹配的商品，则显示所有商品让用户选择
+          // 扩展匹配逻辑：不仅匹配主分类，还要匹配所有子分类的商品
           let availableProducts = Array.isArray(allProducts) 
             ? allProducts.filter(p => {
                 if (!p.category) return false;
@@ -705,7 +705,12 @@ const PackageManagementPage: React.FC = () => {
                 // 按ID匹配或按名称匹配
                 const matchedById = pCategoryId && allCategoryIds.includes(pCategoryId);
                 const matchedByName = pCategoryName && allCategoryNames.includes(pCategoryName);
-                const matched = matchedById || matchedByName;
+                
+                // 宽松匹配：如果商品分类名包含选中分类名，也算匹配
+                // 例如："双人沙发"包含"沙发"，"电视柜"包含"柜"
+                const looseMatch = pCategoryName && pCategoryName.includes(category);
+                
+                const matched = matchedById || matchedByName || looseMatch;
                 
                 if (!matched && p.category) {
                   console.log('未匹配的商品:', p.name, '分类:', p.category, 'ID:', pCategoryId, '名称:', pCategoryName);
