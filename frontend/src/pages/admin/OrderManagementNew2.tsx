@@ -890,6 +890,16 @@ export default function OrderManagementNew2() {
                     取消
                   </button>
                 )}
+                {/* 改价按钮 - 仅待付款状态可改价 */}
+                {(selectedOrder.status === 1 || selectedOrder.status === 'pending') && (
+                  <button 
+                    onClick={() => openPriceModal(selectedOrder._id)}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-1"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    改价
+                  </button>
+                )}
                 {/* 导出订单清单图片按钮 */}
                 <button 
                   onClick={handleExportImages}
