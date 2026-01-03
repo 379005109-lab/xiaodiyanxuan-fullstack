@@ -893,8 +893,14 @@ export default function OrderManagementNew2() {
                 {/* 改价按钮 */}
                 <button 
                   onClick={() => {
+                    alert('改价按钮被点击了！订单ID: ' + selectedOrder._id)
                     console.log('改价按钮点击了', selectedOrder._id)
-                    openPriceModal(selectedOrder._id)
+                    try {
+                      openPriceModal(selectedOrder._id)
+                    } catch (error) {
+                      alert('openPriceModal函数错误: ' + error)
+                      console.error('openPriceModal错误:', error)
+                    }
                   }}
                   className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-1"
                 >
