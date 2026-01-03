@@ -2016,7 +2016,6 @@ function HierarchyTab({
       .reduce((s, x) => s + Math.max(0, Math.min(100, Math.floor(Number((x as any).distributionRate ?? 0) || 0))), 0)
   }
 
-  // 同一父节点下：子节点返佣合计 <= 父节点返佣上限（总部=40%）
   const getMaxVerticalCommissionPctForAccount = (accountId: string) => {
     const cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
     const parentKey = getParentKeyForAccount(cur)
@@ -2025,7 +2024,6 @@ function HierarchyTab({
     return Math.max(0, Math.min(100, parentMax - usedBySiblings))
   }
 
-  // 若历史数据出现超标（例如同一父节点下 40+23>40），自动按比例缩放到上限
   useEffect(() => {
     if (!accounts || accounts.length === 0) return
 
@@ -2095,8 +2093,6 @@ function HierarchyTab({
 
     if (changed) onSaveAccounts(next)
   }, [accountsCommissionKey, headquartersCommissionCapPct])
-
-  // distributionRate 的矫正已由上面的按父节点分组归一化处理
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('map')
   const [zoomScale, setZoomScale] = useState(1)
