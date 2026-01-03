@@ -241,13 +241,8 @@ export default function OrderManagementNew2() {
 
   // 打开改价弹窗
   const openPriceModal = (orderId: string) => {
-    console.log('openPriceModal被调用，订单ID:', orderId)
-    console.log('当前orders数组:', orders)
     const order = orders.find(o => o._id === orderId)
-    console.log('找到的订单:', order)
-    
     if (order) {
-      alert('找到了订单，准备打开弹窗')
       setSelectedOrderId(orderId)
       setNewPrice(order.totalAmount?.toString() || '0')
       setPriceReason('')
@@ -257,16 +252,11 @@ export default function OrderManagementNew2() {
       const products = getProducts(order)
       const prices: {[key: number]: string} = {}
       products.forEach((_, index) => {
-        prices[index] = '0' // 默认为0，用户需要填入新价格
+        prices[index] = '0'
       })
       setItemPrices(prices)
       
-      console.log('准备设置showPriceModal为true')
       setShowPriceModal(true)
-      alert('已调用setShowPriceModal(true)')
-    } else {
-      alert('没有找到订单，orderId: ' + orderId)
-      console.log('没有找到订单，orderId:', orderId)
     }
   }
 
@@ -900,23 +890,16 @@ export default function OrderManagementNew2() {
                     取消
                   </button>
                 )}
-                {/* 改价按钮 */}
-                <button 
-                  onClick={() => {
-                    alert('改价按钮被点击了！订单ID: ' + selectedOrder._id)
-                    console.log('改价按钮点击了', selectedOrder._id)
-                    try {
-                      openPriceModal(selectedOrder._id)
-                    } catch (error) {
-                      alert('openPriceModal函数错误: ' + error)
-                      console.error('openPriceModal错误:', error)
-                    }
-                  }}
-                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-1"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  测试改价按钮
-                </button>
+                {/* 改价按钮 - 仅待付款状态可改价 */}
+                {(selectedOrder.status === 1 || selectedOrder.status === 'pending') && (
+                  <button 
+                    onClick={() => openPriceModal(selectedOrder._id)}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-1"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    改价
+                  </button>
+                )}
                 {/* 导出订单清单图片按钮 */}
                 <button 
                   onClick={handleExportImages}
@@ -1720,11 +1703,11 @@ export default function OrderManagementNew2() {
       </div>
 
       {/* 改价弹窗 */}
-      {showPriceModal && selectedOrder && (
+      {showPriceModal && selectedOrderId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">订单改价</h3>
-            <p className="text-sm text-gray-500 mb-4">订单号: {selectedOrder.orderNo}</p>
+            <p className="text-sm text-gray-500 mb-4">订单号: {orders.find(o => o._id === selectedOrderId)?.orderNo}</p>
             
             {/* 改价模式选择 */}
             <div className="mb-6">
@@ -1759,7 +1742,7 @@ export default function OrderManagementNew2() {
                 原价格
               </label>
               <div className="text-lg font-bold text-gray-400 line-through">
-                ¥{formatPrice(selectedOrder.totalAmount)}
+                ¥{formatPrice(orders.find(o => o._id === selectedOrderId)?.totalAmount || 0)}
               </div>
             </div>
             
@@ -1788,7 +1771,8 @@ export default function OrderManagementNew2() {
                 </label>
                 <div className="border border-gray-200 rounded-xl overflow-hidden">
                   {(() => {
-                    const products = getProducts(selectedOrder)
+                    const currentOrder = orders.find(o => o._id === selectedOrderId)
+                    const products = currentOrder ? getProducts(currentOrder) : []
                     let totalItemPrice = 0
                     Object.values(itemPrices).forEach(price => {
                       totalItemPrice += parseFloat(price || '0')
