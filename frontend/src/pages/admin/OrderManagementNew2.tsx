@@ -1599,7 +1599,7 @@ export default function OrderManagementNew2() {
                 const buyerInitial = buyerName.charAt(0)
                 
                 return (
-                  <tr key={order._id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedOrderId(order._id)}>
+                  <tr key={order._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div>
                         <div className="flex items-center gap-2">
