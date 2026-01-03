@@ -2893,10 +2893,16 @@ function HierarchyTab({
               >
                 {hierarchyGraph.edges.map((e) => {
                   const renderNodeIdSet = new Set<string>(['headquarters', ...visibleStaffNodesForRender.map(s => String(s.id))])
-                  if (!renderNodeIdSet.has(String(e.from)) || !renderNodeIdSet.has(String(e.to))) return null
+                  if (!renderNodeIdSet.has(String(e.from)) || !renderNodeIdSet.has(String(e.to))) {
+                    console.log('Edge filtered out:', e.from, '->', e.to, 'renderNodeIdSet:', Array.from(renderNodeIdSet))
+                    return null
+                  }
                   const fromPos = nodePositions[String(e.from)]
                   const toPos = nodePositions[String(e.to)]
-                  if (!fromPos || !toPos) return null
+                  if (!fromPos || !toPos) {
+                    console.log('Missing positions:', e.from, fromPos, e.to, toPos)
+                    return null
+                  }
 
                   const fromSize = e.from === 'headquarters' ? { w: 280, h: 200 } : { w: 240, h: 160 }
                   const toSize = e.to === 'headquarters' ? { w: 280, h: 200 } : { w: 240, h: 160 }
