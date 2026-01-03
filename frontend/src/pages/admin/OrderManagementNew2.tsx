@@ -241,8 +241,13 @@ export default function OrderManagementNew2() {
 
   // 打开改价弹窗
   const openPriceModal = (orderId: string) => {
+    console.log('openPriceModal被调用，订单ID:', orderId)
+    console.log('当前orders数组:', orders)
     const order = orders.find(o => o._id === orderId)
+    console.log('找到的订单:', order)
+    
     if (order) {
+      alert('找到了订单，准备打开弹窗')
       setSelectedOrderId(orderId)
       setNewPrice(order.totalAmount?.toString() || '0')
       setPriceReason('')
@@ -256,7 +261,12 @@ export default function OrderManagementNew2() {
       })
       setItemPrices(prices)
       
+      console.log('准备设置showPriceModal为true')
       setShowPriceModal(true)
+      alert('已调用setShowPriceModal(true)')
+    } else {
+      alert('没有找到订单，orderId: ' + orderId)
+      console.log('没有找到订单，orderId:', orderId)
     }
   }
 
