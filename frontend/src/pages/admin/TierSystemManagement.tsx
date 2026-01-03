@@ -2016,13 +2016,26 @@ function HierarchyTab({
       .reduce((s, x) => s + Math.max(0, Math.min(100, Math.floor(Number((x as any).distributionRate ?? 0) || 0))), 0)
   }, [accounts, getParentKeyForAccount])
 
+  const getVerticalChainCommissionSum = useCallback((accountId: string) => {
+    let sum = 0
+    let cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
+    
+    while (cur && cur.parentId) {
+      const commission = Math.max(0, Math.min(100, Math.floor(Number((cur as any).distributionRate ?? 0) || 0)))
+      sum += commission
+      
+      const parentId = String(cur.parentId)
+      cur = (accounts || []).find((x) => String(x._id) === parentId) || null
+    }
+    
+    return sum
+  }, [accounts])
+
   const getMaxVerticalCommissionPctForAccount = useCallback((accountId: string) => {
-    const cur = (accounts || []).find((x) => String(x._id) === String(accountId)) || null
-    const parentKey = getParentKeyForAccount(cur)
-    const parentMax = getParentMaxCommissionPct(parentKey)
-    const usedBySiblings = getChildrenSumCommissionPct(parentKey, String(accountId))
-    return Math.max(0, Math.min(100, parentMax - usedBySiblings))
-  }, [accounts, getParentKeyForAccount, getParentMaxCommissionPct, getChildrenSumCommissionPct])
+    const verticalChainSum = getVerticalChainCommissionSum(accountId)
+    const remaining = Math.max(0, headquartersCommissionCapPct - verticalChainSum)
+    return Math.max(0, Math.min(100, remaining))
+  }, [accounts, getVerticalChainCommissionSum, headquartersCommissionCapPct])
 
   useEffect(() => {
     if (!accounts || accounts.length === 0) return
@@ -2476,14 +2489,14 @@ function HierarchyTab({
     items.push({ id: 'headquarters', label: hierarchyData.headquarters?.name || '总部' })
     hierarchyData.staffNodes.forEach((s) => {
       const n = String(s.name || s.id || '').toLowerCase()
-      const e = String(s.account?.email || '').toLowerCase()
+      const e = String(s.account?.email || s.email || '').toLowerCase()
       const p = String(s.phone || '').toLowerCase()
       const r = modules.find(m => String(m._id) === String(s.account?.roleModuleId))?.name || ''
       if (n.includes(q) || e.includes(q) || p.includes(q) || r.toLowerCase().includes(q)) {
         items.push({
           id: String(s.id),
           label: String(s.name || s.id || ''),
-          extra: [s.account?.email, s.phone, r].filter(Boolean).join(' · ')
+          extra: [s.account?.email || s.email, s.phone, r].filter(Boolean).join(' · ')
         })
       }
     })
