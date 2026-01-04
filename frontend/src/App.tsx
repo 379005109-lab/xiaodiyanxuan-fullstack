@@ -74,7 +74,6 @@ const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationMa
 const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingServiceRequestsPage'))
 const ActivityDashboard = lazy(() => import('./pages/admin/ActivityDashboard'))
 const ManufacturerManagement = lazy(() => import('./pages/admin/ManufacturerManagement'))
-const AdminManufacturerCenter = lazy(() => import('./pages/admin/AdminManufacturerCenter'))
 const ManufacturerProductAuthorization = lazy(() => import('./pages/admin/ManufacturerProductAuthorization'))
 const EliteManufacturerManagement = lazy(() => import('./pages/admin/EliteManufacturerManagement'))
 const EliteManufacturerProductAuthorization = lazy(() => import('./pages/admin/EliteManufacturerProductAuthorization'))
@@ -302,7 +301,7 @@ const ManufacturersRoute = () => {
 
   const hasManufacturerId = Boolean((user as any)?.manufacturerId)
 
-  if (isAdmin) return <AdminManufacturerCenter />
+  if (isAdmin) return <ManufacturerManagement />
   if (hasManufacturerId) return <ManufacturerManagement />
   return <EliteManufacturerManagement />
 }
@@ -517,9 +516,9 @@ function App() {
             <Route path="customization" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
             <Route path="activity" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
-            <Route path="manufacturers" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturersRoute /></ProtectedRoute>} />
-            <Route path="manufacturers/:manufacturerId/product-authorization" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><EliteManufacturerProductAuthorization /></ProtectedRoute>} />
-            <Route path="manufacturers/authorization-requests" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerAuthorizationRequests /></ProtectedRoute>} />
+            <Route path="manufacturers" element={<ManufacturersRoute />} />
+            <Route path="manufacturers/:manufacturerId/product-authorization" element={<EliteManufacturerProductAuthorization />} />
+            <Route path="manufacturers/authorization-requests" element={<ManufacturerAuthorizationRequests />} />
             <Route path="authorizations" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><AuthorizationManagement /></ProtectedRoute>} />
             <Route path="referrals" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><ManufacturerOrderManagement /></ProtectedRoute>} />
