@@ -114,6 +114,13 @@ const manufacturerSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
+    smsNotifyPhone: {
+      type: String,
+      trim: true
+    },
+    smsNotifyVerifiedAt: {
+      type: Date
+    },
     // 微信收款码
     wechatQrCode: {
       type: String

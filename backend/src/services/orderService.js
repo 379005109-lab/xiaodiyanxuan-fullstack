@@ -5,6 +5,7 @@ const Coupon = require('../models/Coupon')
 const Product = require('../models/Product')
 const Manufacturer = require('../models/Manufacturer')
 const ManufacturerOrder = require('../models/ManufacturerOrder')
+const { sendNewOrderNotification } = require('./smsService')
 const { generateOrderNo, calculatePagination } = require('../utils/helpers')
 const { ORDER_STATUS } = require('../config/constants')
 const { NotFoundError, ValidationError } = require('../utils/errors')
@@ -197,6 +198,30 @@ const dispatchOrderToManufacturers = async (order) => {
       }]
     })
     createdOrders.push(manufacturerOrder)
+
+    try {
+      if (group.manufacturerId) {
+        const manufacturer = await Manufacturer.findById(group.manufacturerId)
+          .select('settings.smsNotifyPhone')
+          .lean()
+        const phone = manufacturer?.settings?.smsNotifyPhone
+        if (phone) {
+          const itemCount = (group.items || []).reduce((s, it) => s + Number(it.quantity || 0), 0)
+          const notifyPayload = {
+            orderNo: order.orderNo,
+            count: String(itemCount || 0),
+            amount: String(Number(group.totalAmount || 0)),
+            time: new Date().toLocaleString('zh-CN')
+          }
+          const result = await sendNewOrderNotification(phone, notifyPayload)
+          if (!result?.success) {
+            console.error('📱 [SMS] 新订单通知发送失败:', { phone, orderNo: order.orderNo, message: result?.message })
+          }
+        }
+      }
+    } catch (err) {
+      console.error('📱 [SMS] 新订单通知异常:', err)
+    }
   }
 
   await Order.updateOne(

@@ -6,6 +6,7 @@ const Manufacturer = require('../models/Manufacturer');
 const mongoose = require('mongoose');
 const { auth, requireRole } = require('../middleware/auth')
 const { USER_ROLES } = require('../config/constants')
+const { sendVerificationCode, verifyCode } = require('../services/smsService')
 
 const ADMIN_ROLES = [
   USER_ROLES.SUPER_ADMIN,
@@ -391,6 +392,104 @@ const verifyManufacturer = async (req, res, next) => {
   }
 };
 
+router.post('/manufacturer/sms/send-code', verifyManufacturer, async (req, res) => {
+  try {
+    const { phone } = req.body || {}
+    if (!phone) {
+      return res.status(400).json({ success: false, message: '请输入手机号' })
+    }
+
+    const result = await sendVerificationCode(phone)
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message || '发送失败' })
+    }
+
+    res.json({ success: true, message: '验证码已发送' })
+  } catch (error) {
+    console.error('厂家发送验证码失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+router.post('/manufacturer/sms/bind', verifyManufacturer, async (req, res) => {
+  try {
+    const { phone, code } = req.body || {}
+    if (!phone || !code) {
+      return res.status(400).json({ success: false, message: '请输入手机号和验证码' })
+    }
+
+    const ok = verifyCode(phone, code)
+    if (!ok) {
+      return res.status(400).json({ success: false, message: '验证码无效或已过期' })
+    }
+
+    const manufacturer = await Manufacturer.findById(req.manufacturerId)
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    manufacturer.settings = {
+      ...(manufacturer.settings || {}),
+      smsNotifyPhone: phone,
+      smsNotifyVerifiedAt: new Date()
+    }
+    await manufacturer.save()
+
+    res.json({
+      success: true,
+      message: '绑定成功',
+      data: {
+        smsNotifyPhone: manufacturer.settings?.smsNotifyPhone || '',
+        smsNotifyVerifiedAt: manufacturer.settings?.smsNotifyVerifiedAt || null
+      }
+    })
+  } catch (error) {
+    console.error('厂家绑定手机号失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+router.post('/manufacturer/sms/unbind', verifyManufacturer, async (req, res) => {
+  try {
+    const manufacturer = await Manufacturer.findById(req.manufacturerId)
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    manufacturer.settings = {
+      ...(manufacturer.settings || {}),
+      smsNotifyPhone: '',
+      smsNotifyVerifiedAt: null
+    }
+    await manufacturer.save()
+
+    res.json({ success: true, message: '已解绑' })
+  } catch (error) {
+    console.error('厂家解绑手机号失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+router.get('/manufacturer/sms/status', verifyManufacturer, async (req, res) => {
+  try {
+    const manufacturer = await Manufacturer.findById(req.manufacturerId).select('settings.smsNotifyPhone settings.smsNotifyVerifiedAt')
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    res.json({
+      success: true,
+      data: {
+        smsNotifyPhone: manufacturer.settings?.smsNotifyPhone || '',
+        smsNotifyVerifiedAt: manufacturer.settings?.smsNotifyVerifiedAt || null
+      }
+    })
+  } catch (error) {
+    console.error('获取短信绑定状态失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
 // 获取厂家自己的订单列表
 router.get('/manufacturer/orders', verifyManufacturer, async (req, res) => {
   try {
@@ -597,12 +696,13 @@ router.put('/manufacturer/profile', verifyManufacturer, async (req, res) => {
     if (logo !== undefined) manufacturer.logo = logo;
 
     if (settings && typeof settings === 'object') {
+      const { smsNotifyPhone, smsNotifyVerifiedAt, ...restSettings } = settings
       manufacturer.settings = {
         ...(manufacturer.settings || {}),
-        ...settings,
+        ...restSettings,
         bankInfo: {
           ...(manufacturer.settings?.bankInfo || {}),
-          ...(settings.bankInfo || {})
+          ...(restSettings.bankInfo || {})
         }
       };
     }

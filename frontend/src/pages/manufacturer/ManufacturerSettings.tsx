@@ -27,6 +27,16 @@ export default function ManufacturerSettingsPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [smsLoading, setSmsLoading] = useState(false)
+  const [smsSending, setSmsSending] = useState(false)
+  const [smsBinding, setSmsBinding] = useState(false)
+  const [smsCountdown, setSmsCountdown] = useState(0)
+  const [smsStatus, setSmsStatus] = useState<{ phone: string; verifiedAt: string | null }>({
+    phone: '',
+    verifiedAt: null
+  })
+  const [smsPhoneInput, setSmsPhoneInput] = useState('')
+  const [smsCodeInput, setSmsCodeInput] = useState('')
   const [formData, setFormData] = useState<ManufacturerSettings>({
     logo: '',
     settings: {
@@ -47,6 +57,14 @@ export default function ManufacturerSettingsPage() {
   useEffect(() => {
     loadManufacturerInfo()
   }, [])
+
+  useEffect(() => {
+    if (smsCountdown <= 0) return
+    const t = setInterval(() => {
+      setSmsCountdown(prev => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(t)
+  }, [smsCountdown])
 
   const loadManufacturerInfo = async () => {
     try {
@@ -79,11 +97,117 @@ export default function ManufacturerSettingsPage() {
           }
         })
       }
+
+      await loadSmsStatus()
     } catch (error) {
       console.error('加载厂家信息失败:', error)
       toast.error('加载信息失败')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadSmsStatus = async () => {
+    try {
+      setSmsLoading(true)
+      const token = localStorage.getItem('manufacturerToken')
+      const res = await apiClient.get('/manufacturer-orders/manufacturer/sms/status', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.data?.success) {
+        setSmsStatus({
+          phone: res.data.data?.smsNotifyPhone || '',
+          verifiedAt: res.data.data?.smsNotifyVerifiedAt || null
+        })
+      }
+    } catch (error) {
+      console.error('加载短信绑定状态失败:', error)
+    } finally {
+      setSmsLoading(false)
+    }
+  }
+
+  const handleSendSmsCode = async () => {
+    if (!smsPhoneInput) {
+      toast.error('请输入手机号')
+      return
+    }
+    try {
+      setSmsSending(true)
+      const token = localStorage.getItem('manufacturerToken')
+      const res = await apiClient.post(
+        '/manufacturer-orders/manufacturer/sms/send-code',
+        { phone: smsPhoneInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (res.data?.success) {
+        toast.success('验证码已发送')
+        setSmsCountdown(60)
+      } else {
+        toast.error(res.data?.message || '发送失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '发送失败')
+    } finally {
+      setSmsSending(false)
+    }
+  }
+
+  const handleBindSmsPhone = async () => {
+    if (!smsPhoneInput || !smsCodeInput) {
+      toast.error('请输入手机号和验证码')
+      return
+    }
+    try {
+      setSmsBinding(true)
+      const token = localStorage.getItem('manufacturerToken')
+      const res = await apiClient.post(
+        '/manufacturer-orders/manufacturer/sms/bind',
+        { phone: smsPhoneInput, code: smsCodeInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (res.data?.success) {
+        toast.success('绑定成功')
+        setSmsCodeInput('')
+        await loadSmsStatus()
+      } else {
+        toast.error(res.data?.message || '绑定失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '绑定失败')
+    } finally {
+      setSmsBinding(false)
+    }
+  }
+
+  const handleUnbindSmsPhone = async () => {
+    try {
+      setSmsBinding(true)
+      const token = localStorage.getItem('manufacturerToken')
+      const res = await apiClient.post(
+        '/manufacturer-orders/manufacturer/sms/unbind',
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (res.data?.success) {
+        toast.success('已解绑')
+        await loadSmsStatus()
+      } else {
+        toast.error(res.data?.message || '解绑失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '解绑失败')
+    } finally {
+      setSmsBinding(false)
+    }
+  }
+
+  const formatVerifiedAt = (v: string | null) => {
+    if (!v) return ''
+    try {
+      return new Date(v).toLocaleString('zh-CN')
+    } catch {
+      return String(v)
     }
   }
 
@@ -190,6 +314,79 @@ export default function ManufacturerSettingsPage() {
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             保存设置
           </button>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Phone className="w-5 h-5 text-cyan-600" />
+              短信通知绑定
+            </h2>
+            {smsLoading ? (
+              <div className="text-sm text-gray-400">加载中...</div>
+            ) : smsStatus.phone ? (
+              <div className="text-sm text-gray-600">
+                已绑定：<span className="font-medium">{smsStatus.phone}</span>
+                {smsStatus.verifiedAt ? (
+                  <span className="text-gray-400">（{formatVerifiedAt(smsStatus.verifiedAt)}）</span>
+                ) : null}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400">未绑定</div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">手机号</label>
+              <input
+                type="tel"
+                value={smsPhoneInput}
+                onChange={(e) => setSmsPhoneInput(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                placeholder="请输入手机号"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">验证码</label>
+              <input
+                type="text"
+                value={smsCodeInput}
+                onChange={(e) => setSmsCodeInput(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                placeholder="请输入验证码"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <button
+                onClick={handleSendSmsCode}
+                disabled={smsSending || smsCountdown > 0}
+                className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {smsCountdown > 0 ? `${smsCountdown}s` : '发送验证码'}
+              </button>
+              <button
+                onClick={handleBindSmsPhone}
+                disabled={smsBinding}
+                className="px-4 py-2.5 bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                绑定
+              </button>
+              {smsStatus.phone ? (
+                <button
+                  onClick={handleUnbindSmsPhone}
+                  disabled={smsBinding}
+                  className="px-4 py-2.5 border border-red-200 text-red-600 rounded-xl hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  解绑
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-3 text-xs text-gray-500">
+            绑定后，当有新订单分发到该厂家时，将向此手机号发送短信提醒。
+          </div>
         </div>
 
         {/* 公司LOGO */}

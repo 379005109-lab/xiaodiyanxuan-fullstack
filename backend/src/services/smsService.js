@@ -14,6 +14,50 @@ const SMS_CONFIG = {
   templateCode: process.env.ALIYUN_SMS_TEMPLATE_CODE || 'SMS_498875086' // 登录模板（包含time变量）
 }
 
+const sendTemplateSms = async (phone, templateCode, templateParam) => {
+  if (!/^1[3-9]\d{9}$/.test(phone)) {
+    return { success: false, message: '手机号格式不正确' }
+  }
+
+  try {
+    if (!SMS_CONFIG.accessKeyId || !SMS_CONFIG.accessKeySecret) {
+      console.error('📱 [SMS] 阿里云短信配置缺失')
+      return { success: false, message: '短信服务未配置' }
+    }
+    if (!templateCode) {
+      return { success: false, message: '短信模板未配置' }
+    }
+
+    const client = createClient()
+    const sendSmsRequest = new Dysmsapi20170525.SendSmsRequest({
+      phoneNumbers: phone,
+      signName: SMS_CONFIG.signName,
+      templateCode,
+      templateParam: JSON.stringify(templateParam || {})
+    })
+
+    const runtime = new Util.RuntimeOptions({})
+    const response = await client.sendSmsWithOptions(sendSmsRequest, runtime)
+
+    console.log(`📱 [SMS] 发送模板短信到 ${phone}, 响应:`, JSON.stringify(response.body))
+
+    if (response.body.code === 'OK') {
+      return { success: true, message: '发送成功' }
+    }
+
+    console.error(`📱 [SMS] 发送失败:`, response.body.message)
+    return { success: false, message: response.body.message || '发送失败' }
+  } catch (error) {
+    console.error(`📱 [SMS] 发送异常:`, error)
+    return { success: false, message: '短信发送失败，请稍后重试' }
+  }
+}
+
+const sendNewOrderNotification = async (phone, payload) => {
+  const templateCode = process.env.ALIYUN_SMS_NEW_ORDER_TEMPLATE_CODE || ''
+  return sendTemplateSms(phone, templateCode, payload)
+}
+
 // 验证码存储（生产环境应使用Redis）
 const verificationCodes = new Map()
 
@@ -139,5 +183,7 @@ const verifyCode = (phone, code) => {
 
 module.exports = {
   sendVerificationCode,
-  verifyCode
+  verifyCode,
+  sendTemplateSms,
+  sendNewOrderNotification
 }
