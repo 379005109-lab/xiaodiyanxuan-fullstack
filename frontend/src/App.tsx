@@ -74,6 +74,7 @@ const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationMa
 const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingServiceRequestsPage'))
 const ActivityDashboard = lazy(() => import('./pages/admin/ActivityDashboard'))
 const ManufacturerManagement = lazy(() => import('./pages/admin/ManufacturerManagement'))
+const AdminManufacturerCenter = lazy(() => import('./pages/admin/AdminManufacturerCenter'))
 const ManufacturerProductAuthorization = lazy(() => import('./pages/admin/ManufacturerProductAuthorization'))
 const EliteManufacturerManagement = lazy(() => import('./pages/admin/EliteManufacturerManagement'))
 const EliteManufacturerProductAuthorization = lazy(() => import('./pages/admin/EliteManufacturerProductAuthorization'))
@@ -301,7 +302,7 @@ const ManufacturersRoute = () => {
 
   const hasManufacturerId = Boolean((user as any)?.manufacturerId)
 
-  if (isAdmin) return <ManufacturerManagement />
+  if (isAdmin) return <AdminManufacturerCenter />
   if (hasManufacturerId) return <ManufacturerManagement />
   return <EliteManufacturerManagement />
 }
