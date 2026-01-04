@@ -893,7 +893,13 @@ export default function OrderManagementNew2() {
                 {/* 改价按钮 - 仅待付款状态可改价 */}
                 {(selectedOrder.status === 1 || selectedOrder.status === 'pending') && (
                   <button 
-                    onClick={() => openPriceModal(selectedOrder._id)}
+                    onClick={() => {
+                      if (showPriceModal) {
+                        setShowPriceModal(false)
+                        return
+                      }
+                      openPriceModal(selectedOrder._id)
+                    }}
                     className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-1"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -944,6 +950,134 @@ export default function OrderManagementNew2() {
                       {s.label}
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {showPriceModal && (selectedOrder.status === 1 || selectedOrder.status === 'pending') && (
+              <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
+                <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                  <div className="text-sm font-semibold text-gray-900">改价</div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPriceEditMode('flat')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        priceEditMode === 'flat'
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      整单一口价
+                    </button>
+                    <button
+                      onClick={() => setPriceEditMode('itemized')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        priceEditMode === 'itemized'
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      商品逐项
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <div className="text-xs text-gray-500">原价格</div>
+                  <div className="text-base font-semibold text-gray-400 line-through">
+                    ¥{formatPrice(selectedOrder.totalAmount)}
+                  </div>
+                </div>
+
+                {priceEditMode === 'flat' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">新总价</div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={newPrice}
+                        onChange={(e) => setNewPrice(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                        placeholder="请输入新总价"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">改价原因（可选）</div>
+                      <input
+                        type="text"
+                        value={priceReason}
+                        onChange={(e) => setPriceReason(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                        placeholder="如：优惠活动"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-xs text-gray-600">逐项输入每个商品的新价格（按行）</div>
+                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      {products.map((p: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`flex items-center gap-3 px-3 py-2 ${idx > 0 ? 'border-t border-gray-100' : ''}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">{p.name}</div>
+                            <div className="text-xs text-gray-500">x{p.quantity}</div>
+                          </div>
+                          <div className="w-40">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={itemPrices[idx] || ''}
+                              onChange={(e) =>
+                                setItemPrices((prev) => ({
+                                  ...prev,
+                                  [idx]: e.target.value,
+                                }))
+                              }
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                              placeholder="该商品新价格"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      <div className="bg-gray-50 px-3 py-2 flex items-center justify-between border-t border-gray-200">
+                        <div className="text-sm font-medium text-gray-700">新总价（自动汇总）</div>
+                        <div className="text-base font-bold text-orange-700">
+                          ¥{formatPrice(
+                            Object.values(itemPrices).reduce((sum, v) => sum + parseFloat(v || '0'), 0)
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">改价原因（可选）</div>
+                      <input
+                        type="text"
+                        value={priceReason}
+                        onChange={(e) => setPriceReason(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                        placeholder="如：优惠活动"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={() => setShowPriceModal(false)}
+                    className="px-4 py-2 border border-gray-200 rounded-lg hover:bg-white text-sm"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleChangePrice}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm"
+                  >
+                    保存
+                  </button>
                 </div>
               </div>
             )}
@@ -1701,162 +1835,6 @@ export default function OrderManagementNew2() {
           </tbody>
         </table>
       </div>
-
-      {/* 改价弹窗 */}
-      {showPriceModal && selectedOrderId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">订单改价</h3>
-            <p className="text-sm text-gray-500 mb-4">订单号: {orders.find(o => o._id === selectedOrderId)?.orderNo}</p>
-            
-            {/* 改价模式选择 */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">改价方式</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPriceEditMode('flat')}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    priceEditMode === 'flat'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  整单一口价
-                </button>
-                <button
-                  onClick={() => setPriceEditMode('itemized')}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    priceEditMode === 'itemized'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  商品逐项改价
-                </button>
-              </div>
-            </div>
-
-            {/* 原价格显示 */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                原价格
-              </label>
-              <div className="text-lg font-bold text-gray-400 line-through">
-                ¥{formatPrice(orders.find(o => o._id === selectedOrderId)?.totalAmount || 0)}
-              </div>
-            </div>
-            
-            {priceEditMode === 'flat' ? (
-              /* 一口价模式 */
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    新价格 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                    placeholder="请输入新价格"
-                  />
-                </div>
-              </div>
-            ) : (
-              /* 逐项改价模式 */
-              <div className="space-y-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  商品价格明细 <span className="text-red-500">*</span>
-                </label>
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                  {(() => {
-                    const currentOrder = orders.find(o => o._id === selectedOrderId)
-                    const products = currentOrder ? getProducts(currentOrder) : []
-                    let totalItemPrice = 0
-                    Object.values(itemPrices).forEach(price => {
-                      totalItemPrice += parseFloat(price || '0')
-                    })
-                    
-                    return (
-                      <>
-                        {products.map((product, index) => (
-                          <div key={index} className={`flex items-center gap-4 p-4 ${index > 0 ? 'border-t border-gray-100' : ''}`}>
-                            <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                              {product.image ? (
-                                <img 
-                                  src={getFileUrl(product.image)} 
-                                  alt={product.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                  <Package className="w-6 h-6" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900 truncate">{product.name}</div>
-                              <div className="text-sm text-gray-500">x{product.quantity}</div>
-                            </div>
-                            <div className="w-32">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={itemPrices[index] || ''}
-                                onChange={(e) => setItemPrices(prev => ({
-                                  ...prev,
-                                  [index]: e.target.value
-                                }))}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                placeholder="价格"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                        <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-t border-gray-200">
-                          <span className="font-medium text-gray-700">总计</span>
-                          <span className="text-lg font-bold text-blue-600">
-                            ¥{formatPrice(totalItemPrice)}
-                          </span>
-                        </div>
-                      </>
-                    )
-                  })()}
-                </div>
-              </div>
-            )}
-            
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                改价原因（可选）
-              </label>
-              <input
-                type="text"
-                value={priceReason}
-                onChange={(e) => setPriceReason(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                placeholder="如：优惠活动、会员折扣等"
-              />
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowPriceModal(false)}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleChangePrice}
-                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
-              >
-                确认改价
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
