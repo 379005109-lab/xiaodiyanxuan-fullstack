@@ -726,20 +726,6 @@ export default function ManufacturerManagement() {
           厂家管理
         </h1>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              const manufacturerToken = localStorage.getItem('manufacturerToken')
-              if (manufacturerToken) {
-                window.open('/manufacturer/orders', '_blank')
-              } else {
-                window.open('/manufacturer/login', '_blank')
-              }
-            }}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Factory className="w-4 h-4" />
-            厂家中心
-          </button>
           {isAdmin && (
             <button
               onClick={openCreateModal}
@@ -1101,6 +1087,13 @@ export default function ManufacturerManagement() {
                         >
                           <Key className="w-4 h-4" />
                           账号
+                        </button>
+                        <button
+                          onClick={() => navigate(`/admin/manufacturer-orders?manufacturerId=${item._id}`)}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                        >
+                          <Factory className="w-4 h-4" />
+                          订单
                         </button>
                         <button
                           onClick={() => openSmsModal(item)}

@@ -21,9 +21,6 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState<any[]>([])
 
-  const hasManufacturerToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('manufacturerToken'))
-  const manufacturerSettingsEntry = hasManufacturerToken ? '/manufacturer/settings' : '/manufacturer/login'
-
   // 加载通知数据
   useEffect(() => {
     // 延迟加载通知，避免阻塞页面渲染
@@ -301,7 +298,7 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
                 </button>
 
                 <button
-                  onClick={() => { navigate(manufacturerSettingsEntry); setShowSettings(false); }}
+                  onClick={() => { navigate('/admin/manufacturers'); setShowSettings(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <Factory className="h-4 w-4" />
