@@ -299,6 +299,13 @@ router.get('/order/:orderId', auth, requireRole(ADMIN_ROLES), async (req, res) =
 
 // ========== 厂家端专用 API ==========
 
+router.use('/manufacturer', (req, res) => {
+  return res.status(410).json({
+    success: false,
+    message: '厂家中心已下线，请联系管理员在后台厂家管理中操作'
+  })
+})
+
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'xiaodi-secret-key';
 

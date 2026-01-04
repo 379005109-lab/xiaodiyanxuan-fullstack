@@ -90,9 +90,6 @@ const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManageme
 const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
 
 // 厂家端页面
-const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
-const ManufacturerOrders = lazy(() => import('./pages/manufacturer/ManufacturerOrders'))
-const ManufacturerSettings = lazy(() => import('./pages/manufacturer/ManufacturerSettings'))
 
  const ADMIN_ACCESS_ROLES: UserRole[] = [
    'admin',
@@ -529,11 +526,6 @@ function App() {
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
             <Route path="tier-system" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
           </Route>
-
-          {/* 厂家端路由 */}
-          <Route path="/manufacturer/login" element={<ManufacturerLogin />} />
-          <Route path="/manufacturer/orders" element={<ManufacturerOrders />} />
-          <Route path="/manufacturer/settings" element={<ManufacturerSettings />} />
 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight, Camera, Factory } from 'lucide-react'
+import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight, Camera } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useCartStore } from '@/store/cartStore'
@@ -27,9 +27,6 @@ export default function Header() {
   const isAdminUser = Boolean(user?.permissions?.canAccessAdmin) ||
     ['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin'].includes(user?.role as any)
   const canEnterAdminPanel = isAdminUser || user?.role === 'designer'
-
-  const hasManufacturerToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('manufacturerToken'))
-  const manufacturerEntryPath = hasManufacturerToken ? '/manufacturer/orders' : '/manufacturer/login'
   
   // 分类悬浮窗口状态
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
@@ -393,15 +390,6 @@ export default function Header() {
                   >
                     <MapPin className="w-4 h-4" />
                     我的地址
-                  </Link>
-
-                  <Link
-                    to={manufacturerEntryPath}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                    onClick={() => setUserMenuOpen(false)}
-                  >
-                    <Factory className="w-4 h-4 mr-2" />
-                    厂家中心
                   </Link>
                   
                   {/* 管理后台入口 - 仅管理员可见 */}
