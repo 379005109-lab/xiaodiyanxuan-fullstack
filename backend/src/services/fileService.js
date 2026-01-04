@@ -42,9 +42,10 @@ class FileService {
    * @param {Buffer} fileBuffer - 文件内容
    * @param {String} originalName - 原始文件名
    * @param {String} mimeType - 文件类型
+   * @param {Object} extraMetadata - 额外元数据（如 ownerManufacturerId, ownerUserId, assetFolderName）
    * @returns {Promise<Object>} - { fileId, filename, url }
    */
-  static async uploadToGridFS(fileBuffer, originalName, mimeType) {
+  static async uploadToGridFS(fileBuffer, originalName, mimeType, extraMetadata = {}) {
     return new Promise((resolve, reject) => {
       console.log(`📁 [GridFS] 开始上传: ${originalName}, 大小: ${(fileBuffer.length / 1024 / 1024).toFixed(2)}MB`);
       
@@ -64,6 +65,7 @@ class FileService {
           originalName: originalName,
           uploadedAt: new Date(),
           mimeType: mimeType,
+          ...(extraMetadata && typeof extraMetadata === 'object' ? extraMetadata : {}),
         },
       });
 
@@ -270,6 +272,115 @@ class FileService {
     } catch (err) {
       throw err;
     }
+  }
+
+  static async uploadWithMetadata(fileBuffer, originalName, mimeType, storage = 'gridfs', extraMetadata = {}) {
+    if (storage === 'oss' && process.env.OSS_REGION) {
+      return await this.uploadToOSS(fileBuffer, originalName, mimeType)
+    }
+    return await this.uploadToGridFS(fileBuffer, originalName, mimeType, extraMetadata)
+  }
+
+  static async listFiles({
+    ownerManufacturerId,
+    ownerUserId,
+    assetFolderName,
+    keyword,
+    mimePrefix,
+    page = 1,
+    limit = 50,
+  }) {
+    const gridFSBucket = ensureGridFSBucket()
+    if (!gridFSBucket) {
+      throw new Error('GridFSBucket 未初始化')
+    }
+
+    const safePage = Math.max(1, parseInt(page, 10) || 1)
+    const safeLimit = Math.min(200, Math.max(1, parseInt(limit, 10) || 50))
+    const skip = (safePage - 1) * safeLimit
+
+    const query = {}
+    if (ownerManufacturerId) query['metadata.ownerManufacturerId'] = String(ownerManufacturerId)
+    if (ownerUserId) query['metadata.ownerUserId'] = String(ownerUserId)
+    if (assetFolderName) query['metadata.assetFolderName'] = String(assetFolderName)
+    if (keyword) query['metadata.originalName'] = { $regex: String(keyword), $options: 'i' }
+    if (mimePrefix) query['metadata.mimeType'] = { $regex: `^${String(mimePrefix)}`, $options: 'i' }
+
+    const cursor = gridFSBucket.find(query)
+      .sort({ uploadDate: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+
+    const files = await cursor.toArray()
+
+    const total = await gridFSBucket.find(query).toArray().then(arr => arr.length)
+
+    return {
+      list: (files || []).map((f) => ({
+        fileId: String(f._id),
+        filename: f.filename,
+        originalName: f.metadata?.originalName || f.filename,
+        mimeType: f.metadata?.mimeType || 'application/octet-stream',
+        size: f.length,
+        uploadedAt: f.metadata?.uploadedAt || f.uploadDate,
+        assetFolderName: f.metadata?.assetFolderName || '',
+        ownerManufacturerId: f.metadata?.ownerManufacturerId || '',
+        ownerUserId: f.metadata?.ownerUserId || '',
+        url: `/api/files/${String(f._id)}`,
+      })),
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+      },
+    }
+  }
+
+  static async listFolderNames({ ownerManufacturerId }) {
+    if (!conn.db) {
+      throw new Error('MongoDB 未连接')
+    }
+
+    const q = {
+      'metadata.ownerManufacturerId': String(ownerManufacturerId),
+      'metadata.assetFolderName': { $exists: true, $ne: '' },
+    }
+
+    const rows = await conn.db.collection('uploads.files')
+      .aggregate([
+        { $match: q },
+        { $group: { _id: '$metadata.assetFolderName' } },
+        { $sort: { _id: 1 } },
+      ])
+      .toArray()
+
+    return (rows || []).map(r => String(r._id)).filter(Boolean)
+  }
+
+  static async updateAssetFolder(fileId, { ownerManufacturerId, assetFolderName }) {
+    if (!conn.db) {
+      throw new Error('MongoDB 未连接')
+    }
+
+    const objectId = new mongoose.Types.ObjectId(String(fileId))
+    const res = await conn.db.collection('uploads.files').updateOne(
+      {
+        _id: objectId,
+        'metadata.ownerManufacturerId': String(ownerManufacturerId),
+      },
+      {
+        $set: {
+          'metadata.assetFolderName': String(assetFolderName || ''),
+          'metadata.updatedAt': new Date(),
+        },
+      }
+    )
+
+    if (!res.matchedCount) {
+      throw new Error('文件不存在或无权限')
+    }
+
+    return true
   }
 
   /**

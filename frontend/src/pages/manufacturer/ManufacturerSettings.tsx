@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Save, Upload, Phone, CreditCard, Building, Image as ImageIcon, Loader2, ArrowLeft } from 'lucide-react'
+import { Save, Upload, Phone, CreditCard, Building, Image as ImageIcon, Loader2, ArrowLeft, Shield, Package } from 'lucide-react'
 import { toast } from 'sonner'
 import { getFileUrl } from '@/services/uploadService'
 import { uploadFile } from '@/services/uploadService'
@@ -27,6 +27,7 @@ export default function ManufacturerSettingsPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [authTodoCount, setAuthTodoCount] = useState(0)
   const [smsLoading, setSmsLoading] = useState(false)
   const [smsSending, setSmsSending] = useState(false)
   const [smsBinding, setSmsBinding] = useState(false)
@@ -57,6 +58,24 @@ export default function ManufacturerSettingsPage() {
   useEffect(() => {
     loadManufacturerInfo()
   }, [])
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('manufacturerToken')
+    return { Authorization: `Bearer ${token}` }
+  }
+
+  const loadAuthorizationSummary = async () => {
+    try {
+      const res = await apiClient.get('/authorizations/manufacturer/summary', {
+        headers: getAuthHeaders()
+      })
+      if (res.data?.success) {
+        setAuthTodoCount(res.data.data?.todoCount || 0)
+      }
+    } catch {
+      setAuthTodoCount(0)
+    }
+  }
 
   useEffect(() => {
     if (smsCountdown <= 0) return
@@ -99,6 +118,7 @@ export default function ManufacturerSettingsPage() {
       }
 
       await loadSmsStatus()
+      await loadAuthorizationSummary()
     } catch (error) {
       console.error('加载厂家信息失败:', error)
       toast.error('加载信息失败')
@@ -352,14 +372,33 @@ export default function ManufacturerSettingsPage() {
               <p className="text-gray-500">设置公司LOGO、联系电话、收款码等信息</p>
             </div>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-50"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            保存设置
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/manufacturer/orders')}
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
+            >
+              <Package className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => navigate('/manufacturer/authorizations')}
+              className="relative p-2 hover:bg-gray-100 rounded-lg text-gray-600"
+            >
+              <Shield className="w-5 h-5" />
+              {authTodoCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                  {authTodoCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              保存设置
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">

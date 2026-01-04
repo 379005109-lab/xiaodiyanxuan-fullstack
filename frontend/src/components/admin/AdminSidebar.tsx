@@ -41,7 +41,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
   const { user } = useAuthStore()
   const role = user?.role
 
-  const isManufacturerSubAccount = role === 'enterprise_admin'
+  const isManufacturerSubAccount = role === 'enterprise_admin' || role === 'enterprise_staff'
 
   const allMenuItems: MenuItem[] = [
     { name: '首页', path: '/admin', icon: Home },
@@ -52,6 +52,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
     { name: '账号管理', path: '/admin/users', icon: Users },
     { name: '材质管理', path: '/admin/materials', icon: Palette },
     { name: '厂家管理', path: '/admin/manufacturers', icon: Factory },
+    { name: '授权管理', path: '/admin/authorizations', icon: Shield },
     // { name: '分层管理', path: '/admin/tier-system', icon: Layers }, // 隐藏
     {
       name: '商品管理',
@@ -103,7 +104,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
     : isManufacturerSubAccount
       ? allMenuItems
           .filter(item =>
-            ['厂家管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理'].includes(item.name)
+            ['厂家管理', '授权管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理'].includes(item.name)
           )
           .map(item => {
             if (item.name === '砍价管理') {

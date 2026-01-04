@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Factory, Package, Truck, CheckCircle, Clock, LogOut, RefreshCw, ChevronRight, Play, Settings } from 'lucide-react';
+import { Factory, Package, Truck, CheckCircle, Clock, LogOut, RefreshCw, ChevronRight, Play, Shield, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '@/lib/apiClient';
 
@@ -42,6 +42,7 @@ export default function ManufacturerOrders() {
   const [activeTab, setActiveTab] = useState('');
   const [stats, setStats] = useState({ pending: 0, confirmed: 0, processing: 0, shipped: 0, completed: 0 });
   const [manufacturerInfo, setManufacturerInfo] = useState<any>(null);
+  const [authTodoCount, setAuthTodoCount] = useState(0);
   const [showShipModal, setShowShipModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<ManufacturerOrder | null>(null);
   const [trackingNo, setTrackingNo] = useState('');
@@ -52,6 +53,7 @@ export default function ManufacturerOrders() {
     if (info) {
       setManufacturerInfo(JSON.parse(info));
     }
+    fetchAuthorizationSummary();
     fetchOrders();
   }, [activeTab]);
 
@@ -83,6 +85,22 @@ export default function ManufacturerOrders() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAuthorizationSummary = async () => {
+    try {
+      const res = await apiClient.get('/authorizations/manufacturer/summary', {
+        headers: getAuthHeaders()
+      });
+      if (res.data?.success) {
+        setAuthTodoCount(res.data.data?.todoCount || 0);
+      }
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        toast.error('登录已过期，请重新登录');
+        handleLogout();
+      }
     }
   };
 
@@ -169,9 +187,19 @@ export default function ManufacturerOrders() {
           </div>
           <div className="flex items-center gap-3">
             <button
+              onClick={() => navigate('/manufacturer/authorizations')}
+              className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+            >
+              <Shield className="w-5 h-5" />
+              {authTodoCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                  {authTodoCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => navigate('/manufacturer/settings')}
               className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
-              title="设置"
             >
               <Settings className="w-5 h-5" />
             </button>

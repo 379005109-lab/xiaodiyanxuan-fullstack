@@ -54,9 +54,9 @@ const getApiUrl = () => {
       return apiUrl;
     }
     
-    // 如果在公网，使用相对路径（需要配置代理）或使用当前协议
-    const apiUrl = 'https://pkochbpmcgaa.sealoshzh.site/api';
-    console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
+    // 如果在公网，使用相对路径（通过 nginx 代理到后端）
+    const apiUrl = '/api';
+    console.log(`✅ 生产环境 (${hostname})，使用相对路径API: ${apiUrl}`);
     return apiUrl;
   }
   

@@ -90,15 +90,19 @@ const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManageme
 const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
 
 // 厂家端页面
+const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
+const ManufacturerOrders = lazy(() => import('./pages/manufacturer/ManufacturerOrders'))
+const ManufacturerSettings = lazy(() => import('./pages/manufacturer/ManufacturerSettings'))
+const ManufacturerAuthorizations = lazy(() => import('./pages/manufacturer/ManufacturerAuthorizations'))
 
- const ADMIN_ACCESS_ROLES: UserRole[] = [
-   'admin',
-   'super_admin',
-   'platform_admin',
-   'platform_staff',
-   'enterprise_admin',
- ]
- const ADMIN_AND_DESIGNER_ROLES: UserRole[] = [...ADMIN_ACCESS_ROLES, 'designer']
+const ADMIN_ACCESS_ROLES: UserRole[] = [
+  'admin',
+  'super_admin',
+  'platform_admin',
+  'platform_staff',
+  'enterprise_admin',
+]
+const ADMIN_AND_DESIGNER_ROLES: UserRole[] = [...ADMIN_ACCESS_ROLES, 'designer']
 
 // 前台布局已在上方直接导入
 
@@ -294,16 +298,17 @@ const ProductManagementRoute = () => {
 
 const ManufacturersRoute = () => {
   const { user } = useAuthStore()
-  const isAdmin =
-    user?.role === 'admin' ||
-    user?.role === 'super_admin' ||
-    user?.role === 'platform_admin' ||
-    user?.role === 'platform_staff'
+
+  const isSuperAdmin = user?.role === 'super_admin'
+  const isDesigner = user?.role === 'designer'
+  const isManufacturerSubAccount = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff'
+  const isAdminButNotSuper = user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
 
   const hasManufacturerId = Boolean((user as any)?.manufacturerId)
 
-  if (isAdmin) return <AdminManufacturerCenter />
-  if (hasManufacturerId) return <ManufacturerManagement />
+  if (isSuperAdmin) return <AdminManufacturerCenter />
+  if (isDesigner) return <EliteManufacturerManagement />
+  if (isManufacturerSubAccount || hasManufacturerId || isAdminButNotSuper) return <ManufacturerManagement />
   return <EliteManufacturerManagement />
 }
 // 加载组件
@@ -517,16 +522,22 @@ function App() {
             <Route path="customization" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
             <Route path="activity" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
-            <Route path="manufacturers" element={<ManufacturersRoute />} />
-            <Route path="manufacturers/:manufacturerId/product-authorization" element={<EliteManufacturerProductAuthorization />} />
-            <Route path="manufacturers/authorization-requests" element={<ManufacturerAuthorizationRequests />} />
-            <Route path="authorizations" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><AuthorizationManagement /></ProtectedRoute>} />
+            <Route path="manufacturers" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturersRoute /></ProtectedRoute>} />
+            <Route path="manufacturers/:manufacturerId/product-authorization" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><EliteManufacturerProductAuthorization /></ProtectedRoute>} />
+            <Route path="manufacturers/authorization-requests" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerAuthorizationRequests /></ProtectedRoute>} />
+            <Route path="authorizations" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><AuthorizationManagement /></ProtectedRoute>} />
             <Route path="referrals" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
             <Route path="tier-system" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
           </Route>
-
+ 
+          {/* 厂家端路由 */}
+          <Route path="/manufacturer/login" element={<ManufacturerLogin />} />
+          <Route path="/manufacturer/orders" element={<ManufacturerOrders />} />
+          <Route path="/manufacturer/settings" element={<ManufacturerSettings />} />
+          <Route path="/manufacturer/authorizations" element={<ManufacturerAuthorizations />} />
+ 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

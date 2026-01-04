@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle, Copy } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import FolderSelectionModal from '@/components/FolderSelectionModal'
+import apiClient from '@/lib/apiClient'
 
 interface Authorization {
   _id: string
@@ -10,7 +11,7 @@ interface Authorization {
   toManufacturer?: any
   toDesigner?: any
   authorizationType: 'manufacturer' | 'designer'
-  scope: 'all' | 'category' | 'specific'
+  scope: 'all' | 'category' | 'specific' | 'mixed'
   categories: string[]
   products: any[]
   priceSettings: {
@@ -23,6 +24,9 @@ interface Authorization {
   validUntil?: string
   allowSubAuthorization: boolean
   notes?: string
+  savedToFolderId?: string
+  savedToFolderName?: string
+  isFolderSelected?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -59,32 +63,66 @@ export default function AuthorizationManagement() {
     loadAuthorizations()
   }, [activeTab])
 
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await apiClient.get('/categories')
+        const data = response.data
+        if (data?.success || data?.data) {
+          setCategories(data.data || [])
+        } else {
+          setCategories([])
+        }
+      } catch (e) {
+        setCategories([])
+      }
+    }
+    loadCategories()
+  }, [])
+
   const loadAuthorizations = async () => {
     setLoading(true)
     try {
-      const endpoint =
-        activeTab === 'granted'
-          ? '/api/authorizations/my-grants'
-          : activeTab === 'received'
-            ? '/api/authorizations/received'
-            : activeTab === 'pending_requests'
-              ? '/api/authorizations/designer-requests/pending'
-              : '/api/authorizations/designer-requests/my'
-      
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}${endpoint}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      if (activeTab === 'granted') {
+        const response = await apiClient.get('/authorizations/my-grants')
+        const data = response.data
+        if (data?.success) setGrantedAuths(data.data || [])
+        else toast.error(data?.message || '加载失败')
+      } else if (activeTab === 'received') {
+        const response = await apiClient.get('/authorizations/received')
+        const data = response.data
+        if (data?.success) setReceivedAuths(data.data || [])
+        else toast.error(data?.message || '加载失败')
+      } else if (activeTab === 'pending_requests') {
+        if (isManufacturerUser && !isDesigner) {
+          const [designerResp, manufacturerResp] = await Promise.all([
+            apiClient.get('/authorizations/designer-requests/pending').catch(() => null as any),
+            apiClient.get('/authorizations/manufacturer-requests/pending').catch(() => null as any),
+          ])
+
+          const designerList = designerResp?.data?.success ? (designerResp.data.data || []) : []
+          const manufacturerList = manufacturerResp?.data?.success ? (manufacturerResp.data.data || []) : []
+          setPendingRequests([...(designerList || []), ...(manufacturerList || [])])
+        } else {
+          const response = await apiClient.get('/authorizations/designer-requests/pending')
+          const data = response.data
+          if (data?.success) setPendingRequests(data.data || [])
+          else toast.error(data?.message || '加载失败')
         }
-      })
-      
-      const data = await response.json()
-      if (data.success) {
-        if (activeTab === 'granted') setGrantedAuths(data.data)
-        else if (activeTab === 'received') setReceivedAuths(data.data)
-        else if (activeTab === 'pending_requests') setPendingRequests(data.data)
-        else setMyRequests(data.data)
       } else {
-        toast.error(data.message)
+        if (isDesigner) {
+          const response = await apiClient.get('/authorizations/designer-requests/my')
+          const data = response.data
+          if (data?.success) setMyRequests(data.data || [])
+          else toast.error(data?.message || '加载失败')
+        } else if (isManufacturerUser) {
+          const response = await apiClient.get('/authorizations/manufacturer-requests/my')
+          const data = response.data
+          if (data?.success) setMyRequests(data.data || [])
+          else toast.error(data?.message || '加载失败')
+        } else {
+          setMyRequests([])
+        }
       }
     } catch (error) {
       console.error('加载授权列表失败:', error)
@@ -105,23 +143,18 @@ export default function AuthorizationManagement() {
 
   const handleApproveRequest = async (id: string) => {
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/authorizations/designer-requests/${id}/approve`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({})
-        }
-      )
-      const data = await response.json()
-      if (data.success) {
+      const req = pendingRequests.find((r) => r._id === id)
+      const endpoint = req?.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${id}/approve`
+        : `/authorizations/designer-requests/${id}/approve`
+
+      const response = await apiClient.put(endpoint, {})
+      const data = response.data
+      if (data?.success) {
         toast.success('已通过')
         loadAuthorizations()
       } else {
-        toast.error(data.message)
+        toast.error(data?.message || '审核失败')
       }
     } catch (error) {
       console.error('审核失败:', error)
@@ -131,23 +164,18 @@ export default function AuthorizationManagement() {
 
   const handleRejectRequest = async (id: string) => {
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/authorizations/designer-requests/${id}/reject`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({})
-        }
-      )
-      const data = await response.json()
-      if (data.success) {
+      const req = pendingRequests.find((r) => r._id === id)
+      const endpoint = req?.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${id}/reject`
+        : `/authorizations/designer-requests/${id}/reject`
+
+      const response = await apiClient.put(endpoint, {})
+      const data = response.data
+      if (data?.success) {
         toast.success('已拒绝')
         loadAuthorizations()
       } else {
-        toast.error(data.message)
+        toast.error(data?.message || '拒绝失败')
       }
     } catch (error) {
       console.error('拒绝失败:', error)
@@ -159,23 +187,44 @@ export default function AuthorizationManagement() {
     if (!confirm('确定要撤销此授权吗？')) return
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/authorizations/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      const data = await response.json()
-      if (data.success) {
+      const response = await apiClient.delete(`/authorizations/${id}`)
+      const data = response.data
+      if (data?.success) {
         toast.success('授权已撤销')
         loadAuthorizations()
       } else {
-        toast.error(data.message)
+        toast.error(data?.message || '撤销授权失败')
       }
     } catch (error) {
       console.error('撤销授权失败:', error)
       toast.error('撤销授权失败')
+    }
+  }
+
+  const openFolderSelection = (authId: string) => {
+    setSelectedAuthId(authId)
+    setShowFolderModal(true)
+  }
+
+  const handleSaveFolder = async (folderId: string, folderName: string) => {
+    if (!selectedAuthId) return
+    try {
+      const response = await apiClient.put(`/authorizations/${selectedAuthId}/select-folder`, {
+        folderId,
+        folderName,
+      })
+      const data = response.data
+      if (data?.success) {
+        toast.success('已保存文件夹')
+        setShowFolderModal(false)
+        setSelectedAuthId('')
+        loadAuthorizations()
+      } else {
+        toast.error(data?.message || '保存失败')
+      }
+    } catch (error) {
+      console.error('保存文件夹失败:', error)
+      toast.error('保存文件夹失败')
     }
   }
 
@@ -198,6 +247,7 @@ export default function AuthorizationManagement() {
   const getScopeLabel = (scope: string, categories?: string[], productsCount?: number) => {
     if (scope === 'all') return '全部商品'
     if (scope === 'category') return `分类授权 (${categories?.join(', ')})`
+    if (scope === 'mixed') return `混合授权 (分类${categories?.length || 0} + 商品${productsCount || 0})`
     return `指定商品 (${productsCount}个)`
   }
 
@@ -220,7 +270,7 @@ export default function AuthorizationManagement() {
     { id: 'granted', label: '我授权的', visible: !isDesigner && isManufacturerUser },
     { id: 'received', label: '我收到的授权', visible: true },
     { id: 'pending_requests', label: '待审核申请', visible: !isDesigner && isManufacturerUser },
-    { id: 'my_requests', label: '我的申请', visible: isDesigner }
+    { id: 'my_requests', label: '我的申请', visible: isDesigner || isManufacturerUser }
   ]
 
   return (
@@ -299,14 +349,16 @@ export default function AuthorizationManagement() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900">
-                        设计师: {req.toDesigner?.nickname || req.toDesigner?.username || '未知'}
+                        {req.authorizationType === 'manufacturer'
+                          ? `厂家: ${req.toManufacturer?.fullName || req.toManufacturer?.name || '未知厂家'}`
+                          : `设计师: ${req.toDesigner?.nickname || req.toDesigner?.username || '未知'}`}
                       </h3>
                       {getStatusBadge(req.status)}
                     </div>
                     <div className="flex items-center gap-3 text-sm text-gray-600">
-                      <span className="font-mono">ID: {req.toDesigner?._id || req.toDesigner}</span>
+                      <span className="font-mono">ID: {req.authorizationType === 'manufacturer' ? (req.toManufacturer?._id || req.toManufacturer) : (req.toDesigner?._id || req.toDesigner)}</span>
                       <button
-                        onClick={() => copyText(String(req.toDesigner?._id || req.toDesigner || ''))}
+                        onClick={() => copyText(String(req.authorizationType === 'manufacturer' ? (req.toManufacturer?._id || req.toManufacturer || '') : (req.toDesigner?._id || req.toDesigner || '')))}
                         className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded"
                         title="复制ID"
                       >
@@ -346,11 +398,11 @@ export default function AuthorizationManagement() {
         <div>
           <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
             <div>
-              <div className="text-sm text-gray-600">我的设计师ID</div>
-              <div className="font-mono text-gray-900">{String((user as any)?._id || '')}</div>
+              <div className="text-sm text-gray-600">{isDesigner ? '我的设计师ID' : '我的厂家ID'}</div>
+              <div className="font-mono text-gray-900">{String(isDesigner ? ((user as any)?._id || '') : ((user as any)?.manufacturerId || ''))}</div>
             </div>
             <button
-              onClick={() => copyText(String((user as any)?._id || ''))}
+              onClick={() => copyText(String(isDesigner ? ((user as any)?._id || '') : ((user as any)?.manufacturerId || '')))}
               className="px-3 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"
             >
               <Copy className="w-4 h-4" />
@@ -437,7 +489,7 @@ export default function AuthorizationManagement() {
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <span>授权范围: {getScopeLabel(auth.scope, auth.categories, auth.products?.length)}</span>
                     <span>•</span>
-                    <span>全局折扣: {(auth.priceSettings.globalDiscount * 100).toFixed(0)}折</span>
+                    <span>全局折扣: {(((auth.priceSettings?.globalDiscount ?? 1) as number) * 100).toFixed(0)}折</span>
                     <span>•</span>
                     <span>生效: {formatDate(auth.validFrom) || '-'}</span>
                     <span>•</span>
@@ -445,6 +497,10 @@ export default function AuthorizationManagement() {
                   </div>
                   {auth.notes && (
                     <p className="mt-2 text-sm text-gray-500">{auth.notes}</p>
+                  )}
+
+                  {activeTab === 'received' && auth.savedToFolderName && (
+                    <p className="mt-2 text-sm text-gray-600">归档文件夹: {auth.savedToFolderName}</p>
                   )}
                 </div>
                 
@@ -473,14 +529,25 @@ export default function AuthorizationManagement() {
                     )}
                   </div>
                 )}
+
+                {activeTab === 'received' && auth.status === 'active' && !auth.isFolderSelected && (
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => openFolderSelection(auth._id)}
+                      className="px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                    >
+                      选择文件夹
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* 价格设置详情 */}
-              {auth.priceSettings.categoryDiscounts.length > 0 && (
+              {(auth.priceSettings?.categoryDiscounts || []).length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">分类折扣设置</h4>
                   <div className="flex flex-wrap gap-2">
-                    {auth.priceSettings.categoryDiscounts.map((cd, idx) => (
+                    {(auth.priceSettings?.categoryDiscounts || []).map((cd, idx) => (
                       <span
                         key={idx}
                         className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs"
@@ -517,6 +584,17 @@ export default function AuthorizationManagement() {
             setActiveTab('my_requests')
             loadAuthorizations()
           }}
+        />
+      )}
+
+      {showFolderModal && (
+        <FolderSelectionModal
+          categories={categories}
+          onClose={() => {
+            setShowFolderModal(false)
+            setSelectedAuthId('')
+          }}
+          onSave={handleSaveFolder}
         />
       )}
     </div>

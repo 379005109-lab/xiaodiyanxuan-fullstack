@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type MouseEvent } from 'react'
 import { Bell, Menu, User, LogOut, Settings, ExternalLink, X, Lock, Phone, Camera, Image, Factory } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import cloudServices from '@/services/cloudServices'
+import apiClient from '@/lib/apiClient'
 
 interface AdminHeaderProps {
   toggleSidebar: () => void
@@ -19,6 +20,7 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [phone, setPhone] = useState(user?.phone || '')
   const [unreadCount, setUnreadCount] = useState(0)
+  const [authTodoCount, setAuthTodoCount] = useState(0)
   const [notifications, setNotifications] = useState<any[]>([])
 
   // 加载通知数据
@@ -26,11 +28,13 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
     // 延迟加载通知，避免阻塞页面渲染
     const timer = setTimeout(() => {
       loadNotifications()
+      loadAuthorizationSummary()
     }, 500)
     
     // 监听通知更新事件
     const handleNotificationUpdate = () => {
       loadNotifications()
+      loadAuthorizationSummary()
     }
     
     window.addEventListener('notificationUpdated', handleNotificationUpdate)
@@ -39,6 +43,20 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
       window.removeEventListener('notificationUpdated', handleNotificationUpdate)
     }
   }, [])
+
+  const loadAuthorizationSummary = async () => {
+    try {
+      const response = await apiClient.get('/authorizations/summary')
+      const data = response.data
+      if (data?.success) {
+        setAuthTodoCount(Number(data?.data?.todoCount || 0))
+      } else {
+        setAuthTodoCount(0)
+      }
+    } catch (error) {
+      setAuthTodoCount(0)
+    }
+  }
 
   const loadNotifications = async () => {
     try {
@@ -152,7 +170,7 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
     }
   }
 
-  const handleDeleteNotification = async (notificationId: string, e: React.MouseEvent) => {
+  const handleDeleteNotification = async (notificationId: string, e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     try {
       await cloudServices.notificationService.deleteNotification(notificationId)
@@ -165,6 +183,7 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
   }
 
   const roleBadge = user?.role === 'designer'
+  const totalUnread = unreadCount + authTodoCount
 
   return (
     <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 sticky top-0 z-30">
@@ -198,9 +217,9 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
             className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <Bell className="h-5 w-5 text-gray-700" />
-            {unreadCount > 0 && (
+            {totalUnread > 0 && (
               <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                {unreadCount}
+                {totalUnread}
               </span>
             )}
           </button>
