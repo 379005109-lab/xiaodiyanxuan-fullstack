@@ -1,11 +1,40 @@
 const express = require('express')
 const mongoose = require('mongoose')
 const router = express.Router()
-const { auth } = require('../middleware/auth')
+const { auth, requireRole } = require('../middleware/auth')
+const { USER_ROLES } = require('../config/constants')
 const { list, listAll, get, create, update, remove } = require('../controllers/manufacturerController')
 const manufacturerAccountController = require('../controllers/manufacturerAccountController')
+const { sendVerificationCode, verifyCode } = require('../services/smsService')
 const Product = require('../models/Product')
 const Category = require('../models/Category')
+const ManufacturerModel = require('../models/Manufacturer')
+
+// 管理员角色列表（包含旧的 admin 角色）
+const ADMIN_ROLES = [
+  USER_ROLES.SUPER_ADMIN,
+  USER_ROLES.PLATFORM_ADMIN,
+  USER_ROLES.ENTERPRISE_ADMIN,
+  USER_ROLES.ENTERPRISE_STAFF,
+  'admin',
+  'super_admin'
+]
+
+const PLATFORM_ONLY_ROLES = [
+  USER_ROLES.SUPER_ADMIN,
+  USER_ROLES.PLATFORM_ADMIN,
+  'admin',
+  'super_admin'
+]
+
+const canAccessManufacturer = (user, manufacturerId) => {
+  if (!user) return false
+  if (PLATFORM_ONLY_ROLES.includes(user.role)) return true
+  const mid = String(manufacturerId)
+  if (user.manufacturerId && String(user.manufacturerId) === mid) return true
+  if (Array.isArray(user.manufacturerIds) && user.manufacturerIds.map(String).includes(mid)) return true
+  return false
+}
 
 // 需要认证
 router.use(auth)
@@ -16,8 +45,197 @@ router.get('/', list)
 // GET /api/manufacturers/all - 获取所有厂家（不分页，用于下拉选择）
 router.get('/all', listAll)
 
+// ========== 厂家短信通知绑定（管理员按厂家维度操作） ==========
+
+// GET /api/manufacturers/:manufacturerId/sms/status
+router.get('/:manufacturerId/sms/status', requireRole(ADMIN_ROLES), async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+    if (!canAccessManufacturer(req.user, manufacturerId)) {
+      return res.status(403).json({ success: false, message: '无权限执行此操作' })
+    }
+
+    const manufacturer = await ManufacturerModel.findById(manufacturerId)
+      .select('settings.smsNotifyPhone settings.smsNotifyVerifiedAt')
+      .lean()
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    res.json({
+      success: true,
+      data: {
+        smsNotifyPhone: manufacturer?.settings?.smsNotifyPhone || '',
+        smsNotifyVerifiedAt: manufacturer?.settings?.smsNotifyVerifiedAt || null
+      }
+    })
+  } catch (error) {
+    console.error('获取厂家短信绑定状态失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+// POST /api/manufacturers/:manufacturerId/sms/bind  (保存手机号，未验证)
+router.post('/:manufacturerId/sms/bind', requireRole(ADMIN_ROLES), async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    const { phone } = req.body || {}
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+    if (!canAccessManufacturer(req.user, manufacturerId)) {
+      return res.status(403).json({ success: false, message: '无权限执行此操作' })
+    }
+    if (!phone || !/^1[3-9]\d{9}$/.test(String(phone).trim())) {
+      return res.status(400).json({ success: false, message: '请输入有效的手机号' })
+    }
+
+    const manufacturer = await ManufacturerModel.findById(manufacturerId)
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    manufacturer.settings = {
+      ...(manufacturer.settings?.toObject?.() || manufacturer.settings || {}),
+      smsNotifyPhone: String(phone).trim(),
+      smsNotifyVerifiedAt: null
+    }
+    await manufacturer.save()
+
+    res.json({
+      success: true,
+      message: '手机号已绑定，请发送验证码完成验证',
+      data: {
+        smsNotifyPhone: manufacturer.settings?.smsNotifyPhone || '',
+        smsNotifyVerifiedAt: manufacturer.settings?.smsNotifyVerifiedAt || null
+      }
+    })
+  } catch (error) {
+    console.error('管理员绑定厂家手机号失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+// POST /api/manufacturers/:manufacturerId/sms/send-code
+router.post('/:manufacturerId/sms/send-code', requireRole(ADMIN_ROLES), async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+    if (!canAccessManufacturer(req.user, manufacturerId)) {
+      return res.status(403).json({ success: false, message: '无权限执行此操作' })
+    }
+
+    const manufacturer = await ManufacturerModel.findById(manufacturerId)
+      .select('settings.smsNotifyPhone')
+      .lean()
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    const boundPhone = manufacturer?.settings?.smsNotifyPhone || ''
+    if (!boundPhone) {
+      return res.status(400).json({ success: false, message: '请先绑定手机号' })
+    }
+
+    const result = await sendVerificationCode(boundPhone)
+    if (!result?.success) {
+      return res.status(400).json({ success: false, message: result?.message || '发送失败' })
+    }
+
+    res.json({ success: true, message: '验证码已发送' })
+  } catch (error) {
+    console.error('管理员发送厂家验证码失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+// POST /api/manufacturers/:manufacturerId/sms/verify
+router.post('/:manufacturerId/sms/verify', requireRole(ADMIN_ROLES), async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    const { code } = req.body || {}
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+    if (!canAccessManufacturer(req.user, manufacturerId)) {
+      return res.status(403).json({ success: false, message: '无权限执行此操作' })
+    }
+    if (!code) {
+      return res.status(400).json({ success: false, message: '请输入验证码' })
+    }
+
+    const manufacturer = await ManufacturerModel.findById(manufacturerId)
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    const boundPhone = manufacturer?.settings?.smsNotifyPhone || ''
+    if (!boundPhone) {
+      return res.status(400).json({ success: false, message: '请先绑定手机号' })
+    }
+
+    const ok = verifyCode(boundPhone, code)
+    if (!ok) {
+      return res.status(400).json({ success: false, message: '验证码无效或已过期' })
+    }
+
+    manufacturer.settings = {
+      ...(manufacturer.settings?.toObject?.() || manufacturer.settings || {}),
+      smsNotifyPhone: String(boundPhone).trim(),
+      smsNotifyVerifiedAt: new Date()
+    }
+    await manufacturer.save()
+
+    res.json({
+      success: true,
+      message: '验证成功',
+      data: {
+        smsNotifyPhone: manufacturer.settings?.smsNotifyPhone || '',
+        smsNotifyVerifiedAt: manufacturer.settings?.smsNotifyVerifiedAt || null
+      }
+    })
+  } catch (error) {
+    console.error('管理员验证厂家手机号失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+// POST /api/manufacturers/:manufacturerId/sms/unbind
+router.post('/:manufacturerId/sms/unbind', requireRole(ADMIN_ROLES), async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+    if (!canAccessManufacturer(req.user, manufacturerId)) {
+      return res.status(403).json({ success: false, message: '无权限执行此操作' })
+    }
+
+    const manufacturer = await ManufacturerModel.findById(manufacturerId)
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    manufacturer.settings = {
+      ...(manufacturer.settings?.toObject?.() || manufacturer.settings || {}),
+      smsNotifyPhone: '',
+      smsNotifyVerifiedAt: null
+    }
+    await manufacturer.save()
+
+    res.json({ success: true, message: '已解绑' })
+  } catch (error) {
+    console.error('管理员解绑厂家手机号失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
 // GET /api/manufacturers/me - 获取当前登录厂家的信息
-const ManufacturerModel = require('../models/Manufacturer')
 router.get('/me', async (req, res) => {
   try {
     // 从用户信息中获取厂家ID（需要厂家登录后设置）

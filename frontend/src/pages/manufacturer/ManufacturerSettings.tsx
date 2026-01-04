@@ -128,16 +128,12 @@ export default function ManufacturerSettingsPage() {
   }
 
   const handleSendSmsCode = async () => {
-    if (!smsPhoneInput) {
-      toast.error('请输入手机号')
-      return
-    }
     try {
       setSmsSending(true)
       const token = localStorage.getItem('manufacturerToken')
       const res = await apiClient.post(
         '/manufacturer-orders/manufacturer/sms/send-code',
-        { phone: smsPhoneInput },
+        {},
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (res.data?.success) {
@@ -154,8 +150,8 @@ export default function ManufacturerSettingsPage() {
   }
 
   const handleBindSmsPhone = async () => {
-    if (!smsPhoneInput || !smsCodeInput) {
-      toast.error('请输入手机号和验证码')
+    if (!smsPhoneInput) {
+      toast.error('请输入手机号')
       return
     }
     try {
@@ -163,18 +159,44 @@ export default function ManufacturerSettingsPage() {
       const token = localStorage.getItem('manufacturerToken')
       const res = await apiClient.post(
         '/manufacturer-orders/manufacturer/sms/bind',
-        { phone: smsPhoneInput, code: smsCodeInput },
+        { phone: smsPhoneInput },
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (res.data?.success) {
-        toast.success('绑定成功')
-        setSmsCodeInput('')
+        toast.success('手机号已绑定，请发送验证码完成验证')
         await loadSmsStatus()
       } else {
         toast.error(res.data?.message || '绑定失败')
       }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || '绑定失败')
+    } finally {
+      setSmsBinding(false)
+    }
+  }
+
+  const handleVerifySmsPhone = async () => {
+    if (!smsCodeInput) {
+      toast.error('请输入验证码')
+      return
+    }
+    try {
+      setSmsBinding(true)
+      const token = localStorage.getItem('manufacturerToken')
+      const res = await apiClient.post(
+        '/manufacturer-orders/manufacturer/sms/bind',
+        { code: smsCodeInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (res.data?.success) {
+        toast.success('验证成功')
+        setSmsCodeInput('')
+        await loadSmsStatus()
+      } else {
+        toast.error(res.data?.message || '验证失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '验证失败')
     } finally {
       setSmsBinding(false)
     }
@@ -329,7 +351,9 @@ export default function ManufacturerSettingsPage() {
                 已绑定：<span className="font-medium">{smsStatus.phone}</span>
                 {smsStatus.verifiedAt ? (
                   <span className="text-gray-400">（{formatVerifiedAt(smsStatus.verifiedAt)}）</span>
-                ) : null}
+                ) : (
+                  <span className="text-amber-600">（未验证）</span>
+                )}
               </div>
             ) : (
               <div className="text-sm text-gray-400">未绑定</div>
@@ -360,7 +384,7 @@ export default function ManufacturerSettingsPage() {
             <div className="flex items-end gap-2">
               <button
                 onClick={handleSendSmsCode}
-                disabled={smsSending || smsCountdown > 0}
+                disabled={smsSending || smsCountdown > 0 || !smsStatus.phone}
                 className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {smsCountdown > 0 ? `${smsCountdown}s` : '发送验证码'}
@@ -370,7 +394,14 @@ export default function ManufacturerSettingsPage() {
                 disabled={smsBinding}
                 className="px-4 py-2.5 bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                绑定
+                绑定手机号
+              </button>
+              <button
+                onClick={handleVerifySmsPhone}
+                disabled={smsBinding || !smsStatus.phone}
+                className="px-4 py-2.5 bg-cyan-700 text-white rounded-xl hover:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                验证
               </button>
               {smsStatus.phone ? (
                 <button

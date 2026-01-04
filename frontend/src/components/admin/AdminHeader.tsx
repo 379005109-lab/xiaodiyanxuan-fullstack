@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bell, Menu, User, LogOut, Settings, ExternalLink, X, Lock, Phone, Camera, Image } from 'lucide-react'
+import { Bell, Menu, User, LogOut, Settings, ExternalLink, X, Lock, Phone, Camera, Image, Factory } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -20,6 +20,9 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
   const [phone, setPhone] = useState(user?.phone || '')
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState<any[]>([])
+
+  const hasManufacturerToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('manufacturerToken'))
+  const manufacturerSettingsEntry = hasManufacturerToken ? '/manufacturer/settings' : '/manufacturer/login'
 
   // 加载通知数据
   useEffect(() => {
@@ -295,6 +298,14 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
                 >
                   <Image className="h-4 w-4" />
                   网站图片管理
+                </button>
+
+                <button
+                  onClick={() => { navigate(manufacturerSettingsEntry); setShowSettings(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Factory className="h-4 w-4" />
+                  厂家短信绑定
                 </button>
               </div>
 

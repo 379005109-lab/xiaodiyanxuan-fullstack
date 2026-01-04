@@ -395,11 +395,19 @@ const verifyManufacturer = async (req, res, next) => {
 router.post('/manufacturer/sms/send-code', verifyManufacturer, async (req, res) => {
   try {
     const { phone } = req.body || {}
-    if (!phone) {
-      return res.status(400).json({ success: false, message: '请输入手机号' })
+    const manufacturer = await Manufacturer.findById(req.manufacturerId)
+      .select('settings.smsNotifyPhone')
+      .lean()
+
+    const boundPhone = manufacturer?.settings?.smsNotifyPhone || ''
+    if (!boundPhone) {
+      return res.status(400).json({ success: false, message: '请先绑定手机号' })
+    }
+    if (phone && String(phone).trim() !== String(boundPhone).trim()) {
+      return res.status(400).json({ success: false, message: '手机号与已绑定手机号不一致，请先重新绑定' })
     }
 
-    const result = await sendVerificationCode(phone)
+    const result = await sendVerificationCode(boundPhone)
     if (!result.success) {
       return res.status(400).json({ success: false, message: result.message || '发送失败' })
     }
@@ -414,23 +422,45 @@ router.post('/manufacturer/sms/send-code', verifyManufacturer, async (req, res) 
 router.post('/manufacturer/sms/bind', verifyManufacturer, async (req, res) => {
   try {
     const { phone, code } = req.body || {}
-    if (!phone || !code) {
-      return res.status(400).json({ success: false, message: '请输入手机号和验证码' })
-    }
-
-    const ok = verifyCode(phone, code)
-    if (!ok) {
-      return res.status(400).json({ success: false, message: '验证码无效或已过期' })
-    }
-
     const manufacturer = await Manufacturer.findById(req.manufacturerId)
     if (!manufacturer) {
       return res.status(404).json({ success: false, message: '厂家不存在' })
     }
 
+    if (phone && !code) {
+      manufacturer.settings = {
+        ...(manufacturer.settings || {}),
+        smsNotifyPhone: phone,
+        smsNotifyVerifiedAt: null
+      }
+      await manufacturer.save()
+
+      return res.json({
+        success: true,
+        message: '手机号已绑定，请发送验证码完成验证',
+        data: {
+          smsNotifyPhone: manufacturer.settings?.smsNotifyPhone || '',
+          smsNotifyVerifiedAt: manufacturer.settings?.smsNotifyVerifiedAt || null
+        }
+      })
+    }
+
+    const targetPhone = phone || manufacturer.settings?.smsNotifyPhone
+    if (!targetPhone) {
+      return res.status(400).json({ success: false, message: '请先绑定手机号' })
+    }
+    if (!code) {
+      return res.status(400).json({ success: false, message: '请输入验证码' })
+    }
+
+    const ok = verifyCode(targetPhone, code)
+    if (!ok) {
+      return res.status(400).json({ success: false, message: '验证码无效或已过期' })
+    }
+
     manufacturer.settings = {
       ...(manufacturer.settings || {}),
-      smsNotifyPhone: phone,
+      smsNotifyPhone: targetPhone,
       smsNotifyVerifiedAt: new Date()
     }
     await manufacturer.save()

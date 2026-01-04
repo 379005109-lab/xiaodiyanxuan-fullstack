@@ -284,6 +284,7 @@ export default function OrderManagementNew2() {
         return
       }
       priceData.totalAmount = finalPrice
+      priceData.priceMode = 'flat'
     } else {
       // 逐项改价模式
       const itemPricesArray = Object.values(itemPrices)
@@ -1547,6 +1548,20 @@ export default function OrderManagementNew2() {
                   <p className="text-gray-600">订单创建</p>
                 </div>
               </div>
+              {((selectedOrder as any).priceModifyHistory || []).map((h: any, idx: number) => (
+                <div key={`${h.modifiedAt || ''}-${idx}`} className="text-sm text-gray-500 flex items-start gap-2 pb-3 border-b border-gray-100">
+                  <Edit2 className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="text-gray-400 text-xs">{new Date(h.modifiedAt || Date.now()).toLocaleString('zh-CN')}</span>
+                    <p className="text-gray-600">
+                      改价{h.priceMode === 'itemized' ? '（逐项）' : h.priceMode === 'flat' ? '（整单）' : ''}：
+                      ¥{formatPrice(h.originalAmount)} → ¥{formatPrice(h.newAmount)}
+                      {h.reason ? `（${h.reason}）` : ''}
+                    </p>
+                    <span className="text-xs text-gray-400">操作人: 管理员</span>
+                  </div>
+                </div>
+              ))}
               {selectedOrder.paidAt && (
                 <div className="text-sm text-gray-500 flex items-start gap-2 pb-3 border-b border-gray-100">
                   <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />

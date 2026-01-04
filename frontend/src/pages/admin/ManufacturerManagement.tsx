@@ -120,7 +120,8 @@ interface ManufacturerAccount {
 export default function ManufacturerManagement() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const role = (user as any)?.role
+  const isAdmin = role === 'admin' || role === 'super_admin' || role === 'platform_admin' || role === 'platform_staff'
   const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
   const isManufacturerUser = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff' || (user as any)?.permissions?.canAccessAdmin === true
 
@@ -128,8 +129,11 @@ export default function ManufacturerManagement() {
 
   const canManageManufacturer = (manufacturerId: string) => {
     if (isAdmin) return true
-    if (!myManufacturerId) return false
-    return String(manufacturerId) === myManufacturerId
+    const mid = String(manufacturerId)
+    if (myManufacturerId && mid === myManufacturerId) return true
+    const mids = Array.isArray((user as any)?.manufacturerIds) ? (user as any).manufacturerIds.map(String) : []
+    if (mids.includes(mid)) return true
+    return false
   }
 
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
@@ -203,6 +207,24 @@ export default function ManufacturerManagement() {
       canManageOrders: false
     }
   })
+
+  const [showSmsModal, setShowSmsModal] = useState(false)
+  const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
+  const [smsLoading, setSmsLoading] = useState(false)
+  const [smsSending, setSmsSending] = useState(false)
+  const [smsBinding, setSmsBinding] = useState(false)
+  const [smsCountdown, setSmsCountdown] = useState(0)
+  const [smsStatus, setSmsStatus] = useState<{ phone: string; verifiedAt: string | null }>({ phone: '', verifiedAt: null })
+  const [smsPhoneInput, setSmsPhoneInput] = useState('')
+  const [smsCodeInput, setSmsCodeInput] = useState('')
+
+  useEffect(() => {
+    if (smsCountdown <= 0) return
+    const t = setInterval(() => {
+      setSmsCountdown(prev => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(t)
+  }, [smsCountdown])
 
   const fetchKeyword = isAdmin ? keyword : ''
 
@@ -375,6 +397,113 @@ export default function ManufacturerManagement() {
       toast.error('获取账号列表失败')
     } finally {
       setAccountsLoading(false)
+    }
+  }
+
+  const loadSmsStatus = async (manufacturerId: string) => {
+    try {
+      setSmsLoading(true)
+      const res = await apiClient.get(`/manufacturers/${manufacturerId}/sms/status`)
+      if (res.data?.success) {
+        setSmsStatus({
+          phone: res.data.data?.smsNotifyPhone || '',
+          verifiedAt: res.data.data?.smsNotifyVerifiedAt || null
+        })
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '加载短信绑定状态失败')
+    } finally {
+      setSmsLoading(false)
+    }
+  }
+
+  const openSmsModal = async (item: Manufacturer) => {
+    setSmsTarget(item)
+    setShowSmsModal(true)
+    setSmsCodeInput('')
+    setSmsPhoneInput('')
+    setSmsCountdown(0)
+    await loadSmsStatus(item._id)
+  }
+
+  const handleBindSmsPhone = async () => {
+    if (!smsTarget) return
+    if (!smsPhoneInput) {
+      toast.error('请输入手机号')
+      return
+    }
+    try {
+      setSmsBinding(true)
+      const res = await apiClient.post(`/manufacturers/${smsTarget._id}/sms/bind`, { phone: smsPhoneInput })
+      if (res.data?.success) {
+        toast.success('手机号已绑定，请发送验证码完成验证')
+        await loadSmsStatus(smsTarget._id)
+      } else {
+        toast.error(res.data?.message || '绑定失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '绑定失败')
+    } finally {
+      setSmsBinding(false)
+    }
+  }
+
+  const handleSendSmsCode = async () => {
+    if (!smsTarget) return
+    try {
+      setSmsSending(true)
+      const res = await apiClient.post(`/manufacturers/${smsTarget._id}/sms/send-code`, {})
+      if (res.data?.success) {
+        toast.success('验证码已发送')
+        setSmsCountdown(60)
+      } else {
+        toast.error(res.data?.message || '发送失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '发送失败')
+    } finally {
+      setSmsSending(false)
+    }
+  }
+
+  const handleVerifySmsPhone = async () => {
+    if (!smsTarget) return
+    if (!smsCodeInput) {
+      toast.error('请输入验证码')
+      return
+    }
+    try {
+      setSmsBinding(true)
+      const res = await apiClient.post(`/manufacturers/${smsTarget._id}/sms/verify`, { code: smsCodeInput })
+      if (res.data?.success) {
+        toast.success('验证成功')
+        setSmsCodeInput('')
+        await loadSmsStatus(smsTarget._id)
+      } else {
+        toast.error(res.data?.message || '验证失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '验证失败')
+    } finally {
+      setSmsBinding(false)
+    }
+  }
+
+  const handleUnbindSmsPhone = async () => {
+    if (!smsTarget) return
+    try {
+      setSmsBinding(true)
+      const res = await apiClient.post(`/manufacturers/${smsTarget._id}/sms/unbind`, {})
+      if (res.data?.success) {
+        toast.success('已解绑')
+        await loadSmsStatus(smsTarget._id)
+      } else {
+        toast.error(res.data?.message || '解绑失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '解绑失败')
+    } finally {
+      setSmsBinding(false)
     }
   }
 
@@ -960,6 +1089,13 @@ export default function ManufacturerManagement() {
                           账号
                         </button>
                         <button
+                          onClick={() => openSmsModal(item)}
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-cyan-700 hover:bg-cyan-50 rounded-lg transition-colors"
+                        >
+                          <Phone className="w-4 h-4" />
+                          短信
+                        </button>
+                        <button
                           onClick={() => handleOpenTierSystem(item, 'hierarchy')}
                           className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                         >
@@ -1491,6 +1627,101 @@ export default function ManufacturerManagement() {
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {editingItem ? '保存修改' : '创建厂家'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSmsModal && smsTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">短信通知绑定 - {smsTarget.fullName || smsTarget.name}</h2>
+              <button
+                onClick={() => {
+                  setShowSmsModal(false)
+                  setSmsTarget(null)
+                  setSmsCodeInput('')
+                  setSmsPhoneInput('')
+                  setSmsCountdown(0)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {smsLoading ? (
+                <div className="text-sm text-gray-400">加载中...</div>
+              ) : smsStatus.phone ? (
+                <div className="text-sm text-gray-600">
+                  已绑定：<span className="font-medium">{smsStatus.phone}</span>
+                  {smsStatus.verifiedAt ? (
+                    <span className="text-gray-400">（{new Date(smsStatus.verifiedAt).toLocaleString('zh-CN')}）</span>
+                  ) : (
+                    <span className="text-amber-600">（未验证）</span>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400">未绑定</div>
+              )}
+
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">手机号</label>
+                  <input
+                    value={smsPhoneInput}
+                    onChange={(e) => setSmsPhoneInput(e.target.value)}
+                    placeholder="请输入手机号"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">验证码</label>
+                  <input
+                    value={smsCodeInput}
+                    onChange={(e) => setSmsCodeInput(e.target.value)}
+                    placeholder="请输入验证码"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleBindSmsPhone}
+                  disabled={smsBinding}
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
+                >
+                  {smsBinding ? '处理中...' : '绑定手机号'}
+                </button>
+
+                <button
+                  onClick={handleSendSmsCode}
+                  disabled={smsSending || smsCountdown > 0 || !smsStatus.phone}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {smsCountdown > 0 ? `${smsCountdown}s` : smsSending ? '发送中...' : '发送验证码'}
+                </button>
+
+                <button
+                  onClick={handleVerifySmsPhone}
+                  disabled={smsBinding || !smsStatus.phone}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  验证
+                </button>
+
+                <button
+                  onClick={handleUnbindSmsPhone}
+                  disabled={smsBinding || !smsStatus.phone}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  解绑
+                </button>
+              </div>
             </div>
           </div>
         </div>

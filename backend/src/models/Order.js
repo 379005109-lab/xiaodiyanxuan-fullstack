@@ -48,6 +48,16 @@ const orderSchema = new mongoose.Schema({
   subtotal: Number,
   discountAmount: { type: Number, default: 0 },
   totalAmount: Number,
+  priceModified: { type: Boolean, default: false },
+  priceModifyHistory: [{
+    originalAmount: Number,
+    newAmount: Number,
+    reason: String,
+    priceMode: { type: String, enum: ['flat', 'itemized', null], default: null },
+    itemPrices: mongoose.Schema.Types.Mixed,
+    modifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    modifiedAt: { type: Date, default: Date.now }
+  }],
   recipient: { name: String, phone: String, address: String },
   status: { type: Number, enum: Object.values(ORDER_STATUS), default: ORDER_STATUS.PENDING_PAYMENT },
   couponCode: String,

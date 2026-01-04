@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Factory, Package, Truck, CheckCircle, Clock, LogOut, RefreshCw, ChevronRight, Play } from 'lucide-react';
+import { Factory, Package, Truck, CheckCircle, Clock, LogOut, RefreshCw, ChevronRight, Play, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '@/lib/apiClient';
 
@@ -168,6 +168,13 @@ export default function ManufacturerOrders() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/manufacturer/settings')}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+              title="设置"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             <button onClick={fetchOrders} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
               <RefreshCw className="w-5 h-5" />
             </button>
