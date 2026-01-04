@@ -726,6 +726,20 @@ export default function ManufacturerManagement() {
           厂家管理
         </h1>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              const manufacturerToken = localStorage.getItem('manufacturerToken')
+              if (manufacturerToken) {
+                window.open('/manufacturer/orders', '_blank')
+              } else {
+                window.open('/manufacturer/login', '_blank')
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Factory className="w-4 h-4" />
+            厂家中心
+          </button>
           {isAdmin && (
             <button
               onClick={openCreateModal}

@@ -128,6 +128,30 @@ export default function ManufacturerSettingsPage() {
   }
 
   const handleSendSmsCode = async () => {
+    // 如果当前没有绑定手机号，但输入框有手机号，先自动绑定
+    if (!smsStatus.phone && smsPhoneInput) {
+      try {
+        setSmsSending(true)
+        const token = localStorage.getItem('manufacturerToken')
+        const bindRes = await apiClient.post(
+          '/manufacturer-orders/manufacturer/sms/bind',
+          { phone: smsPhoneInput },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        if (bindRes.data?.success) {
+          await loadSmsStatus() // 重新加载绑定状态
+        } else {
+          toast.error(bindRes.data?.message || '绑定失败')
+          setSmsSending(false)
+          return
+        }
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || '绑定失败')
+        setSmsSending(false)
+        return
+      }
+    }
+
     try {
       setSmsSending(true)
       const token = localStorage.getItem('manufacturerToken')
@@ -384,10 +408,10 @@ export default function ManufacturerSettingsPage() {
             <div className="flex items-end gap-2">
               <button
                 onClick={handleSendSmsCode}
-                disabled={smsSending || smsCountdown > 0 || !smsStatus.phone}
+                disabled={smsSending || smsCountdown > 0 || (!smsStatus.phone && !smsPhoneInput)}
                 className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {smsCountdown > 0 ? `${smsCountdown}s` : '发送验证码'}
+                {smsSending ? '发送中...' : smsCountdown > 0 ? `${smsCountdown}s` : '发送验证码'}
               </button>
               <button
                 onClick={handleBindSmsPhone}
