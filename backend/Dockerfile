@@ -4,7 +4,7 @@ FROM node:18-bullseye-slim AS builder
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ pkg-config libvips-dev \
+  && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
 # 复制 package 文件
@@ -23,7 +23,7 @@ ENV GIT_SHA=$GIT_SHA
 
 # 安装 dumb-init 用于优雅关闭
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends dumb-init libvips \
+  && apt-get install -y --no-install-recommends dumb-init \
   && rm -rf /var/lib/apt/lists/*
 
 # 从构建阶段复制 node_modules
