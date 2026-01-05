@@ -40,6 +40,7 @@ export default function ManufacturerAuthorizations() {
   const [categories, setCategories] = useState<any[]>([])
   const [showFolderModal, setShowFolderModal] = useState(false)
   const [selectedAuthId, setSelectedAuthId] = useState<string>('')
+  const [autoPromptedAuthId, setAutoPromptedAuthId] = useState<string>('')
 
   const manufacturerToken = useMemo(() => localStorage.getItem('manufacturerToken') || '', [])
 
@@ -115,6 +116,17 @@ export default function ManufacturerAuthorizations() {
 
     await loadSummary()
   }
+
+  useEffect(() => {
+    if (activeTab !== 'received') return
+    if (showFolderModal) return
+    if (selectedAuthId) return
+    const next = receivedAuths.find((a) => a.authorizationType === 'manufacturer' && a.status === 'active' && !a.isFolderSelected)
+    if (!next?._id) return
+    if (autoPromptedAuthId === String(next._id)) return
+    setAutoPromptedAuthId(String(next._id))
+    openFolderSelection(String(next._id))
+  }, [activeTab, autoPromptedAuthId, receivedAuths, selectedAuthId, showFolderModal])
 
   useEffect(() => {
     loadAuthorizations()

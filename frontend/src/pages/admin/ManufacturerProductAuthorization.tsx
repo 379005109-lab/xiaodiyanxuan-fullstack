@@ -37,7 +37,13 @@ export default function ManufacturerProductAuthorization() {
   const { user } = useAuthStore()
 
   const isDesigner = user?.role === 'designer'
-  const isManufacturerUser = !!(user as any)?.manufacturerId
+  const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin'
+  const isManufacturerUser = !!(
+    (user as any)?.manufacturerId ||
+    Array.isArray((user as any)?.manufacturerIds) && (user as any)?.manufacturerIds?.length > 0 ||
+    user?.role === 'enterprise_admin' ||
+    user?.role === 'enterprise_staff'
+  )
 
   const manufacturerId = String(params.manufacturerId || '')
 
@@ -326,8 +332,8 @@ export default function ManufacturerProductAuthorization() {
   }, [selectedCategoryIds.length, selectedProductIds.length])
 
   const handleSubmit = async () => {
-    if (!isDesigner && !isManufacturerUser) {
-      toast.error('当前账号暂不支持发起授权申请，请使用设计师或厂家账号')
+    if (!isDesigner && !isManufacturerUser && !isPlatformAdmin) {
+      toast.error('当前账号暂不支持发起授权申请，请使用设计师、厂家或平台管理员账号')
       return
     }
     if (!canSubmit) {
@@ -343,7 +349,9 @@ export default function ManufacturerProductAuthorization() {
           ? 'category' 
           : 'specific'
 
-      const endpoint = isDesigner ? '/authorizations/designer-requests' : '/authorizations/manufacturer-requests'
+      const endpoint = (isDesigner || isPlatformAdmin)
+        ? '/authorizations/designer-requests'
+        : '/authorizations/manufacturer-requests'
       await apiClient.post(endpoint, {
         manufacturerId,
         scope,
@@ -375,7 +383,7 @@ export default function ManufacturerProductAuthorization() {
         </div>
         <div className="flex items-center gap-3">
           <button className="btn btn-secondary" onClick={() => navigate('/admin/manufacturers')}>返回</button>
-          <button className="btn btn-primary" disabled={submitting || !canSubmit || (!isDesigner && !isManufacturerUser)} onClick={handleSubmit}>
+          <button className="btn btn-primary" disabled={submitting || !canSubmit} onClick={handleSubmit}>
             {submitting ? '提交中...' : '提交申请'}
           </button>
         </div>

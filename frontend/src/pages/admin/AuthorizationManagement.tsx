@@ -34,7 +34,13 @@ interface Authorization {
 export default function AuthorizationManagement() {
   const { token, user } = useAuthStore()
   const isDesigner = user?.role === 'designer'
-  const isManufacturerUser = !!(user as any)?.manufacturerId
+  const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin'
+  const isManufacturerUser = !!(
+    (user as any)?.manufacturerId ||
+    Array.isArray((user as any)?.manufacturerIds) && (user as any)?.manufacturerIds?.length > 0 ||
+    user?.role === 'enterprise_admin' ||
+    user?.role === 'enterprise_staff'
+  )
 
   type TabKey = 'granted' | 'received' | 'pending_requests' | 'my_requests'
   const [activeTab, setActiveTab] = useState<TabKey>('received')
@@ -54,10 +60,10 @@ export default function AuthorizationManagement() {
   useEffect(() => {
     if (didInitTab.current) return
     if (!user) return
-    const desired: TabKey = isDesigner ? 'received' : (isManufacturerUser ? 'granted' : 'received')
+    const desired: TabKey = (isDesigner || isPlatformAdmin) ? 'received' : (isManufacturerUser ? 'granted' : 'received')
     setActiveTab(desired)
     didInitTab.current = true
-  }, [user, isDesigner, isManufacturerUser])
+  }, [user, isDesigner, isManufacturerUser, isPlatformAdmin])
 
   useEffect(() => {
     loadAuthorizations()
@@ -110,7 +116,7 @@ export default function AuthorizationManagement() {
           else toast.error(data?.message || '加载失败')
         }
       } else {
-        if (isDesigner) {
+        if (isDesigner || isPlatformAdmin) {
           const response = await apiClient.get('/authorizations/designer-requests/my')
           const data = response.data
           if (data?.success) setMyRequests(data.data || [])

@@ -37,7 +37,13 @@ export default function EliteManufacturerProductAuthorization() {
   const manufacturerId = String(params.manufacturerId || '')
 
   const isDesigner = user?.role === 'designer'
-  const isManufacturerUser = !!(user as any)?.manufacturerId
+  const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin'
+  const isManufacturerUser = !!(
+    (user as any)?.manufacturerId ||
+    Array.isArray((user as any)?.manufacturerIds) && (user as any)?.manufacturerIds?.length > 0 ||
+    user?.role === 'enterprise_admin' ||
+    user?.role === 'enterprise_staff'
+  )
 
   const pickImageId = (v: any): string => {
     if (!v) return ''
@@ -335,12 +341,12 @@ export default function EliteManufacturerProductAuthorization() {
   }
 
   const handleSubmit = async () => {
-    if (!isDesigner && !isManufacturerUser) {
-      toast.error('当前账号暂不支持发起授权申请，请使用设计师或厂家账号')
+    if (!isDesigner && !isManufacturerUser && !isPlatformAdmin) {
+      toast.error('当前账号暂不支持发起授权申请，请使用设计师、厂家或平台管理员账号')
       return
     }
     if (!canSubmit) {
-      toast.error('请选择至少一个商品')
+      toast.error('请选择至少一个分类或商品')
       return
     }
 
@@ -352,7 +358,9 @@ export default function EliteManufacturerProductAuthorization() {
           ? 'category'
           : 'specific'
 
-      const endpoint = isDesigner ? '/authorizations/designer-requests' : '/authorizations/manufacturer-requests'
+      const endpoint = (isDesigner || isPlatformAdmin)
+        ? '/authorizations/designer-requests'
+        : '/authorizations/manufacturer-requests'
       await apiClient.post(endpoint, {
         manufacturerId,
         scope,
@@ -467,12 +475,12 @@ export default function EliteManufacturerProductAuthorization() {
                         <div className="flex items-center gap-4 flex-grow cursor-pointer" onClick={() => toggleCategory(catId)}>
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isOpen ? 'bg-[#153e35] text-white' : 'bg-gray-100 text-gray-400'}`}>
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                             </svg>
                           </div>
                           <div>
                             <h3 className="text-base font-bold text-gray-900">{cat.name}</h3>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{catProducts.length} 款商品</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{catProducts.length} 款商品</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-6">
@@ -555,7 +563,7 @@ export default function EliteManufacturerProductAuthorization() {
                                         </svg>
                                       </button>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5 tracking-tight uppercase">{prod.productCode || '无编码'}</p>
+                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5 uppercase tracking-tighter">编码：{prod.productCode || '无编码'}</p>
 
                                     <div className="flex flex-wrap items-center gap-x-12 gap-y-2 mt-3">
                                       <div>
@@ -604,7 +612,7 @@ export default function EliteManufacturerProductAuthorization() {
 
                                               <div className="grid grid-cols-4 flex-grow gap-4 items-center">
                                                 <div className="col-span-1 min-w-0">
-                                                  <p className="text-[10px] font-bold text-gray-400 mb-0.5 uppercase tracking-tighter">SKU: {sku.code || `SKU-${idx + 1}`}</p>
+                                                  <p className="text-[10px] text-gray-400 font-bold mb-0.5 uppercase tracking-tighter">SKU：{sku.code || `SKU-${idx + 1}`}</p>
                                                   <p className="text-xs text-gray-700 font-bold truncate leading-tight" title={sku.spec || ''}>{sku.spec || '-'}</p>
                                                 </div>
                                                 <div className="space-y-0.5">
@@ -749,7 +757,7 @@ export default function EliteManufacturerProductAuthorization() {
 
               <button
                 className="w-full py-5 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-[#153e35] font-black text-lg border-none disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!canSubmit || submitting || (!isDesigner && !isManufacturerUser)}
+                disabled={!canSubmit || submitting}
                 onClick={handleSubmit}
                 type="button"
               >

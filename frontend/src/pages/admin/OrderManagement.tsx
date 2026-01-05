@@ -158,8 +158,10 @@ export default function OrderManagement() {
   const getProducts = (order: Order) => {
     if ((order as any).orderType === 'package' && (order as any).packageInfo) {
       const products: any[] = []
-      ;((order as any).packageInfo.selections || []).forEach((selection: any) => {
-        ;(selection.products || []).forEach((product: any) => {
+      const selections = (order as any).packageInfo.selections || []
+      selections.forEach((selection: any) => {
+        const selectionProducts = selection.products || []
+        selectionProducts.forEach((product: any) => {
           const materials = product.selectedMaterials || product.materials || {}
           const upgradePrices = product.materialUpgradePrices || {}
           

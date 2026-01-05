@@ -1,5 +1,8 @@
 const { successResponse, errorResponse, paginatedResponse } = require('../utils/response')
 const Manufacturer = require('../models/Manufacturer')
+const User = require('../models/User')
+const bcrypt = require('bcryptjs')
+const { USER_ROLES, USER_TYPES } = require('../config/constants')
 
 // 获取所有厂家列表
 const list = async (req, res) => {
@@ -126,6 +129,45 @@ const create = async (req, res) => {
       logo,
       status: status || 'active'
     })
+
+    const platformRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.PLATFORM_ADMIN, 'super_admin', 'admin', 'platform_admin']
+    const canAutoCreateAccount = platformRoles.includes(req.user?.role)
+    if (canAutoCreateAccount) {
+      try {
+        const base = String(shortName || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '')
+
+        if (base) {
+          let username = base
+          let suffix = 0
+          while (suffix < 50) {
+            const exists = await User.findOne({ username }).select('_id').lean()
+            if (!exists) break
+            suffix += 1
+            username = `${base}${suffix}`
+          }
+
+          if (suffix < 50) {
+            const hashedPassword = await bcrypt.hash('123456', 10)
+            await User.create({
+              username,
+              password: hashedPassword,
+              nickname: manufacturerName,
+              role: USER_ROLES.ENTERPRISE_ADMIN,
+              userType: USER_TYPES.ADMIN,
+              manufacturerId: manufacturer._id,
+              manufacturerIds: [manufacturer._id],
+              status: 'active',
+              createdBy: req.user?._id
+            })
+          }
+        }
+      } catch (e) {
+        console.error('Auto create manufacturer admin account error:', e)
+      }
+    }
     
     res.status(201).json(successResponse(manufacturer, '创建成功'))
   } catch (err) {
