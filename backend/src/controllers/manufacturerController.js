@@ -155,6 +155,7 @@ const create = async (req, res) => {
               username,
               password: hashedPassword,
               nickname: manufacturerName,
+              accountType: 'auth',
               role: USER_ROLES.ENTERPRISE_ADMIN,
               userType: USER_TYPES.ADMIN,
               manufacturerId: manufacturer._id,

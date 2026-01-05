@@ -78,15 +78,17 @@ exports.createAccount = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10)
     
     // 创建账号
-    const isDesigner = accountType === 'designer'
+    const normalizedAccountType = accountType || 'normal'
+    const isDesigner = normalizedAccountType === 'designer'
+    const isAuthAccount = normalizedAccountType === 'auth'
     const user = new User({
       username,
       password: hashedPassword,
       nickname: nickname || username,
       manufacturerId: isDesigner ? null : manufacturerId,
       manufacturerIds: [manufacturerId],
-      accountType: accountType || 'normal',
-      role: isDesigner ? USER_ROLES.DESIGNER : USER_ROLES.ENTERPRISE_STAFF,
+      accountType: normalizedAccountType,
+      role: isDesigner ? USER_ROLES.DESIGNER : (isAuthAccount ? USER_ROLES.ENTERPRISE_ADMIN : USER_ROLES.ENTERPRISE_STAFF),
       userType: isDesigner ? USER_TYPES.DESIGNER : USER_TYPES.ADMIN,
       permissions: permissions || {},
       specialAccountConfig: {
@@ -188,7 +190,8 @@ exports.updateAccount = async (req, res) => {
       
       user.accountType = accountType
       const isDesigner = accountType === 'designer'
-      user.role = isDesigner ? USER_ROLES.DESIGNER : USER_ROLES.ENTERPRISE_STAFF
+      const isAuthAccount = accountType === 'auth'
+      user.role = isDesigner ? USER_ROLES.DESIGNER : (isAuthAccount ? USER_ROLES.ENTERPRISE_ADMIN : USER_ROLES.ENTERPRISE_STAFF)
       user.userType = isDesigner ? USER_TYPES.DESIGNER : USER_TYPES.ADMIN
       if (isDesigner) {
         user.manufacturerId = null
