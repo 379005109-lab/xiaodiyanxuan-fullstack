@@ -4,6 +4,11 @@ FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
 
+# 安装构建依赖，避免 npm ci 在 slim 镜像中因原生依赖编译失败
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
 # 复制 package 文件
 COPY package*.json ./
 
