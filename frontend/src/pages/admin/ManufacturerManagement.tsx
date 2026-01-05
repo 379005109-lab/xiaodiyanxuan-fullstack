@@ -832,6 +832,13 @@ export default function ManufacturerManagement() {
                     账号管理
                   </button>
                   <button
+                    onClick={() => openSmsModal(myManufacturer)}
+                    className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                    type="button"
+                  >
+                    短信绑定
+                  </button>
+                  <button
                     onClick={() => handleOpenTierSystem(myManufacturer, 'hierarchy')}
                     className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                   >
