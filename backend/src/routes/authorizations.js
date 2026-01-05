@@ -1242,7 +1242,7 @@ router.put('/manufacturer-requests/:id/reject', auth, async (req, res) => {
 })
 
 // GET /api/authorizations/:id - 获取授权详情
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
   try {
     const authorization = await Authorization.findById(req.params.id)
       .populate('fromManufacturer')
@@ -1276,7 +1276,7 @@ router.get('/:id', auth, async (req, res) => {
 // ==================== 更新授权 ====================
 
 // PUT /api/authorizations/:id - 更新授权
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
   try {
     const authorization = await Authorization.findById(req.params.id)
     if (!authorization) {
@@ -1407,7 +1407,7 @@ router.put('/:id/designer-product-discount/:productId', auth, async (req, res) =
 })
 
 // DELETE /api/authorizations/:id - 撤销授权
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
   try {
     const authorization = await Authorization.findById(req.params.id)
     if (!authorization) {
