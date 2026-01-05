@@ -1,12 +1,10 @@
 # 构建阶段
-# 构建阶段 - Updated 2024-12-13 - Fix login response to include nickname/gender
 FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
 
-# 安装构建依赖，避免 npm ci 在 slim 镜像中因原生依赖编译失败
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ \
+  && apt-get install -y --no-install-recommends python3 make g++ pkg-config libvips-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # 复制 package 文件
@@ -25,7 +23,7 @@ ENV GIT_SHA=$GIT_SHA
 
 # 安装 dumb-init 用于优雅关闭
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends dumb-init \
+  && apt-get install -y --no-install-recommends dumb-init libvips \
   && rm -rf /var/lib/apt/lists/*
 
 # 从构建阶段复制 node_modules
