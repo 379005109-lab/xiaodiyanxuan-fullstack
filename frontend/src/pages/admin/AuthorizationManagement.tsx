@@ -55,6 +55,12 @@ export default function AuthorizationManagement() {
   const [selectedAuthId, setSelectedAuthId] = useState<string>('')
   const [categories, setCategories] = useState<any[]>([])
 
+  const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [detailAuth, setDetailAuth] = useState<Authorization | null>(null)
+  const [editAuth, setEditAuth] = useState<Authorization | null>(null)
+  const [loadingAuthDetail, setLoadingAuthDetail] = useState(false)
+
   const didInitTab = useRef(false)
 
   useEffect(() => {
@@ -210,6 +216,38 @@ export default function AuthorizationManagement() {
   const openFolderSelection = (authId: string) => {
     setSelectedAuthId(authId)
     setShowFolderModal(true)
+  }
+
+  const fetchAuthorizationDetail = async (id: string) => {
+    setLoadingAuthDetail(true)
+    try {
+      const resp = await apiClient.get(`/authorizations/${id}`)
+      const data = resp.data
+      if (!data?.success) {
+        toast.error(data?.message || '加载授权详情失败')
+        return null
+      }
+      return data.data as Authorization
+    } catch (e) {
+      toast.error('加载授权详情失败')
+      return null
+    } finally {
+      setLoadingAuthDetail(false)
+    }
+  }
+
+  const openDetail = async (id: string) => {
+    const auth = await fetchAuthorizationDetail(id)
+    if (!auth) return
+    setDetailAuth(auth)
+    setShowDetailModal(true)
+  }
+
+  const openEdit = async (id: string) => {
+    const auth = await fetchAuthorizationDetail(id)
+    if (!auth) return
+    setEditAuth(auth)
+    setShowEditModal(true)
   }
 
   const handleSaveFolder = async (folderId: string, folderName: string) => {
@@ -513,12 +551,14 @@ export default function AuthorizationManagement() {
                 {activeTab === 'granted' && (
                   <div className="flex items-center gap-2 ml-4">
                     <button
+                      onClick={() => openDetail(auth._id)}
                       className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                       title="查看详情"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => openEdit(auth._id)}
                       className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       title="编辑"
                     >
@@ -603,6 +643,334 @@ export default function AuthorizationManagement() {
           onSave={handleSaveFolder}
         />
       )}
+
+      {showDetailModal && (
+        <AuthorizationDetailModal
+          authorization={detailAuth}
+          categories={categories}
+          loading={loadingAuthDetail}
+          onClose={() => {
+            setShowDetailModal(false)
+            setDetailAuth(null)
+          }}
+        />
+      )}
+
+      {showEditModal && (
+        <AuthorizationEditModal
+          authorization={editAuth}
+          categories={categories}
+          loading={loadingAuthDetail}
+          onClose={() => {
+            setShowEditModal(false)
+            setEditAuth(null)
+          }}
+          onSaved={() => {
+            setShowEditModal(false)
+            setEditAuth(null)
+            loadAuthorizations()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function AuthorizationDetailModal({
+  authorization,
+  categories,
+  loading,
+  onClose
+}: {
+  authorization: Authorization | null
+  categories: any[]
+  loading: boolean
+  onClose: () => void
+}) {
+  const getCategoryName = (idOrObj: any) => {
+    const id = typeof idOrObj === 'string' ? idOrObj : (idOrObj?._id || idOrObj?.id)
+    if (!id) return ''
+    const match = categories.find((c) => String(c._id) === String(id) || String(c.slug) === String(id))
+    return match?.name || String(id)
+  }
+
+  const auth = authorization
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full overflow-hidden">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">授权详情</h2>
+          <button onClick={onClose} className="btn btn-secondary">关闭</button>
+        </div>
+        <div className="p-6">
+          {loading ? (
+            <div className="text-center py-10">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+              <p className="mt-2 text-sm text-gray-500">加载中...</p>
+            </div>
+          ) : !auth ? (
+            <div className="text-sm text-gray-500">暂无数据</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500">授权方</div>
+                  <div className="text-sm text-gray-900 mt-1">{auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '-'}</div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500">被授权方</div>
+                  <div className="text-sm text-gray-900 mt-1">
+                    {auth.authorizationType === 'manufacturer'
+                      ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '-')
+                      : (auth.toDesigner?.nickname || auth.toDesigner?.username || '-')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-gray-900 mb-2">授权范围</div>
+                <div className="text-sm text-gray-700">
+                  <div>scope: {auth.scope}</div>
+                  {(auth.categories || []).length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500 mb-1">分类</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(auth.categories || []).map((c: any) => (
+                          <span key={String(c?._id || c)} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
+                            {getCategoryName(c)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(auth.products || []).length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs text-gray-500 mb-1">商品</div>
+                      <div className="space-y-1">
+                        {(auth.products || []).slice(0, 30).map((p: any) => (
+                          <div key={String(p?._id || p)} className="text-sm text-gray-700">
+                            {p?.name || p?.title || String(p?._id || p)}
+                          </div>
+                        ))}
+                        {(auth.products || []).length > 30 && (
+                          <div className="text-xs text-gray-500">仅展示前 30 个商品</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-gray-900 mb-2">折扣/价格设置</div>
+                <div className="text-sm text-gray-700">
+                  <div>全局折扣: {(((auth.priceSettings?.globalDiscount ?? 1) as number) * 100).toFixed(0)}折</div>
+                  {(auth.priceSettings?.categoryDiscounts || []).length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500 mb-1">分类折扣</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(auth.priceSettings?.categoryDiscounts || []).map((cd: any, idx: number) => (
+                          <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
+                            {getCategoryName(cd.category)}: {((cd.discount ?? 1) * 100).toFixed(0)}折
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(auth.priceSettings?.productPrices || []).length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs text-gray-500 mb-1">单品设置</div>
+                      <div className="space-y-1">
+                        {(auth.priceSettings?.productPrices || []).slice(0, 50).map((pp: any, idx: number) => (
+                          <div key={idx} className="text-sm text-gray-700">
+                            {String(pp.productId)} — 折扣 {((pp.discount ?? 1) * 100).toFixed(0)}折{pp.price ? `，固定价 ${pp.price}` : ''}
+                          </div>
+                        ))}
+                        {(auth.priceSettings?.productPrices || []).length > 50 && (
+                          <div className="text-xs text-gray-500">仅展示前 50 条单品设置</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AuthorizationEditModal({
+  authorization,
+  categories,
+  loading,
+  onClose,
+  onSaved
+}: {
+  authorization: Authorization | null
+  categories: any[]
+  loading: boolean
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const auth = authorization
+  const [saving, setSaving] = useState(false)
+  const [globalDiscount, setGlobalDiscount] = useState<number>(auth?.priceSettings?.globalDiscount ?? 1)
+  const [categoryDiscounts, setCategoryDiscounts] = useState<Array<{ category: string; discount: number }>>(
+    (auth?.priceSettings?.categoryDiscounts || []).map((cd: any) => ({
+      category: String(cd.category?._id || cd.category || ''),
+      discount: Number(cd.discount ?? 1),
+    }))
+  )
+
+  useEffect(() => {
+    setGlobalDiscount(auth?.priceSettings?.globalDiscount ?? 1)
+    setCategoryDiscounts(
+      (auth?.priceSettings?.categoryDiscounts || []).map((cd: any) => ({
+        category: String(cd.category?._id || cd.category || ''),
+        discount: Number(cd.discount ?? 1),
+      }))
+    )
+  }, [auth?._id])
+
+  const addCategoryDiscount = () => {
+    setCategoryDiscounts((prev) => [...prev, { category: '', discount: globalDiscount }])
+  }
+
+  const updateCategoryDiscount = (idx: number, next: Partial<{ category: string; discount: number }>) => {
+    setCategoryDiscounts((prev) => prev.map((row, i) => (i === idx ? { ...row, ...next } : row)))
+  }
+
+  const removeCategoryDiscount = (idx: number) => {
+    setCategoryDiscounts((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleSave = async () => {
+    if (!auth?._id) return
+
+    const cleanedCategoryDiscounts = categoryDiscounts
+      .filter((cd) => cd.category)
+      .map((cd) => ({ category: cd.category, discount: cd.discount }))
+
+    try {
+      setSaving(true)
+      const resp = await apiClient.put(`/authorizations/${auth._id}`, {
+        priceSettings: {
+          globalDiscount,
+          categoryDiscounts: cleanedCategoryDiscounts,
+          productPrices: auth?.priceSettings?.productPrices || [],
+        }
+      })
+      const data = resp.data
+      if (data?.success) {
+        toast.success('已保存')
+        onSaved()
+      } else {
+        toast.error(data?.message || '保存失败')
+      }
+    } catch (e) {
+      toast.error('保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full overflow-hidden">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">编辑授权</h2>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="btn btn-secondary" disabled={saving}>取消</button>
+            <button onClick={handleSave} className="btn btn-primary" disabled={saving || loading || !auth}>保存</button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {loading ? (
+            <div className="text-center py-10">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+              <p className="mt-2 text-sm text-gray-500">加载中...</p>
+            </div>
+          ) : !auth ? (
+            <div className="text-sm text-gray-500">暂无数据</div>
+          ) : (
+            <div className="space-y-6">
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-gray-900 mb-3">全局折扣</div>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="1"
+                    step="0.05"
+                    value={globalDiscount}
+                    onChange={(e) => setGlobalDiscount(parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="w-20 text-right text-sm text-gray-700">{(globalDiscount * 100).toFixed(0)}折</div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-medium text-gray-900">分类折扣</div>
+                  <button type="button" onClick={addCategoryDiscount} className="btn btn-secondary">新增</button>
+                </div>
+                {categoryDiscounts.length === 0 ? (
+                  <div className="text-sm text-gray-500">暂无分类折扣</div>
+                ) : (
+                  <div className="space-y-3">
+                    {categoryDiscounts.map((row, idx) => (
+                      <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                        <div className="md:col-span-7">
+                          <select
+                            value={row.category}
+                            onChange={(e) => updateCategoryDiscount(idx, { category: e.target.value })}
+                            className="input w-full"
+                          >
+                            <option value="">-- 选择分类 --</option>
+                            {categories.map((c: any) => (
+                              <option key={String(c._id)} value={String(c._id)}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="md:col-span-4 flex items-center gap-3">
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="1"
+                            step="0.05"
+                            value={row.discount}
+                            onChange={(e) => updateCategoryDiscount(idx, { discount: parseFloat(e.target.value) })}
+                            className="w-full"
+                          />
+                          <div className="w-16 text-right text-sm text-gray-700">{(row.discount * 100).toFixed(0)}折</div>
+                        </div>
+                        <div className="md:col-span-1">
+                          <button type="button" onClick={() => removeCategoryDiscount(idx)} className="btn btn-secondary w-full">删</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-gray-900 mb-2">单品设置</div>
+                {(auth.priceSettings?.productPrices || []).length === 0 ? (
+                  <div className="text-sm text-gray-500">暂无单品设置（当前版本仅展示/保留已有设置）</div>
+                ) : (
+                  <div className="text-sm text-gray-700">已存在 {(auth.priceSettings?.productPrices || []).length} 条单品设置（当前版本仅展示/保留已有设置）</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
