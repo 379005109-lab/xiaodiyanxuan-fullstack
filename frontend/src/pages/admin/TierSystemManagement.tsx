@@ -538,21 +538,74 @@ export default function TierSystemManagement() {
         </div>
       </div>
 
-      {/* 标签切换 */}
+      {/* 管理模式选择 - 公司分层与角色权限互斥 */}
       <div className="mb-8">
-        <div className="flex flex-wrap gap-3">
-          <TabButton
-            active={activeTab === 'hierarchy'}
-            onClick={() => setActiveTab('hierarchy')}
-            icon={<GitBranch className="w-4 h-4" />}
-            label="公司分层"
-          />
-          <TabButton
-            active={activeTab === 'pool'}
-            onClick={() => setActiveTab('pool')}
-            icon={<BarChart3 className="w-4 h-4" />}
-            label="角色权限"
-          />
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
+          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">选择管理模式</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label 
+              className={`relative flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+                activeTab === 'hierarchy' 
+                  ? 'border-[#153e35] bg-emerald-50/50' 
+                  : 'border-gray-100 hover:border-gray-200'
+              }`}
+            >
+              <input
+                type="radio"
+                name="managementMode"
+                checked={activeTab === 'hierarchy'}
+                onChange={() => setActiveTab('hierarchy')}
+                className="sr-only"
+              />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                activeTab === 'hierarchy' ? 'bg-[#153e35] text-white' : 'bg-gray-100 text-gray-500'
+              }`}>
+                <GitBranch className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <div className="font-bold text-gray-900">公司分层</div>
+                <p className="text-sm text-gray-500 mt-1">按组织架构设置层级分成，适用于有明确上下级关系的团队</p>
+              </div>
+              {activeTab === 'hierarchy' && (
+                <div className="absolute top-3 right-3 w-6 h-6 bg-[#153e35] rounded-full flex items-center justify-center">
+                  <Check className="w-4 h-4 text-white" />
+                </div>
+              )}
+            </label>
+            <label 
+              className={`relative flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+                activeTab === 'pool' 
+                  ? 'border-[#153e35] bg-emerald-50/50' 
+                  : 'border-gray-100 hover:border-gray-200'
+              }`}
+            >
+              <input
+                type="radio"
+                name="managementMode"
+                checked={activeTab === 'pool'}
+                onChange={() => setActiveTab('pool')}
+                className="sr-only"
+              />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                activeTab === 'pool' ? 'bg-[#153e35] text-white' : 'bg-gray-100 text-gray-500'
+              }`}>
+                <BarChart3 className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <div className="font-bold text-gray-900">角色权限</div>
+                <p className="text-sm text-gray-500 mt-1">按角色类型设置统一折扣和返佣规则，适用于扁平化管理</p>
+              </div>
+              {activeTab === 'pool' && (
+                <div className="absolute top-3 right-3 w-6 h-6 bg-[#153e35] rounded-full flex items-center justify-center">
+                  <Check className="w-4 h-4 text-white" />
+                </div>
+              )}
+            </label>
+          </div>
+        </div>
+        
+        {/* 分润对账独立入口 */}
+        <div className="flex justify-end">
           <TabButton
             active={activeTab === 'reconciliation'}
             onClick={() => setActiveTab('reconciliation')}

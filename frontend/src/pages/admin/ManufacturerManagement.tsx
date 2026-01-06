@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -745,7 +745,34 @@ export default function ManufacturerManagement() {
               <h2 className="text-4xl font-black text-gray-900 tracking-tight">品牌工厂中心</h2>
               <p className="text-sm text-gray-500 mt-2">管理自有资产或申请跨品牌授权</p>
             </div>
-            <div className="relative max-w-md w-full">
+            <div className="flex items-center gap-3">
+              {/* 设置下拉菜单 */}
+              {myManufacturer && (
+                <div className="relative group">
+                  <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+                    <Settings className="w-4 h-4 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-700">设置</span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </button>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    <button
+                      onClick={() => openSmsModal(myManufacturer)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <MessageSquare className="w-4 h-4 text-cyan-600" />
+                      短信通知绑定
+                    </button>
+                    <button
+                      onClick={() => openEditModal(myManufacturer)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Edit className="w-4 h-4 text-blue-600" />
+                      资料编辑
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="relative max-w-md w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
@@ -832,23 +859,10 @@ export default function ManufacturerManagement() {
                     账号管理
                   </button>
                   <button
-                    onClick={() => openSmsModal(myManufacturer)}
-                    className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                    type="button"
-                  >
-                    短信绑定
-                  </button>
-                  <button
                     onClick={() => handleOpenTierSystem(myManufacturer, 'hierarchy')}
                     className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     分成体系
-                  </button>
-                  <button
-                    onClick={() => openEditModal(myManufacturer)}
-                    className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    资料编辑
                   </button>
                   <button
                     onClick={() => {
