@@ -2548,13 +2548,20 @@ export default function ProductManagement() {
         <div className="flex space-x-3">
           {selectedIds.length > 0 && (
             <>
-              <button
-                onClick={() => setShowBatchManufacturerModal(true)}
-                className="btn-secondary flex items-center bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200"
-              >
-                <Edit className="h-5 w-5 mr-2" />
-                批量修改厂家 ({selectedIds.length})
-              </button>
+              {/* 只有当选中的商品都没有厂家时才显示批量修改厂家按钮 */}
+              {(() => {
+                const selectedProducts = products.filter(p => selectedIds.includes(p._id))
+                const allWithoutManufacturer = selectedProducts.every(p => !getProductManufacturerId(p))
+                return allWithoutManufacturer
+              })() && (
+                <button
+                  onClick={() => setShowBatchManufacturerModal(true)}
+                  className="btn-secondary flex items-center bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200"
+                >
+                  <Edit className="h-5 w-5 mr-2" />
+                  批量修改厂家 ({selectedIds.length})
+                </button>
+              )}
               <button
                 onClick={handleBatchDelete}
                 className="btn-secondary flex items-center bg-red-50 text-red-600 hover:bg-red-100 border-red-200"

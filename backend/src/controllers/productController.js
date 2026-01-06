@@ -454,7 +454,8 @@ const listProducts = async (req, res) => {
         const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth })
 
         const manufacturerDoc = ownerManufacturerId ? manufacturerById.get(ownerManufacturerId) : null
-        const manufacturerDisplayName = auth && manufacturerDoc
+        // 只要商品有厂家就显示厂家名，没有厂家的才显示平台
+        const manufacturerDisplayName = manufacturerDoc
           ? (manufacturerDoc.fullName || manufacturerDoc.shortName || manufacturerDoc.name || '未知厂家')
           : '小迪严选（平台）'
 
