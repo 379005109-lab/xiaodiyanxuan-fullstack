@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin } from 'lucide-react'
+import { ArrowLeft, MapPin, X, CreditCard, Smartphone, Building2, Copy, CheckCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
@@ -9,6 +9,25 @@ import { formatPrice } from '@/lib/utils'
 import { toast } from 'sonner'
 import axios from '@/lib/axios'
 import { getFileUrl } from '@/services/uploadService'
+
+// 商家支付信息类型
+interface MerchantPaymentInfo {
+  manufacturerId: string
+  manufacturerName: string
+  wechatQrCode?: string
+  alipayQrCode?: string
+  bankInfo?: {
+    bankName: string
+    accountName: string
+    accountNumber: string
+  }
+  paymentAccounts?: Array<{
+    type: 'bank' | 'wechat' | 'alipay'
+    bankName: string
+    accountName: string
+    accountNumber: string
+  }>
+}
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
@@ -34,6 +53,16 @@ export default function CheckoutPage() {
   const [addresses, setAddresses] = useState<any[]>([])
   const [selectedAddressId, setSelectedAddressId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
+  
+  // 商家支付弹窗状态
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [merchantPaymentInfo, setMerchantPaymentInfo] = useState<MerchantPaymentInfo | null>(null)
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'wechat' | 'alipay' | 'bank'>('wechat')
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [orderNo, setOrderNo] = useState<string>('')
+  
+  // 判断是否为厂家或设计师用户
+  const isManufacturerOrDesigner = (user as any)?.role === 'manufacturer' || (user as any)?.role === 'designer' || (user as any)?.manufacturerId
   
   // 加载用户地址
   useEffect(() => {
@@ -352,6 +381,37 @@ export default function CheckoutPage() {
       }
     }
     
+    // 如果是厂家或设计师用户，显示商家支付弹窗
+    if (isManufacturerOrDesigner && items.length > 0) {
+      try {
+        // 获取商品所属厂家的支付信息
+        const firstProduct = items[0].product as any
+        const manufacturerId = firstProduct.manufacturerId || firstProduct.manufacturer?._id || firstProduct.manufacturer
+        
+        if (manufacturerId) {
+          const paymentRes = await axios.get(`/manufacturers/${manufacturerId}`)
+          const manufacturerData = paymentRes.data?.data || paymentRes.data
+          
+          if (manufacturerData?.settings) {
+            setMerchantPaymentInfo({
+              manufacturerId: manufacturerId,
+              manufacturerName: manufacturerData.fullName || manufacturerData.shortName || manufacturerData.name || '商家',
+              wechatQrCode: manufacturerData.settings.wechatQrCode,
+              alipayQrCode: manufacturerData.settings.alipayQrCode,
+              bankInfo: manufacturerData.settings.bankInfo,
+              paymentAccounts: manufacturerData.settings.paymentAccounts
+            })
+            setOrderNo(orderNo)
+            setShowPaymentModal(true)
+            setSubmitting(false)
+            return // 不跳转，等待用户确认支付
+          }
+        }
+      } catch (err) {
+        console.log('获取商家支付信息失败，使用默认流程', err)
+      }
+    }
+    
     // 清空购物车并跳转
     clearCart()
     
@@ -361,6 +421,22 @@ export default function CheckoutPage() {
     }, 500)
     
     setSubmitting(false)
+  }
+  
+  // 复制到剪贴板
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedField(field)
+    toast.success('已复制到剪贴板')
+    setTimeout(() => setCopiedField(null), 2000)
+  }
+  
+  // 关闭支付弹窗并跳转
+  const handlePaymentConfirm = () => {
+    clearCart()
+    setShowPaymentModal(false)
+    toast.success('订单已提交，请完成支付后等待商家确认')
+    navigate('/orders')
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -666,6 +742,183 @@ export default function CheckoutPage() {
           </aside>
         </div>
       </div>
+      
+      {/* 商家支付弹窗 */}
+      {showPaymentModal && merchantPaymentInfo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-3xl">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">支付订单</h2>
+                <p className="text-sm text-gray-500 mt-1">订单号：{orderNo}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false)
+                  clearCart()
+                  navigate('/orders')
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* 商家信息 */}
+              <div className="bg-emerald-50 rounded-2xl p-4">
+                <p className="text-sm text-emerald-700">
+                  请向 <span className="font-bold">{merchantPaymentInfo.manufacturerName}</span> 支付
+                </p>
+                <p className="text-2xl font-bold text-emerald-800 mt-1">
+                  {formatPrice(getTotalPrice())}
+                </p>
+              </div>
+              
+              {/* 支付方式选择 */}
+              <div className="flex gap-2">
+                {merchantPaymentInfo.wechatQrCode && (
+                  <button
+                    onClick={() => setSelectedPaymentMethod('wechat')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                      selectedPaymentMethod === 'wechat'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <Smartphone className="w-5 h-5" />
+                    <span className="font-medium">微信</span>
+                  </button>
+                )}
+                {merchantPaymentInfo.alipayQrCode && (
+                  <button
+                    onClick={() => setSelectedPaymentMethod('alipay')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                      selectedPaymentMethod === 'alipay'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <CreditCard className="w-5 h-5" />
+                    <span className="font-medium">支付宝</span>
+                  </button>
+                )}
+                {(merchantPaymentInfo.bankInfo?.bankName || merchantPaymentInfo.paymentAccounts?.some(p => p.type === 'bank')) && (
+                  <button
+                    onClick={() => setSelectedPaymentMethod('bank')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                      selectedPaymentMethod === 'bank'
+                        ? 'border-amber-500 bg-amber-50 text-amber-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <Building2 className="w-5 h-5" />
+                    <span className="font-medium">银行转账</span>
+                  </button>
+                )}
+              </div>
+              
+              {/* 支付信息展示 */}
+              <div className="bg-gray-50 rounded-2xl p-6">
+                {selectedPaymentMethod === 'wechat' && merchantPaymentInfo.wechatQrCode && (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 mb-4">请使用微信扫描下方二维码支付</p>
+                    <img
+                      src={getFileUrl(merchantPaymentInfo.wechatQrCode)}
+                      alt="微信收款码"
+                      className="w-48 h-48 mx-auto rounded-xl border border-gray-200"
+                    />
+                  </div>
+                )}
+                
+                {selectedPaymentMethod === 'alipay' && merchantPaymentInfo.alipayQrCode && (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 mb-4">请使用支付宝扫描下方二维码支付</p>
+                    <img
+                      src={getFileUrl(merchantPaymentInfo.alipayQrCode)}
+                      alt="支付宝收款码"
+                      className="w-48 h-48 mx-auto rounded-xl border border-gray-200"
+                    />
+                  </div>
+                )}
+                
+                {selectedPaymentMethod === 'bank' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600 mb-4">请转账至以下银行账户</p>
+                    {(() => {
+                      const bankAccount = merchantPaymentInfo.paymentAccounts?.find(p => p.type === 'bank') || {
+                        bankName: merchantPaymentInfo.bankInfo?.bankName || '',
+                        accountName: merchantPaymentInfo.bankInfo?.accountName || '',
+                        accountNumber: merchantPaymentInfo.bankInfo?.accountNumber || ''
+                      }
+                      return (
+                        <>
+                          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                            <span className="text-gray-500">开户银行</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">{bankAccount.bankName}</span>
+                              <button
+                                onClick={() => copyToClipboard(bankAccount.bankName, 'bank')}
+                                className="p-1 hover:bg-gray-200 rounded"
+                              >
+                                {copiedField === 'bank' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                            <span className="text-gray-500">户名</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">{bankAccount.accountName}</span>
+                              <button
+                                onClick={() => copyToClipboard(bankAccount.accountName, 'name')}
+                                className="p-1 hover:bg-gray-200 rounded"
+                              >
+                                {copiedField === 'name' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between py-3">
+                            <span className="text-gray-500">银行账号</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900 font-mono">{bankAccount.accountNumber}</span>
+                              <button
+                                onClick={() => copyToClipboard(bankAccount.accountNumber, 'account')}
+                                className="p-1 hover:bg-gray-200 rounded"
+                              >
+                                {copiedField === 'account' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )
+                    })()}
+                    <div className="mt-4 p-3 bg-amber-50 rounded-xl">
+                      <p className="text-xs text-amber-700">
+                        转账时请备注订单号：<span className="font-mono font-bold">{orderNo}</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* 提示信息 */}
+              <div className="text-center text-sm text-gray-500">
+                <p>支付完成后，商家将收到订单通知</p>
+                <p className="mt-1">如有问题请联系商家客服</p>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-3xl">
+              <button
+                onClick={handlePaymentConfirm}
+                className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors"
+              >
+                我已完成支付
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
