@@ -1,3 +1,4 @@
+// 厂家资料编辑抽屉组件 - 共享于管理员和厂家门户
 import { useState, useEffect } from 'react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
