@@ -813,70 +813,84 @@ export default function CheckoutPage() {
                 </p>
               </div>
               
-              {/* 支付方式选择 */}
+              {/* 支付方式选择 - 始终显示三个选项 */}
               <div className="flex gap-2">
-                {merchantPaymentInfo.wechatQrCode && (
-                  <button
-                    onClick={() => setSelectedPaymentMethod('wechat')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
-                      selectedPaymentMethod === 'wechat'
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
-                  >
-                    <Smartphone className="w-5 h-5" />
-                    <span className="font-medium">微信</span>
-                  </button>
-                )}
-                {merchantPaymentInfo.alipayQrCode && (
-                  <button
-                    onClick={() => setSelectedPaymentMethod('alipay')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
-                      selectedPaymentMethod === 'alipay'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
-                  >
-                    <CreditCard className="w-5 h-5" />
-                    <span className="font-medium">支付宝</span>
-                  </button>
-                )}
-                {(merchantPaymentInfo.bankInfo?.bankName || merchantPaymentInfo.paymentAccounts?.some(p => p.type === 'bank')) && (
-                  <button
-                    onClick={() => setSelectedPaymentMethod('bank')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
-                      selectedPaymentMethod === 'bank'
-                        ? 'border-amber-500 bg-amber-50 text-amber-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
-                  >
-                    <Building2 className="w-5 h-5" />
-                    <span className="font-medium">银行转账</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setSelectedPaymentMethod('wechat')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                    selectedPaymentMethod === 'wechat'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <Smartphone className="w-5 h-5" />
+                  <span className="font-medium">微信</span>
+                </button>
+                <button
+                  onClick={() => setSelectedPaymentMethod('alipay')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                    selectedPaymentMethod === 'alipay'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <CreditCard className="w-5 h-5" />
+                  <span className="font-medium">支付宝</span>
+                </button>
+                <button
+                  onClick={() => setSelectedPaymentMethod('bank')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                    selectedPaymentMethod === 'bank'
+                      ? 'border-amber-500 bg-amber-50 text-amber-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <Building2 className="w-5 h-5" />
+                  <span className="font-medium">银行转账</span>
+                </button>
               </div>
               
               {/* 支付信息展示 */}
               <div className="bg-gray-50 rounded-2xl p-6">
-                {selectedPaymentMethod === 'wechat' && merchantPaymentInfo.wechatQrCode && (
+                {selectedPaymentMethod === 'wechat' && (
                   <div className="text-center">
                     <p className="text-sm text-gray-600 mb-4">请使用微信扫描下方二维码支付</p>
-                    <img
-                      src={getFileUrl(merchantPaymentInfo.wechatQrCode)}
-                      alt="微信收款码"
-                      className="w-48 h-48 mx-auto rounded-xl border border-gray-200"
-                    />
+                    {merchantPaymentInfo.wechatQrCode ? (
+                      <img
+                        src={getFileUrl(merchantPaymentInfo.wechatQrCode)}
+                        alt="微信收款码"
+                        className="w-48 h-48 mx-auto rounded-xl border border-gray-200"
+                      />
+                    ) : (
+                      <div className="w-48 h-48 mx-auto rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-white">
+                        <div className="text-center text-gray-400">
+                          <Smartphone className="w-12 h-12 mx-auto mb-2" />
+                          <p className="text-sm">商家暂未配置微信收款码</p>
+                          <p className="text-xs mt-1">请选择其他支付方式</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 
-                {selectedPaymentMethod === 'alipay' && merchantPaymentInfo.alipayQrCode && (
+                {selectedPaymentMethod === 'alipay' && (
                   <div className="text-center">
                     <p className="text-sm text-gray-600 mb-4">请使用支付宝扫描下方二维码支付</p>
-                    <img
-                      src={getFileUrl(merchantPaymentInfo.alipayQrCode)}
-                      alt="支付宝收款码"
-                      className="w-48 h-48 mx-auto rounded-xl border border-gray-200"
-                    />
+                    {merchantPaymentInfo.alipayQrCode ? (
+                      <img
+                        src={getFileUrl(merchantPaymentInfo.alipayQrCode)}
+                        alt="支付宝收款码"
+                        className="w-48 h-48 mx-auto rounded-xl border border-gray-200"
+                      />
+                    ) : (
+                      <div className="w-48 h-48 mx-auto rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-white">
+                        <div className="text-center text-gray-400">
+                          <CreditCard className="w-12 h-12 mx-auto mb-2" />
+                          <p className="text-sm">商家暂未配置支付宝收款码</p>
+                          <p className="text-xs mt-1">请选择其他支付方式</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 

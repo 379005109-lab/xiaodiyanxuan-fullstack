@@ -185,9 +185,18 @@ const getUsers = async (req, res) => {
     
     const filter = {}
     
-    // 权限过滤：非超级管理员只能看自己组织的用户
+    // 权限过滤：非超级管理员只能看自己组织/厂家的用户
     if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
-      if (currentUser.organizationId) {
+      // 厂家账号可以查看自己厂家下的所有账号
+      const userManufacturerIds = currentUser.manufacturerIds || (currentUser.manufacturerId ? [currentUser.manufacturerId] : [])
+      
+      if (userManufacturerIds.length > 0) {
+        // 厂家用户：查看属于该厂家的所有账号
+        filter.$or = [
+          { manufacturerId: { $in: userManufacturerIds } },
+          { manufacturerIds: { $elemMatch: { $in: userManufacturerIds } } }
+        ]
+      } else if (currentUser.organizationId) {
         filter.organizationId = currentUser.organizationId
       } else {
         return res.status(403).json(errorResponse('无权限查看用户列表'))

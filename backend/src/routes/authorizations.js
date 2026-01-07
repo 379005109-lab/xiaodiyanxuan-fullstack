@@ -204,6 +204,64 @@ router.put('/:id/select-folder', auth, async (req, res) => {
 
 // ==================== 查询授权 ====================
 
+// GET /api/authorizations/summary - 获取授权摘要（用于厂家卡片显示）
+router.get('/summary', auth, async (req, res) => {
+  try {
+    const { manufacturerId } = req.query
+    const user = await User.findById(req.userId)
+    
+    // 确定要查询的厂家ID
+    const targetManufacturerId = manufacturerId || user?.manufacturerId || (user?.manufacturerIds?.[0])
+    
+    if (!targetManufacturerId) {
+      return res.json({ success: true, data: [] })
+    }
+    
+    // 查询该厂家收到的所有授权（从其他厂家获得的授权）
+    const authorizations = await Authorization.find({
+      toManufacturer: targetManufacturerId,
+      status: { $in: ['approved', 'active', 'pending'] }
+    })
+      .populate('fromManufacturer', '_id name fullName shortName')
+      .lean()
+    
+    // 聚合每个来源厂家的授权信息
+    const summaryMap = new Map()
+    
+    for (const auth of authorizations) {
+      const fromId = auth.fromManufacturer?._id?.toString()
+      if (!fromId) continue
+      
+      if (!summaryMap.has(fromId)) {
+        summaryMap.set(fromId, {
+          fromManufacturer: auth.fromManufacturer,
+          status: auth.status,
+          productCount: 0,
+          products: []
+        })
+      }
+      
+      const summary = summaryMap.get(fromId)
+      // 更新状态（优先显示approved/active）
+      if (auth.status === 'approved' || auth.status === 'active') {
+        summary.status = auth.status
+      }
+      // 累加商品数量
+      if (auth.products && Array.isArray(auth.products)) {
+        summary.productCount += auth.products.length
+        summary.products.push(...auth.products)
+      }
+    }
+    
+    const result = Array.from(summaryMap.values())
+    
+    res.json({ success: true, data: result })
+  } catch (error) {
+    console.error('获取授权摘要失败:', error)
+    res.status(500).json({ success: false, message: '获取授权摘要失败' })
+  }
+})
+
 // GET /api/authorizations/my-grants - 我授权给别人的
 router.get('/my-grants', auth, async (req, res) => {
   try {

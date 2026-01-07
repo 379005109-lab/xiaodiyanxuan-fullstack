@@ -374,6 +374,30 @@ const cancelOrder = async (orderId, userId) => {
   
   console.log('📝 用户提交取消请求，订单ID:', orderId)
   
+  // 发送取消订单通知给管理员和厂家
+  try {
+    // 获取订单相关的厂家信息
+    const manufacturerIds = [...new Set((order.items || []).map(i => i.manufacturerId).filter(Boolean))]
+    
+    for (const mfId of manufacturerIds) {
+      const manufacturer = await Manufacturer.findById(mfId).select('smsPhone settings').lean()
+      const smsPhone = manufacturer?.smsPhone || manufacturer?.settings?.phone
+      
+      if (smsPhone) {
+        // 发送短信通知
+        sendNewOrderNotification(smsPhone, {
+          orderNo: order.orderNo,
+          type: 'cancel_request',
+          message: `订单${order.orderNo}客户申请取消，请及时处理`
+        }).catch(err => console.error('发送取消通知失败:', err))
+      }
+    }
+    
+    console.log('📧 已发送订单取消通知')
+  } catch (notifyErr) {
+    console.error('发送订单取消通知失败:', notifyErr)
+  }
+  
   return order
 }
 
