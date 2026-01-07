@@ -61,6 +61,12 @@ export default function AuthorizationManagement() {
   const [editAuth, setEditAuth] = useState<Authorization | null>(null)
   const [loadingAuthDetail, setLoadingAuthDetail] = useState(false)
 
+  // 审批模态框状态
+  const [showApproveModal, setShowApproveModal] = useState(false)
+  const [approveRequest, setApproveRequest] = useState<Authorization | null>(null)
+  const [approveDiscount, setApproveDiscount] = useState(85)
+  const [approveCommission, setApproveCommission] = useState(5)
+
   const didInitTab = useRef(false)
 
   useEffect(() => {
@@ -153,17 +159,32 @@ export default function AuthorizationManagement() {
     }
   }
 
-  const handleApproveRequest = async (id: string) => {
-    try {
-      const req = pendingRequests.find((r) => r._id === id)
-      const endpoint = req?.authorizationType === 'manufacturer'
-        ? `/authorizations/manufacturer-requests/${id}/approve`
-        : `/authorizations/designer-requests/${id}/approve`
+  const openApproveModal = (id: string) => {
+    const req = pendingRequests.find((r) => r._id === id)
+    if (req) {
+      setApproveRequest(req)
+      setApproveDiscount(85)
+      setApproveCommission(5)
+      setShowApproveModal(true)
+    }
+  }
 
-      const response = await apiClient.put(endpoint, {})
+  const handleApproveRequest = async () => {
+    if (!approveRequest) return
+    try {
+      const endpoint = approveRequest.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${approveRequest._id}/approve`
+        : `/authorizations/designer-requests/${approveRequest._id}/approve`
+
+      const response = await apiClient.put(endpoint, {
+        discountRate: approveDiscount,
+        commissionRate: approveCommission
+      })
       const data = response.data
       if (data?.success) {
         toast.success('已通过')
+        setShowApproveModal(false)
+        setApproveRequest(null)
         loadAuthorizations()
       } else {
         toast.error(data?.message || '审核失败')
@@ -421,7 +442,7 @@ export default function AuthorizationManagement() {
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleApproveRequest(req._id)}
+                      onClick={() => openApproveModal(req._id)}
                       className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
                     >
                       通过
@@ -671,6 +692,75 @@ export default function AuthorizationManagement() {
             loadAuthorizations()
           }}
         />
+      )}
+
+      {/* 审批模态框 */}
+      {showApproveModal && approveRequest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-xl font-bold mb-4">审批授权申请</h3>
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="text-sm text-gray-600">申请方</div>
+              <div className="font-medium">
+                {approveRequest.authorizationType === 'manufacturer'
+                  ? (approveRequest.toManufacturer?.fullName || approveRequest.toManufacturer?.name || '未知厂家')
+                  : (approveRequest.toDesigner?.nickname || approveRequest.toDesigner?.username || '未知设计师')}
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  折扣比例 (%)
+                </label>
+                <input
+                  type="number"
+                  value={approveDiscount}
+                  onChange={(e) => setApproveDiscount(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                  className="input w-full"
+                  min="0"
+                  max="100"
+                  placeholder="如85表示85折"
+                />
+                <p className="text-xs text-gray-500 mt-1">授权方给申请方的折扣，如85表示可享受85折</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  返佣比例 (%)
+                </label>
+                <input
+                  type="number"
+                  value={approveCommission}
+                  onChange={(e) => setApproveCommission(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                  className="input w-full"
+                  min="0"
+                  max="100"
+                  placeholder="如5表示5%返佣"
+                />
+                <p className="text-xs text-gray-500 mt-1">申请方销售后可获得的返佣比例</p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+              <button
+                onClick={() => {
+                  setShowApproveModal(false)
+                  setApproveRequest(null)
+                }}
+                className="btn btn-secondary"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleApproveRequest}
+                className="btn btn-primary bg-green-600 hover:bg-green-700"
+              >
+                确认通过
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

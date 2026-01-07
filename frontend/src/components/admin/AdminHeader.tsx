@@ -22,6 +22,7 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [authTodoCount, setAuthTodoCount] = useState(0)
   const [notifications, setNotifications] = useState<any[]>([])
+  const [pendingAuths, setPendingAuths] = useState<any[]>([])
 
   // 加载通知数据
   useEffect(() => {
@@ -46,14 +47,18 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
 
   const loadAuthorizationSummary = async () => {
     try {
-      const response = await apiClient.get('/authorizations/summary')
+      // 加载待审批的授权申请
+      const response = await apiClient.get('/authorizations/pending-requests')
       const data = response.data
-      if (data?.success) {
-        setAuthTodoCount(Number(data?.data?.todoCount || 0))
+      if (data?.success && Array.isArray(data.data)) {
+        setPendingAuths(data.data)
+        setAuthTodoCount(data.data.length)
       } else {
+        setPendingAuths([])
         setAuthTodoCount(0)
       }
     } catch (error) {
+      setPendingAuths([])
       setAuthTodoCount(0)
     }
   }
@@ -237,6 +242,36 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
                 </button>
               </div>
               <div className="max-h-96 overflow-y-auto">
+                {/* 待审批授权申请 */}
+                {pendingAuths.length > 0 && (
+                  <>
+                    <div className="px-4 py-2 bg-orange-50 border-b border-orange-100">
+                      <p className="text-xs font-medium text-orange-700">待审批授权申请 ({pendingAuths.length})</p>
+                    </div>
+                    {pendingAuths.map((auth) => (
+                      <div
+                        key={auth._id}
+                        onClick={() => {
+                          navigate('/admin/authorizations')
+                          setShowNotifications(false)
+                        }}
+                        className="px-4 py-3 border-b border-gray-50 hover:bg-orange-50 cursor-pointer transition-colors bg-orange-50/50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></span>
+                          <p className="text-sm font-medium text-gray-900">
+                            {auth.authorizationType === 'manufacturer' 
+                              ? (auth.toManufacturer?.fullName || auth.toManufacturer?.name || '厂家')
+                              : (auth.toDesigner?.nickname || auth.toDesigner?.username || '设计师')} 申请授权
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">点击前往审批</p>
+                      </div>
+                    ))}
+                  </>
+                )}
+                
+                {/* 普通通知 */}
                 {notifications.length > 0 ? (
                   notifications.map((notif) => (
                     <div
@@ -264,11 +299,11 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
                       </button>
                     </div>
                   ))
-                ) : (
+                ) : pendingAuths.length === 0 ? (
                   <div className="px-4 py-8 text-center text-gray-500">
                     <p className="text-sm">暂无通知</p>
                   </div>
-                )}
+                ) : null}
               </div>
               {notifications.length > 0 && (
                 <div className="p-3 border-t border-gray-100 text-center">

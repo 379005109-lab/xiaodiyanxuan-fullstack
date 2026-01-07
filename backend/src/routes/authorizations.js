@@ -204,6 +204,42 @@ router.put('/:id/select-folder', auth, async (req, res) => {
 
 // ==================== 查询授权 ====================
 
+// GET /api/authorizations/pending-requests - 获取待审批的授权申请（用于通知铃铛）
+router.get('/pending-requests', auth, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.userId)
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const manufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
+
+    // 非管理员且非厂家用户返回空
+    if (!isAdmin && !manufacturerId) {
+      return res.json({ success: true, data: [] })
+    }
+
+    const query = {
+      status: 'pending'
+    }
+
+    // 厂家用户只能看到自己收到的授权申请
+    if (!isAdmin && manufacturerId) {
+      query.fromManufacturer = manufacturerId
+    }
+
+    const list = await Authorization.find(query)
+      .populate('toManufacturer', 'name fullName shortName')
+      .populate('toDesigner', 'username nickname')
+      .populate('fromManufacturer', 'name fullName shortName')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean()
+
+    res.json({ success: true, data: list })
+  } catch (error) {
+    console.error('获取待审批授权申请失败:', error)
+    res.json({ success: true, data: [] })
+  }
+})
+
 // GET /api/authorizations/summary - 获取授权摘要（用于厂家卡片显示）
 router.get('/summary', auth, async (req, res) => {
   try {
