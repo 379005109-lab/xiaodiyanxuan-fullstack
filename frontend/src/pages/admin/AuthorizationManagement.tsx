@@ -597,14 +597,23 @@ export default function AuthorizationManagement() {
                   </div>
                 )}
 
-                {activeTab === 'received' && auth.status === 'active' && !auth.isFolderSelected && (
+                {activeTab === 'received' && (
                   <div className="flex items-center gap-2 ml-4">
                     <button
-                      onClick={() => openFolderSelection(auth._id)}
-                      className="px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                      onClick={() => openDetail(auth._id)}
+                      className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                      title="查看详情"
                     >
-                      选择文件夹
+                      <Eye className="w-4 h-4" />
                     </button>
+                    {auth.status === 'active' && !auth.isFolderSelected && (
+                      <button
+                        onClick={() => openFolderSelection(auth._id)}
+                        className="px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                      >
+                        选择文件夹
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -836,17 +845,27 @@ function AuthorizationDetailModal({
 
                   {(auth.products || []).length > 0 && (
                     <div className="mt-3">
-                      <div className="text-xs text-gray-500 mb-1">商品</div>
-                      <div className="space-y-1">
+                      <div className="text-xs text-gray-500 mb-2">授权商品 ({(auth.products || []).length}个)</div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
                         {(auth.products || []).slice(0, 30).map((p: any) => (
-                          <div key={String(p?._id || p)} className="text-sm text-gray-700">
-                            {p?.name || p?.title || String(p?._id || p)}
+                          <div key={String(p?._id || p)} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                            {p?.thumbnail && (
+                              <img 
+                                src={p.thumbnail.startsWith('http') ? p.thumbnail : `/api/files/${p.thumbnail}`} 
+                                alt={p?.name || ''} 
+                                className="w-10 h-10 object-cover rounded"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-gray-900 truncate">{p?.name || p?.productCode || String(p?._id || p)}</div>
+                              {p?.productCode && <div className="text-xs text-gray-500">{p.productCode}</div>}
+                            </div>
                           </div>
                         ))}
-                        {(auth.products || []).length > 30 && (
-                          <div className="text-xs text-gray-500">仅展示前 30 个商品</div>
-                        )}
                       </div>
+                      {(auth.products || []).length > 30 && (
+                        <div className="text-xs text-gray-500 mt-2">仅展示前 30 个商品，共 {(auth.products || []).length} 个</div>
+                      )}
                     </div>
                   )}
                 </div>

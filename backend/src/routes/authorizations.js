@@ -1349,12 +1349,13 @@ router.get('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: '授权不存在' })
     }
 
-    // 权限检查：只有相关方可以查看
+    // 权限检查：管理员或相关方可以查看
     const user = await User.findById(req.userId)
-    const isAuthorized = 
-      authorization.fromManufacturer._id.toString() === user.manufacturerId?.toString() ||
-      authorization.toManufacturer?._id.toString() === user.manufacturerId?.toString() ||
-      authorization.toDesigner?._id.toString() === req.userId.toString()
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin'].includes(user?.role)
+    const isAuthorized = isAdmin ||
+      authorization.fromManufacturer?._id?.toString() === user?.manufacturerId?.toString() ||
+      authorization.toManufacturer?._id?.toString() === user?.manufacturerId?.toString() ||
+      authorization.toDesigner?._id?.toString() === req.userId?.toString()
 
     if (!isAuthorized) {
       return res.status(403).json({ success: false, message: '无权查看此授权' })
