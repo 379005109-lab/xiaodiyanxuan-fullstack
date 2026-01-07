@@ -4,6 +4,7 @@ import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key,
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
+import ManufacturerEditDrawer from '@/components/admin/ManufacturerEditDrawer'
 import { getFileUrl } from '@/services/uploadService'
 import { useAuthStore } from '@/store/authStore'
 
@@ -141,6 +142,7 @@ export default function ManufacturerManagement() {
   const [keyword, setKeyword] = useState('')
   const [portalKeyword, setPortalKeyword] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showEditDrawer, setShowEditDrawer] = useState(false)
   const [editingItem, setEditingItem] = useState<Manufacturer | null>(null)
   const [formData, setFormData] = useState({
     logo: '',
@@ -319,35 +321,8 @@ export default function ManufacturerManagement() {
 
   const openEditModal = (item: Manufacturer) => {
     setEditingItem(item)
-    setFormData({
-      logo: item.logo || '',
-      fullName: item.fullName || item.name || '',
-      shortName: item.shortName || '',
-      isPreferred: Boolean(item.isPreferred),
-      expiryDate: item.expiryDate ? item.expiryDate.slice(0, 10) : '',
-      defaultDiscount: item.defaultDiscount || 0,
-      defaultCommission: item.defaultCommission || 0,
-      styleTagsText: (item.styleTags || []).join(', '),
-      productIntro: item.productIntro || '',
-      contactName: item.contactName || '',
-      contactPhone: item.contactPhone || '',
-      contactEmail: item.contactEmail || '',
-      address: item.address || '',
-      description: item.description || '',
-      status: item.status,
-      settings: {
-        phone: item.settings?.phone || '',
-        servicePhone: item.settings?.servicePhone || '',
-        wechatQrCode: item.settings?.wechatQrCode || '',
-        alipayQrCode: item.settings?.alipayQrCode || '',
-        bankInfo: {
-          bankName: item.settings?.bankInfo?.bankName || '',
-          accountName: item.settings?.bankInfo?.accountName || '',
-          accountNumber: item.settings?.bankInfo?.accountNumber || ''
-        }
-      }
-    })
-    setShowModal(true)
+    // 使用新的完整档案编辑抽屉
+    setShowEditDrawer(true)
   }
 
   const openPasswordModal = (item: Manufacturer) => {
@@ -773,14 +748,15 @@ export default function ManufacturerManagement() {
                 </div>
               )}
               <div className="relative max-w-md w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="搜索品牌库..."
-                value={portalKeyword}
-                onChange={(e) => setPortalKeyword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-full bg-white shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="搜索品牌库..."
+                  value={portalKeyword}
+                  onChange={(e) => setPortalKeyword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-full bg-white shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
             </div>
           </div>
 
@@ -2146,6 +2122,22 @@ export default function ManufacturerManagement() {
           </div>
         </div>
       )}
+      
+      {/* 厂家资料编辑抽屉 - 使用共享组件 */}
+      <ManufacturerEditDrawer
+        open={showEditDrawer}
+        onClose={() => {
+          setShowEditDrawer(false)
+          setEditingItem(null)
+        }}
+        manufacturer={editingItem}
+        onSaved={() => {
+          fetchData()
+          setShowEditDrawer(false)
+          setEditingItem(null)
+        }}
+        isFactoryPortal={isFactoryPortal}
+      />
     </div>
   )
 }
