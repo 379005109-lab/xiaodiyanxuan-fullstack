@@ -848,7 +848,7 @@ export default function ManufacturerManagement() {
                 </div>
 
                 <button
-                  onClick={() => handleOpenTierSystem(myManufacturer, 'pool')}
+                  onClick={() => navigate(`/admin/manufacturers/${myManufacturer._id}/business-panel`)}
                   className="mt-6 w-full px-6 py-3 rounded-2xl bg-[#123a32] text-white font-bold hover:bg-[#0f2f29] transition-colors"
                 >
                   经营授权
