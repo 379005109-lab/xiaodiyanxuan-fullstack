@@ -185,8 +185,15 @@ const getUsers = async (req, res) => {
     
     const filter = {}
     
-    // 权限过滤：非超级管理员只能看自己组织/厂家的用户
-    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
+    // 权限过滤：平台管理员可以看所有用户，非平台管理员只能看自己组织/厂家的用户
+    const isPlatformAdmin = [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.PLATFORM_ADMIN, 
+      'admin', 
+      'super_admin'
+    ].includes(currentUser.role)
+    
+    if (!isPlatformAdmin) {
       // 厂家账号可以查看自己厂家下的所有账号
       const rawManufacturerIds = currentUser.manufacturerIds || (currentUser.manufacturerId ? [currentUser.manufacturerId] : [])
       // 确保转换为字符串进行比较
@@ -210,6 +217,7 @@ const getUsers = async (req, res) => {
         filter._id = currentUser._id
       }
     } else {
+      // 平台管理员可以按条件筛选
       if (organizationId) filter.organizationId = organizationId
       if (manufacturerId !== undefined) {
         if (manufacturerId === '' || manufacturerId === null) {
@@ -219,6 +227,8 @@ const getUsers = async (req, res) => {
         }
       }
     }
+    
+    console.log('[getUsers] isPlatformAdmin:', isPlatformAdmin, 'filter:', JSON.stringify(filter))
     
     if (role) filter.role = role
     if (status) filter.status = status

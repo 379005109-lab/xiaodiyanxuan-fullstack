@@ -55,7 +55,7 @@ const list = async (req, res) => {
     const { page = 1, pageSize = 10, status } = req.query
     
     // 管理员可以看到所有订单，普通用户只能看到自己的
-    const isAdmin = req.userRole === 'admin' || req.userRole === 'super_admin' || req.userRole === 'superadmin'
+    const isAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin', 'platform_staff', 'enterprise_admin'].includes(req.userRole)
     const userId = isAdmin ? null : req.userId
     
     console.log('📋 [OrderController] list orders:', { userId, isAdmin, userRole: req.userRole })

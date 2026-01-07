@@ -2801,6 +2801,10 @@ export default function ProductManagement() {
                   <td className="py-4 px-4">
                     <span className="text-sm text-gray-700">
                       {(() => {
+                        // 优先使用后端返回的 categoryName
+                        if ((product as any).categoryName) {
+                          return (product as any).categoryName
+                        }
                         // 如果 product.category 是对象，直接使用其 name 属性
                         if (typeof product.category === 'object' && product.category && 'name' in product.category) {
                           return (product.category as any).name
@@ -2811,7 +2815,7 @@ export default function ProductManagement() {
                           cat.slug === product.category || 
                           cat.name === product.category
                         )
-                        return category ? category.name : String(product.category || '')
+                        return category ? category.name : ''
                       })()}
                     </span>
                   </td>

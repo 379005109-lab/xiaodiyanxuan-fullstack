@@ -490,6 +490,22 @@ export default function TierSystemManagement() {
   const currentManufacturerLogo = selectedManufacturerMeta?.logo || (user as any)?.manufacturer?.logo || ''
   const logoSrc = currentManufacturerLogo ? getLogoSrc(currentManufacturerLogo, 160) : ''
 
+  // 绑定模态框状态
+  const [showBindPersonnelModal, setShowBindPersonnelModal] = useState(false)
+  const [showBindProductModal, setShowBindProductModal] = useState(false)
+  const [selectedAccountForBinding, setSelectedAccountForBinding] = useState<AuthorizedAccount | null>(null)
+
+  // 删除层级账号
+  const handleDeleteAccount = async (accountId: string) => {
+    try {
+      const newAccounts = data.authorizedAccounts.filter(a => String(a._id) !== accountId)
+      await saveData({ ...data, authorizedAccounts: newAccounts })
+      toast.success('层级已删除')
+    } catch (e) {
+      toast.error('删除失败')
+    }
+  }
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
       {/* 页头 */}
@@ -2867,28 +2883,67 @@ function HierarchyTab({
                   {/* 绑定信息和添加下级 */}
                   <div className="mt-3 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-3 text-gray-500">
-                      <span className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                          if (acc) {
+                            setSelectedAccountForBinding(acc)
+                            setShowBindPersonnelModal(true)
+                          }
+                        }}
+                        className="flex items-center gap-1 hover:text-primary-600 cursor-pointer"
+                        title="点击绑定/查看人员"
+                      >
                         <Users className="w-3 h-3" />
                         {(hierarchyGraph.childrenById.get(String(staff.id)) || []).length}人
-                      </span>
-                      <span className="flex items-center gap-1">
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                          if (acc) {
+                            setSelectedAccountForBinding(acc)
+                            setShowBindProductModal(true)
+                          }
+                        }}
+                        className="flex items-center gap-1 hover:text-primary-600 cursor-pointer"
+                        title="点击绑定/查看商品"
+                      >
                         <FileText className="w-3 h-3" />
                         {staff.account?.visibleProductIds?.length || 0}商品
-                      </span>
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                        setParentAccount(acc)
-                        setShowAddModal(true)
-                      }}
-                      className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center"
-                      title="添加下级"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                          setParentAccount(acc)
+                          setShowAddModal(true)
+                        }}
+                        className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center"
+                        title="添加下级"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (confirm(`确定要删除层级 "${staff.name}" 吗？此操作不可恢复。`)) {
+                            handleDeleteAccount(String(staff.id))
+                          }
+                        }}
+                        className="w-6 h-6 rounded-full bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center"
+                        title="删除层级"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

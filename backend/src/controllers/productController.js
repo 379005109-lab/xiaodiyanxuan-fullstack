@@ -499,7 +499,32 @@ const listProducts = async (req, res) => {
     
     const allow = allowCostPriceForUser(user)
     const safeProducts = allow ? result.products : result.products.map(stripCostPriceFromProduct)
-    res.json(paginatedResponse(safeProducts, result.total, result.page, result.pageSize))
+    
+    // 获取分类映射，将分类ID转换为分类名称
+    const Category = require('../models/Category')
+    const allCategories = await Category.find({}).lean()
+    const categoryMap = new Map()
+    allCategories.forEach(cat => {
+      categoryMap.set(cat._id.toString(), cat.name)
+      if (cat.slug) categoryMap.set(cat.slug, cat.name)
+    })
+    
+    // 为每个商品添加分类名称
+    const productsWithCategoryName = safeProducts.map(p => {
+      let categoryName = ''
+      if (p.category) {
+        if (typeof p.category === 'object' && p.category.name) {
+          categoryName = p.category.name
+        } else if (typeof p.category === 'string') {
+          categoryName = categoryMap.get(p.category) || p.category
+        } else if (p.category._id) {
+          categoryName = categoryMap.get(p.category._id.toString()) || ''
+        }
+      }
+      return { ...p, categoryName }
+    })
+    
+    res.json(paginatedResponse(productsWithCategoryName, result.total, result.page, result.pageSize))
   } catch (err) {
     console.error('List products error:', err)
     res.status(500).json(errorResponse(err.message, 500))
