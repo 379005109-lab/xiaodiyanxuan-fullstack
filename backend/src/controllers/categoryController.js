@@ -21,8 +21,13 @@ const listCategories = async (req, res) => {
     }
 
     const user = req.user
-    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
-      query.manufacturerId = user.manufacturerId
+    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin' && user.role !== 'platform_admin' && user.role !== 'platform_staff') {
+      // 厂家账号可以看到: 自己厂家的分类 + 平台公共分类(没有manufacturerId的)
+      query.$or = [
+        { manufacturerId: user.manufacturerId },
+        { manufacturerId: { $exists: false } },
+        { manufacturerId: null }
+      ]
     } else if (manufacturerId) {
       query.manufacturerId = manufacturerId
     }

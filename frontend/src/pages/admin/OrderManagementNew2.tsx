@@ -14,24 +14,25 @@ import html2canvas from 'html2canvas'
 
 type TabType = 'all' | 'pending' | 'shipping' | 'afterSale' | 'cancelled'
 
-// 订单状态配置 - 支持数字和字符串状态
+// 订单状态配置 - 匹配后端常量
 const statusConfig: Record<number | string, { label: string; color: string; bgColor: string }> = {
   1: { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
   'pending': { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
-  2: { label: '已付款', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  'paid': { label: '已付款', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  3: { label: '待发货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  'processing': { label: '处理中', color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  4: { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-100' },
-  'shipped': { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-100' },
-  5: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
-  'completed': { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
+  2: { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  'paid': { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  3: { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  'processing': { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  'shipped': { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  4: { label: '已完成', color: 'text-green-600', bgColor: 'bg-green-100' },
+  'completed': { label: '已完成', color: 'text-green-600', bgColor: 'bg-green-100' },
+  5: { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
+  'cancelled': { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
   6: { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
   'refunding': { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
   7: { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-100' },
   'refunded': { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-100' },
-  8: { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
-  'cancelled': { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
+  8: { label: '换货中', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+  'exchanging': { label: '换货中', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
 }
 
 // 隐藏手机号中间4位
@@ -119,13 +120,13 @@ export default function OrderManagementNew2() {
       
       setOrders(allOrders)
       
-      // 计算统计 - 兼容数字和字符串状态
+      // 计算统计 - 匹配后端状态常量
       setStats({
         all: allOrders.length,
         pending: allOrders.filter(o => o.status === 1 || o.status === 'pending').length,
-        shipping: allOrders.filter(o => o.status === 2 || o.status === 3 || o.status === 'paid' || o.status === 'processing').length,
-        afterSale: allOrders.filter(o => o.status === 6 || o.status === 7 || o.status === 'refunding' || o.status === 'refunded' || (o as any).refundStatus).length,
-        cancelled: allOrders.filter(o => o.status === 8 || o.status === 'cancelled').length,
+        shipping: allOrders.filter(o => o.status === 2 || o.status === 3 || o.status === 'paid' || o.status === 'processing' || o.status === 'shipped').length,
+        afterSale: allOrders.filter(o => o.status === 6 || o.status === 7 || o.status === 8 || o.status === 'refunding' || o.status === 'refunded' || o.status === 'exchanging' || (o as any).refundStatus).length,
+        cancelled: allOrders.filter(o => o.status === 5 || o.status === 'cancelled').length,
       })
     } catch (error) {
       console.error('加载订单失败:', error)
@@ -135,7 +136,7 @@ export default function OrderManagementNew2() {
     }
   }
 
-  // 过滤订单 - 兼容数字和字符串状态
+  // 过滤订单 - 匹配后端状态常量
   const filteredOrders = orders.filter(order => {
     // 搜索过滤 - 支持订单号和买家名字搜索
     const recipient = order.recipient || order.shippingAddress
@@ -148,16 +149,16 @@ export default function OrderManagementNew2() {
       }
     }
     
-    // Tab过滤
+    // Tab过滤 - 匹配后端状态: 1待付款 2待发货 3待收货 4已完成 5已取消 6退款中 7已退款 8换货中
     switch (activeTab) {
       case 'pending':
         return order.status === 1 || order.status === 'pending'
       case 'shipping':
-        return order.status === 2 || order.status === 3 || order.status === 'paid' || order.status === 'processing'
+        return order.status === 2 || order.status === 3 || order.status === 'paid' || order.status === 'processing' || order.status === 'shipped'
       case 'afterSale':
-        return order.status === 6 || order.status === 7 || order.status === 'refunding' || order.status === 'refunded' || (order as any).refundStatus
+        return order.status === 6 || order.status === 7 || order.status === 8 || order.status === 'refunding' || order.status === 'refunded' || order.status === 'exchanging' || (order as any).refundStatus
       case 'cancelled':
-        return order.status === 8 || order.status === 'cancelled'
+        return order.status === 5 || order.status === 'cancelled'
       default:
         return true
     }

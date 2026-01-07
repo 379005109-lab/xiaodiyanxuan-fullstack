@@ -133,7 +133,34 @@ export default function ProductManagement() {
   const loadManufacturers = async () => {
     try {
       const response = await apiClient.get('/manufacturers', { params: { pageSize: 100 } })
-      setManufacturers(response.data.data || [])
+      let allManufacturers = response.data.data || []
+      
+      // 对于厂家账号，只显示自己的厂家和授权过来的厂家
+      if (!isPlatformAdminUser && myManufacturerId) {
+        try {
+          // 获取授权给我的厂家列表
+          const authResponse = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
+          const authorizations = authResponse.data?.data || []
+          
+          // 收集授权方厂家ID
+          const authorizedFromIds = new Set<string>()
+          authorizations.forEach((auth: any) => {
+            const fromId = auth.fromManufacturer?._id || auth.fromManufacturer
+            if (fromId) authorizedFromIds.add(String(fromId))
+          })
+          
+          // 过滤：只保留自己的厂家 + 授权方厂家
+          allManufacturers = allManufacturers.filter((m: any) => 
+            String(m._id) === myManufacturerId || authorizedFromIds.has(String(m._id))
+          )
+        } catch (authError) {
+          console.log('加载授权厂家列表失败:', authError)
+          // 如果获取授权失败，只显示自己的厂家
+          allManufacturers = allManufacturers.filter((m: any) => String(m._id) === myManufacturerId)
+        }
+      }
+      
+      setManufacturers(allManufacturers)
     } catch (error) {
       console.error('加载厂家失败:', error)
     }
@@ -147,9 +174,28 @@ export default function ProductManagement() {
       if (response.success) {
         console.log('[ProductManagement] 加载商品数量:', response.data.length);
         const rawProducts = response.data || []
-        const filteredProducts = (!isPlatformAdminUser && myManufacturerId)
+        let filteredProducts = (!isPlatformAdminUser && myManufacturerId)
           ? rawProducts.filter((p: any) => String(getProductManufacturerId(p)) === String(myManufacturerId))
           : rawProducts
+        
+        // 对于厂家账号，也加载授权过来的商品
+        if (!isPlatformAdminUser && myManufacturerId) {
+          try {
+            const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } })
+            const authorizedProducts = authResponse.data?.data || []
+            console.log('[ProductManagement] 授权商品数量:', authorizedProducts.length)
+            
+            // 合并商品列表，避免重复
+            const existingIds = new Set(filteredProducts.map((p: any) => p._id))
+            const newAuthorizedProducts = authorizedProducts.filter((p: any) => !existingIds.has(p._id))
+            // 标记为授权商品
+            newAuthorizedProducts.forEach((p: any) => { p.isAuthorized = true })
+            filteredProducts = [...filteredProducts, ...newAuthorizedProducts]
+          } catch (authError) {
+            console.log('[ProductManagement] 加载授权商品失败:', authError)
+          }
+        }
+        
         setProducts(filteredProducts);
       }
     } catch (error) {
