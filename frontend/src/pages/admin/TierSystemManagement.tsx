@@ -490,11 +490,6 @@ export default function TierSystemManagement() {
   const currentManufacturerLogo = selectedManufacturerMeta?.logo || (user as any)?.manufacturer?.logo || ''
   const logoSrc = currentManufacturerLogo ? getLogoSrc(currentManufacturerLogo, 160) : ''
 
-  // 绑定模态框状态
-  const [showBindPersonnelModal, setShowBindPersonnelModal] = useState(false)
-  const [showBindProductModal, setShowBindProductModal] = useState(false)
-  const [selectedAccountForBinding, setSelectedAccountForBinding] = useState<AuthorizedAccount | null>(null)
-
   // 删除层级账号
   const handleDeleteAccount = async (accountId: string) => {
     try {
@@ -2883,38 +2878,14 @@ function HierarchyTab({
                   {/* 绑定信息和添加下级 */}
                   <div className="mt-3 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-3 text-gray-500">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                          if (acc) {
-                            setSelectedAccountForBinding(acc)
-                            setShowBindPersonnelModal(true)
-                          }
-                        }}
-                        className="flex items-center gap-1 hover:text-primary-600 cursor-pointer"
-                        title="点击绑定/查看人员"
-                      >
+                      <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
                         {(hierarchyGraph.childrenById.get(String(staff.id)) || []).length}人
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                          if (acc) {
-                            setSelectedAccountForBinding(acc)
-                            setShowBindProductModal(true)
-                          }
-                        }}
-                        className="flex items-center gap-1 hover:text-primary-600 cursor-pointer"
-                        title="点击绑定/查看商品"
-                      >
+                      </span>
+                      <span className="flex items-center gap-1">
                         <FileText className="w-3 h-3" />
                         {staff.account?.visibleProductIds?.length || 0}商品
-                      </button>
+                      </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <button

@@ -9,8 +9,12 @@ const ADMIN_ROLES = [
   USER_ROLES.SUPER_ADMIN,
   USER_ROLES.PLATFORM_ADMIN,
   USER_ROLES.ENTERPRISE_ADMIN,
+  USER_ROLES.PLATFORM_STAFF,
   'admin',        // 兼容旧的管理员角色
-  'super_admin'
+  'super_admin',
+  'platform_admin',
+  'enterprise_admin',
+  'platform_staff'
 ]
 
 // 仅平台/超级管理员可访问
