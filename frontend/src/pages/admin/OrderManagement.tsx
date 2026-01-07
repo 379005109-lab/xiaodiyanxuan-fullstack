@@ -82,6 +82,10 @@ export default function OrderManagement() {
       console.log('[OrderManagement] Orders loaded:', data.data?.length, 'total:', data.pagination?.total)
       let allOrders: Order[] = data.data || []
       
+      // 打印取消申请订单数量
+      const cancelRequestOrders = allOrders.filter(o => (o as any).cancelRequest === true)
+      console.log('[OrderManagement] Orders with cancelRequest:', cancelRequestOrders.length, cancelRequestOrders.map(o => o.orderNo))
+      
       // 应用搜索
       if (searchQuery) {
         allOrders = allOrders.filter(o => 
