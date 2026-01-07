@@ -881,8 +881,66 @@ export default function OrderManagementNew2() {
                     完成订单
                   </button>
                 )}
+                {/* 取消申请处理按钮 */}
+                {selectedOrder.cancelRequest && (
+                  <>
+                    <button 
+                      onClick={async () => {
+                        if (!window.confirm('确定要批准取消此订单吗？')) return
+                        try {
+                          const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/cancel-approve`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                              'Content-Type': 'application/json'
+                            }
+                          })
+                          if (response.ok) {
+                            toast.success('已批准取消')
+                            loadOrders()
+                            setSelectedOrderId(null)
+                          } else {
+                            toast.error('操作失败')
+                          }
+                        } catch (error) {
+                          toast.error('操作失败')
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center gap-1"
+                    >
+                      <Check className="w-4 h-4" />
+                      批准取消
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (!window.confirm('确定要拒绝取消请求吗？')) return
+                        try {
+                          const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/cancel-reject`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                              'Content-Type': 'application/json'
+                            }
+                          })
+                          if (response.ok) {
+                            toast.success('已拒绝取消')
+                            loadOrders()
+                          } else {
+                            toast.error('操作失败')
+                          }
+                        } catch (error) {
+                          toast.error('操作失败')
+                        }
+                      }}
+                      className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-1"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      拒绝取消
+                    </button>
+                  </>
+                )}
                 {/* 取消按钮（非已取消/已完成状态可用） */}
-                {selectedOrder.status !== 6 && selectedOrder.status !== 'cancelled' && selectedOrder.status !== 5 && selectedOrder.status !== 'completed' && (
+                {!selectedOrder.cancelRequest && selectedOrder.status !== 6 && selectedOrder.status !== 'cancelled' && selectedOrder.status !== 5 && selectedOrder.status !== 'completed' && (
                   <button 
                     onClick={() => setShowCancelModal(true)}
                     className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-1"
@@ -1815,9 +1873,16 @@ export default function OrderManagementNew2() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-sm ${status.bgColor} ${status.color}`}>
-                        {status.label}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-3 py-1 rounded-full text-sm ${status.bgColor} ${status.color}`}>
+                          {status.label}
+                        </span>
+                        {order.cancelRequest && (
+                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-300 animate-pulse">
+                            ⚠️ 取消申请
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center gap-2 justify-end">
