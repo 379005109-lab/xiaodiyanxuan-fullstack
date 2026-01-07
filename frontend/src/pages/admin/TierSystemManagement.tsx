@@ -2820,7 +2820,23 @@ function HierarchyTab({
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-green-50 p-3 rounded-xl text-center">
                       <div className="text-xs text-green-700 font-medium mb-1">最低折扣</div>
-                      <div className="text-xl font-bold text-green-800">{staff.minDiscount}</div>
+                      <input
+                        type="number"
+                        value={nodeDraft[String(staff.id)]?.minDiscount ?? staff.minDiscount}
+                        onChange={(e) => {
+                          const v = Math.max(0, Math.min(100, Number(e.target.value) || 0))
+                          setNodeDraft(prev => ({
+                            ...prev,
+                            [String(staff.id)]: {
+                              ...(prev[String(staff.id)] || { minDiscount: staff.minDiscount, distribution: staff.distribution }),
+                              minDiscount: v
+                            }
+                          }))
+                        }}
+                        onBlur={() => commitNodeDraft(String(staff.id))}
+                        onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
+                        className="text-xl font-bold text-green-800 bg-transparent text-center w-full outline-none"
+                      />
                       <div className="text-xs text-green-600">%</div>
                     </div>
                     <div className="bg-blue-50 p-3 rounded-xl text-center">
@@ -2846,6 +2862,33 @@ function HierarchyTab({
                       />
                       <div className="text-xs text-blue-600">%</div>
                     </div>
+                  </div>
+
+                  {/* 绑定信息和添加下级 */}
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3 text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        {(hierarchyGraph.childrenById.get(String(staff.id)) || []).length}人
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <FileText className="w-3 h-3" />
+                        {staff.account?.visibleProductIds?.length || 0}商品
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                        setParentAccount(acc)
+                        setShowAddModal(true)
+                      }}
+                      className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200 flex items-center justify-center"
+                      title="添加下级"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))}

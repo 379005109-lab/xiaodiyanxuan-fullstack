@@ -91,7 +91,23 @@ export default function OrderManagement() {
       
       // 应用状态筛选
       if (filterStatus) {
-        allOrders = allOrders.filter(o => o.status === filterStatus)
+        if (filterStatus === 'cancel_request') {
+          // 筛选有取消申请的订单
+          allOrders = allOrders.filter(o => (o as any).cancelRequest === true)
+        } else {
+          // 状态值可能是数字或字符串，需要同时匹配
+          const statusMap: Record<string, (number | string)[]> = {
+            'pending': [1, 'pending'],
+            'paid': [2, 'paid', 'processing'],
+            'shipped': [3, 'shipped'],
+            'completed': [4, 'completed'],
+            'cancelled': [5, 6, 'cancelled'],
+            'refunding': [6, 'refunding'],
+            'refunded': [7, 'refunded'],
+          }
+          const matchStatuses = statusMap[filterStatus] || [filterStatus]
+          allOrders = allOrders.filter(o => matchStatuses.includes(o.status as any))
+        }
       }
       
       // 排序（最新的在前）
@@ -443,15 +459,20 @@ export default function OrderManagement() {
     }
   }
 
-  // 统计各状态订单数量（从localStorage读取所有订单）
+  // 统计各状态订单数量
   const getStatusCount = (status: string) => {
-    try {
-      const stored = localStorage.getItem('local_orders')
-      const allOrders: Order[] = stored ? JSON.parse(stored) : []
-      return allOrders.filter((o) => o.status === status).length
-    } catch {
-      return orders.filter((o) => o.status === status).length
+    if (status === 'cancel_request') {
+      return orders.filter((o) => (o as any).cancelRequest === true).length
     }
+    const statusMap: Record<string, (number | string)[]> = {
+      'pending': [1, 'pending'],
+      'paid': [2, 'paid', 'processing'],
+      'shipped': [3, 'shipped'],
+      'completed': [4, 'completed'],
+      'cancelled': [5, 6, 'cancelled'],
+    }
+    const matchStatuses = statusMap[status] || [status]
+    return orders.filter((o) => matchStatuses.includes(o.status as any)).length
   }
 
   return (
@@ -469,12 +490,13 @@ export default function OrderManagement() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         {[
           { label: '待付款', count: getStatusCount('pending'), color: 'text-yellow-600' },
           { label: '已付款', count: getStatusCount('paid'), color: 'text-green-600' },
           { label: '已发货', count: getStatusCount('shipped'), color: 'text-blue-600' },
-          { label: '已完成', count: getStatusCount('completed'), color: 'text-gray-600' },
+          { label: '取消申请', count: getStatusCount('cancel_request'), color: 'text-orange-600' },
+          { label: '已取消', count: getStatusCount('cancelled'), color: 'text-red-600' },
         ].map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -514,6 +536,7 @@ export default function OrderManagement() {
             className="input"
           >
             <option value="">所有状态</option>
+            <option value="cancel_request">⚠️ 取消申请</option>
             <option value="pending">待付款</option>
             <option value="paid">已付款</option>
             <option value="shipped">已发货</option>

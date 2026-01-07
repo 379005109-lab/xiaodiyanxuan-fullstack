@@ -215,12 +215,21 @@ const getUsers = async (req, res) => {
     if (role) filter.role = role
     if (status) filter.status = status
     if (keyword) {
-      filter.$or = [
-        { username: { $regex: keyword, $options: 'i' } },
-        { nickname: { $regex: keyword, $options: 'i' } },
-        { phone: { $regex: keyword, $options: 'i' } },
-        { email: { $regex: keyword, $options: 'i' } },
-      ]
+      // 如果已有$or条件（厂家过滤），需要用$and组合
+      const keywordCondition = {
+        $or: [
+          { username: { $regex: keyword, $options: 'i' } },
+          { nickname: { $regex: keyword, $options: 'i' } },
+          { phone: { $regex: keyword, $options: 'i' } },
+          { email: { $regex: keyword, $options: 'i' } },
+        ]
+      }
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, keywordCondition]
+        delete filter.$or
+      } else {
+        filter.$or = keywordCondition.$or
+      }
     }
     
     const total = await User.countDocuments(filter)
