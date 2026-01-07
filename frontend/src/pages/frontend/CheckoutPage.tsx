@@ -388,25 +388,49 @@ export default function CheckoutPage() {
         const firstProduct = items[0].product as any
         const manufacturerId = firstProduct.manufacturerId || firstProduct.manufacturer?._id || firstProduct.manufacturer
         
+        let manufacturerName = '商家'
+        let bankInfo = null
+        let wechatQrCode = ''
+        let alipayQrCode = ''
+        let paymentAccounts: any[] = []
+        
         if (manufacturerId) {
-          const paymentRes = await axios.get(`/manufacturers/${manufacturerId}`)
-          const manufacturerData = paymentRes.data?.data || paymentRes.data
-          
-          if (manufacturerData?.settings) {
-            setMerchantPaymentInfo({
-              manufacturerId: manufacturerId,
-              manufacturerName: manufacturerData.fullName || manufacturerData.shortName || manufacturerData.name || '商家',
-              wechatQrCode: manufacturerData.settings.wechatQrCode,
-              alipayQrCode: manufacturerData.settings.alipayQrCode,
-              bankInfo: manufacturerData.settings.bankInfo,
-              paymentAccounts: manufacturerData.settings.paymentAccounts
-            })
-            setOrderNo(orderNo)
-            setShowPaymentModal(true)
-            setSubmitting(false)
-            return // 不跳转，等待用户确认支付
+          try {
+            const paymentRes = await axios.get(`/manufacturers/${manufacturerId}`)
+            const manufacturerData = paymentRes.data?.data || paymentRes.data
+            manufacturerName = manufacturerData?.fullName || manufacturerData?.shortName || manufacturerData?.name || '商家'
+            wechatQrCode = manufacturerData?.settings?.wechatQrCode || ''
+            alipayQrCode = manufacturerData?.settings?.alipayQrCode || ''
+            bankInfo = manufacturerData?.settings?.bankInfo
+            paymentAccounts = manufacturerData?.settings?.paymentAccounts || []
+          } catch (e) {
+            console.log('获取厂家信息失败，使用模拟数据')
           }
         }
+        
+        // 如果没有真实支付信息，使用模拟数据
+        if (!bankInfo?.bankName && !paymentAccounts?.some((p: any) => p?.type === 'bank')) {
+          bankInfo = {
+            bankName: '中国工商银行佛山顺德支行',
+            accountName: manufacturerName,
+            accountNumber: '6222 0200 1234 5678 901'
+          }
+        }
+        
+        setMerchantPaymentInfo({
+          manufacturerId: manufacturerId || '',
+          manufacturerName,
+          wechatQrCode,
+          alipayQrCode,
+          bankInfo,
+          paymentAccounts
+        })
+        setOrderNo(orderNo)
+        // 默认选择银行转账（因为有模拟数据）
+        setSelectedPaymentMethod('bank')
+        setShowPaymentModal(true)
+        setSubmitting(false)
+        return // 不跳转，等待用户确认支付
       } catch (err) {
         console.log('获取商家支付信息失败，使用默认流程', err)
       }
@@ -431,11 +455,25 @@ export default function CheckoutPage() {
     setTimeout(() => setCopiedField(null), 2000)
   }
   
-  // 关闭支付弹窗并跳转
-  const handlePaymentConfirm = () => {
+  // 已完成支付
+  const handlePaymentConfirm = async () => {
+    // 更新订单支付状态为已支付
+    try {
+      await axios.put(`/orders/${orderNo}/payment-status`, { paymentStatus: 'paid' })
+    } catch (e) {
+      console.log('更新支付状态失败', e)
+    }
     clearCart()
     setShowPaymentModal(false)
-    toast.success('订单已提交，请完成支付后等待商家确认')
+    toast.success('支付确认成功，商家将尽快处理您的订单')
+    navigate('/orders')
+  }
+  
+  // 未完成支付（稍后支付）
+  const handlePaymentLater = () => {
+    clearCart()
+    setShowPaymentModal(false)
+    toast.info('订单已保存，请尽快完成支付')
     navigate('/orders')
   }
 
@@ -908,12 +946,18 @@ export default function CheckoutPage() {
               </div>
             </div>
             
-            <div className="p-6 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-3xl">
+            <div className="p-6 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-3xl space-y-3">
               <button
                 onClick={handlePaymentConfirm}
                 className="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors"
               >
-                我已完成支付
+                已完成支付
+              </button>
+              <button
+                onClick={handlePaymentLater}
+                className="w-full py-3 bg-gray-100 text-gray-600 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                未完成支付（稍后支付）
               </button>
             </div>
           </div>

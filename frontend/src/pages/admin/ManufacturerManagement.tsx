@@ -210,6 +210,9 @@ export default function ManufacturerManagement() {
     }
   })
 
+  // 授权状态跟踪
+  const [authorizationMap, setAuthorizationMap] = useState<Record<string, { status: string; productCount: number }>>({})
+  
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
   const [smsLoading, setSmsLoading] = useState(false)
@@ -235,6 +238,30 @@ export default function ManufacturerManagement() {
       setLoading(true)
       const response = await apiClient.get('/manufacturers', { params: { keyword: fetchKeyword, pageSize: 100 } })
       setManufacturers(response.data.data || [])
+      
+      // 如果是厂家门户，获取授权状态
+      if (isFactoryPortal && myManufacturerId) {
+        try {
+          const authRes = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
+          const authData = authRes.data?.data || authRes.data || []
+          const authMap: Record<string, { status: string; productCount: number }> = {}
+          
+          if (Array.isArray(authData)) {
+            authData.forEach((auth: any) => {
+              const targetId = auth.fromManufacturer?._id || auth.fromManufacturer
+              if (targetId) {
+                authMap[targetId] = {
+                  status: auth.status || 'pending',
+                  productCount: auth.productCount || auth.products?.length || 0
+                }
+              }
+            })
+          }
+          setAuthorizationMap(authMap)
+        } catch (e) {
+          console.log('获取授权状态失败', e)
+        }
+      }
     } catch (error) {
       console.error('获取厂家列表失败:', error)
       toast.error('获取厂家列表失败')
@@ -829,12 +856,6 @@ export default function ManufacturerManagement() {
 
                 <div className="grid grid-cols-2 gap-3 mt-4">
                   <button
-                    onClick={() => openAccountsModal(myManufacturer)}
-                    className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    账号管理
-                  </button>
-                  <button
                     onClick={() => handleOpenTierSystem(myManufacturer, 'hierarchy')}
                     className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                   >
@@ -862,53 +883,75 @@ export default function ManufacturerManagement() {
                   <p className="text-gray-500">暂无可申请的品牌</p>
                 </div>
               ) : (
-                filteredOtherManufacturers.map((item) => (
-                  <div
-                    key={item._id}
-                    className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all"
-                  >
-                    <div className="flex items-start justify-between">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {item.status === 'active' ? '启用中' : '已停用'}
-                      </span>
-                      <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
-                        <img
-                          src={getFileUrl(item.logo || '')}
-                          alt={item.fullName || item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-5">
-                      <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
-                        {item.shortName || item.fullName || item.name}
-                      </div>
-                      <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
-                        {item.code || ''}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 mt-6">
-                      <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
-                        <div className="text-xs font-semibold text-emerald-700">经销折扣(%)</div>
-                        <div className="text-3xl font-black text-[#153e35] mt-2">{item.defaultDiscount || 0}</div>
-                      </div>
-                      <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
-                        <div className="text-xs font-semibold text-blue-700">返佣比例(%)</div>
-                        <div className="text-3xl font-black text-blue-700 mt-2">{item.defaultCommission || 0}</div>
-                      </div>
-                    </div>
-
-                    <button
-                      disabled={item.status !== 'active'}
-                      onClick={() => handleOpenProductAuthorization(item)}
-                      className="mt-6 w-full px-6 py-3 rounded-2xl bg-white border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                filteredOtherManufacturers.map((item) => {
+                  const authInfo = authorizationMap[item._id]
+                  const isCooperating = authInfo?.status === 'approved' || authInfo?.status === 'active'
+                  const isPending = authInfo?.status === 'pending'
+                  
+                  return (
+                    <div
+                      key={item._id}
+                      className={`bg-white rounded-[2.5rem] border p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all ${isCooperating ? 'border-emerald-200 ring-2 ring-emerald-100' : 'border-gray-100'}`}
                     >
-                      申请经销授权
-                    </button>
-                  </div>
-                ))
+                      <div className="flex items-start justify-between">
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {item.status === 'active' ? '启用中' : '已停用'}
+                          </span>
+                          {isCooperating && (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                              ✓ 已合作 · {authInfo.productCount || 0}件商品
+                            </span>
+                          )}
+                          {isPending && (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                              ⏳ 申请中
+                            </span>
+                          )}
+                        </div>
+                        <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                          <img
+                            src={getFileUrl(item.logo || '')}
+                            alt={item.fullName || item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
+                          {item.shortName || item.fullName || item.name}
+                        </div>
+                        <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
+                          {item.code || ''}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mt-6">
+                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
+                          <div className="text-xs font-semibold text-emerald-700">经销折扣(%)</div>
+                          <div className="text-3xl font-black text-[#153e35] mt-2">{item.defaultDiscount || 0}</div>
+                        </div>
+                        <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
+                          <div className="text-xs font-semibold text-blue-700">返佣比例(%)</div>
+                          <div className="text-3xl font-black text-blue-700 mt-2">{item.defaultCommission || 0}</div>
+                        </div>
+                      </div>
+
+                      <button
+                        disabled={item.status !== 'active'}
+                        onClick={() => handleOpenProductAuthorization(item)}
+                        className={`mt-6 w-full px-6 py-3 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isCooperating 
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {isCooperating ? '查看授权商品' : isPending ? '查看申请状态' : '申请经销授权'}
+                      </button>
+                    </div>
+                  )
+                })
               )}
             </div>
           )}
