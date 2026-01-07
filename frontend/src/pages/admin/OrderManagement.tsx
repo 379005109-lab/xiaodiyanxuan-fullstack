@@ -642,9 +642,9 @@ export default function OrderManagement() {
                   {/* 右侧：状态和操作 */}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {/* 取消申请标记 */}
-                    {(order as any).cancelRequest && (
-                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 whitespace-nowrap animate-pulse">
-                        ⚠️ 客户申请取消
+                    {order.cancelRequest && (
+                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 whitespace-nowrap animate-pulse border-2 border-orange-300">
+                        ⚠️ 取消申请中
                       </span>
                     )}
                     {/* 状态徽章 */}
@@ -945,7 +945,7 @@ export default function OrderManagement() {
                     )}
 
                     {/* 取消申请处理 */}
-                    {(order as any).cancelRequest && (
+                    {order.cancelRequest && (
                       <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
                         <div className="flex items-center gap-2 text-orange-700 font-semibold mb-3">
                           <AlertCircle className="h-4 w-4" />

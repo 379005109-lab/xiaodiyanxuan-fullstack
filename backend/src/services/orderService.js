@@ -318,8 +318,8 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
   return order
 }
 
-const getOrders = async (userId, page = 1, pageSize = 10, status = null) => {
-  console.log('📋 [OrderService] getOrders called:', { userId, page, pageSize, status });
+const getOrders = async (userId, page = 1, pageSize = 10, status = null, manufacturerIds = null) => {
+  console.log('📋 [OrderService] getOrders called:', { userId, page, pageSize, status, manufacturerIds });
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
   const query = { isDeleted: { $ne: true } }  // 排除已删除的订单
@@ -330,6 +330,13 @@ const getOrders = async (userId, page = 1, pageSize = 10, status = null) => {
   console.log('📋 [OrderService] query:', query);
   if (status) {
     query.status = status
+  }
+  
+  // 如果指定了厂家ID，只返回包含该厂家商品的订单
+  if (manufacturerIds && manufacturerIds.length > 0) {
+    const manufacturerIdStrings = manufacturerIds.map(id => id?.toString ? id.toString() : String(id))
+    query['items.manufacturerId'] = { $in: manufacturerIdStrings }
+    console.log('📋 [OrderService] filtering by manufacturerIds:', manufacturerIdStrings)
   }
   
   const total = await Order.countDocuments(query)
