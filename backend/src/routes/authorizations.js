@@ -1777,4 +1777,114 @@ router.get('/gmv-stats', auth, async (req, res) => {
   }
 })
 
+// GET /api/authorizations/:id - 获取授权详情
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID无效' })
+    }
+    
+    const authorization = await Authorization.findById(id)
+      .populate('toManufacturer', 'name logo fullName')
+      .populate('toDesigner', 'nickname username avatar')
+      .populate('fromManufacturer', 'name logo fullName')
+      .lean()
+    
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+    
+    res.json({ success: true, data: authorization })
+  } catch (error) {
+    console.error('获取授权详情失败:', error)
+    res.status(500).json({ success: false, message: '获取授权详情失败' })
+  }
+})
+
+// GET /api/authorizations/:id/products - 获取授权商品列表
+router.get('/:id/products', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID无效' })
+    }
+    
+    const authorization = await Authorization.findById(id).lean()
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+    
+    let products = []
+    
+    if (authorization.scope === 'all') {
+      // 全部商品
+      products = await Product.find({ 
+        manufacturerId: authorization.fromManufacturer,
+        status: 'active'
+      }).select('name productCode images basePrice skus category').lean()
+    } else if (authorization.scope === 'category') {
+      // 按分类
+      products = await Product.find({
+        manufacturerId: authorization.fromManufacturer,
+        category: { $in: authorization.categories || [] },
+        status: 'active'
+      }).select('name productCode images basePrice skus category').lean()
+    } else if (authorization.scope === 'specific' || authorization.scope === 'mixed') {
+      // 指定商品
+      products = await Product.find({
+        _id: { $in: authorization.products || [] },
+        status: 'active'
+      }).select('name productCode images basePrice skus category').lean()
+    }
+    
+    res.json({ success: true, data: products })
+  } catch (error) {
+    console.error('获取授权商品列表失败:', error)
+    res.status(500).json({ success: false, message: '获取授权商品列表失败' })
+  }
+})
+
+// PUT /api/authorizations/:id/pricing - 更新授权价格设置
+router.put('/:id/pricing', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { priceSettings } = req.body
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID无效' })
+    }
+    
+    const authorization = await Authorization.findById(id)
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+    
+    // 验证权限 - 只有授权发起方可以修改价格设置
+    const user = await User.findById(req.userId).select('role manufacturerId').lean()
+    if (!user) {
+      return res.status(401).json({ success: false, message: '请先登录' })
+    }
+    
+    const isAdmin = ['admin', 'super_admin'].includes(user.role)
+    const isOwner = user.manufacturerId && String(authorization.fromManufacturer) === String(user.manufacturerId)
+    
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ success: false, message: '无权限修改此授权的价格设置' })
+    }
+    
+    // 更新价格设置
+    authorization.priceSettings = {
+      ...authorization.priceSettings,
+      ...priceSettings
+    }
+    await authorization.save()
+    
+    res.json({ success: true, data: authorization, message: '价格设置已更新' })
+  } catch (error) {
+    console.error('更新授权价格设置失败:', error)
+    res.status(500).json({ success: false, message: '更新授权价格设置失败' })
+  }
+})
+
 module.exports = router

@@ -89,6 +89,7 @@ const EnterpriseUserManagement = lazy(() => import('./pages/admin/EnterpriseUser
 const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManagement'))
 
 const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
+const AuthorizationPricingPage = lazy(() => import('./pages/admin/AuthorizationPricingPage'))
 
 // 厂家端页面
 const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
@@ -529,6 +530,7 @@ function App() {
             <Route path="business-panel" element={<ProtectedRoute allowedRoles={['enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><ManufacturerBusinessPanel /></ProtectedRoute>} />
             <Route path="manufacturers/authorization-requests" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerAuthorizationRequests /></ProtectedRoute>} />
             <Route path="authorizations" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><AuthorizationManagement /></ProtectedRoute>} />
+            <Route path="authorizations/:authorizationId/pricing" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><AuthorizationPricingPage /></ProtectedRoute>} />
             <Route path="referrals" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
