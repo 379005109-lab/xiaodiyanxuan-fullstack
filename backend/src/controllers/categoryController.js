@@ -26,6 +26,8 @@ const listCategories = async (req, res) => {
     const isManufacturerAccount = user?.manufacturerId && 
       !['super_admin', 'admin', 'platform_admin', 'platform_staff'].includes(user.role)
     
+    console.log('[listCategories] user:', user?.role, 'manufacturerId:', user?.manufacturerId, 'isManufacturerAccount:', isManufacturerAccount)
+    
     // For manufacturer accounts, get categories that have their own products or authorized products
     let categoryIdsWithProducts = null
     let productCountByCategory = {}
@@ -37,11 +39,15 @@ const listCategories = async (req, res) => {
         status: 'active' 
       }).select('category').lean()
       
+      console.log('[listCategories] ownProducts count:', ownProducts.length)
+      
       // Get authorized products
       const authorizations = await Authorization.find({
         toManufacturer: user.manufacturerId,
         status: 'active'
       }).lean()
+      
+      console.log('[listCategories] authorizations count:', authorizations.length)
       
       let authorizedProductIds = []
       for (const auth of authorizations) {
@@ -62,6 +68,8 @@ const listCategories = async (req, res) => {
       
       // Combine and count by category
       const allProducts = [...ownProducts, ...authorizedProductIds]
+      console.log('[listCategories] allProducts count:', allProducts.length)
+      
       const categorySet = new Set()
       allProducts.forEach(p => {
         if (p.category) {
@@ -71,6 +79,7 @@ const listCategories = async (req, res) => {
         }
       })
       categoryIdsWithProducts = Array.from(categorySet)
+      console.log('[listCategories] categoryIdsWithProducts:', categoryIdsWithProducts.length, categoryIdsWithProducts.slice(0, 5))
     }
 
     if (isManufacturerAccount) {
