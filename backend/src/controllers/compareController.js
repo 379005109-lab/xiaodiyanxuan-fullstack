@@ -141,28 +141,26 @@ const remove = async (req, res) => {
     console.log('selectedMaterials:', selectedMaterials)
     console.log('userId:', req.userId)
     
-    // 构建查询条件
-    const query = {
+    // 先查找用户的所有对比项
+    const userItems = await Compare.find({ userId: req.userId })
+    console.log('User compare items count:', userItems.length)
+    console.log('User compare items:', userItems.map(i => ({ _id: i._id, productId: i.productId, skuId: i.skuId })))
+    
+    // 直接按 productId 删除（忽略 skuId 以确保删除成功）
+    const result = await Compare.deleteMany({
       userId: req.userId,
-      productId
-    }
-    
-    // 如果提供了skuId，添加到查询条件
-    if (skuId) {
-      query.skuId = skuId
-    }
-    
-    // 删除匹配的项目
-    const result = await Compare.deleteOne(query)
+      productId: productId
+    })
     
     console.log('Delete result:', result)
     console.log('==========================================')
     
     if (result.deletedCount === 0) {
-      // 尝试删除该productId的所有项目
+      console.log('⚠️ No items deleted, trying string match...')
+      // 尝试字符串匹配（处理可能的 ObjectId vs String 问题）
       const fallbackResult = await Compare.deleteMany({
         userId: req.userId,
-        productId
+        productId: { $regex: new RegExp(productId, 'i') }
       })
       console.log('Fallback delete result:', fallbackResult)
     }
