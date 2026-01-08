@@ -20,12 +20,48 @@ export const getDashboardData = async () => {
   });
 
   if (!response.ok) {
-    // If the server response is not OK, throw an error
     const errorData = await response.json();
     throw new Error(errorData.message || 'Failed to fetch dashboard data');
   }
 
   const result = await response.json();
-  // 后端使用successResponse包装，返回 { success: true, data: ... }
   return result.data || result;
+};
+
+export const getUserActivityDashboard = async () => {
+  const token = getAuthToken();
+
+  const response = await fetch(`${API_URL}/dashboard/activity`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Failed to fetch activity dashboard');
+  }
+
+  const result = await response.json();
+  return result.data || result;
+};
+
+export const getUserLoginDetails = async (period: 'today' | 'week' | 'month' = 'today') => {
+  const token = getAuthToken();
+
+  const response = await fetch(`${API_URL}/dashboard/user-logins?period=${period}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Failed to fetch user login details');
+  }
+
+  const result = await response.json();
+  return result;
 };

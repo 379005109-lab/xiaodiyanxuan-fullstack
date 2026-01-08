@@ -95,21 +95,30 @@ export const addToCompare = async (productId: string, skuId?: string, selectedMa
 
 // 移除对比
 export const removeFromCompare = async (productId: string, skuId?: string, selectedMaterials?: any) => {
-  // 未登录时使用本地存储
-  if (!isAuthenticated()) {
-    const items = getLocalCompareItems()
-    const filtered = items.filter(item => item.productId !== productId)
-    setLocalCompareItems(filtered)
-    return
-  }
+  console.log('🗑️ [Compare] removeFromCompare called:', { productId, skuId, selectedMaterials })
+  console.log('🔑 [Compare] isAuthenticated:', isAuthenticated())
+  console.log('🔑 [Compare] token:', localStorage.getItem('token') ? 'exists' : 'missing')
   
-  try {
-    await apiClient.delete(`/compare/${productId}`, {
-      data: { skuId, selectedMaterials }
-    })
-  } catch (error: any) {
-    console.error('移除对比失败:', error)
-    throw new Error(error.response?.data?.message || '移除对比失败')
+  // 同时清理本地存储（防止残留）
+  const localItems = getLocalCompareItems()
+  const filtered = localItems.filter(item => item.productId !== productId)
+  setLocalCompareItems(filtered)
+  
+  // 如果已登录，发送 API 请求
+  if (isAuthenticated()) {
+    try {
+      console.log('📡 [Compare] Sending DELETE request to /compare/' + productId)
+      const response = await apiClient.delete(`/compare/${productId}`, {
+        data: { skuId, selectedMaterials }
+      })
+      console.log('✅ [Compare] Delete response:', response.data)
+    } catch (error: any) {
+      console.error('❌ [Compare] 移除对比失败:', error)
+      console.error('❌ [Compare] Error response:', error.response?.data)
+      throw new Error(error.response?.data?.message || '移除对比失败')
+    }
+  } else {
+    console.log('⚠️ [Compare] Not authenticated, only cleared local storage')
   }
 }
 
