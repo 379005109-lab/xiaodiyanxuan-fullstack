@@ -40,7 +40,7 @@ const listCategories = async (req, res) => {
       // Get authorized products
       const authorizations = await Authorization.find({
         toManufacturer: user.manufacturerId,
-        status: { $in: ['approved', 'active'] }
+        status: 'active'
       }).lean()
       
       let authorizedProductIds = []

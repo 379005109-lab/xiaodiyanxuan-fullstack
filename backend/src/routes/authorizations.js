@@ -256,7 +256,7 @@ router.get('/summary', auth, async (req, res) => {
     // 查询该厂家收到的所有授权（从其他厂家获得的授权）
     const authorizations = await Authorization.find({
       toManufacturer: targetManufacturerId,
-      status: { $in: ['approved', 'active', 'pending'] }
+      status: { $in: ['active', 'pending'] }
     })
       .populate('fromManufacturer', '_id name fullName shortName')
       .lean()
@@ -276,22 +276,18 @@ router.get('/summary', auth, async (req, res) => {
           products: [],
           authorizationId: auth._id,
           priceSettings: auth.priceSettings || {},
-          minDiscountRate: auth.priceSettings?.minDiscountRate || 0,
-          commissionRate: auth.priceSettings?.commissionRate || 0,
+          minDiscountRate: auth.minDiscountRate || 0,
+          commissionRate: auth.commissionRate || 0,
           scope: auth.scope
         })
       }
       
       const summary = summaryMap.get(fromId)
-      // 更新状态（优先显示approved/active）
-      if (auth.status === 'approved' || auth.status === 'active') {
+      // 更新状态（优先显示active）
+      if (auth.status === 'active') {
         summary.status = auth.status
-        // 保留价格设置
-        if (auth.priceSettings) {
-          summary.priceSettings = auth.priceSettings
-          summary.minDiscountRate = auth.priceSettings.minDiscountRate || summary.minDiscountRate
-          summary.commissionRate = auth.priceSettings.commissionRate || summary.commissionRate
-        }
+        summary.minDiscountRate = auth.minDiscountRate || summary.minDiscountRate
+        summary.commissionRate = auth.commissionRate || summary.commissionRate
       }
       // 累加商品数量
       if (auth.scope === 'all') {

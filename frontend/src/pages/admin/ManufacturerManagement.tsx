@@ -943,8 +943,8 @@ export default function ManufacturerManagement() {
                             {isCooperating ? '授权折扣(%)' : '经销折扣(%)'}
                           </div>
                           <div className="text-3xl font-black text-[#153e35] mt-2">
-                            {isCooperating && authInfo?.minDiscountRate 
-                              ? Math.round(authInfo.minDiscountRate * 100) 
+                            {isCooperating 
+                              ? (authInfo?.minDiscountRate || 0)
                               : (item.defaultDiscount || 0)}
                           </div>
                         </div>
@@ -953,8 +953,8 @@ export default function ManufacturerManagement() {
                             {isCooperating ? '授权返佣(%)' : '返佣比例(%)'}
                           </div>
                           <div className="text-3xl font-black text-blue-700 mt-2">
-                            {isCooperating && authInfo?.commissionRate 
-                              ? Math.round(authInfo.commissionRate * 100) 
+                            {isCooperating 
+                              ? (authInfo?.commissionRate || 0)
                               : (item.defaultCommission || 0)}
                           </div>
                         </div>
