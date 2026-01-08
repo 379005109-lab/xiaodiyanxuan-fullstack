@@ -542,8 +542,10 @@ const getCategoryStats = async (req, res) => {
       // Count authorized products
       const authorizations = await Authorization.find({
         toManufacturer: user.manufacturerId,
-        status: { $in: ['approved', 'active'] }
+        status: 'active'
       }).lean()
+      
+      console.log('[getCategoryStats] manufacturerId:', user.manufacturerId, 'ownProductCount:', ownProductCount, 'authCount:', authorizations.length)
       
       let authorizedCount = 0
       for (const auth of authorizations) {
