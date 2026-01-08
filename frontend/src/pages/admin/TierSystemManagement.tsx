@@ -2492,39 +2492,43 @@ function HierarchyTab({
               onWheel={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-6 py-4">
+              <div className="flex items-center justify-between px-6 py-3">
                 {/* 左侧：节点统计和层级控制 */}
-                <div className="flex items-center gap-6">
-                  <div className="text-sm font-medium text-gray-600">
-                    {tooManyVisible ? (
-                      <span className="text-red-600">显示 {MAX_VISIBLE_STAFF_NODES} / {visibleStaffNodes.length} 节点</span>
-                    ) : (
-                      <span>显示 {visibleStaffNodes.length} 节点</span>
-                    )}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <Layers className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-700">
+                      {tooManyVisible ? (
+                        <span className="text-red-600">{MAX_VISIBLE_STAFF_NODES} / {visibleStaffNodes.length}</span>
+                      ) : (
+                        <span>{visibleStaffNodes.length}</span>
+                      )}
+                    </span>
+                    <span className="text-xs text-gray-400">节点</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">层级:</span>
+                  <div className="flex items-center gap-1.5 bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
                     <button 
                       onClick={() => expandToDepth(0)}
-                      className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                      className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                     >
                       收起
                     </button>
+                    <div className="w-px h-4 bg-gray-200"></div>
                     <button 
                       onClick={() => expandToDepth(1)}
-                      className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                      className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                     >
                       1级
                     </button>
                     <button 
                       onClick={() => expandToDepth(2)}
-                      className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                      className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                     >
                       2级
                     </button>
                     <button 
                       onClick={() => expandToDepth(3)}
-                      className="px-3 py-1.5 rounded-lg bg-gray-100 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                      className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                     >
                       全部
                     </button>
@@ -2562,35 +2566,39 @@ function HierarchyTab({
                 </div>
 
                 {/* 右侧：缩放控制和视图切换 */}
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
                     <button 
                       onClick={() => setZoomScale(p => Math.max(0.3, p - 0.1))} 
-                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-600 transition-colors"
+                      className="w-7 h-7 hover:bg-gray-100 rounded-md flex items-center justify-center text-gray-600 transition-colors"
+                      title="缩小"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth={2} d="M20 12H4" /></svg>
+                      <Minus className="w-4 h-4" />
                     </button>
-                    <span className="text-sm text-gray-500 px-2">{Math.round(zoomScale * 100)}%</span>
+                    <span className="text-xs font-medium text-gray-700 px-2 min-w-[45px] text-center">{Math.round(zoomScale * 100)}%</span>
                     <button 
                       onClick={() => setZoomScale(p => Math.min(2, p + 0.1))} 
-                      className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-600 transition-colors"
+                      className="w-7 h-7 hover:bg-gray-100 rounded-md flex items-center justify-center text-gray-600 transition-colors"
+                      title="放大"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
+                    <div className="w-px h-4 bg-gray-200 mx-0.5"></div>
                     <button
                       onClick={() => fitToView({ maxZoom: 1.2 }, Array.from(visibleNodeIdSet))}
-                      className="px-3 py-1.5 bg-[#153e35] text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors"
+                      className="px-2.5 py-1 hover:bg-gray-100 rounded-md text-xs font-medium text-gray-700 transition-colors flex items-center gap-1.5"
+                      title="适应屏幕"
                     >
-                      适应屏幕
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                      适应
                     </button>
                   </div>
-                  <div className="w-px h-6 bg-gray-300"></div>
                   <button 
                     onClick={() => setViewMode('list')} 
-                    className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors flex items-center gap-2"
+                    className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors flex items-center gap-1.5 shadow-sm"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
-                    目录视图
+                    <List className="w-4 h-4" />
+                    目录
                   </button>
                 </div>
               </div>
@@ -2605,78 +2613,6 @@ function HierarchyTab({
               )}
             </div>
 
-            {focusedNodeId ? (
-              <div
-                className="fixed bottom-6 right-6 z-[90] w-[360px]"
-                onWheel={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">已选节点</div>
-                      <div className="text-sm font-black text-gray-900 truncate">{focusedNodeName}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFocusedNodeId(null)}
-                      className="w-8 h-8 rounded-xl bg-gray-50 text-gray-400 hover:text-gray-600"
-                      title="取消选中"
-                    >
-                      <X className="w-4 h-4 mx-auto" />
-                    </button>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!focusedNodeId || focusedNodeId === 'headquarters') {
-                          setParentAccount(null)
-                        } else {
-                          const acc = accounts.find(a => String(a._id) === String(focusedNodeId)) || null
-                          setParentAccount(acc)
-                        }
-                        setShowAddModal(true)
-                      }}
-                      className="py-2 rounded-xl bg-gray-50 text-xs font-black text-gray-700 hover:bg-gray-100"
-                    >
-                      绑定人员
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!focusedNodeId || focusedNodeId === 'headquarters') {
-                          setProductAccount(hierarchyData.headquarters as any)
-                        } else {
-                          const acc = accounts.find(a => String(a._id) === String(focusedNodeId)) || null
-                          if (!acc) return
-                          setProductAccount(acc)
-                        }
-                        setShowProductModal(true)
-                      }}
-                      className="py-2 rounded-xl bg-blue-50 text-xs font-black text-blue-700 hover:bg-blue-100"
-                    >
-                      绑定商品
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!focusedNodeId || focusedNodeId === 'headquarters') {
-                          setParentAccount(null)
-                        } else {
-                          const acc = accounts.find(a => String(a._id) === String(focusedNodeId)) || null
-                          setParentAccount(acc)
-                        }
-                        setShowAddModal(true)
-                      }}
-                      className="py-2 rounded-xl bg-[#153e35] text-xs font-black text-white hover:bg-emerald-900"
-                    >
-                      添加下级
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
 
             {/* 画布层（缩放+平移） */}
             <div
@@ -2753,17 +2689,38 @@ function HierarchyTab({
                   </button>
                 ) : null}
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden flex items-center justify-center text-white text-xl font-black">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setParentAccount(null)
+                      setShowAddModal(true)
+                    }}
+                    className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden flex items-center justify-center text-white text-xl font-black hover:ring-4 hover:ring-blue-200 transition-all"
+                    title="查看人员组织"
+                  >
                     {manufacturerLogo ? (
                       <img src={manufacturerLogo} alt={hierarchyData.headquarters.name} className="w-full h-full object-cover" />
                     ) : (
                       hierarchyData.headquarters.name.charAt(0)
                     )}
-                  </div>
+                  </button>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-lg font-bold text-gray-900 truncate">{hierarchyData.headquarters.name}</h3>
                     <p className="text-sm text-gray-500">{hierarchyData.headquarters.role}</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setProductAccount(hierarchyData.headquarters as any)
+                      setShowProductModal(true)
+                    }}
+                    className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition-all"
+                    title="绑定商品"
+                  >
+                    <FileText className="w-5 h-5" />
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -2807,24 +2764,38 @@ function HierarchyTab({
                   ) : null}
 
                   {/* 头像和基本信息 - 水平布局 */}
-                  <div className="flex items-center gap-4 mb-4">
+                  <div className="flex items-center gap-3 mb-4">
                     <button
                       type="button"
-                      onClick={() => handleAvatarClick(staff)}
-                      className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden hover:ring-2 hover:ring-blue-200 transition-all flex-shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                        setParentAccount(acc)
+                        setShowAddModal(true)
+                      }}
+                      className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden hover:ring-4 hover:ring-blue-200 transition-all flex-shrink-0"
+                      title="查看人员组织"
                     >
                       <img src={staff.avatar} alt={staff.name} className="w-full h-full object-cover" />
                     </button>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-base font-bold text-gray-900 mb-1">{staff.name}</h4>
-                      <button
-                        type="button"
-                        onClick={() => handleAvatarClick(staff)}
-                        className="text-sm text-gray-600 hover:text-blue-600 transition-colors"
-                      >
-                        {staff.role}
-                      </button>
+                      <div className="text-sm text-gray-600">{staff.role}</div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                        if (!acc) return
+                        setProductAccount(acc)
+                        setShowProductModal(true)
+                      }}
+                      className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition-all flex-shrink-0"
+                      title="绑定商品"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
                   </div>
 
                   {/* 折扣和返佣显示 - 紧凑布局 */}

@@ -167,6 +167,32 @@ export default function ManufacturerProductAuthorization() {
     })
   }
 
+  // Pre-select authorized products when data loads
+  useEffect(() => {
+    if (products.length > 0 && existingAuthorizations.length > 0) {
+      const authorizedProductIds: string[] = []
+      const authorizedCategoryIds: string[] = []
+
+      existingAuthorizations.forEach(auth => {
+        if (auth.scope === 'specific' && auth.products) {
+          authorizedProductIds.push(...auth.products.map((id: string) => String(id)))
+        } else if (auth.scope === 'category' && auth.categories) {
+          authorizedCategoryIds.push(...auth.categories.map((id: string) => String(id)))
+        }
+      })
+
+      setSelectedProductIds(prev => {
+        const combined = [...new Set([...prev, ...authorizedProductIds])]
+        return combined
+      })
+
+      setSelectedCategoryIds(prev => {
+        const combined = [...new Set([...prev, ...authorizedCategoryIds])]
+        return combined
+      })
+    }
+  }, [products, existingAuthorizations])
+
   // 构建分类树
   const categoryTree = useMemo(() => {
     const rootCategories = categories.filter(c => !c.parentId)
