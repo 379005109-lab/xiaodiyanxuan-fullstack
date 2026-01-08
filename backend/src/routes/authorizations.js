@@ -264,9 +264,18 @@ router.get('/summary', auth, async (req, res) => {
     // 聚合每个来源厂家的授权信息
     const summaryMap = new Map()
     
+    console.log('[Authorization Summary] Found authorizations:', authorizations.length, 'for manufacturer:', targetManufacturerId)
+    
     for (const auth of authorizations) {
       const fromId = auth.fromManufacturer?._id?.toString()
       if (!fromId) continue
+      
+      console.log('[Authorization Summary] Processing auth:', {
+        fromId,
+        scope: auth.scope,
+        status: auth.status,
+        productsLength: auth.products?.length
+      })
       
       if (!summaryMap.has(fromId)) {
         summaryMap.set(fromId, {
@@ -296,12 +305,19 @@ router.get('/summary', auth, async (req, res) => {
           manufacturerId: auth.fromManufacturer._id || auth.fromManufacturer,
           status: 'active'
         })
+        console.log('[Authorization Summary] Scope ALL - productCount:', productCount, 'for manufacturer:', auth.fromManufacturer._id)
         summary.productCount = productCount
       } else if (auth.products && Array.isArray(auth.products)) {
+        console.log('[Authorization Summary] Scope SPECIFIC - adding products:', auth.products.length)
         summary.productCount += auth.products.length
         summary.products.push(...auth.products)
       }
     }
+    
+    console.log('[Authorization Summary] Final summaryMap size:', summaryMap.size)
+    summaryMap.forEach((summary, key) => {
+      console.log('[Authorization Summary] Manufacturer:', key, 'productCount:', summary.productCount, 'status:', summary.status)
+    })
     
     const result = Array.from(summaryMap.values())
     
