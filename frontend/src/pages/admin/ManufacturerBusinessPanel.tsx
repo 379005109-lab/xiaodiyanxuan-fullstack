@@ -39,6 +39,8 @@ interface ProductItem {
   category?: any
   categoryName?: string
   thumbnail?: string
+  images?: string[]
+  mainImage?: string
   basePrice?: number
   status?: string
   authStatus?: 'own' | 'authorized' | 'pending'
@@ -649,9 +651,14 @@ export default function ManufacturerBusinessPanel() {
                                   <div className="flex items-center gap-4">
                                     {/* Product Image */}
                                     <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                                      {product.thumbnail ? (
+                                      {(product.images?.[0] || product.thumbnail || product.mainImage) ? (
                                         <img 
-                                          src={product.thumbnail.startsWith('http') ? product.thumbnail : `/api/files/${product.thumbnail}`}
+                                          src={(() => {
+                                            const img = product.images?.[0] || product.thumbnail || product.mainImage
+                                            if (!img) return '/placeholder.svg'
+                                            if (img.startsWith('http')) return img
+                                            return `/api/files/${img}`
+                                          })()}
                                           alt={product.name}
                                           className="w-full h-full object-cover"
                                         />
