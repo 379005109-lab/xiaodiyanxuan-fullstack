@@ -23,11 +23,13 @@ const listCategories = async (req, res) => {
     }
 
     const user = req.user
-    console.log('[listCategories] req.user exists:', !!user, 'role:', user?.role, 'manufacturerId:', user?.manufacturerId)
+    // Check both manufacturerId and manufacturerIds (plural)
+    const userManufacturerId = user?.manufacturerId || user?.manufacturerIds?.[0]
+    console.log('[listCategories] req.user exists:', !!user, 'role:', user?.role, 'manufacturerId:', user?.manufacturerId, 'manufacturerIds:', user?.manufacturerIds, 'userManufacturerId:', userManufacturerId)
     
     // enterprise_admin and enterprise_staff with manufacturerId should see filtered categories
-    const isManufacturerAccount = user?.manufacturerId && 
-      ['enterprise_admin', 'enterprise_staff', 'manufacturer_admin', 'manufacturer_staff'].includes(user.role)
+    const isManufacturerAccount = userManufacturerId && 
+      ['enterprise_admin', 'enterprise_staff', 'manufacturer_admin', 'manufacturer_staff'].includes(user?.role)
     
     console.log('[listCategories] isManufacturerAccount:', isManufacturerAccount)
     
@@ -38,7 +40,7 @@ const listCategories = async (req, res) => {
     if (isManufacturerAccount) {
       // Get own products' categories
       const ownProducts = await Product.find({ 
-        manufacturerId: user.manufacturerId, 
+        manufacturerId: userManufacturerId, 
         status: 'active' 
       }).select('category').lean()
       
@@ -46,7 +48,7 @@ const listCategories = async (req, res) => {
       
       // Get authorized products
       const authorizations = await Authorization.find({
-        toManufacturer: user.manufacturerId,
+        toManufacturer: userManufacturerId,
         status: 'active'
       }).lean()
       
@@ -529,11 +531,13 @@ const getCategoryStats = async (req, res) => {
   try {
     const { manufacturerId } = req.query
     const user = req.user
-    console.log('[getCategoryStats] req.user exists:', !!user, 'role:', user?.role, 'manufacturerId:', user?.manufacturerId)
+    // Check both manufacturerId and manufacturerIds (plural)
+    const userManufacturerId = user?.manufacturerId || user?.manufacturerIds?.[0]
+    console.log('[getCategoryStats] req.user exists:', !!user, 'role:', user?.role, 'userManufacturerId:', userManufacturerId)
     
     // enterprise_admin and enterprise_staff with manufacturerId should see filtered stats
-    const isManufacturerAccount = user?.manufacturerId && 
-      ['enterprise_admin', 'enterprise_staff', 'manufacturer_admin', 'manufacturer_staff'].includes(user.role)
+    const isManufacturerAccount = userManufacturerId && 
+      ['enterprise_admin', 'enterprise_staff', 'manufacturer_admin', 'manufacturer_staff'].includes(user?.role)
     
     console.log('[getCategoryStats] isManufacturerAccount:', isManufacturerAccount)
 
@@ -543,17 +547,17 @@ const getCategoryStats = async (req, res) => {
     if (isManufacturerAccount) {
       // Count own products
       const ownProductCount = await Product.countDocuments({ 
-        manufacturerId: user.manufacturerId, 
+        manufacturerId: userManufacturerId, 
         status: 'active' 
       })
       
       // Count authorized products
       const authorizations = await Authorization.find({
-        toManufacturer: user.manufacturerId,
+        toManufacturer: userManufacturerId,
         status: 'active'
       }).lean()
       
-      console.log('[getCategoryStats] manufacturerId:', user.manufacturerId, 'ownProductCount:', ownProductCount, 'authCount:', authorizations.length)
+      console.log('[getCategoryStats] userManufacturerId:', userManufacturerId, 'ownProductCount:', ownProductCount, 'authCount:', authorizations.length)
       
       let authorizedCount = 0
       for (const auth of authorizations) {
@@ -571,7 +575,7 @@ const getCategoryStats = async (req, res) => {
       
       // Get categories with products
       const ownProducts = await Product.find({ 
-        manufacturerId: user.manufacturerId, 
+        manufacturerId: userManufacturerId, 
         status: 'active' 
       }).select('category').lean()
       
