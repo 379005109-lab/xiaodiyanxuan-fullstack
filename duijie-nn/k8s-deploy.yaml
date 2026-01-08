@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: duijie-nn
+  namespace: ns-cxxiwxce
+  labels:
+    app: duijie-nn
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: duijie-nn
+  template:
+    metadata:
+      labels:
+        app: duijie-nn
+    spec:
+      containers:
+      - name: nginx
+        image: registry.sealoshzh.site/ns-cxxiwxce/duijie-nn:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: duijie-nn
+  namespace: ns-cxxiwxce
+spec:
+  selector:
+    app: duijie-nn
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: duijie-nn
+  namespace: ns-cxxiwxce
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  tls:
+  - hosts:
+    - duijie-nn-cxxiwxce.sealoshzh.site
+    secretName: wildcard-sealoshzh-site-tls
+  rules:
+  - host: duijie-nn-cxxiwxce.sealoshzh.site
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: duijie-nn
+            port:
+              number: 80
