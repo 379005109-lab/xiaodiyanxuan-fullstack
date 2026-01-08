@@ -23,10 +23,13 @@ const listCategories = async (req, res) => {
     }
 
     const user = req.user
-    const isManufacturerAccount = user?.manufacturerId && 
-      !['super_admin', 'admin', 'platform_admin', 'platform_staff'].includes(user.role)
+    console.log('[listCategories] req.user exists:', !!user, 'role:', user?.role, 'manufacturerId:', user?.manufacturerId)
     
-    console.log('[listCategories] user:', user?.role, 'manufacturerId:', user?.manufacturerId, 'isManufacturerAccount:', isManufacturerAccount)
+    // enterprise_admin and enterprise_staff with manufacturerId should see filtered categories
+    const isManufacturerAccount = user?.manufacturerId && 
+      ['enterprise_admin', 'enterprise_staff', 'manufacturer_admin', 'manufacturer_staff'].includes(user.role)
+    
+    console.log('[listCategories] isManufacturerAccount:', isManufacturerAccount)
     
     // For manufacturer accounts, get categories that have their own products or authorized products
     let categoryIdsWithProducts = null
@@ -526,8 +529,13 @@ const getCategoryStats = async (req, res) => {
   try {
     const { manufacturerId } = req.query
     const user = req.user
+    console.log('[getCategoryStats] req.user exists:', !!user, 'role:', user?.role, 'manufacturerId:', user?.manufacturerId)
+    
+    // enterprise_admin and enterprise_staff with manufacturerId should see filtered stats
     const isManufacturerAccount = user?.manufacturerId && 
-      !['super_admin', 'admin', 'platform_admin', 'platform_staff'].includes(user.role)
+      ['enterprise_admin', 'enterprise_staff', 'manufacturer_admin', 'manufacturer_staff'].includes(user.role)
+    
+    console.log('[getCategoryStats] isManufacturerAccount:', isManufacturerAccount)
 
     let totalProducts = 0
     let categoryCount = 0
