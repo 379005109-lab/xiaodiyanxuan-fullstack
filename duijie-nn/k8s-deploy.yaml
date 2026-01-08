@@ -7,6 +7,11 @@ metadata:
     app: duijie-nn
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: duijie-nn
@@ -23,6 +28,7 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 80
+          name: http
         resources:
           limits:
             cpu: "500m"
@@ -30,19 +36,35 @@ spec:
           requests:
             cpu: "100m"
             memory: "128Mi"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: duijie-nn
   namespace: ns-cxxiwxce
+  labels:
+    app: duijie-nn
 spec:
+  type: ClusterIP
   selector:
     app: duijie-nn
   ports:
   - port: 80
     targetPort: 80
-  type: ClusterIP
+    protocol: TCP
+    name: http
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -51,15 +73,15 @@ metadata:
   namespace: ns-cxxiwxce
   annotations:
     kubernetes.io/ingress.class: nginx
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   tls:
   - hosts:
-    - duijie-nn-cxxiwxce.sealoshzh.site
-    secretName: wildcard-sealoshzh-site-tls
+    - duijie.xiaodiyanxuan.com
+    secretName: duijie-nn-tls
   rules:
-  - host: duijie-nn-cxxiwxce.sealoshzh.site
+  - host: duijie.xiaodiyanxuan.com
     http:
       paths:
       - path: /
