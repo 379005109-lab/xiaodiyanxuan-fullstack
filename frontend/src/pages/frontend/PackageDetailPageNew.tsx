@@ -456,24 +456,11 @@ export default function PackageDetailPageNew() {
                             isSelected ? 'border-primary ring-2 ring-primary/20 shadow-lg' : 'border-stone-100 hover:shadow-md'
                           } ${isDisabled ? 'opacity-50' : ''}`}
                         >
-                          <div className="relative h-36 bg-stone-100">
-                            <img 
-                              src={product.image ? getFileUrl(product.image) : '/placeholder.svg'} 
-                              alt={product.name}
-                              className="w-full h-full object-cover"
-                            />
-                            <button 
-                              onClick={() => setPreviewProduct(product)}
-                              className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full text-stone-600 hover:text-primary shadow-md"
-                            >
-                              <Maximize2 className="w-4 h-4" />
-                            </button>
-                            {isSelected && (
-                              <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                                <Check className="w-4 h-4 text-white" />
-                              </div>
-                            )}
-                          </div>
+                          <ProductCardImages 
+                            product={product} 
+                            isSelected={isSelected}
+                            onPreview={() => setPreviewProduct(product)}
+                          />
                           <div className="p-4">
                             <h4 className="font-bold text-stone-800 line-clamp-1 mb-1">{product.name}</h4>
                             <div className="text-accent font-serif font-bold text-lg mb-2">¥{(product.price || 0).toLocaleString()}</div>
@@ -975,6 +962,130 @@ function ProductSelectorModal({
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// 商品卡片图片组件 - 支持多图轮播和留白显示
+function ProductCardImages({ 
+  product, 
+  isSelected, 
+  onPreview 
+}: { 
+  product: PackageProduct
+  isSelected: boolean
+  onPreview: () => void
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  
+  // 获取所有图片（主图 + images数组 + SKU图片）
+  const allImages = useMemo(() => {
+    const images: string[] = []
+    const productAny = product as any
+    
+    // 主图
+    if (product.image) images.push(product.image)
+    
+    // images数组
+    if (productAny.images && Array.isArray(productAny.images)) {
+      productAny.images.forEach((img: string) => {
+        if (img && !images.includes(img)) images.push(img)
+      })
+    }
+    
+    // SKU图片
+    if (productAny.skus && Array.isArray(productAny.skus)) {
+      productAny.skus.forEach((sku: any) => {
+        if (sku.images && Array.isArray(sku.images)) {
+          sku.images.forEach((img: string) => {
+            if (img && !images.includes(img)) images.push(img)
+          })
+        }
+      })
+    }
+    
+    return images.length > 0 ? images : ['/placeholder.svg']
+  }, [product])
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setCurrentIndex(prev => (prev - 1 + allImages.length) % allImages.length)
+  }
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setCurrentIndex(prev => (prev + 1) % allImages.length)
+  }
+
+  return (
+    <div className="relative h-44 bg-stone-50 group">
+      {/* 图片容器 - 添加内边距实现留白 */}
+      <div className="absolute inset-3 flex items-center justify-center">
+        <img 
+          src={getFileUrl(allImages[currentIndex])} 
+          alt={product.name}
+          className="max-w-full max-h-full object-contain"
+          onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
+        />
+      </div>
+      
+      {/* 左右切换按钮 - 多图时显示 */}
+      {allImages.length > 1 && (
+        <>
+          <button 
+            onClick={handlePrev}
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-white/80 rounded-full text-stone-500 hover:text-primary hover:bg-white shadow opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={handleNext}
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-white/80 rounded-full text-stone-500 hover:text-primary hover:bg-white shadow opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </>
+      )}
+      
+      {/* 图片指示器 - 多图时显示 */}
+      {allImages.length > 1 && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+          {allImages.slice(0, 5).map((_, idx) => (
+            <button
+              key={idx}
+              onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx) }}
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                idx === currentIndex ? 'bg-primary' : 'bg-stone-300'
+              }`}
+            />
+          ))}
+          {allImages.length > 5 && (
+            <span className="text-[9px] text-stone-400 ml-1">+{allImages.length - 5}</span>
+          )}
+        </div>
+      )}
+      
+      {/* 图片数量标签 */}
+      {allImages.length > 1 && (
+        <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded">
+          {currentIndex + 1}/{allImages.length}
+        </div>
+      )}
+      
+      {/* 放大预览按钮 */}
+      <button 
+        onClick={onPreview}
+        className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center bg-white/90 rounded-full text-stone-600 hover:text-primary shadow-md"
+      >
+        <Maximize2 className="w-4 h-4" />
+      </button>
+      
+      {/* 已选中标记 */}
+      {isSelected && (
+        <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+          <Check className="w-4 h-4 text-white" />
+        </div>
+      )}
     </div>
   )
 }
