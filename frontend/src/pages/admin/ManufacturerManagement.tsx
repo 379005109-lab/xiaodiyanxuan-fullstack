@@ -211,7 +211,13 @@ export default function ManufacturerManagement() {
   })
 
   // 授权状态跟踪
-  const [authorizationMap, setAuthorizationMap] = useState<Record<string, { status: string; productCount: number }>>({})
+  const [authorizationMap, setAuthorizationMap] = useState<Record<string, { 
+    status: string; 
+    productCount: number;
+    authorizationId?: string;
+    minDiscountRate?: number;
+    commissionRate?: number;
+  }>>({})
   
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
@@ -244,7 +250,7 @@ export default function ManufacturerManagement() {
         try {
           const authRes = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
           const authData = authRes.data?.data || authRes.data || []
-          const authMap: Record<string, { status: string; productCount: number }> = {}
+          const authMap: Record<string, { status: string; productCount: number; authorizationId?: string; minDiscountRate?: number; commissionRate?: number }> = {}
           
           if (Array.isArray(authData)) {
             authData.forEach((auth: any) => {
@@ -252,7 +258,10 @@ export default function ManufacturerManagement() {
               if (targetId) {
                 authMap[targetId] = {
                   status: auth.status || 'pending',
-                  productCount: auth.productCount || auth.products?.length || 0
+                  productCount: auth.productCount || auth.products?.length || 0,
+                  authorizationId: auth.authorizationId,
+                  minDiscountRate: auth.minDiscountRate || 0,
+                  commissionRate: auth.commissionRate || 0
                 }
               }
             })
@@ -929,12 +938,24 @@ export default function ManufacturerManagement() {
 
                       <div className="grid grid-cols-2 gap-4 mt-6">
                         <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
-                          <div className="text-xs font-semibold text-emerald-700">经销折扣(%)</div>
-                          <div className="text-3xl font-black text-[#153e35] mt-2">{item.defaultDiscount || 0}</div>
+                          <div className="text-xs font-semibold text-emerald-700">
+                            {isCooperating ? '授权折扣(%)' : '经销折扣(%)'}
+                          </div>
+                          <div className="text-3xl font-black text-[#153e35] mt-2">
+                            {isCooperating && authInfo?.minDiscountRate 
+                              ? Math.round(authInfo.minDiscountRate * 100) 
+                              : (item.defaultDiscount || 0)}
+                          </div>
                         </div>
                         <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
-                          <div className="text-xs font-semibold text-blue-700">返佣比例(%)</div>
-                          <div className="text-3xl font-black text-blue-700 mt-2">{item.defaultCommission || 0}</div>
+                          <div className="text-xs font-semibold text-blue-700">
+                            {isCooperating ? '授权返佣(%)' : '返佣比例(%)'}
+                          </div>
+                          <div className="text-3xl font-black text-blue-700 mt-2">
+                            {isCooperating && authInfo?.commissionRate 
+                              ? Math.round(authInfo.commissionRate * 100) 
+                              : (item.defaultCommission || 0)}
+                          </div>
                         </div>
                       </div>
 

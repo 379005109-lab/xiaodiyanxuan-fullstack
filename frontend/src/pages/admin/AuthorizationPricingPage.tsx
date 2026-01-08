@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Package, Save, Percent } from 'lucide-react'
+import { ArrowLeft, Package, Save, Percent, Lock } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
+import { useAuthStore } from '@/store/authStore'
 
 interface AuthorizationDetail {
   _id: string
   authorizationType: 'manufacturer' | 'designer'
+  fromManufacturer?: { _id: string; name: string; logo?: string }
   toManufacturer?: { _id: string; name: string; logo?: string }
   toDesigner?: { _id: string; nickname?: string; username?: string; avatar?: string }
   scope: 'all' | 'category' | 'specific' | 'mixed'
@@ -32,6 +34,7 @@ interface ProductItem {
 export default function AuthorizationPricingPage() {
   const navigate = useNavigate()
   const { authorizationId } = useParams()
+  const { user } = useAuthStore()
   
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -40,6 +43,19 @@ export default function AuthorizationPricingPage() {
   
   const [minDiscountRate, setMinDiscountRate] = useState(60)
   const [commissionRate, setCommissionRate] = useState(40)
+  
+  // Check if user is the owner (grantor) of this authorization
+  const isOwner = useMemo(() => {
+    if (!authorization || !user) return false
+    const myManufacturerId = (user as any)?.manufacturerId
+    const isAdmin = ['admin', 'super_admin'].includes((user as any)?.role)
+    if (isAdmin) return true
+    if (!myManufacturerId) return false
+    const fromId = authorization.fromManufacturer?._id || (authorization as any).fromManufacturer
+    return String(fromId) === String(myManufacturerId)
+  }, [authorization, user])
+  
+  const isReadOnly = !isOwner
 
   useEffect(() => {
     if (authorizationId) {
@@ -162,14 +178,21 @@ export default function AuthorizationPricingPage() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42] disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              {saving ? '保存中...' : '保存设置'}
-            </button>
+            {isReadOnly ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-500 rounded-lg">
+                <Lock className="w-4 h-4" />
+                只读模式
+              </div>
+            ) : (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42] disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? '保存中...' : '保存设置'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -195,10 +218,11 @@ export default function AuthorizationPricingPage() {
                 <input
                   type="number"
                   value={minDiscountRate}
-                  onChange={(e) => setMinDiscountRate(Number(e.target.value))}
+                  onChange={(e) => !isReadOnly && setMinDiscountRate(Number(e.target.value))}
                   min={0}
                   max={100}
-                  className="w-24 px-4 py-2 border border-gray-200 rounded-lg text-xl font-bold text-center focus:outline-none focus:border-orange-500"
+                  disabled={isReadOnly}
+                  className={`w-24 px-4 py-2 border border-gray-200 rounded-lg text-xl font-bold text-center focus:outline-none focus:border-orange-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
                 <span className="text-xl font-bold text-orange-600">%</span>
               </div>
@@ -221,10 +245,11 @@ export default function AuthorizationPricingPage() {
                 <input
                   type="number"
                   value={commissionRate}
-                  onChange={(e) => setCommissionRate(Number(e.target.value))}
+                  onChange={(e) => !isReadOnly && setCommissionRate(Number(e.target.value))}
                   min={0}
                   max={100}
-                  className="w-24 px-4 py-2 border border-gray-200 rounded-lg text-xl font-bold text-center focus:outline-none focus:border-green-500"
+                  disabled={isReadOnly}
+                  className={`w-24 px-4 py-2 border border-gray-200 rounded-lg text-xl font-bold text-center focus:outline-none focus:border-green-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
                 <span className="text-xl font-bold text-green-600">%</span>
               </div>

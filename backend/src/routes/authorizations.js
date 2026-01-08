@@ -273,7 +273,12 @@ router.get('/summary', auth, async (req, res) => {
           fromManufacturer: auth.fromManufacturer,
           status: auth.status,
           productCount: 0,
-          products: []
+          products: [],
+          authorizationId: auth._id,
+          priceSettings: auth.priceSettings || {},
+          minDiscountRate: auth.priceSettings?.minDiscountRate || 0,
+          commissionRate: auth.priceSettings?.commissionRate || 0,
+          scope: auth.scope
         })
       }
       
@@ -281,9 +286,22 @@ router.get('/summary', auth, async (req, res) => {
       // 更新状态（优先显示approved/active）
       if (auth.status === 'approved' || auth.status === 'active') {
         summary.status = auth.status
+        // 保留价格设置
+        if (auth.priceSettings) {
+          summary.priceSettings = auth.priceSettings
+          summary.minDiscountRate = auth.priceSettings.minDiscountRate || summary.minDiscountRate
+          summary.commissionRate = auth.priceSettings.commissionRate || summary.commissionRate
+        }
       }
       // 累加商品数量
-      if (auth.products && Array.isArray(auth.products)) {
+      if (auth.scope === 'all') {
+        // 如果是全部授权，查询实际商品数量
+        const productCount = await Product.countDocuments({ 
+          manufacturerId: auth.fromManufacturer._id || auth.fromManufacturer,
+          status: 'active'
+        })
+        summary.productCount = productCount
+      } else if (auth.products && Array.isArray(auth.products)) {
         summary.productCount += auth.products.length
         summary.products.push(...auth.products)
       }
@@ -1822,20 +1840,20 @@ router.get('/:id/products', auth, async (req, res) => {
       products = await Product.find({ 
         manufacturerId: authorization.fromManufacturer,
         status: 'active'
-      }).select('name productCode images basePrice skus category').lean()
+      }).select('name productCode images basePrice skus category').populate('category', 'name').lean()
     } else if (authorization.scope === 'category') {
       // 按分类
       products = await Product.find({
         manufacturerId: authorization.fromManufacturer,
         category: { $in: authorization.categories || [] },
         status: 'active'
-      }).select('name productCode images basePrice skus category').lean()
+      }).select('name productCode images basePrice skus category').populate('category', 'name').lean()
     } else if (authorization.scope === 'specific' || authorization.scope === 'mixed') {
       // 指定商品
       products = await Product.find({
         _id: { $in: authorization.products || [] },
         status: 'active'
-      }).select('name productCode images basePrice skus category').lean()
+      }).select('name productCode images basePrice skus category').populate('category', 'name').lean()
     }
     
     res.json({ success: true, data: products })

@@ -89,6 +89,7 @@ export default function ManufacturerBusinessPanel() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [pendingCount, setPendingCount] = useState(0)
   const [tierSystemConfig, setTierSystemConfig] = useState<any>(null)
+  const [channelFilter, setChannelFilter] = useState<'all' | 'manufacturer' | 'designer'>('all')
 
   useEffect(() => {
     if (!manufacturerId) {
@@ -424,7 +425,7 @@ export default function ManufacturerBusinessPanel() {
               >
                 <span className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
-                  渠道商准入管控
+                  渠道管控
                 </span>
               </button>
               <button
@@ -449,8 +450,8 @@ export default function ManufacturerBusinessPanel() {
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">全域渠道商准入管控</h3>
-                    <p className="text-sm text-gray-500">实时监控每一个分销节点及其授权收益状态</p>
+                    <h3 className="text-lg font-bold text-gray-900">渠道管控</h3>
+                    <p className="text-sm text-gray-500">管理厂家、设计师及设计师公司等渠道授权</p>
                   </div>
                   <button
                     onClick={() => navigate(`/admin/authorization-requests`)}
@@ -460,14 +461,35 @@ export default function ManufacturerBusinessPanel() {
                   </button>
                 </div>
 
-                {channels.length === 0 ? (
+                {/* Channel Filters */}
+                <div className="flex items-center gap-2 mb-6">
+                  {[
+                    { key: 'all', label: '全部' },
+                    { key: 'manufacturer', label: '厂家' },
+                    { key: 'designer', label: '设计师/设计师公司' }
+                  ].map(filter => (
+                    <button
+                      key={filter.key}
+                      onClick={() => setChannelFilter(filter.key as typeof channelFilter)}
+                      className={`px-4 py-2 text-sm rounded-full transition-colors ${
+                        channelFilter === filter.key
+                          ? 'bg-[#153e35] text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+
+                {channels.filter(c => channelFilter === 'all' || c.type === channelFilter).length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     <p>暂无授权渠道商</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {channels.map(channel => (
+                    {channels.filter(c => channelFilter === 'all' || c.type === channelFilter).map(channel => (
                       <div key={channel._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
