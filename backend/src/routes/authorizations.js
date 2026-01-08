@@ -327,12 +327,25 @@ router.get('/my-grants', auth, async (req, res) => {
     const authorizations = await Authorization.find({
       fromManufacturer: user.manufacturerId
     })
-      .populate('toManufacturer', 'name contactPerson')
-      .populate('toDesigner', 'username email')
+      .populate('toManufacturer', 'name fullName logo contactPerson')
+      .populate('toDesigner', 'username nickname avatar email')
       .sort({ createdAt: -1 })
       .lean()
 
-    res.json({ success: true, data: authorizations })
+    // Calculate actual product count for each authorization
+    const totalProductCount = await Product.countDocuments({
+      manufacturerId: user.manufacturerId,
+      status: 'active'
+    })
+    
+    const enrichedAuthorizations = authorizations.map(auth => ({
+      ...auth,
+      actualProductCount: auth.scope === 'all' 
+        ? totalProductCount 
+        : (auth.products?.length || 0)
+    }))
+
+    res.json({ success: true, data: enrichedAuthorizations })
   } catch (error) {
     console.error('获取授权列表失败:', error)
     res.status(500).json({ success: false, message: '获取授权列表失败' })

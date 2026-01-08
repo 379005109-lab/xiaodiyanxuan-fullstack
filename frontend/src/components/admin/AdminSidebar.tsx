@@ -126,6 +126,9 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
                 children: undefined,
               }
             }
+            if (item.name === '商品管理') {
+              return item // Keep children for product management (商品列表 and 商品分类)
+            }
             return { ...item, children: undefined }
           })
       : allMenuItems

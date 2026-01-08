@@ -189,7 +189,7 @@ export default function ManufacturerBusinessPanel() {
             ? auth.toManufacturer?.logo
             : auth.toDesigner?.avatar,
           validUntil: auth.validUntil,
-          skuCount: auth.products?.length || (auth.scope === 'all' ? productList.length : 0),
+          skuCount: auth.actualProductCount || auth.products?.length || 0,
           gmv: gmvData[String(targetId)] || 0,
           status: auth.status
         }
