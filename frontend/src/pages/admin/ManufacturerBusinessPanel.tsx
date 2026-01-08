@@ -109,27 +109,88 @@ export default function ManufacturerBusinessPanel() {
       ])
 
       setManufacturer(mRes.data?.data || null)
-      const productList = pRes.data?.data || []
-      setProducts(productList)
-      setCategories(cRes.data?.data || [])
+      const categoryList = cRes.data?.data || []
+      setCategories(categoryList)
       setTierSystemConfig(tRes.data?.data || null)
+      
+      // Create category lookup map
+      const categoryMap = new Map<string, any>()
+      const flattenCategories = (cats: any[], parentName = '') => {
+        cats.forEach(cat => {
+          const fullName = parentName ? `${parentName} > ${cat.name}` : cat.name
+          categoryMap.set(String(cat._id), { ...cat, fullName })
+          if (cat.children?.length) {
+            flattenCategories(cat.children, cat.name)
+          }
+        })
+      }
+      flattenCategories(categoryList)
+      
+      // Process own products with category names
+      const ownProducts = (pRes.data?.data || []).map((p: any) => {
+        const catId = p.category?._id || p.category
+        const catInfo = catId ? categoryMap.get(String(catId)) : null
+        return {
+          ...p,
+          categoryName: catInfo?.name || p.category?.name || '未分类',
+          authStatus: 'own'
+        }
+      })
+      
+      // Fetch authorized products (from other manufacturers)
+      let authorizedProducts: any[] = []
+      try {
+        const authProdRes = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } })
+        authorizedProducts = (authProdRes.data?.data || []).map((p: any) => {
+          const catId = p.category?._id || p.category
+          const catInfo = catId ? categoryMap.get(String(catId)) : null
+          return {
+            ...p,
+            categoryName: catInfo?.name || p.category?.name || '未分类',
+            authStatus: 'authorized'
+          }
+        })
+      } catch {
+        // Ignore if API fails
+      }
+      
+      // Merge own and authorized products
+      const existingIds = new Set(ownProducts.map((p: any) => p._id))
+      const uniqueAuthorized = authorizedProducts.filter(p => !existingIds.has(p._id))
+      const productList = [...ownProducts, ...uniqueAuthorized]
+      setProducts(productList)
 
       // Process authorizations to get channels
       const authorizations = authRes.data?.data || []
-      const channelList: ChannelItem[] = authorizations.map((auth: any) => ({
-        _id: auth._id,
-        type: auth.authorizationType,
-        name: auth.authorizationType === 'manufacturer' 
-          ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知商家')
-          : (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师'),
-        avatar: auth.authorizationType === 'manufacturer'
-          ? auth.toManufacturer?.logo
-          : auth.toDesigner?.avatar,
-        validUntil: auth.validUntil,
-        skuCount: auth.products?.length || 0,
-        gmv: Math.floor(Math.random() * 500000), // TODO: Get real GMV from orders
-        status: auth.status
-      }))
+      
+      // Fetch real GMV data for each authorization
+      let gmvData: Record<string, number> = {}
+      try {
+        const gmvRes = await apiClient.get(`/authorizations/gmv-stats`, { params: { manufacturerId } })
+        gmvData = gmvRes.data?.data || {}
+      } catch {
+        // Use 0 if GMV API fails
+      }
+      
+      const channelList: ChannelItem[] = authorizations.map((auth: any) => {
+        const targetId = auth.authorizationType === 'manufacturer' 
+          ? (auth.toManufacturer?._id || auth.toManufacturer)
+          : (auth.toDesigner?._id || auth.toDesigner)
+        return {
+          _id: auth._id,
+          type: auth.authorizationType,
+          name: auth.authorizationType === 'manufacturer' 
+            ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知商家')
+            : (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师'),
+          avatar: auth.authorizationType === 'manufacturer'
+            ? auth.toManufacturer?.logo
+            : auth.toDesigner?.avatar,
+          validUntil: auth.validUntil,
+          skuCount: auth.products?.length || (auth.scope === 'all' ? productList.length : 0),
+          gmv: gmvData[String(targetId)] || 0,
+          status: auth.status
+        }
+      })
       setChannels(channelList.filter(c => c.status === 'active'))
 
       // Calculate stats
@@ -430,7 +491,7 @@ export default function ManufacturerBusinessPanel() {
                                     ? 'bg-blue-100 text-blue-700' 
                                     : 'bg-purple-100 text-purple-700'
                                 }`}>
-                                  {channel.type === 'manufacturer' ? 'MERCHANT' : 'DESIGNER'}
+                                  {channel.type === 'manufacturer' ? '厂家' : '设计师'}
                                 </span>
                               </div>
                               <div className="text-xs text-gray-500">
@@ -449,10 +510,26 @@ export default function ManufacturerBusinessPanel() {
                               <div className="text-xl font-bold text-orange-600">¥{channel.gmv.toLocaleString()}</div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <button className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">
+                              <button 
+                                onClick={() => navigate(`/admin/authorizations/${channel._id}/pricing`)}
+                                className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+                              >
                                 进入专属价格池
                               </button>
-                              <button className="p-2 text-gray-400 hover:text-gray-600">
+                              <button 
+                                onClick={() => {
+                                  if (window.confirm('确定要撤销此授权吗？')) {
+                                    apiClient.delete(`/authorizations/${channel._id}`)
+                                      .then(() => {
+                                        toast.success('已撤销授权')
+                                        loadData()
+                                      })
+                                      .catch(() => toast.error('撤销失败'))
+                                  }
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-600"
+                                title="撤销授权"
+                              >
                                 <XCircle className="w-5 h-5" />
                               </button>
                             </div>

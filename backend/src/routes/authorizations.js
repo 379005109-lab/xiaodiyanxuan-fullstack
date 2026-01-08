@@ -1727,4 +1727,54 @@ router.get('/products/:productId/price', auth, async (req, res) => {
   }
 })
 
+// GET /api/authorizations/gmv-stats - 获取授权渠道的GMV统计
+router.get('/gmv-stats', auth, async (req, res) => {
+  try {
+    const { manufacturerId } = req.query
+    const Order = require('../models/Order')
+    
+    // 获取该厂家发出的所有授权
+    const authorizations = await Authorization.find({
+      fromManufacturer: manufacturerId,
+      status: 'active'
+    }).lean()
+    
+    const gmvData = {}
+    
+    for (const auth of authorizations) {
+      const targetId = auth.authorizationType === 'manufacturer' 
+        ? String(auth.toManufacturer)
+        : String(auth.toDesigner)
+      
+      // 查询该渠道的订单GMV
+      let orderQuery = { status: { $in: [2, 3, 4, 5] } } // 已付款及之后状态
+      
+      if (auth.authorizationType === 'designer') {
+        orderQuery.designerId = auth.toDesigner
+      }
+      // 对于厂家授权，统计包含该厂家商品的订单
+      
+      const orders = await Order.find(orderQuery).select('totalAmount items').lean()
+      
+      let gmv = 0
+      for (const order of orders) {
+        // 计算属于授权商品的金额
+        const items = order.items || []
+        for (const item of items) {
+          if (String(item.manufacturerId) === String(manufacturerId)) {
+            gmv += (item.price || 0) * (item.quantity || 1)
+          }
+        }
+      }
+      
+      gmvData[targetId] = gmv
+    }
+    
+    res.json({ success: true, data: gmvData })
+  } catch (error) {
+    console.error('获取GMV统计失败:', error)
+    res.status(500).json({ success: false, message: '获取GMV统计失败' })
+  }
+})
+
 module.exports = router
