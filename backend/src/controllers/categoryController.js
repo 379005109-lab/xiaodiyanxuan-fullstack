@@ -2,6 +2,7 @@ const { successResponse, errorResponse, paginatedResponse } = require('../utils/
 const FileService = require('../services/fileService')
 const Category = require('../models/Category')
 const Product = require('../models/Product')
+const Authorization = require('../models/Authorization')
 
 /**
  * 获取所有分类（树状结构）
@@ -21,13 +22,68 @@ const listCategories = async (req, res) => {
     }
 
     const user = req.user
-    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin' && user.role !== 'platform_admin' && user.role !== 'platform_staff') {
-      // 厂家账号可以看到: 自己厂家的分类 + 平台公共分类(没有manufacturerId的)
-      query.$or = [
-        { manufacturerId: user.manufacturerId },
-        { manufacturerId: { $exists: false } },
-        { manufacturerId: null }
-      ]
+    const isManufacturerAccount = user?.manufacturerId && 
+      !['super_admin', 'admin', 'platform_admin', 'platform_staff'].includes(user.role)
+    
+    // For manufacturer accounts, get categories that have their own products or authorized products
+    let categoryIdsWithProducts = null
+    let productCountByCategory = {}
+    
+    if (isManufacturerAccount) {
+      // Get own products' categories
+      const ownProducts = await Product.find({ 
+        manufacturerId: user.manufacturerId, 
+        status: 'active' 
+      }).select('category').lean()
+      
+      // Get authorized products
+      const authorizations = await Authorization.find({
+        toManufacturer: user.manufacturerId,
+        status: { $in: ['approved', 'active'] }
+      }).lean()
+      
+      let authorizedProductIds = []
+      for (const auth of authorizations) {
+        if (auth.scope === 'all') {
+          const authProds = await Product.find({ 
+            manufacturerId: auth.fromManufacturer, 
+            status: 'active' 
+          }).select('category').lean()
+          authorizedProductIds.push(...authProds.map(p => ({ category: p.category })))
+        } else if (auth.products?.length) {
+          const authProds = await Product.find({ 
+            _id: { $in: auth.products }, 
+            status: 'active' 
+          }).select('category').lean()
+          authorizedProductIds.push(...authProds)
+        }
+      }
+      
+      // Combine and count by category
+      const allProducts = [...ownProducts, ...authorizedProductIds]
+      const categorySet = new Set()
+      allProducts.forEach(p => {
+        if (p.category) {
+          const catId = String(p.category._id || p.category)
+          categorySet.add(catId)
+          productCountByCategory[catId] = (productCountByCategory[catId] || 0) + 1
+        }
+      })
+      categoryIdsWithProducts = Array.from(categorySet)
+    }
+
+    if (isManufacturerAccount) {
+      // Only show categories that have products
+      if (categoryIdsWithProducts && categoryIdsWithProducts.length > 0) {
+        query._id = { $in: categoryIdsWithProducts }
+      } else {
+        // No products, return empty
+        return res.json({
+          success: true,
+          data: [],
+          pagination: { page: 1, limit: 0, total: 0, totalPages: 1 }
+        })
+      }
     } else if (manufacturerId) {
       query.manufacturerId = manufacturerId
     }
@@ -45,6 +101,10 @@ const listCategories = async (req, res) => {
       // 第一遍：创建映射
       allCategories.forEach(cat => {
         const catObj = cat.toObject()
+        // Add product count for manufacturer accounts
+        if (isManufacturerAccount) {
+          catObj.productCount = productCountByCategory[String(cat._id)] || 0
+        }
         categoryMap[cat._id] = Object.assign({}, catObj, { children: [] })
       })
 
@@ -456,28 +516,80 @@ const getCategoryStats = async (req, res) => {
   try {
     const { manufacturerId } = req.query
     const user = req.user
+    const isManufacturerAccount = user?.manufacturerId && 
+      !['super_admin', 'admin', 'platform_admin', 'platform_staff'].includes(user.role)
 
-    const query = {}
-    if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
-      query.manufacturerId = user.manufacturerId
-    } else if (manufacturerId) {
-      query.manufacturerId = manufacturerId
+    let totalProducts = 0
+    let categoryCount = 0
+    
+    if (isManufacturerAccount) {
+      // Count own products
+      const ownProductCount = await Product.countDocuments({ 
+        manufacturerId: user.manufacturerId, 
+        status: 'active' 
+      })
+      
+      // Count authorized products
+      const authorizations = await Authorization.find({
+        toManufacturer: user.manufacturerId,
+        status: { $in: ['approved', 'active'] }
+      }).lean()
+      
+      let authorizedCount = 0
+      for (const auth of authorizations) {
+        if (auth.scope === 'all') {
+          authorizedCount += await Product.countDocuments({ 
+            manufacturerId: auth.fromManufacturer, 
+            status: 'active' 
+          })
+        } else if (auth.products?.length) {
+          authorizedCount += auth.products.length
+        }
+      }
+      
+      totalProducts = ownProductCount + authorizedCount
+      
+      // Get categories with products
+      const ownProducts = await Product.find({ 
+        manufacturerId: user.manufacturerId, 
+        status: 'active' 
+      }).select('category').lean()
+      
+      const categorySet = new Set(ownProducts.map(p => String(p.category?._id || p.category)).filter(Boolean))
+      
+      for (const auth of authorizations) {
+        let authProds = []
+        if (auth.scope === 'all') {
+          authProds = await Product.find({ 
+            manufacturerId: auth.fromManufacturer, 
+            status: 'active' 
+          }).select('category').lean()
+        } else if (auth.products?.length) {
+          authProds = await Product.find({ 
+            _id: { $in: auth.products }, 
+            status: 'active' 
+          }).select('category').lean()
+        }
+        authProds.forEach(p => {
+          if (p.category) categorySet.add(String(p.category._id || p.category))
+        })
+      }
+      categoryCount = categorySet.size
+    } else {
+      const query = {}
+      if (manufacturerId) {
+        query.manufacturerId = manufacturerId
+      }
+      categoryCount = await Category.countDocuments(query)
+      totalProducts = await Product.countDocuments()
     }
 
-    const total = await Category.countDocuments(query)
-    const activeCount = await Category.countDocuments({ ...query, status: 'active' })
-    const inactiveCount = await Category.countDocuments({ ...query, status: 'inactive' })
-
-    // 统计商品总数
-    const totalProducts = await Product.countDocuments()
-
-    // 目前数据模型中没有明确的 "优惠" 标记，这里先返回 0，避免前端访问 undefined
     const withDiscount = 0
 
     res.json(successResponse({
-      total,
-      active: activeCount,
-      inactive: inactiveCount,
+      total: categoryCount,
+      active: categoryCount,
+      inactive: 0,
       totalProducts,
       withDiscount
     }))

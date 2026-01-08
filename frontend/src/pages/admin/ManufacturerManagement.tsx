@@ -959,17 +959,46 @@ export default function ManufacturerManagement() {
                         </div>
                       </div>
 
-                      <button
-                        disabled={item.status !== 'active'}
-                        onClick={() => handleOpenProductAuthorization(item)}
-                        className={`mt-6 w-full px-6 py-3 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                          isCooperating 
-                            ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
-                            : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        {isCooperating ? '查看授权商品' : isPending ? '查看申请状态' : '申请经销授权'}
-                      </button>
+                      {isCooperating && (
+                        <div className="flex gap-2 mt-6">
+                          <button
+                            onClick={() => handleOpenProductAuthorization(item)}
+                            className="flex-1 px-6 py-3 rounded-2xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                          >
+                            查看授权商品
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (window.confirm('确定要暂停与该厂家的合作吗？暂停后该厂家的商品将全部下架。')) {
+                                try {
+                                  await apiClient.put(`/authorizations/${authInfo.authorizationId}/toggle-status`, { active: false })
+                                  toast.success('已暂停合作')
+                                  fetchData()
+                                } catch (e: any) {
+                                  toast.error(e?.response?.data?.message || '操作失败')
+                                }
+                              }
+                            }}
+                            className="px-4 py-3 rounded-2xl text-sm font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                            title="暂停合作"
+                          >
+                            暂停
+                          </button>
+                        </div>
+                      )}
+                      {!isCooperating && (
+                        <button
+                          disabled={item.status !== 'active'}
+                          onClick={() => handleOpenProductAuthorization(item)}
+                          className={`mt-6 w-full px-6 py-3 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isPending
+                              ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
+                              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {isPending ? '查看申请状态' : '申请经销授权'}
+                        </button>
+                      )}
                     </div>
                   )
                 })

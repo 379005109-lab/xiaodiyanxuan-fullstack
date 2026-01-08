@@ -3072,7 +3072,7 @@ export default function ProductManagement() {
                           />
                         </label>
                       )}
-                      {currentRole !== 'designer' && (
+                      {currentRole !== 'designer' && !(product as any).isAuthorized && (
                         <button
                           onClick={() => navigate(`/admin/products/edit/${product._id}`)}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -3081,7 +3081,12 @@ export default function ProductManagement() {
                           <Edit className="h-4 w-4 text-blue-600" />
                         </button>
                       )}
-                      {currentRole !== 'designer' && (
+                      {currentRole !== 'designer' && (product as any).isAuthorized && (
+                        <span className="p-2 text-gray-400" title="授权商品不可编辑">
+                          <Edit className="h-4 w-4" />
+                        </span>
+                      )}
+                      {currentRole !== 'designer' && !(product as any).isAuthorized && (
                         <button
                           onClick={() => handleDelete(product._id, product.name)}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
