@@ -306,11 +306,20 @@ router.get('/summary', auth, async (req, res) => {
           status: 'active'
         })
         console.log('[Authorization Summary] Scope ALL - productCount:', productCount, 'for manufacturer:', auth.fromManufacturer._id)
-        summary.productCount = productCount
-      } else if (auth.products && Array.isArray(auth.products)) {
+        summary.productCount = Math.max(summary.productCount, productCount)
+      } else if (auth.scope === 'specific' && auth.products && Array.isArray(auth.products)) {
         console.log('[Authorization Summary] Scope SPECIFIC - adding products:', auth.products.length)
         summary.productCount += auth.products.length
         summary.products.push(...auth.products)
+      } else if (auth.scope === 'category' && auth.categories && Array.isArray(auth.categories)) {
+        // 如果是分类授权，查询该分类下的商品数量
+        const productCount = await Product.countDocuments({ 
+          manufacturerId: auth.fromManufacturer._id || auth.fromManufacturer,
+          category: { $in: auth.categories },
+          status: 'active'
+        })
+        console.log('[Authorization Summary] Scope CATEGORY - productCount:', productCount, 'for categories:', auth.categories.length)
+        summary.productCount += productCount
       }
     }
     
