@@ -1,3 +1,4 @@
+// Build cache bust: 20260108-v2
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown } from 'lucide-react'
