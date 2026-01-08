@@ -15,9 +15,11 @@ spec:
       labels:
         app: duijie-nn
     spec:
+      imagePullSecrets:
+      - name: ghcr-secret
       containers:
       - name: nginx
-        image: registry.sealoshzh.site/ns-cxxiwxce/duijie-nn:latest
+        image: ghcr.io/379005109-lab/duijie-nn:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80
