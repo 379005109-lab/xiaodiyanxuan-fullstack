@@ -23,7 +23,7 @@ interface ActivityData {
   }>
   topBrowsedProducts: Array<{ _id: string; productName: string; thumbnail?: string; browseCount: number }>
   topFavoritedProducts: Array<{ _id: string; productName: string; thumbnail?: string; favoriteCount: number }>
-  topComparedProducts: Array<{ _id: string; compareCount: number }>
+  topComparedProducts: Array<{ _id: string; productName?: string; thumbnail?: string; compareCount: number }>
   loginTrend: Array<{ date: string; dayName: string; count: number }>
 }
 
@@ -287,11 +287,20 @@ export default function ActivityDashboard() {
             {data.topComparedProducts.map((product, index) => (
               <div key={product._id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg">
                 <span className="w-6 text-center text-sm font-medium text-gray-500">{index + 1}</span>
-                <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
-                  <GitCompare className="w-4 h-4 text-gray-400" />
-                </div>
+                {product.thumbnail ? (
+                  <img
+                    src={getFileUrl(product.thumbnail)}
+                    alt={product.productName || '商品'}
+                    className="w-10 h-10 rounded object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }}
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center">
+                    <GitCompare className="w-4 h-4 text-gray-400" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{product._id}</p>
+                  <p className="text-sm font-medium text-gray-900 truncate">{product.productName || '未知商品'}</p>
                 </div>
                 <span className="text-sm font-semibold text-orange-600">{product.compareCount} 次</span>
               </div>

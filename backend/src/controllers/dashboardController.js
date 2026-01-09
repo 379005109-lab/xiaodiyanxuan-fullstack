@@ -261,16 +261,29 @@ const getUserActivityDashboard = async (req, res) => {
       addedAt: { $gte: monthAgo, $lt: tomorrow }
     })
 
-    // 5. 加购统计
-    const todayCart = await Cart.countDocuments({
-      createdAt: { $gte: today, $lt: tomorrow }
-    })
-    const weekCart = await Cart.countDocuments({
-      createdAt: { $gte: weekAgo, $lt: tomorrow }
-    })
-    const monthCart = await Cart.countDocuments({
-      createdAt: { $gte: monthAgo, $lt: tomorrow }
-    })
+    // 5. 加购统计（统计购物车项目数量，不是购物车文档数量）
+    const cartItemsAggregation = await Cart.aggregate([
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: null,
+          todayCount: {
+            $sum: { $cond: [{ $and: [{ $gte: ['$updatedAt', today] }, { $lt: ['$updatedAt', tomorrow] }] }, 1, 0] }
+          },
+          weekCount: {
+            $sum: { $cond: [{ $and: [{ $gte: ['$updatedAt', weekAgo] }, { $lt: ['$updatedAt', tomorrow] }] }, 1, 0] }
+          },
+          monthCount: {
+            $sum: { $cond: [{ $and: [{ $gte: ['$updatedAt', monthAgo] }, { $lt: ['$updatedAt', tomorrow] }] }, 1, 0] }
+          },
+          totalCount: { $sum: 1 }
+        }
+      }
+    ])
+    const cartStats = cartItemsAggregation[0] || { todayCount: 0, weekCount: 0, monthCount: 0, totalCount: 0 }
+    const todayCart = cartStats.todayCount
+    const weekCart = cartStats.weekCount
+    const monthCart = cartStats.monthCount
 
     // 6. 最活跃的10个用户（基于浏览、收藏、对比、加购的综合活跃度）
     const topActiveUsers = await User.aggregate([
@@ -340,13 +353,13 @@ const getUserActivityDashboard = async (req, res) => {
       { $limit: 10 }
     ])
 
-    // 7. 被浏览最多的商品 TOP 10
+    // 7. 被浏览最多的商品 TOP 10（使用 productImage 字段）
     const topBrowsedProducts = await BrowseHistory.aggregate([
       {
         $group: {
           _id: '$productId',
           productName: { $first: '$productName' },
-          thumbnail: { $first: '$thumbnail' },
+          thumbnail: { $first: '$productImage' },
           browseCount: { $sum: 1 }
         }
       },
@@ -369,7 +382,7 @@ const getUserActivityDashboard = async (req, res) => {
     ])
 
     // 9. 被对比最多的商品 TOP 10（添加商品信息）
-    // 注意：productId 可能是字符串或 ObjectId，需要处理非法 ObjectId 格式
+    // 注意：productId 可能是字符串ObjectId或productCode，需要多种方式查找
     const topComparedProducts = await Compare.aggregate([
       {
         $group: {
@@ -380,7 +393,7 @@ const getUserActivityDashboard = async (req, res) => {
       { $sort: { compareCount: -1 } },
       { $limit: 10 },
       {
-        // 尝试将 productId 转换为 ObjectId，如果失败则设为 null
+        // 尝试将 productId 转换为 ObjectId
         $addFields: {
           productObjId: {
             $convert: {
@@ -393,11 +406,33 @@ const getUserActivityDashboard = async (req, res) => {
         }
       },
       {
+        // 先通过 ObjectId 查找
         $lookup: {
           from: 'products',
           localField: 'productObjId',
           foreignField: '_id',
-          as: 'productInfo'
+          as: 'productInfoById'
+        }
+      },
+      {
+        // 再通过 productCode 查找（作为备选）
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: 'productCode',
+          as: 'productInfoByCode'
+        }
+      },
+      {
+        // 合并两种查找结果
+        $addFields: {
+          productInfo: {
+            $cond: {
+              if: { $gt: [{ $size: '$productInfoById' }, 0] },
+              then: '$productInfoById',
+              else: '$productInfoByCode'
+            }
+          }
         }
       },
       {
@@ -409,6 +444,8 @@ const getUserActivityDashboard = async (req, res) => {
       {
         $project: {
           productInfo: 0,
+          productInfoById: 0,
+          productInfoByCode: 0,
           productObjId: 0
         }
       }
