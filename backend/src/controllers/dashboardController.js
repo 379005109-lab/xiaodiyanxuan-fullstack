@@ -369,6 +369,7 @@ const getUserActivityDashboard = async (req, res) => {
     ])
 
     // 9. 被对比最多的商品 TOP 10（添加商品信息）
+    // 注意：productId 可能是字符串或 ObjectId，需要处理非法 ObjectId 格式
     const topComparedProducts = await Compare.aggregate([
       {
         $group: {
@@ -379,25 +380,36 @@ const getUserActivityDashboard = async (req, res) => {
       { $sort: { compareCount: -1 } },
       { $limit: 10 },
       {
+        // 尝试将 productId 转换为 ObjectId，如果失败则设为 null
+        $addFields: {
+          productObjId: {
+            $convert: {
+              input: '$_id',
+              to: 'objectId',
+              onError: null,
+              onNull: null
+            }
+          }
+        }
+      },
+      {
         $lookup: {
           from: 'products',
-          let: { productId: { $toObjectId: '$_id' } },
-          pipeline: [
-            { $match: { $expr: { $eq: ['$_id', '$$productId'] } } },
-            { $project: { name: 1, images: 1 } }
-          ],
+          localField: 'productObjId',
+          foreignField: '_id',
           as: 'productInfo'
         }
       },
       {
         $addFields: {
-          productName: { $arrayElemAt: ['$productInfo.name', 0] },
+          productName: { $ifNull: [{ $arrayElemAt: ['$productInfo.name', 0] }, '未知商品'] },
           thumbnail: { $arrayElemAt: [{ $arrayElemAt: ['$productInfo.images', 0] }, 0] }
         }
       },
       {
         $project: {
-          productInfo: 0
+          productInfo: 0,
+          productObjId: 0
         }
       }
     ])
