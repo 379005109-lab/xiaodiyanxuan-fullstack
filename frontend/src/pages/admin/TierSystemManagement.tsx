@@ -2495,13 +2495,13 @@ function HierarchyTab({
         {viewMode === 'map' && (
           /* duijie/nn的架构地图视图 */
           <div ref={canvasViewportRef} className="relative w-full h-full overflow-hidden bg-gray-50/50">
-            {/* 统一顶部控制栏 */}
+            {/* 浮动控制栏 - 紧贴画布顶部 */}
             <div
-              className="fixed top-0 left-0 right-0 z-[90] bg-white border-b border-gray-200 shadow-sm"
+              className="absolute top-4 left-1/2 -translate-x-1/2 z-[90] bg-white/95 backdrop-blur-sm rounded-2xl border border-emerald-200 shadow-lg"
               onWheel={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
+              <div className="flex items-center gap-4 px-4 py-3">
                 {/* 左侧：层级展开控制 - 更醒目的设计 */}
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
@@ -2548,38 +2548,11 @@ function HierarchyTab({
                   </div>
                 </div>
 
-                {/* 中间：搜索框 */}
-                <div className="flex-1 max-w-md mx-8 relative">
-                  <input
-                    value={nodeSearch}
-                    onChange={(e) => setNodeSearch(e.target.value)}
-                    placeholder="搜索节点..."
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 text-sm outline-none focus:border-[#153e35] focus:ring-1 focus:ring-[#153e35]"
-                  />
-                  {searchMatches.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto z-10">
-                      {searchMatches.map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => {
-                            expandPathTo(String(m.id))
-                            setFocusedNodeId(String(m.id))
-                            focusNode(String(m.id))
-                            setNodeSearch('')
-                          }}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
-                        >
-                          <div className="text-sm font-medium text-gray-900">{m.label || m.id}</div>
-                          {m.extra && <div className="text-xs text-gray-500 mt-1">{m.extra}</div>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* 右侧：缩放控制和视图切换 */}
-                <div className="flex items-center gap-3">
+                {/* 分隔线 */}
+                <div className="w-px h-8 bg-emerald-200"></div>
+                
+                {/* 缩放控制和视图切换 */}
+                <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1.5 bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
                     <button 
                       onClick={() => setZoomScale(p => Math.max(0.3, p - 0.1))} 
@@ -2663,30 +2636,32 @@ function HierarchyTab({
                   const x2 = canvasSize.w / 2 + toPos.x
                   const y2 = canvasSize.h / 2 + toPos.y - toSize.h / 2
 
-                  const mx = (x1 + x2) / 2
+                  // 使用更自然的连接线：先垂直向下，再水平，最后垂直向下
+                  const midY = y1 + (y2 - y1) * 0.4
                   const isFocused = focusedNodeId && (String(e.from) === focusedNodeId || String(e.to) === focusedNodeId)
                   return (
                     <path
                       key={`${e.from}-${e.to}`}
-                      d={`M ${x1} ${y1} C ${mx} ${y1 + 80}, ${mx} ${y2 - 80}, ${x2} ${y2}`}
+                      d={`M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`}
                       fill="none"
-                      stroke={isFocused ? '#153e35' : '#d1d5db'}
-                      strokeWidth={isFocused ? 6 : 4}
+                      stroke={isFocused ? '#10b981' : '#d1d5db'}
+                      strokeWidth={isFocused ? 3 : 2}
                       strokeLinecap="round"
-                      opacity={isFocused ? 0.9 : 0.75}
+                      strokeLinejoin="round"
+                      opacity={isFocused ? 1 : 0.6}
                     />
                   )
                 })}
               </svg>
 
-              {/* 总部卡片（固定在顶部） */}
+              {/* 总部卡片（固定在顶部，紧贴工具栏下方） */}
               <div
                 onClick={onNodeClick('headquarters')}
                 className="w-[280px] p-6 bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all relative z-20"
                 style={{
-                  position: 'fixed',
+                  position: 'absolute',
                   left: '50%',
-                  top: '120px',
+                  top: '80px',
                   transform: 'translate(-50%, 0)',
                   touchAction: 'none'
                 }}
