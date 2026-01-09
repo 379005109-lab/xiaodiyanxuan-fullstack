@@ -261,29 +261,36 @@ const getUserActivityDashboard = async (req, res) => {
       addedAt: { $gte: monthAgo, $lt: tomorrow }
     })
 
-    // 5. 加购统计（统计购物车项目数量，不是购物车文档数量）
+    // 5. 加购统计（统计购物车项目数量）
+    // 注意：Cart模型中 items 没有单独的时间戳，使用购物车文档的 updatedAt 作为近似
     const cartItemsAggregation = await Cart.aggregate([
-      { $unwind: '$items' },
+      { $unwind: { path: '$items', preserveNullAndEmptyArrays: false } },
       {
-        $group: {
-          _id: null,
-          todayCount: {
-            $sum: { $cond: [{ $and: [{ $gte: ['$updatedAt', today] }, { $lt: ['$updatedAt', tomorrow] }] }, 1, 0] }
-          },
-          weekCount: {
-            $sum: { $cond: [{ $and: [{ $gte: ['$updatedAt', weekAgo] }, { $lt: ['$updatedAt', tomorrow] }] }, 1, 0] }
-          },
-          monthCount: {
-            $sum: { $cond: [{ $and: [{ $gte: ['$updatedAt', monthAgo] }, { $lt: ['$updatedAt', tomorrow] }] }, 1, 0] }
-          },
-          totalCount: { $sum: 1 }
+        $facet: {
+          today: [
+            { $match: { updatedAt: { $gte: today, $lt: tomorrow } } },
+            { $count: 'count' }
+          ],
+          week: [
+            { $match: { updatedAt: { $gte: weekAgo, $lt: tomorrow } } },
+            { $count: 'count' }
+          ],
+          month: [
+            { $match: { updatedAt: { $gte: monthAgo, $lt: tomorrow } } },
+            { $count: 'count' }
+          ],
+          total: [
+            { $count: 'count' }
+          ]
         }
       }
     ])
-    const cartStats = cartItemsAggregation[0] || { todayCount: 0, weekCount: 0, monthCount: 0, totalCount: 0 }
-    const todayCart = cartStats.todayCount
-    const weekCart = cartStats.weekCount
-    const monthCart = cartStats.monthCount
+    const facetResult = cartItemsAggregation[0] || {}
+    const todayCart = facetResult.today?.[0]?.count || 0
+    const weekCart = facetResult.week?.[0]?.count || 0
+    const monthCart = facetResult.month?.[0]?.count || 0
+    const totalCartItems = facetResult.total?.[0]?.count || 0
+    console.log('Cart stats:', { todayCart, weekCart, monthCart, totalCartItems })
 
     // 6. 最活跃的10个用户（基于浏览、收藏、对比、加购的综合活跃度）
     const topActiveUsers = await User.aggregate([
@@ -469,6 +476,7 @@ const getUserActivityDashboard = async (req, res) => {
         count
       })
     }
+    console.log('Login trend:', JSON.stringify(loginTrend))
 
     res.json(successResponse({
       // 登录统计
