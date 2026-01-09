@@ -16,6 +16,7 @@ import {
   updateMaterial,
   getMaterialStats,
   updateMaterialCategory,
+  deleteMaterialCategory,
 } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
@@ -117,6 +118,18 @@ export default function MaterialManagement() {
         loadStats()
       } catch (error) {
         toast.error('删除失败')
+      }
+    }
+  }
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    if (confirm(`确定要删除分类"${name}"吗？\n注意：分类下有材质时无法删除。`)) {
+      try {
+        await deleteMaterialCategory(id)
+        toast.success('分类已删除')
+        loadCategories()
+      } catch (error: any) {
+        toast.error(error.message || '删除分类失败')
       }
     }
   }
@@ -465,6 +478,27 @@ export default function MaterialManagement() {
             title="添加子分类"
           >
             <Plus className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setEditingCategory(category)
+              setShowCategoryModal(true)
+            }}
+            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+            title="编辑分类"
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleDeleteCategory(category._id, category.name)
+            }}
+            className="p-1 text-red-600 hover:bg-red-50 rounded"
+            title="删除分类"
+          >
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
 
