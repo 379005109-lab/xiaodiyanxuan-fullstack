@@ -247,9 +247,19 @@ router.get('/summary', auth, async (req, res) => {
     const user = await User.findById(req.userId)
     
     // 确定要查询的厂家ID
-    const targetManufacturerId = manufacturerId || user?.manufacturerId || (user?.manufacturerIds?.[0])
+    const targetManufacturerIdRaw = manufacturerId || user?.manufacturerId || (user?.manufacturerIds?.[0])
     
-    if (!targetManufacturerId) {
+    if (!targetManufacturerIdRaw) {
+      return res.json({ success: true, data: [] })
+    }
+    
+    // 转换为 ObjectId（数据库中存储的是 ObjectId 类型）
+    const mongoose = require('mongoose')
+    let targetManufacturerId
+    try {
+      targetManufacturerId = new mongoose.Types.ObjectId(String(targetManufacturerIdRaw))
+    } catch (e) {
+      console.log('[Authorization Summary] Invalid manufacturerId:', targetManufacturerIdRaw)
       return res.json({ success: true, data: [] })
     }
     
