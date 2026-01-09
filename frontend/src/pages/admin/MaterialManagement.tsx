@@ -123,7 +123,14 @@ export default function MaterialManagement() {
   }
 
   const handleDeleteCategory = async (id: string, name: string) => {
-    if (confirm(`确定要删除分类"${name}"吗？\n注意：分类下有材质时无法删除。`)) {
+    // 检查分类下是否有材质
+    const categoryMaterialCount = materials.filter(m => m.categoryId === id).length
+    if (categoryMaterialCount > 0) {
+      toast.error(`该分类下还有 ${categoryMaterialCount} 个材质，请先移动或删除这些材质`)
+      return
+    }
+    
+    if (confirm(`确定要删除分类"${name}"吗？`)) {
       try {
         await deleteMaterialCategory(id)
         toast.success('分类已删除')
