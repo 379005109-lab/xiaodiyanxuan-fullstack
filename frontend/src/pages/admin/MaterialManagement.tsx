@@ -701,8 +701,57 @@ export default function MaterialManagement() {
                   const representativeMaterial = groupMaterials[0];
                   const isSkuExpanded = expandedSKUGroup === groupKey
                   
+                  // 获取当前分组在 groupOrder 中的索引
+                  const groupIndex = groupOrder.indexOf(groupKey)
+                  
                   return (
-                    <div key={groupKey} className="card overflow-hidden hover:shadow-lg transition-shadow group">
+                    <div 
+                      key={groupKey} 
+                      className="card overflow-hidden hover:shadow-lg transition-shadow group cursor-move"
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = 'move'
+                        e.dataTransfer.setData('text/plain', JSON.stringify({
+                          type: 'materialGroup',
+                          groupKey,
+                          groupIndex,
+                          categoryId: representativeMaterial.categoryId
+                        }))
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'move'
+                        e.currentTarget.classList.add('ring-2', 'ring-primary-500', 'ring-offset-2')
+                      }}
+                      onDragLeave={(e) => {
+                        e.currentTarget.classList.remove('ring-2', 'ring-primary-500', 'ring-offset-2')
+                      }}
+                      onDrop={async (e) => {
+                        e.preventDefault()
+                        e.currentTarget.classList.remove('ring-2', 'ring-primary-500', 'ring-offset-2')
+                        try {
+                          const dragData = JSON.parse(e.dataTransfer.getData('text/plain'))
+                          if (dragData.type === 'materialGroup' && dragData.groupIndex !== groupIndex) {
+                            // 重新排序所有分组中的材质
+                            const sourceGroupMaterials = materialGroups[dragData.groupKey]
+                            const targetGroupMaterials = materialGroups[groupKey]
+                            
+                            // 计算新的 order 值
+                            const baseOrder = (groupIndex + 1) * 100
+                            
+                            // 更新拖拽组的所有材质 order
+                            for (let i = 0; i < sourceGroupMaterials.length; i++) {
+                              await updateMaterial(sourceGroupMaterials[i]._id, { order: baseOrder + i })
+                            }
+                            
+                            toast.success('排序已保存')
+                            loadMaterials()
+                          }
+                        } catch (error) {
+                          console.error('拖拽错误:', error)
+                        }
+                      }}
+                    >
                       {/* 正方形图片区域 */}
                       <button
                         onClick={() => setExpandedSKUGroup(isSkuExpanded ? null : groupKey)}
