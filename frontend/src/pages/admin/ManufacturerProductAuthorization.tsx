@@ -81,7 +81,7 @@ export default function ManufacturerProductAuthorization() {
           apiClient.get(`/manufacturers/${manufacturerId}/product-categories`),
           apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 10000 } }),
           apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } })),
-          apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'approved' } }).catch(() => ({ data: { data: [] } }))
+          apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'active' } }).catch(() => ({ data: { data: [] } }))
         ])
 
         setManufacturer(mRes.data?.data || null)
