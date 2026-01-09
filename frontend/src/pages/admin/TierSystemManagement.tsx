@@ -2492,46 +2492,50 @@ function HierarchyTab({
               onWheel={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between px-6 py-3">
-                {/* 左侧：节点统计和层级控制 */}
+              <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100">
+                {/* 左侧：层级展开控制 - 更醒目的设计 */}
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <Layers className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <GitBranch className="w-5 h-5 text-emerald-600" />
+                    <span className="text-sm font-bold text-emerald-800">展开层级</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-white rounded-xl border-2 border-emerald-200 p-1 shadow-sm">
+                    <button 
+                      onClick={() => expandToDepth(0)}
+                      className="px-4 py-2 rounded-lg text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                    >
+                      收起全部
+                    </button>
+                    <div className="w-px h-6 bg-emerald-200"></div>
+                    <button 
+                      onClick={() => expandToDepth(1)}
+                      className="px-4 py-2 rounded-lg text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                    >
+                      1级
+                    </button>
+                    <button 
+                      onClick={() => expandToDepth(2)}
+                      className="px-4 py-2 rounded-lg text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                    >
+                      2级
+                    </button>
+                    <button 
+                      onClick={() => expandToDepth(3)}
+                      className="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                    >
+                      展开全部
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 bg-white/80 rounded-lg border border-emerald-200">
+                    <Layers className="w-4 h-4 text-emerald-500" />
+                    <span className="text-sm font-medium text-emerald-700">
                       {tooManyVisible ? (
                         <span className="text-red-600">{MAX_VISIBLE_STAFF_NODES} / {visibleStaffNodes.length}</span>
                       ) : (
                         <span>{visibleStaffNodes.length}</span>
                       )}
                     </span>
-                    <span className="text-xs text-gray-400">节点</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
-                    <button 
-                      onClick={() => expandToDepth(0)}
-                      className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                    >
-                      收起
-                    </button>
-                    <div className="w-px h-4 bg-gray-200"></div>
-                    <button 
-                      onClick={() => expandToDepth(1)}
-                      className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                    >
-                      1级
-                    </button>
-                    <button 
-                      onClick={() => expandToDepth(2)}
-                      className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                    >
-                      2级
-                    </button>
-                    <button 
-                      onClick={() => expandToDepth(3)}
-                      className="px-2.5 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-                    >
-                      全部
-                    </button>
+                    <span className="text-xs text-emerald-500">个节点</span>
                   </div>
                 </div>
 
@@ -2751,18 +2755,6 @@ function HierarchyTab({
                     transform: 'translate(-50%, -50%)',
                   }}
                 >
-                  {/* 展开/收起按钮 */}
-                  {hasChildren(String(staff.id)) ? (
-                    <button
-                      type="button"
-                      onClick={onToggleExpandClick(String(staff.id))}
-                      className="absolute top-4 right-4 w-9 h-9 rounded-2xl bg-[#0f172a] text-white flex items-center justify-center hover:bg-gray-800 transition-colors"
-                      title={expandedNodes.has(String(staff.id)) ? '收起下级' : '展开下级'}
-                    >
-                      {expandedNodes.has(String(staff.id)) ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                    </button>
-                  ) : null}
-
                   {/* 头像和基本信息 - 水平布局 */}
                   <div className="flex items-center gap-3 mb-4">
                     <button
@@ -2859,6 +2851,17 @@ function HierarchyTab({
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
+                      {/* 展开/收起按钮 - 移到底部避免遮挡商品图标 */}
+                      {hasChildren(String(staff.id)) && (
+                        <button
+                          type="button"
+                          onClick={onToggleExpandClick(String(staff.id))}
+                          className="w-6 h-6 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 flex items-center justify-center"
+                          title={expandedNodes.has(String(staff.id)) ? '收起下级' : '展开下级'}
+                        >
+                          {expandedNodes.has(String(staff.id)) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={(e) => {
