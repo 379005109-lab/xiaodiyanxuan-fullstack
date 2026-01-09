@@ -90,7 +90,7 @@ export default function EliteManufacturerProductAuthorization() {
           apiClient.get(`/manufacturers/${manufacturerId}/product-categories`),
           apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 10000 } }),
           apiClient.get('/tier-system/effective', { params: { manufacturerId } }).catch(() => ({ data: { data: null } })),
-          apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'approved' } }).catch(() => ({ data: { data: [] } })),
+          apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'active' } }).catch(() => ({ data: { data: [] } })),
         ])
 
         setManufacturer(mRes.data?.data || null)
@@ -132,6 +132,41 @@ export default function EliteManufacturerProductAuthorization() {
     didInitExpand.current = true
     setExpandedCategories([String(categoryTree.rootCategories[0].id)])
   }, [categoryTree.rootCategories])
+
+  // Pre-select authorized products when data loads
+  useEffect(() => {
+    if (products.length > 0 && existingAuthorizations.length > 0) {
+      console.log('[EliteAuth] Pre-selecting authorized items, auths:', existingAuthorizations.length)
+      const authorizedProductIds: string[] = []
+      const authorizedCategoryIds: string[] = []
+
+      existingAuthorizations.forEach(auth => {
+        console.log('[EliteAuth] Processing auth:', { scope: auth.scope, products: auth.products?.length, categories: auth.categories?.length })
+        if (auth.scope === 'specific' && auth.products) {
+          // Handle both ObjectId objects and string IDs
+          auth.products.forEach((p: any) => {
+            const id = typeof p === 'object' ? (p._id || p.id || String(p)) : String(p)
+            authorizedProductIds.push(id)
+          })
+        } else if (auth.scope === 'category' && auth.categories) {
+          auth.categories.forEach((c: any) => {
+            const id = typeof c === 'object' ? (c._id || c.id || String(c)) : String(c)
+            authorizedCategoryIds.push(id)
+          })
+        }
+      })
+
+      console.log('[EliteAuth] Authorized product IDs:', authorizedProductIds)
+      console.log('[EliteAuth] Authorized category IDs:', authorizedCategoryIds)
+
+      if (authorizedProductIds.length > 0) {
+        setSelectedProductIds(prev => [...new Set([...prev, ...authorizedProductIds])])
+      }
+      if (authorizedCategoryIds.length > 0) {
+        setSelectedCategoryIds(prev => [...new Set([...prev, ...authorizedCategoryIds])])
+      }
+    }
+  }, [products, existingAuthorizations])
 
   const getDescendantCategoryIds = (catId: string): string[] => {
     const result: string[] = []
