@@ -2351,7 +2351,11 @@ function HierarchyTab({
     if (!st.active || st.pointerId !== e.pointerId) return
     const dx = e.clientX - st.startClientX
     const dy = e.clientY - st.startClientY
-    setPan({ x: st.originX + dx, y: st.originY + dy })
+    const newY = st.originY + dy
+    // 限制向上滚动
+    const maxPanY = canvasSize.h * 0.3
+    const constrainedY = Math.min(newY, maxPanY)
+    setPan({ x: st.originX + dx, y: constrainedY })
   }
 
   const onCanvasPointerUp = (e: any) => {
@@ -2365,10 +2369,15 @@ function HierarchyTab({
     if (viewMode !== 'map') return
     e.preventDefault()
     const sensitivity = 0.8
-    setPan(prev => ({
-      x: prev.x - Number(e.deltaX || 0) * sensitivity,
-      y: prev.y - Number(e.deltaY || 0) * sensitivity,
-    }))
+    const newX = pan.x - Number(e.deltaX || 0) * sensitivity
+    const newY = pan.y - Number(e.deltaY || 0) * sensitivity
+    
+    // 限制向上滚动：顶层节点不能滚出视口顶部太多
+    // 顶层节点在画布中心，所以限制 pan.y 最大值
+    const maxPanY = canvasSize.h * 0.3 // 最多让顶层节点距离顶部30%的位置
+    const constrainedY = Math.min(newY, maxPanY)
+    
+    setPan({ x: newX, y: constrainedY })
   }
 
   // 节点拖拽
