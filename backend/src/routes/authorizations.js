@@ -382,7 +382,8 @@ router.get('/my-grants', auth, async (req, res) => {
   }
 })
 
-router.get('/summary', auth, async (req, res) => {
+// GET /api/authorizations/stats - 获取授权统计（用于仪表盘显示）
+router.get('/stats', auth, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select('role manufacturerId').lean()
     const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'platform_admin'
