@@ -240,6 +240,44 @@ router.get('/pending-requests', auth, async (req, res) => {
   }
 })
 
+// GET /api/authorizations - 获取授权列表（支持按厂家ID和状态筛选）
+router.get('/', auth, async (req, res) => {
+  try {
+    const { manufacturerId, status } = req.query
+    const user = await User.findById(req.userId)
+    
+    const query = {}
+    
+    // 如果指定了厂家ID，则查询该厂家授权给当前用户的授权
+    if (manufacturerId) {
+      query.fromManufacturer = new mongoose.Types.ObjectId(String(manufacturerId))
+      // 当前用户是厂家用户时，查询授权给该厂家的
+      if (user?.manufacturerId) {
+        query.toManufacturer = new mongoose.Types.ObjectId(String(user.manufacturerId))
+      }
+    }
+    
+    // 状态筛选
+    if (status) {
+      query.status = status
+    }
+    
+    console.log('[GET /authorizations] Query:', JSON.stringify(query))
+    
+    const authorizations = await Authorization.find(query)
+      .populate('fromManufacturer', '_id name fullName shortName')
+      .populate('products', '_id name')
+      .lean()
+    
+    console.log('[GET /authorizations] Found:', authorizations.length)
+    
+    res.json({ success: true, data: authorizations })
+  } catch (error) {
+    console.error('获取授权列表失败:', error)
+    res.status(500).json({ success: false, message: '获取授权列表失败' })
+  }
+})
+
 // GET /api/authorizations/summary - 获取授权摘要（用于厂家卡片显示）
 router.get('/summary', auth, async (req, res) => {
   try {
