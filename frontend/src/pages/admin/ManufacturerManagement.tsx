@@ -246,16 +246,21 @@ export default function ManufacturerManagement() {
       const response = await apiClient.get('/manufacturers', { params: { keyword: fetchKeyword, pageSize: 100 } })
       setManufacturers(response.data.data || [])
       
+      console.log('[ManufacturerManagement] isFactoryPortal:', isFactoryPortal, 'myManufacturerId:', myManufacturerId, 'isAdmin:', isAdmin)
+      
       // 如果是厂家门户，获取授权状态
       if (isFactoryPortal && myManufacturerId) {
         try {
+          console.log('[ManufacturerManagement] Fetching authorization summary for:', myManufacturerId)
           const authRes = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
+          console.log('[ManufacturerManagement] Authorization response:', authRes.data)
           const authData = authRes.data?.data || authRes.data || []
           const authMap: Record<string, { status: string; productCount: number; authorizationId?: string; minDiscountRate?: number; commissionRate?: number }> = {}
           
           if (Array.isArray(authData)) {
             authData.forEach((auth: any) => {
               const targetId = auth.fromManufacturer?._id || auth.fromManufacturer
+              console.log('[ManufacturerManagement] Processing auth:', { targetId, productCount: auth.productCount, status: auth.status })
               if (targetId) {
                 authMap[targetId] = {
                   status: auth.status || 'pending',
@@ -267,9 +272,10 @@ export default function ManufacturerManagement() {
               }
             })
           }
+          console.log('[ManufacturerManagement] Final authMap:', authMap)
           setAuthorizationMap(authMap)
         } catch (e) {
-          console.log('获取授权状态失败', e)
+          console.log('[ManufacturerManagement] 获取授权状态失败', e)
         }
       }
     } catch (error) {
