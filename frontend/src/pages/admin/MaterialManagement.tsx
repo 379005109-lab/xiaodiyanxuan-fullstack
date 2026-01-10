@@ -120,8 +120,10 @@ export default function MaterialManagement() {
         await deleteMaterial(id)
         console.log(`[前端] 删除成功`)
         toast.success('素材已删除')
-        loadMaterials()
-        loadStats()
+        // 等待数据刷新完成
+        await loadMaterials()
+        await loadStats()
+        console.log(`[前端] 数据刷新完成`)
       } catch (error: any) {
         console.error(`[前端] 删除失败:`, error)
         toast.error(error.message || '删除失败')
