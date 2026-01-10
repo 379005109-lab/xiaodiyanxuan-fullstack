@@ -1453,10 +1453,8 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[300px]">材质配置</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">折扣价(元)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">显示价格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">库存</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">发货(天)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">到货时间</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">文件</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">PRO</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">厂家</th>
@@ -1468,71 +1466,38 @@ export default function ProductForm() {
                 {formData.skus.map((sku, index) => (
                   <tr key={sku.id} className={`border-b border-gray-100 ${sku.isPro ? 'bg-amber-50' : ''}`}>
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
+                      {/* 点击进入图片管理器 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManagingSkuIndex(index)
+                          setShowImageManager(true)
+                        }}
+                        className="relative w-12 h-12 border border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary-500 transition-colors overflow-hidden group"
+                      >
                         {sku.images && sku.images.length > 0 ? (
-                          <button
-                            onClick={() => {
-                              setManagingSkuIndex(index)
-                              setShowImageManager(true)
-                            }}
-                            className="flex gap-1 hover:opacity-80 transition-opacity"
-                            title="点击管理图片"
-                          >
-                            {sku.images.slice(0, 3).map((img, imgIndex) => (
-                              <div key={imgIndex} className="relative w-10 h-10 group">
-                                <img src={getThumbnailUrl(img, 80)} alt={`SKU ${imgIndex + 1}`} className="w-full h-full object-cover rounded border border-gray-300 cursor-pointer" loading="lazy" />
-                              </div>
-                            ))}
-                            {sku.images.length > 3 && (
-                              <div className="w-10 h-10 bg-gray-100 rounded border border-gray-300 flex items-center justify-center text-xs text-gray-500 cursor-pointer">
-                                +{sku.images.length - 3}
+                          <>
+                            <img 
+                              src={getThumbnailUrl(sku.images[0], 96)} 
+                              alt="SKU图片" 
+                              className="w-full h-full object-cover"
+                            />
+                            {sku.images.length > 1 && (
+                              <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[10px] px-1 rounded-tl">
+                                +{sku.images.length - 1}
                               </div>
                             )}
-                          </button>
-                        ) : null}
-                        <label className="w-10 h-10 border border-dashed border-gray-300 rounded flex items-center justify-center hover:border-primary-500 cursor-pointer flex-shrink-0">
-                          <Upload className="h-3 w-3 text-gray-400" />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={async (e) => {
-                              const files = Array.from(e.target.files || [])
-                              if (files.length === 0) return
-
-                              toast.info(`正在上传 ${files.length} 张图片到GridFS...`)
-                              
-                              try {
-                                for (const file of files) {
-                                  // 上传到GridFS
-                                  const result = await uploadFile(file)
-                                  if (result.success) {
-                                    const fileId = result.data.fileId
-                                    const newSkus = [...formData.skus]
-                                    const currentImages = newSkus[index].images || []
-                                    
-                                    // 添加fileId到formData
-                                    newSkus[index].images = [...currentImages, fileId]
-                                    setFormData({ ...formData, skus: newSkus })
-                                    
-                                    console.log(`✅ SKU图片上传成功: ${file.name} -> ${fileId}`)
-                                  } else {
-                                    toast.error(`${file.name} 上传失败`)
-                                  }
-                                }
-                                toast.success(`${files.length} 张图片上传成功`)
-                              } catch (error: any) {
-                                console.error('❌ SKU图片上传失败:', error)
-                                toast.error('图片上传失败，请重试')
-                              }
-                              
-                              // 重置文件输入
-                              e.target.value = ''
-                            }}
-                          />
-                        </label>
-                      </div>
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <span className="text-white text-xs">管理</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center text-gray-400">
+                            <Upload className="h-4 w-4" />
+                            <span className="text-[10px]">图片</span>
+                          </div>
+                        )}
+                      </button>
                     </td>
                     <td className="py-3 px-4">
                       <div className="relative">
@@ -1722,11 +1687,6 @@ export default function ProductForm() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <div className="text-sm font-semibold text-gray-900">
-                        ¥{(sku.price || 0).toFixed(2)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
                       <input
                         type="number"
                         value={sku.stock}
@@ -1768,20 +1728,6 @@ export default function ProductForm() {
                           title="发货备注（如现货、预售等）"
                         />
                       </div>
-                    </td>
-                    {/* 到货时间 */}
-                    <td className="py-3 px-4">
-                      <input
-                        type="date"
-                        value={(sku as any).arrivalDate ? new Date((sku as any).arrivalDate).toISOString().split('T')[0] : ''}
-                        onChange={(e) => {
-                          const newSkus = [...formData.skus]
-                          ;(newSkus[index] as any).arrivalDate = e.target.value || null
-                          setFormData({ ...formData, skus: newSkus })
-                        }}
-                        className="w-32 px-2 py-1 border border-gray-300 rounded text-sm"
-                        title="预计到货时间"
-                      />
                     </td>
                     {/* SKU文件上传 */}
                     <td className="py-3 px-4">
