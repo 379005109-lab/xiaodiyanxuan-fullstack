@@ -244,9 +244,9 @@ export default function MaterialManagement() {
     if (confirm(`确定要删除素材"${name}"吗？`)) {
       try {
         await deleteMaterial(id)
-        toast.success('素材已删除')
-        loadMaterials()
-        loadStats()
+        toast.success('素材已删除，正在刷新...')
+        // 直接刷新页面确保显示最新数据
+        setTimeout(() => window.location.reload(), 500)
       } catch (error) {
         toast.error('删除失败')
       }
@@ -287,9 +287,9 @@ export default function MaterialManagement() {
       try {
         const materialIds = groupMaterials.map(m => m._id)
         await deleteMaterials(materialIds)
-        toast.success(`类别"${groupKey}"及其 ${groupMaterials.length} 个SKU已删除`)
-        loadMaterials()
-        loadStats()
+        toast.success(`已删除 ${groupMaterials.length} 个素材，正在刷新...`)
+        // 直接刷新页面确保显示最新数据
+        setTimeout(() => window.location.reload(), 500)
       } catch (error) {
         toast.error('删除类别失败')
       }
@@ -305,10 +305,9 @@ export default function MaterialManagement() {
     if (confirm(`确定要删除选中的 ${selectedIds.length} 个素材吗？`)) {
       try {
         await deleteMaterials(selectedIds)
-        toast.success(`已删除 ${selectedIds.length} 个素材`)
-        setSelectedIds([])
-        loadMaterials()
-        loadStats()
+        toast.success(`已删除 ${selectedIds.length} 个素材，正在刷新...`)
+        // 直接刷新页面确保显示最新数据
+        setTimeout(() => window.location.reload(), 500)
       } catch (error) {
         toast.error('删除失败')
       }
