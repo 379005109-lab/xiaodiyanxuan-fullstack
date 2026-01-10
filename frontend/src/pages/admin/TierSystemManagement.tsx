@@ -2929,8 +2929,16 @@ function HierarchyTab({
       
       {/* 编辑业务节点档案模态框 - 层级返佣配置 */}
       {showProfileEditModal && selectedStaff && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]" onClick={() => setShowProfileEditModal(false)}>
-          <div className="bg-white rounded-3xl p-8 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]" 
+          onClick={() => setShowProfileEditModal(false)}
+          onMouseDown={(e) => e.target === e.currentTarget && e.stopPropagation()}
+        >
+          <div 
+            className="bg-white rounded-3xl p-8 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" 
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-900">编辑业务节点档案</h3>
               <button onClick={() => setShowProfileEditModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -3537,7 +3545,9 @@ function ProductProfitModal({
 
   const productsByCategoryId = useMemo(() => {
     const map = new Map<string, any[]>()
+    const allProducts: any[] = []
     ;(products || []).forEach((p: any) => {
+      allProducts.push(p)
       const raw = p?.category
       const ids: string[] = []
       const push = (v: any) => {
@@ -3554,6 +3564,10 @@ function ProductProfitModal({
         map.set(cid, arr)
       })
     })
+    // 添加虚拟的"全部商品"分类
+    if (allProducts.length > 0) {
+      map.set('__all_products__', allProducts)
+    }
     return map
   }, [products])
 
@@ -3592,9 +3606,20 @@ function ProductProfitModal({
   }
 
   const effectiveTree = useMemo(() => {
-    if (!categoryTree || categoryTree.length === 0) return []
-    return filterTreeByAllowed(categoryTree)
-  }, [categoryTree, visibleCategorySet, productsByCategoryId])
+    // 如果有分类树，使用分类树
+    if (categoryTree && categoryTree.length > 0) {
+      return filterTreeByAllowed(categoryTree)
+    }
+    // 如果没有分类树但有商品，创建一个虚拟的"全部商品"分类
+    if (products && products.length > 0) {
+      return [{
+        _id: '__all_products__',
+        name: '全部商品',
+        children: []
+      }]
+    }
+    return []
+  }, [categoryTree, visibleCategorySet, productsByCategoryId, products])
 
   const subtreeProductIdsByCategoryId = useMemo(() => {
     const map = new Map<string, string[]>()
