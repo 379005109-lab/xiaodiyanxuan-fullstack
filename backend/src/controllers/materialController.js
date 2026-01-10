@@ -195,19 +195,31 @@ exports.cleanupOrphanedMaterials = async (req, res) => {
     const validCategories = await MaterialCategory.find({}, { _id: 1 });
     const validCategoryIds = validCategories.map(c => c._id.toString());
     
-    // 查找所有分类ID无效的材质
-    const orphanedMaterials = await Material.find({
-      categoryId: { $nin: validCategoryIds, $ne: null, $ne: '' }
-    });
+    console.log(`有效分类数量: ${validCategoryIds.length}`);
+    console.log(`有效分类IDs: ${validCategoryIds.slice(0, 5).join(', ')}...`);
     
-    if (orphanedMaterials.length === 0) {
+    // 获取所有材质
+    const allMaterials = await Material.find({});
+    console.log(`总材质数量: ${allMaterials.length}`);
+    
+    // 找出孤立材质（分类ID不在有效分类列表中）
+    const orphanedMaterialIds = [];
+    for (const mat of allMaterials) {
+      const catId = mat.categoryId?.toString() || '';
+      if (catId && !validCategoryIds.includes(catId)) {
+        orphanedMaterialIds.push(mat._id);
+        console.log(`孤立材质: ${mat.name}, categoryId: ${catId}`);
+      }
+    }
+    
+    console.log(`找到 ${orphanedMaterialIds.length} 个孤立材质`);
+    
+    if (orphanedMaterialIds.length === 0) {
       return res.json({ success: true, message: '没有找到孤立材质', count: 0 });
     }
     
     // 删除孤立材质
-    const result = await Material.deleteMany({
-      categoryId: { $nin: validCategoryIds, $ne: null, $ne: '' }
-    });
+    const result = await Material.deleteMany({ _id: { $in: orphanedMaterialIds } });
     
     console.log(`清理了 ${result.deletedCount} 个孤立材质`);
     
@@ -217,6 +229,7 @@ exports.cleanupOrphanedMaterials = async (req, res) => {
       count: result.deletedCount
     });
   } catch (error) {
+    console.error('清理孤立材质错误:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
