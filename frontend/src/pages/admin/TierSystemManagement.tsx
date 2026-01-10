@@ -73,13 +73,8 @@ interface AuthorizedAccount {
     discountRate?: number
     commissionRate?: number
   }>
-  // 层级返佣配置：根据下级层数分配不同返佣比例
-  levelCommissions?: {
-    // 自己的返佣比例（直接销售时获得的比例）
-    selfRate: number
-    // 各层级下级的返佣比例，索引0=直接下级，索引1=二级下级...
-    subordinateRates: number[]
-  }
+  // 层级返佣规则ID（引用CommissionRule）
+  commissionRuleId?: string
   // 被绑定人员的折扣设置
   boundUserDiscount?: number
   // 被绑定人员的返佣设置
@@ -162,6 +157,18 @@ const DEFAULT_ROLE_MODULES: Omit<RoleModule, '_id' | 'createdAt' | 'updatedAt'>[
   }
 ]
 
+// 层级返佣规则模板
+interface CommissionRule {
+  _id: string
+  name: string  // 规则名称，如"2层分佣"、"3层分佣"
+  description?: string
+  selfRate: number  // 自己销售的返佣比例 (%)
+  subordinateRates: number[]  // 各层级下级的返佣比例 (%)，索引0=直接下级
+  maxTotal: number  // 最大总返佣比例，默认40
+  isDefault?: boolean
+  createdAt: string
+}
+
 // 分层体系存储结构
 interface TierSystemData {
   profitSettings: {
@@ -169,6 +176,7 @@ interface TierSystemData {
   }
   roleModules: RoleModule[]
   authorizedAccounts: AuthorizedAccount[]
+  commissionRules?: CommissionRule[]  // 层级返佣规则模板列表
 }
 
 interface ReconciliationRow {
@@ -182,14 +190,41 @@ interface ReconciliationRow {
   status?: string
 }
 
+// 默认层级返佣规则
+const DEFAULT_COMMISSION_RULES: Omit<CommissionRule, '_id' | 'createdAt'>[] = [
+  {
+    name: '直销模式',
+    description: '无下级，自己获得全部返佣',
+    selfRate: 40,
+    subordinateRates: [],
+    maxTotal: 40,
+    isDefault: true
+  },
+  {
+    name: '2层分佣',
+    description: '自己20%，直接下级20%',
+    selfRate: 20,
+    subordinateRates: [20],
+    maxTotal: 40
+  },
+  {
+    name: '3层分佣',
+    description: '自己10%，一级下级15%，二级下级15%',
+    selfRate: 10,
+    subordinateRates: [15, 15],
+    maxTotal: 40
+  }
+]
+
 const createDefaultTierSystemData = (): TierSystemData => {
+  const now = Date.now()
   return {
     profitSettings: {
       minSaleDiscountRate: 1
     },
     roleModules: DEFAULT_ROLE_MODULES.map((m, i) => ({
       ...m,
-      _id: `role_${m.code}_${Date.now() + i}`,
+      _id: `role_${m.code}_${now + i}`,
       discountRules: [
         {
           _id: `rule_default_${m.code}`,
@@ -204,7 +239,12 @@ const createDefaultTierSystemData = (): TierSystemData => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     })),
-    authorizedAccounts: []
+    authorizedAccounts: [],
+    commissionRules: DEFAULT_COMMISSION_RULES.map((r, i) => ({
+      ...r,
+      _id: `comm_rule_${now + i}`,
+      createdAt: new Date().toISOString()
+    }))
   }
 }
 
@@ -617,6 +657,7 @@ export default function TierSystemManagement() {
           manufacturerLogo={selectedManufacturerMeta?.logo || ''}
           profitSettings={data.profitSettings}
           commissionRate={selectedManufacturerCommission}
+          commissionRules={data.commissionRules || []}
           onBack={() => navigate('/admin/manufacturers')}
           expandedNodes={expandedNodes}
           onSetExpandedNodes={setExpandedNodes}
@@ -1444,6 +1485,7 @@ function HierarchyTab({
   manufacturerName,
   manufacturerLogo,
   commissionRate,
+  commissionRules,
   onBack,
   expandedNodes,
   onSetExpandedNodes,
@@ -1465,6 +1507,7 @@ function HierarchyTab({
   manufacturerLogo: string
   profitSettings: TierSystemData['profitSettings']
   commissionRate: number
+  commissionRules: CommissionRule[]
   onBack: () => void
   expandedNodes: Set<string>
   onSetExpandedNodes: React.Dispatch<React.SetStateAction<Set<string>>>
@@ -1733,7 +1776,7 @@ function HierarchyTab({
         availableRate: Number(account.availableRate || 0),
         visibleCategoryIds: account.visibleCategoryIds || [],
         parentId: account.parentId,
-        levelCommissions: account.levelCommissions,
+        commissionRuleId: account.commissionRuleId,
         boundUserDiscount: account.boundUserDiscount,
         boundUserCommission: account.boundUserCommission,
         defaultCommission: Math.round(Math.max(0, Math.min(1, Number(defaultRule?.commissionRate ?? 0))) * 100),
@@ -3044,119 +3087,51 @@ function HierarchyTab({
                   </div>
                 )}
 
-                {/* 层级返佣配置 */}
+                {/* 层级返佣规则选择 */}
                 <div className="bg-emerald-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-emerald-900 mb-3">层级返佣配置</h4>
-                  <p className="text-xs text-emerald-700 mb-3">根据下级层数设置不同的返佣分配比例</p>
+                  <h4 className="text-sm font-medium text-emerald-900 mb-3">层级返佣规则</h4>
+                  <p className="text-xs text-emerald-700 mb-3">选择适用的分佣规则（最多40%）</p>
                   
-                  {/* 自己的返佣 */}
-                  <div className="mb-3">
-                    <label className="text-xs font-medium text-emerald-800 block mb-1">自己销售返佣 (%)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={selectedStaff.levelCommissions?.selfRate ?? selectedStaff.defaultCommission ?? 40}
-                      onChange={(e) => {
-                        const val = Math.min(100, Math.max(0, Number(e.target.value) || 0))
-                        setSelectedStaff({
-                          ...selectedStaff,
-                          levelCommissions: {
-                            ...selectedStaff.levelCommissions,
-                            selfRate: val,
-                            subordinateRates: selectedStaff.levelCommissions?.subordinateRates || []
-                          }
-                        })
-                      }}
-                      className="w-full p-2 border border-emerald-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-
-                  {/* 下级返佣配置 */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium text-emerald-800">下级层级返佣分配</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const rates = selectedStaff.levelCommissions?.subordinateRates || []
-                          setSelectedStaff({
-                            ...selectedStaff,
-                            levelCommissions: {
-                              selfRate: selectedStaff.levelCommissions?.selfRate ?? 40,
-                              subordinateRates: [...rates, 10]
-                            }
-                          })
-                        }}
-                        className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
-                      >
-                        + 添加层级
-                      </button>
-                    </div>
-                    
-                    {(selectedStaff.levelCommissions?.subordinateRates || []).map((rate: number, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <span className="text-xs text-emerald-700 w-16">第{idx + 1}级下级</span>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={rate}
-                          onChange={(e) => {
-                            const val = Math.min(100, Math.max(0, Number(e.target.value) || 0))
-                            const newRates = [...(selectedStaff.levelCommissions?.subordinateRates || [])]
-                            newRates[idx] = val
-                            setSelectedStaff({
-                              ...selectedStaff,
-                              levelCommissions: {
-                                selfRate: selectedStaff.levelCommissions?.selfRate ?? 40,
-                                subordinateRates: newRates
-                              }
-                            })
-                          }}
-                          className="flex-1 p-2 border border-emerald-300 rounded-lg text-sm"
-                        />
-                        <span className="text-xs text-emerald-600">%</span>
+                    {(commissionRules || []).map((rule: CommissionRule) => {
+                      const isSelected = selectedStaff.commissionRuleId === rule._id
+                      const total = rule.selfRate + (rule.subordinateRates || []).reduce((a, b) => a + b, 0)
+                      return (
                         <button
+                          key={rule._id}
                           type="button"
-                          onClick={() => {
-                            const newRates = (selectedStaff.levelCommissions?.subordinateRates || []).filter((_: number, i: number) => i !== idx)
-                            setSelectedStaff({
-                              ...selectedStaff,
-                              levelCommissions: {
-                                selfRate: selectedStaff.levelCommissions?.selfRate ?? 40,
-                                subordinateRates: newRates
-                              }
-                            })
-                          }}
-                          className="text-red-500 hover:text-red-700 p-1"
+                          onClick={() => setSelectedStaff({ ...selectedStaff, commissionRuleId: rule._id })}
+                          className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
+                            isSelected 
+                              ? 'border-emerald-500 bg-emerald-100' 
+                              : 'border-gray-200 bg-white hover:border-emerald-300'
+                          }`}
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-sm text-gray-900">{rule.name}</span>
+                            <span className={`text-xs font-bold ${total > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
+                              合计 {total}%
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mb-2">{rule.description}</p>
+                          <div className="flex flex-wrap gap-2 text-xs">
+                            <span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded">
+                              自己 {rule.selfRate}%
+                            </span>
+                            {(rule.subordinateRates || []).map((rate, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded">
+                                {idx + 1}级下级 {rate}%
+                              </span>
+                            ))}
+                          </div>
                         </button>
-                      </div>
-                    ))}
-                    
-                    {(selectedStaff.levelCommissions?.subordinateRates?.length || 0) === 0 && (
-                      <p className="text-xs text-emerald-600 italic">暂无下级层级配置，点击"添加层级"设置</p>
-                    )}
+                      )
+                    })}
                   </div>
-
-                  {/* 合计显示 */}
-                  <div className="mt-3 pt-3 border-t border-emerald-200">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-emerald-700">返佣合计：</span>
-                      <span className={`font-bold ${
-                        ((selectedStaff.levelCommissions?.selfRate ?? 0) + 
-                         (selectedStaff.levelCommissions?.subordinateRates || []).reduce((a: number, b: number) => a + b, 0)) > 100
-                          ? 'text-red-600' : 'text-emerald-800'
-                      }`}>
-                        {(selectedStaff.levelCommissions?.selfRate ?? selectedStaff.defaultCommission ?? 0) + 
-                         (selectedStaff.levelCommissions?.subordinateRates || []).reduce((a: number, b: number) => a + b, 0)}%
-                      </span>
-                    </div>
-                  </div>
+                  
+                  {(!commissionRules || commissionRules.length === 0) && (
+                    <p className="text-xs text-gray-500 italic">暂无返佣规则，请先在"角色权限"中创建</p>
+                  )}
                 </div>
 
                 {/* 被绑定人员设置 */}
@@ -3247,9 +3222,9 @@ function HierarchyTab({
                           }
                         }
 
-                        // 保存层级返佣配置
-                        if (selectedStaff.levelCommissions) {
-                          updates.levelCommissions = selectedStaff.levelCommissions
+                        // 保存层级返佣规则ID
+                        if (selectedStaff.commissionRuleId) {
+                          updates.commissionRuleId = selectedStaff.commissionRuleId
                         }
 
                         // 保存被绑定人员设置
