@@ -50,6 +50,9 @@ export default function MaterialManagement() {
   const [draggedMaterial, setDraggedMaterial] = useState<Material | null>(null)
   const [dragOverCategoryId, setDragOverCategoryId] = useState<string | null>(null)
   const [dragOverMaterialIndex, setDragOverMaterialIndex] = useState<number | null>(null)
+  const [draggedGroupKey, setDraggedGroupKey] = useState<string | null>(null)
+  const [dragOverGroupKey, setDragOverGroupKey] = useState<string | null>(null)
+  const [groupOrder, setGroupOrder] = useState<string[]>([]) // 分组顺序
   
   // 模态框
   const [showMaterialModal, setShowMaterialModal] = useState(false)
@@ -621,6 +624,65 @@ export default function MaterialManagement() {
     setDraggedMaterial(null)
   }
 
+  // 材质组拖拽处理
+  const handleGroupDragStart = (e: DragEvent<HTMLDivElement>, groupKey: string) => {
+    setDraggedGroupKey(groupKey)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleGroupDragOver = (e: DragEvent<HTMLDivElement>, targetGroupKey: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedGroupKey && draggedGroupKey !== targetGroupKey) {
+      setDragOverGroupKey(targetGroupKey)
+    }
+  }
+
+  const handleGroupDragLeave = () => {
+    setDragOverGroupKey(null)
+  }
+
+  const handleGroupDrop = async (e: DragEvent<HTMLDivElement>, targetGroupKey: string, currentGroupOrder: string[], materialGroups: Record<string, Material[]>) => {
+    e.preventDefault()
+    setDragOverGroupKey(null)
+    
+    if (!draggedGroupKey || draggedGroupKey === targetGroupKey) {
+      setDraggedGroupKey(null)
+      return
+    }
+
+    // 重新排序分组
+    const newOrder = [...currentGroupOrder]
+    const draggedIndex = newOrder.indexOf(draggedGroupKey)
+    const targetIndex = newOrder.indexOf(targetGroupKey)
+    
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedGroupKey(null)
+      return
+    }
+
+    // 移动分组
+    newOrder.splice(draggedIndex, 1)
+    newOrder.splice(targetIndex, 0, draggedGroupKey)
+
+    // 更新所有材质的 order 字段
+    let orderCounter = 1
+    for (const groupKey of newOrder) {
+      const groupMaterials = materialGroups[groupKey]
+      if (groupMaterials) {
+        for (const material of groupMaterials) {
+          await updateMaterial(material._id, { order: orderCounter })
+          orderCounter++
+        }
+      }
+    }
+
+    toast.success('分组顺序已调整')
+    clearMaterialCache()
+    loadMaterials()
+    setDraggedGroupKey(null)
+  }
+
   // 获取分类及其所有子分类的ID列表
   const getAllCategoryIds = (categoryId: string): string[] => {
     const ids = [categoryId]
@@ -1028,7 +1090,18 @@ export default function MaterialManagement() {
                   const isSkuExpanded = expandedSKUGroup === groupKey
                   
                   return (
-                    <div key={groupKey} className="card overflow-hidden hover:shadow-lg transition-shadow group">
+                    <div 
+                      key={groupKey} 
+                      className={`card overflow-hidden hover:shadow-lg transition-shadow group cursor-move ${
+                        dragOverGroupKey === groupKey ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                      }`}
+                      draggable
+                      onDragStart={(e) => handleGroupDragStart(e, groupKey)}
+                      onDragOver={(e) => handleGroupDragOver(e, groupKey)}
+                      onDragLeave={handleGroupDragLeave}
+                      onDrop={(e) => handleGroupDrop(e, groupKey, groupOrder, materialGroups)}
+                      onDragEnd={() => setDraggedGroupKey(null)}
+                    >
                       {/* 正方形图片区域 */}
                       <button
                         onClick={() => setExpandedSKUGroup(isSkuExpanded ? null : groupKey)}
