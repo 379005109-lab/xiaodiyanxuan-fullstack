@@ -3267,10 +3267,9 @@ function HierarchyTab({
                       <p className="text-xs text-blue-600 italic">暂无绑定的人员或组织</p>
                     ) : (
                       (selectedStaff.boundEntities || []).map((entity: any, idx: number) => {
-                        // 查找该绑定人员的返佣规则
-                        const boundAccount = accounts.find(a => String(a._id) === String(entity.userId || entity.id))
-                        const boundRuleId = boundAccount?.commissionRuleId || entity.commissionRuleId
-                        const boundRule = localCommissionRules.find(r => r._id === boundRuleId)
+                        // 使用绑定实体自己的commissionRuleId
+                        const entityRuleId = entity.commissionRuleId
+                        const entityRule = localCommissionRules.find(r => r._id === entityRuleId)
                         
                         return (
                           <div key={entity.id || idx} className="p-3 bg-white rounded-lg border border-blue-200">
@@ -3301,23 +3300,38 @@ function HierarchyTab({
                                 <X className="w-4 h-4" />
                               </button>
                             </div>
-                            {/* 显示返佣规则 */}
+                            {/* 选择返佣规则 */}
                             <div className="mt-2 pt-2 border-t border-blue-100">
-                              {boundRule ? (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-xs text-gray-600">返佣规则:</span>
-                                  <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                                    {boundRule.name}
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-600 flex-shrink-0">返佣规则:</span>
+                                <select
+                                  value={entityRuleId || ''}
+                                  onChange={(e) => {
+                                    const newBindings = [...(selectedStaff.boundEntities || [])]
+                                    newBindings[idx] = { ...newBindings[idx], commissionRuleId: e.target.value || undefined }
+                                    setSelectedStaff({ ...selectedStaff, boundEntities: newBindings })
+                                  }}
+                                  className="flex-1 text-xs p-1.5 border border-gray-200 rounded bg-white"
+                                >
+                                  <option value="">-- 选择规则 --</option>
+                                  {localCommissionRules.map(rule => (
+                                    <option key={rule._id} value={rule._id}>
+                                      {rule.name} (自己{rule.selfRate}%{rule.subordinateRates?.length > 0 ? `, ${rule.subordinateRates.length}级下级` : ''})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              {entityRule && (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  <span className="text-xs bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded">
+                                    自己 {entityRule.selfRate}%
                                   </span>
-                                  <span className="text-xs text-gray-500">
-                                    (自己{boundRule.selfRate}%
-                                    {boundRule.subordinateRates?.length > 0 && 
-                                      `, ${boundRule.subordinateRates.map((r, i) => `${i+1}级${r}%`).join(', ')}`
-                                    })
-                                  </span>
+                                  {entityRule.subordinateRates?.map((rate, i) => (
+                                    <span key={i} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
+                                      {i+1}级下级 {rate}%
+                                    </span>
+                                  ))}
                                 </div>
-                              ) : (
-                                <span className="text-xs text-gray-400 italic">未设置返佣规则</span>
                               )}
                             </div>
                           </div>
