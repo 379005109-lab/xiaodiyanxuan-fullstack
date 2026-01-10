@@ -116,9 +116,11 @@ export default function MaterialManagement() {
     if (confirm(`确定要删除素材"${name}"吗？`)) {
       try {
         await deleteMaterial(id)
-        // 立即从本地状态中移除已删除的材质
-        setMaterials(prev => prev.filter(m => m._id !== id))
         toast.success('素材已删除')
+        // 清除缓存并重新加载数据
+        clearMaterialCache()
+        const freshMaterials = await getAllMaterials()
+        setMaterials(freshMaterials)
         loadStats()
       } catch (error: any) {
         toast.error(error.message || '删除失败')
@@ -132,9 +134,11 @@ export default function MaterialManagement() {
       try {
         // 批量删除所有材质
         await deleteMaterials(materialIds)
-        // 立即从本地状态中移除所有已删除的材质
-        setMaterials(prev => prev.filter(m => !materialIds.includes(m._id)))
         toast.success(`已删除 ${materialIds.length} 个素材`)
+        // 清除缓存并重新加载数据
+        clearMaterialCache()
+        const freshMaterials = await getAllMaterials()
+        setMaterials(freshMaterials)
         loadStats()
       } catch (error: any) {
         toast.error(error.message || '删除失败')
