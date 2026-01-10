@@ -369,16 +369,20 @@ export default function TierSystemManagement() {
           setData(next)
           await apiClient.put('/tier-system', { manufacturerId: mid, ...next })
         } else {
+          const defaultData = createDefaultTierSystemData()
           const next: TierSystemData = {
             profitSettings: {
               minSaleDiscountRate: Number(doc?.profitSettings?.minSaleDiscountRate ?? 1)
             },
             roleModules: Array.isArray(doc.roleModules) ? doc.roleModules : [],
             authorizedAccounts: Array.isArray(doc.authorizedAccounts) ? doc.authorizedAccounts : [],
+            commissionRules: Array.isArray(doc.commissionRules) && doc.commissionRules.length > 0 
+              ? doc.commissionRules 
+              : defaultData.commissionRules,
           }
 
           if (!next.roleModules || next.roleModules.length === 0) {
-            next.roleModules = createDefaultTierSystemData().roleModules
+            next.roleModules = defaultData.roleModules
           }
 
           setData(next)
