@@ -1495,18 +1495,21 @@ function HierarchyTab({
         return
       }
       try {
+        console.log('[TierSystem] Loading categories and products for manufacturerId:', manufacturerId)
         const [catResp, prodResp] = await Promise.all([
           apiClient.get('/categories', { params: { manufacturerId, _ts: Date.now() } }),
           apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'all', limit: 10000 } })
         ])
 
-        const catList = catResp.data?.data || []
+        const catList = catResp.data?.data || catResp.data || []
+        console.log('[TierSystem] Categories loaded:', catList.length, 'items')
         setManufacturerCategoryTree(Array.isArray(catList) ? catList : [])
 
-        const prodList = prodResp.data?.data || []
+        const prodList = prodResp.data?.data || prodResp.data || []
+        console.log('[TierSystem] Products loaded:', prodList.length, 'items')
         setManufacturerProducts(Array.isArray(prodList) ? prodList : [])
       } catch (e) {
-        console.error('加载厂家分类/商品失败:', e)
+        console.error('[TierSystem] 加载厂家分类/商品失败:', e)
         setManufacturerCategoryTree([])
         setManufacturerProducts([])
       }
