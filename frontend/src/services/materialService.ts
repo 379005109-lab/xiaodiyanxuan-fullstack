@@ -240,9 +240,9 @@ export const updateMaterialCategory = async (id: string, updates: Partial<Materi
   }
 }
 
-export const deleteMaterialCategory = async (id: string): Promise<void> => {
+export const deleteMaterialCategory = async (id: string, force: boolean = false): Promise<void> => {
   try {
-    await apiClient.delete(`/materials/categories/${id}`)
+    await apiClient.delete(`/materials/categories/${id}${force ? '?force=true' : ''}`)
   } catch (error: any) {
     console.error('删除材质分类失败:', error)
     throw new Error(error.response?.data?.message || '删除材质分类失败')

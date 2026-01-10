@@ -252,14 +252,22 @@ exports.updateCategory = async (req, res) => {
 // 删除分类
 exports.deleteCategory = async (req, res) => {
   try {
+    const { force } = req.query; // 是否强制删除（同时删除分类下的材质）
+    
     // 检查是否有材质使用此分类
     const count = await Material.countDocuments({ categoryId: req.params.id });
     
     if (count > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `该分类下还有${count}个材质，无法删除` 
-      });
+      if (force === 'true') {
+        // 强制删除：同时删除分类下的所有材质
+        await Material.deleteMany({ categoryId: req.params.id });
+        console.log(`强制删除分类，同时删除了 ${count} 个材质`);
+      } else {
+        return res.status(400).json({ 
+          success: false, 
+          message: `该分类下还有${count}个材质，无法删除` 
+        });
+      }
     }
     
     const category = await MaterialCategory.findByIdAndDelete(req.params.id);
@@ -268,7 +276,7 @@ exports.deleteCategory = async (req, res) => {
       return res.status(404).json({ success: false, message: '分类不存在' });
     }
     
-    res.json({ success: true, message: '分类已删除' });
+    res.json({ success: true, message: force === 'true' ? `分类及其 ${count} 个材质已删除` : '分类已删除' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

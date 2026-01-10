@@ -125,19 +125,28 @@ export default function MaterialManagement() {
   const handleDeleteCategory = async (id: string, name: string) => {
     // 检查分类下是否有材质
     const categoryMaterialCount = materials.filter(m => m.categoryId === id).length
+    
+    let forceDelete = false
     if (categoryMaterialCount > 0) {
-      toast.error(`该分类下还有 ${categoryMaterialCount} 个材质，请先移动或删除这些材质`)
-      return
+      const choice = confirm(`该分类下还有 ${categoryMaterialCount} 个材质。\n\n点击"确定"将同时删除分类和所有材质\n点击"取消"放弃操作`)
+      if (!choice) {
+        return
+      }
+      forceDelete = true
+    } else {
+      if (!confirm(`确定要删除分类"${name}"吗？`)) {
+        return
+      }
     }
     
-    if (confirm(`确定要删除分类"${name}"吗？`)) {
-      try {
-        await deleteMaterialCategory(id)
-        toast.success('分类已删除')
-        loadCategories()
-      } catch (error: any) {
-        toast.error(error.message || '删除分类失败')
-      }
+    try {
+      await deleteMaterialCategory(id, forceDelete)
+      toast.success(forceDelete ? `分类及 ${categoryMaterialCount} 个材质已删除` : '分类已删除')
+      loadCategories()
+      loadMaterials()
+      loadStats()
+    } catch (error: any) {
+      toast.error(error.message || '删除分类失败')
     }
   }
 
@@ -748,41 +757,56 @@ export default function MaterialManagement() {
                   return (
                     <div 
                       key={groupKey} 
-                      className="card overflow-hidden hover:shadow-lg transition-shadow group cursor-move"
+                      className={`card overflow-hidden hover:shadow-lg transition-all group ${
+                        draggedMaterial?._id === representativeMaterial._id ? 'opacity-50 scale-95' : ''
+                      } ${
+                        dragOverMaterialIndex === groupIndex ? 'ring-2 ring-primary-500 ring-offset-2 scale-105' : ''
+                      }`}
                       draggable
                       onDragStart={(e) => {
+                        e.stopPropagation()
+                        setDraggedMaterial(representativeMaterial)
                         e.dataTransfer.effectAllowed = 'move'
                         e.dataTransfer.setData('text/plain', JSON.stringify({
                           type: 'materialGroup',
                           groupKey,
                           groupIndex,
-                          categoryId: representativeMaterial.categoryId
+                          materialIds: groupMaterials.map(m => m._id)
                         }))
+                      }}
+                      onDragEnd={() => {
+                        setDraggedMaterial(null)
+                        setDragOverMaterialIndex(null)
                       }}
                       onDragOver={(e) => {
                         e.preventDefault()
+                        e.stopPropagation()
                         e.dataTransfer.dropEffect = 'move'
-                        e.currentTarget.classList.add('ring-2', 'ring-primary-500', 'ring-offset-2')
+                        setDragOverMaterialIndex(groupIndex)
                       }}
                       onDragLeave={(e) => {
-                        e.currentTarget.classList.remove('ring-2', 'ring-primary-500', 'ring-offset-2')
+                        e.stopPropagation()
+                        setDragOverMaterialIndex(null)
                       }}
                       onDrop={async (e) => {
                         e.preventDefault()
-                        e.currentTarget.classList.remove('ring-2', 'ring-primary-500', 'ring-offset-2')
+                        e.stopPropagation()
+                        setDragOverMaterialIndex(null)
+                        setDraggedMaterial(null)
+                        
                         try {
                           const dragData = JSON.parse(e.dataTransfer.getData('text/plain'))
                           if (dragData.type === 'materialGroup' && dragData.groupIndex !== groupIndex) {
-                            // 重新排序所有分组中的材质
-                            const sourceGroupMaterials = materialGroups[dragData.groupKey]
-                            const targetGroupMaterials = materialGroups[groupKey]
-                            
-                            // 计算新的 order 值
-                            const baseOrder = (groupIndex + 1) * 100
+                            // 计算新的 order 值：插入到目标位置
+                            // 获取目标位置的 order 值
+                            const targetOrder = representativeMaterial.order || (groupIndex + 1) * 100
                             
                             // 更新拖拽组的所有材质 order
-                            for (let i = 0; i < sourceGroupMaterials.length; i++) {
-                              await updateMaterial(sourceGroupMaterials[i]._id, { order: baseOrder + i })
+                            const materialIds = dragData.materialIds || []
+                            for (let i = 0; i < materialIds.length; i++) {
+                              await updateMaterial(materialIds[i], { 
+                                order: dragData.groupIndex < groupIndex ? targetOrder + i + 1 : targetOrder - 1 + i 
+                              })
                             }
                             
                             toast.success('排序已保存')
