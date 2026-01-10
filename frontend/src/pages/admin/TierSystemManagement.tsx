@@ -3222,41 +3222,6 @@ function HierarchyTab({
                   )}
                 </div>
 
-                {/* 被绑定人员设置 */}
-                <div className="bg-amber-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-amber-900 mb-3">被绑定人员设置</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-medium text-amber-800 block mb-1">折扣 (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={selectedStaff.boundUserDiscount ?? 85}
-                        onChange={(e) => setSelectedStaff({
-                          ...selectedStaff,
-                          boundUserDiscount: Math.min(100, Math.max(0, Number(e.target.value) || 0))
-                        })}
-                        className="w-full p-2 border border-amber-300 rounded-lg text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-amber-800 block mb-1">返佣 (%)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={selectedStaff.boundUserCommission ?? 0}
-                        onChange={(e) => setSelectedStaff({
-                          ...selectedStaff,
-                          boundUserCommission: Math.min(100, Math.max(0, Number(e.target.value) || 0))
-                        })}
-                        className="w-full p-2 border border-amber-300 rounded-lg text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-2">备注说明</label>
                   <textarea 
@@ -3347,12 +3312,19 @@ function HierarchyTab({
       {showRuleEditor && editingRule && (
         <div 
           className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10000]"
-          onClick={() => { setShowRuleEditor(false); setEditingRule(null) }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowRuleEditor(false)
+              setEditingRule(null)
+            }
+          }}
         >
           <div 
-            className="bg-white rounded-2xl p-6 w-full max-w-md mx-4"
+            className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
             onMouseDown={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
+            onFocus={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">
