@@ -106,6 +106,9 @@ export default function ProductForm() {
         price: 0,
         discountPrice: 0,
         stock: 100,
+        deliveryDays: 7, // 发货天数
+        deliveryNote: '', // 发货备注
+        files: [] as { name: string; url: string; size: number; type: string }[], // SKU专属文件
         sales: 0,
         isPro: false,
         proFeature: '',
@@ -287,6 +290,9 @@ export default function ProductForm() {
               price: sku.price,
               discountPrice: (sku as any).discountPrice || 0,
               stock: sku.stock,
+              deliveryDays: (sku as any).deliveryDays || 7,
+              deliveryNote: (sku as any).deliveryNote || '',
+              files: (sku as any).files || [],
               sales: 0,
               isPro: (sku as any).isPro || false,
               proFeature: (sku as any).proFeature || '',
@@ -541,8 +547,11 @@ export default function ProductForm() {
           materialUpgradePrices: sku.materialUpgradePrices || {} as Record<string, number>, // 保存材质升级价格 { [categoryKey]: price }
           materialId: undefined,
           stock: sku.stock,
+          deliveryDays: (sku as any).deliveryDays || 7, // 发货天数
+          deliveryNote: (sku as any).deliveryNote || '', // 发货备注
           price: sku.price,
           images: sku.images || [],
+          files: (sku as any).files || [], // SKU专属文件
           isPro: sku.isPro,
           proFeature: sku.proFeature,
           discountPrice: sku.discountPrice,
@@ -670,6 +679,9 @@ export default function ProductForm() {
           price: 0,
           discountPrice: 0,
           stock: 100,
+          deliveryDays: 7,
+          deliveryNote: '',
+          files: [],
           sales: 0,
           isPro: false,
           proFeature: '',
@@ -761,6 +773,9 @@ export default function ProductForm() {
       price: formData.basePrice || 0,
       discountPrice: 0,
       stock: 100,
+      deliveryDays: 7, // 默认发货天数
+      deliveryNote: '', // 发货备注
+      files: [], // SKU专属文件
       sales: 0,
       isPro: false,
       proFeature: '',
@@ -960,6 +975,9 @@ export default function ProductForm() {
             price: price,
             discountPrice: discountPrice,
             stock: stock,
+            deliveryDays: 7, // 默认发货天数
+            deliveryNote: '', // 发货备注
+            files: [], // SKU专属文件
             sales: sales,
             isPro: isPro,
             proFeature: proFeature,
@@ -1431,6 +1449,7 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">折扣价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">显示价格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">库存</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium">发货(天)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">PRO</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">厂家</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">状态</th>
@@ -1705,11 +1724,42 @@ export default function ProductForm() {
                         value={sku.stock}
                         onChange={(e) => {
                           const newSkus = [...formData.skus]
-                          newSkus[index].stock = parseInt(e.target.value)
+                          newSkus[index].stock = parseInt(e.target.value) || 0
                           setFormData({ ...formData, skus: newSkus })
                         }}
                         className="w-20 px-2 py-1 border border-gray-300 rounded"
+                        min="0"
+                        placeholder="0"
                       />
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex flex-col gap-1">
+                        <input
+                          type="number"
+                          value={(sku as any).deliveryDays || 7}
+                          onChange={(e) => {
+                            const newSkus = [...formData.skus]
+                            ;(newSkus[index] as any).deliveryDays = parseInt(e.target.value) || 7
+                            setFormData({ ...formData, skus: newSkus })
+                          }}
+                          className="w-16 px-2 py-1 border border-gray-300 rounded text-center"
+                          min="1"
+                          placeholder="7"
+                          title="发货天数"
+                        />
+                        <input
+                          type="text"
+                          value={(sku as any).deliveryNote || ''}
+                          onChange={(e) => {
+                            const newSkus = [...formData.skus]
+                            ;(newSkus[index] as any).deliveryNote = e.target.value
+                            setFormData({ ...formData, skus: newSkus })
+                          }}
+                          className="w-20 px-1 py-0.5 border border-gray-200 rounded text-xs text-gray-500"
+                          placeholder="备注"
+                          title="发货备注（如现货、预售等）"
+                        />
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex flex-col gap-2">

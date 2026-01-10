@@ -12,11 +12,19 @@ const skuSchema = new mongoose.Schema({
   materialUpgradePrices: mongoose.Schema.Types.Mixed,
   materialImages: mongoose.Schema.Types.Mixed,
   materialDescriptions: mongoose.Schema.Types.Mixed,
-  stock: { type: Number, default: 0 },
+  stock: { type: Number, default: 0 }, // 库存数量
+  deliveryDays: { type: Number, default: 7 }, // 发货天数（默认7天）
+  deliveryNote: String, // 发货备注（如"现货"、"预售15天"等）
   price: { type: Number, default: 0 },
   costPrice: { type: Number, default: 0 },
   discountPrice: Number,
   images: [String],
+  files: [{ // SKU专属文件
+    name: String,
+    url: String,
+    size: Number,
+    type: String // 文件类型：design, manual, certificate等
+  }],
   length: Number,
   width: Number,
   height: Number,
