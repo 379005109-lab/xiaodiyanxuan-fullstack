@@ -15,6 +15,7 @@ const skuSchema = new mongoose.Schema({
   stock: { type: Number, default: 0 }, // 库存数量
   deliveryDays: { type: Number, default: 7 }, // 发货天数（默认7天）
   deliveryNote: String, // 发货备注（如"现货"、"预售15天"等）
+  arrivalDate: Date, // 到货时间
   price: { type: Number, default: 0 },
   costPrice: { type: Number, default: 0 },
   discountPrice: Number,

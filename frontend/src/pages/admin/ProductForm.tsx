@@ -108,6 +108,7 @@ export default function ProductForm() {
         stock: 100,
         deliveryDays: 7, // 发货天数
         deliveryNote: '', // 发货备注
+        arrivalDate: null as string | null, // 到货时间
         files: [] as { name: string; url: string; size: number; type: string }[], // SKU专属文件
         sales: 0,
         isPro: false,
@@ -292,6 +293,7 @@ export default function ProductForm() {
               stock: sku.stock,
               deliveryDays: (sku as any).deliveryDays || 7,
               deliveryNote: (sku as any).deliveryNote || '',
+              arrivalDate: (sku as any).arrivalDate || null,
               files: (sku as any).files || [],
               sales: 0,
               isPro: (sku as any).isPro || false,
@@ -549,6 +551,7 @@ export default function ProductForm() {
           stock: sku.stock,
           deliveryDays: (sku as any).deliveryDays || 7, // 发货天数
           deliveryNote: (sku as any).deliveryNote || '', // 发货备注
+          arrivalDate: (sku as any).arrivalDate || null, // 到货时间
           price: sku.price,
           images: sku.images || [],
           files: (sku as any).files || [], // SKU专属文件
@@ -681,6 +684,7 @@ export default function ProductForm() {
           stock: 100,
           deliveryDays: 7,
           deliveryNote: '',
+          arrivalDate: null,
           files: [],
           sales: 0,
           isPro: false,
@@ -775,6 +779,7 @@ export default function ProductForm() {
       stock: 100,
       deliveryDays: 7, // 默认发货天数
       deliveryNote: '', // 发货备注
+      arrivalDate: null, // 到货时间
       files: [], // SKU专属文件
       sales: 0,
       isPro: false,
@@ -977,6 +982,7 @@ export default function ProductForm() {
             stock: stock,
             deliveryDays: 7, // 默认发货天数
             deliveryNote: '', // 发货备注
+            arrivalDate: null, // 到货时间
             files: [], // SKU专属文件
             sales: sales,
             isPro: isPro,
@@ -1450,6 +1456,8 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">显示价格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">库存</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">发货(天)</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium">到货时间</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium">文件</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">PRO</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">厂家</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">状态</th>
@@ -1759,6 +1767,78 @@ export default function ProductForm() {
                           placeholder="备注"
                           title="发货备注（如现货、预售等）"
                         />
+                      </div>
+                    </td>
+                    {/* 到货时间 */}
+                    <td className="py-3 px-4">
+                      <input
+                        type="date"
+                        value={(sku as any).arrivalDate ? new Date((sku as any).arrivalDate).toISOString().split('T')[0] : ''}
+                        onChange={(e) => {
+                          const newSkus = [...formData.skus]
+                          ;(newSkus[index] as any).arrivalDate = e.target.value || null
+                          setFormData({ ...formData, skus: newSkus })
+                        }}
+                        className="w-32 px-2 py-1 border border-gray-300 rounded text-sm"
+                        title="预计到货时间"
+                      />
+                    </td>
+                    {/* SKU文件上传 */}
+                    <td className="py-3 px-4">
+                      <div className="flex flex-col gap-1">
+                        {((sku as any).files || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-1">
+                            {((sku as any).files || []).map((file: any, fileIdx: number) => (
+                              <div key={fileIdx} className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
+                                <span className="max-w-[60px] truncate" title={file.name}>{file.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newSkus = [...formData.skus]
+                                    const files = [...((newSkus[index] as any).files || [])]
+                                    files.splice(fileIdx, 1)
+                                    ;(newSkus[index] as any).files = files
+                                    setFormData({ ...formData, skus: newSkus })
+                                  }}
+                                  className="text-blue-500 hover:text-red-500"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <label className="flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-300 rounded cursor-pointer text-xs text-gray-600">
+                          <Upload className="h-3 w-3" />
+                          <span>上传</span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              try {
+                                const result = await uploadFile(file)
+                                if (result.success) {
+                                  const newSkus = [...formData.skus]
+                                  const files = [...((newSkus[index] as any).files || [])]
+                                  files.push({
+                                    name: file.name,
+                                    url: result.data.fileId,
+                                    size: file.size,
+                                    type: file.name.split('.').pop() || 'unknown'
+                                  })
+                                  ;(newSkus[index] as any).files = files
+                                  setFormData({ ...formData, skus: newSkus })
+                                  toast.success('文件上传成功')
+                                }
+                              } catch (err) {
+                                toast.error('文件上传失败')
+                              }
+                              e.target.value = ''
+                            }}
+                          />
+                        </label>
                       </div>
                     </td>
                     <td className="py-3 px-4">
