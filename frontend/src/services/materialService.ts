@@ -145,6 +145,16 @@ export const deleteMaterials = async (ids: string[]): Promise<boolean> => {
   }
 }
 
+export const cleanupOrphanedMaterials = async (): Promise<{ count: number; message: string }> => {
+  try {
+    const response = await apiClient.post('/materials/cleanup-orphaned')
+    return response.data
+  } catch (error: any) {
+    console.error('清理孤立材质失败:', error)
+    throw new Error(error.response?.data?.message || '清理孤立材质失败')
+  }
+}
+
 export const reviewMaterial = async (id: string, status: 'approved' | 'rejected', reviewBy: string, reviewNote?: string): Promise<Material | null> => {
   return await updateMaterial(id, {
     status,

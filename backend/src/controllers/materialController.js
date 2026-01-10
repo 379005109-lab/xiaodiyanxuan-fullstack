@@ -188,6 +188,39 @@ exports.batchDelete = async (req, res) => {
   }
 };
 
+// 清理孤立材质（分类已被删除的材质）
+exports.cleanupOrphanedMaterials = async (req, res) => {
+  try {
+    // 获取所有有效的分类ID
+    const validCategories = await MaterialCategory.find({}, { _id: 1 });
+    const validCategoryIds = validCategories.map(c => c._id.toString());
+    
+    // 查找所有分类ID无效的材质
+    const orphanedMaterials = await Material.find({
+      categoryId: { $nin: validCategoryIds, $ne: null, $ne: '' }
+    });
+    
+    if (orphanedMaterials.length === 0) {
+      return res.json({ success: true, message: '没有找到孤立材质', count: 0 });
+    }
+    
+    // 删除孤立材质
+    const result = await Material.deleteMany({
+      categoryId: { $nin: validCategoryIds, $ne: null, $ne: '' }
+    });
+    
+    console.log(`清理了 ${result.deletedCount} 个孤立材质`);
+    
+    res.json({ 
+      success: true, 
+      message: `已清理 ${result.deletedCount} 个孤立材质`,
+      count: result.deletedCount
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // 统计
 exports.stats = async (req, res) => {
   try {
