@@ -23,6 +23,14 @@ export type Manufacturer = {
   contactPhone?: string
   contactEmail?: string
   address?: string
+  paymentRatio?: {
+    enabled?: boolean
+    ratio?: number
+  }
+  invoiceSetting?: {
+    enabled?: boolean
+    ratio?: number
+  }
   certification?: {
     status?: 'none' | 'pending' | 'approved' | 'rejected'
     businessLicenseImage?: string
@@ -113,6 +121,14 @@ export default function ManufacturerEditDrawer({
     logo: string
     defaultDiscount: number
     defaultCommission: number
+    paymentRatio: {
+      enabled: boolean
+      ratio: number
+    }
+    invoiceSetting: {
+      enabled: boolean
+      ratio: number
+    }
     accountQuota: {
       authAccounts: number
       subAccounts: number
@@ -186,6 +202,14 @@ export default function ManufacturerEditDrawer({
       logo: normalizeFileId(m?.logo) || '',
       defaultDiscount: Number((m as any)?.defaultDiscount || 0),
       defaultCommission: Number((m as any)?.defaultCommission || 0),
+      paymentRatio: {
+        enabled: (m as any)?.paymentRatio?.enabled || false,
+        ratio: Number((m as any)?.paymentRatio?.ratio || 100),
+      },
+      invoiceSetting: {
+        enabled: (m as any)?.invoiceSetting?.enabled || false,
+        ratio: Number((m as any)?.invoiceSetting?.ratio || 0),
+      },
       accountQuota: {
         authAccounts: Number(quota.authAccounts || 0),
         subAccounts: Number(quota.subAccounts || 0),
@@ -328,6 +352,8 @@ export default function ManufacturerEditDrawer({
           status: form.status,
           defaultDiscount: form.defaultDiscount,
           defaultCommission: form.defaultCommission,
+          paymentRatio: form.paymentRatio,
+          invoiceSetting: form.invoiceSetting,
           settings: {
             phone: form.settings.phone,
             servicePhone: form.settings.servicePhone,
@@ -474,6 +500,80 @@ export default function ManufacturerEditDrawer({
                           <div className="text-xs font-black text-gray-400 uppercase tracking-widest">预设返佣比例 (%)</div>
                           <input type="number" value={form.defaultCommission} onChange={e => setForm(prev => ({ ...prev, defaultCommission: Number(e.target.value || 0) }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-blue-50/30 border border-blue-100 text-sm font-black text-blue-700" />
                         </div>
+                      </div>
+                    </section>
+
+                    <section className="space-y-6">
+                      <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-amber-500 pl-4">03-1. 付款与开票规则</div>
+                      
+                      {/* 付款比例设置 */}
+                      <div className="bg-white border border-gray-100 rounded-[2rem] p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <div className="text-sm font-black text-gray-900">付款比例</div>
+                            <div className="text-xs text-gray-500 mt-1">开启后客户下单需按比例付款</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setForm(prev => ({ ...prev, paymentRatio: { ...prev.paymentRatio, enabled: !prev.paymentRatio.enabled } }))}
+                            className={`w-14 h-8 rounded-full transition-all ${form.paymentRatio.enabled ? 'bg-[#153e35]' : 'bg-gray-200'}`}
+                          >
+                            <div className={`w-6 h-6 bg-white rounded-full shadow transition-all ${form.paymentRatio.enabled ? 'ml-7' : 'ml-1'}`} />
+                          </button>
+                        </div>
+                        {form.paymentRatio.enabled && (
+                          <div className="pt-4 border-t">
+                            <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">付款比例</div>
+                            <div className="flex gap-3">
+                              {[50, 75, 100].map(ratio => (
+                                <button
+                                  key={ratio}
+                                  type="button"
+                                  onClick={() => setForm(prev => ({ ...prev, paymentRatio: { ...prev.paymentRatio, ratio } }))}
+                                  className={`flex-1 py-3 rounded-xl font-black text-sm transition-all ${
+                                    form.paymentRatio.ratio === ratio
+                                      ? 'bg-[#153e35] text-white'
+                                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  {ratio}%
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 开票设置 */}
+                      <div className="bg-white border border-gray-100 rounded-[2rem] p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <div className="text-sm font-black text-gray-900">开票加价</div>
+                            <div className="text-xs text-gray-500 mt-1">开启后所有价格按比例加价（含税价）</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setForm(prev => ({ ...prev, invoiceSetting: { ...prev.invoiceSetting, enabled: !prev.invoiceSetting.enabled } }))}
+                            className={`w-14 h-8 rounded-full transition-all ${form.invoiceSetting.enabled ? 'bg-[#153e35]' : 'bg-gray-200'}`}
+                          >
+                            <div className={`w-6 h-6 bg-white rounded-full shadow transition-all ${form.invoiceSetting.enabled ? 'ml-7' : 'ml-1'}`} />
+                          </button>
+                        </div>
+                        {form.invoiceSetting.enabled && (
+                          <div className="pt-4 border-t">
+                            <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">加价比例 (%)</div>
+                            <input
+                              type="number"
+                              value={form.invoiceSetting.ratio}
+                              onChange={e => setForm(prev => ({ ...prev, invoiceSetting: { ...prev.invoiceSetting, ratio: Number(e.target.value || 0) } }))}
+                              min="0"
+                              max="100"
+                              className="w-full px-5 py-3 rounded-2xl bg-amber-50/50 border border-amber-100 text-sm font-black text-amber-700"
+                              placeholder="如：6 表示加价6%"
+                            />
+                            <div className="text-xs text-gray-400 mt-2">例如：商品价格100元，加价6%后显示为106元</div>
+                          </div>
+                        )}
                       </div>
                     </section>
 

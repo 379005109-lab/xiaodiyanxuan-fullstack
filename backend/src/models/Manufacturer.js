@@ -102,6 +102,33 @@ const manufacturerSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // 付款比例设置
+  paymentRatio: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    // 付款比例: 50, 75, 100 (百分比)
+    ratio: {
+      type: Number,
+      default: 100,
+      enum: [50, 75, 100]
+    }
+  },
+  // 开票设置
+  invoiceSetting: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    // 开票加价比例 (百分比，如 6 表示加价6%)
+    ratio: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100
+    }
+  },
   // 厂家设置信息
   settings: {
     // 公司电话
