@@ -1538,6 +1538,28 @@ function HierarchyTab({
   const [editingRule, setEditingRule] = useState<CommissionRule | null>(null)
   const [showRuleEditor, setShowRuleEditor] = useState(false)
   const [localCommissionRules, setLocalCommissionRules] = useState<CommissionRule[]>(commissionRules || [])
+  
+  // 绑定人员状态
+  const [showBindModal, setShowBindModal] = useState(false)
+  const [manufacturerAccounts, setManufacturerAccounts] = useState<any[]>([])
+  const [bindSearchKeyword, setBindSearchKeyword] = useState('')
+  const [loadingAccounts, setLoadingAccounts] = useState(false)
+  
+  // 加载厂家账号
+  const loadManufacturerAccounts = async () => {
+    if (!manufacturerId) return
+    setLoadingAccounts(true)
+    try {
+      const resp = await apiClient.get(`/manufacturers/${manufacturerId}/accounts`)
+      const list = resp.data?.data || resp.data || []
+      setManufacturerAccounts(Array.isArray(list) ? list : [])
+    } catch (e) {
+      console.error('加载厂家账号失败:', e)
+      setManufacturerAccounts([])
+    } finally {
+      setLoadingAccounts(false)
+    }
+  }
 
   // 同步commissionRules prop
   useEffect(() => {
@@ -3227,28 +3249,17 @@ function HierarchyTab({
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h4 className="text-sm font-medium text-blue-900">绑定人员/组织</h4>
-                      <p className="text-xs text-blue-700">关联下属人员或组织到此节点</p>
+                      <p className="text-xs text-blue-700">关联厂家账号到此节点</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        const name = prompt('输入要绑定的人员/组织名称:')
-                        if (name && name.trim()) {
-                          const currentBindings = selectedStaff.boundEntities || []
-                          setSelectedStaff({
-                            ...selectedStaff,
-                            boundEntities: [...currentBindings, {
-                              id: `bind_${Date.now()}`,
-                              name: name.trim(),
-                              type: 'person',
-                              bindTime: new Date().toISOString()
-                            }]
-                          })
-                        }
+                        loadManufacturerAccounts()
+                        setShowBindModal(true)
                       }}
                       className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700"
                     >
-                      + 添加绑定
+                      + 选择账号
                     </button>
                   </div>
                   
@@ -3259,14 +3270,21 @@ function HierarchyTab({
                       (selectedStaff.boundEntities || []).map((entity: any, idx: number) => (
                         <div key={entity.id || idx} className="flex items-center justify-between p-2 bg-white rounded-lg border border-blue-200">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                              <Users className="w-4 h-4 text-blue-600" />
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden">
+                              {entity.avatar ? (
+                                <img src={entity.avatar} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <Users className="w-4 h-4 text-blue-600" />
+                              )}
                             </div>
                             <div>
                               <span className="text-sm font-medium text-gray-900">{entity.name}</span>
-                              <span className="text-xs text-gray-500 ml-2">
-                                {entity.type === 'org' ? '组织' : '人员'}
-                              </span>
+                              {entity.phone && (
+                                <span className="text-xs text-gray-500 ml-2">{entity.phone}</span>
+                              )}
+                              {entity.role && (
+                                <span className="text-xs text-blue-600 ml-2">{entity.role}</span>
+                              )}
                             </div>
                           </div>
                           <button
@@ -3529,6 +3547,130 @@ function HierarchyTab({
                 className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700"
               >
                 保存规则
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 绑定账号选择弹窗 */}
+      {showBindModal && (
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10001]"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowBindModal(false)
+              setBindSearchKeyword('')
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 max-h-[80vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">选择要绑定的账号</h3>
+              <button 
+                onClick={() => { setShowBindModal(false); setBindSearchKeyword('') }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <input
+                type="text"
+                value={bindSearchKeyword}
+                onChange={(e) => setBindSearchKeyword(e.target.value)}
+                placeholder="搜索账号名称或手机号..."
+                className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2 min-h-[200px]">
+              {loadingAccounts ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-gray-500">加载中...</div>
+                </div>
+              ) : manufacturerAccounts.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-gray-500">暂无可用账号</div>
+                </div>
+              ) : (
+                manufacturerAccounts
+                  .filter(acc => {
+                    if (!bindSearchKeyword.trim()) return true
+                    const kw = bindSearchKeyword.toLowerCase()
+                    const name = (acc.nickname || acc.username || '').toLowerCase()
+                    const phone = (acc.phone || '').toLowerCase()
+                    return name.includes(kw) || phone.includes(kw)
+                  })
+                  .map((acc: any) => {
+                    const alreadyBound = (selectedStaff?.boundEntities || []).some(
+                      (e: any) => e.id === acc._id || e.userId === acc._id
+                    )
+                    return (
+                      <button
+                        key={acc._id}
+                        type="button"
+                        disabled={alreadyBound}
+                        onClick={() => {
+                          if (alreadyBound) return
+                          const currentBindings = selectedStaff?.boundEntities || []
+                          setSelectedStaff({
+                            ...selectedStaff,
+                            boundEntities: [...currentBindings, {
+                              id: acc._id,
+                              userId: acc._id,
+                              name: acc.nickname || acc.username || '未命名',
+                              phone: acc.phone || '',
+                              avatar: acc.avatar || '',
+                              role: acc.role || '',
+                              bindTime: new Date().toISOString()
+                            }]
+                          })
+                          setShowBindModal(false)
+                          setBindSearchKeyword('')
+                        }}
+                        className={`w-full p-3 rounded-lg border text-left transition-all flex items-center gap-3 ${
+                          alreadyBound 
+                            ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed' 
+                            : 'border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50'
+                        }`}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {acc.avatar ? (
+                            <img src={acc.avatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <Users className="w-5 h-5 text-blue-600" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 truncate">
+                            {acc.nickname || acc.username || '未命名'}
+                          </div>
+                          <div className="text-xs text-gray-500 flex items-center gap-2">
+                            {acc.phone && <span>{acc.phone}</span>}
+                            {acc.role && <span className="text-blue-600">{acc.role}</span>}
+                          </div>
+                        </div>
+                        {alreadyBound && (
+                          <span className="text-xs text-gray-400">已绑定</span>
+                        )}
+                      </button>
+                    )
+                  })
+              )}
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+              <button
+                onClick={() => { setShowBindModal(false); setBindSearchKeyword('') }}
+                className="w-full py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50"
+              >
+                关闭
               </button>
             </div>
           </div>
