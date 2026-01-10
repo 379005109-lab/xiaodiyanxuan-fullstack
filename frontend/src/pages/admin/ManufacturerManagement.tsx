@@ -1081,6 +1081,13 @@ export default function ManufacturerManagement() {
                           {item.isPreferred ? '优质厂家 ★' : '设为优质'}
                         </button>
                       )}
+                      
+                      {/* 到期时间显示 */}
+                      <div className="text-xs text-gray-500">
+                        效期至：<span className={item.expiryDate && new Date(item.expiryDate) < new Date() ? 'text-red-500 font-bold' : 'text-emerald-600 font-medium'}>
+                          {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-') : '--'}
+                        </span>
+                      </div>
 
                       {canManageManufacturer(item._id) && (
                         <div className="flex items-center gap-3">
@@ -1168,82 +1175,44 @@ export default function ManufacturerManagement() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-3 border-t border-gray-100 flex-wrap">
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100">
                     {canManageManufacturer(item._id) ? (
                       <>
                         <button
                           onClick={() => openEditModal(item)}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"
                         >
                           <Edit className="w-4 h-4" />
-                          编辑
-                        </button>
-                        <button
-                          onClick={() => openAccountsModal(item)}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Key className="w-4 h-4" />
-                          账号
-                        </button>
-                        <button
-                          onClick={() => navigate(`/admin/manufacturer-orders?manufacturerId=${item._id}`)}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
-                        >
-                          <Factory className="w-4 h-4" />
-                          订单
-                        </button>
-                        <button
-                          onClick={() => openSmsModal(item)}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-cyan-700 hover:bg-cyan-50 rounded-lg transition-colors"
-                        >
-                          <Phone className="w-4 h-4" />
-                          短信
+                          资料编辑
                         </button>
                         <button
                           onClick={() => handleOpenTierSystem(item, 'hierarchy')}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-purple-50 hover:text-purple-600 rounded-xl transition-colors"
                         >
                           <Layers className="w-4 h-4" />
                           分层体系
                         </button>
                         <button
                           onClick={() => handleOpenTierSystem(item, 'pool')}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-colors"
                         >
                           <Shield className="w-4 h-4" />
                           角色授权
                         </button>
                         <button
-                          onClick={() => handleOpenTierSystem(item, 'reconciliation')}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+                          onClick={() => handleOpenProductAuthorization(item)}
+                          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
                         >
-                          <BarChart3 className="w-4 h-4" />
-                          返佣对账
+                          <Settings className="w-4 h-4" />
+                          选品授权
                         </button>
-                        {isManufacturerUser && myManufacturerId && String(item._id) === String(myManufacturerId) && (
-                          <button
-                            onClick={handleOpenAuthorizationRequests}
-                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
-                          >
-                            <Shield className="w-4 h-4" />
-                            授权申请
-                          </button>
-                        )}
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleDelete(item._id)}
-                            className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            删除
-                          </button>
-                        )}
                       </>
                     ) : (
                       <button
                         onClick={() => handleOpenProductAuthorization(item)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                        className="col-span-2 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
                       >
+                        <Settings className="w-4 h-4" />
                         商品授权
                       </button>
                     )}
