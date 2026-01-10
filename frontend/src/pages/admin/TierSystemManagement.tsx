@@ -2924,10 +2924,10 @@ function HierarchyTab({
         />
       )}
       
-      {/* 编辑业务节点档案模态框 (参考图3) */}
+      {/* 编辑业务节点档案模态框 - 层级返佣配置 */}
       {showProfileEditModal && selectedStaff && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => setShowProfileEditModal(false)}>
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]" onClick={() => setShowProfileEditModal(false)}>
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-900">编辑业务节点档案</h3>
               <button onClick={() => setShowProfileEditModal(false)} className="text-gray-400 hover:text-gray-600">
