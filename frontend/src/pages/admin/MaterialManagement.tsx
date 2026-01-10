@@ -19,6 +19,7 @@ import {
   deleteMaterialCategory,
   cleanupOrphanedMaterials,
   clearMaterialCache,
+  fetchMaterialsFromServer,
 } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
@@ -31,6 +32,7 @@ export default function MaterialManagement() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [categories, setCategories] = useState<MaterialCategory[]>([])
   const [expandedIds, setExpandedIds] = useState<string[]>([])
+  const [refreshKey, setRefreshKey] = useState(0) // 强制刷新用
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('')
   const [expandedMaterialGroups, setExpandedMaterialGroups] = useState<Record<string, boolean>>({})
   const [expandedSKUGroup, setExpandedSKUGroup] = useState<string | null>(null)
@@ -116,12 +118,9 @@ export default function MaterialManagement() {
     if (confirm(`确定要删除素材"${name}"吗？`)) {
       try {
         await deleteMaterial(id)
-        toast.success('素材已删除')
-        // 清除缓存并重新加载数据
-        clearMaterialCache()
-        const freshMaterials = await getAllMaterials()
-        setMaterials(freshMaterials)
-        loadStats()
+        toast.success('素材已删除，正在刷新...')
+        // 直接刷新页面确保显示最新数据
+        setTimeout(() => window.location.reload(), 500)
       } catch (error: any) {
         toast.error(error.message || '删除失败')
       }
@@ -134,12 +133,9 @@ export default function MaterialManagement() {
       try {
         // 批量删除所有材质
         await deleteMaterials(materialIds)
-        toast.success(`已删除 ${materialIds.length} 个素材`)
-        // 清除缓存并重新加载数据
-        clearMaterialCache()
-        const freshMaterials = await getAllMaterials()
-        setMaterials(freshMaterials)
-        loadStats()
+        toast.success(`已删除 ${materialIds.length} 个素材，正在刷新...`)
+        // 直接刷新页面确保显示最新数据
+        setTimeout(() => window.location.reload(), 500)
       } catch (error: any) {
         toast.error(error.message || '删除失败')
       }
@@ -760,7 +756,7 @@ export default function MaterialManagement() {
 
           {/* 材质列表 - 网格布局 */}
           {filteredMaterials.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div key={`materials-grid-${refreshKey}`} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {(() => {
                 // 按材质类型分组
                 const materialGroups: Record<string, typeof filteredMaterials> = {};

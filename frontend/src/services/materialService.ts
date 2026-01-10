@@ -86,6 +86,28 @@ export const clearMaterialCache = () => {
   materialCachePromise = null;
 }
 
+// 强制从服务器获取最新材质列表（完全绕过缓存）
+export const fetchMaterialsFromServer = async (): Promise<Material[]> => {
+  // 先清除所有缓存
+  materialCache = null;
+  materialCachePromise = null;
+  
+  // 直接发起新请求，添加时间戳和缓存控制头防止HTTP缓存
+  const response = await apiClient.get('/materials', { 
+    params: { limit: 10000, _t: Date.now() },
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  })
+  const materials = response.data.data || []
+  console.log(`[材质服务] 强制刷新获取到 ${materials.length} 条材质`)
+  // 更新缓存
+  materialCache = materials;
+  return materials
+}
+
 // 清除材质图片缓存
 export const clearMaterialImageCache = () => {
   Object.keys(materialImageLocalCache).forEach(key => {
