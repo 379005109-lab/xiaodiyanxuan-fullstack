@@ -1533,6 +1533,55 @@ function HierarchyTab({
   const [manufacturerProducts, setManufacturerProducts] = useState<any[]>([])
   const [showProductModal, setShowProductModal] = useState(false)
   const [productAccount, setProductAccount] = useState<AuthorizedAccount | null>(null)
+  
+  // 层级返佣规则编辑状态
+  const [editingRule, setEditingRule] = useState<CommissionRule | null>(null)
+  const [showRuleEditor, setShowRuleEditor] = useState(false)
+  const [localCommissionRules, setLocalCommissionRules] = useState<CommissionRule[]>(commissionRules || [])
+
+  // 同步commissionRules prop
+  useEffect(() => {
+    setLocalCommissionRules(commissionRules || [])
+  }, [commissionRules])
+
+  // 保存规则
+  const handleSaveRule = (rule: CommissionRule) => {
+    const isNew = !localCommissionRules.find(r => r._id === rule._id)
+    let newRules: CommissionRule[]
+    if (isNew) {
+      newRules = [...localCommissionRules, rule]
+    } else {
+      newRules = localCommissionRules.map(r => r._id === rule._id ? rule : r)
+    }
+    setLocalCommissionRules(newRules)
+    // 同时保存到accounts数据
+    const updatedAccounts = accounts.map(a => ({ ...a }))
+    onSaveAccounts(updatedAccounts)
+    setShowRuleEditor(false)
+    setEditingRule(null)
+  }
+
+  // 删除规则
+  const handleDeleteRule = (ruleId: string) => {
+    if (!confirm('确定要删除这个规则吗？')) return
+    const newRules = localCommissionRules.filter(r => r._id !== ruleId)
+    setLocalCommissionRules(newRules)
+  }
+
+  // 创建新规则
+  const handleCreateRule = () => {
+    const newRule: CommissionRule = {
+      _id: `rule_${Date.now()}`,
+      name: '新规则',
+      description: '',
+      selfRate: 20,
+      subordinateRates: [20],
+      maxTotal: 40,
+      createdAt: new Date().toISOString()
+    }
+    setEditingRule(newRule)
+    setShowRuleEditor(true)
+  }
 
   useEffect(() => {
     const loadCategoriesAndProducts = async () => {
@@ -3093,48 +3142,83 @@ function HierarchyTab({
 
                 {/* 层级返佣规则选择 */}
                 <div className="bg-emerald-50 p-4 rounded-lg">
-                  <h4 className="text-sm font-medium text-emerald-900 mb-3">层级返佣规则</h4>
-                  <p className="text-xs text-emerald-700 mb-3">选择适用的分佣规则（最多40%）</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-medium text-emerald-900">层级返佣规则</h4>
+                      <p className="text-xs text-emerald-700">选择适用的分佣规则（最多40%）</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreateRule}
+                      className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700"
+                    >
+                      + 新建规则
+                    </button>
+                  </div>
                   
                   <div className="space-y-2">
-                    {(commissionRules || []).map((rule: CommissionRule) => {
+                    {(localCommissionRules || []).map((rule: CommissionRule) => {
                       const isSelected = selectedStaff.commissionRuleId === rule._id
                       const total = rule.selfRate + (rule.subordinateRates || []).reduce((a, b) => a + b, 0)
                       return (
-                        <button
+                        <div
                           key={rule._id}
-                          type="button"
-                          onClick={() => setSelectedStaff({ ...selectedStaff, commissionRuleId: rule._id })}
-                          className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
+                          className={`p-3 rounded-lg border-2 transition-all ${
                             isSelected 
                               ? 'border-emerald-500 bg-emerald-100' 
                               : 'border-gray-200 bg-white hover:border-emerald-300'
                           }`}
                         >
                           <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-sm text-gray-900">{rule.name}</span>
-                            <span className={`text-xs font-bold ${total > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
-                              合计 {total}%
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 mb-2">{rule.description}</p>
-                          <div className="flex flex-wrap gap-2 text-xs">
-                            <span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded">
-                              自己 {rule.selfRate}%
-                            </span>
-                            {(rule.subordinateRates || []).map((rate, idx) => (
-                              <span key={idx} className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded">
-                                {idx + 1}级下级 {rate}%
+                            <button
+                              type="button"
+                              onClick={() => setSelectedStaff({ ...selectedStaff, commissionRuleId: rule._id })}
+                              className="font-medium text-sm text-gray-900 text-left flex-1"
+                            >
+                              {rule.name}
+                            </button>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold ${total > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                {total}%
                               </span>
-                            ))}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setEditingRule(rule)
+                                  setShowRuleEditor(true)
+                                }}
+                                className="p-1 text-gray-400 hover:text-emerald-600"
+                                title="编辑规则"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedStaff({ ...selectedStaff, commissionRuleId: rule._id })}
+                            className="w-full text-left"
+                          >
+                            <p className="text-xs text-gray-500 mb-2">{rule.description}</p>
+                            <div className="flex flex-wrap gap-2 text-xs">
+                              <span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded">
+                                自己 {rule.selfRate}%
+                              </span>
+                              {(rule.subordinateRates || []).map((rate, idx) => (
+                                <span key={idx} className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded">
+                                  {idx + 1}级下级 {rate}%
+                                </span>
+                              ))}
+                            </div>
+                          </button>
+                        </div>
                       )
                     })}
                   </div>
                   
-                  {(!commissionRules || commissionRules.length === 0) && (
-                    <p className="text-xs text-gray-500 italic">暂无返佣规则，请先在"角色权限"中创建</p>
+                  {(!localCommissionRules || localCommissionRules.length === 0) && (
+                    <p className="text-xs text-gray-500 italic">暂无返佣规则，点击"新建规则"创建</p>
                   )}
                 </div>
 
@@ -3253,6 +3337,163 @@ function HierarchyTab({
                 className="flex-1 py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-emerald-700"
               >
                 提交档案修改
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 层级返佣规则编辑器 */}
+      {showRuleEditor && editingRule && (
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10000]"
+          onClick={() => { setShowRuleEditor(false); setEditingRule(null) }}
+        >
+          <div 
+            className="bg-white rounded-2xl p-6 w-full max-w-md mx-4"
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">
+                {localCommissionRules.find(r => r._id === editingRule._id) ? '编辑规则' : '新建规则'}
+              </h3>
+              <button 
+                onClick={() => { setShowRuleEditor(false); setEditingRule(null) }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">规则名称</label>
+                <input
+                  type="text"
+                  value={editingRule.name}
+                  onChange={(e) => setEditingRule({ ...editingRule, name: e.target.value })}
+                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                  placeholder="如：3层分佣"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">规则说明</label>
+                <input
+                  type="text"
+                  value={editingRule.description || ''}
+                  onChange={(e) => setEditingRule({ ...editingRule, description: e.target.value })}
+                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm"
+                  placeholder="简要描述此规则"
+                />
+              </div>
+
+              <div className="bg-emerald-50 p-4 rounded-lg">
+                <div className="mb-3">
+                  <label className="text-sm font-medium text-emerald-800 block mb-1">自己销售返佣 (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="40"
+                    value={editingRule.selfRate}
+                    onChange={(e) => setEditingRule({ 
+                      ...editingRule, 
+                      selfRate: Math.min(40, Math.max(0, Number(e.target.value) || 0))
+                    })}
+                    className="w-full p-2.5 border border-emerald-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-emerald-800">下级层级返佣</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditingRule({
+                        ...editingRule,
+                        subordinateRates: [...(editingRule.subordinateRates || []), 10]
+                      })}
+                      className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                    >
+                      + 添加层级
+                    </button>
+                  </div>
+
+                  {(editingRule.subordinateRates || []).map((rate, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-xs text-emerald-700 w-20">第{idx + 1}级下级</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="40"
+                        value={rate}
+                        onChange={(e) => {
+                          const newRates = [...(editingRule.subordinateRates || [])]
+                          newRates[idx] = Math.min(40, Math.max(0, Number(e.target.value) || 0))
+                          setEditingRule({ ...editingRule, subordinateRates: newRates })
+                        }}
+                        className="flex-1 p-2 border border-emerald-300 rounded-lg text-sm"
+                      />
+                      <span className="text-xs text-emerald-600">%</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newRates = (editingRule.subordinateRates || []).filter((_, i) => i !== idx)
+                          setEditingRule({ ...editingRule, subordinateRates: newRates })
+                        }}
+                        className="p-1 text-red-500 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {(editingRule.subordinateRates || []).length === 0 && (
+                    <p className="text-xs text-emerald-600 italic">点击"添加层级"设置下级返佣</p>
+                  )}
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-emerald-200">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-emerald-700">返佣合计：</span>
+                    <span className={`font-bold ${
+                      (editingRule.selfRate + (editingRule.subordinateRates || []).reduce((a, b) => a + b, 0)) > 40
+                        ? 'text-red-600' : 'text-emerald-800'
+                    }`}>
+                      {editingRule.selfRate + (editingRule.subordinateRates || []).reduce((a, b) => a + b, 0)}%
+                      {(editingRule.selfRate + (editingRule.subordinateRates || []).reduce((a, b) => a + b, 0)) > 40 && (
+                        <span className="text-xs ml-1">(超过40%上限)</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => { setShowRuleEditor(false); setEditingRule(null) }}
+                className="flex-1 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const total = editingRule.selfRate + (editingRule.subordinateRates || []).reduce((a, b) => a + b, 0)
+                  if (total > 40) {
+                    alert('返佣合计不能超过40%')
+                    return
+                  }
+                  if (!editingRule.name.trim()) {
+                    alert('请输入规则名称')
+                    return
+                  }
+                  handleSaveRule(editingRule)
+                }}
+                className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700"
+              >
+                保存规则
               </button>
             </div>
           </div>
