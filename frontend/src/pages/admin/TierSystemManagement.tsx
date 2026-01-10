@@ -2726,12 +2726,10 @@ function HierarchyTab({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
-                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                        setParentAccount(acc)
-                        setShowAddModal(true)
+                        handleAvatarClick(staff)
                       }}
-                      className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden hover:ring-4 hover:ring-blue-200 transition-all flex-shrink-0"
-                      title="查看人员组织"
+                      className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden hover:ring-4 hover:ring-emerald-300 transition-all flex-shrink-0"
+                      title="编辑层级返佣配置"
                     >
                       <img src={staff.avatar} alt={staff.name} className="w-full h-full object-cover" />
                     </button>
