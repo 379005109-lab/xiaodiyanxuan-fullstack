@@ -156,14 +156,18 @@ exports.update = async (req, res) => {
 // 删除材质
 exports.delete = async (req, res) => {
   try {
+    console.log(`[删除材质] 请求删除ID: ${req.params.id}`);
     const material = await Material.findByIdAndDelete(req.params.id);
     
     if (!material) {
+      console.log(`[删除材质] 材质不存在: ${req.params.id}`);
       return res.status(404).json({ success: false, message: '材质不存在' });
     }
     
+    console.log(`[删除材质] 成功删除: ${material.name}`);
     res.json({ success: true, message: '材质已删除' });
   } catch (error) {
+    console.error(`[删除材质] 错误:`, error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -172,18 +176,22 @@ exports.delete = async (req, res) => {
 exports.batchDelete = async (req, res) => {
   try {
     const { ids } = req.body;
+    console.log(`[批量删除] 请求删除IDs:`, ids);
     
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      console.log(`[批量删除] IDs为空`);
       return res.status(400).json({ success: false, message: '请提供要删除的ID列表' });
     }
     
     const result = await Material.deleteMany({ _id: { $in: ids } });
+    console.log(`[批量删除] 删除结果: ${result.deletedCount}个`);
     
     res.json({ 
       success: true, 
       message: `已删除${result.deletedCount}个材质` 
     });
   } catch (error) {
+    console.error(`[批量删除] 错误:`, error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
