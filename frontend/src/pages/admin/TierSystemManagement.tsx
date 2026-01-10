@@ -2495,108 +2495,57 @@ function HierarchyTab({
         {viewMode === 'map' && (
           /* duijie/nn的架构地图视图 */
           <div ref={canvasViewportRef} className="relative w-full h-full overflow-hidden bg-gray-50/50">
-            {/* 浮动控制栏 - 紧贴画布顶部 */}
+            {/* 浮动控制栏 - 紧贴画布顶部，更紧凑 */}
             <div
-              className="absolute top-4 left-1/2 -translate-x-1/2 z-[90] bg-white/95 backdrop-blur-sm rounded-2xl border border-emerald-200 shadow-lg"
+              className="absolute top-2 left-1/2 -translate-x-1/2 z-[90] bg-white/98 backdrop-blur-sm rounded-xl border border-gray-200 shadow-md max-w-[95%]"
               onWheel={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-4 px-4 py-3">
-                {/* 左侧：层级展开控制 - 更醒目的设计 */}
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <GitBranch className="w-5 h-5 text-emerald-600" />
-                    <span className="text-sm font-bold text-emerald-800">展开层级</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-white rounded-xl border-2 border-emerald-200 p-1 shadow-sm">
-                    <button 
-                      onClick={() => expandToDepth(0)}
-                      className="px-4 py-2 rounded-lg text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
-                    >
-                      收起全部
-                    </button>
-                    <div className="w-px h-6 bg-emerald-200"></div>
-                    <button 
-                      onClick={() => expandToDepth(1)}
-                      className="px-4 py-2 rounded-lg text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
-                    >
-                      1级
-                    </button>
-                    <button 
-                      onClick={() => expandToDepth(2)}
-                      className="px-4 py-2 rounded-lg text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
-                    >
-                      2级
-                    </button>
-                    <button 
-                      onClick={() => expandToDepth(3)}
-                      className="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-                    >
-                      展开全部
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-2 bg-white/80 rounded-lg border border-emerald-200">
-                    <Layers className="w-4 h-4 text-emerald-500" />
-                    <span className="text-sm font-medium text-emerald-700">
-                      {tooManyVisible ? (
-                        <span className="text-red-600">{MAX_VISIBLE_STAFF_NODES} / {visibleStaffNodes.length}</span>
-                      ) : (
-                        <span>{visibleStaffNodes.length}</span>
-                      )}
-                    </span>
-                    <span className="text-xs text-emerald-500">个节点</span>
+              <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+                {/* 层级展开控制 - 更紧凑 */}
+                <div className="flex items-center gap-1.5">
+                  <GitBranch className="w-4 h-4 text-emerald-600" />
+                  <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+                    <button onClick={() => expandToDepth(0)} className="px-2 py-1 rounded text-[11px] font-medium text-gray-600 hover:bg-white transition-all">收起</button>
+                    <button onClick={() => expandToDepth(1)} className="px-2 py-1 rounded text-[11px] font-medium text-gray-600 hover:bg-white transition-all">1级</button>
+                    <button onClick={() => expandToDepth(2)} className="px-2 py-1 rounded text-[11px] font-medium text-gray-600 hover:bg-white transition-all">2级</button>
+                    <button onClick={() => expandToDepth(3)} className="px-2 py-1 rounded text-[11px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 transition-all">全部</button>
                   </div>
                 </div>
+
+                {/* 节点计数 */}
+                <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 rounded border border-emerald-200">
+                  <Layers className="w-3 h-3 text-emerald-600" />
+                  <span className="text-[11px] font-bold text-emerald-700">
+                    {tooManyVisible ? <span className="text-red-600">{MAX_VISIBLE_STAFF_NODES}/{visibleStaffNodes.length}</span> : visibleStaffNodes.length}
+                  </span>
+                </div>
+
+                {/* 节点过多警告 */}
+                {tooManyVisible && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-red-50 rounded border border-red-200">
+                    <AlertCircle className="w-3 h-3 text-red-500" />
+                    <span className="text-[10px] text-red-600 font-medium">已限制显示</span>
+                  </div>
+                )}
 
                 {/* 分隔线 */}
-                <div className="w-px h-8 bg-emerald-200"></div>
+                <div className="w-px h-5 bg-gray-300 mx-1"></div>
                 
-                {/* 缩放控制和视图切换 */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
-                    <button 
-                      onClick={() => setZoomScale(p => Math.max(0.3, p - 0.1))} 
-                      className="w-7 h-7 hover:bg-gray-100 rounded-md flex items-center justify-center text-gray-600 transition-colors"
-                      title="缩小"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <span className="text-xs font-medium text-gray-700 px-2 min-w-[45px] text-center">{Math.round(zoomScale * 100)}%</span>
-                    <button 
-                      onClick={() => setZoomScale(p => Math.min(2, p + 0.1))} 
-                      className="w-7 h-7 hover:bg-gray-100 rounded-md flex items-center justify-center text-gray-600 transition-colors"
-                      title="放大"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                    <div className="w-px h-4 bg-gray-200 mx-0.5"></div>
-                    <button
-                      onClick={() => fitToView({ maxZoom: 1.2 }, Array.from(visibleNodeIdSet))}
-                      className="px-2.5 py-1 hover:bg-gray-100 rounded-md text-xs font-medium text-gray-700 transition-colors flex items-center gap-1.5"
-                      title="适应屏幕"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
-                      适应
-                    </button>
-                  </div>
-                  <button 
-                    onClick={() => setViewMode('list')} 
-                    className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors flex items-center gap-1.5 shadow-sm"
-                  >
-                    <List className="w-4 h-4" />
-                    目录
-                  </button>
+                {/* 缩放控制 */}
+                <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+                  <button onClick={() => setZoomScale(p => Math.max(0.3, p - 0.1))} className="w-6 h-6 hover:bg-white rounded flex items-center justify-center text-gray-600 transition-all" title="缩小"><Minus className="w-3 h-3" /></button>
+                  <span className="text-[11px] font-bold text-gray-700 px-1.5 min-w-[36px] text-center">{Math.round(zoomScale * 100)}%</span>
+                  <button onClick={() => setZoomScale(p => Math.min(2, p + 0.1))} className="w-6 h-6 hover:bg-white rounded flex items-center justify-center text-gray-600 transition-all" title="放大"><Plus className="w-3 h-3" /></button>
+                  <div className="w-px h-4 bg-gray-300 mx-0.5"></div>
+                  <button onClick={() => fitToView({ maxZoom: 1.2 }, Array.from(visibleNodeIdSet))} className="px-1.5 py-1 hover:bg-white rounded text-[11px] font-medium text-gray-600 transition-all" title="适应屏幕">适应</button>
                 </div>
-              </div>
 
-              {/* 警告提示 */}
-              {tooManyVisible && (
-                <div className="px-6 pb-3">
-                  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2">
-                    <div className="text-xs text-red-600 font-medium">节点过多，已限制显示前 {MAX_VISIBLE_STAFF_NODES} 个以避免卡顿</div>
-                  </div>
-                </div>
-              )}
+                {/* 视图切换 */}
+                <button onClick={() => setViewMode('list')} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-[11px] font-medium hover:bg-gray-200 transition-all flex items-center gap-1">
+                  <List className="w-3 h-3" />目录
+                </button>
+              </div>
             </div>
 
 
@@ -2657,11 +2606,11 @@ function HierarchyTab({
               {/* 总部卡片（固定在顶部，紧贴工具栏下方） */}
               <div
                 onClick={onNodeClick('headquarters')}
-                className="w-[280px] p-6 bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all relative z-20"
+                className="w-[260px] p-5 bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all relative z-20"
                 style={{
                   position: 'absolute',
                   left: '50%',
-                  top: '80px',
+                  top: '56px',
                   transform: 'translate(-50%, 0)',
                   touchAction: 'none'
                 }}
