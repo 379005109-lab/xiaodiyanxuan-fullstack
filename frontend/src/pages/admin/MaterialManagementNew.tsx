@@ -87,6 +87,7 @@ export default function MaterialManagement() {
   }, [])
 
   const loadMaterials = async () => {
+    clearMaterialCache() // 每次加载前清除缓存，确保获取最新数据
     const allMaterials = await getAllMaterials()
     setMaterials(allMaterials)
   }
