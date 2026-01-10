@@ -3222,6 +3222,69 @@ function HierarchyTab({
                   )}
                 </div>
 
+                {/* 绑定人员/组织 */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-medium text-blue-900">绑定人员/组织</h4>
+                      <p className="text-xs text-blue-700">关联下属人员或组织到此节点</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const name = prompt('输入要绑定的人员/组织名称:')
+                        if (name && name.trim()) {
+                          const currentBindings = selectedStaff.boundEntities || []
+                          setSelectedStaff({
+                            ...selectedStaff,
+                            boundEntities: [...currentBindings, {
+                              id: `bind_${Date.now()}`,
+                              name: name.trim(),
+                              type: 'person',
+                              bindTime: new Date().toISOString()
+                            }]
+                          })
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700"
+                    >
+                      + 添加绑定
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {(selectedStaff.boundEntities || []).length === 0 ? (
+                      <p className="text-xs text-blue-600 italic">暂无绑定的人员或组织</p>
+                    ) : (
+                      (selectedStaff.boundEntities || []).map((entity: any, idx: number) => (
+                        <div key={entity.id || idx} className="flex items-center justify-between p-2 bg-white rounded-lg border border-blue-200">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                              <Users className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium text-gray-900">{entity.name}</span>
+                              <span className="text-xs text-gray-500 ml-2">
+                                {entity.type === 'org' ? '组织' : '人员'}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newBindings = (selectedStaff.boundEntities || []).filter((_: any, i: number) => i !== idx)
+                              setSelectedStaff({ ...selectedStaff, boundEntities: newBindings })
+                            }}
+                            className="p-1 text-red-500 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-2">备注说明</label>
                   <textarea 
