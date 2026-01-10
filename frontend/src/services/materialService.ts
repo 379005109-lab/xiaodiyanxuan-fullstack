@@ -127,10 +127,14 @@ export const updateMaterial = async (id: string, materialData: Partial<Material>
 
 export const deleteMaterial = async (id: string): Promise<boolean> => {
   try {
-    await apiClient.delete(`/materials/${id}`)
+    console.log(`[materialService] 删除材质请求: DELETE /materials/${id}`)
+    const response = await apiClient.delete(`/materials/${id}`)
+    console.log(`[materialService] 删除材质响应:`, response.data)
+    // 清除材质缓存
+    clearMaterialCache()
     return true
   } catch (error: any) {
-    console.error('删除材质失败:', error)
+    console.error('[materialService] 删除材质失败:', error)
     throw new Error(error.response?.data?.message || '删除材质失败')
   }
 }

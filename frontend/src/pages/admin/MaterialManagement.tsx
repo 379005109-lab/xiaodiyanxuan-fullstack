@@ -18,6 +18,7 @@ import {
   updateMaterialCategory,
   deleteMaterialCategory,
   cleanupOrphanedMaterials,
+  clearMaterialCache,
 } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
@@ -79,6 +80,7 @@ export default function MaterialManagement() {
   }, [])
 
   const loadMaterials = async () => {
+    clearMaterialCache() // 清除缓存确保获取最新数据
     const allMaterials = await getAllMaterials()
     setMaterials(allMaterials)
   }
@@ -111,15 +113,21 @@ export default function MaterialManagement() {
   }
 
   const handleDelete = async (id: string, name: string) => {
+    console.log(`[前端] 点击删除按钮: id=${id}, name=${name}`)
     if (confirm(`确定要删除素材"${name}"吗？`)) {
       try {
+        console.log(`[前端] 用户确认删除，调用API...`)
         await deleteMaterial(id)
+        console.log(`[前端] 删除成功`)
         toast.success('素材已删除')
         loadMaterials()
         loadStats()
-      } catch (error) {
-        toast.error('删除失败')
+      } catch (error: any) {
+        console.error(`[前端] 删除失败:`, error)
+        toast.error(error.message || '删除失败')
       }
+    } else {
+      console.log(`[前端] 用户取消删除`)
     }
   }
 
