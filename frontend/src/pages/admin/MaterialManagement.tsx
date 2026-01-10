@@ -113,23 +113,16 @@ export default function MaterialManagement() {
   }
 
   const handleDelete = async (id: string, name: string) => {
-    console.log(`[前端] 点击删除按钮: id=${id}, name=${name}`)
     if (confirm(`确定要删除素材"${name}"吗？`)) {
       try {
-        console.log(`[前端] 用户确认删除，调用API...`)
         await deleteMaterial(id)
-        console.log(`[前端] 删除成功`)
+        // 立即从本地状态中移除已删除的材质
+        setMaterials(prev => prev.filter(m => m._id !== id))
         toast.success('素材已删除')
-        // 等待数据刷新完成
-        await loadMaterials()
-        await loadStats()
-        console.log(`[前端] 数据刷新完成`)
+        loadStats()
       } catch (error: any) {
-        console.error(`[前端] 删除失败:`, error)
         toast.error(error.message || '删除失败')
       }
-    } else {
-      console.log(`[前端] 用户取消删除`)
     }
   }
 
