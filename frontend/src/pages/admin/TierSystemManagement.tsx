@@ -1835,7 +1835,11 @@ function HierarchyTab({
       const module = modules.find(m => String(m._id) === String(account.roleModuleId))
       const ruleFromAccount = (module?.discountRules || []).find(r => String(r._id) === String(account.discountRuleId))
       const defaultRule = ruleFromAccount || module?.discountRules?.find(r => r.isDefault) || module?.discountRules?.[0]
-      const discountRate = typeof defaultRule?.discountRate === 'number' ? defaultRule.discountRate : 1
+      const ruleDiscountRate = typeof defaultRule?.discountRate === 'number' ? defaultRule.discountRate : 1
+      
+      // 优先使用账户级别的自定义折扣值，否则使用规则值
+      const customDiscount = typeof account.boundUserDiscount === 'number' ? account.boundUserDiscount : null
+      const effectiveMinDiscount = customDiscount !== null ? customDiscount : Math.round(Math.max(0, Math.min(1, ruleDiscountRate)) * 100)
       
       return {
         id: String(account._id),
@@ -1843,7 +1847,7 @@ function HierarchyTab({
         avatar: (account as any)?.avatar || (account as any)?.user?.avatar || `https://images.unsplash.com/photo-${1494790108755 + index}?w=150&h=150&fit=crop&crop=face`,
         role: module?.name || '未分配角色',
         distribution: Number(account.distributionRate || 0),
-        minDiscount: Math.round(Math.max(0, Math.min(1, discountRate)) * 100),
+        minDiscount: effectiveMinDiscount,
         status: account.status === 'active' ? '正常在岗' : '暂停',
         phone: account.phone || '',
         level: account.level || 1,
@@ -1863,6 +1867,11 @@ function HierarchyTab({
 
   const getAccountMinDiscountPct = (account: AuthorizedAccount | null): number => {
     if (!account) return Number(hierarchyData.headquarters.minDiscount || 0)
+    // 优先使用账户级别的自定义折扣值
+    if (typeof account.boundUserDiscount === 'number') {
+      return account.boundUserDiscount
+    }
+    // 否则使用规则值
     const module = modules.find(m => String(m._id) === String(account.roleModuleId))
     const rules = module?.discountRules || []
     const r = account.discountRuleId ? rules.find(x => String(x._id) === String(account.discountRuleId)) : null
@@ -2312,42 +2321,22 @@ function HierarchyTab({
     const rawDist = Math.max(0, Math.min(100, Math.floor(Number(draft.distribution) || 0)))
     const targetDiscountPct = Math.max(parentMinDiscount, rawDiscountPct)
     const targetDist = Math.min(maxVerticalCommissionPct, rawDist)
-    const targetDiscountRate = targetDiscountPct / 100
 
     const current = accounts.find(a => String(a._id) === String(nodeId))
     if (!current) return
 
-    const module = modules.find(m => String(m._id) === String(current.roleModuleId))
-    const rules = module?.discountRules || []
-    if (rules.length === 0) {
-      toast.error('当前角色未配置折扣规则，无法设置最低折扣')
-      return
-    }
-
-    const parentMinRate = parentMinDiscount / 100
-    const allowedRules = rules.filter(r => {
-      const v = typeof r.discountRate === 'number' && Number.isFinite(r.discountRate) ? r.discountRate : 1
-      return v >= parentMinRate
-    })
-    const pickFrom = allowedRules.length > 0 ? allowedRules : rules
-    const selectedRule = pickFrom
-      .slice()
-      .sort((a, b) => {
-        const da = Math.abs((typeof a.discountRate === 'number' ? a.discountRate : 1) - targetDiscountRate)
-        const db = Math.abs((typeof b.discountRate === 'number' ? b.discountRate : 1) - targetDiscountRate)
-        return da - db
-      })[0]
-
+    // 直接保存自定义折扣值到账户，而不是尝试匹配规则
     const nextAccounts = accounts.map(a => {
       if (String(a._id) !== String(nodeId)) return a
       return {
         ...a,
-        discountRuleId: selectedRule?._id ? String(selectedRule._id) : a.discountRuleId,
+        boundUserDiscount: targetDiscountPct,
         distributionRate: targetDist,
       }
     })
 
     onSaveAccounts(nextAccounts)
+    toast.success(`已保存：最低折扣 ${targetDiscountPct}%，返佣比例 ${targetDist}%`)
   }
 
   const handleAvatarClick = (staff: any) => {
