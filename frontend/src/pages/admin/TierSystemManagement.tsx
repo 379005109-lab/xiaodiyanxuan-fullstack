@@ -73,6 +73,17 @@ interface AuthorizedAccount {
     discountRate?: number
     commissionRate?: number
   }>
+  // 层级返佣配置：根据下级层数分配不同返佣比例
+  levelCommissions?: {
+    // 自己的返佣比例（直接销售时获得的比例）
+    selfRate: number
+    // 各层级下级的返佣比例，索引0=直接下级，索引1=二级下级...
+    subordinateRates: number[]
+  }
+  // 被绑定人员的折扣设置
+  boundUserDiscount?: number
+  // 被绑定人员的返佣设置
+  boundUserCommission?: number
   children: AuthorizedAccount[]
   status: 'active' | 'suspended' | 'pending'
   createdAt: string
@@ -1719,6 +1730,10 @@ function HierarchyTab({
         availableRate: Number(account.availableRate || 0),
         visibleCategoryIds: account.visibleCategoryIds || [],
         parentId: account.parentId,
+        levelCommissions: account.levelCommissions,
+        boundUserDiscount: account.boundUserDiscount,
+        boundUserCommission: account.boundUserCommission,
+        defaultCommission: Math.round(Math.max(0, Math.min(1, Number(defaultRule?.commissionRate ?? 0))) * 100),
         account: account // 保存完整的account对象用于操作
       }
     })
@@ -3019,6 +3034,156 @@ function HierarchyTab({
                     </div>
                   </div>
                 )}
+
+                {/* 层级返佣配置 */}
+                <div className="bg-emerald-50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium text-emerald-900 mb-3">层级返佣配置</h4>
+                  <p className="text-xs text-emerald-700 mb-3">根据下级层数设置不同的返佣分配比例</p>
+                  
+                  {/* 自己的返佣 */}
+                  <div className="mb-3">
+                    <label className="text-xs font-medium text-emerald-800 block mb-1">自己销售返佣 (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={selectedStaff.levelCommissions?.selfRate ?? selectedStaff.defaultCommission ?? 40}
+                      onChange={(e) => {
+                        const val = Math.min(100, Math.max(0, Number(e.target.value) || 0))
+                        setSelectedStaff({
+                          ...selectedStaff,
+                          levelCommissions: {
+                            ...selectedStaff.levelCommissions,
+                            selfRate: val,
+                            subordinateRates: selectedStaff.levelCommissions?.subordinateRates || []
+                          }
+                        })
+                      }}
+                      className="w-full p-2 border border-emerald-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {/* 下级返佣配置 */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-emerald-800">下级层级返佣分配</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const rates = selectedStaff.levelCommissions?.subordinateRates || []
+                          setSelectedStaff({
+                            ...selectedStaff,
+                            levelCommissions: {
+                              selfRate: selectedStaff.levelCommissions?.selfRate ?? 40,
+                              subordinateRates: [...rates, 10]
+                            }
+                          })
+                        }}
+                        className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                      >
+                        + 添加层级
+                      </button>
+                    </div>
+                    
+                    {(selectedStaff.levelCommissions?.subordinateRates || []).map((rate: number, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <span className="text-xs text-emerald-700 w-16">第{idx + 1}级下级</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={rate}
+                          onChange={(e) => {
+                            const val = Math.min(100, Math.max(0, Number(e.target.value) || 0))
+                            const newRates = [...(selectedStaff.levelCommissions?.subordinateRates || [])]
+                            newRates[idx] = val
+                            setSelectedStaff({
+                              ...selectedStaff,
+                              levelCommissions: {
+                                selfRate: selectedStaff.levelCommissions?.selfRate ?? 40,
+                                subordinateRates: newRates
+                              }
+                            })
+                          }}
+                          className="flex-1 p-2 border border-emerald-300 rounded-lg text-sm"
+                        />
+                        <span className="text-xs text-emerald-600">%</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newRates = (selectedStaff.levelCommissions?.subordinateRates || []).filter((_: number, i: number) => i !== idx)
+                            setSelectedStaff({
+                              ...selectedStaff,
+                              levelCommissions: {
+                                selfRate: selectedStaff.levelCommissions?.selfRate ?? 40,
+                                subordinateRates: newRates
+                              }
+                            })
+                          }}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {(selectedStaff.levelCommissions?.subordinateRates?.length || 0) === 0 && (
+                      <p className="text-xs text-emerald-600 italic">暂无下级层级配置，点击"添加层级"设置</p>
+                    )}
+                  </div>
+
+                  {/* 合计显示 */}
+                  <div className="mt-3 pt-3 border-t border-emerald-200">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-emerald-700">返佣合计：</span>
+                      <span className={`font-bold ${
+                        ((selectedStaff.levelCommissions?.selfRate ?? 0) + 
+                         (selectedStaff.levelCommissions?.subordinateRates || []).reduce((a: number, b: number) => a + b, 0)) > 100
+                          ? 'text-red-600' : 'text-emerald-800'
+                      }`}>
+                        {(selectedStaff.levelCommissions?.selfRate ?? selectedStaff.defaultCommission ?? 0) + 
+                         (selectedStaff.levelCommissions?.subordinateRates || []).reduce((a: number, b: number) => a + b, 0)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 被绑定人员设置 */}
+                <div className="bg-amber-50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium text-amber-900 mb-3">被绑定人员设置</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-amber-800 block mb-1">折扣 (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={selectedStaff.boundUserDiscount ?? 85}
+                        onChange={(e) => setSelectedStaff({
+                          ...selectedStaff,
+                          boundUserDiscount: Math.min(100, Math.max(0, Number(e.target.value) || 0))
+                        })}
+                        className="w-full p-2 border border-amber-300 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-amber-800 block mb-1">返佣 (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={selectedStaff.boundUserCommission ?? 0}
+                        onChange={(e) => setSelectedStaff({
+                          ...selectedStaff,
+                          boundUserCommission: Math.min(100, Math.max(0, Number(e.target.value) || 0))
+                        })}
+                        className="w-full p-2 border border-amber-300 rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
                 
                 <div>
                   <label className="text-sm font-medium text-gray-700 block mb-2">备注说明</label>
@@ -3053,7 +3218,7 @@ function HierarchyTab({
                         }
                         
                         // 保存头像更改
-                        if (selectedStaff.avatar !== account.avatar) {
+                        if (selectedStaff.avatar !== (account as any).avatar) {
                           updates.avatar = selectedStaff.avatar
                         }
                         
@@ -3071,6 +3236,19 @@ function HierarchyTab({
                               updates.distributionRate = Number(defaultRule.commissionRate ?? 0)
                             }
                           }
+                        }
+
+                        // 保存层级返佣配置
+                        if (selectedStaff.levelCommissions) {
+                          updates.levelCommissions = selectedStaff.levelCommissions
+                        }
+
+                        // 保存被绑定人员设置
+                        if (selectedStaff.boundUserDiscount !== undefined) {
+                          updates.boundUserDiscount = selectedStaff.boundUserDiscount
+                        }
+                        if (selectedStaff.boundUserCommission !== undefined) {
+                          updates.boundUserCommission = selectedStaff.boundUserCommission
                         }
                         
                         return { 
