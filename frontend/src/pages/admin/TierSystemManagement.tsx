@@ -502,12 +502,13 @@ export default function TierSystemManagement() {
   }
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto">
-      {/* 页头 */}
-      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden mb-8">
-        <div className="p-8 flex items-center justify-between gap-8">
-          <div className="flex items-center gap-8 min-w-0">
-            <div className="w-16 h-16 rounded-2xl border bg-white overflow-hidden flex items-center justify-center">
+    <div className="p-4 max-w-[1600px] mx-auto">
+      {/* 统一顶部栏 - 融合页头、模式选择、分润对账 */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          {/* 左侧：Logo + 标题 + 厂家选择 */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl border bg-white overflow-hidden flex items-center justify-center shrink-0">
               {logoSrc ? (
                 <img src={logoSrc} alt={currentManufacturerName || 'manufacturer'} className="w-full h-full object-cover" />
               ) : (
@@ -515,114 +516,64 @@ export default function TierSystemManagement() {
               )}
             </div>
             <div className="min-w-0">
-              <h1 className="text-3xl font-black text-gray-900 tracking-tight truncate">分层架构管控系统</h1>
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-2 truncate">
-                {currentManufacturerName || '--'}
-              </p>
+              <h1 className="text-lg font-black text-gray-900 truncate">分层架构管控</h1>
               {!lockedManufacturerId ? (
-                <div className="mt-4">
-                  <select
-                    value={selectedManufacturerId}
-                    onChange={(e) => setSelectedManufacturerId(e.target.value)}
-                    className="px-4 py-2 rounded-2xl bg-gray-50 border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-600"
-                    disabled={!isSuperAdmin}
-                  >
-                    <option value="">-- 请选择厂家 --</option>
-                    {manufacturers.map(m => (
-                      <option key={m._id} value={m._id}>
-                        {m.name || m.fullName || m._id}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
+                <select
+                  value={selectedManufacturerId}
+                  onChange={(e) => setSelectedManufacturerId(e.target.value)}
+                  className="mt-0.5 px-2 py-0.5 rounded-lg bg-gray-50 border border-gray-100 text-[10px] font-bold text-gray-600 max-w-[140px]"
+                  disabled={!isSuperAdmin}
+                >
+                  <option value="">选择厂家</option>
+                  {manufacturers.map(m => (
+                    <option key={m._id} value={m._id}>{m.name || m.fullName || m._id}</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-[10px] text-gray-400 font-bold truncate">{currentManufacturerName}</p>
+              )}
             </div>
           </div>
 
+          {/* 中间：模式切换按钮组 */}
+          <div className="flex items-center bg-gray-100 rounded-xl p-1">
+            <button
+              onClick={() => setActiveTab('hierarchy')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'hierarchy' ? 'bg-[#153e35] text-white shadow-sm' : 'text-gray-600 hover:bg-white'
+              }`}
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+              公司分层
+            </button>
+            <button
+              onClick={() => setActiveTab('pool')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'pool' ? 'bg-[#153e35] text-white shadow-sm' : 'text-gray-600 hover:bg-white'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              角色权限
+            </button>
+            <button
+              onClick={() => setActiveTab('reconciliation')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'reconciliation' ? 'bg-[#153e35] text-white shadow-sm' : 'text-gray-600 hover:bg-white'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              分润对账
+            </button>
+          </div>
+
+          {/* 右侧：返回按钮 */}
           <button
             type="button"
             onClick={() => navigate('/admin/manufacturers')}
-            className="rounded-2xl px-10 py-4 font-black uppercase text-xs border-2 border-gray-100 text-gray-500 hover:text-[#153e35] hover:border-[#153e35] transition-all"
+            className="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 text-gray-500 hover:text-[#153e35] hover:border-[#153e35] transition-all"
           >
             返回主控
           </button>
-        </div>
-      </div>
-
-      {/* 管理模式选择 - 公司分层与角色权限互斥 */}
-      <div className="mb-8">
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4">选择管理模式</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label 
-              className={`relative flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all ${
-                activeTab === 'hierarchy' 
-                  ? 'border-[#153e35] bg-emerald-50/50' 
-                  : 'border-gray-100 hover:border-gray-200'
-              }`}
-            >
-              <input
-                type="radio"
-                name="managementMode"
-                checked={activeTab === 'hierarchy'}
-                onChange={() => setActiveTab('hierarchy')}
-                className="sr-only"
-              />
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                activeTab === 'hierarchy' ? 'bg-[#153e35] text-white' : 'bg-gray-100 text-gray-500'
-              }`}>
-                <GitBranch className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-gray-900">公司分层</div>
-                <p className="text-sm text-gray-500 mt-1">按组织架构设置层级分成，适用于有明确上下级关系的团队</p>
-              </div>
-              {activeTab === 'hierarchy' && (
-                <div className="absolute top-3 right-3 w-6 h-6 bg-[#153e35] rounded-full flex items-center justify-center">
-                  <Check className="w-4 h-4 text-white" />
-                </div>
-              )}
-            </label>
-            <label 
-              className={`relative flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all ${
-                activeTab === 'pool' 
-                  ? 'border-[#153e35] bg-emerald-50/50' 
-                  : 'border-gray-100 hover:border-gray-200'
-              }`}
-            >
-              <input
-                type="radio"
-                name="managementMode"
-                checked={activeTab === 'pool'}
-                onChange={() => setActiveTab('pool')}
-                className="sr-only"
-              />
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                activeTab === 'pool' ? 'bg-[#153e35] text-white' : 'bg-gray-100 text-gray-500'
-              }`}>
-                <BarChart3 className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-gray-900">角色权限</div>
-                <p className="text-sm text-gray-500 mt-1">按角色类型设置统一折扣和返佣规则，适用于扁平化管理</p>
-              </div>
-              {activeTab === 'pool' && (
-                <div className="absolute top-3 right-3 w-6 h-6 bg-[#153e35] rounded-full flex items-center justify-center">
-                  <Check className="w-4 h-4 text-white" />
-                </div>
-              )}
-            </label>
-          </div>
-        </div>
-        
-        {/* 分润对账独立入口 */}
-        <div className="flex justify-end">
-          <TabButton
-            active={activeTab === 'reconciliation'}
-            onClick={() => setActiveTab('reconciliation')}
-            icon={<TrendingUp className="w-4 h-4" />}
-            label="分润对账"
-          />
         </div>
       </div>
 
