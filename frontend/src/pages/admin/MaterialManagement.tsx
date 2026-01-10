@@ -126,6 +126,22 @@ export default function MaterialManagement() {
     }
   }
 
+  // 删除整个材质组（包含所有SKU）
+  const handleDeleteGroup = async (groupKey: string, materialIds: string[]) => {
+    if (confirm(`确定要删除"${groupKey}"及其所有 ${materialIds.length} 个SKU吗？`)) {
+      try {
+        // 批量删除所有材质
+        await deleteMaterials(materialIds)
+        // 立即从本地状态中移除所有已删除的材质
+        setMaterials(prev => prev.filter(m => !materialIds.includes(m._id)))
+        toast.success(`已删除 ${materialIds.length} 个素材`)
+        loadStats()
+      } catch (error: any) {
+        toast.error(error.message || '删除失败')
+      }
+    }
+  }
+
   const handleDeleteCategory = async (id: string, name: string) => {
     // 检查分类下是否有材质
     const categoryMaterialCount = materials.filter(m => m.categoryId === id).length
@@ -896,7 +912,7 @@ export default function MaterialManagement() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleDelete(representativeMaterial._id, groupKey)
+                              handleDeleteGroup(groupKey, groupMaterials.map(m => m._id))
                             }}
                             className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="删除"
