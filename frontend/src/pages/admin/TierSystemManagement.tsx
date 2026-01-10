@@ -1852,8 +1852,7 @@ function HierarchyTab({
         visibleCategoryIds: account.visibleCategoryIds || [],
         parentId: account.parentId,
         commissionRuleId: account.commissionRuleId,
-        boundUserDiscount: account.boundUserDiscount,
-        boundUserCommission: account.boundUserCommission,
+        boundEntities: (account as any).boundEntities || [],
         defaultCommission: Math.round(Math.max(0, Math.min(1, Number(defaultRule?.commissionRate ?? 0))) * 100),
         account: account // 保存完整的account对象用于操作
       }
@@ -3361,12 +3360,9 @@ function HierarchyTab({
                           updates.commissionRuleId = selectedStaff.commissionRuleId
                         }
 
-                        // 保存被绑定人员设置
-                        if (selectedStaff.boundUserDiscount !== undefined) {
-                          updates.boundUserDiscount = selectedStaff.boundUserDiscount
-                        }
-                        if (selectedStaff.boundUserCommission !== undefined) {
-                          updates.boundUserCommission = selectedStaff.boundUserCommission
+                        // 保存绑定人员列表
+                        if (selectedStaff.boundEntities) {
+                          updates.boundEntities = selectedStaff.boundEntities
                         }
                         
                         return { 
