@@ -628,6 +628,20 @@ export default function MaterialManagement() {
   const handleGroupDragStart = (e: DragEvent<HTMLDivElement>, groupKey: string) => {
     setDraggedGroupKey(groupKey)
     e.dataTransfer.effectAllowed = 'move'
+    // 设置拖拽图像为当前元素的缩略图
+    const target = e.currentTarget
+    if (target) {
+      // 创建一个小的拖拽预览
+      const dragImage = target.cloneNode(true) as HTMLElement
+      dragImage.style.width = '100px'
+      dragImage.style.height = '100px'
+      dragImage.style.opacity = '0.8'
+      dragImage.style.position = 'absolute'
+      dragImage.style.top = '-1000px'
+      document.body.appendChild(dragImage)
+      e.dataTransfer.setDragImage(dragImage, 50, 50)
+      setTimeout(() => document.body.removeChild(dragImage), 0)
+    }
   }
 
   const handleGroupDragOver = (e: DragEvent<HTMLDivElement>, targetGroupKey: string) => {
@@ -665,22 +679,42 @@ export default function MaterialManagement() {
     newOrder.splice(draggedIndex, 1)
     newOrder.splice(targetIndex, 0, draggedGroupKey)
 
-    // 更新所有材质的 order 字段
+    // 先立即更新本地状态，实现即时反馈
     let orderCounter = 1
+    const updatedMaterials = [...materials]
     for (const groupKey of newOrder) {
-      const groupMaterials = materialGroups[groupKey]
-      if (groupMaterials) {
-        for (const material of groupMaterials) {
-          await updateMaterial(material._id, { order: orderCounter })
+      const groupMats = materialGroups[groupKey]
+      if (groupMats) {
+        for (const mat of groupMats) {
+          const idx = updatedMaterials.findIndex(m => m._id === mat._id)
+          if (idx !== -1) {
+            updatedMaterials[idx] = { ...updatedMaterials[idx], order: orderCounter }
+          }
           orderCounter++
         }
       }
     }
-
-    toast.success('分组顺序已调整')
-    clearMaterialCache()
-    loadMaterials()
+    setMaterials(updatedMaterials)
     setDraggedGroupKey(null)
+    
+    // 后台更新数据库
+    try {
+      orderCounter = 1
+      for (const groupKey of newOrder) {
+        const groupMats = materialGroups[groupKey]
+        if (groupMats) {
+          for (const mat of groupMats) {
+            await updateMaterial(mat._id, { order: orderCounter })
+            orderCounter++
+          }
+        }
+      }
+      clearMaterialCache()
+      toast.success('分组顺序已保存')
+    } catch (error) {
+      toast.error('保存顺序失败')
+      loadMaterials() // 失败时重新加载
+    }
   }
 
   // 获取分类及其所有子分类的ID列表
@@ -969,6 +1003,8 @@ export default function MaterialManagement() {
 
         {/* 右侧内容区 */}
         <div className="flex-1 min-w-0">
+          {/* 版本指示器 - 用于调试 */}
+          <div className="text-xs text-gray-400 mb-2">v20260110-1740</div>
           {/* 操作栏 */}
           <div className="card p-5 mb-6 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
@@ -1065,11 +1101,18 @@ export default function MaterialManagement() {
           {filteredMaterials.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {(() => {
+                // 先按 order 字段排序
+                const sortedMaterials = [...filteredMaterials].sort((a, b) => {
+                  const orderA = a.order ?? 9999
+                  const orderB = b.order ?? 9999
+                  return orderA - orderB
+                })
+                
                 // 按材质类型分组
                 const materialGroups: Record<string, typeof filteredMaterials> = {};
                 const groupOrder: string[] = [];
                 
-                filteredMaterials.forEach(material => {
+                sortedMaterials.forEach(material => {
                   // 通用分组逻辑：按"-"分隔符提取前缀
                   let groupKey = material.name;
                   const dashIndex = material.name.indexOf('-');
@@ -1092,9 +1135,9 @@ export default function MaterialManagement() {
                   return (
                     <div 
                       key={groupKey} 
-                      className={`card overflow-hidden hover:shadow-lg transition-shadow group cursor-move ${
+                      className={`card overflow-hidden hover:shadow-lg transition-all group cursor-move ${
                         dragOverGroupKey === groupKey ? 'ring-2 ring-blue-500 ring-offset-2' : ''
-                      }`}
+                      } ${draggedGroupKey === groupKey ? 'opacity-50 scale-95' : ''}`}
                       draggable
                       onDragStart={(e) => handleGroupDragStart(e, groupKey)}
                       onDragOver={(e) => handleGroupDragOver(e, groupKey)}
@@ -1102,9 +1145,20 @@ export default function MaterialManagement() {
                       onDrop={(e) => handleGroupDrop(e, groupKey, groupOrder, materialGroups)}
                       onDragEnd={() => setDraggedGroupKey(null)}
                     >
+                      {/* 拖拽手柄 */}
+                      <div className="absolute top-2 left-2 z-10 bg-white/80 rounded p-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg className="h-4 w-4 text-gray-600" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                          <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                          <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                        </svg>
+                      </div>
                       {/* 正方形图片区域 */}
-                      <button
-                        onClick={() => setExpandedSKUGroup(isSkuExpanded ? null : groupKey)}
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setExpandedSKUGroup(isSkuExpanded ? null : groupKey)
+                        }}
                         className="relative w-full aspect-square bg-gray-100 overflow-hidden cursor-pointer"
                       >
                         <img
@@ -1128,7 +1182,7 @@ export default function MaterialManagement() {
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <ChevronDown className={`h-8 w-8 text-white transition-transform ${isSkuExpanded ? 'rotate-180' : ''}`} />
                         </div>
-                      </button>
+                      </div>
                       
                       {/* 材质信息 */}
                       <div className="p-3">
