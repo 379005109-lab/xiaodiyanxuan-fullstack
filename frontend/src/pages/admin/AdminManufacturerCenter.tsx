@@ -1729,61 +1729,34 @@ export default function AdminManufacturerCenter() {
                   </div>
                 </div>
 
-                <div className="mt-auto grid grid-cols-3 p-6 gap-4 bg-gray-50/50 border-t">
-                  <button
-                    onClick={() => {
-                      setActiveM(m)
-                      setShowAccounts(true)
-                    }}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-emerald-700 transition-all shadow-sm"
-                    type="button"
-                  >
-                    厂家账号管理
-                  </button>
+                <div className="mt-auto grid grid-cols-2 p-6 gap-4 bg-gray-50/50 border-t">
                   <button
                     onClick={() => {
                       setActiveM(m)
                       setShowEdit(true)
                     }}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:border-[#153e35] transition-all shadow-sm"
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:border-[#153e35] hover:text-[#153e35] transition-all shadow-sm"
                     type="button"
                   >
                     资料编辑
                   </button>
                   <button
-                    onClick={() => {
-                      setSmsTarget(m)
-                      setShowSms(true)
-                    }}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-cyan-700 transition-all shadow-sm"
-                    type="button"
-                  >
-                    短信绑定
-                  </button>
-                  <button
                     onClick={() => handleOpenTierSystem(m, 'hierarchy')}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-blue-700 transition-all shadow-sm"
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-purple-700 hover:border-purple-200 transition-all shadow-sm"
                     type="button"
                   >
                     分层体系
                   </button>
                   <button
                     onClick={() => handleOpenTierSystem(m, 'pool')}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-emerald-700 transition-all shadow-sm"
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-emerald-700 hover:border-emerald-200 transition-all shadow-sm"
                     type="button"
                   >
                     角色授权
                   </button>
                   <button
-                    onClick={() => handleOpenTierSystem(m, 'reconciliation')}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-indigo-700 transition-all shadow-sm"
-                    type="button"
-                  >
-                    返佣对账
-                  </button>
-                  <button
                     onClick={() => handleOpenProductAuthorization(m)}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-violet-700 transition-all shadow-sm"
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-blue-700 hover:border-blue-200 transition-all shadow-sm"
                     type="button"
                   >
                     选品授权
