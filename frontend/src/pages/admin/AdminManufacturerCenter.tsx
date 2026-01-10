@@ -993,8 +993,8 @@ const ManufacturerEditDrawer = ({
       <div className="relative w-full max-w-5xl bg-white shadow-2xl h-full flex flex-col overflow-hidden">
         <div className="p-10 border-b bg-white flex items-center justify-between">
           <div>
-            <h2 className="text-4xl font-black text-gray-900 tracking-tight">{isCreate ? '品牌入驻申请' : '品牌商务全档案管理'}</h2>
-            <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Corporate Profile & Financial Intelligence</p>
+            <h2 className="text-4xl font-black text-gray-900 tracking-tight">{isCreate ? '厂家入驻申请' : '厂家资料管理'}</h2>
+            <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Manufacturer Profile Management</p>
           </div>
           <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400" type="button">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6" /></svg>
@@ -1084,22 +1084,21 @@ const ManufacturerEditDrawer = ({
                 </section>
 
                 <section className="space-y-6">
-                  <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-[#153e35] pl-4">03. 品牌市场策略</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">默认折扣底线 (%)</div>
-                      <input type="number" value={form.defaultDiscount} onChange={e => setForm(prev => ({ ...prev, defaultDiscount: Number(e.target.value || 0) }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-emerald-50/30 border border-emerald-100 text-sm font-black text-[#153e35]" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">预设返佣比例 (%)</div>
-                      <input type="number" value={form.defaultCommission} onChange={e => setForm(prev => ({ ...prev, defaultCommission: Number(e.target.value || 0) }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-blue-50/30 border border-blue-100 text-sm font-black text-blue-700" />
-                    </div>
+                  <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-blue-500 pl-4">03. 账号配额</div>
+                  <div className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 mb-4">
+                    <div className="text-xs font-bold text-amber-700">💡 说明：账号配额总数仅超级管理员可设置，各类型账号数量之和不能超过总配额</div>
                   </div>
-                </section>
-
-                <section className="space-y-6">
-                  <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-blue-500 pl-4">04. 账号配额</div>
                   <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">账号配额总数</div>
+                      <input type="number" value={form.accountQuota.totalAccounts} onChange={e => setForm(prev => ({ ...prev, accountQuota: { ...prev.accountQuota, totalAccounts: Number(e.target.value || 0) } }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-emerald-50/30 border border-emerald-100 text-sm font-bold text-emerald-700" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">已分配 / 剩余</div>
+                      <div className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold">
+                        {(form.accountQuota.authAccounts || 0) + (form.accountQuota.subAccounts || 0) + (form.accountQuota.designerAccounts || 0)} / {Math.max(0, (form.accountQuota.totalAccounts || 0) - (form.accountQuota.authAccounts || 0) - (form.accountQuota.subAccounts || 0) - (form.accountQuota.designerAccounts || 0))}
+                      </div>
+                    </div>
                     <div>
                       <div className="text-xs font-black text-gray-400 uppercase tracking-widest">授权主号配额</div>
                       <input type="number" value={form.accountQuota.authAccounts} onChange={e => setForm(prev => ({ ...prev, accountQuota: { ...prev.accountQuota, authAccounts: Number(e.target.value || 0) } }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold" />
@@ -1111,10 +1110,6 @@ const ManufacturerEditDrawer = ({
                     <div>
                       <div className="text-xs font-black text-gray-400 uppercase tracking-widest">设计师配额</div>
                       <input type="number" value={form.accountQuota.designerAccounts} onChange={e => setForm(prev => ({ ...prev, accountQuota: { ...prev.accountQuota, designerAccounts: Number(e.target.value || 0) } }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">总配额（可选）</div>
-                      <input type="number" value={form.accountQuota.totalAccounts} onChange={e => setForm(prev => ({ ...prev, accountQuota: { ...prev.accountQuota, totalAccounts: Number(e.target.value || 0) } }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold" />
                     </div>
                   </div>
                 </section>
