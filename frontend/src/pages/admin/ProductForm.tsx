@@ -74,6 +74,8 @@ export default function ProductForm() {
   
   // 分类展开状态
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
+  // 分类选择面板展开状态
+  const [showCategoryPanel, setShowCategoryPanel] = useState(false)
   
   const hasRestoredCategory = useRef(false)
 
@@ -1022,6 +1024,18 @@ export default function ProductForm() {
       </div>
 
       <div className="card">
+        {/* 详情页头图 - 放在最上方 */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">详情页头图</h2>
+          <ImageUploader
+            images={formData.mainImages}
+            onChange={(images) => setFormData({ ...formData, mainImages: images })}
+            multiple={true}
+            maxImages={10}
+            label="点击上传或拖拽商品图片到此处"
+          />
+        </div>
+
         {/* 基本信息 */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-6">基本信息</h2>
@@ -1096,7 +1110,24 @@ export default function ProductForm() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">商品分类（可多选）</label>
-              <div className="space-y-2 p-3 border rounded-lg bg-gray-50">
+              {/* 点击展开分类选择 */}
+              <button
+                type="button"
+                onClick={() => setShowCategoryPanel(!showCategoryPanel)}
+                className={`w-full px-4 py-3 border rounded-lg text-left flex items-center justify-between transition-colors ${
+                  showCategoryPanel ? 'bg-blue-50 border-blue-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                <span className="text-gray-700">
+                  {formData.categories.length > 0 
+                    ? `已选择 ${formData.categories.length} 个分类` 
+                    : '点击选择分类'}
+                </span>
+                <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${showCategoryPanel ? 'rotate-180' : ''}`} />
+              </button>
+              {/* 分类选择面板 */}
+              {showCategoryPanel && (
+              <div className="space-y-2 p-3 border border-t-0 rounded-b-lg bg-gray-50">
                 {categories.map(parent => {
                   const isExpanded = expandedCategories.includes(parent._id)
                   const hasSelectedChild = parent.children?.some(child => formData.categories.includes(child._id)) || formData.categories.includes(parent._id)
@@ -1187,6 +1218,7 @@ export default function ProductForm() {
                   )
                 })}
               </div>
+              )}
               {formData.categories.length === 0 && (
                 <p className="text-xs text-red-500 mt-1">请至少选择一个分类</p>
               )}
@@ -1294,18 +1326,6 @@ export default function ProductForm() {
             </div>
           </div>
           
-        </div>
-
-        {/* 详情页头图 */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">详情页头图</h2>
-          <ImageUploader
-            images={formData.mainImages}
-            onChange={(images) => setFormData({ ...formData, mainImages: images })}
-            multiple={true}
-            maxImages={10}
-            label="点击上传或拖拽商品图片到此处"
-          />
         </div>
 
         {/* 商品信息表 */}
