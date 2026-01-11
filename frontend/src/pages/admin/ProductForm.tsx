@@ -98,6 +98,15 @@ export default function ProductForm() {
       price: number // 加价金额
       isDefault: boolean
     }>,
+    // 材质配置（面料选择 + 其他材质）
+    materialConfigs: [] as Array<{
+      id: string
+      fabricName: string // 面料名称（从材质库选择）
+      fabricId: string // 材质库ID
+      images: string[] // 该材质对应的图片组
+      price: number // 加价金额
+    }>,
+    otherMaterialsText: '' as string, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
     specifications: [
       { name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' },
     ],
@@ -228,6 +237,7 @@ export default function ProductForm() {
           }),
           videos: ((product as any).videos || []) as string[],
           videoTitles: ((product as any).videoTitles || []) as string[],
+          styles: (product as any).styles || [], // 风格标签
           specifications: product.specifications ? 
             (() => {
               // 检查specifications格式
@@ -341,6 +351,15 @@ export default function ProductForm() {
             price: group.price || group.extra || 0,
             isDefault: group.isDefault || idx === 0,
           })),
+          // 加载材质配置（面料选择 + 其他材质）
+          materialConfigs: ((product as any).materialConfigs || []).map((config: any, idx: number) => ({
+            id: config.id || `mc-${idx}`,
+            fabricName: config.fabricName || '',
+            fabricId: config.fabricId || '',
+            images: config.images || [],
+            price: config.price || 0,
+          })),
+          otherMaterialsText: (product as any).otherMaterialsText || '',
           files: ((product as any).files || []).filter((file: any) => {
             // 过滤掉Base64文件数据
             if (file.url && file.url.startsWith('data:')) {
@@ -379,6 +398,27 @@ export default function ProductForm() {
   // 注意：如果是fabric类型且用于SKU面料选择，则设置fabricName（单选）
   const handleMaterialSelect = (material: any, materialType: string, upgradePrice?: number) => {
     console.log('🔥 [材质选择] 添加材质:', material.name, '类型:', materialType, 'SKU索引:', selectingMaterialForSkuIndex)
+    
+    // 如果是添加到materialConfigs（索引为-2）
+    if (selectingMaterialForSkuIndex === -2) {
+      setFormData(prev => {
+        if (prev.materialConfigs.some(c => c.fabricName === material.name)) {
+          toast.error('该材质已添加')
+          return prev
+        }
+        const newConfig = {
+          id: `mc-${Date.now()}`,
+          fabricName: material.name,
+          fabricId: material._id || material.id || '',
+          images: material.images || [],
+          price: upgradePrice || 0,
+        }
+        setShowMaterialSelectModal(false)
+        setSelectingMaterialForSkuIndex(-1)
+        return { ...prev, materialConfigs: [...prev.materialConfigs, newConfig] }
+      })
+      return
+    }
     
     if (selectingMaterialForSkuIndex >= 0) {
       // 使用函数式更新确保状态正确累积
@@ -626,6 +666,15 @@ export default function ProductForm() {
           extra: group.price || 0, // 兼容旧字段名
           isDefault: group.isDefault || false,
         })),
+        // 材质配置（面料选择 + 其他材质）
+        materialConfigs: formData.materialConfigs.map(config => ({
+          id: config.id,
+          fabricName: config.fabricName,
+          fabricId: config.fabricId,
+          images: config.images || [],
+          price: config.price || 0,
+        })),
+        otherMaterialsText: formData.otherMaterialsText || '',
         specifications: formData.specifications.reduce((acc, spec) => {
           if (spec.name) {
             acc[spec.name] = `${spec.length}x${spec.width}x${spec.height}${spec.unit}`
@@ -824,7 +873,7 @@ export default function ProductForm() {
     }
   }
 
-  // 从商品信息表生成SKU列表
+  // 从商品信息表生成SKU列表（规格 × 材质）
   const generateSKUsFromSpecifications = () => {
     if (formData.specifications.length === 0) {
       toast.error('请先添加商品信息')
@@ -832,41 +881,89 @@ export default function ProductForm() {
     }
 
     const baseCode = normalizedProductCode || 'SKU'
+    const newSkus: typeof formData.skus = []
+    let skuIndex = 0
 
-    const newSkus = formData.specifications.map((spec, index) => ({
-      id: `sku-${Date.now()}-${index}`,
-      images: [],
-      code: `${baseCode}-${String(index + 1).padStart(2, '0')}`,
-      spec: spec.name,
-      length: spec.length,
-      width: spec.width,
-      height: spec.height,
-      fabricMaterialId: '',
-      fabricName: '',
-      otherMaterials: '',
-      otherMaterialsImage: '',
-      material: createEmptyMaterialSelection(),
-      materialCategories: [] as string[],
-      materialUpgradePrices: {},
-      price: formData.basePrice || 0,
-      discountPrice: 0,
-      stockMode: true,
-      stock: 100,
-      deliveryDays: 7,
-      productionDays: 30,
-      deliveryNote: '',
-      arrivalDate: null,
-      files: [],
-      sales: 0,
-      isPro: false,
-      proFeature: '',
-      status: true,
-      manufacturerId: '',
-      manufacturerName: '',
-    }))
+    // 如果有材质配置，生成 规格×材质 的SKU组合
+    if (formData.materialConfigs.length > 0) {
+      formData.specifications.forEach((spec) => {
+        formData.materialConfigs.forEach((matConfig) => {
+          skuIndex++
+          newSkus.push({
+            id: `sku-${Date.now()}-${skuIndex}`,
+            images: matConfig.images?.length > 0 ? [...matConfig.images] : [], // 默认使用材质图片
+            code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
+            spec: spec.name,
+            length: spec.length,
+            width: spec.width,
+            height: spec.height,
+            fabricMaterialId: matConfig.fabricId,
+            fabricName: matConfig.fabricName,
+            otherMaterials: formData.otherMaterialsText, // 使用统一的其他材质
+            otherMaterialsImage: '',
+            material: createEmptyMaterialSelection(),
+            materialCategories: [] as string[],
+            materialUpgradePrices: {},
+            price: (formData.basePrice || 0) + (matConfig.price || 0), // 基础价 + 材质加价
+            discountPrice: 0,
+            stockMode: true,
+            stock: 100,
+            deliveryDays: 7,
+            productionDays: 30,
+            deliveryNote: '',
+            arrivalDate: null,
+            files: [],
+            sales: 0,
+            isPro: false,
+            proFeature: '',
+            status: true,
+            manufacturerId: '',
+            manufacturerName: '',
+          })
+        })
+      })
+    } else {
+      // 没有材质配置，只按规格生成
+      formData.specifications.forEach((spec) => {
+        skuIndex++
+        newSkus.push({
+          id: `sku-${Date.now()}-${skuIndex}`,
+          images: [],
+          code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
+          spec: spec.name,
+          length: spec.length,
+          width: spec.width,
+          height: spec.height,
+          fabricMaterialId: '',
+          fabricName: '',
+          otherMaterials: formData.otherMaterialsText,
+          otherMaterialsImage: '',
+          material: createEmptyMaterialSelection(),
+          materialCategories: [] as string[],
+          materialUpgradePrices: {},
+          price: formData.basePrice || 0,
+          discountPrice: 0,
+          stockMode: true,
+          stock: 100,
+          deliveryDays: 7,
+          productionDays: 30,
+          deliveryNote: '',
+          arrivalDate: null,
+          files: [],
+          sales: 0,
+          isPro: false,
+          proFeature: '',
+          status: true,
+          manufacturerId: '',
+          manufacturerName: '',
+        })
+      })
+    }
 
     setFormData({ ...formData, skus: newSkus })
-    toast.success(`已生成 ${newSkus.length} 个SKU`)
+    const specCount = formData.specifications.length
+    const matCount = formData.materialConfigs.length || 1
+    toast.success(`已生成 ${newSkus.length} 个SKU (${specCount}规格 × ${matCount}材质)`)
   }
 
   // 批量导入Excel
@@ -1650,6 +1747,118 @@ export default function ProductForm() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* 材质配置 */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold">材质配置</h2>
+            <button
+              type="button"
+              onClick={() => {
+                // 打开材质库选择弹窗添加新材质
+                setSelectingMaterialForSkuIndex(-2) // 使用-2表示添加到materialConfigs
+                setSelectingMaterialType('fabric')
+                setShowMaterialSelectModal(true)
+              }}
+              className="text-primary-600 hover:text-primary-700 text-sm flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              添加颜色/材质
+            </button>
+          </div>
+          
+          {/* 其他材质（固定文字） */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2">其他材质（固定）</label>
+            <input
+              type="text"
+              value={formData.otherMaterialsText}
+              onChange={(e) => setFormData({ ...formData, otherMaterialsText: e.target.value })}
+              placeholder="如：蛇形弹簧+45D海绵+不锈钢支撑脚"
+              className="input w-full"
+            />
+            <p className="text-xs text-gray-500 mt-1">此内容将应用到所有SKU</p>
+          </div>
+
+          {/* 面料/颜色列表 */}
+          <div className="space-y-3">
+            {formData.materialConfigs.length === 0 ? (
+              <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                <p className="text-gray-500 text-sm">暂无材质配置</p>
+                <p className="text-gray-400 text-xs mt-1">点击上方"添加颜色/材质"从材质库选择</p>
+              </div>
+            ) : (
+              formData.materialConfigs.map((config, index) => (
+                <div key={config.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex-shrink-0">
+                    {config.images?.[0] ? (
+                      <img 
+                        src={getThumbnailUrl(config.images[0], 64)} 
+                        alt={config.fabricName}
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400">
+                        <Upload className="h-5 w-5" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">{config.fabricName}</div>
+                    <div className="text-xs text-gray-500">面料 · {config.images?.length || 0}张图片</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <label className="text-xs text-gray-500">加价</label>
+                      <input
+                        type="number"
+                        value={config.price || 0}
+                        onChange={(e) => {
+                          const newConfigs = [...formData.materialConfigs]
+                          newConfigs[index].price = parseFloat(e.target.value) || 0
+                          setFormData({ ...formData, materialConfigs: newConfigs })
+                        }}
+                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManagingSkuIndex(-100 - index) // 使用负数标记管理materialConfigs的图片
+                        setShowImageManager(true)
+                      }}
+                      className="px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded"
+                    >
+                      管理图片
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newConfigs = formData.materialConfigs.filter((_, i) => i !== index)
+                        setFormData({ ...formData, materialConfigs: newConfigs })
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          
+          {/* 生成提示 */}
+          {formData.specifications.length > 0 && formData.materialConfigs.length > 0 && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>{formData.specifications.length}</strong> 个规格 × <strong>{formData.materialConfigs.length}</strong> 个材质 = 
+                <strong className="text-blue-900"> {formData.specifications.length * formData.materialConfigs.length}</strong> 个SKU
+              </p>
+              <p className="text-xs text-blue-600 mt-1">点击下方"生成列表"按钮自动生成SKU</p>
+            </div>
+          )}
         </div>
 
         {/* SKU列表 */}

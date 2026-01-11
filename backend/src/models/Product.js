@@ -78,6 +78,15 @@ const productSchema = new mongoose.Schema({
       img: String
     }]
   }],
+  // 材质配置（面料选择 + 其他材质）
+  materialConfigs: [{
+    id: String,
+    fabricName: String, // 面料名称（从材质库选择）
+    fabricId: String, // 材质库ID
+    images: [String], // 该材质对应的图片组
+    price: { type: Number, default: 0 } // 加价金额
+  }],
+  otherMaterialsText: String, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
   materialImages: mongoose.Schema.Types.Mixed, // 材质图片 { categoryName: [{name, url}] }
   materialCategories: [String], // 材质类目列表
   tags: [String],
