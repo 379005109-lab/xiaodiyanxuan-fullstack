@@ -2670,7 +2670,7 @@ export default function ProductForm() {
       )}
 
       {/* 材质选择模态框 */}
-      {showMaterialSelectModal && selectingMaterialForSkuIndex >= 0 && (
+      {showMaterialSelectModal && (selectingMaterialForSkuIndex >= 0 || selectingMaterialForSkuIndex === -2) && (
         <MaterialSelectModal
           multiple={true}
           materialType={selectingMaterialType}
