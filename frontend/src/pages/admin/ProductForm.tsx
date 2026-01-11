@@ -908,8 +908,8 @@ export default function ProductForm() {
             materialUpgradePrices: {},
             price: (formData.basePrice || 0) + (matConfig.price || 0), // 基础价 + 材质加价
             discountPrice: 0,
-            stockMode: true,
-            stock: 100,
+            stockMode: false, // 默认定制模式
+            stock: 0,
             deliveryDays: 7,
             productionDays: 30,
             deliveryNote: '',
@@ -1158,8 +1158,8 @@ export default function ProductForm() {
             materialUpgradePrices: {} as Record<string, number>,
             price: price,
             discountPrice: discountPrice,
-            stockMode: true,
-            stock: stock,
+            stockMode: false, // 默认定制模式
+            stock: 0,
             deliveryDays: 7,
             productionDays: 30,
             deliveryNote: '',
@@ -2167,14 +2167,6 @@ export default function ProductForm() {
                           placeholder="基础价格"
                           className={`w-20 px-2 py-1 border border-gray-300 rounded ${sku.discountPrice > 0 ? 'line-through text-gray-400' : ''}`}
                         />
-                        {/* 显示材质加价 */}
-                        {(() => {
-                          const selectedConfig = formData.materialConfigs.find(c => c.id === sku.fabricMaterialId)
-                          if (selectedConfig?.price > 0) {
-                            return <span className="text-xs text-orange-600">+¥{selectedConfig.price} 材质加价</span>
-                          }
-                          return null
-                        })()}
                         {sku.discountPrice > 0 && (
                           <span className="text-xs text-gray-500">原价</span>
                         )}
@@ -2196,6 +2188,14 @@ export default function ProductForm() {
                         {sku.discountPrice > 0 && (
                           <span className="text-xs text-red-600 font-medium">折后价</span>
                         )}
+                        {/* 材质加价显示在折扣价下方 */}
+                        {(() => {
+                          const selectedConfig = formData.materialConfigs.find(c => c.id === sku.fabricMaterialId)
+                          if (selectedConfig?.price > 0) {
+                            return <span className="text-xs text-red-500 font-medium">+¥{selectedConfig.price}</span>
+                          }
+                          return null
+                        })()}
                       </div>
                     </td>
                     {/* 库存/发货 - 合并为一列 */}
@@ -2704,7 +2704,7 @@ export default function ProductForm() {
         </div>
       </div>
 
-      {/* 图片管理弹窗 */}
+      {/* 图片管理弹窗 - SKU图片 */}
       {showImageManager && managingSkuIndex >= 0 && (
         <SkuImageManagerModal
           images={formData.skus[managingSkuIndex]?.images || []}
@@ -2716,6 +2716,23 @@ export default function ProductForm() {
             const newSkus = [...formData.skus]
             newSkus[managingSkuIndex].images = images
             setFormData({ ...formData, skus: newSkus })
+          }}
+        />
+      )}
+
+      {/* 图片管理弹窗 - 材质配置图片 */}
+      {showImageManager && managingSkuIndex < -99 && (
+        <SkuImageManagerModal
+          images={formData.materialConfigs[-100 - managingSkuIndex]?.images || []}
+          onClose={() => {
+            setShowImageManager(false)
+            setManagingSkuIndex(-1)
+          }}
+          onSave={(images) => {
+            const configIndex = -100 - managingSkuIndex
+            const newConfigs = [...formData.materialConfigs]
+            newConfigs[configIndex].images = images
+            setFormData({ ...formData, materialConfigs: newConfigs })
           }}
         />
       )}
