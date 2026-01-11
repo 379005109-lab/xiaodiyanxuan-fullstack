@@ -392,28 +392,47 @@ router.get('/my-grants', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '只有厂家用户可以查看授权' })
     }
 
+    // 获取当前厂家信息（包含默认折扣和返佣设置）
+    const currentManufacturer = await Manufacturer.findById(user.manufacturerId)
+      .select('defaultDiscount defaultCommission')
+      .lean()
+
     const authorizations = await Authorization.find({
       fromManufacturer: user.manufacturerId
     })
       .populate('toManufacturer', 'name fullName logo contactPerson')
       .populate('toDesigner', 'username nickname avatar email')
+      .populate('products', '_id')
       .sort({ createdAt: -1 })
       .lean()
 
-    // Calculate actual product count for each authorization
+    // 计算厂家的总产品数量
     const totalProductCount = await Product.countDocuments({
       manufacturerId: user.manufacturerId,
       status: 'active'
     })
     
-    const enrichedAuthorizations = authorizations.map(auth => ({
-      ...auth,
-      actualProductCount: auth.scope === 'all' 
-        ? totalProductCount 
-        : (auth.products?.length || 0),
-      minDiscountRate: auth.minDiscountRate ?? 0,
-      commissionRate: auth.commissionRate ?? 0
-    }))
+    // 厂家默认折扣和返佣
+    const mfrDefaultDiscount = currentManufacturer?.defaultDiscount || 0
+    const mfrDefaultCommission = currentManufacturer?.defaultCommission || 0
+    
+    const enrichedAuthorizations = authorizations.map(auth => {
+      // SKU数量：scope='all'时使用总产品数，否则使用授权的产品数量
+      let skuCount = 0
+      if (auth.scope === 'all') {
+        skuCount = totalProductCount
+      } else if (Array.isArray(auth.products)) {
+        skuCount = auth.products.length
+      }
+      
+      return {
+        ...auth,
+        actualProductCount: skuCount,
+        // 优先使用授权记录的值，否则使用厂家默认值
+        minDiscountRate: auth.minDiscountRate || mfrDefaultDiscount,
+        commissionRate: auth.commissionRate || mfrDefaultCommission
+      }
+    })
 
     res.json({ success: true, data: enrichedAuthorizations })
   } catch (error) {
