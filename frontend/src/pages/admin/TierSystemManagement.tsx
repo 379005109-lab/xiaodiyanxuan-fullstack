@@ -2320,7 +2320,8 @@ function HierarchyTab({
 
     const rawDiscountPct = Math.max(0, Math.min(100, Math.floor(Number(draft.minDiscount) || 0)))
     const rawDist = Math.max(0, Math.min(100, Math.floor(Number(draft.distribution) || 0)))
-    const targetDiscountPct = Math.max(parentMinDiscount, rawDiscountPct)
+    // 允许用户自由设置最低折扣，不再强制不低于上级
+    const targetDiscountPct = rawDiscountPct
     const targetDist = Math.min(maxVerticalCommissionPct, rawDist)
 
     const current = accounts.find(a => String(a._id) === String(nodeId))
