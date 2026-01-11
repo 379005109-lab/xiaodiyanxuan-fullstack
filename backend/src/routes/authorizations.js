@@ -2023,7 +2023,121 @@ router.get('/gmv-stats', auth, async (req, res) => {
   }
 })
 
-// GET /api/authorizations/:id - 获取授权详情
+// PUT /api/authorizations/:id/toggle-status - 切换授权状态（暂停/恢复合作）
+router.put('/:id/toggle-status', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { active } = req.body
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID无效' })
+    }
+    
+    const authorization = await Authorization.findById(id)
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+    
+    const user = await User.findById(req.userId).select('role manufacturerId').lean()
+    if (!user) {
+      return res.status(401).json({ success: false, message: '请先登录' })
+    }
+    
+    const isAdmin = ['admin', 'super_admin'].includes(user.role)
+    const isRecipient = user.manufacturerId && String(authorization.toManufacturer) === String(user.manufacturerId)
+    
+    if (!isAdmin && !isRecipient) {
+      return res.status(403).json({ success: false, message: '无权限操作此授权' })
+    }
+    
+    authorization.status = active ? 'active' : 'suspended'
+    await authorization.save()
+    
+    res.json({ success: true, data: authorization, message: active ? '已恢复合作' : '已暂停合作' })
+  } catch (error) {
+    console.error('切换授权状态失败:', error)
+    res.status(500).json({ success: false, message: '切换授权状态失败' })
+  }
+})
+
+// PUT /api/authorizations/:id/toggle-enabled - 切换授权商品显示（开启/关闭）
+router.put('/:id/toggle-enabled', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { enabled } = req.body
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID无效' })
+    }
+    
+    const authorization = await Authorization.findById(id)
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+    
+    const user = await User.findById(req.userId).select('role manufacturerId').lean()
+    if (!user) {
+      return res.status(401).json({ success: false, message: '请先登录' })
+    }
+    
+    const isAdmin = ['admin', 'super_admin'].includes(user.role)
+    const isRecipient = user.manufacturerId && String(authorization.toManufacturer) === String(user.manufacturerId)
+    
+    if (!isAdmin && !isRecipient) {
+      return res.status(403).json({ success: false, message: '无权限操作此授权' })
+    }
+    
+    authorization.isEnabled = enabled
+    await authorization.save()
+    
+    res.json({ success: true, data: authorization, message: enabled ? '已开启商品显示' : '已关闭商品显示' })
+  } catch (error) {
+    console.error('切换授权显示状态失败:', error)
+    res.status(500).json({ success: false, message: '切换显示状态失败' })
+  }
+})
+
+// PUT /api/authorizations/:id/pricing - 更新授权价格设置
+router.put('/:id/pricing', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { priceSettings } = req.body
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID无效' })
+    }
+    
+    const authorization = await Authorization.findById(id)
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+    
+    const user = await User.findById(req.userId).select('role manufacturerId').lean()
+    if (!user) {
+      return res.status(401).json({ success: false, message: '请先登录' })
+    }
+    
+    const isAdmin = ['admin', 'super_admin'].includes(user.role)
+    const isOwner = user.manufacturerId && String(authorization.fromManufacturer) === String(user.manufacturerId)
+    
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ success: false, message: '无权限修改此授权的价格设置' })
+    }
+    
+    authorization.priceSettings = {
+      ...authorization.priceSettings,
+      ...priceSettings
+    }
+    await authorization.save()
+    
+    res.json({ success: true, data: authorization, message: '价格设置已更新' })
+  } catch (error) {
+    console.error('更新授权价格设置失败:', error)
+    res.status(500).json({ success: false, message: '更新授权价格设置失败' })
+  }
+})
+
+// GET /api/authorizations/:id - 获取授权详情 (放在最后，避免捕获其他/:id/xxx路由)
 router.get('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params
@@ -2088,126 +2202,6 @@ router.get('/:id/products', auth, async (req, res) => {
   } catch (error) {
     console.error('获取授权商品列表失败:', error)
     res.status(500).json({ success: false, message: '获取授权商品列表失败' })
-  }
-})
-
-// PUT /api/authorizations/:id/toggle-status - 切换授权状态（暂停/恢复合作）
-router.put('/:id/toggle-status', auth, async (req, res) => {
-  try {
-    const { id } = req.params
-    const { active } = req.body
-    
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'ID无效' })
-    }
-    
-    const authorization = await Authorization.findById(id)
-    if (!authorization) {
-      return res.status(404).json({ success: false, message: '授权不存在' })
-    }
-    
-    // 验证权限 - 只有被授权方可以暂停/恢复
-    const user = await User.findById(req.userId).select('role manufacturerId').lean()
-    if (!user) {
-      return res.status(401).json({ success: false, message: '请先登录' })
-    }
-    
-    const isAdmin = ['admin', 'super_admin'].includes(user.role)
-    const isRecipient = user.manufacturerId && String(authorization.toManufacturer) === String(user.manufacturerId)
-    
-    if (!isAdmin && !isRecipient) {
-      return res.status(403).json({ success: false, message: '无权限操作此授权' })
-    }
-    
-    // 切换状态
-    authorization.status = active ? 'active' : 'suspended'
-    await authorization.save()
-    
-    res.json({ success: true, data: authorization, message: active ? '已恢复合作' : '已暂停合作' })
-  } catch (error) {
-    console.error('切换授权状态失败:', error)
-    res.status(500).json({ success: false, message: '切换授权状态失败' })
-  }
-})
-
-// PUT /api/authorizations/:id/toggle-enabled - 切换授权商品显示（开启/关闭）
-router.put('/:id/toggle-enabled', auth, async (req, res) => {
-  try {
-    const { id } = req.params
-    const { enabled } = req.body
-    
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'ID无效' })
-    }
-    
-    const authorization = await Authorization.findById(id)
-    if (!authorization) {
-      return res.status(404).json({ success: false, message: '授权不存在' })
-    }
-    
-    // 验证权限 - 只有被授权方可以开启/关闭
-    const user = await User.findById(req.userId).select('role manufacturerId').lean()
-    if (!user) {
-      return res.status(401).json({ success: false, message: '请先登录' })
-    }
-    
-    const isAdmin = ['admin', 'super_admin'].includes(user.role)
-    const isRecipient = user.manufacturerId && String(authorization.toManufacturer) === String(user.manufacturerId)
-    
-    if (!isAdmin && !isRecipient) {
-      return res.status(403).json({ success: false, message: '无权限操作此授权' })
-    }
-    
-    // 切换显示状态
-    authorization.isEnabled = enabled
-    await authorization.save()
-    
-    res.json({ success: true, data: authorization, message: enabled ? '已开启商品显示' : '已关闭商品显示' })
-  } catch (error) {
-    console.error('切换授权显示状态失败:', error)
-    res.status(500).json({ success: false, message: '切换显示状态失败' })
-  }
-})
-
-// PUT /api/authorizations/:id/pricing - 更新授权价格设置
-router.put('/:id/pricing', auth, async (req, res) => {
-  try {
-    const { id } = req.params
-    const { priceSettings } = req.body
-    
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'ID无效' })
-    }
-    
-    const authorization = await Authorization.findById(id)
-    if (!authorization) {
-      return res.status(404).json({ success: false, message: '授权不存在' })
-    }
-    
-    // 验证权限 - 只有授权发起方可以修改价格设置
-    const user = await User.findById(req.userId).select('role manufacturerId').lean()
-    if (!user) {
-      return res.status(401).json({ success: false, message: '请先登录' })
-    }
-    
-    const isAdmin = ['admin', 'super_admin'].includes(user.role)
-    const isOwner = user.manufacturerId && String(authorization.fromManufacturer) === String(user.manufacturerId)
-    
-    if (!isAdmin && !isOwner) {
-      return res.status(403).json({ success: false, message: '无权限修改此授权的价格设置' })
-    }
-    
-    // 更新价格设置
-    authorization.priceSettings = {
-      ...authorization.priceSettings,
-      ...priceSettings
-    }
-    await authorization.save()
-    
-    res.json({ success: true, data: authorization, message: '价格设置已更新' })
-  } catch (error) {
-    console.error('更新授权价格设置失败:', error)
-    res.status(500).json({ success: false, message: '更新授权价格设置失败' })
   }
 })
 
