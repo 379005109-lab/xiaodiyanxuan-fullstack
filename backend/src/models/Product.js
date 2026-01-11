@@ -6,14 +6,23 @@ const skuSchema = new mongoose.Schema({
   code: String,
   spec: String,
   color: String,
+  // 面料选择（单选，关联materialsGroups）
+  fabricMaterialId: String, // 关联的材质分组ID
+  fabricName: String, // 面料名称（如：纳帕皮A+黑色）
+  // 其他材质（文字+图片）
+  otherMaterials: String, // 其他材质描述（如：蛇形弹簧+45D海绵+不锈钢支撑脚）
+  otherMaterialsImage: String, // 其他材质图片
   material: mongoose.Schema.Types.Mixed, // 支持字符串或对象 {fabric, filling, frame, leg}
   materialId: String,
   materialCategories: [String], // 已配置的材质类目列表
   materialUpgradePrices: mongoose.Schema.Types.Mixed,
   materialImages: mongoose.Schema.Types.Mixed,
   materialDescriptions: mongoose.Schema.Types.Mixed,
+  // 库存模式
+  stockMode: { type: Boolean, default: true }, // true=有库存模式，false=定制模式
   stock: { type: Number, default: 0 }, // 库存数量
-  deliveryDays: { type: Number, default: 7 }, // 发货天数（默认7天）
+  deliveryDays: { type: Number, default: 7 }, // 发货天数（库存模式）
+  productionDays: { type: Number, default: 30 }, // 制作天数（定制模式）
   deliveryNote: String, // 发货备注（如"现货"、"预售15天"等）
   arrivalDate: Date, // 到货时间
   price: { type: Number, default: 0 },

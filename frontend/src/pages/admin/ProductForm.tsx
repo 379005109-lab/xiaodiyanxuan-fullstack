@@ -110,13 +110,22 @@ export default function ProductForm() {
         length: 200,
         width: 90,
         height: 85,
+        // 面料选择（单选，关联materialsGroups中的材质）
+        fabricMaterialId: '' as string, // 关联的材质分组ID
+        fabricName: '' as string, // 面料名称（如：纳帕皮A+黑色）
+        // 其他材质描述（文字+图片）
+        otherMaterials: '' as string, // 其他材质文字描述（如：蛇形弹簧+45D海绵+不锈钢支撑脚）
+        otherMaterialsImage: '' as string, // 其他材质图片
         material: createEmptyMaterialSelection(),
         materialCategories: [] as string[], // 已启用的材质类目列表
         materialUpgradePrices: {},
         price: 0,
         discountPrice: 0,
+        // 库存模式
+        stockMode: true as boolean, // true=有库存模式，false=定制模式
         stock: 100,
-        deliveryDays: 7, // 发货天数
+        deliveryDays: 7, // 发货天数（库存模式）
+        productionDays: 30, // 制作天数（定制模式）
         deliveryNote: '', // 发货备注
         arrivalDate: null as string | null, // 到货时间
         files: [] as { name: string; url: string; size: number; type: string }[], // SKU专属文件
@@ -293,6 +302,12 @@ export default function ProductForm() {
               length: (sku as any).length || 0,
               width: (sku as any).width || 0,
               height: (sku as any).height || 0,
+              // 面料选择
+              fabricMaterialId: (sku as any).fabricMaterialId || '',
+              fabricName: (sku as any).fabricName || '',
+              // 其他材质
+              otherMaterials: (sku as any).otherMaterials || '',
+              otherMaterialsImage: (sku as any).otherMaterialsImage || '',
               material,
               materialCategories,
               materialUpgradePrices: (sku as any).materialUpgradePrices && Object.keys((sku as any).materialUpgradePrices).length > 0 
@@ -300,8 +315,11 @@ export default function ProductForm() {
                 : {} as Record<string, number>,
               price: sku.price,
               discountPrice: (sku as any).discountPrice || 0,
+              // 库存模式
+              stockMode: (sku as any).stockMode !== false, // 默认true
               stock: sku.stock,
               deliveryDays: (sku as any).deliveryDays || 7,
+              productionDays: (sku as any).productionDays || 30,
               deliveryNote: (sku as any).deliveryNote || '',
               arrivalDate: (sku as any).arrivalDate || null,
               files: (sku as any).files || [],
@@ -541,21 +559,24 @@ export default function ProductForm() {
         skus: formData.skus.map((sku) => ({
           // 只有在编辑模式且SKU ID不是临时ID（不以"sku-"开头）时才包含_id
           ...(isEdit && sku.id && !sku.id.startsWith('sku-') && { _id: sku.id }),
-          code: sku.code, // 保存SKU型号
+          code: sku.code,
           color: sku.spec || '默认',
-          spec: sku.spec, // 保存规格
-          length: sku.length, // 保存长度
-          width: sku.width, // 保存宽度
-          height: sku.height, // 保存高度
+          spec: sku.spec,
+          length: sku.length,
+          width: sku.width,
+          height: sku.height,
+          // 面料选择（单选）
+          fabricMaterialId: sku.fabricMaterialId || '',
+          fabricName: sku.fabricName || '',
+          // 其他材质（文字+图片）
+          otherMaterials: sku.otherMaterials || '',
+          otherMaterialsImage: sku.otherMaterialsImage || '',
           material: (() => {
-            // 确保材质格式为数组，支持动态类目（如面料、填充、框架、脚架等中文键名）
             if (typeof sku.material === 'string') {
               return { fabric: sku.material ? [sku.material] : [] }
             }
             if (!sku.material) return {}
-            
             const result: Record<string, string[]> = {}
-            // 遍历所有材质类目，保留所有键（包括中文键名）
             Object.entries(sku.material).forEach(([key, value]) => {
               if (value) {
                 result[key] = Array.isArray(value) ? value : [value]
@@ -563,16 +584,19 @@ export default function ProductForm() {
             })
             return result
           })(),
-          materialCategories: sku.materialCategories || [], // 保存已配置的材质类目列表
-          materialUpgradePrices: sku.materialUpgradePrices || {} as Record<string, number>, // 保存材质升级价格 { [categoryKey]: price }
+          materialCategories: sku.materialCategories || [],
+          materialUpgradePrices: sku.materialUpgradePrices || {} as Record<string, number>,
           materialId: undefined,
+          // 库存模式
+          stockMode: sku.stockMode !== false,
           stock: sku.stock,
-          deliveryDays: (sku as any).deliveryDays || 7, // 发货天数
-          deliveryNote: (sku as any).deliveryNote || '', // 发货备注
-          arrivalDate: (sku as any).arrivalDate || null, // 到货时间
+          deliveryDays: sku.deliveryDays || 7,
+          productionDays: sku.productionDays || 30,
+          deliveryNote: sku.deliveryNote || '',
+          arrivalDate: sku.arrivalDate || null,
           price: sku.price,
           images: sku.images || [],
-          files: (sku as any).files || [], // SKU专属文件
+          files: sku.files || [],
           isPro: sku.isPro,
           proFeature: sku.proFeature,
           discountPrice: sku.discountPrice,
@@ -703,13 +727,19 @@ export default function ProductForm() {
           length: 0,
           width: 0,
           height: 0,
-          material: createEmptyMaterialSelection(), // 空材质，需手动选择
-          materialCategories: [], // 空材质类目列表
-          materialUpgradePrices: {}, // 空升级价格
+          fabricMaterialId: '',
+          fabricName: '',
+          otherMaterials: '',
+          otherMaterialsImage: '',
+          material: createEmptyMaterialSelection(),
+          materialCategories: [],
+          materialUpgradePrices: {},
           price: 0,
           discountPrice: 0,
+          stockMode: true,
           stock: 100,
           deliveryDays: 7,
+          productionDays: 30,
           deliveryNote: '',
           arrivalDate: null,
           files: [],
@@ -798,16 +828,22 @@ export default function ProductForm() {
       length: spec.length,
       width: spec.width,
       height: spec.height,
-      material: createEmptyMaterialSelection(), // 空材质，需手动选择
-      materialCategories: [] as string[], // 空材质类目列表
-      materialUpgradePrices: {}, // 空升级价格
+      fabricMaterialId: '',
+      fabricName: '',
+      otherMaterials: '',
+      otherMaterialsImage: '',
+      material: createEmptyMaterialSelection(),
+      materialCategories: [] as string[],
+      materialUpgradePrices: {},
       price: formData.basePrice || 0,
       discountPrice: 0,
+      stockMode: true,
       stock: 100,
-      deliveryDays: 7, // 默认发货天数
-      deliveryNote: '', // 发货备注
-      arrivalDate: null, // 到货时间
-      files: [], // SKU专属文件
+      deliveryDays: 7,
+      productionDays: 30,
+      deliveryNote: '',
+      arrivalDate: null,
+      files: [],
       sales: 0,
       isPro: false,
       proFeature: '',
@@ -996,27 +1032,33 @@ export default function ProductForm() {
           return {
             id: `sku-${Date.now()}-${index}`,
             images: [],
-            code: modelCode || `SKU-${index + 1}`, // C列：型号
-            spec: spec, // E列：规格
-            length: length, // 长
-            width: width, // 宽
-            height: height, // 高
+            code: modelCode || `SKU-${index + 1}`,
+            spec: spec,
+            length: length,
+            width: width,
+            height: height,
+            fabricMaterialId: '',
+            fabricName: '',
+            otherMaterials: '',
+            otherMaterialsImage: '',
             material: material,
-            materialCategories: materialCategories, // 已配置的材质类目
-            materialUpgradePrices: {} as Record<string, number>, // 材质升级价格，导入时默认为0
+            materialCategories: materialCategories,
+            materialUpgradePrices: {} as Record<string, number>,
             price: price,
             discountPrice: discountPrice,
+            stockMode: true,
             stock: stock,
-            deliveryDays: 7, // 默认发货天数
-            deliveryNote: '', // 发货备注
-            arrivalDate: null, // 到货时间
-            files: [], // SKU专属文件
+            deliveryDays: 7,
+            productionDays: 30,
+            deliveryNote: '',
+            arrivalDate: null,
+            files: [],
             sales: sales,
             isPro: isPro,
             proFeature: proFeature,
             status: true,
             manufacturerId: '',
-            manufacturerName: row[15]?.toString() || '', // P列：厂家名称
+            manufacturerName: row[15]?.toString() || '',
           }
         })
 
@@ -1637,14 +1679,12 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">图片</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">型号</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">长(CM)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">宽(CM)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">高(CM)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[300px]">材质配置</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium">尺寸(长×宽×高)</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[150px]">面料</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[200px]">其他材质</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">折扣价(元)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">库存</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">发货(天)</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[140px]">库存/发货</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">文件</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">PRO</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">厂家</th>
@@ -1719,121 +1759,152 @@ export default function ProductForm() {
                         ))}
                       </select>
                     </td>
+                    {/* 尺寸（长×宽×高）合并为一列 */}
                     <td className="py-3 px-4">
-                      <input
-                        type="number"
-                        value={sku.length}
-                        onChange={(e) => {
-                          const newSkus = [...formData.skus]
-                          newSkus[index].length = parseFloat(e.target.value)
-                          setFormData({ ...formData, skus: newSkus })
-                        }}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded"
-                      />
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={sku.length}
+                          onChange={(e) => {
+                            const newSkus = [...formData.skus]
+                            newSkus[index].length = parseFloat(e.target.value) || 0
+                            setFormData({ ...formData, skus: newSkus })
+                          }}
+                          className="w-14 px-1 py-1 border border-gray-300 rounded text-center text-sm"
+                          placeholder="长"
+                        />
+                        <span className="text-gray-400">×</span>
+                        <input
+                          type="number"
+                          value={sku.width}
+                          onChange={(e) => {
+                            const newSkus = [...formData.skus]
+                            newSkus[index].width = parseFloat(e.target.value) || 0
+                            setFormData({ ...formData, skus: newSkus })
+                          }}
+                          className="w-14 px-1 py-1 border border-gray-300 rounded text-center text-sm"
+                          placeholder="宽"
+                        />
+                        <span className="text-gray-400">×</span>
+                        <input
+                          type="number"
+                          value={sku.height}
+                          onChange={(e) => {
+                            const newSkus = [...formData.skus]
+                            newSkus[index].height = parseFloat(e.target.value) || 0
+                            setFormData({ ...formData, skus: newSkus })
+                          }}
+                          className="w-14 px-1 py-1 border border-gray-300 rounded text-center text-sm"
+                          placeholder="高"
+                        />
+                      </div>
                     </td>
-                    <td className="py-3 px-4">
-                      <input
-                        type="number"
-                        value={sku.width}
-                        onChange={(e) => {
-                          const newSkus = [...formData.skus]
-                          newSkus[index].width = parseFloat(e.target.value)
-                          setFormData({ ...formData, skus: newSkus })
-                        }}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded"
-                      />
-                    </td>
-                    <td className="py-3 px-4">
-                      <input
-                        type="number"
-                        value={sku.height}
-                        onChange={(e) => {
-                          const newSkus = [...formData.skus]
-                          newSkus[index].height = parseFloat(e.target.value)
-                          setFormData({ ...formData, skus: newSkus })
-                        }}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded"
-                      />
-                    </td>
-                    {/* 材质配置 - 动态类目 */}
+                    {/* 面料选择（单选，关联materialsGroups） */}
                     <td className="py-3 px-4">
                       <div className="space-y-2">
-                        {/* 已配置的材质类目 */}
-                        {sku.materialCategories.map((categoryKey) => {
-                          const colorStyle = getMaterialCategoryColor(categoryKey)
-                          const categoryName = getMaterialCategoryName(categoryKey)
-                          const materialList = sku.material[categoryKey] || []
-                          
-                          // 获取该类目的加价金额
-                          const categoryUpgradePrice = (sku.materialUpgradePrices as Record<string, number>)?.[categoryKey] || 0
-                          
-                          return (
-                            <div key={categoryKey} className={`p-2 rounded-lg border ${colorStyle.bg} border-opacity-50`}>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className={`text-xs font-medium ${colorStyle.text}`}>
-                                  {categoryName}
-                                  {categoryUpgradePrice > 0 && (
-                                    <span className="ml-1 text-orange-600 font-semibold">+{categoryUpgradePrice}元</span>
-                                  )}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveMaterialCategory(index, categoryKey)}
-                                  className={`${colorStyle.text} ${colorStyle.hover} text-xs`}
-                                  title={`移除${categoryName}类目`}
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </div>
-                              <div className="flex flex-wrap gap-1">
-                                {materialList.map((name: string, idx: number) => (
-                                  <span
-                                    key={idx}
-                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 ${colorStyle.bg} ${colorStyle.text} text-xs rounded`}
-                                  >
-                                    <span className="whitespace-nowrap">{name}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveMaterial(index, categoryKey, name)}
-                                      className={`${colorStyle.text} ${colorStyle.hover}`}
-                                    >
-                                      <X className="h-2.5 w-2.5" />
-                                    </button>
-                                  </span>
-                                ))}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (isEnterpriseAdmin) {
-                                      toast.error('当前账号无权限配置材质，请联系管理员授权')
-                                      return
-                                    }
-                                    setSelectingMaterialForSkuIndex(index)
-                                    setSelectingMaterialType(categoryKey)
-                                    setShowMaterialSelectModal(true)
-                                  }}
-                                  className={`px-1.5 py-0.5 ${colorStyle.text} text-xs hover:underline`}
-                                >
-                                  + 添加
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        })}
-                        
-                        {/* 添加材质类目按钮 */}
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAddCategoryForSkuIndex(index)
-                              setShowAddCategoryModal(true)
+                        {formData.materialsGroups.length > 0 ? (
+                          <select
+                            value={sku.fabricMaterialId || ''}
+                            onChange={(e) => {
+                              const newSkus = [...formData.skus]
+                              const selectedGroup = formData.materialsGroups.find(g => g.id === e.target.value)
+                              newSkus[index].fabricMaterialId = e.target.value
+                              newSkus[index].fabricName = selectedGroup?.name || ''
+                              // 如果选择的材质有图片，同步到SKU图片
+                              if (selectedGroup?.images?.length) {
+                                newSkus[index].images = [...selectedGroup.images]
+                              }
+                              setFormData({ ...formData, skus: newSkus })
                             }}
-                            className="w-full px-2 py-1.5 border-2 border-dashed border-gray-300 text-gray-500 text-xs rounded-lg hover:border-primary-400 hover:text-primary-600 transition-colors"
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
                           >
-                            + 添加材质类目
-                          </button>
-                        </div>
+                            <option value="">选择面料</option>
+                            {formData.materialsGroups.map((group) => (
+                              <option key={group.id} value={group.id}>
+                                {group.name} {group.price > 0 ? `(+¥${group.price})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={sku.fabricName || ''}
+                            onChange={(e) => {
+                              const newSkus = [...formData.skus]
+                              newSkus[index].fabricName = e.target.value
+                              setFormData({ ...formData, skus: newSkus })
+                            }}
+                            placeholder="输入面料名称"
+                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                          />
+                        )}
+                        {sku.fabricName && (
+                          <div className="text-xs text-emerald-600 font-medium truncate" title={sku.fabricName}>
+                            {sku.fabricName}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    {/* 其他材质（文字+图片） */}
+                    <td className="py-3 px-4">
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={sku.otherMaterials || ''}
+                          onChange={(e) => {
+                            const newSkus = [...formData.skus]
+                            newSkus[index].otherMaterials = e.target.value
+                            setFormData({ ...formData, skus: newSkus })
+                          }}
+                          placeholder="如：蛇形弹簧+45D海绵+不锈钢脚"
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                        />
+                        {sku.otherMaterialsImage ? (
+                          <div className="flex items-center gap-2">
+                            <img 
+                              src={getThumbnailUrl(sku.otherMaterialsImage)} 
+                              alt="材质图" 
+                              className="w-8 h-8 rounded object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newSkus = [...formData.skus]
+                                newSkus[index].otherMaterialsImage = ''
+                                setFormData({ ...formData, skus: newSkus })
+                              }}
+                              className="text-red-500 text-xs hover:underline"
+                            >
+                              删除
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-300 rounded cursor-pointer text-xs text-gray-600">
+                            <Upload className="h-3 w-3" />
+                            <span>上传图片</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0]
+                                if (!file) return
+                                try {
+                                  const result = await uploadFile(file)
+                                  if (result.success) {
+                                    const newSkus = [...formData.skus]
+                                    newSkus[index].otherMaterialsImage = result.data.fileId
+                                    setFormData({ ...formData, skus: newSkus })
+                                    toast.success('图片上传成功')
+                                  }
+                                } catch (err) {
+                                  toast.error('图片上传失败')
+                                }
+                                e.target.value = ''
+                              }}
+                            />
+                          </label>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -1876,47 +1947,83 @@ export default function ProductForm() {
                         )}
                       </div>
                     </td>
+                    {/* 库存/发货 - 合并为一列 */}
                     <td className="py-3 px-4">
-                      <input
-                        type="number"
-                        value={sku.stock}
-                        onChange={(e) => {
-                          const newSkus = [...formData.skus]
-                          newSkus[index].stock = parseInt(e.target.value) || 0
-                          setFormData({ ...formData, skus: newSkus })
-                        }}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded"
-                        min="0"
-                        placeholder="0"
-                      />
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex flex-col gap-1">
-                        <input
-                          type="number"
-                          value={(sku as any).deliveryDays || 7}
-                          onChange={(e) => {
-                            const newSkus = [...formData.skus]
-                            ;(newSkus[index] as any).deliveryDays = parseInt(e.target.value) || 7
-                            setFormData({ ...formData, skus: newSkus })
-                          }}
-                          className="w-16 px-2 py-1 border border-gray-300 rounded text-center"
-                          min="1"
-                          placeholder="7"
-                          title="发货天数"
-                        />
-                        <input
-                          type="text"
-                          value={(sku as any).deliveryNote || ''}
-                          onChange={(e) => {
-                            const newSkus = [...formData.skus]
-                            ;(newSkus[index] as any).deliveryNote = e.target.value
-                            setFormData({ ...formData, skus: newSkus })
-                          }}
-                          className="w-20 px-1 py-0.5 border border-gray-200 rounded text-xs text-gray-500"
-                          placeholder="备注"
-                          title="发货备注（如现货、预售等）"
-                        />
+                      <div className="space-y-2">
+                        {/* 库存模式切换 */}
+                        <div className="flex items-center gap-2">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={sku.stockMode !== false}
+                              onChange={(e) => {
+                                const newSkus = [...formData.skus]
+                                newSkus[index].stockMode = e.target.checked
+                                setFormData({ ...formData, skus: newSkus })
+                              }}
+                              className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                          </label>
+                          <span className={`text-xs ${sku.stockMode !== false ? 'text-emerald-600' : 'text-orange-600'}`}>
+                            {sku.stockMode !== false ? '有库存' : '定制'}
+                          </span>
+                        </div>
+                        
+                        {sku.stockMode !== false ? (
+                          /* 库存模式：显示库存数量和发货天数 */
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-gray-500">库存:</span>
+                              <input
+                                type="number"
+                                value={sku.stock}
+                                onChange={(e) => {
+                                  const newSkus = [...formData.skus]
+                                  newSkus[index].stock = parseInt(e.target.value) || 0
+                                  setFormData({ ...formData, skus: newSkus })
+                                }}
+                                className="w-14 px-1 py-0.5 border border-gray-300 rounded text-center text-sm"
+                                min="0"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-gray-500">发货:</span>
+                              <input
+                                type="number"
+                                value={sku.deliveryDays || 7}
+                                onChange={(e) => {
+                                  const newSkus = [...formData.skus]
+                                  newSkus[index].deliveryDays = parseInt(e.target.value) || 7
+                                  setFormData({ ...formData, skus: newSkus })
+                                }}
+                                className="w-10 px-1 py-0.5 border border-gray-300 rounded text-center text-sm"
+                                min="1"
+                              />
+                              <span className="text-xs text-gray-500">天</span>
+                            </div>
+                          </div>
+                        ) : (
+                          /* 定制模式：显示制作天数 */
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-orange-500">制作:</span>
+                              <input
+                                type="number"
+                                value={sku.productionDays || 30}
+                                onChange={(e) => {
+                                  const newSkus = [...formData.skus]
+                                  newSkus[index].productionDays = parseInt(e.target.value) || 30
+                                  setFormData({ ...formData, skus: newSkus })
+                                }}
+                                className="w-10 px-1 py-0.5 border border-orange-300 rounded text-center text-sm"
+                                min="1"
+                              />
+                              <span className="text-xs text-orange-500">天</span>
+                            </div>
+                            <p className="text-[10px] text-orange-400">下单后开始制作</p>
+                          </div>
+                        )}
                       </div>
                     </td>
                     {/* SKU文件上传 */}
