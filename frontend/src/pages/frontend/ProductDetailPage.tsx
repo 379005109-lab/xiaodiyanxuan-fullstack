@@ -467,6 +467,36 @@ const ProductDetailPage = () => {
     }>;
   }, [product]);
 
+  // 获取材质配置数据（新版：面料选择）
+  const materialConfigs = useMemo(() => {
+    if (!product) return [];
+    return ((product as any).materialConfigs || []) as Array<{
+      id: string;
+      fabricName: string;
+      fabricId: string;
+      images: string[];
+      price: number;
+    }>;
+  }, [product]);
+
+  // 其他材质（固定文字）
+  const otherMaterialsText = useMemo(() => {
+    if (!product) return '';
+    return (product as any).otherMaterialsText || '';
+  }, [product]);
+
+  // 当前选中的材质配置ID
+  const [selectedMaterialConfigId, setSelectedMaterialConfigId] = useState<string | null>(null);
+
+  // 获取选中的材质配置
+  const selectedMaterialConfig = useMemo(() => {
+    if (materialConfigs.length === 0) return null;
+    if (selectedMaterialConfigId) {
+      return materialConfigs.find(c => c.id === selectedMaterialConfigId) || null;
+    }
+    return materialConfigs[0] || null;
+  }, [materialConfigs, selectedMaterialConfigId]);
+
   // 获取选中的材质分组
   const selectedMaterialGroup = useMemo(() => {
     if (materialsGroups.length === 0) return null;
@@ -1716,6 +1746,67 @@ const ProductDetailPage = () => {
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* 材质配置选择（新版：面料选择 + 其他材质） */}
+              {materialConfigs.length > 0 && (
+                <div className="border border-gray-200 rounded-2xl bg-white mt-4 p-4">
+                  <div className="mb-3">
+                    <p className="text-sm font-medium text-gray-900">选择面料/颜色</p>
+                    <p className="text-xs text-gray-400 mt-0.5">点击选择不同面料，查看对应SKU</p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {materialConfigs.map((config) => {
+                      const isSelected = selectedMaterialConfig?.id === config.id;
+                      const thumbUrl = config.images?.[0] ? getThumbnailUrl(config.images[0]) : '';
+                      return (
+                        <button
+                          key={config.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedMaterialConfigId(config.id);
+                            // 切换材质时重置主图到第一张
+                            if (config.images?.length > 0) {
+                              setMainImage(config.images[0]);
+                            }
+                          }}
+                          className={cn(
+                            'relative flex flex-col items-center p-2 rounded-xl border-2 transition-all',
+                            isSelected 
+                              ? 'border-emerald-500 bg-emerald-50 shadow-md' 
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          )}
+                        >
+                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
+                            {thumbUrl ? (
+                              <img src={thumbUrl} alt={config.fabricName} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">无图</div>
+                            )}
+                          </div>
+                          <span className="text-xs font-medium text-gray-700 mt-1.5 max-w-[70px] truncate">{config.fabricName}</span>
+                          {config.price > 0 && (
+                            <span className="text-xs text-orange-600 mt-0.5">+¥{config.price.toLocaleString()}</span>
+                          )}
+                          {isSelected && (
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* 其他材质描述 */}
+                  {otherMaterialsText && (
+                    <div className="mt-3 p-2 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-600">
+                        <span className="font-medium text-gray-700">其他材质：</span>
+                        {otherMaterialsText}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
