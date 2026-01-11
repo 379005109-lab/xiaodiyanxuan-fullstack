@@ -410,7 +410,9 @@ router.get('/my-grants', auth, async (req, res) => {
       ...auth,
       actualProductCount: auth.scope === 'all' 
         ? totalProductCount 
-        : (auth.products?.length || 0)
+        : (auth.products?.length || 0),
+      minDiscountRate: auth.minDiscountRate ?? 0,
+      commissionRate: auth.commissionRate ?? 0
     }))
 
     res.json({ success: true, data: enrichedAuthorizations })
