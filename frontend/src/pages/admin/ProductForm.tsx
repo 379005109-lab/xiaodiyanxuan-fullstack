@@ -376,7 +376,7 @@ export default function ProductForm() {
   }
 
   // 处理材质选择（支持多选，支持动态类目）
-  // 注意：这个函数现在只是添加材质，不再切换状态
+  // 注意：如果是fabric类型且用于SKU面料选择，则设置fabricName（单选）
   const handleMaterialSelect = (material: any, materialType: string, upgradePrice?: number) => {
     console.log('🔥 [材质选择] 添加材质:', material.name, '类型:', materialType, 'SKU索引:', selectingMaterialForSkuIndex)
     
@@ -384,6 +384,19 @@ export default function ProductForm() {
       // 使用函数式更新确保状态正确累积
       setFormData(prev => {
         const newSkus = [...prev.skus]
+        
+        // 如果是fabric类型，设置为SKU的fabricName（单选替换）
+        if (materialType === 'fabric') {
+          newSkus[selectingMaterialForSkuIndex].fabricName = material.name
+          newSkus[selectingMaterialForSkuIndex].fabricMaterialId = material._id || material.id || ''
+          console.log('🔥 [面料选择] 设置SKU面料:', material.name)
+          // 关闭弹窗
+          setShowMaterialSelectModal(false)
+          setSelectingMaterialForSkuIndex(-1)
+          return { ...prev, skus: newSkus }
+        }
+        
+        // 其他材质类型保持原有逻辑
         if (!newSkus[selectingMaterialForSkuIndex].material || typeof newSkus[selectingMaterialForSkuIndex].material === 'string') {
           newSkus[selectingMaterialForSkuIndex].material = createEmptyMaterialSelection()
         }
@@ -1676,27 +1689,62 @@ export default function ProductForm() {
             <table className="w-full min-w-[1200px]">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left py-3 px-4 text-sm font-medium">状态</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium">厂家</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">图片</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">型号</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">尺寸(长×宽×高)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[150px]">面料</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[200px]">其他材质</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[180px]">面料(材质库)</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[220px]">其他材质</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">折扣价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[140px]">库存/发货</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">文件</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">PRO</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">厂家</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">状态</th>
                   <th className="text-right py-3 px-4 text-sm font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {formData.skus.map((sku, index) => (
-                  <tr key={sku.id} className={`border-b border-gray-100 ${sku.isPro ? 'bg-amber-50' : ''}`}>
+                  <tr key={sku.id} className={`border-b border-gray-100 transition-opacity ${!sku.status ? 'opacity-40 bg-gray-100' : ''} ${sku.isPro ? 'bg-amber-50' : ''}`}>
+                    {/* 状态开关 - 放在最前面 */}
                     <td className="py-3 px-4">
-                      {/* 点击进入图片管理器 */}
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={sku.status}
+                          onChange={(e) => {
+                            const newSkus = [...formData.skus]
+                            newSkus[index].status = e.target.checked
+                            setFormData({ ...formData, skus: newSkus })
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      </label>
+                    </td>
+                    {/* 厂家 - 放在第二位 */}
+                    <td className="py-3 px-4">
+                      <select
+                        value={sku.manufacturerId || ''}
+                        onChange={(e) => {
+                          const newSkus = [...formData.skus]
+                          const selectedManufacturer = manufacturers.find(m => m._id === e.target.value)
+                          newSkus[index].manufacturerId = e.target.value
+                          newSkus[index].manufacturerName = selectedManufacturer?.name || ''
+                          setFormData({ ...formData, skus: newSkus })
+                        }}
+                        className="w-28 px-2 py-1 text-sm border border-gray-300 rounded"
+                      >
+                        <option value="">选择厂家</option>
+                        {manufacturers.map((m) => (
+                          <option key={m._id} value={m._id}>{m.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    {/* 图片 */}
+                    <td className="py-3 px-4">
                       <button
                         type="button"
                         onClick={() => {
@@ -1729,17 +1777,16 @@ export default function ProductForm() {
                         )}
                       </button>
                     </td>
+                    {/* 型号 */}
                     <td className="py-3 px-4">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={sku.code}
-                          readOnly
-                          className="w-32 px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-700"
-                          placeholder="型号"
-                          title="型号由上方“型号”字段自动生成"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={sku.code}
+                        readOnly
+                        className="w-28 px-2 py-1 border border-gray-300 rounded bg-gray-50 text-gray-700 text-sm"
+                        placeholder="型号"
+                        title="型号由上方型号字段自动生成"
+                      />
                     </td>
                     <td className="py-3 px-4">
                       <select
@@ -1799,48 +1846,37 @@ export default function ProductForm() {
                         />
                       </div>
                     </td>
-                    {/* 面料选择（单选，关联materialsGroups） */}
+                    {/* 面料选择（从材质库单选） */}
                     <td className="py-3 px-4">
                       <div className="space-y-2">
-                        {formData.materialsGroups.length > 0 ? (
-                          <select
-                            value={sku.fabricMaterialId || ''}
-                            onChange={(e) => {
-                              const newSkus = [...formData.skus]
-                              const selectedGroup = formData.materialsGroups.find(g => g.id === e.target.value)
-                              newSkus[index].fabricMaterialId = e.target.value
-                              newSkus[index].fabricName = selectedGroup?.name || ''
-                              // 如果选择的材质有图片，同步到SKU图片
-                              if (selectedGroup?.images?.length) {
-                                newSkus[index].images = [...selectedGroup.images]
-                              }
-                              setFormData({ ...formData, skus: newSkus })
-                            }}
-                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                          >
-                            <option value="">选择面料</option>
-                            {formData.materialsGroups.map((group) => (
-                              <option key={group.id} value={group.id}>
-                                {group.name} {group.price > 0 ? `(+¥${group.price})` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={sku.fabricName || ''}
-                            onChange={(e) => {
-                              const newSkus = [...formData.skus]
-                              newSkus[index].fabricName = e.target.value
-                              setFormData({ ...formData, skus: newSkus })
-                            }}
-                            placeholder="输入面料名称"
-                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                          />
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectingMaterialForSkuIndex(index)
+                            setSelectingMaterialType('fabric')
+                            setShowMaterialSelectModal(true)
+                          }}
+                          className="w-full px-2 py-1.5 border border-dashed border-gray-300 rounded text-sm text-gray-600 hover:border-primary-400 hover:text-primary-600 transition-colors"
+                        >
+                          {sku.fabricName ? '更换面料' : '+ 选择面料'}
+                        </button>
                         {sku.fabricName && (
-                          <div className="text-xs text-emerald-600 font-medium truncate" title={sku.fabricName}>
-                            {sku.fabricName}
+                          <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded">
+                            <span className="text-xs text-emerald-700 font-medium flex-1 truncate" title={sku.fabricName}>
+                              {sku.fabricName}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newSkus = [...formData.skus]
+                                newSkus[index].fabricName = ''
+                                newSkus[index].fabricMaterialId = ''
+                                setFormData({ ...formData, skus: newSkus })
+                              }}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
                           </div>
                         )}
                       </div>
@@ -2116,39 +2152,6 @@ export default function ProductForm() {
                           </button>
                         )}
                       </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <select
-                        value={sku.manufacturerId || ''}
-                        onChange={(e) => {
-                          const newSkus = [...formData.skus]
-                          const selectedManufacturer = manufacturers.find(m => m._id === e.target.value)
-                          newSkus[index].manufacturerId = e.target.value
-                          newSkus[index].manufacturerName = selectedManufacturer?.name || ''
-                          setFormData({ ...formData, skus: newSkus })
-                        }}
-                        className="w-28 px-2 py-1 text-sm border border-gray-300 rounded"
-                      >
-                        <option value="">选择厂家</option>
-                        {manufacturers.map((m) => (
-                          <option key={m._id} value={m._id}>{m.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-3 px-4">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={sku.status}
-                          onChange={(e) => {
-                            const newSkus = [...formData.skus]
-                            newSkus[index].status = e.target.checked
-                            setFormData({ ...formData, skus: newSkus })
-                          }}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                      </label>
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
