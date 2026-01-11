@@ -182,14 +182,12 @@ export default function ManufacturerBusinessPanel() {
           ? (auth.toManufacturer?._id || auth.toManufacturer)
           : (auth.toDesigner?._id || auth.toDesigner)
         
-        // 获取折扣和返佣信息
-        const priceSettings = auth.priceSettings || {}
-        const minDiscount = typeof priceSettings.minDiscountRate === 'number' 
-          ? Math.round(priceSettings.minDiscountRate * 100) 
-          : (typeof auth.minDiscount === 'number' ? auth.minDiscount : undefined)
-        const commissionRate = typeof priceSettings.commissionRate === 'number'
-          ? Math.round(priceSettings.commissionRate * 100)
-          : (typeof auth.commissionRate === 'number' ? auth.commissionRate : undefined)
+        // 获取折扣和返佣信息 - 直接从授权记录根级别读取
+        const minDiscount = typeof auth.minDiscountRate === 'number' ? auth.minDiscountRate : undefined
+        const commissionRate = typeof auth.commissionRate === 'number' ? auth.commissionRate : undefined
+        
+        // SKU数量：scope='all'时使用actualProductCount，否则使用products数组长度
+        const skuCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
         
         return {
           _id: auth._id,
@@ -201,7 +199,7 @@ export default function ManufacturerBusinessPanel() {
             ? auth.toManufacturer?.logo
             : auth.toDesigner?.avatar,
           validUntil: auth.validUntil,
-          skuCount: auth.actualProductCount || auth.products?.length || 0,
+          skuCount,
           gmv: gmvData[String(targetId)] || 0,
           status: auth.status,
           minDiscount,
