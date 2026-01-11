@@ -2837,10 +2837,10 @@ function HierarchyTab({
                         e.stopPropagation()
                         handleAvatarClick(staff)
                       }}
-                      className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden hover:ring-4 hover:ring-emerald-300 transition-all flex-shrink-0"
+                      className="w-12 h-12 rounded-full bg-emerald-100 hover:ring-4 hover:ring-emerald-300 transition-all flex-shrink-0 flex items-center justify-center"
                       title="编辑层级返佣配置"
                     >
-                      <img src={staff.avatar} alt={staff.name} className="w-full h-full object-cover" />
+                      <Users className="w-6 h-6 text-emerald-600" />
                     </button>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-base font-bold text-gray-900 mb-1">{staff.name}</h4>
@@ -2915,7 +2915,7 @@ function HierarchyTab({
                     <div className="flex items-center gap-3 text-gray-500">
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
-                        {(hierarchyGraph.childrenById.get(String(staff.id)) || []).length}人
+                        {staff.boundEntities?.length || 0}人
                       </span>
                       <span className="flex items-center gap-1">
                         <FileText className="w-3 h-3" />
