@@ -369,6 +369,7 @@ const ProductDetailPage = () => {
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
   const [materialAssetMap, setMaterialAssetMap] = useState<Record<string, string>>({});
   const [materialSectionReady, setMaterialSectionReady] = useState(false); // 延迟渲染材质区域
+  const [selectedMaterialGroupId, setSelectedMaterialGroupId] = useState<string | null>(null); // 选中的材质分组ID
 
   const { addItem } = useCartStore();
   const { favorites, toggleFavorite, loadFavorites } = useFavoriteStore();
@@ -453,14 +454,50 @@ const ProductDetailPage = () => {
     return cache;
   }, [selectedSku, materialAssetMap]);
 
+  // 获取材质分组数据
+  const materialsGroups = useMemo(() => {
+    if (!product) return [];
+    return ((product as any).materialsGroups || []) as Array<{
+      id: string;
+      name: string;
+      images: string[];
+      price: number;
+      extra?: number;
+      isDefault?: boolean;
+    }>;
+  }, [product]);
+
+  // 获取选中的材质分组
+  const selectedMaterialGroup = useMemo(() => {
+    if (materialsGroups.length === 0) return null;
+    if (selectedMaterialGroupId) {
+      return materialsGroups.find(g => g.id === selectedMaterialGroupId) || null;
+    }
+    // 默认选择isDefault为true的分组，或第一个
+    return materialsGroups.find(g => g.isDefault) || materialsGroups[0] || null;
+  }, [materialsGroups, selectedMaterialGroupId]);
+
+  // 材质分组加价
+  const materialGroupExtraPrice = useMemo(() => {
+    if (!selectedMaterialGroup) return 0;
+    return selectedMaterialGroup.price || selectedMaterialGroup.extra || 0;
+  }, [selectedMaterialGroup]);
+
   const defaultGalleryImages = useMemo(() => {
     if (!product) return [];
+    
+    // 如果有选中的材质分组且有图片，使用材质分组的图片
+    if (selectedMaterialGroup && selectedMaterialGroup.images?.length > 0) {
+      return selectedMaterialGroup.images;
+    }
+    
+    // 否则使用默认图片
     const baseImages = Array.isArray(product.images) ? product.images : [];
     const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : [];
     const skuImages = skus.flatMap((sku: any) => sku.images || []);
     const merged = [...baseImages, ...skuImages].filter(Boolean);
     return Array.from(new Set(merged));
-  }, [product]);
+  }, [product, selectedMaterialGroup]);
 
   const isComboProduct = Boolean((product as any)?.isCombo);
 
@@ -1583,6 +1620,58 @@ const ProductDetailPage = () => {
                   </div>
                 )}
               </div>
+
+              {/* 材质选择（保时捷配置器风格）- 选择材质切换整组图片 */}
+              {materialsGroups.length > 0 && (
+                <div className="border border-gray-200 rounded-2xl bg-white mt-4 p-4">
+                  <div className="mb-3">
+                    <p className="text-sm font-medium text-gray-900">选择材质</p>
+                    <p className="text-xs text-gray-400 mt-0.5">点击切换颜色/材质，图片会随之更换</p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {materialsGroups.map((group) => {
+                      const isSelected = selectedMaterialGroup?.id === group.id;
+                      const thumbUrl = group.images?.[0] ? getThumbnailUrl(group.images[0]) : '';
+                      return (
+                        <button
+                          key={group.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedMaterialGroupId(group.id);
+                            // 切换材质时重置主图到第一张
+                            if (group.images?.length > 0) {
+                              setMainImage(group.images[0]);
+                            }
+                          }}
+                          className={cn(
+                            'relative flex flex-col items-center p-2 rounded-xl border-2 transition-all',
+                            isSelected 
+                              ? 'border-emerald-500 bg-emerald-50 shadow-md' 
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          )}
+                        >
+                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
+                            {thumbUrl ? (
+                              <img src={thumbUrl} alt={group.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">无图</div>
+                            )}
+                          </div>
+                          <span className="text-xs font-medium text-gray-700 mt-1.5 max-w-[70px] truncate">{group.name}</span>
+                          {(group.price || group.extra) ? (
+                            <span className="text-xs text-orange-600 mt-0.5">+¥{(group.price || group.extra || 0).toLocaleString()}</span>
+                          ) : null}
+                          {isSelected && (
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Material Selection */}
               {selectedSku && !isComboProduct && (
