@@ -30,6 +30,8 @@ interface ChannelItem {
   skuCount: number
   gmv: number
   status: string
+  minDiscount?: number  // 最低折扣（百分比）
+  commissionRate?: number  // 返佣比例（百分比）
 }
 
 interface ProductItem {
@@ -179,6 +181,16 @@ export default function ManufacturerBusinessPanel() {
         const targetId = auth.authorizationType === 'manufacturer' 
           ? (auth.toManufacturer?._id || auth.toManufacturer)
           : (auth.toDesigner?._id || auth.toDesigner)
+        
+        // 获取折扣和返佣信息
+        const priceSettings = auth.priceSettings || {}
+        const minDiscount = typeof priceSettings.minDiscountRate === 'number' 
+          ? Math.round(priceSettings.minDiscountRate * 100) 
+          : (typeof auth.minDiscount === 'number' ? auth.minDiscount : undefined)
+        const commissionRate = typeof priceSettings.commissionRate === 'number'
+          ? Math.round(priceSettings.commissionRate * 100)
+          : (typeof auth.commissionRate === 'number' ? auth.commissionRate : undefined)
+        
         return {
           _id: auth._id,
           type: auth.authorizationType,
@@ -191,7 +203,9 @@ export default function ManufacturerBusinessPanel() {
           validUntil: auth.validUntil,
           skuCount: auth.actualProductCount || auth.products?.length || 0,
           gmv: gmvData[String(targetId)] || 0,
-          status: auth.status
+          status: auth.status,
+          minDiscount,
+          commissionRate
         }
       })
       setChannels(channelList.filter(c => c.status === 'active'))
@@ -524,14 +538,22 @@ export default function ManufacturerBusinessPanel() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-8">
+                          <div className="flex items-center gap-6">
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">最低折扣</div>
+                              <div className="text-lg font-bold text-green-600">{channel.minDiscount ?? '--'}%</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">返佣比例</div>
+                              <div className="text-lg font-bold text-blue-600">{channel.commissionRate ?? '--'}%</div>
+                            </div>
                             <div className="text-center">
                               <div className="text-xs text-gray-500">已授权SKU</div>
-                              <div className="text-xl font-bold text-gray-900">{channel.skuCount}</div>
+                              <div className="text-lg font-bold text-gray-900">{channel.skuCount}</div>
                             </div>
                             <div className="text-center">
                               <div className="text-xs text-gray-500">累计贡献GMV</div>
-                              <div className="text-xl font-bold text-orange-600">¥{channel.gmv.toLocaleString()}</div>
+                              <div className="text-lg font-bold text-orange-600">¥{channel.gmv.toLocaleString()}</div>
                             </div>
                             <div className="flex items-center gap-2">
                               <button 
