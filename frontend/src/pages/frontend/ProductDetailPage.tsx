@@ -1517,6 +1517,15 @@ const ProductDetailPage = () => {
                   )}
                 </div>
               )}
+              {/* 面料信息 */}
+              {selectedSku && (selectedSku as any).fabricName && (
+                <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <p className="text-xs text-emerald-700">
+                    <span className="font-medium">面料：</span>
+                    {(selectedSku as any).fabricName}
+                  </p>
+                </div>
+              )}
               {/* 其他材质描述 */}
               {selectedSku && (selectedSku as any).otherMaterials && (
                 <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
