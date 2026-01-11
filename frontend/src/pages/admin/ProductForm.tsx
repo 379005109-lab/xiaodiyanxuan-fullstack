@@ -131,7 +131,7 @@ export default function ProductForm() {
         price: 0,
         discountPrice: 0,
         // 库存模式
-        stockMode: false as boolean, // true=有库存模式，false=定制模式（默认定制）
+        stockMode: true as boolean, // true=有库存模式，false=定制模式
         stock: 100,
         deliveryDays: 7, // 发货天数（库存模式）
         productionDays: 30, // 制作天数（定制模式）
@@ -798,8 +798,8 @@ export default function ProductForm() {
           materialUpgradePrices: {},
           price: 0,
           discountPrice: 0,
-          stockMode: false, // 默认定制模式
-          stock: 0,
+          stockMode: true, // 默认库存模式
+          stock: 100,
           deliveryDays: 7,
           productionDays: 30,
           deliveryNote: '',
@@ -943,8 +943,8 @@ export default function ProductForm() {
           materialUpgradePrices: {},
           price: formData.basePrice || 0,
           discountPrice: 0,
-          stockMode: false, // 默认定制模式
-          stock: 0,
+          stockMode: true, // 默认库存模式
+          stock: 100,
           deliveryDays: 7,
           productionDays: 30,
           deliveryNote: '',
@@ -2672,10 +2672,11 @@ export default function ProductForm() {
       {/* 材质选择模态框 */}
       {showMaterialSelectModal && (selectingMaterialForSkuIndex >= 0 || selectingMaterialForSkuIndex === -2) && (
         <MaterialSelectModal
-          multiple={true}
+          multiple={selectingMaterialForSkuIndex !== -2}
           materialType={selectingMaterialType}
-          skuIsPro={formData.skus[selectingMaterialForSkuIndex]?.isPro || false}
+          skuIsPro={selectingMaterialForSkuIndex >= 0 ? (formData.skus[selectingMaterialForSkuIndex]?.isPro || false) : false}
           selectedMaterials={(() => {
+            if (selectingMaterialForSkuIndex === -2) return [] // 添加材质配置时不需要已选列表
             const sku = formData.skus[selectingMaterialForSkuIndex]
             if (!sku) return []
             const materialObj = sku.material || {}
@@ -2683,6 +2684,7 @@ export default function ProductForm() {
             return Array.isArray(materialList) ? materialList : (materialList ? [materialList] : [])
           })()}
           materialUpgradePrices={(() => {
+            if (selectingMaterialForSkuIndex === -2) return {} // 添加材质配置时不需要价格
             const sku = formData.skus[selectingMaterialForSkuIndex]
             if (!sku || !sku.materialUpgradePrices) return {}
             return sku.materialUpgradePrices as Record<string, number>
