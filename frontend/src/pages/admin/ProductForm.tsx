@@ -131,7 +131,7 @@ export default function ProductForm() {
         price: 0,
         discountPrice: 0,
         // 库存模式
-        stockMode: true as boolean, // true=有库存模式，false=定制模式
+        stockMode: false as boolean, // true=有库存模式，false=定制模式（默认定制）
         stock: 100,
         deliveryDays: 7, // 发货天数（库存模式）
         productionDays: 30, // 制作天数（定制模式）
@@ -798,8 +798,8 @@ export default function ProductForm() {
           materialUpgradePrices: {},
           price: 0,
           discountPrice: 0,
-          stockMode: true,
-          stock: 100,
+          stockMode: false, // 默认定制模式
+          stock: 0,
           deliveryDays: 7,
           productionDays: 30,
           deliveryNote: '',
@@ -943,8 +943,8 @@ export default function ProductForm() {
           materialUpgradePrices: {},
           price: formData.basePrice || 0,
           discountPrice: 0,
-          stockMode: true,
-          stock: 100,
+          stockMode: false, // 默认定制模式
+          stock: 0,
           deliveryDays: 7,
           productionDays: 30,
           deliveryNote: '',
@@ -1768,26 +1768,22 @@ export default function ProductForm() {
             </button>
           </div>
           
-          {/* 其他材质（固定文字） */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">其他材质（固定）</label>
-            <input
-              type="text"
-              value={formData.otherMaterialsText}
-              onChange={(e) => setFormData({ ...formData, otherMaterialsText: e.target.value })}
-              placeholder="如：蛇形弹簧+45D海绵+不锈钢支撑脚"
-              className="input w-full"
-            />
-            <p className="text-xs text-gray-500 mt-1">此内容将应用到所有SKU</p>
-          </div>
-
           {/* 面料/颜色列表 */}
           <div className="space-y-3">
             {formData.materialConfigs.length === 0 ? (
-              <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                <p className="text-gray-500 text-sm">暂无材质配置</p>
-                <p className="text-gray-400 text-xs mt-1">点击上方"添加颜色/材质"从材质库选择</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectingMaterialForSkuIndex(-2)
+                  setSelectingMaterialType('fabric')
+                  setShowMaterialSelectModal(true)
+                }}
+                className="w-full text-center py-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors cursor-pointer"
+              >
+                <Plus className="h-8 w-8 mx-auto text-gray-400" />
+                <p className="text-gray-500 text-sm mt-2">点击添加颜色/材质</p>
+                <p className="text-gray-400 text-xs mt-1">从材质库选择面料</p>
+              </button>
             ) : (
               formData.materialConfigs.map((config, index) => (
                 <div key={config.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -1847,6 +1843,19 @@ export default function ProductForm() {
                 </div>
               ))
             )}
+          </div>
+
+          {/* 其他材质（固定文字） */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-2">其他材质</label>
+            <input
+              type="text"
+              value={formData.otherMaterialsText}
+              onChange={(e) => setFormData({ ...formData, otherMaterialsText: e.target.value })}
+              placeholder="如：蛇形弹簧+45D海绵+不锈钢支撑脚"
+              className="input w-full"
+            />
+            <p className="text-xs text-gray-500 mt-1">SKU显示格式：面料：[选择的面料]，其他材质：[此处内容]</p>
           </div>
           
           {/* 生成提示 */}
@@ -2055,100 +2064,46 @@ export default function ProductForm() {
                         />
                       </div>
                     </td>
-                    {/* 面料选择（从材质库单选） */}
+                    {/* 面料选择（从材质配置下拉选择） */}
                     <td className="py-3 px-4">
-                      <div className="space-y-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectingMaterialForSkuIndex(index)
-                            setSelectingMaterialType('fabric')
-                            setShowMaterialSelectModal(true)
-                          }}
-                          className="w-full px-2 py-1.5 border border-dashed border-gray-300 rounded text-sm text-gray-600 hover:border-primary-400 hover:text-primary-600 transition-colors"
-                        >
-                          {sku.fabricName ? '更换面料' : '+ 选择面料'}
-                        </button>
-                        {sku.fabricName && (
-                          <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded">
-                            <span className="text-xs text-emerald-700 font-medium flex-1 truncate" title={sku.fabricName}>
-                              {sku.fabricName}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newSkus = [...formData.skus]
-                                newSkus[index].fabricName = ''
-                                newSkus[index].fabricMaterialId = ''
-                                setFormData({ ...formData, skus: newSkus })
-                              }}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    {/* 其他材质（文字+图片） */}
-                    <td className="py-3 px-4">
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={sku.otherMaterials || ''}
+                      {formData.materialConfigs.length > 0 ? (
+                        <select
+                          value={sku.fabricMaterialId || ''}
                           onChange={(e) => {
                             const newSkus = [...formData.skus]
-                            newSkus[index].otherMaterials = e.target.value
+                            const selectedConfig = formData.materialConfigs.find(c => c.id === e.target.value)
+                            newSkus[index].fabricMaterialId = e.target.value
+                            newSkus[index].fabricName = selectedConfig?.fabricName || ''
+                            // 同步材质图片到SKU图片
+                            if (selectedConfig?.images?.length) {
+                              newSkus[index].images = [...selectedConfig.images]
+                            }
                             setFormData({ ...formData, skus: newSkus })
                           }}
-                          placeholder="如：蛇形弹簧+45D海绵+不锈钢脚"
                           className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                        />
-                        {sku.otherMaterialsImage ? (
-                          <div className="flex items-center gap-2">
-                            <img 
-                              src={getThumbnailUrl(sku.otherMaterialsImage)} 
-                              alt="材质图" 
-                              className="w-8 h-8 rounded object-cover"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newSkus = [...formData.skus]
-                                newSkus[index].otherMaterialsImage = ''
-                                setFormData({ ...formData, skus: newSkus })
-                              }}
-                              className="text-red-500 text-xs hover:underline"
-                            >
-                              删除
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="flex items-center gap-1 px-2 py-1 bg-gray-50 hover:bg-gray-100 border border-dashed border-gray-300 rounded cursor-pointer text-xs text-gray-600">
-                            <Upload className="h-3 w-3" />
-                            <span>上传图片</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0]
-                                if (!file) return
-                                try {
-                                  const result = await uploadFile(file)
-                                  if (result.success) {
-                                    const newSkus = [...formData.skus]
-                                    newSkus[index].otherMaterialsImage = result.data.fileId
-                                    setFormData({ ...formData, skus: newSkus })
-                                    toast.success('图片上传成功')
-                                  }
-                                } catch (err) {
-                                  toast.error('图片上传失败')
-                                }
-                                e.target.value = ''
-                              }}
-                            />
-                          </label>
+                        >
+                          <option value="">选择面料</option>
+                          {formData.materialConfigs.map((config) => (
+                            <option key={config.id} value={config.id}>
+                              {config.fabricName} {config.price > 0 ? `(+¥${config.price})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs text-gray-400">请先添加材质配置</span>
+                      )}
+                    </td>
+                    {/* 其他材质（显示格式：面料：XX，其他材质：XX） */}
+                    <td className="py-3 px-4">
+                      <div className="text-xs text-gray-600 leading-relaxed">
+                        {sku.fabricName && (
+                          <div><span className="font-medium">面料：</span>{sku.fabricName}</div>
+                        )}
+                        {formData.otherMaterialsText && (
+                          <div><span className="font-medium">其他材质：</span>{formData.otherMaterialsText}</div>
+                        )}
+                        {!sku.fabricName && !formData.otherMaterialsText && (
+                          <span className="text-gray-400">-</span>
                         )}
                       </div>
                     </td>
