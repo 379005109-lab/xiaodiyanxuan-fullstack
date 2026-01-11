@@ -974,23 +974,39 @@ export default function ManufacturerManagement() {
                           >
                             查看授权商品
                           </button>
-                          <button
-                            onClick={async () => {
-                              if (window.confirm('确定要暂停与该厂家的合作吗？暂停后该厂家的商品将全部下架。')) {
+                          {authInfo.isEnabled !== false ? (
+                            <button
+                              onClick={async () => {
                                 try {
-                                  await apiClient.put(`/authorizations/${authInfo.authorizationId}/toggle-status`, { active: false })
-                                  toast.success('已暂停合作')
+                                  await apiClient.put(`/authorizations/${authInfo.authorizationId}/toggle-enabled`, { enabled: false })
+                                  toast.success('已关闭该厂家商品显示')
                                   fetchData()
                                 } catch (e: any) {
                                   toast.error(e?.response?.data?.message || '操作失败')
                                 }
-                              }
-                            }}
-                            className="px-4 py-3 rounded-2xl text-sm font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                            title="暂停合作"
-                          >
-                            暂停
-                          </button>
+                              }}
+                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                              title="关闭后该厂家商品不在列表和商城中显示"
+                            >
+                              关闭
+                            </button>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await apiClient.put(`/authorizations/${authInfo.authorizationId}/toggle-enabled`, { enabled: true })
+                                  toast.success('已开启该厂家商品显示')
+                                  fetchData()
+                                } catch (e: any) {
+                                  toast.error(e?.response?.data?.message || '操作失败')
+                                }
+                              }}
+                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                              title="开启后该厂家商品将在列表和商城中显示"
+                            >
+                              开启
+                            </button>
+                          )}
                         </div>
                       )}
                       {!isCooperating && (

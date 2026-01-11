@@ -282,6 +282,32 @@ router.get('/:id/pricing', auth, getProductPricing)
 // PUT /api/products/:id/pricing - Update product pricing config
 router.put('/:id/pricing', auth, updateProductPricing)
 
+// PATCH /api/products/:id/status - 切换商品状态（上架/下架）
+router.patch('/:id/status', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const Product = require('../models/Product')
+    
+    const product = await Product.findById(id)
+    if (!product) {
+      return res.status(404).json({ success: false, message: '商品不存在' })
+    }
+    
+    // 切换状态
+    product.status = product.status === 'active' ? 'inactive' : 'active'
+    await product.save()
+    
+    res.json({ 
+      success: true, 
+      data: product,
+      message: product.status === 'active' ? '商品已上架' : '商品已下架'
+    })
+  } catch (error) {
+    console.error('切换商品状态失败:', error)
+    res.status(500).json({ success: false, message: '切换商品状态失败' })
+  }
+})
+
 // GET /api/products/:id - Get product details
 router.get('/:id', optionalAuth, getProduct)
 

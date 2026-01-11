@@ -470,12 +470,12 @@ function App() {
             <Route path="products" element={<ProductManagementRoute />} />
             <Route path="authorized-products" element={<AuthorizedProductPricing />} />
             <Route path="products/new" element={
-              <ProtectedRoute requirePermission="canManageProducts" fallbackPath="/admin">
+              <ProtectedRoute requirePermission="canManageProducts" fallbackPath="/admin/products">
                 <ProductForm />
               </ProtectedRoute>
             } />
             <Route path="products/edit/:id" element={
-              <ProtectedRoute requirePermission="canManageProducts" fallbackPath="/admin">
+              <ProtectedRoute allowedRoles={['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin']} fallbackPath="/admin/products">
                 <ProductForm />
               </ProtectedRoute>
             } />

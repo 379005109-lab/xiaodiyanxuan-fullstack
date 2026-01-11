@@ -1865,6 +1865,114 @@ router.get('/products/:productId/price', auth, async (req, res) => {
   }
 })
 
+// PUT /api/authorizations/product-override/:productId - 更新授权商品的本地覆盖设置（价格、可见性）
+router.put('/product-override/:productId', auth, async (req, res) => {
+  try {
+    const { productId } = req.params
+    const { price, hidden } = req.body
+    
+    const user = await User.findById(req.userId).select('manufacturerId').lean()
+    if (!user?.manufacturerId) {
+      return res.status(403).json({ success: false, message: '只有厂家用户可以操作' })
+    }
+    
+    // 查找该商品
+    const Product = require('../models/Product')
+    const product = await Product.findById(productId).lean()
+    if (!product) {
+      return res.status(404).json({ success: false, message: '商品不存在' })
+    }
+    
+    // 获取商品的厂家ID（可能在product.manufacturerId或skus[0].manufacturerId）
+    const productManufacturerId = product.manufacturerId || product.skus?.[0]?.manufacturerId
+    if (!productManufacturerId) {
+      return res.status(400).json({ success: false, message: '商品没有关联厂家' })
+    }
+    
+    // 检查是否有该商品的授权
+    const authorization = await Authorization.findOne({
+      fromManufacturer: productManufacturerId,
+      $or: [
+        { toManufacturer: user.manufacturerId },
+        { toDesigner: req.userId }
+      ],
+      status: 'active'
+    })
+    
+    if (!authorization) {
+      return res.status(403).json({ success: false, message: '您没有该商品的授权' })
+    }
+    
+    // 验证价格下限（60%）
+    if (price !== undefined) {
+      const originalPrice = product.skus?.[0]?.price || product.basePrice || 0
+      const minAllowed = originalPrice * 0.6
+      if (price < minAllowed) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `价格不能低于授权标价的60%（最低 ¥${Math.ceil(minAllowed)}）` 
+        })
+      }
+    }
+    
+    // 更新或创建商品覆盖设置
+    if (!authorization.productOverrides) {
+      authorization.productOverrides = {}
+    }
+    if (!authorization.productOverrides[productId]) {
+      authorization.productOverrides[productId] = {}
+    }
+    if (price !== undefined) {
+      authorization.productOverrides[productId].price = price
+    }
+    if (hidden !== undefined) {
+      authorization.productOverrides[productId].hidden = hidden
+    }
+    
+    authorization.markModified('productOverrides')
+    await authorization.save()
+    
+    res.json({ 
+      success: true, 
+      data: authorization.productOverrides[productId],
+      message: price !== undefined ? '价格已更新' : (hidden ? '商品已隐藏' : '商品已显示')
+    })
+  } catch (error) {
+    console.error('更新授权商品覆盖设置失败:', error)
+    res.status(500).json({ success: false, message: '更新失败' })
+  }
+})
+
+// GET /api/authorizations/product-overrides - 获取所有授权商品的覆盖设置
+router.get('/product-overrides', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('manufacturerId').lean()
+    if (!user?.manufacturerId) {
+      return res.status(403).json({ success: false, message: '只有厂家用户可以操作' })
+    }
+    
+    const authorizations = await Authorization.find({
+      $or: [
+        { toManufacturer: user.manufacturerId },
+        { toDesigner: req.userId }
+      ],
+      status: 'active'
+    }).select('productOverrides').lean()
+    
+    const allOverrides = {}
+    for (const auth of authorizations) {
+      if (auth.productOverrides) {
+        Object.assign(allOverrides, auth.productOverrides)
+      }
+    }
+    
+    res.json({ success: true, data: allOverrides })
+  } catch (error) {
+    console.error('获取授权商品覆盖设置失败:', error)
+    res.status(500).json({ success: false, message: '获取失败' })
+  }
+})
+
 // GET /api/authorizations/gmv-stats - 获取授权渠道的GMV统计
 router.get('/gmv-stats', auth, async (req, res) => {
   try {
@@ -2019,6 +2127,45 @@ router.put('/:id/toggle-status', auth, async (req, res) => {
   } catch (error) {
     console.error('切换授权状态失败:', error)
     res.status(500).json({ success: false, message: '切换授权状态失败' })
+  }
+})
+
+// PUT /api/authorizations/:id/toggle-enabled - 切换授权商品显示（开启/关闭）
+router.put('/:id/toggle-enabled', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { enabled } = req.body
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'ID无效' })
+    }
+    
+    const authorization = await Authorization.findById(id)
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+    
+    // 验证权限 - 只有被授权方可以开启/关闭
+    const user = await User.findById(req.userId).select('role manufacturerId').lean()
+    if (!user) {
+      return res.status(401).json({ success: false, message: '请先登录' })
+    }
+    
+    const isAdmin = ['admin', 'super_admin'].includes(user.role)
+    const isRecipient = user.manufacturerId && String(authorization.toManufacturer) === String(user.manufacturerId)
+    
+    if (!isAdmin && !isRecipient) {
+      return res.status(403).json({ success: false, message: '无权限操作此授权' })
+    }
+    
+    // 切换显示状态
+    authorization.isEnabled = enabled
+    await authorization.save()
+    
+    res.json({ success: true, data: authorization, message: enabled ? '已开启商品显示' : '已关闭商品显示' })
+  } catch (error) {
+    console.error('切换授权显示状态失败:', error)
+    res.status(500).json({ success: false, message: '切换显示状态失败' })
   }
 })
 
