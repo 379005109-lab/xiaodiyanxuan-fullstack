@@ -107,6 +107,7 @@ export default function ProductForm() {
       price: number // 加价金额
     }>,
     otherMaterialsText: '' as string, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
+    otherMaterialsImage: '' as string, // 其他材质图片
     specifications: [
       { name: '2人位', length: 200, width: 90, height: 85, unit: 'CM' },
     ],
@@ -131,7 +132,7 @@ export default function ProductForm() {
         price: 0,
         discountPrice: 0,
         // 库存模式
-        stockMode: true as boolean, // true=有库存模式，false=定制模式
+        stockMode: false as boolean, // true=有库存模式，false=定制模式（默认定制）
         stock: 100,
         deliveryDays: 7, // 发货天数（库存模式）
         productionDays: 30, // 制作天数（定制模式）
@@ -342,7 +343,6 @@ export default function ProductForm() {
             }
           }),
           description: product.description,
-          styles: (product as any).styles || [], // 加载风格标签
           // 加载材质分组数据
           materialsGroups: ((product as any).materialsGroups || []).map((group: any, idx: number) => ({
             id: group.id || `mat-${idx}`,
@@ -360,6 +360,7 @@ export default function ProductForm() {
             price: config.price || 0,
           })),
           otherMaterialsText: (product as any).otherMaterialsText || '',
+          otherMaterialsImage: (product as any).otherMaterialsImage || '',
           files: ((product as any).files || []).filter((file: any) => {
             // 过滤掉Base64文件数据
             if (file.url && file.url.startsWith('data:')) {
@@ -675,6 +676,7 @@ export default function ProductForm() {
           price: config.price || 0,
         })),
         otherMaterialsText: formData.otherMaterialsText || '',
+        otherMaterialsImage: formData.otherMaterialsImage || '',
         specifications: formData.specifications.reduce((acc, spec) => {
           if (spec.name) {
             acc[spec.name] = `${spec.length}x${spec.width}x${spec.height}${spec.unit}`
@@ -798,8 +800,8 @@ export default function ProductForm() {
           materialUpgradePrices: {},
           price: 0,
           discountPrice: 0,
-          stockMode: true, // 默认库存模式
-          stock: 100,
+          stockMode: false, // 默认定制模式
+          stock: 0,
           deliveryDays: 7,
           productionDays: 30,
           deliveryNote: '',
@@ -943,8 +945,8 @@ export default function ProductForm() {
           materialUpgradePrices: {},
           price: formData.basePrice || 0,
           discountPrice: 0,
-          stockMode: true, // 默认库存模式
-          stock: 100,
+          stockMode: false, // 默认定制模式
+          stock: 0,
           deliveryDays: 7,
           productionDays: 30,
           deliveryNote: '',
@@ -1845,16 +1847,61 @@ export default function ProductForm() {
             )}
           </div>
 
-          {/* 其他材质（固定文字） */}
+          {/* 其他材质（文字+图片） */}
           <div className="mt-4">
             <label className="block text-sm font-medium mb-2">其他材质</label>
-            <input
-              type="text"
-              value={formData.otherMaterialsText}
-              onChange={(e) => setFormData({ ...formData, otherMaterialsText: e.target.value })}
-              placeholder="如：蛇形弹簧+45D海绵+不锈钢支撑脚"
-              className="input w-full"
-            />
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={formData.otherMaterialsText}
+                  onChange={(e) => setFormData({ ...formData, otherMaterialsText: e.target.value })}
+                  placeholder="如：蛇形弹簧+45D海绵+不锈钢支撑脚"
+                  className="input w-full"
+                />
+              </div>
+              <div className="flex-shrink-0">
+                {formData.otherMaterialsImage ? (
+                  <div className="relative">
+                    <img 
+                      src={getThumbnailUrl(formData.otherMaterialsImage, 64)} 
+                      alt="其他材质"
+                      className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, otherMaterialsImage: '' })}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <label className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-primary-400 hover:bg-primary-50">
+                    <Upload className="h-5 w-5 text-gray-400" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        try {
+                          const result = await uploadFile(file)
+                          if (result.success) {
+                            setFormData({ ...formData, otherMaterialsImage: result.data.fileId })
+                            toast.success('图片上传成功')
+                          }
+                        } catch (err) {
+                          toast.error('图片上传失败')
+                        }
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
             <p className="text-xs text-gray-500 mt-1">SKU显示格式：面料：[选择的面料]，其他材质：[此处内容]</p>
           </div>
           
@@ -2120,13 +2167,17 @@ export default function ProductForm() {
                           placeholder="基础价格"
                           className={`w-20 px-2 py-1 border border-gray-300 rounded ${sku.discountPrice > 0 ? 'line-through text-gray-400' : ''}`}
                         />
+                        {/* 显示材质加价 */}
+                        {(() => {
+                          const selectedConfig = formData.materialConfigs.find(c => c.id === sku.fabricMaterialId)
+                          if (selectedConfig?.price > 0) {
+                            return <span className="text-xs text-orange-600">+¥{selectedConfig.price} 材质加价</span>
+                          }
+                          return null
+                        })()}
                         {sku.discountPrice > 0 && (
                           <span className="text-xs text-gray-500">原价</span>
                         )}
-                        {/* 显示总价 */}
-                        <div className="text-xs text-gray-600 mt-1">
-                          总价: ¥{(sku.price || 0).toFixed(2)}
-                        </div>
                       </div>
                     </td>
                     <td className="py-3 px-4">

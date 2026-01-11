@@ -87,6 +87,7 @@ const productSchema = new mongoose.Schema({
     price: { type: Number, default: 0 } // 加价金额
   }],
   otherMaterialsText: String, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
+  otherMaterialsImage: String, // 其他材质图片
   materialImages: mongoose.Schema.Types.Mixed, // 材质图片 { categoryName: [{name, url}] }
   materialCategories: [String], // 材质类目列表
   tags: [String],
