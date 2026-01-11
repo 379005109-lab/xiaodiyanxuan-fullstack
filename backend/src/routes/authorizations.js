@@ -416,12 +416,29 @@ router.get('/my-grants', auth, async (req, res) => {
     const mfrDefaultDiscount = currentManufacturer?.defaultDiscount || 0
     const mfrDefaultCommission = currentManufacturer?.defaultCommission || 0
     
-    const enrichedAuthorizations = authorizations.map(auth => {
-      // SKU数量：scope='all'时使用总产品数，否则使用授权的产品数量
+    // 预先计算各分类的产品数量
+    const categoryProductCounts = {}
+    
+    const enrichedAuthorizations = await Promise.all(authorizations.map(async auth => {
+      // SKU数量计算
       let skuCount = 0
       if (auth.scope === 'all') {
+        // 全部产品
         skuCount = totalProductCount
+      } else if (auth.scope === 'category' && Array.isArray(auth.categories) && auth.categories.length > 0) {
+        // 按分类授权：统计这些分类下的产品数量
+        const categoryIds = auth.categories.map(c => typeof c === 'string' ? c : String(c))
+        const count = await Product.countDocuments({
+          manufacturerId: user.manufacturerId,
+          status: 'active',
+          $or: [
+            { 'category': { $in: categoryIds } },
+            { 'category._id': { $in: categoryIds } }
+          ]
+        })
+        skuCount = count
       } else if (Array.isArray(auth.products)) {
+        // 指定产品或混合模式
         skuCount = auth.products.length
       }
       
@@ -432,7 +449,7 @@ router.get('/my-grants', auth, async (req, res) => {
         minDiscountRate: auth.minDiscountRate || mfrDefaultDiscount,
         commissionRate: auth.commissionRate || mfrDefaultCommission
       }
-    })
+    }))
 
     res.json({ success: true, data: enrichedAuthorizations })
   } catch (error) {
