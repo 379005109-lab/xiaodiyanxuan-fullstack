@@ -1840,6 +1840,7 @@ function HierarchyTab({
       // 优先使用账户级别的自定义折扣值，否则使用规则值
       const customDiscount = typeof account.boundUserDiscount === 'number' ? account.boundUserDiscount : null
       const effectiveMinDiscount = customDiscount !== null ? customDiscount : Math.round(Math.max(0, Math.min(1, ruleDiscountRate)) * 100)
+      if (index === 0) console.log('[TierSystem] 加载账户:', { id: account._id, boundUserDiscount: account.boundUserDiscount, customDiscount, effectiveMinDiscount })
       
       return {
         id: String(account._id),
@@ -2328,15 +2329,16 @@ function HierarchyTab({
     // 直接保存自定义折扣值到账户，而不是尝试匹配规则
     const nextAccounts = accounts.map(a => {
       if (String(a._id) !== String(nodeId)) return a
-      return {
+      const updated = {
         ...a,
         boundUserDiscount: targetDiscountPct,
         distributionRate: targetDist,
       }
+      console.log('[TierSystem] 保存折扣:', { nodeId, boundUserDiscount: targetDiscountPct, updated })
+      return updated
     })
 
     onSaveAccounts(nextAccounts)
-    toast.success(`已保存：最低折扣 ${targetDiscountPct}%，返佣比例 ${targetDist}%`)
   }
 
   const handleAvatarClick = (staff: any) => {
