@@ -470,13 +470,15 @@ const ProductDetailPage = () => {
   // 获取材质配置数据（新版：面料选择）
   const materialConfigs = useMemo(() => {
     if (!product) return [];
-    return ((product as any).materialConfigs || []) as Array<{
+    const configs = ((product as any).materialConfigs || []) as Array<{
       id: string;
       fabricName: string;
       fabricId: string;
       images: string[];
       price: number;
     }>;
+    console.log('🔥 [DEBUG] ProductDetailPage materialConfigs:', configs, 'count:', configs.length);
+    return configs;
   }, [product]);
 
   // 其他材质（固定文字）
