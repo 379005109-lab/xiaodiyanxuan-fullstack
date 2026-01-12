@@ -327,7 +327,7 @@ export default function ProductForm() {
               price: sku.price,
               discountPrice: (sku as any).discountPrice || 0,
               // 库存模式
-              stockMode: (sku as any).stockMode !== false, // 默认true
+              stockMode: (sku as any).stockMode === true, // 默认定制模式(false)
               stock: sku.stock,
               deliveryDays: (sku as any).deliveryDays || 7,
               productionDays: (sku as any).productionDays || 30,
@@ -642,7 +642,7 @@ export default function ProductForm() {
           materialUpgradePrices: sku.materialUpgradePrices || {} as Record<string, number>,
           materialId: undefined,
           // 库存模式
-          stockMode: sku.stockMode !== false,
+          stockMode: sku.stockMode === true, // 默认定制模式(false)
           stock: sku.stock,
           deliveryDays: sku.deliveryDays || 7,
           productionDays: sku.productionDays || 30,
@@ -1213,151 +1213,6 @@ export default function ProductForm() {
             maxImages={10}
             label="点击上传或拖拽商品图片到此处"
           />
-        </div>
-
-        {/* 材质选择（保时捷配置器风格）*/}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-semibold">材质选择</h2>
-              <p className="text-sm text-gray-500 mt-1">选择材质时会替换整组商品图片（如不同颜色的沙发）</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const newId = `mat-${Date.now()}`
-                setFormData({
-                  ...formData,
-                  materialsGroups: [
-                    ...formData.materialsGroups,
-                    {
-                      id: newId,
-                      name: '',
-                      images: [],
-                      price: 0,
-                      isDefault: formData.materialsGroups.length === 0,
-                    }
-                  ]
-                })
-              }}
-              className="btn-secondary px-4 py-2 flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              添加材质
-            </button>
-          </div>
-          
-          {formData.materialsGroups.length === 0 ? (
-            <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center">
-              <p className="text-gray-500">暂无材质选择，点击上方按钮添加</p>
-              <p className="text-sm text-gray-400 mt-2">添加材质后，用户在前端选择材质时会切换整组商品图片</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {formData.materialsGroups.map((group, index) => (
-                <div key={group.id} className={`border rounded-xl p-4 ${group.isDefault ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-200'}`}>
-                  <div className="flex items-start gap-4">
-                    {/* 材质缩略图 */}
-                    <div className="w-20 h-20 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                      {group.images[0] ? (
-                        <img 
-                          src={getThumbnailUrl(group.images[0])} 
-                          alt={group.name} 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <Upload className="w-6 h-6" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* 材质信息 */}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="text"
-                          value={group.name}
-                          onChange={(e) => {
-                            const newGroups = [...formData.materialsGroups]
-                            newGroups[index] = { ...newGroups[index], name: e.target.value }
-                            setFormData({ ...formData, materialsGroups: newGroups })
-                          }}
-                          placeholder="材质名称（如：纯白色、中国红）"
-                          className="input flex-1"
-                        />
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-500">加价</span>
-                          <input
-                            type="number"
-                            value={group.price}
-                            onChange={(e) => {
-                              const newGroups = [...formData.materialsGroups]
-                              newGroups[index] = { ...newGroups[index], price: Number(e.target.value) || 0 }
-                              setFormData({ ...formData, materialsGroups: newGroups })
-                            }}
-                            placeholder="0"
-                            className="input w-24 text-right"
-                          />
-                          <span className="text-sm text-gray-500">元</span>
-                        </div>
-                      </div>
-                      
-                      {/* 图片上传区域 */}
-                      <div>
-                        <ImageUploader
-                          images={group.images}
-                          onChange={(images) => {
-                            const newGroups = [...formData.materialsGroups]
-                            newGroups[index] = { ...newGroups[index], images }
-                            setFormData({ ...formData, materialsGroups: newGroups })
-                          }}
-                          multiple={true}
-                          maxImages={10}
-                          label="上传该材质的商品图片"
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* 操作按钮 */}
-                    <div className="flex flex-col gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newGroups = formData.materialsGroups.map((g, i) => ({
-                            ...g,
-                            isDefault: i === index
-                          }))
-                          setFormData({ ...formData, materialsGroups: newGroups })
-                        }}
-                        className={`px-3 py-1.5 text-xs rounded-lg border ${
-                          group.isDefault 
-                            ? 'bg-emerald-100 text-emerald-700 border-emerald-300' 
-                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                        }`}
-                      >
-                        {group.isDefault ? '默认' : '设为默认'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newGroups = formData.materialsGroups.filter((_, i) => i !== index)
-                          // 如果删除的是默认项，设置第一个为默认
-                          if (group.isDefault && newGroups.length > 0) {
-                            newGroups[0].isDefault = true
-                          }
-                          setFormData({ ...formData, materialsGroups: newGroups })
-                        }}
-                        className="px-3 py-1.5 text-xs rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* 基本信息 */}
