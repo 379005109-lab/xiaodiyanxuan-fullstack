@@ -197,6 +197,23 @@ export default function ProductManagement() {
             // 标记为授权商品
             newAuthorizedProducts.forEach((p: any) => { p.isAuthorized = true })
             filteredProducts = [...filteredProducts, ...newAuthorizedProducts]
+            
+            // 加载商品覆盖设置（隐藏状态）
+            try {
+              const overridesResponse = await apiClient.get('/authorizations/product-overrides')
+              const overrides = overridesResponse.data?.data || {}
+              console.log('[ProductManagement] 商品覆盖设置:', overrides)
+              // 应用隐藏状态到商品列表
+              filteredProducts = filteredProducts.map((p: any) => {
+                const override = overrides[p._id]
+                if (override) {
+                  return { ...p, isHidden: override.hidden || false, overridePrice: override.price }
+                }
+                return p
+              })
+            } catch (overrideError) {
+              console.log('[ProductManagement] 加载商品覆盖设置失败:', overrideError)
+            }
           } catch (authError) {
             console.log('[ProductManagement] 加载授权商品失败:', authError)
           }
