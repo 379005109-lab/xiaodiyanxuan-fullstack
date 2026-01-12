@@ -226,7 +226,55 @@ export default function ProductsPage() {
       const response = await getAllProducts({ pageSize: 50000 });
       if (response.success && response.data) {
         // 只显示上架的商品
-        const activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');
+        let activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');
+        
+        // 过滤隐藏的商品（从localStorage读取隐藏状态）
+        try {
+          const hiddenOverrides = JSON.parse(localStorage.getItem('authorized_product_overrides') || '{}')
+          activeProducts = activeProducts.filter((p: any) => {
+            const override = hiddenOverrides[p._id]
+            if (override && override.hidden === true) {
+              console.log(`[商城] 过滤隐藏商品: ${p.name}`)
+              return false
+            }
+            return true
+          })
+        } catch (e) {
+          console.log('[商城] 读取隐藏商品状态失败:', e)
+        }
+        
+        // 过滤关闭厂家的商品（从localStorage读取厂家启用状态）
+        try {
+          const enabledStates = JSON.parse(localStorage.getItem('authorization_enabled_states') || '{}')
+          const disabledManufacturerIds = Object.keys(enabledStates).filter(id => enabledStates[id]?.enabled === false)
+          if (disabledManufacturerIds.length > 0) {
+            activeProducts = activeProducts.filter((p: any) => {
+              const manufacturerId = p.manufacturer?._id || p.manufacturer || p.manufacturerId
+              if (manufacturerId && disabledManufacturerIds.includes(manufacturerId)) {
+                console.log(`[商城] 过滤关闭厂家商品: ${p.name}, 厂家ID: ${manufacturerId}`)
+                return false
+              }
+              return true
+            })
+          }
+        } catch (e) {
+          console.log('[商城] 读取厂家启用状态失败:', e)
+        }
+        
+        // 应用本地存储的价格覆盖
+        try {
+          const localPrices = JSON.parse(localStorage.getItem('authorized_product_prices') || '{}')
+          activeProducts = activeProducts.map((p: any) => {
+            const localPrice = localPrices[p._id]
+            if (localPrice && localPrice.labelPrice1 !== undefined) {
+              return { ...p, labelPrice1: localPrice.labelPrice1 }
+            }
+            return p
+          })
+        } catch (e) {
+          console.log('[商城] 读取本地价格失败:', e)
+        }
+        
         setProducts(activeProducts);
         console.log(`[商城] 共加载 ${activeProducts.length} 个商品`);
       } else {
