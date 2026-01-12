@@ -698,6 +698,8 @@ export default function ProductForm() {
       }
 
       console.log(`[ProductForm] 最终发送的商品数据:`, JSON.stringify(productData, null, 2))
+      console.log(`🔥 [ProductForm] materialConfigs数量:`, productData.materialConfigs?.length || 0)
+      console.log(`🔥 [ProductForm] materialConfigs:`, JSON.stringify(productData.materialConfigs || []))
       
       if (isEdit && id) {
         // 更新商品
