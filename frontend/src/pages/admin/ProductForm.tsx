@@ -411,13 +411,14 @@ export default function ProductForm() {
           id: `mc-${Date.now()}`,
           fabricName: material.name,
           fabricId: material._id || material.id || '',
-          images: material.images || [],
+          images: material.image ? [material.image] : [],
           price: upgradePrice || 0,
         }
         console.log('🔥 [DEBUG] 添加材质配置:', {
           name: material.name,
-          images: material.images,
-          imagesCount: material.images?.length || 0,
+          image: material.image,
+          images: newConfig.images,
+          imagesCount: newConfig.images.length,
           newConfig
         })
         setShowMaterialSelectModal(false)
