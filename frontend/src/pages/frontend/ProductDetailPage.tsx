@@ -497,6 +497,7 @@ const ProductDetailPage = () => {
     return materialConfigs[0] || null;
   }, [materialConfigs, selectedMaterialConfigId]);
 
+
   // 获取选中的材质分组
   const selectedMaterialGroup = useMemo(() => {
     if (materialsGroups.length === 0) return null;
@@ -608,6 +609,41 @@ const ProductDetailPage = () => {
     if (activeFilter === 'pro') return skus.filter(sku => sku.isPro);
     return skus;
   }, [product, activeFilter]);
+
+  // 合并相同规格的SKU，按面料分组
+  const groupedSkus = useMemo(() => {
+    const groups: Record<string, ProductSKU[]> = {};
+    filteredSkus.forEach(sku => {
+      const specKey = `${sku.spec || ''}-${sku.length}-${sku.width}-${sku.height}`;
+      if (!groups[specKey]) {
+        groups[specKey] = [];
+      }
+      groups[specKey].push(sku);
+    });
+    return groups;
+  }, [filteredSkus]);
+
+  // 当前选中的规格组
+  const [selectedSpecKey, setSelectedSpecKey] = useState<string | null>(null);
+
+  // 当前规格组的SKU列表
+  const currentSpecSkus = useMemo(() => {
+    if (!selectedSpecKey) {
+      // 如果没有选中规格，返回第一个规格组的SKU
+      const firstKey = Object.keys(groupedSkus)[0];
+      return firstKey ? groupedSkus[firstKey] : [];
+    }
+    return groupedSkus[selectedSpecKey] || [];
+  }, [groupedSkus, selectedSpecKey]);
+
+  // 当前选中的面料SKU
+  const currentMaterialSku = useMemo(() => {
+    if (currentSpecSkus.length === 0) return null;
+    if (selectedMaterialConfigId) {
+      return currentSpecSkus.find(sku => sku.fabricMaterialId === selectedMaterialConfigId) || currentSpecSkus[0];
+    }
+    return currentSpecSkus[0];
+  }, [currentSpecSkus, selectedMaterialConfigId]);
 
   // 根据商品实际的SKU动态生成可用的筛选选项
   const availableFilters = useMemo(() => {
@@ -1697,52 +1733,95 @@ const ProductDetailPage = () => {
                 )}
               </div>
 
-              {/* Material Color Swatches - 材质色块选择 */}
-              {materialConfigs.length > 0 && (
+              {/* Material Color Swatches - 面料色块选择（类似车身颜色） */}
+              {materialConfigs.length > 0 && currentSpecSkus.length > 0 && (
                 <div className="border border-gray-200 rounded-2xl bg-white mt-4">
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900">选择材质</p>
-                    <p className="text-xs text-gray-400 mt-0.5">点击色块切换材质</p>
-                  </div>
-                  <div className="p-4">
-                    <div className="flex flex-wrap gap-2">
-                      {materialConfigs.map((config) => (
-                        <button
-                          key={config.id}
-                          type="button"
-                          onClick={() => setSelectedMaterialConfigId(config.id)}
-                          className={cn(
-                            'relative w-12 h-12 rounded-lg border-2 overflow-hidden transition-all',
-                            selectedMaterialConfigId === config.id || (!selectedMaterialConfigId && materialConfigs[0]?.id === config.id)
-                              ? 'border-primary-500 ring-2 ring-primary-200'
-                              : 'border-gray-200 hover:border-gray-300'
-                          )}
-                          title={config.fabricName}
-                        >
-                          {config.images && config.images.length > 0 ? (
-                            <img 
-                              src={getFileUrl(config.images[0])} 
-                              alt={config.fabricName}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-xs text-gray-500">{config.fabricName?.charAt(0) || '?'}</span>
-                            </div>
-                          )}
-                        </button>
-                      ))}
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-4 py-3 text-left"
+                    onClick={() => setSpecCollapsed(prev => !prev)}
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">车身颜色</p>
+                      <p className="text-xs text-gray-400 mt-0.5">选 {currentSpecSkus.length}</p>
                     </div>
-                    {/* 显示选中材质的名称和加价 */}
-                    {selectedMaterialConfig && (
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-900">{selectedMaterialConfig.fabricName}</span>
-                        {selectedMaterialConfig.price > 0 && (
-                          <span className="text-sm text-red-500 font-medium">+¥{selectedMaterialConfig.price}</span>
-                        )}
+                    <ChevronDown className={cn('h-4 w-4 text-gray-500 transition-transform', specCollapsed ? '-rotate-90' : 'rotate-0')} />
+                  </button>
+                  {!specCollapsed && (
+                    <div className="border-t border-gray-100 p-4">
+                      {/* 面料类型分组 */}
+                      <div className="space-y-4">
+                        {/* 按面料类型分组显示 */}
+                        {(() => {
+                          // 按fabricName的前缀分组（如“A超纤皮”、“科技布”等）
+                          const materialGroups: Record<string, typeof currentSpecSkus> = {};
+                          currentSpecSkus.forEach(sku => {
+                            const fabricName = sku.fabricName || '未分类';
+                            // 提取面料类型（去掉后缀编号）
+                            const typeMatch = fabricName.match(/^([^\d-]+)/);
+                            const type = typeMatch ? typeMatch[1].trim() : fabricName;
+                            if (!materialGroups[type]) {
+                              materialGroups[type] = [];
+                            }
+                            materialGroups[type].push(sku);
+                          });
+
+                          return Object.entries(materialGroups).map(([type, skus]) => (
+                            <div key={type}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs font-medium text-gray-700">{type}</span>
+                                <span className="text-xs text-gray-400">选 {skus.length}</span>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {skus.map((sku) => {
+                                  const config = materialConfigs.find(c => c.id === sku.fabricMaterialId);
+                                  const isSelected = currentMaterialSku?._id === sku._id;
+                                  return (
+                                    <button
+                                      key={sku._id}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedMaterialConfigId(sku.fabricMaterialId || null);
+                                        handleSkuChange(sku);
+                                      }}
+                                      className={cn(
+                                        'relative w-12 h-12 rounded-lg border-2 overflow-hidden transition-all',
+                                        isSelected
+                                          ? 'border-primary-500 ring-2 ring-primary-200'
+                                          : 'border-gray-200 hover:border-gray-300'
+                                      )}
+                                      title={sku.fabricName || '未命名'}
+                                    >
+                                      {config?.images?.[0] ? (
+                                        <img 
+                                          src={getFileUrl(config.images[0])} 
+                                          alt={sku.fabricName || ''}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                          <span className="text-xs text-gray-500">{sku.fabricName?.charAt(0) || '?'}</span>
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ));
+                        })()}
                       </div>
-                    )}
-                  </div>
+                      {/* 显示选中材质的名称和加价 */}
+                      {currentMaterialSku && selectedMaterialConfig && (
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-900">{currentMaterialSku.fabricName || '默认面料'}</span>
+                          {selectedMaterialConfig.price > 0 && (
+                            <span className="text-sm text-red-500 font-medium">+¥{selectedMaterialConfig.price}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

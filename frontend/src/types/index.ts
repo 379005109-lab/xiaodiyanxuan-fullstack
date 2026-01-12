@@ -166,6 +166,9 @@ export interface ProductSKU {
   materialUpgradePrices?: Record<string, number> // 材质升级价格 { [categoryKey]: price } 例如 { "普通皮": 0, "全青皮": 500 }
   materialImages?: Record<string, string>
   materialDescriptions?: Record<string, string>
+  // 面料材质配置
+  fabricMaterialId?: string
+  fabricName?: string
   stock: number
   price: number
   costPrice?: number
