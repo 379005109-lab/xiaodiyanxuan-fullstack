@@ -99,6 +99,22 @@ const authorizationSchema = new mongoose.Schema({
     default: 'active'
   },
   
+  // 是否启用（控制商品在商城中的显示）
+  isEnabled: {
+    type: Boolean,
+    default: true
+  },
+  
+  // 商品覆盖设置（价格、可见性）
+  productOverrides: {
+    type: Map,
+    of: {
+      price: Number,
+      hidden: Boolean
+    },
+    default: {}
+  },
+  
   // 授权有效期
   validFrom: {
     type: Date,

@@ -284,8 +284,22 @@ const listProducts = async (req, res) => {
       const authorizations = await Authorization.find(authQuery).lean()
       const authorizedProductIds = new Set()
       const authByProduct = new Map()
+      const hiddenProductIds = new Set()
 
       for (const auth of authorizations) {
+        // 过滤关闭的授权
+        if (auth.isEnabled === false) {
+          continue
+        }
+        
+        // 收集隐藏的商品
+        if (auth.productOverrides) {
+          for (const [productId, override] of Object.entries(auth.productOverrides)) {
+            if (override.hidden === true) {
+              hiddenProductIds.add(productId)
+            }
+          }
+        }
         if (auth.scope === 'all') {
           const manufacturerOid = auth.fromManufacturer
           const products = await Product.find({
@@ -447,7 +461,9 @@ const listProducts = async (req, res) => {
         : []
       const manufacturerById = new Map((manufacturerDocs || []).map((m) => [String(m._id), m]))
 
-      const shaped = products.map(p => {
+      const shaped = products
+        .filter(p => !hiddenProductIds.has(p._id.toString()))
+        .map(p => {
         const ownerManufacturerId = getProductOwnerManufacturerId(p)
         const tierDoc = ownerManufacturerId ? tierByOwnerId.get(ownerManufacturerId) : null
         const auth = authByProduct.get(p._id.toString())
