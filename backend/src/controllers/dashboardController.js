@@ -7,23 +7,32 @@ const Favorite = require('../models/Favorite')
 const Compare = require('../models/Compare')
 const Cart = require('../models/Cart')
 
+// 获取北京时间的今天开始和结束
+const getBeijingDateRange = (daysOffset = 0) => {
+  const now = new Date()
+  // 转换为北京时间（UTC+8）
+  const beijingTime = new Date(now.getTime() + (8 * 60 * 60 * 1000))
+  const year = beijingTime.getUTCFullYear()
+  const month = beijingTime.getUTCMonth()
+  const date = beijingTime.getUTCDate() + daysOffset
+  
+  // 创建北京时间的日期范围（UTC时间）
+  const start = new Date(Date.UTC(year, month, date, -8, 0, 0, 0)) // 北京时间00:00 = UTC前一天16:00
+  const end = new Date(Date.UTC(year, month, date + 1, -8, 0, 0, 0)) // 北京时间次日00:00
+  
+  return { start, end }
+}
+
 const getDashboardData = async (req, res) => {
   try {
-    // 获取今天的日期范围
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    // 获取今天的日期范围（北京时间）
+    const { start: today, end: tomorrow } = getBeijingDateRange(0)
     
     // 获取昨天的日期范围
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
+    const { start: yesterday } = getBeijingDateRange(-1)
     
     // 获取上周同一天
-    const lastWeekSameDay = new Date(today)
-    lastWeekSameDay.setDate(lastWeekSameDay.getDate() - 7)
-    const lastWeekSameDayEnd = new Date(lastWeekSameDay)
-    lastWeekSameDayEnd.setDate(lastWeekSameDayEnd.getDate() + 1)
+    const { start: lastWeekSameDay, end: lastWeekSameDayEnd } = getBeijingDateRange(-7)
     
     // 今日订单数和金额
     const todayOrdersCount = await Order.countDocuments({
@@ -252,16 +261,35 @@ const getUserActivityDashboard = async (req, res) => {
       addedAt: { $gte: monthAgo, $lt: tomorrow }
     })
 
-    // 5. 加购统计
-    const todayCart = await Cart.countDocuments({
-      createdAt: { $gte: today, $lt: tomorrow }
-    })
-    const weekCart = await Cart.countDocuments({
-      createdAt: { $gte: weekAgo, $lt: tomorrow }
-    })
-    const monthCart = await Cart.countDocuments({
-      createdAt: { $gte: monthAgo, $lt: tomorrow }
-    })
+    // 5. 加购统计（统计购物车项目数量）
+    // 注意：Cart模型中 items 没有单独的时间戳，只能统计总数
+    const allCarts = await Cart.find({}).lean()
+    let totalCartItems = 0
+    let todayCartItems = 0
+    let weekCartItems = 0
+    let monthCartItems = 0
+    
+    for (const cart of allCarts) {
+      const itemCount = cart.items?.length || 0
+      totalCartItems += itemCount
+      
+      if (cart.updatedAt) {
+        const updatedAt = new Date(cart.updatedAt)
+        if (updatedAt >= today && updatedAt < tomorrow) {
+          todayCartItems += itemCount
+        }
+        if (updatedAt >= weekAgo && updatedAt < tomorrow) {
+          weekCartItems += itemCount
+        }
+        if (updatedAt >= monthAgo && updatedAt < tomorrow) {
+          monthCartItems += itemCount
+        }
+      }
+    }
+    const todayCart = todayCartItems
+    const weekCart = weekCartItems
+    const monthCart = monthCartItems
+    console.log('Cart stats:', { todayCart, weekCart, monthCart, totalCartItems, cartCount: allCarts.length })
 
     // 6. 最活跃的10个用户（基于浏览、收藏、对比、加购的综合活跃度）
     const topActiveUsers = await User.aggregate([
@@ -331,13 +359,13 @@ const getUserActivityDashboard = async (req, res) => {
       { $limit: 10 }
     ])
 
-    // 7. 被浏览最多的商品 TOP 10
+    // 7. 被浏览最多的商品 TOP 10（使用 productImage 字段）
     const topBrowsedProducts = await BrowseHistory.aggregate([
       {
         $group: {
           _id: '$productId',
           productName: { $first: '$productName' },
-          thumbnail: { $first: '$thumbnail' },
+          thumbnail: { $first: '$productImage' },
           browseCount: { $sum: 1 }
         }
       },
@@ -359,7 +387,8 @@ const getUserActivityDashboard = async (req, res) => {
       { $limit: 10 }
     ])
 
-    // 9. 被对比最多的商品 TOP 10
+    // 9. 被对比最多的商品 TOP 10（添加商品信息）
+    // 注意：productId 可能是字符串ObjectId或productCode，需要多种方式查找
     const topComparedProducts = await Compare.aggregate([
       {
         $group: {
@@ -368,28 +397,85 @@ const getUserActivityDashboard = async (req, res) => {
         }
       },
       { $sort: { compareCount: -1 } },
-      { $limit: 10 }
+      { $limit: 10 },
+      {
+        // 尝试将 productId 转换为 ObjectId
+        $addFields: {
+          productObjId: {
+            $convert: {
+              input: '$_id',
+              to: 'objectId',
+              onError: null,
+              onNull: null
+            }
+          }
+        }
+      },
+      {
+        // 先通过 ObjectId 查找
+        $lookup: {
+          from: 'products',
+          localField: 'productObjId',
+          foreignField: '_id',
+          as: 'productInfoById'
+        }
+      },
+      {
+        // 再通过 productCode 查找（作为备选）
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: 'productCode',
+          as: 'productInfoByCode'
+        }
+      },
+      {
+        // 合并两种查找结果
+        $addFields: {
+          productInfo: {
+            $cond: {
+              if: { $gt: [{ $size: '$productInfoById' }, 0] },
+              then: '$productInfoById',
+              else: '$productInfoByCode'
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          productName: { $ifNull: [{ $arrayElemAt: ['$productInfo.name', 0] }, '未知商品'] },
+          thumbnail: { $arrayElemAt: [{ $arrayElemAt: ['$productInfo.images', 0] }, 0] }
+        }
+      },
+      {
+        $project: {
+          productInfo: 0,
+          productInfoById: 0,
+          productInfoByCode: 0,
+          productObjId: 0
+        }
+      }
     ])
 
-    // 10. 每日用户登录趋势（最近7天）
+    // 10. 每日用户登录趋势（最近7天 - 北京时间）
     const loginTrend = []
     for (let i = 6; i >= 0; i--) {
-      const dayStart = new Date(today)
-      dayStart.setDate(dayStart.getDate() - i)
-      const dayEnd = new Date(dayStart)
-      dayEnd.setDate(dayEnd.getDate() + 1)
+      const { start: dayStart, end: dayEnd } = getBeijingDateRange(-i)
       
       const count = await User.countDocuments({
         lastLoginAt: { $gte: dayStart, $lt: dayEnd }
       })
       
+      // 转换为北京时间显示
+      const beijingDate = new Date(dayStart.getTime() + (8 * 60 * 60 * 1000))
       const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
       loginTrend.push({
-        date: `${dayStart.getMonth() + 1}/${dayStart.getDate()}`,
-        dayName: dayNames[dayStart.getDay()],
+        date: `${beijingDate.getUTCMonth() + 1}/${beijingDate.getUTCDate()}`,
+        dayName: dayNames[beijingDate.getUTCDay()],
         count
       })
     }
+    console.log('Login trend:', JSON.stringify(loginTrend))
 
     res.json(successResponse({
       // 登录统计
@@ -437,7 +523,76 @@ const getUserActivityDashboard = async (req, res) => {
   }
 }
 
+// 获取用户登录详情
+const getUserLoginDetails = async (req, res) => {
+  try {
+    const { period = 'today' } = req.query // today, week, month
+    
+    let dateRange
+    if (period === 'today') {
+      dateRange = getBeijingDateRange(0)
+    } else if (period === 'week') {
+      dateRange = getBeijingDateRange(-6)
+      dateRange.end = getBeijingDateRange(0).end
+    } else if (period === 'month') {
+      dateRange = getBeijingDateRange(-29)
+      dateRange.end = getBeijingDateRange(0).end
+    } else {
+      dateRange = getBeijingDateRange(0)
+    }
+    
+    // 获取登录用户列表
+    const users = await User.find({
+      lastLoginAt: { $gte: dateRange.start, $lt: dateRange.end }
+    }).select('username nickname phone email lastLoginAt').lean()
+    
+    // 为每个用户获取行为数据
+    const usersWithDetails = await Promise.all(
+      users.map(async (user) => {
+        // 浏览次数
+        const browseCount = await BrowseHistory.countDocuments({ userId: user._id })
+        
+        // 收藏次数
+        const favoriteCount = await Favorite.countDocuments({ userId: user._id })
+        
+        // 对比次数
+        const compareCount = await Compare.countDocuments({ userId: user._id })
+        
+        // 购物车商品数
+        const cartCount = await Cart.countDocuments({ userId: user._id })
+        
+        // 最近浏览的商品（最多6个）
+        const recentBrowse = await BrowseHistory.find({ userId: user._id })
+          .sort({ viewedAt: -1 })
+          .limit(6)
+          .select('productId productName thumbnail viewedAt')
+          .lean()
+        
+        return {
+          ...user,
+          browseCount,
+          favoriteCount,
+          compareCount,
+          cartCount,
+          recentBrowse
+        }
+      })
+    )
+    
+    // 按最后登录时间排序
+    usersWithDetails.sort((a, b) => 
+      new Date(b.lastLoginAt).getTime() - new Date(a.lastLoginAt).getTime()
+    )
+    
+    res.json(successResponse(usersWithDetails))
+  } catch (err) {
+    console.error('Get user login details error:', err)
+    res.status(500).json(errorResponse(err.message, 500))
+  }
+}
+
 module.exports = {
   getDashboardData,
-  getUserActivityDashboard
+  getUserActivityDashboard,
+  getUserLoginDetails
 }

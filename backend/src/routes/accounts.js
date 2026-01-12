@@ -9,7 +9,19 @@ const ADMIN_ROLES = [
   USER_ROLES.SUPER_ADMIN,
   USER_ROLES.PLATFORM_ADMIN,
   USER_ROLES.ENTERPRISE_ADMIN,
+  USER_ROLES.PLATFORM_STAFF,
   'admin',        // 兼容旧的管理员角色
+  'super_admin',
+  'platform_admin',
+  'enterprise_admin',
+  'platform_staff'
+]
+
+// 仅平台/超级管理员可访问
+const PLATFORM_ONLY_ROLES = [
+  USER_ROLES.SUPER_ADMIN,
+  USER_ROLES.PLATFORM_ADMIN,
+  'admin',
   'super_admin'
 ]
 
@@ -20,11 +32,11 @@ router.use(auth)
 router.get('/dashboard', requireRole(ADMIN_ROLES), accountController.getDashboard)
 
 // ==================== 组织管理 ====================
-router.get('/organizations', requireRole(ADMIN_ROLES), accountController.getOrganizations)
-router.post('/organizations', requireRole(ADMIN_ROLES), accountController.createOrganization)
-router.put('/organizations/:id', requireRole(ADMIN_ROLES), accountController.updateOrganization)
-router.delete('/organizations/:id', requireRole(ADMIN_ROLES), accountController.deleteOrganization)
-router.put('/organizations/:id/discount', requireRole(ADMIN_ROLES), accountController.setOrganizationDiscount)
+router.get('/organizations', requireRole(PLATFORM_ONLY_ROLES), accountController.getOrganizations)
+router.post('/organizations', requireRole(PLATFORM_ONLY_ROLES), accountController.createOrganization)
+router.put('/organizations/:id', requireRole(PLATFORM_ONLY_ROLES), accountController.updateOrganization)
+router.delete('/organizations/:id', requireRole(PLATFORM_ONLY_ROLES), accountController.deleteOrganization)
+router.put('/organizations/:id/discount', requireRole(PLATFORM_ONLY_ROLES), accountController.setOrganizationDiscount)
 
 // ==================== 用户管理（包含所有用户类型）====================
 router.get('/users', requireRole(ADMIN_ROLES), accountController.getUsers)

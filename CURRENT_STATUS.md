@@ -54,8 +54,8 @@
 ```bash
 # 重新构建并推送后端镜像
 cd backend
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-backend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 
 # 更新Kubernetes
 kubectl rollout restart deployment/xiaodiyanxuan-api -n ns-cxxiwxce
@@ -80,8 +80,8 @@ kubectl rollout restart deployment/xiaodiyanxuan-api -n ns-cxxiwxce
 ```bash
 # 重新构建并推送前端镜像
 cd frontend
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-frontend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-frontend:latest
 
 # 更新Kubernetes
 kubectl rollout restart deployment/xiaodiyanxuan-frontend -n ns-cxxiwxce
@@ -118,7 +118,7 @@ kubectl rollout restart deployment/xiaodiyanxuan-frontend -n ns-cxxiwxce
 ### 前置条件
 
 - [ ] Docker环境
-- [ ] GitHub Container Registry访问权限
+- [ ] Docker Registry 访问权限
 - [ ] kubeconfig权限
 
 ### 部署步骤
@@ -133,14 +133,14 @@ git pull origin main
 
 # 构建后端
 cd backend
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-backend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 
 # 构建前端
 cd ../frontend
 npm run build
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-frontend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-frontend:latest
 ```
 
 #### 2. 更新Kubernetes

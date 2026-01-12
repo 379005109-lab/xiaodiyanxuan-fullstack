@@ -10,9 +10,7 @@
 
 ### 必需
 1. **Docker环境** - 用于构建镜像
-2. **GitHub Personal Access Token** - 用于推送镜像
-   - 权限：`write:packages`
-   - 创建地址：https://github.com/settings/tokens
+2. **Docker Registry 账号** - 用于推送镜像
 3. **kubeconfig文件** - 已有：`kubeconfig (7).yaml`
 
 ### 可选
@@ -32,7 +30,7 @@ cd /home/devbox/project
 脚本会自动完成：
 1. ✅ 检查Docker环境
 2. ✅ 构建后端镜像
-3. ✅ 登录GHCR（需要输入token）
+3. ✅ 登录 Registry
 4. ✅ 推送镜像
 5. ✅ 更新Kubernetes
 6. ✅ 验证部署
@@ -47,31 +45,25 @@ cd /home/devbox/project
 
 ```bash
 cd /home/devbox/project/backend
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest .
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-backend:latest .
 ```
 
 **预期输出**：
 ```
 Successfully built [image-id]
-Successfully tagged ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+Successfully tagged registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 ```
 
-### 步骤2：登录GHCR
+### 步骤2：登录 Registry
 
 ```bash
-echo $GITHUB_TOKEN | docker login ghcr.io -u 379005109-lab --password-stdin
-```
-
-或交互式登录：
-```bash
-docker login ghcr.io -u 379005109-lab
-# 输入Personal Access Token
+docker login registry.sealoshzh.site
 ```
 
 ### 步骤3：推送镜像
 
 ```bash
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+docker push registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 ```
 
 **预期输出**：
@@ -86,7 +78,7 @@ export KUBECONFIG="/home/devbox/project/kubeconfig (7).yaml"
 
 # 更新镜像
 kubectl set image deployment/xiaodiyanxuan-api \
-  api=ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest \
+  api=registry.sealoshzh.site/xiaodiyanxuan-backend:latest \
   -n ns-cxxiwxce
 
 # 重启deployment
@@ -154,9 +146,8 @@ denied: permission_denied
 ```
 
 **解决**：
-- 检查Token权限是否包含`write:packages`
-- 确认Token未过期
-- 重新登录GHCR
+- 确认 Registry 账号有推送权限
+- 重新登录 Registry
 
 ### 问题4：镜像拉取失败
 
@@ -166,16 +157,8 @@ ErrImagePull
 ```
 
 **解决**：
-```bash
-# 检查镜像是否公开
-# 或配置imagePullSecrets
-
-kubectl create secret docker-registry ghcr-creds \
-  --docker-server=ghcr.io \
-  --docker-username=379005109-lab \
-  --docker-password=$GITHUB_TOKEN \
-  -n ns-cxxiwxce
-```
+- 检查 Deployment 使用的镜像地址是否正确
+- 确认集群节点可以访问 `registry.sealoshzh.site`
 
 ### 问题5：Pod启动失败
 
@@ -225,32 +208,6 @@ kubectl describe pod -n ns-cxxiwxce [pod-name]
 | 登录返回错误角色 | ✅ 解决 |
 
 ---
-
-## 💡 备用方案
-
-### 如果无法访问GHCR
-
-使用Docker Hub：
-
-```bash
-# 构建镜像
-docker build -t [your-dockerhub-username]/xiaodiyanxuan-backend:latest .
-
-# 登录Docker Hub
-docker login
-
-# 推送镜像
-docker push [your-dockerhub-username]/xiaodiyanxuan-backend:latest
-
-# 更新Kubernetes
-kubectl set image deployment/xiaodiyanxuan-api \
-  api=[your-dockerhub-username]/xiaodiyanxuan-backend:latest \
-  -n ns-cxxiwxce
-```
-
-### 如果无法使用脚本
-
-按照"方案2：手动部署"的步骤逐步执行。
 
 ---
 

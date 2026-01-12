@@ -1,6 +1,7 @@
 const User = require('../models/User')
 const Manufacturer = require('../models/Manufacturer')
 const bcrypt = require('bcryptjs')
+const { USER_TYPES, USER_ROLES } = require('../config/constants')
 
 // 获取厂家的所有账号
 exports.getAccounts = async (req, res) => {
@@ -77,16 +78,18 @@ exports.createAccount = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10)
     
     // 创建账号
-    const isDesigner = accountType === 'designer'
+    const normalizedAccountType = accountType || 'normal'
+    const isDesigner = normalizedAccountType === 'designer'
+    const isAuthAccount = normalizedAccountType === 'auth'
     const user = new User({
       username,
       password: hashedPassword,
       nickname: nickname || username,
       manufacturerId: isDesigner ? null : manufacturerId,
       manufacturerIds: [manufacturerId],
-      accountType: accountType || 'normal',
-      role: isDesigner ? 'designer' : 'enterprise_staff',
-      userType: isDesigner ? 'designer' : 'enterprise_staff',
+      accountType: normalizedAccountType,
+      role: isDesigner ? USER_ROLES.DESIGNER : (isAuthAccount ? USER_ROLES.ENTERPRISE_ADMIN : USER_ROLES.ENTERPRISE_STAFF),
+      userType: isDesigner ? USER_TYPES.DESIGNER : USER_TYPES.ADMIN,
       permissions: permissions || {},
       specialAccountConfig: {
         expiresAt: expiresAt ? new Date(expiresAt) : null
@@ -187,8 +190,9 @@ exports.updateAccount = async (req, res) => {
       
       user.accountType = accountType
       const isDesigner = accountType === 'designer'
-      user.role = isDesigner ? 'designer' : 'enterprise_staff'
-      user.userType = isDesigner ? 'designer' : 'enterprise_staff'
+      const isAuthAccount = accountType === 'auth'
+      user.role = isDesigner ? USER_ROLES.DESIGNER : (isAuthAccount ? USER_ROLES.ENTERPRISE_ADMIN : USER_ROLES.ENTERPRISE_STAFF)
+      user.userType = isDesigner ? USER_TYPES.DESIGNER : USER_TYPES.ADMIN
       if (isDesigner) {
         user.manufacturerId = null
         const existing = Array.isArray(user.manufacturerIds) ? user.manufacturerIds.map(String) : []

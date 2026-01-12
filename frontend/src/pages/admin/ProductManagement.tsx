@@ -28,12 +28,20 @@ interface Manufacturer {
 export default function ProductManagement() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const isEnterpriseAdmin = user?.role === 'enterprise_admin'
   const canViewCostPrice = user?.role === 'super_admin' || user?.role === 'admin' || (user as any)?.permissions?.canViewCostPrice === true
+  const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
+  const isPlatformAdminUser =
+    user?.role === 'admin' ||
+    user?.role === 'super_admin' ||
+    user?.role === 'platform_admin' ||
+    user?.role === 'platform_staff'
   const [designerDiscountEdits, setDesignerDiscountEdits] = useState<Record<string, string>>({})
   const [savingDesignerDiscount, setSavingDesignerDiscount] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterManufacturer, setFilterManufacturer] = useState('')  // 厂家筛选
   const [sortBy, setSortBy] = useState('')  // 排序方式
   
   // 分页状态
@@ -84,9 +92,15 @@ export default function ProductManagement() {
   const [showBatchManufacturerModal, setShowBatchManufacturerModal] = useState(false)
   const [batchManufacturerId, setBatchManufacturerId] = useState('')
 
+  // 授权商品快速编辑价格状态
+  const [editingPriceProductId, setEditingPriceProductId] = useState<string | null>(null)
+  const [editingPriceValue, setEditingPriceValue] = useState<string>('')
+  const [savingPrice, setSavingPrice] = useState(false)
+
   const getProductManufacturerId = (product: any): string => {
     if (!product) return ''
-    if (product.manufacturer) return product.manufacturer
+    const direct = product.manufacturerId?._id || product.manufacturerId || product.manufacturer
+    if (direct) return String(direct)
     const skus = product.skus || []
     return skus?.[0]?.manufacturerId || ''
   }
@@ -104,10 +118,13 @@ export default function ProductManagement() {
 
   // 加载商品数据
   useEffect(() => {
-    loadProducts()
     loadCategories()
     loadManufacturers()
   }, [])
+
+  useEffect(() => {
+    loadProducts()
+  }, [myManufacturerId, user?.role])
   
   const loadCategories = async () => {
     try {
@@ -122,7 +139,34 @@ export default function ProductManagement() {
   const loadManufacturers = async () => {
     try {
       const response = await apiClient.get('/manufacturers', { params: { pageSize: 100 } })
-      setManufacturers(response.data.data || [])
+      let allManufacturers = response.data.data || []
+      
+      // 对于厂家账号，只显示自己的厂家和授权过来的厂家
+      if (!isPlatformAdminUser && myManufacturerId) {
+        try {
+          // 获取授权给我的厂家列表
+          const authResponse = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
+          const authorizations = authResponse.data?.data || []
+          
+          // 收集授权方厂家ID
+          const authorizedFromIds = new Set<string>()
+          authorizations.forEach((auth: any) => {
+            const fromId = auth.fromManufacturer?._id || auth.fromManufacturer
+            if (fromId) authorizedFromIds.add(String(fromId))
+          })
+          
+          // 过滤：只保留自己的厂家 + 授权方厂家
+          allManufacturers = allManufacturers.filter((m: any) => 
+            String(m._id) === myManufacturerId || authorizedFromIds.has(String(m._id))
+          )
+        } catch (authError) {
+          console.log('加载授权厂家列表失败:', authError)
+          // 如果获取授权失败，只显示自己的厂家
+          allManufacturers = allManufacturers.filter((m: any) => String(m._id) === myManufacturerId)
+        }
+      }
+      
+      setManufacturers(allManufacturers)
     } catch (error) {
       console.error('加载厂家失败:', error)
     }
@@ -135,7 +179,30 @@ export default function ProductManagement() {
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
         console.log('[ProductManagement] 加载商品数量:', response.data.length);
-        setProducts(response.data);
+        const rawProducts = response.data || []
+        let filteredProducts = (!isPlatformAdminUser && myManufacturerId)
+          ? rawProducts.filter((p: any) => String(getProductManufacturerId(p)) === String(myManufacturerId))
+          : rawProducts
+        
+        // 对于厂家账号，也加载授权过来的商品
+        if (!isPlatformAdminUser && myManufacturerId) {
+          try {
+            const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } })
+            const authorizedProducts = authResponse.data?.data || []
+            console.log('[ProductManagement] 授权商品数量:', authorizedProducts.length)
+            
+            // 合并商品列表，避免重复
+            const existingIds = new Set(filteredProducts.map((p: any) => p._id))
+            const newAuthorizedProducts = authorizedProducts.filter((p: any) => !existingIds.has(p._id))
+            // 标记为授权商品
+            newAuthorizedProducts.forEach((p: any) => { p.isAuthorized = true })
+            filteredProducts = [...filteredProducts, ...newAuthorizedProducts]
+          } catch (authError) {
+            console.log('[ProductManagement] 加载授权商品失败:', authError)
+          }
+        }
+        
+        setProducts(filteredProducts);
       }
     } catch (error) {
       console.error('[ProductManagement] 加载商品失败:', error);
@@ -279,6 +346,65 @@ export default function ProductManagement() {
     return m ? (m.shortName || m.fullName || m.name) : '-'
   }
 
+  // 授权商品快速编辑价格
+  const handleAuthorizedPriceEdit = async (product: Product) => {
+    const newPrice = parseFloat(editingPriceValue)
+    if (isNaN(newPrice) || newPrice <= 0) {
+      toast.error('请输入有效的价格')
+      return
+    }
+
+    setSavingPrice(true)
+    try {
+      // 使用授权商品覆盖API
+      const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { price: newPrice })
+      if (res.data.success) {
+        // 更新本地数据
+        setProducts(prev => prev.map(p => {
+          if (p._id === product._id) {
+            return {
+              ...p,
+              overridePrice: newPrice
+            } as any
+          }
+          return p
+        }))
+        toast.success('价格已更新')
+        setEditingPriceProductId(null)
+        setEditingPriceValue('')
+      } else {
+        toast.error(res.data.message || '更新价格失败')
+      }
+    } catch (error: any) {
+      console.error('更新价格失败:', error)
+      toast.error(error?.response?.data?.message || '更新价格失败')
+    } finally {
+      setSavingPrice(false)
+    }
+  }
+
+  // 授权商品切换隐藏/显示
+  const handleAuthorizedToggleHidden = async (product: Product) => {
+    const currentHidden = (product as any).isHidden || false
+    try {
+      const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { hidden: !currentHidden })
+      if (res.data.success) {
+        setProducts(prev => prev.map(p => {
+          if (p._id === product._id) {
+            return { ...p, isHidden: !currentHidden } as any
+          }
+          return p
+        }))
+        toast.success(currentHidden ? '商品已显示' : '商品已隐藏')
+      } else {
+        toast.error(res.data.message || '操作失败')
+      }
+    } catch (error: any) {
+      console.error('切换隐藏状态失败:', error)
+      toast.error(error?.response?.data?.message || '操作失败')
+    }
+  }
+
   // 下载导入模板
   const handleDownloadTemplate = () => {
     // 创建模板数据 - 动态材质列支持
@@ -361,6 +487,12 @@ export default function ProductManagement() {
     try {
       console.log('=== Excel导入开始 ===');
       console.log('总行数（包括表头）:', jsonData.length);
+
+      // enterprise_admin 不允许加载全量材质库数据
+      if (isEnterpriseAdmin) {
+        toast.error('当前账号无权限导入材质映射，请联系管理员授权')
+        return
+      }
 
       // 加载材质库数据用于自动匹配
       let allMaterials = await getAllMaterials();
@@ -2465,6 +2597,13 @@ export default function ProductManagement() {
       if (filterStatus && product.status !== filterStatus) {
         return false
       }
+      // 厂家筛选
+      if (filterManufacturer) {
+        const productManufacturerId = getProductManufacturerId(product)
+        if (productManufacturerId !== filterManufacturer) {
+          return false
+        }
+      }
       return true
     })
     .sort((a, b) => {
@@ -2527,13 +2666,20 @@ export default function ProductManagement() {
         <div className="flex space-x-3">
           {selectedIds.length > 0 && (
             <>
-              <button
-                onClick={() => setShowBatchManufacturerModal(true)}
-                className="btn-secondary flex items-center bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200"
-              >
-                <Edit className="h-5 w-5 mr-2" />
-                批量修改厂家 ({selectedIds.length})
-              </button>
+              {/* 只有当选中的商品都没有厂家时才显示批量修改厂家按钮 */}
+              {(() => {
+                const selectedProducts = products.filter(p => selectedIds.includes(p._id))
+                const allWithoutManufacturer = selectedProducts.every(p => !getProductManufacturerId(p))
+                return allWithoutManufacturer
+              })() && (
+                <button
+                  onClick={() => setShowBatchManufacturerModal(true)}
+                  className="btn-secondary flex items-center bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200"
+                >
+                  <Edit className="h-5 w-5 mr-2" />
+                  批量修改厂家 ({selectedIds.length})
+                </button>
+              )}
               <button
                 onClick={handleBatchDelete}
                 className="btn-secondary flex items-center bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
@@ -2628,6 +2774,22 @@ export default function ProductManagement() {
             </select>
           </div>
 
+          {/* 厂家筛选 */}
+          <div className="w-full md:w-40">
+            <select
+              value={filterManufacturer}
+              onChange={(e) => setFilterManufacturer(e.target.value)}
+              className="input w-full"
+            >
+              <option value="">所有厂家</option>
+              {manufacturers.map((m) => (
+                <option key={m._id} value={m._id}>
+                  {m.shortName || m.fullName || m.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* 排序 */}
           <div className="w-full md:w-40">
             <select
@@ -2697,11 +2859,16 @@ export default function ProductManagement() {
                 <motion.tr
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: index * 0.02 }}
+                  transition={{ 
+                    delay: filteredProducts.length > 100 ? 0 : index * 0.02,
+                    duration: filteredProducts.length > 100 ? 0.1 : 0.3
+                  }}
                   className={`border-b border-gray-100 hover:bg-gray-50 cursor-move ${
                     draggedProduct?._id === product._id ? 'opacity-50' : ''
                   } ${
                     dragOverProductIndex === index ? 'bg-blue-50' : ''
+                  } ${
+                    (product as any).isHidden || product.status === 'inactive' ? 'opacity-50 bg-gray-100' : ''
                   }`}
                   draggable
                   onDragStart={(e: any) => handleProductDragStart(e, product)}
@@ -2770,6 +2937,10 @@ export default function ProductManagement() {
                   <td className="py-4 px-4">
                     <span className="text-sm text-gray-700">
                       {(() => {
+                        // 优先使用后端返回的 categoryName
+                        if ((product as any).categoryName) {
+                          return (product as any).categoryName
+                        }
                         // 如果 product.category 是对象，直接使用其 name 属性
                         if (typeof product.category === 'object' && product.category && 'name' in product.category) {
                           return (product.category as any).name
@@ -2780,7 +2951,7 @@ export default function ProductManagement() {
                           cat.slug === product.category || 
                           cat.name === product.category
                         )
-                        return category ? category.name : String(product.category || '')
+                        return category ? category.name : ''
                       })()}
                     </span>
                   </td>
@@ -2788,6 +2959,49 @@ export default function ProductManagement() {
                     <div className="flex flex-col">
                       {(() => {
                         const p: any = product as any
+                        const isAuthorized = (product as any).isAuthorized
+                        
+                        // 授权商品快速编辑价格
+                        if (isAuthorized && editingPriceProductId === product._id) {
+                          const originalPrice = p?.skus?.[0]?.price || p.basePrice || 0
+                          const minAllowed = Math.ceil(originalPrice * 0.6)
+                          return (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={editingPriceValue}
+                                onChange={(e) => setEditingPriceValue(e.target.value)}
+                                className="w-20 px-2 py-1 text-sm border rounded"
+                                placeholder={`≥${minAllowed}`}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleAuthorizedPriceEdit(product)
+                                  if (e.key === 'Escape') {
+                                    setEditingPriceProductId(null)
+                                    setEditingPriceValue('')
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={() => handleAuthorizedPriceEdit(product)}
+                                disabled={savingPrice}
+                                className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+                              >
+                                {savingPrice ? '...' : '✓'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingPriceProductId(null)
+                                  setEditingPriceValue('')
+                                }}
+                                className="px-2 py-1 text-xs bg-gray-300 rounded hover:bg-gray-400"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )
+                        }
+                        
                         // 设计师优先使用后端返回的授权价格
                         if (currentRole === 'designer') {
                           const takePrice = Number(p?.takePrice)
@@ -2820,6 +3034,23 @@ export default function ProductManagement() {
                         const roleMultiplier = getDiscountMultiplier(product.category)
                         const finalPrice = Math.round(minPrice * roleMultiplier)
                         const finalOriginal = Math.round(minOriginalPrice * roleMultiplier)
+                        
+                        // 授权商品价格可点击编辑
+                        if (isAuthorized) {
+                          return (
+                            <span 
+                              className="font-medium text-primary-600 cursor-pointer hover:underline"
+                              onClick={() => {
+                                setEditingPriceProductId(product._id)
+                                setEditingPriceValue(String(finalPrice))
+                              }}
+                              title="点击编辑价格（不低于标价60%）"
+                            >
+                              {formatPrice(finalPrice)}
+                            </span>
+                          )
+                        }
+                        
                         return (
                           <>
                             <span className="font-medium text-primary-600">
@@ -2959,20 +3190,39 @@ export default function ProductManagement() {
                           <BarChart3 className="h-4 w-4 text-purple-600" />
                         </button>
                       )}
+                      {/* 隐藏/显示按钮 - 自有商品使用status，授权商品使用本地覆盖 */}
                       {currentRole !== 'designer' && (
                         <button
-                          onClick={() => handleToggleStatus(product._id)}
+                          onClick={() => {
+                            if ((product as any).isAuthorized) {
+                              handleAuthorizedToggleHidden(product)
+                            } else {
+                              handleToggleStatus(product._id)
+                            }
+                          }}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                          title={product.status === 'active' ? '下架' : '上架'}
+                          title={(product as any).isAuthorized 
+                            ? ((product as any).isHidden ? '显示商品' : '隐藏商品')
+                            : (product.status === 'active' ? '下架' : '上架')
+                          }
                         >
-                          {product.status === 'active' ? (
-                            <EyeOff className="h-4 w-4 text-gray-600" />
+                          {(product as any).isAuthorized ? (
+                            (product as any).isHidden ? (
+                              <Eye className="h-4 w-4 text-gray-600" />
+                            ) : (
+                              <EyeOff className="h-4 w-4 text-gray-600" />
+                            )
                           ) : (
-                            <Eye className="h-4 w-4 text-gray-600" />
+                            product.status === 'active' ? (
+                              <EyeOff className="h-4 w-4 text-gray-600" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-gray-600" />
+                            )
                           )}
                         </button>
                       )}
-                      {currentRole !== 'designer' && (
+                      {/* 文件夹上传 - 授权商品不显示 */}
+                      {currentRole !== 'designer' && !(product as any).isAuthorized && (
                         <label
                           className={`p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer ${batchImageUploading ? 'opacity-50 pointer-events-none' : ''}`}
                           title="选择文件夹上传图片"
@@ -2991,7 +3241,8 @@ export default function ProductManagement() {
                           />
                         </label>
                       )}
-                      {currentRole !== 'designer' && (
+                      {/* 编辑按钮 - 授权商品不显示 */}
+                      {currentRole !== 'designer' && !(product as any).isAuthorized && (
                         <button
                           onClick={() => navigate(`/admin/products/edit/${product._id}`)}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -3000,7 +3251,7 @@ export default function ProductManagement() {
                           <Edit className="h-4 w-4 text-blue-600" />
                         </button>
                       )}
-                      {currentRole !== 'designer' && (
+                      {currentRole !== 'designer' && !(product as any).isAuthorized && (
                         <button
                           onClick={() => handleDelete(product._id, product.name)}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"

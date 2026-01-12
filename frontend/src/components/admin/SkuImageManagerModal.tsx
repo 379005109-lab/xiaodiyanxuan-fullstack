@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Trash2, GripVertical } from 'lucide-react'
+import { X, Trash2, GripVertical, Upload } from 'lucide-react'
 import { toast } from 'sonner'
-import { getFileUrl } from '@/services/uploadService'
+import { getFileUrl, uploadFile } from '@/services/uploadService'
 
 interface SkuImageManagerModalProps {
   images: string[]
@@ -126,6 +126,40 @@ export default function SkuImageManagerModal({
           </div>
 
           <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer transition-colors">
+              <Upload className="w-4 h-4" />
+              <span className="text-sm font-medium">上传图片</span>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files || [])
+                  if (files.length === 0) return
+                  
+                  toast.info(`正在上传 ${files.length} 张图片...`)
+                  
+                  try {
+                    const newImages = [...imageList]
+                    for (const file of files) {
+                      const result = await uploadFile(file)
+                      if (result.success) {
+                        newImages.push(result.data.fileId)
+                      } else {
+                        toast.error(`${file.name} 上传失败`)
+                      }
+                    }
+                    setImageList(newImages)
+                    toast.success(`${files.length} 张图片上传成功`)
+                  } catch (error) {
+                    toast.error('图片上传失败')
+                  }
+                  
+                  e.target.value = ''
+                }}
+              />
+            </label>
             <button
               onClick={deleteSelected}
               disabled={selectedIndexes.size === 0}

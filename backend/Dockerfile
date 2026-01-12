@@ -1,21 +1,30 @@
-# 构建阶段 - Updated 2024-12-13 - Fix login response to include nickname/gender
-FROM node:18-alpine AS builder
+# 构建阶段
+FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 
 # 复制 package 文件
 COPY package*.json ./
 
 # 安装依赖
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # 最终阶段
-FROM node:18-alpine
+FROM node:18-bullseye-slim
 
 WORKDIR /app
 
+ARG GIT_SHA
+ENV GIT_SHA=$GIT_SHA
+
 # 安装 dumb-init 用于优雅关闭
-RUN apk add --no-cache dumb-init
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends dumb-init \
+  && rm -rf /var/lib/apt/lists/*
 
 # 从构建阶段复制 node_modules
 COPY --from=builder /app/node_modules ./node_modules

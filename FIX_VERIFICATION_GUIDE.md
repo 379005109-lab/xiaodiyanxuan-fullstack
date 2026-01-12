@@ -9,8 +9,8 @@
    - 推送到 GitHub main 分支 (commit: 4bb9be20)
 
 2. ⏳ **GitHub Actions 构建镜像** - 进行中（约5-10分钟）
-   - 后端镜像: `ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest`
-   - 前端镜像: `ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest`
+   - 后端镜像: `registry.sealoshzh.site/xiaodiyanxuan-backend:latest`
+   - 前端镜像: `registry.sealoshzh.site/xiaodiyanxuan-frontend:latest`
    - 查看构建状态: https://github.com/379005109-lab/xiaodiyanxuan-fullstack/actions
 
 3. ⏳ **Kubernetes 拉取新镜像** - 待确认

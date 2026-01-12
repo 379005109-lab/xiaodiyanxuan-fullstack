@@ -23,6 +23,10 @@ export default function Header() {
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [showImageSearchModal, setShowImageSearchModal] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+
+  const isAdminUser = Boolean(user?.permissions?.canAccessAdmin) ||
+    ['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin'].includes(user?.role as any)
+  const canEnterAdminPanel = isAdminUser || user?.role === 'designer'
   
   // 分类悬浮窗口状态
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
@@ -365,7 +369,7 @@ export default function Header() {
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-stone-100 py-2 z-50">
                   <div className="px-4 py-2 border-b border-stone-100">
                     <p className="text-sm font-medium text-primary">{(user as any)?.nickname || user?.phone || '用户'}</p>
-                    <p className="text-xs text-stone-400">{user?.role === 'admin' || user?.role === 'super_admin' ? '管理员' : '普通用户'}</p>
+                    <p className="text-xs text-stone-400">{isAdminUser ? '管理员' : user?.role === 'designer' ? '设计师' : '普通用户'}</p>
                   </div>
                   
                   {/* 编辑资料 */}
@@ -388,12 +392,12 @@ export default function Header() {
                     我的地址
                   </Link>
                   
-                  {/* 管理后台入口 - 管理员和设计师可见 */}
-                  {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'designer') && (
+                  {/* 管理后台入口 - 仅管理员可见 */}
+                  {canEnterAdminPanel && (
                     <Link
                       to="/admin"
                       onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
                       <LayoutDashboard className="w-4 h-4" />
                       管理后台

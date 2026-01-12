@@ -156,14 +156,18 @@ exports.update = async (req, res) => {
 // 删除材质
 exports.delete = async (req, res) => {
   try {
+    console.log(`[删除材质] 请求删除ID: ${req.params.id}`);
     const material = await Material.findByIdAndDelete(req.params.id);
     
     if (!material) {
+      console.log(`[删除材质] 材质不存在: ${req.params.id}`);
       return res.status(404).json({ success: false, message: '材质不存在' });
     }
     
+    console.log(`[删除材质] 成功删除: ${material.name}`);
     res.json({ success: true, message: '材质已删除' });
   } catch (error) {
+    console.error(`[删除材质] 错误:`, error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -172,18 +176,68 @@ exports.delete = async (req, res) => {
 exports.batchDelete = async (req, res) => {
   try {
     const { ids } = req.body;
+    console.log(`[批量删除] 请求删除IDs:`, ids);
     
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      console.log(`[批量删除] IDs为空`);
       return res.status(400).json({ success: false, message: '请提供要删除的ID列表' });
     }
     
     const result = await Material.deleteMany({ _id: { $in: ids } });
+    console.log(`[批量删除] 删除结果: ${result.deletedCount}个`);
     
     res.json({ 
       success: true, 
       message: `已删除${result.deletedCount}个材质` 
     });
   } catch (error) {
+    console.error(`[批量删除] 错误:`, error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 清理孤立材质（分类已被删除的材质）
+exports.cleanupOrphanedMaterials = async (req, res) => {
+  try {
+    // 获取所有有效的分类ID
+    const validCategories = await MaterialCategory.find({}, { _id: 1 });
+    const validCategoryIds = validCategories.map(c => c._id.toString());
+    
+    console.log(`有效分类数量: ${validCategoryIds.length}`);
+    console.log(`有效分类IDs: ${validCategoryIds.slice(0, 5).join(', ')}...`);
+    
+    // 获取所有材质
+    const allMaterials = await Material.find({});
+    console.log(`总材质数量: ${allMaterials.length}`);
+    
+    // 找出孤立材质（分类ID不在有效分类列表中）
+    const orphanedMaterialIds = [];
+    for (const mat of allMaterials) {
+      const catId = mat.categoryId?.toString() || '';
+      if (catId && !validCategoryIds.includes(catId)) {
+        orphanedMaterialIds.push(mat._id);
+        console.log(`孤立材质: ${mat.name}, categoryId: ${catId}`);
+      }
+    }
+    
+    console.log(`找到 ${orphanedMaterialIds.length} 个孤立材质`);
+    
+    if (orphanedMaterialIds.length === 0) {
+      return res.json({ success: true, message: '没有找到孤立材质', count: 0 });
+    }
+    
+    // 删除孤立材质
+    const result = await Material.deleteMany({ _id: { $in: orphanedMaterialIds } });
+    
+    console.log(`清理了 ${result.deletedCount} 个孤立材质`);
+    
+    res.json({ 
+      success: true, 
+      message: `已清理 ${result.deletedCount} 个孤立材质`,
+      count: result.deletedCount
+    });
+  } catch (error) {
+    console.error('清理孤立材质错误:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -252,14 +306,22 @@ exports.updateCategory = async (req, res) => {
 // 删除分类
 exports.deleteCategory = async (req, res) => {
   try {
+    const { force } = req.query; // 是否强制删除（同时删除分类下的材质）
+    
     // 检查是否有材质使用此分类
     const count = await Material.countDocuments({ categoryId: req.params.id });
     
     if (count > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `该分类下还有${count}个材质，无法删除` 
-      });
+      if (force === 'true') {
+        // 强制删除：同时删除分类下的所有材质
+        await Material.deleteMany({ categoryId: req.params.id });
+        console.log(`强制删除分类，同时删除了 ${count} 个材质`);
+      } else {
+        return res.status(400).json({ 
+          success: false, 
+          message: `该分类下还有${count}个材质，无法删除` 
+        });
+      }
     }
     
     const category = await MaterialCategory.findByIdAndDelete(req.params.id);
@@ -268,7 +330,7 @@ exports.deleteCategory = async (req, res) => {
       return res.status(404).json({ success: false, message: '分类不存在' });
     }
     
-    res.json({ success: true, message: '分类已删除' });
+    res.json({ success: true, message: force === 'true' ? `分类及其 ${count} 个材质已删除` : '分类已删除' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

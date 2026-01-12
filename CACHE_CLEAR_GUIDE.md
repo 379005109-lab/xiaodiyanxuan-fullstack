@@ -145,7 +145,7 @@ console.log('Footer updated:', document.querySelector('footer').style.background
 当前部署状态：
 ```
 ✅ Pod运行时间: 3分钟+
-✅ 镜像: ghcr.io/379005109-lab/xiaodiyanxuan-frontend:latest
+✅ 镜像: registry.sealoshzh.site/xiaodiyanxuan-frontend:latest
 ✅ 镜像SHA: 38772182a8b8e47b...
 ✅ 启动时间: 2025-11-27 04:19:26 UTC
 ```

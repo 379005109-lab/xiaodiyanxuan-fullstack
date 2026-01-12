@@ -41,18 +41,28 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
   const { user } = useAuthStore()
   const role = user?.role
 
+  const isManufacturerSubAccount = role === 'enterprise_admin' || role === 'enterprise_staff'
+
   const allMenuItems: MenuItem[] = [
     { name: '首页', path: '/admin', icon: Home },
     { name: '数据看板', path: '/admin/dashboard', icon: TrendingUp },
-    { name: '用户活跃度', path: '/admin/activity', icon: Activity },
-    { name: '网站图片管理', path: '/admin/images', icon: Image },
-    { name: '设计管理', path: '/admin/designs', icon: Pencil },
+    // { name: '用户活跃度', path: '/admin/activity', icon: Activity }, // 隐藏
+    // { name: '网站图片管理', path: '/admin/images', icon: Image }, // 移到设置菜单
+    // { name: '设计管理', path: '/admin/designs', icon: Pencil }, // 隐藏
     { name: '账号管理', path: '/admin/users', icon: Users },
     { name: '材质管理', path: '/admin/materials', icon: Palette },
     { name: '厂家管理', path: '/admin/manufacturers', icon: Factory },
-    { name: '分层管理', path: '/admin/tier-system', icon: Layers },
-    { name: '商品管理', path: '/admin/products', icon: Package },
-    { name: '分类管理', path: '/admin/categories', icon: FolderTree },
+    { name: '授权管理', path: '/admin/authorizations', icon: Shield },
+    // { name: '分层管理', path: '/admin/tier-system', icon: Layers }, // 隐藏
+    {
+      name: '商品管理',
+      path: '/admin/products',
+      icon: Package,
+      children: [
+        { name: '商品列表', path: '/admin/products' },
+        { name: '商品分类', path: '/admin/categories' },
+      ]
+    },
     { name: '套餐管理', path: '/admin/packages', icon: Package },
     {
       name: '砍价管理',
@@ -91,7 +101,37 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
     ? allMenuItems.filter(item =>
         ['首页', '厂家管理', '授权管理', '商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
       )
-    : allMenuItems
+    : isManufacturerSubAccount
+      ? allMenuItems
+          .filter(item =>
+            ['厂家管理', '授权管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理'].includes(item.name)
+          )
+          .map(item => {
+            if (item.name === '砍价管理') {
+              return {
+                ...item,
+                children: [{ name: '砍价列表', path: '/admin/bargain' }],
+              }
+            }
+            if (item.name === '订单管理') {
+              return {
+                ...item,
+                children: [{ name: '订单列表', path: '/admin/orders' }],
+              }
+            }
+            if (item.name === '账号管理') {
+              return {
+                ...item,
+                path: '/admin/enterprise-users',
+                children: undefined,
+              }
+            }
+            if (item.name === '商品管理') {
+              return item // Keep children for product management (商品列表 and 商品分类)
+            }
+            return { ...item, children: undefined }
+          })
+      : allMenuItems
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev =>

@@ -3,13 +3,13 @@
 ## 问题
 
 ```
-ERROR: failed to push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+ERROR: failed to push registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 unexpected status from HEAD request: 403 Forbidden
 ```
 
 ## 原因
 
-GitHub Actions 没有权限推送镜像到 GitHub Container Registry (ghcr.io)。
+GitHub Actions 没有权限推送镜像到 Docker Registry (registry.sealoshzh.site)。
 
 ---
 
@@ -40,33 +40,21 @@ GitHub Actions 没有权限推送镜像到 GitHub Container Registry (ghcr.io)�
 
 ### 方案 2：使用个人访问令牌（如果方案1不行）
 
-1. 创建个人访问令牌 (PAT)：
-   - 访问：https://github.com/settings/tokens/new
-   - 勾选权限：
-     - ✅ `write:packages`
-     - ✅ `read:packages`
-     - ✅ `delete:packages`
-   - 点击 **Generate token**
-   - **复制令牌**（只显示一次！）
-
-2. 添加到仓库 Secrets：
+1. 添加 Registry 凭证到仓库 Secrets：
    - 访问：https://github.com/379005109-lab/xiaodiyanxuan-fullstack/settings/secrets/actions
-   - 点击 **New repository secret**
-   - Name: `GH_PAT`
-   - Secret: 粘贴刚才的令牌
-   - 点击 **Add secret**
+   - 添加：
+     - `REGISTRY_USERNAME`
+     - `REGISTRY_PASSWORD`
 
-3. 修改工作流文件：
+2. 确认工作流使用 Registry Secrets：
    ```yaml
-   - name: Log in to Container Registry
+   - name: Login to Registry
      uses: docker/login-action@v3
      with:
        registry: ${{ env.REGISTRY }}
-       username: ${{ github.repository_owner }}
-       password: ${{ secrets.GH_PAT }}  # 使用 PAT
+       username: ${{ secrets.REGISTRY_USERNAME }}
+       password: ${{ secrets.REGISTRY_PASSWORD }}
    ```
-
-4. 提交并推送
 
 ---
 
@@ -120,13 +108,12 @@ GitHub Actions 没有权限推送镜像到 GitHub Container Registry (ghcr.io)�
 构建成功后，你会看到：
 - ✅ "Build and push Docker image" 步骤通过
 - ✅ "Update Kubernetes deployment" 步骤执行
-- ✅ 镜像已推送到 `ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest`
+- ✅ 镜像已推送到 `registry.sealoshzh.site/xiaodiyanxuan-backend:latest`
 
 ---
 
 ## 💡 提示
 
-我已经修改了工作流配置，使用 `github.repository_owner` 作为登录用户名，
-这样更符合 GitHub Container Registry 的要求。
+我已经修改了工作流配置，使用 `REGISTRY_USERNAME` / `REGISTRY_PASSWORD` 作为登录凭证。
 
 现在你只需要按照上面的方案 1 修改权限设置即可！

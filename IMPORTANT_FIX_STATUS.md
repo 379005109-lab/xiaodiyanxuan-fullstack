@@ -32,8 +32,8 @@
 
 ```bash
 cd backend
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest .
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-backend:latest .
+docker push registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 kubectl rollout restart deployment/xiaodiyanxuan-api -n ns-cxxiwxce
 ```
 

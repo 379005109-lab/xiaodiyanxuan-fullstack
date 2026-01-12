@@ -78,7 +78,8 @@ YXBpVmVyc2lvbjogdjEKY2x1c3RlcnM6Ci0gY2x1c3RlcjoKICAgIGNlcnRpZmljYXRlLWF1dGhvcml0
 
 | Secret Name | 状态 | 用途 |
 |------------|------|------|
-| `GHCR_TOKEN` | ✅ 已添加 | 推送 Docker 镜像到 ghcr.io |
+| `REGISTRY_USERNAME` | ⏳ 待检查 | 推送 Docker 镜像到 Registry |
+| `REGISTRY_PASSWORD` | ⏳ 待检查 | 推送 Docker 镜像到 Registry |
 | `KUBECONFIG` | ⏳ 待添加 | 连接 Kubernetes 集群 |
 
 ---

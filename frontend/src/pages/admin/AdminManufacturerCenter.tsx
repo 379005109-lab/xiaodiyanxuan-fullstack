@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
@@ -117,6 +117,245 @@ const formatDateYmd = (v: any): string => {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+const SmsBindingModal = ({
+  open,
+  onClose,
+  manufacturer,
+}: {
+  open: boolean
+  onClose: () => void
+  manufacturer: Manufacturer | null
+}) => {
+  const [loading, setLoading] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [binding, setBinding] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const [status, setStatus] = useState<{ phone: string; verifiedAt: string | null }>({ phone: '', verifiedAt: null })
+  const [phoneInput, setPhoneInput] = useState('')
+  const [codeInput, setCodeInput] = useState('')
+
+  useEffect(() => {
+    if (countdown <= 0) return
+    const t = setInterval(() => {
+      setCountdown(prev => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(t)
+  }, [countdown])
+
+  const loadStatus = useCallback(async () => {
+    if (!manufacturer?._id) return
+    try {
+      setLoading(true)
+      const res = await apiClient.get(`/manufacturers/${manufacturer._id}/sms/status`)
+      if (res.data?.success) {
+        setStatus({
+          phone: res.data.data?.smsNotifyPhone || '',
+          verifiedAt: res.data.data?.smsNotifyVerifiedAt || null,
+        })
+      } else {
+        setStatus({ phone: '', verifiedAt: null })
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '加载短信绑定状态失败')
+      setStatus({ phone: '', verifiedAt: null })
+    } finally {
+      setLoading(false)
+    }
+  }, [manufacturer?._id])
+
+  useEffect(() => {
+    if (!open) return
+    setPhoneInput('')
+    setCodeInput('')
+    setCountdown(0)
+    loadStatus()
+  }, [open, loadStatus])
+
+  const bindPhone = async (phone: string) => {
+    if (!manufacturer?._id) return false
+    const p = String(phone || '').trim()
+    if (!p) {
+      toast.error('请输入手机号')
+      return false
+    }
+    try {
+      setBinding(true)
+      const res = await apiClient.post(`/manufacturers/${manufacturer._id}/sms/bind`, { phone: p })
+      if (res.data?.success) {
+        await loadStatus()
+        return true
+      }
+      toast.error(res.data?.message || '绑定失败')
+      return false
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '绑定失败')
+      return false
+    } finally {
+      setBinding(false)
+    }
+  }
+
+  const handleSendCode = async () => {
+    if (!manufacturer?._id) return
+    try {
+      setSending(true)
+      if (!status.phone) {
+        const ok = await bindPhone(phoneInput)
+        if (!ok) return
+      }
+      const res = await apiClient.post(`/manufacturers/${manufacturer._id}/sms/send-code`, {})
+      if (res.data?.success) {
+        toast.success('验证码已发送')
+        setCountdown(60)
+      } else {
+        toast.error(res.data?.message || '发送失败')
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '发送失败')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleVerify = async () => {
+    if (!manufacturer?._id) return
+    if (!codeInput.trim()) {
+      toast.error('请输入验证码')
+      return
+    }
+    try {
+      setBinding(true)
+      const res = await apiClient.post(`/manufacturers/${manufacturer._id}/sms/verify`, { code: codeInput.trim() })
+      if (res.data?.success) {
+        toast.success('验证成功')
+        setCodeInput('')
+        await loadStatus()
+      } else {
+        toast.error(res.data?.message || '验证失败')
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '验证失败')
+    } finally {
+      setBinding(false)
+    }
+  }
+
+  const handleUnbind = async () => {
+    if (!manufacturer?._id) return
+    try {
+      setBinding(true)
+      const res = await apiClient.post(`/manufacturers/${manufacturer._id}/sms/unbind`, {})
+      if (res.data?.success) {
+        toast.success('已解绑')
+        setCodeInput('')
+        setPhoneInput('')
+        await loadStatus()
+      } else {
+        toast.error(res.data?.message || '解绑失败')
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || '解绑失败')
+    } finally {
+      setBinding(false)
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-[160] flex items-center justify-center p-8">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative w-full max-w-[720px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
+        <div className="p-8 border-b flex items-center justify-between">
+          <div>
+            <div className="text-2xl font-black text-gray-900">短信绑定</div>
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">{manufacturer?.name || ''}</div>
+          </div>
+          <button onClick={onClose} className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400" type="button">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6" /></svg>
+          </button>
+        </div>
+
+        <div className="p-8 space-y-6">
+          {loading ? (
+            <div className="text-sm font-bold text-gray-400">加载中...</div>
+          ) : (
+            <div className="bg-gray-50 rounded-[2rem] p-6 border border-gray-100">
+              <div className="text-xs font-black text-gray-400 uppercase tracking-widest">当前绑定</div>
+              <div className="mt-3 flex flex-col gap-1">
+                <div className="text-lg font-black text-gray-900">{status.phone || '-'}</div>
+                <div className="text-xs font-bold text-gray-400">
+                  {status.verifiedAt ? `已验证：${String(status.verifiedAt).slice(0, 19).replace('T', ' ')}` : '未验证'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="text-xs font-black text-gray-400 uppercase tracking-widest">绑定手机号（如需更换，输入新号码并点击绑定）</div>
+            <input
+              value={phoneInput}
+              onChange={e => setPhoneInput(e.target.value)}
+              className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold"
+              placeholder="请输入手机号"
+            />
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <button
+                onClick={() => bindPhone(phoneInput)}
+                disabled={binding}
+                className="rounded-2xl py-4 bg-[#153e35] text-white font-black disabled:opacity-60"
+                type="button"
+              >
+                {binding ? '处理中...' : '绑定手机号'}
+              </button>
+              <button
+                onClick={handleSendCode}
+                disabled={sending || countdown > 0 || (!status.phone && !phoneInput)}
+                className="rounded-2xl py-4 bg-white border border-gray-200 font-black text-gray-700 disabled:opacity-60"
+                type="button"
+              >
+                {countdown > 0 ? `重新发送(${countdown}s)` : sending ? '发送中...' : '发送验证码'}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs font-black text-gray-400 uppercase tracking-widest">验证码</div>
+            <input
+              value={codeInput}
+              onChange={e => setCodeInput(e.target.value)}
+              className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold"
+              placeholder="请输入验证码"
+            />
+            <div className="mt-4 grid grid-cols-2 gap-4">
+              <button
+                onClick={handleVerify}
+                disabled={binding || !codeInput.trim()}
+                className="rounded-2xl py-4 bg-blue-600 text-white font-black disabled:opacity-60"
+                type="button"
+              >
+                {binding ? '处理中...' : '验证'}
+              </button>
+              <button
+                onClick={handleUnbind}
+                disabled={binding || !status.phone}
+                className="rounded-2xl py-4 bg-white border border-red-200 font-black text-red-600 disabled:opacity-60"
+                type="button"
+              >
+                {binding ? '处理中...' : '解绑'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-8 border-t bg-white flex gap-6">
+          <button onClick={onClose} className="flex-grow rounded-2xl py-5 font-black border border-gray-200" type="button">关闭</button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 const getLogoSrc = (logo: any, size: number) => {
@@ -754,8 +993,8 @@ const ManufacturerEditDrawer = ({
       <div className="relative w-full max-w-5xl bg-white shadow-2xl h-full flex flex-col overflow-hidden">
         <div className="p-10 border-b bg-white flex items-center justify-between">
           <div>
-            <h2 className="text-4xl font-black text-gray-900 tracking-tight">{isCreate ? '品牌入驻申请' : '品牌商务全档案管理'}</h2>
-            <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Corporate Profile & Financial Intelligence</p>
+            <h2 className="text-4xl font-black text-gray-900 tracking-tight">{isCreate ? '厂家入驻申请' : '厂家资料管理'}</h2>
+            <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Manufacturer Profile Management</p>
           </div>
           <button onClick={onClose} className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400" type="button">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6" /></svg>
@@ -845,22 +1084,21 @@ const ManufacturerEditDrawer = ({
                 </section>
 
                 <section className="space-y-6">
-                  <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-[#153e35] pl-4">03. 品牌市场策略</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">默认折扣底线 (%)</div>
-                      <input type="number" value={form.defaultDiscount} onChange={e => setForm(prev => ({ ...prev, defaultDiscount: Number(e.target.value || 0) }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-emerald-50/30 border border-emerald-100 text-sm font-black text-[#153e35]" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">预设返佣比例 (%)</div>
-                      <input type="number" value={form.defaultCommission} onChange={e => setForm(prev => ({ ...prev, defaultCommission: Number(e.target.value || 0) }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-blue-50/30 border border-blue-100 text-sm font-black text-blue-700" />
-                    </div>
+                  <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-blue-500 pl-4">03. 账号配额</div>
+                  <div className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 mb-4">
+                    <div className="text-xs font-bold text-amber-700">💡 说明：账号配额总数仅超级管理员可设置，各类型账号数量之和不能超过总配额</div>
                   </div>
-                </section>
-
-                <section className="space-y-6">
-                  <div className="text-sm font-black text-gray-900 uppercase tracking-widest border-l-4 border-blue-500 pl-4">04. 账号配额</div>
                   <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">账号配额总数</div>
+                      <input type="number" value={form.accountQuota.totalAccounts} onChange={e => setForm(prev => ({ ...prev, accountQuota: { ...prev.accountQuota, totalAccounts: Number(e.target.value || 0) } }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-emerald-50/30 border border-emerald-100 text-sm font-bold text-emerald-700" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">已分配 / 剩余</div>
+                      <div className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold">
+                        {(form.accountQuota.authAccounts || 0) + (form.accountQuota.subAccounts || 0) + (form.accountQuota.designerAccounts || 0)} / {Math.max(0, (form.accountQuota.totalAccounts || 0) - (form.accountQuota.authAccounts || 0) - (form.accountQuota.subAccounts || 0) - (form.accountQuota.designerAccounts || 0))}
+                      </div>
+                    </div>
                     <div>
                       <div className="text-xs font-black text-gray-400 uppercase tracking-widest">授权主号配额</div>
                       <input type="number" value={form.accountQuota.authAccounts} onChange={e => setForm(prev => ({ ...prev, accountQuota: { ...prev.accountQuota, authAccounts: Number(e.target.value || 0) } }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold" />
@@ -872,10 +1110,6 @@ const ManufacturerEditDrawer = ({
                     <div>
                       <div className="text-xs font-black text-gray-400 uppercase tracking-widest">设计师配额</div>
                       <input type="number" value={form.accountQuota.designerAccounts} onChange={e => setForm(prev => ({ ...prev, accountQuota: { ...prev.accountQuota, designerAccounts: Number(e.target.value || 0) } }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">总配额（可选）</div>
-                      <input type="number" value={form.accountQuota.totalAccounts} onChange={e => setForm(prev => ({ ...prev, accountQuota: { ...prev.accountQuota, totalAccounts: Number(e.target.value || 0) } }))} className="w-full mt-2 px-5 py-3 rounded-2xl bg-gray-50 border border-gray-100 text-sm font-bold" />
                     </div>
                   </div>
                 </section>
@@ -1107,6 +1341,8 @@ export default function AdminManufacturerCenter() {
   const [activeM, setActiveM] = useState<Manufacturer | null>(null)
   const [showAccounts, setShowAccounts] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [showSms, setShowSms] = useState(false)
+  const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
   const [editingField, setEditingField] = useState<{ id: string; field: string } | null>(null)
 
   const filtered = useMemo(() => {
@@ -1243,7 +1479,7 @@ export default function AdminManufacturerCenter() {
             className="rounded-[2rem] px-12 py-5 bg-[#153e35] text-white font-black text-lg shadow-2xl shadow-emerald-900/40"
             type="button"
           >
-            + 品牌入驻
+            + 新建厂家
           </button>
         </div>
       </div>
@@ -1488,51 +1724,34 @@ export default function AdminManufacturerCenter() {
                   </div>
                 </div>
 
-                <div className="mt-auto grid grid-cols-3 p-6 gap-4 bg-gray-50/50 border-t">
-                  <button
-                    onClick={() => {
-                      setActiveM(m)
-                      setShowAccounts(true)
-                    }}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-emerald-700 transition-all shadow-sm"
-                    type="button"
-                  >
-                    厂家账号管理
-                  </button>
+                <div className="mt-auto grid grid-cols-2 p-6 gap-4 bg-gray-50/50 border-t">
                   <button
                     onClick={() => {
                       setActiveM(m)
                       setShowEdit(true)
                     }}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:border-[#153e35] transition-all shadow-sm"
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:border-[#153e35] hover:text-[#153e35] transition-all shadow-sm"
                     type="button"
                   >
                     资料编辑
                   </button>
                   <button
                     onClick={() => handleOpenTierSystem(m, 'hierarchy')}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-blue-700 transition-all shadow-sm"
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-purple-700 hover:border-purple-200 transition-all shadow-sm"
                     type="button"
                   >
                     分层体系
                   </button>
                   <button
                     onClick={() => handleOpenTierSystem(m, 'pool')}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-emerald-700 transition-all shadow-sm"
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-emerald-700 hover:border-emerald-200 transition-all shadow-sm"
                     type="button"
                   >
                     角色授权
                   </button>
                   <button
-                    onClick={() => handleOpenTierSystem(m, 'reconciliation')}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-indigo-700 transition-all shadow-sm"
-                    type="button"
-                  >
-                    返佣对账
-                  </button>
-                  <button
                     onClick={() => handleOpenProductAuthorization(m)}
-                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-violet-700 transition-all shadow-sm"
+                    className="py-4 bg-white border border-gray-100 rounded-[1.5rem] text-xs font-black text-gray-600 hover:text-blue-700 hover:border-blue-200 transition-all shadow-sm"
                     type="button"
                   >
                     选品授权
@@ -1546,6 +1765,14 @@ export default function AdminManufacturerCenter() {
 
       <AccountManagementModal open={showAccounts} onClose={() => setShowAccounts(false)} manufacturer={activeM} onChanged={refresh} />
       <ManufacturerEditDrawer open={showEdit} onClose={() => setShowEdit(false)} manufacturer={activeM} onSaved={refresh} />
+      <SmsBindingModal
+        open={showSms}
+        onClose={() => {
+          setShowSms(false)
+          setSmsTarget(null)
+        }}
+        manufacturer={smsTarget}
+      />
     </div>
   )
 }

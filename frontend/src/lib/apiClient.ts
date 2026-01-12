@@ -54,9 +54,9 @@ const getApiUrl = () => {
       return apiUrl;
     }
     
-    // 如果在公网，使用相对路径（需要配置代理）或使用当前协议
-    const apiUrl = 'https://pkochbpmcgaa.sealoshzh.site/api';
-    console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
+    // 如果在公网，使用相对路径（通过 nginx 代理到后端）
+    const apiUrl = '/api';
+    console.log(`✅ 生产环境 (${hostname})，使用相对路径API: ${apiUrl}`);
     return apiUrl;
   }
   
@@ -81,8 +81,10 @@ apiClient.interceptors.request.use(
   (config) => {
     // 直接从Zustand store获取状态
     const token = useAuthStore.getState().token;
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+    config.headers = (config.headers || {}) as any;
+    const existingAuth = (config.headers as any)?.Authorization || (config.headers as any)?.authorization;
+    if (token && !existingAuth) {
+      (config.headers as any)['Authorization'] = `Bearer ${token}`;
     }
     return config;
   },

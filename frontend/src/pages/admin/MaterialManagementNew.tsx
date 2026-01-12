@@ -50,6 +50,9 @@ export default function MaterialManagement() {
   const [draggedMaterial, setDraggedMaterial] = useState<Material | null>(null)
   const [dragOverCategoryId, setDragOverCategoryId] = useState<string | null>(null)
   const [dragOverMaterialIndex, setDragOverMaterialIndex] = useState<number | null>(null)
+  const [draggedGroupKey, setDraggedGroupKey] = useState<string | null>(null)
+  const [dragOverGroupKey, setDragOverGroupKey] = useState<string | null>(null)
+  const [groupOrder, setGroupOrder] = useState<string[]>([]) // 分组顺序
   
   // 模态框
   const [showMaterialModal, setShowMaterialModal] = useState(false)
@@ -87,6 +90,7 @@ export default function MaterialManagement() {
   }, [])
 
   const loadMaterials = async () => {
+    clearMaterialCache() // 每次加载前清除缓存，确保获取最新数据
     const allMaterials = await getAllMaterials()
     setMaterials(allMaterials)
   }
@@ -244,8 +248,10 @@ export default function MaterialManagement() {
     if (confirm(`确定要删除素材"${name}"吗？`)) {
       try {
         await deleteMaterial(id)
+        // 立即从本地状态中移除
+        setMaterials(prev => prev.filter(m => m._id !== id))
+        clearMaterialCache()
         toast.success('素材已删除')
-        loadMaterials()
         loadStats()
       } catch (error) {
         toast.error('删除失败')
@@ -287,8 +293,10 @@ export default function MaterialManagement() {
       try {
         const materialIds = groupMaterials.map(m => m._id)
         await deleteMaterials(materialIds)
-        toast.success(`类别"${groupKey}"及其 ${groupMaterials.length} 个SKU已删除`)
-        loadMaterials()
+        // 立即从本地状态中移除
+        setMaterials(prev => prev.filter(m => !materialIds.includes(m._id)))
+        clearMaterialCache()
+        toast.success(`已删除 ${groupMaterials.length} 个素材`)
         loadStats()
       } catch (error) {
         toast.error('删除类别失败')
@@ -304,10 +312,13 @@ export default function MaterialManagement() {
     
     if (confirm(`确定要删除选中的 ${selectedIds.length} 个素材吗？`)) {
       try {
-        await deleteMaterials(selectedIds)
-        toast.success(`已删除 ${selectedIds.length} 个素材`)
+        const idsToDelete = [...selectedIds]
+        await deleteMaterials(idsToDelete)
+        // 立即从本地状态中移除
+        setMaterials(prev => prev.filter(m => !idsToDelete.includes(m._id)))
         setSelectedIds([])
-        loadMaterials()
+        clearMaterialCache()
+        toast.success(`已删除 ${idsToDelete.length} 个素材`)
         loadStats()
       } catch (error) {
         toast.error('删除失败')
@@ -613,6 +624,99 @@ export default function MaterialManagement() {
     setDraggedMaterial(null)
   }
 
+  // 材质组拖拽处理
+  const handleGroupDragStart = (e: DragEvent<HTMLDivElement>, groupKey: string) => {
+    setDraggedGroupKey(groupKey)
+    e.dataTransfer.effectAllowed = 'move'
+    // 设置拖拽图像为当前元素的缩略图
+    const target = e.currentTarget
+    if (target) {
+      // 创建一个小的拖拽预览
+      const dragImage = target.cloneNode(true) as HTMLElement
+      dragImage.style.width = '100px'
+      dragImage.style.height = '100px'
+      dragImage.style.opacity = '0.8'
+      dragImage.style.position = 'absolute'
+      dragImage.style.top = '-1000px'
+      document.body.appendChild(dragImage)
+      e.dataTransfer.setDragImage(dragImage, 50, 50)
+      setTimeout(() => document.body.removeChild(dragImage), 0)
+    }
+  }
+
+  const handleGroupDragOver = (e: DragEvent<HTMLDivElement>, targetGroupKey: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedGroupKey && draggedGroupKey !== targetGroupKey) {
+      setDragOverGroupKey(targetGroupKey)
+    }
+  }
+
+  const handleGroupDragLeave = () => {
+    setDragOverGroupKey(null)
+  }
+
+  const handleGroupDrop = async (e: DragEvent<HTMLDivElement>, targetGroupKey: string, currentGroupOrder: string[], materialGroups: Record<string, Material[]>) => {
+    e.preventDefault()
+    setDragOverGroupKey(null)
+    
+    if (!draggedGroupKey || draggedGroupKey === targetGroupKey) {
+      setDraggedGroupKey(null)
+      return
+    }
+
+    // 重新排序分组
+    const newOrder = [...currentGroupOrder]
+    const draggedIndex = newOrder.indexOf(draggedGroupKey)
+    const targetIndex = newOrder.indexOf(targetGroupKey)
+    
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedGroupKey(null)
+      return
+    }
+
+    // 移动分组
+    newOrder.splice(draggedIndex, 1)
+    newOrder.splice(targetIndex, 0, draggedGroupKey)
+
+    // 先立即更新本地状态，实现即时反馈
+    let orderCounter = 1
+    const updatedMaterials = [...materials]
+    for (const groupKey of newOrder) {
+      const groupMats = materialGroups[groupKey]
+      if (groupMats) {
+        for (const mat of groupMats) {
+          const idx = updatedMaterials.findIndex(m => m._id === mat._id)
+          if (idx !== -1) {
+            updatedMaterials[idx] = { ...updatedMaterials[idx], order: orderCounter }
+          }
+          orderCounter++
+        }
+      }
+    }
+    setMaterials(updatedMaterials)
+    setDraggedGroupKey(null)
+    
+    // 后台更新数据库
+    try {
+      orderCounter = 1
+      for (const groupKey of newOrder) {
+        const groupMats = materialGroups[groupKey]
+        if (groupMats) {
+          for (const mat of groupMats) {
+            await updateMaterial(mat._id, { order: orderCounter })
+            orderCounter++
+          }
+        }
+      }
+      clearMaterialCache()
+      toast.success('分组顺序已保存')
+    } catch (error) {
+      toast.error('保存顺序失败')
+      loadMaterials() // 失败时重新加载
+    }
+  }
+
   // 获取分类及其所有子分类的ID列表
   const getAllCategoryIds = (categoryId: string): string[] => {
     const ids = [categoryId]
@@ -899,6 +1003,8 @@ export default function MaterialManagement() {
 
         {/* 右侧内容区 */}
         <div className="flex-1 min-w-0">
+          {/* 版本指示器 - 用于调试 */}
+          <div className="text-xs text-gray-400 mb-2">v20260110-1740</div>
           {/* 操作栏 */}
           <div className="card p-5 mb-6 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
@@ -995,11 +1101,18 @@ export default function MaterialManagement() {
           {filteredMaterials.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {(() => {
+                // 先按 order 字段排序
+                const sortedMaterials = [...filteredMaterials].sort((a, b) => {
+                  const orderA = a.order ?? 9999
+                  const orderB = b.order ?? 9999
+                  return orderA - orderB
+                })
+                
                 // 按材质类型分组
                 const materialGroups: Record<string, typeof filteredMaterials> = {};
                 const groupOrder: string[] = [];
                 
-                filteredMaterials.forEach(material => {
+                sortedMaterials.forEach(material => {
                   // 通用分组逻辑：按"-"分隔符提取前缀
                   let groupKey = material.name;
                   const dashIndex = material.name.indexOf('-');
@@ -1020,10 +1133,32 @@ export default function MaterialManagement() {
                   const isSkuExpanded = expandedSKUGroup === groupKey
                   
                   return (
-                    <div key={groupKey} className="card overflow-hidden hover:shadow-lg transition-shadow group">
+                    <div 
+                      key={groupKey} 
+                      className={`card overflow-hidden hover:shadow-lg transition-all group cursor-move ${
+                        dragOverGroupKey === groupKey ? 'ring-2 ring-blue-500 ring-offset-2' : ''
+                      } ${draggedGroupKey === groupKey ? 'opacity-50 scale-95' : ''}`}
+                      draggable
+                      onDragStart={(e) => handleGroupDragStart(e, groupKey)}
+                      onDragOver={(e) => handleGroupDragOver(e, groupKey)}
+                      onDragLeave={handleGroupDragLeave}
+                      onDrop={(e) => handleGroupDrop(e, groupKey, groupOrder, materialGroups)}
+                      onDragEnd={() => setDraggedGroupKey(null)}
+                    >
+                      {/* 拖拽手柄 */}
+                      <div className="absolute top-2 left-2 z-10 bg-white/80 rounded p-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg className="h-4 w-4 text-gray-600" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                          <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                          <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                        </svg>
+                      </div>
                       {/* 正方形图片区域 */}
-                      <button
-                        onClick={() => setExpandedSKUGroup(isSkuExpanded ? null : groupKey)}
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setExpandedSKUGroup(isSkuExpanded ? null : groupKey)
+                        }}
                         className="relative w-full aspect-square bg-gray-100 overflow-hidden cursor-pointer"
                       >
                         <img
@@ -1047,7 +1182,7 @@ export default function MaterialManagement() {
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <ChevronDown className={`h-8 w-8 text-white transition-transform ${isSkuExpanded ? 'rotate-180' : ''}`} />
                         </div>
-                      </button>
+                      </div>
                       
                       {/* 材质信息 */}
                       <div className="p-3">

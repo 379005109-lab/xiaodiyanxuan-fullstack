@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Eye, Truck, CheckCircle, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '@/lib/apiClient';
@@ -52,6 +53,7 @@ const statusLabels: Record<string, { text: string; color: string }> = {
 };
 
 export default function ManufacturerOrderManagement() {
+  const [searchParams] = useSearchParams();
   const [orders, setOrders] = useState<ManufacturerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState('');
@@ -60,6 +62,7 @@ export default function ManufacturerOrderManagement() {
   const [total, setTotal] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<ManufacturerOrder | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [manufacturerId, setManufacturerId] = useState('');
 
   const fetchOrders = async () => {
     try {
@@ -69,6 +72,7 @@ export default function ManufacturerOrderManagement() {
       params.append('limit', '20');
       if (keyword) params.append('keyword', keyword);
       if (status) params.append('status', status);
+      if (manufacturerId) params.append('manufacturerId', manufacturerId);
 
       const res = await apiClient.get(`/api/manufacturer-orders?${params}`);
       if (res.data.success) {
@@ -85,7 +89,13 @@ export default function ManufacturerOrderManagement() {
 
   useEffect(() => {
     fetchOrders();
-  }, [page, status]);
+  }, [page, status, manufacturerId]);
+
+  useEffect(() => {
+    const mid = searchParams.get('manufacturerId') || '';
+    setManufacturerId(mid);
+    setPage(1);
+  }, [searchParams]);
 
   const handleSearch = () => {
     setPage(1);

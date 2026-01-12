@@ -92,7 +92,7 @@ export default function RefundManagementNew() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('/api/orders?pageSize=100', {
+      const response = await fetch('/api/orders?pageSize=10000', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

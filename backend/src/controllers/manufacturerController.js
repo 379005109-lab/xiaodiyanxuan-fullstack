@@ -1,5 +1,8 @@
 const { successResponse, errorResponse, paginatedResponse } = require('../utils/response')
 const Manufacturer = require('../models/Manufacturer')
+const User = require('../models/User')
+const bcrypt = require('bcryptjs')
+const { USER_ROLES, USER_TYPES } = require('../config/constants')
 
 // 获取所有厂家列表
 const list = async (req, res) => {
@@ -12,6 +15,8 @@ const list = async (req, res) => {
     if (keyword) {
       query.$or = [
         { name: { $regex: keyword, $options: 'i' } },
+        { fullName: { $regex: keyword, $options: 'i' } },
+        { shortName: { $regex: keyword, $options: 'i' } },
         { code: { $regex: keyword, $options: 'i' } },
         { contactName: { $regex: keyword, $options: 'i' } },
         { contactPhone: { $regex: keyword, $options: 'i' } }
@@ -67,7 +72,25 @@ const get = async (req, res) => {
 // 创建厂家
 const create = async (req, res) => {
   try {
-    const { fullName, shortName, name, code, contactName, contactPhone, contactEmail, address, description, logo, status, isPreferred, expiryDate, styleTags, defaultDiscount, defaultCommission } = req.body
+    const {
+      fullName,
+      shortName,
+      name,
+      code,
+      contactName,
+      contactPhone,
+      contactEmail,
+      address,
+      description,
+      productIntro,
+      styleTags,
+      isPreferred,
+      expiryDate,
+      defaultDiscount,
+      defaultCommission,
+      logo,
+      status,
+    } = req.body
     
     // 支持新字段fullName，兼容旧字段name
     const manufacturerName = fullName || name
@@ -91,19 +114,61 @@ const create = async (req, res) => {
       fullName: manufacturerName,
       shortName,
       name: manufacturerName, // 兼容旧字段
+      code,
       contactName,
       contactPhone,
       contactEmail,
       address,
       description,
-      logo,
+      productIntro,
       isPreferred: Boolean(isPreferred),
       expiryDate: expiryDate ? new Date(expiryDate) : undefined,
-      styleTags: Array.isArray(styleTags) ? styleTags : undefined,
+      styleTags: Array.isArray(styleTags) ? styleTags : [],
       defaultDiscount: defaultDiscount !== undefined ? Number(defaultDiscount) : undefined,
       defaultCommission: defaultCommission !== undefined ? Number(defaultCommission) : undefined,
+      logo,
       status: status || 'active'
     })
+
+    const platformRoles = [USER_ROLES.SUPER_ADMIN, USER_ROLES.PLATFORM_ADMIN, 'super_admin', 'admin', 'platform_admin']
+    const canAutoCreateAccount = platformRoles.includes(req.user?.role)
+    if (canAutoCreateAccount) {
+      try {
+        const base = String(shortName || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '')
+
+        if (base) {
+          let username = base
+          let suffix = 0
+          while (suffix < 50) {
+            const exists = await User.findOne({ username }).select('_id').lean()
+            if (!exists) break
+            suffix += 1
+            username = `${base}${suffix}`
+          }
+
+          if (suffix < 50) {
+            const hashedPassword = await bcrypt.hash('123456', 10)
+            await User.create({
+              username,
+              password: hashedPassword,
+              nickname: manufacturerName,
+              accountType: 'auth',
+              role: USER_ROLES.ENTERPRISE_ADMIN,
+              userType: USER_TYPES.ADMIN,
+              manufacturerId: manufacturer._id,
+              manufacturerIds: [manufacturer._id],
+              status: 'active',
+              createdBy: req.user?._id
+            })
+          }
+        }
+      } catch (e) {
+        console.error('Auto create manufacturer admin account error:', e)
+      }
+    }
     
     res.status(201).json(successResponse(manufacturer, '创建成功'))
   } catch (err) {
@@ -116,7 +181,27 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params
-    const { name, fullName, shortName, code, contactName, contactPhone, contactEmail, address, description, logo, status, accountQuota, settings, isPreferred, expiryDate, styleTags, defaultDiscount, defaultCommission } = req.body
+    const {
+      name,
+      fullName,
+      shortName,
+      code,
+      contactName,
+      contactPhone,
+      contactEmail,
+      address,
+      description,
+      productIntro,
+      logo,
+      status,
+      accountQuota,
+      settings,
+      isPreferred,
+      expiryDate,
+      styleTags,
+      defaultDiscount,
+      defaultCommission,
+    } = req.body
     
     const manufacturer = await Manufacturer.findById(id)
     if (!manufacturer) {
@@ -141,6 +226,7 @@ const update = async (req, res) => {
     if (contactEmail !== undefined) manufacturer.contactEmail = contactEmail
     if (address !== undefined) manufacturer.address = address
     if (description !== undefined) manufacturer.description = description
+    if (productIntro !== undefined) manufacturer.productIntro = productIntro
     if (logo !== undefined) manufacturer.logo = logo
     if (isPreferred !== undefined) manufacturer.isPreferred = Boolean(isPreferred)
     if (expiryDate !== undefined) manufacturer.expiryDate = expiryDate ? new Date(expiryDate) : null

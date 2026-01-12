@@ -54,12 +54,21 @@ const list = async (req, res) => {
   try {
     const { page = 1, pageSize = 10, status } = req.query
     
-    // 管理员可以看到所有订单，普通用户只能看到自己的
-    const isAdmin = req.userRole === 'admin' || req.userRole === 'super_admin' || req.userRole === 'superadmin'
-    const userId = isAdmin ? null : req.userId
+    // 超级管理员可以看到所有订单
+    const isSuperAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin', 'platform_staff'].includes(req.userRole)
+    // 厂家管理员只能看到自己厂家的订单
+    const isEnterpriseAdmin = ['enterprise_admin', 'enterprise_staff'].includes(req.userRole)
     
-    console.log('📋 [OrderController] list orders:', { userId, isAdmin, userRole: req.userRole })
-    const result = await getOrders(userId, page, pageSize, status ? parseInt(status) : null)
+    let manufacturerIds = null
+    if (isEnterpriseAdmin && req.user) {
+      // 获取厂家管理员绑定的厂家ID
+      manufacturerIds = req.user.manufacturerIds || (req.user.manufacturerId ? [req.user.manufacturerId] : null)
+    }
+    
+    const userId = (isSuperAdmin || isEnterpriseAdmin) ? null : req.userId
+    
+    console.log('📋 [OrderController] list orders:', { userId, isSuperAdmin, isEnterpriseAdmin, userRole: req.userRole, manufacturerIds })
+    const result = await getOrders(userId, page, pageSize, status ? parseInt(status) : null, manufacturerIds)
     console.log('📋 [OrderController] found orders:', result.total)
     res.json(paginatedResponse(result.orders, result.total, result.page, result.pageSize))
   } catch (err) {

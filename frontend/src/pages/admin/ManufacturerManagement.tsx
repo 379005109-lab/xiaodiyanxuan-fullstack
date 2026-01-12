@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react'
+// Build cache bust: 20260110-v1
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3 } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
+import ImageUploader from '@/components/admin/ImageUploader'
+import ManufacturerEditDrawer from '@/components/admin/ManufacturerEditDrawer'
+import { getFileUrl } from '@/services/uploadService'
 import { useAuthStore } from '@/store/authStore'
 
 // 中文转拼音首字母（简化版）
@@ -61,6 +65,13 @@ interface Manufacturer {
   shortName?: string
   code?: string
   username?: string
+  logo?: string
+  isPreferred?: boolean
+  expiryDate?: string
+  defaultDiscount?: number
+  defaultCommission?: number
+  productIntro?: string
+  styleTags?: string[]
   contactName?: string
   contactPhone?: string
   contactEmail?: string
@@ -70,7 +81,6 @@ interface Manufacturer {
   createdAt: string
   accountQuota?: AccountQuota
   accountUsage?: AccountQuota
-  logo?: string
   settings?: {
     phone?: string
     servicePhone?: string
@@ -112,24 +122,39 @@ interface ManufacturerAccount {
 export default function ManufacturerManagement() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const role = (user as any)?.role
+  const isAdmin = role === 'admin' || role === 'super_admin' || role === 'platform_admin' || role === 'platform_staff'
   const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
   const isManufacturerUser = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff' || (user as any)?.permissions?.canAccessAdmin === true
 
+  const isFactoryPortal = !!myManufacturerId && !isAdmin
+
   const canManageManufacturer = (manufacturerId: string) => {
     if (isAdmin) return true
-    if (!myManufacturerId) return false
-    return String(manufacturerId) === myManufacturerId
+    const mid = String(manufacturerId)
+    if (myManufacturerId && mid === myManufacturerId) return true
+    const mids = Array.isArray((user as any)?.manufacturerIds) ? (user as any).manufacturerIds.map(String) : []
+    if (mids.includes(mid)) return true
+    return false
   }
 
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
+  const [portalKeyword, setPortalKeyword] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showEditDrawer, setShowEditDrawer] = useState(false)
   const [editingItem, setEditingItem] = useState<Manufacturer | null>(null)
   const [formData, setFormData] = useState({
+    logo: '',
     fullName: '',
     shortName: '',
+    isPreferred: false,
+    expiryDate: '',
+    defaultDiscount: 0,
+    defaultCommission: 0,
+    styleTagsText: '',
+    productIntro: '',
     contactName: '',
     contactPhone: '',
     contactEmail: '',
@@ -137,7 +162,6 @@ export default function ManufacturerManagement() {
     description: '',
     status: 'active' as 'active' | 'inactive',
     // 扩展字段
-    logo: '',
     settings: {
       phone: '',
       servicePhone: '',
@@ -187,11 +211,73 @@ export default function ManufacturerManagement() {
     }
   })
 
+  // 授权状态跟踪
+  const [authorizationMap, setAuthorizationMap] = useState<Record<string, { 
+    status: string; 
+    productCount: number;
+    authorizationId?: string;
+    minDiscountRate?: number;
+    commissionRate?: number;
+  }>>({})
+  
+  const [showSmsModal, setShowSmsModal] = useState(false)
+  const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
+  const [smsLoading, setSmsLoading] = useState(false)
+  const [smsSending, setSmsSending] = useState(false)
+  const [smsBinding, setSmsBinding] = useState(false)
+  const [smsCountdown, setSmsCountdown] = useState(0)
+  const [smsStatus, setSmsStatus] = useState<{ phone: string; verifiedAt: string | null }>({ phone: '', verifiedAt: null })
+  const [smsPhoneInput, setSmsPhoneInput] = useState('')
+  const [smsCodeInput, setSmsCodeInput] = useState('')
+
+  useEffect(() => {
+    if (smsCountdown <= 0) return
+    const t = setInterval(() => {
+      setSmsCountdown(prev => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(t)
+  }, [smsCountdown])
+
+  const fetchKeyword = isAdmin ? keyword : ''
+
   const fetchData = async () => {
     try {
       setLoading(true)
-      const response = await apiClient.get('/manufacturers', { params: { keyword, pageSize: 100 } })
+      const response = await apiClient.get('/manufacturers', { params: { keyword: fetchKeyword, pageSize: 100 } })
       setManufacturers(response.data.data || [])
+      
+      console.log('[ManufacturerManagement] isFactoryPortal:', isFactoryPortal, 'myManufacturerId:', myManufacturerId, 'isAdmin:', isAdmin)
+      
+      // 如果是厂家门户，获取授权状态
+      if (isFactoryPortal && myManufacturerId) {
+        try {
+          console.log('[ManufacturerManagement] Fetching authorization summary for:', myManufacturerId)
+          const authRes = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
+          console.log('[ManufacturerManagement] Authorization response:', authRes.data)
+          const authData = authRes.data?.data || authRes.data || []
+          const authMap: Record<string, { status: string; productCount: number; authorizationId?: string; minDiscountRate?: number; commissionRate?: number }> = {}
+          
+          if (Array.isArray(authData)) {
+            authData.forEach((auth: any) => {
+              const targetId = auth.fromManufacturer?._id || auth.fromManufacturer
+              console.log('[ManufacturerManagement] Processing auth:', { targetId, productCount: auth.productCount, status: auth.status })
+              if (targetId) {
+                authMap[targetId] = {
+                  status: auth.status || 'pending',
+                  productCount: auth.productCount || auth.products?.length || 0,
+                  authorizationId: auth.authorizationId,
+                  minDiscountRate: auth.minDiscountRate || 0,
+                  commissionRate: auth.commissionRate || 0
+                }
+              }
+            })
+          }
+          console.log('[ManufacturerManagement] Final authMap:', authMap)
+          setAuthorizationMap(authMap)
+        } catch (e) {
+          console.log('[ManufacturerManagement] 获取授权状态失败', e)
+        }
+      }
     } catch (error) {
       console.error('获取厂家列表失败:', error)
       toast.error('获取厂家列表失败')
@@ -200,22 +286,71 @@ export default function ManufacturerManagement() {
     }
   }
 
+  const handleToggleStatus = async (item: Manufacturer) => {
+    try {
+      await apiClient.put(`/manufacturers/${item._id}`, {
+        status: item.status === 'active' ? 'inactive' : 'active',
+      })
+      fetchData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '更新状态失败')
+    }
+  }
+
+  const handleTogglePreferred = async (item: Manufacturer) => {
+    try {
+      await apiClient.put(`/manufacturers/${item._id}`, {
+        isPreferred: !item.isPreferred,
+      })
+      fetchData()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '更新失败')
+    }
+  }
+
   useEffect(() => {
     fetchData()
-  }, [keyword])
+  }, [fetchKeyword])
+
+  const myManufacturer = useMemo(() => {
+    if (!myManufacturerId) return null
+    return manufacturers.find(m => String(m._id) === String(myManufacturerId)) || null
+  }, [manufacturers, myManufacturerId])
+
+  const otherManufacturers = useMemo(() => {
+    if (!myManufacturerId) return manufacturers
+    return manufacturers.filter(m => String(m._id) !== String(myManufacturerId))
+  }, [manufacturers, myManufacturerId])
+
+  const filteredOtherManufacturers = useMemo(() => {
+    const q = portalKeyword.trim().toLowerCase()
+    if (!q) return otherManufacturers
+    return otherManufacturers.filter(m => {
+      const name = (m.fullName || m.name || '').toLowerCase()
+      const code = (m.code || m.shortName || '').toLowerCase()
+      const contact = (m.contactName || '').toLowerCase()
+      return name.includes(q) || code.includes(q) || contact.includes(q)
+    })
+  }, [otherManufacturers, portalKeyword])
 
   const openCreateModal = () => {
     setEditingItem(null)
     setFormData({
+      logo: '',
       fullName: '',
       shortName: '',
+      isPreferred: false,
+      expiryDate: '',
+      defaultDiscount: 0,
+      defaultCommission: 0,
+      styleTagsText: '',
+      productIntro: '',
       contactName: '',
       contactPhone: '',
       contactEmail: '',
       address: '',
       description: '',
       status: 'active',
-      logo: '',
       settings: {
         phone: '',
         servicePhone: '',
@@ -229,29 +364,8 @@ export default function ManufacturerManagement() {
 
   const openEditModal = (item: Manufacturer) => {
     setEditingItem(item)
-    setFormData({
-      fullName: item.fullName || item.name || '',
-      shortName: item.shortName || '',
-      contactName: item.contactName || '',
-      contactPhone: item.contactPhone || '',
-      contactEmail: item.contactEmail || '',
-      address: item.address || '',
-      description: item.description || '',
-      status: item.status,
-      logo: item.logo || '',
-      settings: {
-        phone: item.settings?.phone || '',
-        servicePhone: item.settings?.servicePhone || '',
-        wechatQrCode: item.settings?.wechatQrCode || '',
-        alipayQrCode: item.settings?.alipayQrCode || '',
-        bankInfo: {
-          bankName: item.settings?.bankInfo?.bankName || '',
-          accountName: item.settings?.bankInfo?.accountName || '',
-          accountNumber: item.settings?.bankInfo?.accountNumber || ''
-        }
-      }
-    })
-    setShowModal(true)
+    // 使用新的完整档案编辑抽屉
+    setShowEditDrawer(true)
   }
 
   const openPasswordModal = (item: Manufacturer) => {
@@ -301,6 +415,113 @@ export default function ManufacturerManagement() {
       toast.error('获取账号列表失败')
     } finally {
       setAccountsLoading(false)
+    }
+  }
+
+  const loadSmsStatus = async (manufacturerId: string) => {
+    try {
+      setSmsLoading(true)
+      const res = await apiClient.get(`/manufacturers/${manufacturerId}/sms/status`)
+      if (res.data?.success) {
+        setSmsStatus({
+          phone: res.data.data?.smsNotifyPhone || '',
+          verifiedAt: res.data.data?.smsNotifyVerifiedAt || null
+        })
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '加载短信绑定状态失败')
+    } finally {
+      setSmsLoading(false)
+    }
+  }
+
+  const openSmsModal = async (item: Manufacturer) => {
+    setSmsTarget(item)
+    setShowSmsModal(true)
+    setSmsCodeInput('')
+    setSmsPhoneInput('')
+    setSmsCountdown(0)
+    await loadSmsStatus(item._id)
+  }
+
+  const handleBindSmsPhone = async () => {
+    if (!smsTarget) return
+    if (!smsPhoneInput) {
+      toast.error('请输入手机号')
+      return
+    }
+    try {
+      setSmsBinding(true)
+      const res = await apiClient.post(`/manufacturers/${smsTarget._id}/sms/bind`, { phone: smsPhoneInput })
+      if (res.data?.success) {
+        toast.success('手机号已绑定，请发送验证码完成验证')
+        await loadSmsStatus(smsTarget._id)
+      } else {
+        toast.error(res.data?.message || '绑定失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '绑定失败')
+    } finally {
+      setSmsBinding(false)
+    }
+  }
+
+  const handleSendSmsCode = async () => {
+    if (!smsTarget) return
+    try {
+      setSmsSending(true)
+      const res = await apiClient.post(`/manufacturers/${smsTarget._id}/sms/send-code`, {})
+      if (res.data?.success) {
+        toast.success('验证码已发送')
+        setSmsCountdown(60)
+      } else {
+        toast.error(res.data?.message || '发送失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '发送失败')
+    } finally {
+      setSmsSending(false)
+    }
+  }
+
+  const handleVerifySmsPhone = async () => {
+    if (!smsTarget) return
+    if (!smsCodeInput) {
+      toast.error('请输入验证码')
+      return
+    }
+    try {
+      setSmsBinding(true)
+      const res = await apiClient.post(`/manufacturers/${smsTarget._id}/sms/verify`, { code: smsCodeInput })
+      if (res.data?.success) {
+        toast.success('验证成功')
+        setSmsCodeInput('')
+        await loadSmsStatus(smsTarget._id)
+      } else {
+        toast.error(res.data?.message || '验证失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '验证失败')
+    } finally {
+      setSmsBinding(false)
+    }
+  }
+
+  const handleUnbindSmsPhone = async () => {
+    if (!smsTarget) return
+    try {
+      setSmsBinding(true)
+      const res = await apiClient.post(`/manufacturers/${smsTarget._id}/sms/unbind`, {})
+      if (res.data?.success) {
+        toast.success('已解绑')
+        await loadSmsStatus(smsTarget._id)
+      } else {
+        toast.error(res.data?.message || '解绑失败')
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || '解绑失败')
+    } finally {
+      setSmsBinding(false)
     }
   }
 
@@ -425,11 +646,30 @@ export default function ManufacturerManagement() {
 
     try {
       setSaving(true)
+      const payload: any = {
+        logo: formData.logo || undefined,
+        fullName: formData.fullName,
+        shortName: formData.shortName,
+        isPreferred: formData.isPreferred,
+        expiryDate: formData.expiryDate || undefined,
+        defaultDiscount: formData.defaultDiscount,
+        defaultCommission: formData.defaultCommission,
+        productIntro: formData.productIntro,
+        styleTags: formData.styleTagsText
+          ? formData.styleTagsText.split(',').map(s => s.trim()).filter(Boolean)
+          : [],
+        contactName: formData.contactName,
+        contactPhone: formData.contactPhone,
+        contactEmail: formData.contactEmail,
+        address: formData.address,
+        description: formData.description,
+        status: formData.status,
+      }
       if (editingItem) {
-        await apiClient.put(`/manufacturers/${editingItem._id}`, formData)
+        await apiClient.put(`/manufacturers/${editingItem._id}`, payload)
         toast.success('更新成功')
       } else {
-        await apiClient.post('/manufacturers', formData)
+        await apiClient.post('/manufacturers', payload)
         toast.success('创建成功')
       }
       setShowModal(false)
@@ -516,198 +756,488 @@ export default function ManufacturerManagement() {
         </div>
       </div>
 
-      {/* 搜索栏 */}
-      <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="搜索厂家名称、编码、联系人..."
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
-        </div>
-      </div>
-
-      {/* 列表 */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      ) : manufacturers.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-          <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">暂无厂家数据</p>
-          <button
-            onClick={openCreateModal}
-            className="mt-4 text-primary hover:underline"
-          >
-            点击创建第一个厂家
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {manufacturers.map((item) => (
-            <div
-              key={item._id}
-              className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-lg">{item.fullName || item.name}</h3>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    {item.shortName && <span className="font-medium text-primary">[{item.shortName}]</span>}
-                    {item.code && <span>编号：{item.code}</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {item.certification?.status === 'approved' && (
-                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700 flex items-center gap-1">
-                      ✓ 已认证
-                    </span>
-                  )}
-                  {item.certification?.status === 'pending' && (
-                    <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-700">
-                      待审核
-                    </span>
-                  )}
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    item.status === 'active' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {item.status === 'active' ? '启用' : '停用'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-sm text-gray-600 mb-3">
-                {item.contactName && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400">联系人：</span>
-                    {item.contactName}
-                  </div>
-                )}
-                {item.contactPhone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3.5 h-3.5 text-gray-400" />
-                    {item.contactPhone}
-                  </div>
-                )}
-              </div>
-
-              {/* 账号配额信息 */}
-              <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-500">
-                    账号配额
-                    {item.accountQuota?.totalAccounts ? (
-                      <span className="ml-2 text-primary font-bold">
-                        (总配额: {item.accountQuota.totalAccounts})
-                      </span>
-                    ) : null}
-                  </span>
-                  {isAdmin && (
-                    <button
-                      onClick={() => openQuotaModal(item)}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      设置配额
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {item.accountUsage?.authAccounts || 0}/{item.accountQuota?.authAccounts || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">授权账号</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {item.accountUsage?.subAccounts || 0}/{item.accountQuota?.subAccounts || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">子账号</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {item.accountUsage?.designerAccounts || 0}/{item.accountQuota?.designerAccounts || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">设计师</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-3 border-t border-gray-100 flex-wrap">
-                {canManageManufacturer(item._id) ? (
-                  <>
-                    <button
-                      onClick={() => openEditModal(item)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                    >
-                      <Edit className="w-4 h-4" />
-                      编辑
-                    </button>
-                    <button
-                      onClick={() => openAccountsModal(item)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      <Key className="w-4 h-4" />
-                      账号
-                    </button>
-                    <button
-                      onClick={() => handleOpenTierSystem(item, 'hierarchy')}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                    >
-                      <Layers className="w-4 h-4" />
-                      分层体系
-                    </button>
-                    <button
-                      onClick={() => handleOpenTierSystem(item, 'pool')}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
-                    >
-                      <Shield className="w-4 h-4" />
-                      角色授权
-                    </button>
-                    <button
-                      onClick={() => handleOpenTierSystem(item, 'reconciliation')}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      返佣对账
-                    </button>
-                    {isManufacturerUser && myManufacturerId && String(item._id) === String(myManufacturerId) && (
-                      <button
-                        onClick={handleOpenAuthorizationRequests}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
-                      >
-                        <Shield className="w-4 h-4" />
-                        授权申请
-                      </button>
-                    )}
-                    {isAdmin && (
-                      <button
-                        onClick={() => handleDelete(item._id)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        删除
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <button
-                    onClick={() => handleOpenProductAuthorization(item)}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    商品授权
+      {isFactoryPortal ? (
+        <>
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+            <div>
+              <h2 className="text-4xl font-black text-gray-900 tracking-tight">品牌工厂中心</h2>
+              <p className="text-sm text-gray-500 mt-2">管理自有资产或申请跨品牌授权</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {/* 设置下拉菜单 */}
+              {myManufacturer && (
+                <div className="relative group">
+                  <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+                    <Settings className="w-4 h-4 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-700">设置</span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
                   </button>
-                )}
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    <button
+                      onClick={() => openSmsModal(myManufacturer)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <MessageSquare className="w-4 h-4 text-cyan-600" />
+                      短信通知绑定
+                    </button>
+                    <button
+                      onClick={() => openEditModal(myManufacturer)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Edit className="w-4 h-4 text-blue-600" />
+                      资料编辑
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="relative max-w-md w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="搜索品牌库..."
+                  value={portalKeyword}
+                  onChange={(e) => setPortalKeyword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-full bg-white shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : !myManufacturer ? (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 mb-8">
+              当前账号已绑定厂家，但未能加载到厂家信息
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={myManufacturer.status === 'active'}
+                        onChange={() => {
+                          if (!confirm(myManufacturer.status === 'active' ? '确定要下架停运该品牌吗？' : '确定要恢复启用该品牌吗？')) return
+                          handleToggleStatus(myManufacturer)
+                        }}
+                      />
+                      <div className="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-5"></div>
+                    </label>
+                    <span className={`text-xs font-semibold ${myManufacturer.status === 'active' ? 'text-emerald-700' : 'text-gray-500'}`}>
+                      {myManufacturer.status === 'active' ? '启用中' : '已停用'}
+                    </span>
+                  </div>
+
+                  <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                    <img
+                      src={getFileUrl(myManufacturer.logo || '')}
+                      alt={myManufacturer.fullName || myManufacturer.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest">工厂门户</div>
+                  <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
+                    {myManufacturer.shortName || myManufacturer.fullName || myManufacturer.name}
+                  </div>
+                  <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
+                    {myManufacturer.code || ''}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
+                    <div className="text-xs font-semibold text-emerald-700">经销折扣(%)</div>
+                    <div className="text-3xl font-black text-[#153e35] mt-2">{myManufacturer.defaultDiscount || 0}</div>
+                  </div>
+                  <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
+                    <div className="text-xs font-semibold text-blue-700">返佣比例(%)</div>
+                    <div className="text-3xl font-black text-blue-700 mt-2">{myManufacturer.defaultCommission || 0}</div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => navigate(`/admin/manufacturers/${myManufacturer._id}/business-panel`)}
+                  className="mt-6 w-full px-6 py-3 rounded-2xl bg-[#123a32] text-white font-bold hover:bg-[#0f2f29] transition-colors"
+                >
+                  经营授权
+                </button>
+
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <button
+                    onClick={() => handleOpenTierSystem(myManufacturer, 'hierarchy')}
+                    className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    分成体系
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!confirm(myManufacturer.status === 'active' ? '确定要下架停运该品牌吗？' : '确定要恢复启用该品牌吗？')) return
+                      handleToggleStatus(myManufacturer)
+                    }}
+                    className={`px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold transition-colors ${
+                      myManufacturer.status === 'active'
+                        ? 'text-red-500 hover:bg-red-50'
+                        : 'text-emerald-700 hover:bg-emerald-50'
+                    }`}
+                  >
+                    {myManufacturer.status === 'active' ? '下架停运' : '恢复启用'}
+                  </button>
+                </div>
+              </div>
+
+              {filteredOtherManufacturers.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-[2.5rem] border border-gray-100 flex flex-col items-center justify-center">
+                  <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">暂无可申请的品牌</p>
+                </div>
+              ) : (
+                filteredOtherManufacturers.map((item) => {
+                  const authInfo = authorizationMap[item._id]
+                  const isCooperating = authInfo?.status === 'approved' || authInfo?.status === 'active'
+                  const isPending = authInfo?.status === 'pending'
+                  
+                  return (
+                    <div
+                      key={item._id}
+                      className={`bg-white rounded-[2.5rem] border p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all ${isCooperating ? 'border-emerald-200 ring-2 ring-emerald-100' : 'border-gray-100'}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {item.status === 'active' ? '启用中' : '已停用'}
+                          </span>
+                          {isCooperating && (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                              ✓ 已合作 · {authInfo.productCount || 0}件商品
+                            </span>
+                          )}
+                          {isPending && (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                              ⏳ 申请中
+                            </span>
+                          )}
+                        </div>
+                        <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                          <img
+                            src={getFileUrl(item.logo || '')}
+                            alt={item.fullName || item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
+                          {item.shortName || item.fullName || item.name}
+                        </div>
+                        <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
+                          {item.code || ''}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mt-6">
+                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
+                          <div className="text-xs font-semibold text-emerald-700">
+                            {isCooperating ? '授权折扣(%)' : '经销折扣(%)'}
+                          </div>
+                          <div className="text-3xl font-black text-[#153e35] mt-2">
+                            {isCooperating 
+                              ? (authInfo?.minDiscountRate || 0)
+                              : (item.defaultDiscount || 0)}
+                          </div>
+                        </div>
+                        <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
+                          <div className="text-xs font-semibold text-blue-700">
+                            {isCooperating ? '授权返佣(%)' : '返佣比例(%)'}
+                          </div>
+                          <div className="text-3xl font-black text-blue-700 mt-2">
+                            {isCooperating 
+                              ? (authInfo?.commissionRate || 0)
+                              : (item.defaultCommission || 0)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {isCooperating && (
+                        <div className="flex gap-2 mt-6">
+                          <button
+                            onClick={() => handleOpenProductAuthorization(item)}
+                            className="flex-1 px-6 py-3 rounded-2xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                          >
+                            查看授权商品
+                          </button>
+                          {authInfo.isEnabled !== false ? (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await apiClient.put(`/authorizations/${authInfo.authorizationId}/toggle-enabled`, { enabled: false })
+                                  toast.success('已关闭该厂家商品显示')
+                                  fetchData()
+                                } catch (e: any) {
+                                  toast.error(e?.response?.data?.message || '操作失败')
+                                }
+                              }}
+                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                              title="关闭后该厂家商品不在列表和商城中显示"
+                            >
+                              关闭
+                            </button>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await apiClient.put(`/authorizations/${authInfo.authorizationId}/toggle-enabled`, { enabled: true })
+                                  toast.success('已开启该厂家商品显示')
+                                  fetchData()
+                                } catch (e: any) {
+                                  toast.error(e?.response?.data?.message || '操作失败')
+                                }
+                              }}
+                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+                              title="开启后该厂家商品将在列表和商城中显示"
+                            >
+                              开启
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {!isCooperating && (
+                        <button
+                          disabled={item.status !== 'active'}
+                          onClick={() => handleOpenProductAuthorization(item)}
+                          className={`mt-6 w-full px-6 py-3 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isPending
+                              ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
+                              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {isPending ? '查看申请状态' : '申请经销授权'}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="mb-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="搜索厂家名称、编码、联系人..."
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : manufacturers.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+              <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">暂无厂家数据</p>
+              <button
+                onClick={openCreateModal}
+                className="mt-4 text-primary hover:underline"
+              >
+                点击创建第一个厂家
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {manufacturers.map((item) => (
+                <div
+                  key={item._id}
+                  className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all"
+                >
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-center gap-5">
+                      <div className="w-20 h-20 rounded-full bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                        <img
+                          src={getFileUrl(item.logo || '')}
+                          alt={item.fullName || item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-black text-gray-900 tracking-tight">
+                          {item.shortName || item.fullName || item.name}
+                        </h3>
+                        <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
+                          {item.code || ''}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-3">
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleTogglePreferred(item)}
+                          className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                            item.isPreferred
+                              ? 'bg-amber-100 text-amber-600 border border-amber-200'
+                              : 'bg-gray-50 text-gray-300 border border-gray-100'
+                          }`}
+                        >
+                          {item.isPreferred ? '优质厂家 ★' : '设为优质'}
+                        </button>
+                      )}
+                      
+                      {/* 到期时间显示 */}
+                      <div className="text-xs text-gray-500">
+                        效期至：<span className={item.expiryDate && new Date(item.expiryDate) < new Date() ? 'text-red-500 font-bold' : 'text-emerald-600 font-medium'}>
+                          {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-') : '--'}
+                        </span>
+                      </div>
+
+                      {canManageManufacturer(item._id) && (
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${item.status === 'active' ? 'text-emerald-700' : 'text-gray-400'}`}>
+                            {item.status === 'active' ? '启用' : '停用'}
+                          </span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={item.status === 'active'}
+                              onChange={() => handleToggleStatus(item)}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-3 text-center">
+                      <div className="text-xs text-emerald-700">最低折扣</div>
+                      <div className="text-lg font-bold text-[#153e35]">{item.defaultDiscount || 0}%</div>
+                    </div>
+                    <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 text-center">
+                      <div className="text-xs text-blue-700">返佣比例</div>
+                      <div className="text-lg font-bold text-blue-700">{item.defaultCommission || 0}%</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-gray-600 mb-3">
+                    {item.contactName && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400">联系人：</span>
+                        {item.contactName}
+                      </div>
+                    )}
+                    {item.contactPhone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-gray-400" />
+                        {item.contactPhone}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-500">
+                        账号配额
+                        {item.accountQuota?.totalAccounts ? (
+                          <span className="ml-2 text-primary font-bold">
+                            (总配额: {item.accountQuota.totalAccounts})
+                          </span>
+                        ) : null}
+                      </span>
+                      {isAdmin && (
+                        <button
+                          onClick={() => openQuotaModal(item)}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          设置配额
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">
+                          {item.accountUsage?.authAccounts || 0}/{item.accountQuota?.authAccounts || 0}
+                        </div>
+                        <div className="text-xs text-gray-500">授权账号</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">
+                          {item.accountUsage?.subAccounts || 0}/{item.accountQuota?.subAccounts || 0}
+                        </div>
+                        <div className="text-xs text-gray-500">子账号</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">
+                          {item.accountUsage?.designerAccounts || 0}/{item.accountQuota?.designerAccounts || 0}
+                        </div>
+                        <div className="text-xs text-gray-500">设计师</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100">
+                    {canManageManufacturer(item._id) ? (
+                      <>
+                        <button
+                          onClick={() => openEditModal(item)}
+                          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"
+                        >
+                          <Edit className="w-4 h-4" />
+                          资料编辑
+                        </button>
+                        <button
+                          onClick={() => handleOpenTierSystem(item, 'hierarchy')}
+                          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-purple-50 hover:text-purple-600 rounded-xl transition-colors"
+                        >
+                          <Layers className="w-4 h-4" />
+                          分层体系
+                        </button>
+                        <button
+                          onClick={() => handleOpenTierSystem(item, 'pool')}
+                          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-colors"
+                        >
+                          <Shield className="w-4 h-4" />
+                          角色授权
+                        </button>
+                        <button
+                          onClick={() => handleOpenProductAuthorization(item)}
+                          className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
+                        >
+                          <Settings className="w-4 h-4" />
+                          选品授权
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenProductAuthorization(item)}
+                        className="col-span-2 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
+                      >
+                        <Settings className="w-4 h-4" />
+                        商品授权
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* 弹窗 */}
@@ -721,6 +1251,35 @@ export default function ManufacturerManagement() {
             </div>
 
             <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  品牌头像/Logo
+                </label>
+                <div className="rounded-xl border border-gray-100 p-4 bg-gray-50/30">
+                  <ImageUploader
+                    images={formData.logo ? [formData.logo] : []}
+                    onChange={(imgs) => setFormData({ ...formData, logo: imgs?.[0] || '' })}
+                    multiple={false}
+                    maxImages={1}
+                    label="上传Logo"
+                  />
+                </div>
+                {formData.logo && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border bg-white">
+                      <img src={getFileUrl(formData.logo)} alt="logo" className="w-full h-full object-cover" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, logo: '' })}
+                      className="text-sm text-gray-500 hover:text-red-600"
+                    >
+                      移除Logo
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   厂家全称 <span className="text-red-500">*</span>
@@ -758,6 +1317,78 @@ export default function ManufacturerManagement() {
                 <p className="text-xs text-gray-500 mt-1">
                   {editingItem ? '简称创建后不可修改' : '根据厂家全称中文自动提取拼音首字母，可手动修改'}
                 </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">优质厂家</label>
+                  <select
+                    value={formData.isPreferred ? 'yes' : 'no'}
+                    onChange={(e) => setFormData({ ...formData, isPreferred: e.target.value === 'yes' })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="no">否</option>
+                    <option value="yes">是</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">效期至</label>
+                  <input
+                    type="date"
+                    value={formData.expiryDate}
+                    onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">最低折扣(%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.defaultDiscount}
+                    onChange={(e) => setFormData({ ...formData, defaultDiscount: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="如：60"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">返佣比例(%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.defaultCommission}
+                    onChange={(e) => setFormData({ ...formData, defaultCommission: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="如：25"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">风格标签（逗号分隔）</label>
+                <input
+                  type="text"
+                  value={formData.styleTagsText}
+                  onChange={(e) => setFormData({ ...formData, styleTagsText: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  placeholder="如：意式极简, 全屋定制"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">产品介绍</label>
+                <textarea
+                  value={formData.productIntro}
+                  onChange={(e) => setFormData({ ...formData, productIntro: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                  placeholder="如：主打意式简约、现代极简系列..."
+                />
               </div>
 
               <div>
@@ -1085,6 +1716,101 @@ export default function ManufacturerManagement() {
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {editingItem ? '保存修改' : '创建厂家'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSmsModal && smsTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">短信通知绑定 - {smsTarget.fullName || smsTarget.name}</h2>
+              <button
+                onClick={() => {
+                  setShowSmsModal(false)
+                  setSmsTarget(null)
+                  setSmsCodeInput('')
+                  setSmsPhoneInput('')
+                  setSmsCountdown(0)
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {smsLoading ? (
+                <div className="text-sm text-gray-400">加载中...</div>
+              ) : smsStatus.phone ? (
+                <div className="text-sm text-gray-600">
+                  已绑定：<span className="font-medium">{smsStatus.phone}</span>
+                  {smsStatus.verifiedAt ? (
+                    <span className="text-gray-400">（{new Date(smsStatus.verifiedAt).toLocaleString('zh-CN')}）</span>
+                  ) : (
+                    <span className="text-amber-600">（未验证）</span>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400">未绑定</div>
+              )}
+
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">手机号</label>
+                  <input
+                    value={smsPhoneInput}
+                    onChange={(e) => setSmsPhoneInput(e.target.value)}
+                    placeholder="请输入手机号"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">验证码</label>
+                  <input
+                    value={smsCodeInput}
+                    onChange={(e) => setSmsCodeInput(e.target.value)}
+                    placeholder="请输入验证码"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleBindSmsPhone}
+                  disabled={smsBinding}
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
+                >
+                  {smsBinding ? '处理中...' : '绑定手机号'}
+                </button>
+
+                <button
+                  onClick={handleSendSmsCode}
+                  disabled={smsSending || smsCountdown > 0 || !smsStatus.phone}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {smsCountdown > 0 ? `${smsCountdown}s` : smsSending ? '发送中...' : '发送验证码'}
+                </button>
+
+                <button
+                  onClick={handleVerifySmsPhone}
+                  disabled={smsBinding || !smsStatus.phone}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  验证
+                </button>
+
+                <button
+                  onClick={handleUnbindSmsPhone}
+                  disabled={smsBinding || !smsStatus.phone}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  解绑
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1481,6 +2207,22 @@ export default function ManufacturerManagement() {
           </div>
         </div>
       )}
+      
+      {/* 厂家资料编辑抽屉 - 使用共享组件 */}
+      <ManufacturerEditDrawer
+        open={showEditDrawer}
+        onClose={() => {
+          setShowEditDrawer(false)
+          setEditingItem(null)
+        }}
+        manufacturer={editingItem}
+        onSaved={() => {
+          fetchData()
+          setShowEditDrawer(false)
+          setEditingItem(null)
+        }}
+        isFactoryPortal={isFactoryPortal}
+      />
     </div>
   )
 }

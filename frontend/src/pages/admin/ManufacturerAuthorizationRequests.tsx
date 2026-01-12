@@ -8,9 +8,10 @@ import { useAuthStore } from '@/store/authStore'
 interface AuthorizationRequest {
   _id: string
   fromManufacturer: any
-  toDesigner: any
-  authorizationType: 'designer'
-  scope: 'all' | 'category' | 'specific'
+  toDesigner?: any
+  toManufacturer?: any
+  authorizationType: 'manufacturer' | 'designer'
+  scope: 'all' | 'category' | 'specific' | 'mixed'
   categories: string[]
   products: any[]
   validFrom: string
@@ -45,6 +46,7 @@ export default function ManufacturerAuthorizationRequests() {
   const getScopeLabel = (scope: string, categories?: string[], productsCount?: number) => {
     if (scope === 'all') return '全部商品'
     if (scope === 'category') return `分类授权 (${(categories || []).length}个)`
+    if (scope === 'mixed') return `混合(分类${(categories || []).length}个 + 商品${productsCount || 0}个)`
     return `指定商品 (${productsCount || 0}个)`
   }
 
@@ -52,8 +54,20 @@ export default function ManufacturerAuthorizationRequests() {
     if (!canAccess) return
     setLoading(true)
     try {
-      const res = await apiClient.get('/authorizations/designer-requests/pending')
-      setItems(res.data?.data || [])
+      const [designerRes, manufacturerRes] = await Promise.all([
+        apiClient.get('/authorizations/designer-requests/pending').catch(() => ({ data: { data: [] } } as any)),
+        apiClient.get('/authorizations/manufacturer-requests/pending').catch(() => ({ data: { data: [] } } as any)),
+      ])
+      const next: AuthorizationRequest[] = [
+        ...((designerRes as any).data?.data || []),
+        ...((manufacturerRes as any).data?.data || []),
+      ]
+      next.sort((a: any, b: any) => {
+        const ta = new Date(a.createdAt || a.validFrom || 0).getTime()
+        const tb = new Date(b.createdAt || b.validFrom || 0).getTime()
+        return tb - ta
+      })
+      setItems(next)
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '加载失败')
       setItems([])
@@ -66,10 +80,14 @@ export default function ManufacturerAuthorizationRequests() {
     load()
   }, [canAccess])
 
-  const handleApprove = async (id: string) => {
-    setActingId(id)
+  const handleApprove = async (item: AuthorizationRequest) => {
+    setActingId(item._id)
     try {
-      const res = await apiClient.put(`/authorizations/designer-requests/${id}/approve`, {})
+      const id = item._id
+      const endpoint = item.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${id}/approve`
+        : `/authorizations/designer-requests/${id}/approve`
+      const res = await apiClient.put(endpoint, {})
       if (res.data?.success) {
         toast.success('已通过')
         await load()
@@ -83,11 +101,15 @@ export default function ManufacturerAuthorizationRequests() {
     }
   }
 
-  const handleReject = async (id: string) => {
+  const handleReject = async (item: AuthorizationRequest) => {
     if (!confirm('确定要拒绝该申请吗？')) return
-    setActingId(id)
+    setActingId(item._id)
     try {
-      const res = await apiClient.put(`/authorizations/designer-requests/${id}/reject`, {})
+      const id = item._id
+      const endpoint = item.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${id}/reject`
+        : `/authorizations/designer-requests/${id}/reject`
+      const res = await apiClient.put(endpoint, {})
       if (res.data?.success) {
         toast.success('已拒绝')
         await load()
@@ -157,7 +179,10 @@ export default function ManufacturerAuthorizationRequests() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      设计师: {req.toDesigner?.nickname || req.toDesigner?.username || '未知'}
+                      {req.authorizationType === 'manufacturer'
+                        ? `厂家: ${req.toManufacturer?.fullName || req.toManufacturer?.shortName || req.toManufacturer?.name || '未知'}`
+                        : `设计师: ${req.toDesigner?.nickname || req.toDesigner?.username || '未知'}`
+                      }
                     </h3>
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
                       待审核
@@ -181,7 +206,7 @@ export default function ManufacturerAuthorizationRequests() {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleApprove(req._id)}
+                    onClick={() => handleApprove(req)}
                     disabled={!!actingId}
                     className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
@@ -189,7 +214,7 @@ export default function ManufacturerAuthorizationRequests() {
                     {actingId === req._id ? '处理中...' : '通过'}
                   </button>
                   <button
-                    onClick={() => handleReject(req._id)}
+                    onClick={() => handleReject(req)}
                     disabled={!!actingId}
                     className="px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >

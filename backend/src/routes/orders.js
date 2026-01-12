@@ -462,7 +462,7 @@ router.get('/trash/list', async (req, res) => {
 router.patch('/:id/price', async (req, res) => {
   try {
     const { id } = req.params
-    const { totalAmount, reason } = req.body
+    const { totalAmount, reason, priceMode, itemPrices } = req.body
     const Order = require('../models/Order')
     
     // 验证权限（只有管理员可以改价）
@@ -485,13 +485,20 @@ router.patch('/:id/price', async (req, res) => {
     const originalAmount = order.totalAmount
     
     // 更新价格
-    order.totalAmount = totalAmount
+    const nextAmount = Number(totalAmount)
+    if (Number.isNaN(nextAmount) || nextAmount < 0) {
+      return res.status(400).json({ success: false, message: '请输入有效的价格' })
+    }
+
+    order.totalAmount = nextAmount
     order.priceModified = true
     order.priceModifyHistory = order.priceModifyHistory || []
     order.priceModifyHistory.push({
       originalAmount,
-      newAmount: totalAmount,
+      newAmount: nextAmount,
       reason: reason || '管理员改价',
+      priceMode: priceMode || null,
+      itemPrices: itemPrices || null,
       modifiedBy: req.userId,
       modifiedAt: new Date()
     })
@@ -505,7 +512,7 @@ router.patch('/:id/price', async (req, res) => {
       data: {
         orderId: id,
         originalAmount,
-        newAmount: totalAmount
+        newAmount: nextAmount
       }
     })
   } catch (error) {

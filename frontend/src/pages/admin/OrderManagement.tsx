@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, Filter, Eye, Download, ShoppingCart, Sparkles, ChevronDown, MoreVertical, Truck, Clock, CheckCircle2, AlertCircle, DollarSign, MessageSquare, Copy, Printer, Phone, MapPin } from 'lucide-react'
+import { Search, Filter, Eye, Download, ShoppingCart, Sparkles, ChevronDown, MoreVertical, Truck, Clock, CheckCircle2, AlertCircle, DollarSign, MessageSquare, Copy, Printer, Phone, MapPin, Edit2, Package, X } from 'lucide-react'
 import { formatPrice, formatDateTime } from '@/lib/utils'
 import { Order, OrderStatus } from '@/types'
 import { toast } from 'sonner'
@@ -27,6 +27,14 @@ export default function OrderManagement() {
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [orderNotes, setOrderNotes] = useState<Record<string, string>>({})
   const [editingNote, setEditingNote] = useState<string | null>(null)
+  
+  // 改价功能状态
+  const [showPriceModal, setShowPriceModal] = useState(false)
+  const [selectedOrderForPricing, setSelectedOrderForPricing] = useState<Order | null>(null)
+  const [priceEditMode, setPriceEditMode] = useState<'flat' | 'itemized'>('flat')
+  const [newPrice, setNewPrice] = useState('')
+  const [priceReason, setPriceReason] = useState('')
+  const [itemPrices, setItemPrices] = useState<{[key: number]: string}>({})
 
   // 从API获取订单列表
   useEffect(() => {
@@ -48,7 +56,7 @@ export default function OrderManagement() {
       }
       
       // 从API获取订单数据
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?page=' + page + '&pageSize=10', {
+      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?page=' + page + '&pageSize=10000', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -74,6 +82,10 @@ export default function OrderManagement() {
       console.log('[OrderManagement] Orders loaded:', data.data?.length, 'total:', data.pagination?.total)
       let allOrders: Order[] = data.data || []
       
+      // 打印取消申请订单数量
+      const cancelRequestOrders = allOrders.filter(o => (o as any).cancelRequest === true)
+      console.log('[OrderManagement] Orders with cancelRequest:', cancelRequestOrders.length, cancelRequestOrders.map(o => o.orderNo))
+      
       // 应用搜索
       if (searchQuery) {
         allOrders = allOrders.filter(o => 
@@ -83,7 +95,23 @@ export default function OrderManagement() {
       
       // 应用状态筛选
       if (filterStatus) {
-        allOrders = allOrders.filter(o => o.status === filterStatus)
+        if (filterStatus === 'cancel_request') {
+          // 筛选有取消申请的订单
+          allOrders = allOrders.filter(o => (o as any).cancelRequest === true)
+        } else {
+          // 状态值可能是数字或字符串，需要同时匹配
+          const statusMap: Record<string, (number | string)[]> = {
+            'pending': [1, 'pending'],
+            'paid': [2, 'paid', 'processing'],
+            'shipped': [3, 'shipped'],
+            'completed': [4, 'completed'],
+            'cancelled': [5, 6, 'cancelled'],
+            'refunding': [6, 'refunding'],
+            'refunded': [7, 'refunded'],
+          }
+          const matchStatuses = statusMap[filterStatus] || [filterStatus]
+          allOrders = allOrders.filter(o => matchStatuses.includes(o.status as any))
+        }
       }
       
       // 排序（最新的在前）
@@ -145,6 +173,137 @@ export default function OrderManagement() {
   }
 
   const filteredOrders = orders
+
+  // 获取商品列表 - 支持套餐订单和普通订单
+  const getProducts = (order: Order) => {
+    if ((order as any).orderType === 'package' && (order as any).packageInfo) {
+      const products: any[] = []
+      const selections = (order as any).packageInfo.selections || []
+      selections.forEach((selection: any) => {
+        const selectionProducts = selection.products || []
+        selectionProducts.forEach((product: any) => {
+          const materials = product.selectedMaterials || product.materials || {}
+          const upgradePrices = product.materialUpgradePrices || {}
+          
+          products.push({
+            name: product.productName,
+            quantity: product.quantity,
+            skuName: product.skuName,
+            materials: materials,
+            selectedMaterials: {
+              fabric: materials.fabric || materials['面料'] || '',
+              filling: materials.filling || materials['填充'] || '',
+              frame: materials.frame || materials['框架'] || '',
+              leg: materials.leg || materials['脚架'] || ''
+            },
+            materialUpgradePrices: {
+              fabric: upgradePrices.fabric || upgradePrices['面料'] || 0,
+              filling: upgradePrices.filling || upgradePrices['填充'] || 0,
+              frame: upgradePrices.frame || upgradePrices['框架'] || 0,
+              leg: upgradePrices.leg || upgradePrices['脚架'] || 0
+            },
+            upgradePrice: product.upgradePrice || product.materialUpgrade || 0,
+            image: product.image,
+            category: selection.categoryName
+          })
+        })
+      })
+      return products
+    } else if (order.items) {
+      return order.items.map((item: any) => ({
+        name: item.productName,
+        quantity: item.quantity,
+        materials: item.materials,
+        specifications: item.specifications,
+        selectedMaterials: item.selectedMaterials,
+        materialUpgradePrices: item.materialUpgradePrices,
+        image: item.image || item.productImage
+      }))
+    }
+    return []
+  }
+
+  // 打开改价弹窗
+  const openPriceModal = (order: Order) => {
+    setSelectedOrderForPricing(order)
+    setNewPrice(order.totalAmount?.toString() || '0')
+    setPriceReason('')
+    setPriceEditMode('flat')
+    
+    // 初始化商品价格
+    const products = getProducts(order)
+    const prices: {[key: number]: string} = {}
+    products.forEach((_, index) => {
+      prices[index] = '0' // 默认为0，用户需要填入新价格
+    })
+    setItemPrices(prices)
+    
+    setShowPriceModal(true)
+  }
+
+  // 处理改价
+  const handleChangePrice = async () => {
+    if (!selectedOrderForPricing) {
+      toast.error('未选择订单')
+      return
+    }
+    
+    let finalPrice: number
+    let priceData: any = {
+      reason: priceReason || '管理员改价'
+    }
+    
+    if (priceEditMode === 'flat') {
+      // 一口价模式
+      if (!newPrice) {
+        toast.error('请输入新价格')
+        return
+      }
+      finalPrice = parseFloat(newPrice)
+      if (isNaN(finalPrice) || finalPrice < 0) {
+        toast.error('请输入有效的价格')
+        return
+      }
+      priceData.totalAmount = finalPrice
+    } else {
+      // 逐项改价模式
+      const itemPricesArray = Object.values(itemPrices)
+      if (itemPricesArray.some(p => !p || parseFloat(p) < 0)) {
+        toast.error('请为所有商品输入有效价格')
+        return
+      }
+      
+      // 计算总价
+      finalPrice = itemPricesArray.reduce((sum, p) => sum + parseFloat(p), 0)
+      priceData.totalAmount = finalPrice
+      priceData.itemPrices = itemPrices
+      priceData.priceMode = 'itemized'
+    }
+    
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrderForPricing._id}/price`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(priceData)
+      })
+      
+      if (response.ok) {
+        toast.success('价格修改成功')
+        setShowPriceModal(false)
+        loadOrders()
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.message || '修改失败')
+      }
+    } catch (error) {
+      console.error('改价失败:', error)
+      toast.error('修改失败，请重试')
+    }
+  }
 
   const handleConciergeLoad = (order: Order) => {
     const simpleItems = mapAdminOrderToCartItems(order)
@@ -304,15 +463,20 @@ export default function OrderManagement() {
     }
   }
 
-  // 统计各状态订单数量（从localStorage读取所有订单）
+  // 统计各状态订单数量
   const getStatusCount = (status: string) => {
-    try {
-      const stored = localStorage.getItem('local_orders')
-      const allOrders: Order[] = stored ? JSON.parse(stored) : []
-      return allOrders.filter((o) => o.status === status).length
-    } catch {
-      return orders.filter((o) => o.status === status).length
+    if (status === 'cancel_request') {
+      return orders.filter((o) => (o as any).cancelRequest === true).length
     }
+    const statusMap: Record<string, (number | string)[]> = {
+      'pending': [1, 'pending'],
+      'paid': [2, 'paid', 'processing'],
+      'shipped': [3, 'shipped'],
+      'completed': [4, 'completed'],
+      'cancelled': [5, 6, 'cancelled'],
+    }
+    const matchStatuses = statusMap[status] || [status]
+    return orders.filter((o) => matchStatuses.includes(o.status as any)).length
   }
 
   return (
@@ -330,12 +494,13 @@ export default function OrderManagement() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         {[
           { label: '待付款', count: getStatusCount('pending'), color: 'text-yellow-600' },
           { label: '已付款', count: getStatusCount('paid'), color: 'text-green-600' },
           { label: '已发货', count: getStatusCount('shipped'), color: 'text-blue-600' },
-          { label: '已完成', count: getStatusCount('completed'), color: 'text-gray-600' },
+          { label: '取消申请', count: getStatusCount('cancel_request'), color: 'text-orange-600' },
+          { label: '已取消', count: getStatusCount('cancelled'), color: 'text-red-600' },
         ].map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -375,6 +540,7 @@ export default function OrderManagement() {
             className="input"
           >
             <option value="">所有状态</option>
+            <option value="cancel_request">⚠️ 取消申请</option>
             <option value="pending">待付款</option>
             <option value="paid">已付款</option>
             <option value="shipped">已发货</option>
@@ -476,9 +642,9 @@ export default function OrderManagement() {
                   {/* 右侧：状态和操作 */}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {/* 取消申请标记 */}
-                    {(order as any).cancelRequest && (
-                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 whitespace-nowrap animate-pulse">
-                        ⚠️ 客户申请取消
+                    {order.cancelRequest && (
+                      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 whitespace-nowrap animate-pulse border-2 border-orange-300">
+                        ⚠️ 取消申请中
                       </span>
                     )}
                     {/* 状态徽章 */}
@@ -779,7 +945,7 @@ export default function OrderManagement() {
                     )}
 
                     {/* 取消申请处理 */}
-                    {(order as any).cancelRequest && (
+                    {order.cancelRequest && (
                       <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
                         <div className="flex items-center gap-2 text-orange-700 font-semibold mb-3">
                           <AlertCircle className="h-4 w-4" />
@@ -901,6 +1067,22 @@ export default function OrderManagement() {
                         </div>
                       </div>
 
+                      {/* 改价按钮 - 仅待付款状态可改价 */}
+                      {(order.status === 1 || order.status === 'pending') && (
+                        <div className="p-3 rounded-lg bg-orange-50 border border-orange-100">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openPriceModal(order)
+                            }}
+                            className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium flex items-center justify-center gap-2"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                            修改订单价格
+                          </button>
+                        </div>
+                      )}
+
                       {/* 删除订单按钮 */}
                       <div className="p-3 rounded-lg bg-red-50 border border-red-100">
                         <button
@@ -974,6 +1156,161 @@ export default function OrderManagement() {
           >
             下一页
           </button>
+        </div>
+      )}
+
+      {/* 改价弹窗 */}
+      {showPriceModal && selectedOrderForPricing && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">订单改价</h3>
+            <p className="text-sm text-gray-500 mb-4">订单号: {selectedOrderForPricing.orderNo}</p>
+            
+            {/* 改价模式选择 */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">改价方式</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPriceEditMode('flat')}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    priceEditMode === 'flat'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  整单一口价
+                </button>
+                <button
+                  onClick={() => setPriceEditMode('itemized')}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    priceEditMode === 'itemized'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  商品逐项改价
+                </button>
+              </div>
+            </div>
+
+            {/* 原价格显示 */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                原价格
+              </label>
+              <div className="text-lg font-bold text-gray-400 line-through">
+                ¥{formatPrice(selectedOrderForPricing.totalAmount)}
+              </div>
+            </div>
+            
+            {priceEditMode === 'flat' ? (
+              /* 一口价模式 */
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    新价格 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newPrice}
+                    onChange={(e) => setNewPrice(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="请输入新价格"
+                  />
+                </div>
+              </div>
+            ) : (
+              /* 逐项改价模式 */
+              <div className="space-y-4">
+                <label className="block text-sm font-medium text-gray-700">
+                  商品价格明细 <span className="text-red-500">*</span>
+                </label>
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                  {(() => {
+                    const products = getProducts(selectedOrderForPricing)
+                    let totalItemPrice = 0
+                    Object.values(itemPrices).forEach(price => {
+                      totalItemPrice += parseFloat(price || '0')
+                    })
+                    
+                    return (
+                      <>
+                        {products.map((product, index) => (
+                          <div key={index} className={`flex items-center gap-4 p-4 ${index > 0 ? 'border-t border-gray-100' : ''}`}>
+                            <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                              {product.image ? (
+                                <img 
+                                  src={getFileUrl(product.image)} 
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                  <Package className="w-6 h-6" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                              <div className="text-sm text-gray-500">x{product.quantity}</div>
+                            </div>
+                            <div className="w-32">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={itemPrices[index] || ''}
+                                onChange={(e) => setItemPrices(prev => ({
+                                  ...prev,
+                                  [index]: e.target.value
+                                }))}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                placeholder="价格"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                        <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-t border-gray-200">
+                          <span className="font-medium text-gray-700">总计</span>
+                          <span className="text-lg font-bold text-blue-600">
+                            ¥{formatPrice(totalItemPrice)}
+                          </span>
+                        </div>
+                      </>
+                    )
+                  })()}
+                </div>
+              </div>
+            )}
+            
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                改价原因（可选）
+              </label>
+              <input
+                type="text"
+                value={priceReason}
+                onChange={(e) => setPriceReason(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                placeholder="如：优惠活动、会员折扣等"
+              />
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowPriceModal(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleChangePrice}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+              >
+                确认改价
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

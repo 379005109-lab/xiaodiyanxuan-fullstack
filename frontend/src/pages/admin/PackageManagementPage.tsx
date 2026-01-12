@@ -125,7 +125,7 @@ const PackageManagementPage: React.FC = () => {
         
         // 加载商品
         console.log('🔄 开始加载商品...');
-        const productsResponse = await getProducts({ pageSize: 200 });
+        const productsResponse = await getProducts({ pageSize: 10000 });
         console.log('📦 商品API返回:', productsResponse);
         console.log('📦 返回类型:', typeof productsResponse, Array.isArray(productsResponse));
         
@@ -284,6 +284,29 @@ const PackageManagementPage: React.FC = () => {
       setSelectedProducts(prev => ({
         ...prev,
         [category]: [...(prev[category] || []), product]
+      }));
+    }
+  };
+
+  const handleAddProductSku = (product: Product, sku: any, category: string) => {
+    const currentSelected = selectedProducts[category] || [];
+    // Create a product with selected SKU
+    const productWithSku = {
+      ...product,
+      selectedSku: sku,
+      skuId: sku._id
+    };
+    
+    // Check if this specific product+SKU combination is already selected
+    const existingIndex = currentSelected.findIndex(p => 
+      p._id === product._id && (p as any).selectedSku?._id === sku._id
+    );
+    
+    if (existingIndex === -1) {
+      // Add new product+SKU combination
+      setSelectedProducts(prev => ({
+        ...prev,
+        [category]: [...(prev[category] || []), productWithSku]
       }));
     }
   };
@@ -681,7 +704,7 @@ const PackageManagementPage: React.FC = () => {
           })));
           
           // 尝试按分类过滤商品
-          // 如果没有匹配的商品，则显示所有商品让用户选择
+          // 扩展匹配逻辑：不仅匹配主分类，还要匹配所有子分类的商品
           let availableProducts = Array.isArray(allProducts) 
             ? allProducts.filter(p => {
                 if (!p.category) return false;
@@ -705,7 +728,12 @@ const PackageManagementPage: React.FC = () => {
                 // 按ID匹配或按名称匹配
                 const matchedById = pCategoryId && allCategoryIds.includes(pCategoryId);
                 const matchedByName = pCategoryName && allCategoryNames.includes(pCategoryName);
-                const matched = matchedById || matchedByName;
+                
+                // 宽松匹配：如果商品分类名包含选中分类名，也算匹配
+                // 例如："双人沙发"包含"沙发"，"电视柜"包含"柜"
+                const looseMatch = pCategoryName && pCategoryName.includes(category);
+                
+                const matched = matchedById || matchedByName || looseMatch;
                 
                 if (!matched && p.category) {
                   console.log('未匹配的商品:', p.name, '分类:', p.category, 'ID:', pCategoryId, '名称:', pCategoryName);
@@ -758,8 +786,8 @@ const PackageManagementPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 左侧：可选商品列表 */}
-                <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
+                {/* 左侧：可选商品列表 - 固定高度800px */}
+                <div className="border rounded-lg p-4 bg-blue-50 border-blue-200 h-[800px] flex flex-col">
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold">可选商品 ({availableProducts.length})</h4>
@@ -787,7 +815,7 @@ const PackageManagementPage: React.FC = () => {
                       </button>
                     ))}
                   </div>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <div className="space-y-3 flex-1 overflow-y-auto">
                     {availableProducts
                       .filter(p => {
                         const searchTermMatch = p.name.toLowerCase().includes((searchTerms[category] || '').toLowerCase());
@@ -826,19 +854,43 @@ const PackageManagementPage: React.FC = () => {
                           </div>
                           <p className="text-sm text-red-500">{formatPrice(product.basePrice)}</p>
                           {product.specs && <p className="text-xs text-gray-500 mt-1">规格: {product.specs}</p>}
-                          {/* 显示SKU列表 */}
+                          {/* SKU选择区域 - 蓝色背景 */}
                           {(product as any).skus && (product as any).skus.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs text-gray-600 font-medium mb-1">可选规格:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {(product as any).skus.slice(0, 3).map((sku: any, idx: number) => (
-                                  <span key={idx} className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
-                                    {sku.spec || sku.code || `规格${idx + 1}`}
-                                  </span>
-                                ))}
-                                {(product as any).skus.length > 3 && (
-                                  <span className="text-xs text-gray-500">+{(product as any).skus.length - 3}个</span>
-                                )}
+                            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-blue-700 font-bold">📌 商品规格选择区域</span>
+                                <span className="text-xs text-blue-600">点击选择需要的规格</span>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {(product as any).skus.map((sku: any, idx: number) => {
+                                  const isSelected = selectedProducts[category]?.some(p => 
+                                    p._id === product._id && (p as any).selectedSku?._id === sku._id
+                                  );
+                                  return (
+                                    <button
+                                      key={sku._id || idx}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAddProductSku(product, sku, category);
+                                      }}
+                                      disabled={isSelected}
+                                      className={`px-3 py-1.5 text-xs rounded-md border transition-all ${
+                                        isSelected 
+                                          ? 'bg-green-100 text-green-700 border-green-300 cursor-not-allowed' 
+                                          : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-100 hover:border-blue-400 cursor-pointer'
+                                      }`}
+                                      title={isSelected ? '已选择' : '点击选择此规格'}
+                                    >
+                                      {sku.spec || sku.code || `${idx + 1}人位`}
+                                      {sku.price && (
+                                        <span className="ml-1 text-red-600 font-medium">
+                                          ¥{sku.price}
+                                        </span>
+                                      )}
+                                      {isSelected && <span className="ml-1">✓</span>}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -853,12 +905,12 @@ const PackageManagementPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 右侧：已选商品列表 */}
-                <div className="border rounded-lg p-4 bg-green-50 border-green-200">
-                  <h4 className="font-semibold mb-2">已选商品</h4>
-                  <div className="space-y-3">
-                    {currentSelected.map(product => (
-                      <div key={product._id} className="border rounded-md p-3 flex items-start gap-4 bg-white">
+                {/* 右侧：已选商品列表 - 固定高度800px */}
+                <div className="border rounded-lg p-4 bg-green-50 border-green-200 h-[800px] flex flex-col">
+                  <h4 className="font-semibold mb-2">已选商品 ({currentSelected.length})</h4>
+                  <div className="space-y-3 flex-1 overflow-y-auto">
+                    {currentSelected.map((product, index) => (
+                      <div key={`${product._id}-${(product as any).selectedSku?._id || index}`} className="border rounded-md p-3 flex items-start gap-4 bg-white">
                         <img src={product.images?.[0] ? getFileUrl(product.images[0]) : '/placeholder.svg'} alt={product.name} className="w-20 h-20 object-cover rounded" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg' }} />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
@@ -877,12 +929,43 @@ const PackageManagementPage: React.FC = () => {
                             </span>
                           </div>
                           <p className="text-sm text-red-500">{formatPrice(product.basePrice)}</p>
+                          
+                          {/* 显示选中的SKU信息 */}
+                          {(product as any).selectedSku && (
+                            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                              <p className="text-xs text-blue-700 font-medium">
+                                选中规格: {(product as any).selectedSku.spec || (product as any).selectedSku.code || '默认规格'}
+                              </p>
+                              {(product as any).selectedSku.price && (
+                                <p className="text-xs text-red-600 font-bold">
+                                  SKU价格: ¥{(product as any).selectedSku.price}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <button onClick={() => handleRemoveProduct(product, category)} className="btn-danger btn-sm self-center">删除</button>
                       </div>
                     ))}
                     {currentSelected.length === 0 && <p className='text-sm text-gray-500'>暂未选择商品</p>}
                   </div>
+                  
+                  {/* 统计信息 */}
+                  {currentSelected.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-green-300">
+                      <div className="bg-green-100 p-3 rounded-lg">
+                        <p className="text-sm font-medium text-green-800">
+                          统计信息: 已选择 {currentSelected.length} 个SKU
+                        </p>
+                        <p className="text-xs text-green-700 mt-1">
+                          总价值: ¥{currentSelected.reduce((sum, p) => {
+                            const skuPrice = (p as any).selectedSku?.price || p.basePrice;
+                            return sum + skuPrice;
+                          }, 0)}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -913,3 +996,4 @@ const PackageManagementPage: React.FC = () => {
 };
 
 export default PackageManagementPage;
+/* Build trigger: Sun Jan  4 05:13:18 UTC 2026 */

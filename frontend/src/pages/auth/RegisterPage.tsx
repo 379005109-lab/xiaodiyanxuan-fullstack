@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Phone, Send, CheckCircle } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
-import { registerUser } from '@/services/authService';
+import { registerUser, sendVerificationCode, registerWithPhone } from '@/services/authService';
 import type { RegisterFormData } from '@/types';
 
 export default function RegisterPage() {
@@ -51,13 +51,20 @@ export default function RegisterPage() {
       return;
     }
     
-    // 本地模拟短信验证
-    const code = Math.random().toString().slice(2, 8);
-    localStorage.setItem(`sms_code_${phone}`, code);
-    
-    setSmsSent(true);
-    setSmsCountdown(60);
-    toast.success(`验证码已发送 (测试码: ${code})`);
+    try {
+      const result = await sendVerificationCode(phone);
+      if (result.success) {
+        setSmsSent(true);
+        setSmsCountdown(60);
+        toast.success('验证码已发送');
+        // 开发环境显示验证码
+        if (result.code) {
+          toast.info(`验证码: ${result.code}`);
+        }
+      }
+    } catch (error: any) {
+      toast.error(error?.message || '发送验证码失败');
+    }
   };
 
   // 提交注册
@@ -74,34 +81,17 @@ export default function RegisterPage() {
       return;
     }
 
-    // 验证短信码
-    const storedCode = localStorage.getItem(`sms_code_${phone}`);
-    if (smsCode !== storedCode) {
-      toast.error('验证码错误');
-      return;
-    }
-
     setIsLoading(true);
     try {
-      // 生成临时用户名和邮箱
-      const tempUsername = `user_${phone.slice(-4)}`;
-      const tempEmail = `${phone}@temp.local`;
-      const tempPassword = Math.random().toString(36).slice(-8);
-      
-      const registerData: RegisterFormData = {
-        username: tempUsername,
-        email: tempEmail,
-        phone: phone,
-        password: tempPassword,
-        shareToken: shareToken,
-      };
-
-      const { data } = await registerUser(registerData);
-      if (data) {
-        login(data.user, data.token);
+      // 使用手机号+验证码注册/登录
+      const result = await registerWithPhone(phone, smsCode);
+      if (result.success && result.data) {
+        login(result.data.user, result.data.token);
         toast.success('注册成功！请选择您的身份');
         // 跳转到身份选择页面
         navigate('/role-select');
+      } else {
+        toast.error(result.message || '注册失败');
       }
     } catch (error: any) {
       toast.error(error.message || '注册失败');

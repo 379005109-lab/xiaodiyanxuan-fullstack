@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getProductById } from '@/services/productService';
 import { getMaterialImagesByNames, clearMaterialImageCache } from '@/services/materialService';
+import { recordBrowse } from '@/services/browseHistoryService';
 import { Product, ProductSKU, ProductFile } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoriteStore } from '@/store/favoriteStore';
@@ -357,6 +358,8 @@ const ProductDetailPage = () => {
   const [specCollapsed, setSpecCollapsed] = useState(true);
   const [materialCollapsed, setMaterialCollapsed] = useState(false); // 默认展开
   const [materialSelections, setMaterialSelections] = useState<Record<string, string | null>>({});
+  const [materialSelectionsBySku, setMaterialSelectionsBySku] = useState<Record<string, Record<string, string | null>>>({});
+  const [multiSpecMode, setMultiSpecMode] = useState(false);
   const [expandedMaterialCategory, setExpandedMaterialCategory] = useState<string | null>(null);
   const [previewMaterialImage, setPreviewMaterialImage] = useState<string | null>(null);
   const [materialInfoModal, setMaterialInfoModal] = useState<{ open: boolean; section?: string; material?: string }>({ open: false });
@@ -366,6 +369,7 @@ const ProductDetailPage = () => {
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
   const [materialAssetMap, setMaterialAssetMap] = useState<Record<string, string>>({});
   const [materialSectionReady, setMaterialSectionReady] = useState(false); // 延迟渲染材质区域
+  const [selectedMaterialGroupId, setSelectedMaterialGroupId] = useState<string | null>(null); // 选中的材质分组ID
 
   const { addItem } = useCartStore();
   const { favorites, toggleFavorite, loadFavorites } = useFavoriteStore();
@@ -450,16 +454,99 @@ const ProductDetailPage = () => {
     return cache;
   }, [selectedSku, materialAssetMap]);
 
+  // 获取材质分组数据
+  const materialsGroups = useMemo(() => {
+    if (!product) return [];
+    return ((product as any).materialsGroups || []) as Array<{
+      id: string;
+      name: string;
+      images: string[];
+      price: number;
+      extra?: number;
+      isDefault?: boolean;
+    }>;
+  }, [product]);
+
+  // 获取材质配置数据（新版：面料选择）
+  const materialConfigs = useMemo(() => {
+    if (!product) return [];
+    return ((product as any).materialConfigs || []) as Array<{
+      id: string;
+      fabricName: string;
+      fabricId: string;
+      images: string[];
+      price: number;
+    }>;
+  }, [product]);
+
+  // 其他材质（固定文字）
+  const otherMaterialsText = useMemo(() => {
+    if (!product) return '';
+    return (product as any).otherMaterialsText || '';
+  }, [product]);
+
+  // 当前选中的材质配置ID
+  const [selectedMaterialConfigId, setSelectedMaterialConfigId] = useState<string | null>(null);
+
+  // 获取选中的材质配置
+  const selectedMaterialConfig = useMemo(() => {
+    if (materialConfigs.length === 0) return null;
+    if (selectedMaterialConfigId) {
+      return materialConfigs.find(c => c.id === selectedMaterialConfigId) || null;
+    }
+    return materialConfigs[0] || null;
+  }, [materialConfigs, selectedMaterialConfigId]);
+
+  // 获取选中的材质分组
+  const selectedMaterialGroup = useMemo(() => {
+    if (materialsGroups.length === 0) return null;
+    if (selectedMaterialGroupId) {
+      return materialsGroups.find(g => g.id === selectedMaterialGroupId) || null;
+    }
+    // 默认选择isDefault为true的分组，或第一个
+    return materialsGroups.find(g => g.isDefault) || materialsGroups[0] || null;
+  }, [materialsGroups, selectedMaterialGroupId]);
+
+  // 材质分组加价
+  const materialGroupExtraPrice = useMemo(() => {
+    if (!selectedMaterialGroup) return 0;
+    return selectedMaterialGroup.price || selectedMaterialGroup.extra || 0;
+  }, [selectedMaterialGroup]);
+
   const defaultGalleryImages = useMemo(() => {
     if (!product) return [];
+    
+    // 如果有选中的材质分组且有图片，使用材质分组的图片
+    if (selectedMaterialGroup && selectedMaterialGroup.images?.length > 0) {
+      return selectedMaterialGroup.images;
+    }
+    
+    // 否则使用默认图片
     const baseImages = Array.isArray(product.images) ? product.images : [];
     const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : [];
     const skuImages = skus.flatMap((sku: any) => sku.images || []);
     const merged = [...baseImages, ...skuImages].filter(Boolean);
     return Array.from(new Set(merged));
-  }, [product]);
+  }, [product, selectedMaterialGroup]);
 
   const isComboProduct = Boolean((product as any)?.isCombo);
+
+  const selectedSkus = useMemo(() => {
+    if (!product) return [] as ProductSKU[];
+    const allSkus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+
+    if (!multiSpecMode) {
+      return selectedSku ? [selectedSku] : [];
+    }
+
+    const ids = selectedSkuIds.length
+      ? selectedSkuIds
+      : (selectedSku?._id ? [String(selectedSku._id)] : []);
+
+    return ids
+      .map(id => allSkus.find(sku => String(sku._id) === String(id)))
+      .filter((sku): sku is ProductSKU => Boolean(sku));
+  }, [product, multiSpecMode, selectedSkuIds, selectedSku]);
 
   const comboTotalPrice = useMemo(() => {
     if (!product || !isComboProduct) return 0;
@@ -467,6 +554,25 @@ const ProductDetailPage = () => {
     const selectedSkus = allSkus.filter(s => selectedSkuIds.includes(String(s._id)));
     return selectedSkus.reduce((sum, sku) => sum + Number(getFinalPrice(sku) || 0), 0);
   }, [product, isComboProduct, selectedSkuIds]);
+
+  const multiSpecTotalPrice = useMemo(() => {
+    if (!multiSpecMode) return 0;
+    if (!product) return 0;
+
+    return selectedSkus.reduce((sum, sku) => {
+      const chosen = materialSelectionsBySku[String(sku._id)] || {};
+      const normalized = normalizeMaterialSelection(sku.material);
+      const materialCategories = (sku as any).materialCategories || Object.keys(normalized);
+      const resolved: Record<string, string | null> = {};
+
+      materialCategories.forEach((categoryKey: string) => {
+        const list = normalized[categoryKey] || [];
+        resolved[categoryKey] = chosen[categoryKey] || (list.length === 1 ? list[0] : null);
+      });
+
+      return sum + Number(getFinalPrice(sku, resolved) || 0);
+    }, 0);
+  }, [multiSpecMode, product, selectedSkus, materialSelectionsBySku]);
 
   const galleryImages = useMemo(() => {
     if (isComboProduct) {
@@ -478,8 +584,22 @@ const ProductDetailPage = () => {
       const uniq = Array.from(new Set(merged));
       return uniq.length > 0 ? uniq : defaultGalleryImages;
     }
+
+    if (multiSpecMode) {
+      const merged = selectedSkus.flatMap(sku => sku.images || []).filter(Boolean);
+      const unique = Array.from(new Set(merged));
+      return unique.length ? unique : defaultGalleryImages;
+    }
+
+    if (selectedSku?.images?.length) {
+      const skuImages = selectedSku.images.filter(Boolean);
+      if (skuImages.length > 0) {
+        return skuImages;
+      }
+    }
+
     return defaultGalleryImages;
-  }, [defaultGalleryImages, isComboProduct, product, selectedSkuIds]);
+  }, [defaultGalleryImages, isComboProduct, multiSpecMode, product, selectedSku, selectedSkuIds, selectedSkus]);
 
   const filteredSkus = useMemo(() => {
     if (!product) return [];
@@ -525,6 +645,12 @@ const ProductDetailPage = () => {
       try {
         const fetchedProduct = await getProductById(id);
         setProduct(fetchedProduct);
+        
+        // 记录用户浏览历史（异步，不影响页面加载）
+        if (fetchedProduct) {
+          recordBrowse(id, 'web').catch(err => console.warn('记录浏览历史失败:', err));
+        }
+        
         if (fetchedProduct) {
           const fetchedSkus = Array.isArray((fetchedProduct as any).skus) ? ((fetchedProduct as any).skus as ProductSKU[]) : [];
           const defaultFilter = determineDefaultFilter(fetchedSkus);
@@ -578,6 +704,14 @@ const ProductDetailPage = () => {
   }, [filteredSkus, isComboProduct, selectedSku]);
 
   useEffect(() => {
+    if (!multiSpecMode) return;
+    if (selectedSkuIds.length) return;
+    if (selectedSku?._id) {
+      setSelectedSkuIds([String(selectedSku._id)]);
+    }
+  }, [multiSpecMode, selectedSkuIds.length, selectedSku?._id]);
+
+  useEffect(() => {
     if (!galleryImages.length) return;
     setMainImage(prev => (galleryImages.includes(prev) ? prev : galleryImages[0]));
   }, [galleryImages]);
@@ -593,9 +727,15 @@ const ProductDetailPage = () => {
     const materialCategories = (selectedSku as any).materialCategories || Object.keys(normalized);
     
     setMaterialSelections(prev => {
+      const fromCache = materialSelectionsBySku[String(selectedSku._id)];
       const next: Record<string, string | null> = {};
       materialCategories.forEach((categoryKey: string) => {
         const list = normalized[categoryKey] || [];
+        const cached = fromCache?.[categoryKey];
+        if (cached && list.includes(cached)) {
+          next[categoryKey] = cached;
+          return;
+        }
         if (list.length === 1) {
           next[categoryKey] = list[0];
         } else if (selectedSku.isPro) {
@@ -606,6 +746,12 @@ const ProductDetailPage = () => {
           next[categoryKey] = null;
         }
       });
+
+      setMaterialSelectionsBySku(prevMap => ({
+        ...prevMap,
+        [String(selectedSku._id)]: next,
+      }));
+
       return next;
     });
   }, [selectedSku]);
@@ -636,6 +782,43 @@ const ProductDetailPage = () => {
         return sku.isPro ? 'pro' : 'standard';
       }
       return prev;
+    });
+  };
+
+  const findSkuByImage = (img: string) => {
+    if (!product) return undefined;
+    const allSkus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
+    return allSkus.find(sku => (sku.images || []).includes(img));
+  };
+
+  const handleThumbnailClick = (img: string) => {
+    setMainImage(img);
+    const ownerSku = findSkuByImage(img);
+    if (!ownerSku) return;
+
+    if (multiSpecMode) {
+      setSelectedSku(ownerSku);
+      syncFilterWithSku(ownerSku);
+      setSelectedSkuIds(prev => (prev.includes(String(ownerSku._id)) ? prev : [...prev, String(ownerSku._id)]));
+      return;
+    }
+
+    setSelectedSku(ownerSku);
+    syncFilterWithSku(ownerSku);
+    setQuantity(1);
+  };
+
+  const toggleSkuSelection = (sku: ProductSKU) => {
+    setSelectedSku(sku);
+    syncFilterWithSku(sku);
+    setSelectedSkuIds(prev => {
+      const id = String(sku._id);
+      const exists = prev.includes(id);
+      if (exists) {
+        const next = prev.filter(x => x !== id);
+        return next.length ? next : [id];
+      }
+      return [...prev, id];
     });
   };
 
@@ -714,6 +897,28 @@ const ProductDetailPage = () => {
     return chosenMaterials;
   };
 
+  const resolveSelectedMaterialsForSku = (sku: ProductSKU) => {
+    const normalizedMaterials = normalizeMaterialSelection(sku.material);
+    const materialCategories = (sku as any).materialCategories || Object.keys(normalizedMaterials);
+    const chosenMaterials: Record<string, string | undefined> = {};
+    const selection = materialSelectionsBySku[String(sku._id)] || {};
+
+    for (const categoryKey of materialCategories) {
+      const options = normalizedMaterials[categoryKey] || [];
+      const selectedOption = selection[categoryKey] || (options.length === 1 ? options[0] : undefined);
+      const categoryConfig = getMaterialCategoryConfig(categoryKey);
+      if (options.length > 1 && !selectedOption) {
+        toast.error(`请选择${sku.spec || sku.code || '规格'}的${categoryConfig.label}`);
+        setSelectedSku(sku);
+        setSpecCollapsed(false);
+        setMaterialCollapsed(false);
+        return undefined;
+      }
+      chosenMaterials[categoryKey] = selectedOption;
+    }
+    return chosenMaterials;
+  };
+
   const handleAddToCart = () => {
     if (!product) {
       toast.error('商品不存在');
@@ -736,6 +941,16 @@ const ProductDetailPage = () => {
 
     if (!selectedSku) {
       toast.error('请选择商品规格');
+      return;
+    }
+
+    if (multiSpecMode && selectedSkus.length > 0) {
+      for (const sku of selectedSkus) {
+        const chosenMaterials = resolveSelectedMaterialsForSku(sku);
+        if (!chosenMaterials) return;
+        addItem(product, sku, quantity, chosenMaterials, getFinalPrice(sku, chosenMaterials));
+      }
+      toast.success('已添加到购物车');
       return;
     }
 
@@ -781,6 +996,16 @@ const ProductDetailPage = () => {
       toast.error('请选择商品规格');
       return;
     }
+
+    if (multiSpecMode && selectedSkus.length > 0) {
+      for (const sku of selectedSkus) {
+        const chosenMaterials = resolveSelectedMaterialsForSku(sku);
+        if (!chosenMaterials) return;
+        addItem(product, sku, quantity, chosenMaterials, getFinalPrice(sku, chosenMaterials));
+      }
+      navigate('/checkout');
+      return;
+    }
     const chosenMaterials = resolveSelectedMaterials();
     if (!chosenMaterials) return;
     addItem(product, selectedSku, quantity, chosenMaterials, getFinalPrice(selectedSku, chosenMaterials));
@@ -803,6 +1028,15 @@ const ProductDetailPage = () => {
     } else {
       // 选择新材质并展开详情
       setMaterialSelections(prev => ({ ...prev, [sectionKey]: materialName }));
+      if (selectedSku) {
+        setMaterialSelectionsBySku(prevMap => ({
+          ...prevMap,
+          [String(selectedSku._id)]: {
+            ...(prevMap[String(selectedSku._id)] || {}),
+            [sectionKey]: materialName,
+          },
+        }));
+      }
       setExpandedMaterialCategory(sectionKey);
       // 获取材质预览图片并设置到主图区域
       const materialImage = getMaterialPreviewImage(materialName);
@@ -919,7 +1153,7 @@ const ProductDetailPage = () => {
   
   const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : productDisplayPrice;
 
-  const displayPrice = isComboProduct ? comboTotalPrice : finalSkuPrice;
+  const displayPrice = isComboProduct ? comboTotalPrice : (multiSpecMode ? multiSpecTotalPrice : finalSkuPrice);
 
   const isFavorited = product ? favorites.some(f => {
     if (!f || !f.product) return false;
@@ -1042,7 +1276,7 @@ const ProductDetailPage = () => {
           <span className="text-gray-900 font-medium">{product.name}</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[640px_minmax(0,1fr)] gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[800px_minmax(0,1fr)] gap-8 items-start">
           {/* Image Gallery */}
           <div className="lg:sticky lg:top-8 lg:self-start min-w-0">
             <div className="relative w-full bg-white rounded-3xl shadow-lg overflow-hidden">
@@ -1144,7 +1378,7 @@ const ProductDetailPage = () => {
                           <button
                             key={`${img}-${absoluteIndex}`}
                             type="button"
-                            onClick={() => setMainImage(img)}
+                            onClick={() => handleThumbnailClick(img)}
                             className={cn(
                               'w-20 flex-shrink-0 border rounded-xl overflow-hidden transition-all',
                               mainImage === img ? 'border-primary-600 ring-2 ring-primary-100' : 'border-gray-200'
@@ -1247,7 +1481,7 @@ const ProductDetailPage = () => {
                 <span className="text-gray-500 text-sm">当前价格</span>
                 <span className="text-2xl font-bold text-red-600">{formatPrice(displayPrice)}</span>
                 {/* 只有当有折扣价且大于0，且原价大于折扣价时才显示划线价 */}
-                {!isComboProduct && !selectedSku?.isPro && discountPrice && discountPrice > 0 && currentPrice && currentPrice > discountPrice && (
+                {!isComboProduct && !multiSpecMode && !selectedSku?.isPro && discountPrice && discountPrice > 0 && currentPrice && currentPrice > discountPrice && (
                   <>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">限时优惠</span>
                     <span className="text-xs text-gray-400 line-through">{formatPrice(currentPrice)}</span>
@@ -1285,6 +1519,52 @@ const ProductDetailPage = () => {
                   <p className="text-xs font-semibold text-yellow-900">PRO 专业版: {selectedSku.proFeature || '更高端材质与功能升级'}</p>
                 </div>
               )}
+              {/* 发货/制作时间提示 */}
+              {selectedSku && (
+                <div className={`mt-2 rounded-lg border px-3 py-2 ${
+                  (selectedSku as any).stockMode !== false 
+                    ? 'border-emerald-200 bg-emerald-50' 
+                    : 'border-orange-200 bg-orange-50'
+                }`}>
+                  {(selectedSku as any).stockMode !== false ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-emerald-700">
+                        📦 库存 {selectedSku.stock || 0} 件
+                      </span>
+                      <span className="text-xs text-emerald-600">
+                        · 预计 {(selectedSku as any).deliveryDays || 7} 天内发货
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-orange-700 font-medium">
+                        🛠️ 定制款
+                      </span>
+                      <span className="text-xs text-orange-600">
+                        · 下单后 {(selectedSku as any).productionDays || 30} 天内制作完成
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* 面料信息 */}
+              {selectedSku && (selectedSku as any).fabricName && (
+                <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <p className="text-xs text-emerald-700">
+                    <span className="font-medium">面料：</span>
+                    {(selectedSku as any).fabricName}
+                  </p>
+                </div>
+              )}
+              {/* 其他材质描述 */}
+              {selectedSku && (selectedSku as any).otherMaterials && (
+                <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                  <p className="text-xs text-gray-600">
+                    <span className="font-medium text-gray-700">材质工艺：</span>
+                    {(selectedSku as any).otherMaterials}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Specification & SKU Selection */}
@@ -1304,6 +1584,50 @@ const ProductDetailPage = () => {
                 {!specCollapsed && (
                   <div className="border-t border-gray-100 p-4">
                     <div className="flex flex-col gap-3">
+                      {!isComboProduct && (
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">选择模式：</span>
+                            <div className="flex items-center rounded-full border border-gray-200 p-0.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMultiSpecMode(false);
+                                  if (selectedSkus.length) {
+                                    handleSkuChange(selectedSkus[0]);
+                                  }
+                                }}
+                                className={cn(
+                                  'px-3 py-1 text-xs',
+                                  !multiSpecMode ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                                )}
+                                style={!multiSpecMode ? { backgroundColor: PRIMARY_COLOR } : {}}
+                              >
+                                单选
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMultiSpecMode(true);
+                                  if (selectedSku?._id) {
+                                    setSelectedSkuIds(prev => (prev.length ? prev : [String(selectedSku._id)]));
+                                  }
+                                }}
+                                className={cn(
+                                  'px-3 py-1 text-xs',
+                                  multiSpecMode ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                                )}
+                                style={multiSpecMode ? { backgroundColor: PRIMARY_COLOR } : {}}
+                              >
+                                多选
+                              </button>
+                            </div>
+                          </div>
+                          {multiSpecMode && (
+                            <p className="text-xs text-gray-500">多选会合并图片并合计价格，购买会分别加入购物车并一起结算</p>
+                          )}
+                        </div>
+                      )}
                       {filteredSkus.length === 0 && (
                         <div className="p-8 rounded-xl border border-dashed border-gray-300 text-center col-span-full">
                           <div className="flex flex-col items-center gap-2">
@@ -1320,7 +1644,7 @@ const ProductDetailPage = () => {
                       {filteredSkus.map(sku => {
                         const isSelected = isComboProduct
                           ? selectedSkuIds.includes(String(sku._id))
-                          : selectedSku?._id === sku._id;
+                          : (multiSpecMode ? selectedSkuIds.includes(String(sku._id)) : selectedSku?._id === sku._id);
                         const skuFinalPrice = getFinalPrice(sku);
                         const specDetail = specificationList.find(spec => spec.name === sku.spec)?.value || `${sku.length}x${sku.width}x${sku.height}cm`;
                         return (
@@ -1330,6 +1654,8 @@ const ProductDetailPage = () => {
                               syncFilterWithSku(sku);
                               if (isComboProduct) {
                                 handleToggleSku(sku);
+                              } else if (multiSpecMode) {
+                                toggleSkuSelection(sku);
                               } else {
                                 handleSkuChange(sku);
                               }
@@ -1342,6 +1668,16 @@ const ProductDetailPage = () => {
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-gray-900">
                               <div className="flex items-center gap-2">
+                                {multiSpecMode && !isComboProduct && (
+                                  <span
+                                    className={cn(
+                                      'w-4 h-4 rounded border flex items-center justify-center',
+                                      isSelected ? 'border-[#1F64FF] bg-[#1F64FF]' : 'border-gray-300'
+                                    )}
+                                  >
+                                    {isSelected && <Check className="h-3 w-3 text-white" />}
+                                  </span>
+                                )}
                                 <span>{sku.spec || sku.code || '默认规格'}</span>
                                 {sku.isPro && <span className="text-[11px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">PRO</span>}
                               </div>

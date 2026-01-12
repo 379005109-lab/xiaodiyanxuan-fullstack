@@ -131,7 +131,8 @@ Password: [粘贴你的GitHub Token]
 
 1. **添加Secrets到GitHub仓库**
    - 访问：https://github.com/379005109-lab/xiaodiyanxuan-fullstack/settings/secrets/actions
-   - 添加 `GHCR_TOKEN`: 你的GitHub Token
+   - 添加 `REGISTRY_USERNAME`: Registry 用户名
+   - 添加 `REGISTRY_PASSWORD`: Registry 密码
    - 添加 `KUBECONFIG`: kubeconfig文件内容（base64编码）
 
 2. **手动触发工作流**
@@ -311,7 +312,7 @@ curl http://lgpzubdtdxjf.sealoshzh.site/api/products
    ```
 
 2. **或配置GitHub Actions**
-   - 添加GHCR_TOKEN
+   - 添加 REGISTRY_USERNAME / REGISTRY_PASSWORD
    - 添加KUBECONFIG
    - 手动触发工作流
 

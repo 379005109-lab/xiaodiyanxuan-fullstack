@@ -23,15 +23,14 @@
 
 4. **常见错误及解决方案**：
 
-#### 错误 A: GHCR_TOKEN 权限问题
+#### 错误 A: Registry 凭证/权限问题
 ```
 Error: denied: permission_denied: write_package
 ```
 
 **解决**：
-- 检查 GHCR_TOKEN 是否过期
-- 重新生成 token：https://github.com/settings/tokens/new
-- 权限勾选：`write:packages`, `read:packages`, `delete:packages`
+- 检查 `REGISTRY_USERNAME` / `REGISTRY_PASSWORD` 是否正确
+- 确认 registry 账号有推送权限
 - 更新 Secret：https://github.com/379005109-lab/xiaodiyanxuan-fullstack/settings/secrets/actions
 
 #### 错误 B: KUBECONFIG 配置问题
@@ -79,7 +78,8 @@ kubectl rollout status deployment/xiaodiyanxuan-frontend -n ns-cxxiwxce --timeou
 
 | Secret 名称 | 用途 | 状态 |
 |------------|------|------|
-| `GHCR_TOKEN` | 推送 Docker 镜像 | ⏳ 检查 |
+| `REGISTRY_USERNAME` | Registry 登录用户名 | ⏳ 检查 |
+| `REGISTRY_PASSWORD` | Registry 登录密码 | ⏳ 检查 |
 | `KUBECONFIG` | 连接 Kubernetes | ⏳ 检查 |
 
 访问：https://github.com/379005109-lab/xiaodiyanxuan-fullstack/settings/secrets/actions

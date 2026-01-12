@@ -130,17 +130,27 @@ export default function CompareModal() {
   }, [rawCompareItems])
 
   const handleRemove = async (item: CompareItemDetail) => {
+    console.log('🗑️ [CompareModal] handleRemove called for:', item.product.name, item.product._id)
+    
+    // 先更新本地状态
     setCompareItems(prev => prev.filter(i => 
       !(i.product._id === item.product._id && 
         i.sku._id === item.sku._id && 
         JSON.stringify(i.selectedMaterials) === JSON.stringify(item.selectedMaterials))
     ))
-    toast.success('已移除')
     
     try {
+      console.log('📡 [CompareModal] Calling removeFromCompare...')
       await removeFromCompare(item.product._id, item.sku._id, item.selectedMaterials)
+      console.log('✅ [CompareModal] removeFromCompare completed')
+      // 重新加载确保同步
+      await loadCompareItems()
+      toast.success('已移除')
     } catch (error) {
-      console.error('删除对比项失败:', error)
+      console.error('❌ [CompareModal] 删除对比项失败:', error)
+      toast.error('删除失败，请重试')
+      // 失败时重新加载恢复状态
+      await loadCompareItems()
     }
   }
 
@@ -196,6 +206,22 @@ export default function CompareModal() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {compareItems.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (confirm('确定要清空所有对比商品吗？')) {
+                    setCompareItems([])
+                    const { clearAll } = useCompareStore.getState()
+                    await clearAll()
+                    toast.success('已清空对比列表')
+                  }
+                }}
+                className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="清空全部"
+              >
+                清空全部
+              </button>
+            )}
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"

@@ -185,14 +185,39 @@ const getUsers = async (req, res) => {
     
     const filter = {}
     
-    // 权限过滤：非超级管理员只能看自己组织的用户
-    if (currentUser.role !== USER_ROLES.SUPER_ADMIN) {
-      if (currentUser.organizationId) {
+    // 权限过滤：平台管理员可以看所有用户，非平台管理员只能看自己组织/厂家的用户
+    const isPlatformAdmin = [
+      USER_ROLES.SUPER_ADMIN, 
+      USER_ROLES.PLATFORM_ADMIN, 
+      'admin', 
+      'super_admin'
+    ].includes(currentUser.role)
+    
+    if (!isPlatformAdmin) {
+      // 厂家账号可以查看自己厂家下的所有账号
+      const rawManufacturerIds = currentUser.manufacturerIds || (currentUser.manufacturerId ? [currentUser.manufacturerId] : [])
+      // 确保转换为字符串进行比较
+      const userManufacturerIds = rawManufacturerIds.map(id => id?.toString ? id.toString() : String(id)).filter(Boolean)
+      
+      console.log('[getUsers] currentUser:', currentUser.username, 'role:', currentUser.role)
+      console.log('[getUsers] manufacturerId:', currentUser.manufacturerId, 'manufacturerIds:', currentUser.manufacturerIds)
+      console.log('[getUsers] userManufacturerIds:', userManufacturerIds)
+      
+      if (userManufacturerIds.length > 0) {
+        // 厂家用户：查看属于该厂家的所有账号（包括自己）
+        filter.$or = [
+          { manufacturerId: { $in: userManufacturerIds } },
+          { manufacturerIds: { $elemMatch: { $in: userManufacturerIds } } },
+          { _id: currentUser._id } // 包括自己
+        ]
+      } else if (currentUser.organizationId) {
         filter.organizationId = currentUser.organizationId
       } else {
-        return res.status(403).json(errorResponse('无权限查看用户列表'))
+        // 如果没有厂家也没有组织，至少可以看到自己
+        filter._id = currentUser._id
       }
     } else {
+      // 平台管理员可以按条件筛选
       if (organizationId) filter.organizationId = organizationId
       if (manufacturerId !== undefined) {
         if (manufacturerId === '' || manufacturerId === null) {
@@ -203,15 +228,26 @@ const getUsers = async (req, res) => {
       }
     }
     
+    console.log('[getUsers] isPlatformAdmin:', isPlatformAdmin, 'filter:', JSON.stringify(filter))
+    
     if (role) filter.role = role
     if (status) filter.status = status
     if (keyword) {
-      filter.$or = [
-        { username: { $regex: keyword, $options: 'i' } },
-        { nickname: { $regex: keyword, $options: 'i' } },
-        { phone: { $regex: keyword, $options: 'i' } },
-        { email: { $regex: keyword, $options: 'i' } },
-      ]
+      // 如果已有$or条件（厂家过滤），需要用$and组合
+      const keywordCondition = {
+        $or: [
+          { username: { $regex: keyword, $options: 'i' } },
+          { nickname: { $regex: keyword, $options: 'i' } },
+          { phone: { $regex: keyword, $options: 'i' } },
+          { email: { $regex: keyword, $options: 'i' } },
+        ]
+      }
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, keywordCondition]
+        delete filter.$or
+      } else {
+        filter.$or = keywordCondition.$or
+      }
     }
     
     const total = await User.countDocuments(filter)

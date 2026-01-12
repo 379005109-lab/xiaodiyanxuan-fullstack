@@ -1,31 +1,16 @@
-import { useAuthStore } from '@/store/authStore';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://bcvriiezbpza.sealoshzh.site/api';
-
-// A helper to get the auth token from the Zustand store
-const getAuthToken = () => {
-  // This is a bit of a workaround to access the store outside of a React component.
-  // It assumes the store has been initialized.
-  return useAuthStore.getState().token;
-};
+import apiClient from '@/lib/apiClient';
 
 export const getDashboardData = async () => {
-  const token = getAuthToken();
+  const response = await apiClient.get('/dashboard');
+  return response.data.data || response.data;
+};
 
-  const response = await fetch(`${API_URL}/dashboard`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-  });
+export const getUserActivityDashboard = async () => {
+  const response = await apiClient.get('/dashboard/activity');
+  return response.data.data || response.data;
+};
 
-  if (!response.ok) {
-    // If the server response is not OK, throw an error
-    const errorData = await response.json();
-    throw new Error(errorData.message || 'Failed to fetch dashboard data');
-  }
-
-  const result = await response.json();
-  // 后端使用successResponse包装，返回 { success: true, data: ... }
-  return result.data || result;
+export const getUserLoginDetails = async (period: 'today' | 'week' | 'month' = 'today') => {
+  const response = await apiClient.get(`/dashboard/user-logins?period=${period}`);
+  return response.data;
 };

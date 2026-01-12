@@ -6,6 +6,7 @@ const Manufacturer = require('../models/Manufacturer');
 const mongoose = require('mongoose');
 const { auth, requireRole } = require('../middleware/auth')
 const { USER_ROLES } = require('../config/constants')
+const { sendVerificationCode, verifyCode } = require('../services/smsService')
 
 const ADMIN_ROLES = [
   USER_ROLES.SUPER_ADMIN,
@@ -298,6 +299,13 @@ router.get('/order/:orderId', auth, requireRole(ADMIN_ROLES), async (req, res) =
 
 // ========== 厂家端专用 API ==========
 
+router.use('/manufacturer', (req, res) => {
+  return res.status(410).json({
+    success: false,
+    message: '厂家中心已下线，请联系管理员在后台厂家管理中操作'
+  })
+})
+
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'xiaodi-secret-key';
 
@@ -390,6 +398,134 @@ const verifyManufacturer = async (req, res, next) => {
     res.status(401).json({ success: false, message: '登录已过期，请重新登录' });
   }
 };
+
+router.post('/manufacturer/sms/send-code', verifyManufacturer, async (req, res) => {
+  try {
+    const { phone } = req.body || {}
+    const manufacturer = await Manufacturer.findById(req.manufacturerId)
+      .select('settings.smsNotifyPhone')
+      .lean()
+
+    const boundPhone = manufacturer?.settings?.smsNotifyPhone || ''
+    if (!boundPhone) {
+      return res.status(400).json({ success: false, message: '请先绑定手机号' })
+    }
+    if (phone && String(phone).trim() !== String(boundPhone).trim()) {
+      return res.status(400).json({ success: false, message: '手机号与已绑定手机号不一致，请先重新绑定' })
+    }
+
+    const result = await sendVerificationCode(boundPhone)
+    if (!result.success) {
+      return res.status(400).json({ success: false, message: result.message || '发送失败' })
+    }
+
+    res.json({ success: true, message: '验证码已发送' })
+  } catch (error) {
+    console.error('厂家发送验证码失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+router.post('/manufacturer/sms/bind', verifyManufacturer, async (req, res) => {
+  try {
+    const { phone, code } = req.body || {}
+    const manufacturer = await Manufacturer.findById(req.manufacturerId)
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    if (phone && !code) {
+      manufacturer.settings = {
+        ...(manufacturer.settings || {}),
+        smsNotifyPhone: phone,
+        smsNotifyVerifiedAt: null
+      }
+      await manufacturer.save()
+
+      return res.json({
+        success: true,
+        message: '手机号已绑定，请发送验证码完成验证',
+        data: {
+          smsNotifyPhone: manufacturer.settings?.smsNotifyPhone || '',
+          smsNotifyVerifiedAt: manufacturer.settings?.smsNotifyVerifiedAt || null
+        }
+      })
+    }
+
+    const targetPhone = phone || manufacturer.settings?.smsNotifyPhone
+    if (!targetPhone) {
+      return res.status(400).json({ success: false, message: '请先绑定手机号' })
+    }
+    if (!code) {
+      return res.status(400).json({ success: false, message: '请输入验证码' })
+    }
+
+    const ok = verifyCode(targetPhone, code)
+    if (!ok) {
+      return res.status(400).json({ success: false, message: '验证码无效或已过期' })
+    }
+
+    manufacturer.settings = {
+      ...(manufacturer.settings || {}),
+      smsNotifyPhone: targetPhone,
+      smsNotifyVerifiedAt: new Date()
+    }
+    await manufacturer.save()
+
+    res.json({
+      success: true,
+      message: '绑定成功',
+      data: {
+        smsNotifyPhone: manufacturer.settings?.smsNotifyPhone || '',
+        smsNotifyVerifiedAt: manufacturer.settings?.smsNotifyVerifiedAt || null
+      }
+    })
+  } catch (error) {
+    console.error('厂家绑定手机号失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+router.post('/manufacturer/sms/unbind', verifyManufacturer, async (req, res) => {
+  try {
+    const manufacturer = await Manufacturer.findById(req.manufacturerId)
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    manufacturer.settings = {
+      ...(manufacturer.settings || {}),
+      smsNotifyPhone: '',
+      smsNotifyVerifiedAt: null
+    }
+    await manufacturer.save()
+
+    res.json({ success: true, message: '已解绑' })
+  } catch (error) {
+    console.error('厂家解绑手机号失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+router.get('/manufacturer/sms/status', verifyManufacturer, async (req, res) => {
+  try {
+    const manufacturer = await Manufacturer.findById(req.manufacturerId).select('settings.smsNotifyPhone settings.smsNotifyVerifiedAt')
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    res.json({
+      success: true,
+      data: {
+        smsNotifyPhone: manufacturer.settings?.smsNotifyPhone || '',
+        smsNotifyVerifiedAt: manufacturer.settings?.smsNotifyVerifiedAt || null
+      }
+    })
+  } catch (error) {
+    console.error('获取短信绑定状态失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
 
 // 获取厂家自己的订单列表
 router.get('/manufacturer/orders', verifyManufacturer, async (req, res) => {
@@ -581,6 +717,37 @@ router.get('/manufacturer/profile', verifyManufacturer, async (req, res) => {
     
     res.json({ success: true, data: manufacturer });
   } catch (error) {
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+// 更新厂家信息（厂家端）
+router.put('/manufacturer/profile', verifyManufacturer, async (req, res) => {
+  try {
+    const manufacturer = await Manufacturer.findById(req.manufacturerId);
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' });
+    }
+
+    const { logo, settings } = req.body || {};
+    if (logo !== undefined) manufacturer.logo = logo;
+
+    if (settings && typeof settings === 'object') {
+      const { smsNotifyPhone, smsNotifyVerifiedAt, ...restSettings } = settings
+      manufacturer.settings = {
+        ...(manufacturer.settings || {}),
+        ...restSettings,
+        bankInfo: {
+          ...(manufacturer.settings?.bankInfo || {}),
+          ...(restSettings.bankInfo || {})
+        }
+      };
+    }
+
+    await manufacturer.save();
+    res.json({ success: true, data: manufacturer, message: '更新成功' });
+  } catch (error) {
+    console.error('更新厂家信息失败:', error);
     res.status(500).json({ success: false, message: '服务器错误' });
   }
 });

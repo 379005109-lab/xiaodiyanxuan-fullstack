@@ -75,6 +75,17 @@ const findAuthorizationForUserAndProduct = async (user, product) => {
       const ok = auth.products.some(p => p?.toString?.() === product._id?.toString?.())
       if (ok) return auth
     }
+
+    if (auth.scope === 'mixed') {
+      if (categoryId && Array.isArray(auth.categories)) {
+        const okCategory = auth.categories.some(c => c?.toString?.() === categoryId)
+        if (okCategory) return auth
+      }
+      if (Array.isArray(auth.products)) {
+        const okProduct = auth.products.some(p => p?.toString?.() === product._id?.toString?.())
+        if (okProduct) return auth
+      }
+    }
   }
 
   return null
@@ -243,6 +254,10 @@ const computeTierPricing = ({ tierDoc, user, product, auth }) => {
   }
 }
 
+const isManufacturerScopedUser = (user) => {
+  return Boolean(user?.manufacturerId)
+}
+
 const listProducts = async (req, res) => {
   try {
     const { page = 1, pageSize = 10000, search, categoryId, styleId, sortBy } = req.query
@@ -311,6 +326,39 @@ const listProducts = async (req, res) => {
             authByProduct.set(p._id.toString(), auth)
           })
         } else if (auth.scope === 'specific') {
+          ;(auth.products || []).forEach(pid => {
+            authorizedProductIds.add(pid.toString())
+            authByProduct.set(pid.toString(), auth)
+          })
+        } else if (auth.scope === 'mixed') {
+          const manufacturerOid = auth.fromManufacturer
+          if (Array.isArray(auth.categories) && auth.categories.length > 0) {
+            const products = await Product.find({
+              $and: [
+                {
+                  $or: [
+                    { manufacturerId: manufacturerOid },
+                    { 'skus.manufacturerId': manufacturerOid },
+                  ],
+                },
+                {
+                  status: 'active',
+                },
+                {
+                  $or: [
+                    { category: { $in: auth.categories || [] } },
+                    { 'category._id': { $in: auth.categories || [] } },
+                    { 'category.id': { $in: auth.categories || [] } },
+                  ],
+                },
+              ]
+            }).select('_id').lean()
+            products.forEach(p => {
+              authorizedProductIds.add(p._id.toString())
+              authByProduct.set(p._id.toString(), auth)
+            })
+          }
+
           ;(auth.products || []).forEach(pid => {
             authorizedProductIds.add(pid.toString())
             authByProduct.set(pid.toString(), auth)
@@ -406,7 +454,8 @@ const listProducts = async (req, res) => {
         const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth })
 
         const manufacturerDoc = ownerManufacturerId ? manufacturerById.get(ownerManufacturerId) : null
-        const manufacturerDisplayName = auth && manufacturerDoc
+        // 只要商品有厂家就显示厂家名，没有厂家的才显示平台
+        const manufacturerDisplayName = manufacturerDoc
           ? (manufacturerDoc.fullName || manufacturerDoc.shortName || manufacturerDoc.name || '未知厂家')
           : '小迪严选（平台）'
 
@@ -450,7 +499,32 @@ const listProducts = async (req, res) => {
     
     const allow = allowCostPriceForUser(user)
     const safeProducts = allow ? result.products : result.products.map(stripCostPriceFromProduct)
-    res.json(paginatedResponse(safeProducts, result.total, result.page, result.pageSize))
+    
+    // 获取分类映射，将分类ID转换为分类名称
+    const Category = require('../models/Category')
+    const allCategories = await Category.find({}).lean()
+    const categoryMap = new Map()
+    allCategories.forEach(cat => {
+      categoryMap.set(cat._id.toString(), cat.name)
+      if (cat.slug) categoryMap.set(cat.slug, cat.name)
+    })
+    
+    // 为每个商品添加分类名称
+    const productsWithCategoryName = safeProducts.map(p => {
+      let categoryName = ''
+      if (p.category) {
+        if (typeof p.category === 'object' && p.category.name) {
+          categoryName = p.category.name
+        } else if (typeof p.category === 'string') {
+          categoryName = categoryMap.get(p.category) || p.category
+        } else if (p.category._id) {
+          categoryName = categoryMap.get(p.category._id.toString()) || ''
+        }
+      }
+      return { ...p, categoryName }
+    })
+    
+    res.json(paginatedResponse(productsWithCategoryName, result.total, result.page, result.pageSize))
   } catch (err) {
     console.error('List products error:', err)
     res.status(500).json(errorResponse(err.message, 500))
@@ -564,7 +638,10 @@ const search = async (req, res) => {
       return res.status(400).json(errorResponse('Keyword is required', 400))
     }
     
-    const result = await searchProducts(keyword, page, pageSize)
+    const manufacturerId = isManufacturerScopedUser(req.user) ? req.user.manufacturerId : undefined
+    const result = manufacturerId
+      ? await searchProducts(keyword, page, pageSize, manufacturerId)
+      : await searchProducts(keyword, page, pageSize)
     res.json(paginatedResponse(result.products, result.total, result.page, result.pageSize))
   } catch (err) {
     console.error('Search error:', err)
@@ -716,6 +793,14 @@ const createProduct = async (req, res) => {
     if (!productData.manufacturerId && productData.skus?.[0]?.manufacturerId) {
       productData.manufacturerId = productData.skus[0].manufacturerId
     }
+
+    // 厂家体系账号：同步 SKU 的厂家归属，防止通过 SKU 绕过
+    if (req.user?.manufacturerId && req.user.role !== 'super_admin' && Array.isArray(productData.skus)) {
+      productData.skus = productData.skus.map(sku => ({
+        ...sku,
+        manufacturerId: req.user.manufacturerId
+      }))
+    }
     
     // 调试日志：检查category字段
     console.log('🔥 [创建商品] 商品名称:', productData.name)
@@ -809,6 +894,12 @@ const updateProduct = async (req, res) => {
 
     if (req.user.manufacturerId && req.user.role !== 'super_admin') {
       productData.manufacturerId = req.user.manufacturerId
+      if (productData.skus && Array.isArray(productData.skus)) {
+        productData.skus = productData.skus.map(sku => ({
+          ...sku,
+          manufacturerId: req.user.manufacturerId
+        }))
+      }
     }
 
     if (!productData.manufacturerId && productData.skus?.[0]?.manufacturerId) {
@@ -874,6 +965,16 @@ const updateProduct = async (req, res) => {
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params
+
+    if (isManufacturerScopedUser(req.user)) {
+      const existing = await Product.findById(id).select('manufacturerId').lean()
+      if (!existing) {
+        return res.status(404).json(errorResponse('商品不存在', 404))
+      }
+      if (existing.manufacturerId?.toString() !== req.user.manufacturerId?.toString()) {
+        return res.status(403).json(errorResponse('无权限删除该商品', 403))
+      }
+    }
 
     const product = await Product.findByIdAndDelete(id)
 

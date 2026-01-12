@@ -73,25 +73,40 @@ const DesignManagement = lazy(() => import('./pages/admin/DesignManagement'))
 const CustomizationManagement = lazy(() => import('./pages/admin/CustomizationManagement'))
 const BuyingServiceRequestsPage = lazy(() => import('./pages/admin/BuyingServiceRequestsPage'))
 const ActivityDashboard = lazy(() => import('./pages/admin/ActivityDashboard'))
+const ActivityDashboardPage = lazy(() => import('./pages/admin/ActivityDashboardPage'))
+const UserLoginDetailsPage = lazy(() => import('./pages/admin/UserLoginDetailsPage'))
 const ManufacturerManagement = lazy(() => import('./pages/admin/ManufacturerManagement'))
 const AdminManufacturerCenter = lazy(() => import('./pages/admin/AdminManufacturerCenter'))
 const ManufacturerProductAuthorization = lazy(() => import('./pages/admin/ManufacturerProductAuthorization'))
 const EliteManufacturerManagement = lazy(() => import('./pages/admin/EliteManufacturerManagement'))
 const EliteManufacturerProductAuthorization = lazy(() => import('./pages/admin/EliteManufacturerProductAuthorization'))
 const ManufacturerAuthorizationRequests = lazy(() => import('./pages/admin/ManufacturerAuthorizationRequests'))
+const ManufacturerBusinessPanel = lazy(() => import('./pages/admin/ManufacturerBusinessPanel'))
 const BatchAccountManagement = lazy(() => import('./pages/admin/BatchAccountManagement'))
 const ReferralManagement = lazy(() => import('./pages/admin/ReferralManagement'))
 const ManufacturerOrderManagement = lazy(() => import('./pages/admin/ManufacturerOrderManagement'))
 const ImageSearchStats = lazy(() => import('./pages/admin/ImageSearchStats'))
 const AuthorizationManagement = lazy(() => import('./pages/admin/AuthorizationManagement'))
+const EnterpriseUserManagement = lazy(() => import('./pages/admin/EnterpriseUserManagement'))
 const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManagement'))
 
 const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
+const AuthorizationPricingPage = lazy(() => import('./pages/admin/AuthorizationPricingPage'))
 
 // 厂家端页面
 const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
 const ManufacturerOrders = lazy(() => import('./pages/manufacturer/ManufacturerOrders'))
 const ManufacturerSettings = lazy(() => import('./pages/manufacturer/ManufacturerSettings'))
+const ManufacturerAuthorizations = lazy(() => import('./pages/manufacturer/ManufacturerAuthorizations'))
+
+const ADMIN_ACCESS_ROLES: UserRole[] = [
+  'admin',
+  'super_admin',
+  'platform_admin',
+  'platform_staff',
+  'enterprise_admin',
+]
+const ADMIN_AND_DESIGNER_ROLES: UserRole[] = [...ADMIN_ACCESS_ROLES, 'designer']
 
 // 前台布局已在上方直接导入
 
@@ -102,23 +117,78 @@ interface ProtectedRouteProps {
   requireAdminPortal?: boolean
   requirePermission?: string
   allowedRoles?: UserRole[]
+  disallowedRoles?: UserRole[]
   fallbackPath?: string
 }
 
-const ProtectedRoute = ({ children, requireAdmin = false, requireAdminPortal = false, requirePermission, allowedRoles, fallbackPath = '/' }: ProtectedRouteProps) => {
-  const { user, isAuthenticated, token } = useAuthStore()
+const ProtectedRoute = ({
+  children,
+  requireAdmin = false,
+  requireAdminPortal = false,
+  requirePermission,
+  allowedRoles,
+  disallowedRoles,
+  fallbackPath = '/',
+}: ProtectedRouteProps) => {
+  const { user, isAuthenticated, token, logout } = useAuthStore()
   const [isReady, setIsReady] = useState(false)
+  const [authRecoveryTimedOut, setAuthRecoveryTimedOut] = useState(false)
+  const [userRecoveryTimedOut, setUserRecoveryTimedOut] = useState(false)
+
+  const isAdminUser = Boolean((user as any)?.permissions?.canAccessAdmin) ||
+    (user ? ADMIN_ACCESS_ROLES.includes(user.role as UserRole) : false)
   
   // 等待 Zustand persist 中间件恢复状态
   useEffect(() => {
-    // 检查 localStorage 中是否有认证信息
-    const hasAuthData = localStorage.getItem('auth-storage')
     // 延迟一个 tick，确保 Zustand 已经恢复状态
     const timer = setTimeout(() => {
       setIsReady(true)
     }, 0)
     return () => clearTimeout(timer)
   }, [])
+
+  // 避免 token 存在但认证状态无法恢复导致永久卡死
+  useEffect(() => {
+    if (!isReady) return
+    if (token && !isAuthenticated) {
+      const timer = setTimeout(() => {
+        setAuthRecoveryTimedOut(true)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+    setAuthRecoveryTimedOut(false)
+  }, [isReady, token, isAuthenticated])
+
+  useEffect(() => {
+    if (!isReady) return
+    if (token && isAuthenticated && !user) {
+      const timer = setTimeout(() => {
+        setUserRecoveryTimedOut(true)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+    setUserRecoveryTimedOut(false)
+  }, [isReady, token, isAuthenticated, user])
+
+  useEffect(() => {
+    if (!authRecoveryTimedOut) return
+    try {
+      localStorage.removeItem('auth-storage')
+      localStorage.removeItem('token')
+    } finally {
+      logout()
+    }
+  }, [authRecoveryTimedOut, logout])
+
+  useEffect(() => {
+    if (!userRecoveryTimedOut) return
+    try {
+      localStorage.removeItem('auth-storage')
+      localStorage.removeItem('token')
+    } finally {
+      logout()
+    }
+  }, [userRecoveryTimedOut, logout])
   
   // 在初始化完成前显示加载状态
   if (!isReady) {
@@ -127,7 +197,17 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireAdminPortal = f
   
   // 如果有 token 但 isAuthenticated 为 false，等待状态恢复
   if (token && !isAuthenticated) {
+    if (authRecoveryTimedOut) {
+      return <Navigate to="/login" replace />
+    }
     return <div className="flex items-center justify-center h-screen bg-gray-50">恢复认证状态中...</div>
+  }
+
+  if (token && isAuthenticated && !user) {
+    if (userRecoveryTimedOut) {
+      return <Navigate to="/login" replace />
+    }
+    return <div className="flex items-center justify-center h-screen bg-gray-50">恢复用户信息中...</div>
   }
   
   if (!isAuthenticated) {
@@ -151,13 +231,18 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireAdminPortal = f
     }
   }
   
-  if (requireAdmin && user?.role !== 'admin' && user?.role !== 'super_admin') {
+  if (requireAdmin && !isAdminUser) {
     console.log('[ProtectedRoute] 权限不足，重定向到', fallbackPath)
     return <Navigate to={fallbackPath} replace />
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     console.log('[ProtectedRoute] 角色不匹配，重定向到', fallbackPath)
+    return <Navigate to={fallbackPath} replace />
+  }
+
+  if (disallowedRoles && user && disallowedRoles.includes(user.role)) {
+    console.log('[ProtectedRoute] 角色被限制，重定向到', fallbackPath)
     return <Navigate to={fallbackPath} replace />
   }
 
@@ -177,9 +262,15 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireAdminPortal = f
 
 const AdminIndexRedirect = () => {
   const { user } = useAuthStore()
+  const hasManufacturerId = Boolean((user as any)?.manufacturerId)
+  const canManageProducts = (user as any)?.permissions?.canManageProducts === true
 
-  if ((user as any)?.manufacturerId && (user as any)?.permissions?.canAccessAdmin === true) {
-    if ((user as any)?.permissions?.canManageProducts === true) {
+  if (hasManufacturerId) {
+    return <Navigate to="/admin/manufacturers" replace />
+  }
+
+  if (user?.role === 'enterprise_admin') {
+    if (canManageProducts) {
       return <Navigate to="/admin/products" replace />
     }
     return <Navigate to="/admin/authorized-products" replace />
@@ -194,11 +285,13 @@ const AdminIndexRedirect = () => {
 
 const ProductManagementRoute = () => {
   const { user } = useAuthStore()
+  const hasManufacturerId = Boolean((user as any)?.manufacturerId)
   const canAccess =
     user?.role === 'admin' ||
     user?.role === 'super_admin' ||
     user?.role === 'designer' ||
-    (user as any)?.permissions?.canManageProducts === true
+    (user as any)?.permissions?.canManageProducts === true ||
+    hasManufacturerId
 
   if (!canAccess) {
     return <Navigate to="/admin" replace />
@@ -209,16 +302,19 @@ const ProductManagementRoute = () => {
 
 const ManufacturersRoute = () => {
   const { user } = useAuthStore()
-  const isAdmin =
-    user?.role === 'admin' ||
-    user?.role === 'super_admin' ||
-    user?.role === 'platform_admin' ||
-    user?.role === 'platform_staff'
 
-  if (isAdmin) return <AdminManufacturerCenter />
+  const isSuperAdmin = user?.role === 'super_admin'
+  const isDesigner = user?.role === 'designer'
+  const isManufacturerSubAccount = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff'
+  const isAdminButNotSuper = user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
+
+  const hasManufacturerId = Boolean((user as any)?.manufacturerId)
+
+  if (isSuperAdmin) return <AdminManufacturerCenter />
+  if (isDesigner) return <EliteManufacturerManagement />
+  if (isManufacturerSubAccount || hasManufacturerId || isAdminButNotSuper) return <ManufacturerManagement />
   return <EliteManufacturerManagement />
 }
-
 // 加载组件
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
@@ -374,12 +470,12 @@ function App() {
             <Route path="products" element={<ProductManagementRoute />} />
             <Route path="authorized-products" element={<AuthorizedProductPricing />} />
             <Route path="products/new" element={
-              <ProtectedRoute requirePermission="canManageProducts" fallbackPath="/admin">
+              <ProtectedRoute requirePermission="canManageProducts" fallbackPath="/admin/products">
                 <ProductForm />
               </ProtectedRoute>
             } />
             <Route path="products/edit/:id" element={
-              <ProtectedRoute requirePermission="canManageProducts" fallbackPath="/admin">
+              <ProtectedRoute allowedRoles={['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin']} fallbackPath="/admin/products">
                 <ProductForm />
               </ProtectedRoute>
             } />
@@ -389,7 +485,7 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="products/dashboard/:productId" element={
-              <ProtectedRoute allowedRoles={['admin', 'super_admin', 'designer']}>
+              <ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}>
                 <ProductDashboard />
               </ProtectedRoute>
             } />
@@ -399,51 +495,58 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderManagement /></ProtectedRoute>} />
-            <Route path="orders/trash" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderTrashPage /></ProtectedRoute>} />
-            <Route path="order-dashboard" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderDashboard /></ProtectedRoute>} />
-            <Route path="users" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><AccountManagement /></ProtectedRoute>} />
-            <Route path="users/batch" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BatchAccountManagement /></ProtectedRoute>} />
-            <Route path="images" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><SiteImageManagement /></ProtectedRoute>} />
+            <Route path="orders/trash" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><OrderTrashPage /></ProtectedRoute>} />
+            <Route path="order-dashboard" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><OrderDashboard /></ProtectedRoute>} />
+            <Route path="users" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><AccountManagement /></ProtectedRoute>} />
+            <Route path="users/batch" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><BatchAccountManagement /></ProtectedRoute>} />
+            <Route path="enterprise-users" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><EnterpriseUserManagement /></ProtectedRoute>} />
+            <Route path="images" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><SiteImageManagement /></ProtectedRoute>} />
             <Route path="categories" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CategoryManagement /></ProtectedRoute>} />
-            <Route path="materials" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><MaterialManagement /></ProtectedRoute>} />
-            <Route path="order-analysis" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><OrderAnalysis /></ProtectedRoute>} />
-            <Route path="refunds" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><RefundManagement /></ProtectedRoute>} />
-            <Route path="coupons" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CouponManagement /></ProtectedRoute>} />
-            <Route path="packages" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><PackageListPage /></ProtectedRoute>} />
-            <Route path="packages/new" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><PackageManagementPage /></ProtectedRoute>} />
-            <Route path="packages/edit/:id" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><PackageManagementPage /></ProtectedRoute>} />
+            <Route path="materials" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><MaterialManagement /></ProtectedRoute>} />
+            <Route path="order-analysis" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><OrderAnalysis /></ProtectedRoute>} />
+            <Route path="refunds" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><RefundManagement /></ProtectedRoute>} />
+            <Route path="coupons" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><CouponManagement /></ProtectedRoute>} />
+            <Route path="packages" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES} disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><PackageListPage /></ProtectedRoute>} />
+            <Route path="packages/new" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES} disallowedRoles={['enterprise_admin']} fallbackPath="/admin/packages"><PackageManagementPage /></ProtectedRoute>} />
+            <Route path="packages/edit/:id" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES} disallowedRoles={['enterprise_admin']} fallbackPath="/admin/packages"><PackageManagementPage /></ProtectedRoute>} />
             <Route path="packages/designer-edit/:id" element={<ProtectedRoute allowedRoles={['designer']}><DesignerPackageEditPage /></ProtectedRoute>} />
-            <Route path="packages/profit/:id" element={<ProtectedRoute requireAdmin fallbackPath="/admin/packages"><PackageProfitPage /></ProtectedRoute>} />
-            <Route path="bargain" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><AdminBargainListPage /></ProtectedRoute>} />
-            <Route path="bargain/new" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><AdminBargainFormPage /></ProtectedRoute>} />
-            <Route path="bargain/edit/:id" element={<ProtectedRoute allowedRoles={['admin','super_admin','designer']}><AdminBargainFormPage /></ProtectedRoute>} />
-            <Route path="bargain-dashboard" element={<ProtectedRoute requireAdmin fallbackPath="/admin/bargain"><BargainDashboardPage /></ProtectedRoute>} />
-            <Route path="dashboard" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><AdminDashboardPage /></ProtectedRoute>} />
+            <Route path="packages/profit/:id" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/packages"><PackageProfitPage /></ProtectedRoute>} />
+            <Route path="bargain" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}><AdminBargainListPage /></ProtectedRoute>} />
+            <Route path="bargain/new" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}><AdminBargainFormPage /></ProtectedRoute>} />
+            <Route path="bargain/edit/:id" element={<ProtectedRoute allowedRoles={ADMIN_AND_DESIGNER_ROLES}><AdminBargainFormPage /></ProtectedRoute>} />
+            <Route path="bargain-dashboard" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/bargain"><BargainDashboardPage /></ProtectedRoute>} />
+            <Route path="dashboard" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><AdminDashboardPage /></ProtectedRoute>} />
             <Route path="designer-orders" element={<ProtectedRoute allowedRoles={['designer']}><DesignerOrdersPage /></ProtectedRoute>} />
             <Route path="designer-referred-orders" element={<ProtectedRoute allowedRoles={['designer']}><DesignerReferredOrdersPage /></ProtectedRoute>} />
-            <Route path="test-concierge" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><TestConciergeOrderPage /></ProtectedRoute>} />
-            <Route path="user-unban" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><UserUnbanPage /></ProtectedRoute>} />
-            <Route path="notification-test" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><NotificationTestPage /></ProtectedRoute>} />
-            <Route path="notifications" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><NotificationManagementPage /></ProtectedRoute>} />
-            <Route path="designs" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><DesignManagement /></ProtectedRoute>} />
-            <Route path="customization" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
-            <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
-            <Route path="activity" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
+            <Route path="test-concierge" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><TestConciergeOrderPage /></ProtectedRoute>} />
+            <Route path="user-unban" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><UserUnbanPage /></ProtectedRoute>} />
+            <Route path="notification-test" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><NotificationTestPage /></ProtectedRoute>} />
+            <Route path="notifications" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><NotificationManagementPage /></ProtectedRoute>} />
+            <Route path="designs" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><DesignManagement /></ProtectedRoute>} />
+            <Route path="customization" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
+            <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
+            <Route path="activity" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />
+            <Route path="activity-dashboard" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ActivityDashboardPage /></ProtectedRoute>} />
+            <Route path="user-login-details" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><UserLoginDetailsPage /></ProtectedRoute>} />
             <Route path="manufacturers" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturersRoute /></ProtectedRoute>} />
             <Route path="manufacturers/:manufacturerId/product-authorization" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><EliteManufacturerProductAuthorization /></ProtectedRoute>} />
+            <Route path="manufacturers/:manufacturerId/business-panel" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerBusinessPanel /></ProtectedRoute>} />
+            <Route path="business-panel" element={<ProtectedRoute allowedRoles={['enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><ManufacturerBusinessPanel /></ProtectedRoute>} />
             <Route path="manufacturers/authorization-requests" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><ManufacturerAuthorizationRequests /></ProtectedRoute>} />
-            <Route path="authorizations" element={<Navigate to="/admin/manufacturers" replace />} />
-            <Route path="referrals" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
-            <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ManufacturerOrderManagement /></ProtectedRoute>} />
-            <Route path="image-search-stats" element={<ProtectedRoute requireAdmin fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
+            <Route path="authorizations" element={<ProtectedRoute requireAdminPortal fallbackPath="/admin/products"><AuthorizationManagement /></ProtectedRoute>} />
+            <Route path="authorizations/:authorizationId/pricing" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><AuthorizationPricingPage /></ProtectedRoute>} />
+            <Route path="referrals" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ReferralManagement /></ProtectedRoute>} />
+            <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><ManufacturerOrderManagement /></ProtectedRoute>} />
+            <Route path="image-search-stats" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
             <Route path="tier-system" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
           </Route>
-
+ 
           {/* 厂家端路由 */}
           <Route path="/manufacturer/login" element={<ManufacturerLogin />} />
           <Route path="/manufacturer/orders" element={<ManufacturerOrders />} />
           <Route path="/manufacturer/settings" element={<ManufacturerSettings />} />
-
+          <Route path="/manufacturer/authorizations" element={<ManufacturerAuthorizations />} />
+ 
           {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

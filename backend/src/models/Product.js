@@ -6,17 +6,35 @@ const skuSchema = new mongoose.Schema({
   code: String,
   spec: String,
   color: String,
+  // 面料选择（单选，关联materialsGroups）
+  fabricMaterialId: String, // 关联的材质分组ID
+  fabricName: String, // 面料名称（如：纳帕皮A+黑色）
+  // 其他材质（文字+图片）
+  otherMaterials: String, // 其他材质描述（如：蛇形弹簧+45D海绵+不锈钢支撑脚）
+  otherMaterialsImage: String, // 其他材质图片
   material: mongoose.Schema.Types.Mixed, // 支持字符串或对象 {fabric, filling, frame, leg}
   materialId: String,
   materialCategories: [String], // 已配置的材质类目列表
   materialUpgradePrices: mongoose.Schema.Types.Mixed,
   materialImages: mongoose.Schema.Types.Mixed,
   materialDescriptions: mongoose.Schema.Types.Mixed,
-  stock: { type: Number, default: 0 },
+  // 库存模式
+  stockMode: { type: Boolean, default: true }, // true=有库存模式，false=定制模式
+  stock: { type: Number, default: 0 }, // 库存数量
+  deliveryDays: { type: Number, default: 7 }, // 发货天数（库存模式）
+  productionDays: { type: Number, default: 30 }, // 制作天数（定制模式）
+  deliveryNote: String, // 发货备注（如"现货"、"预售15天"等）
+  arrivalDate: Date, // 到货时间
   price: { type: Number, default: 0 },
   costPrice: { type: Number, default: 0 },
   discountPrice: Number,
   images: [String],
+  files: [{ // SKU专属文件
+    name: String,
+    url: String,
+    size: Number,
+    type: String // 文件类型：design, manual, certificate等
+  }],
   length: Number,
   width: Number,
   height: Number,
@@ -46,6 +64,8 @@ const productSchema = new mongoose.Schema({
   category: mongoose.Schema.Types.Mixed, // 支持字符串ID或对象
   style: mongoose.Schema.Types.Mixed,
   styles: [String], // 多个风格标签（现代风、轻奢风等）
+  manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+  manufacturerName: String, // 冗余字段，方便显示
   specifications: mongoose.Schema.Types.Mixed,
   skus: [skuSchema], // SKU数组
   materialsGroups: [{ // 材质分组数据
@@ -58,6 +78,16 @@ const productSchema = new mongoose.Schema({
       img: String
     }]
   }],
+  // 材质配置（面料选择 + 其他材质）
+  materialConfigs: [{
+    id: String,
+    fabricName: String, // 面料名称（从材质库选择）
+    fabricId: String, // 材质库ID
+    images: [String], // 该材质对应的图片组
+    price: { type: Number, default: 0 } // 加价金额
+  }],
+  otherMaterialsText: String, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
+  otherMaterialsImage: String, // 其他材质图片
   materialImages: mongoose.Schema.Types.Mixed, // 材质图片 { categoryName: [{name, url}] }
   materialCategories: [String], // 材质类目列表
   tags: [String],
@@ -95,6 +125,7 @@ const productSchema = new mongoose.Schema({
 productSchema.index({ name: 'text', description: 'text' })
 productSchema.index({ category: 1 })
 productSchema.index({ style: 1 })
+productSchema.index({ manufacturerId: 1 })
 productSchema.index({ status: 1 })
 productSchema.index({ order: 1 })  // 排序字段索引
 

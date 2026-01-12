@@ -89,7 +89,7 @@ curl -X POST http://lgpzubdtdxjf.sealoshzh.site/api/auth/login \
 
 ## 📦 部署的Docker镜像
 
-**镜像**: `ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest`  
+**镜像**: `registry.sealoshzh.site/xiaodiyanxuan-backend:latest`  
 **SHA**: `sha256:d10635fe457ac2bedf6a33608c5d7ed33a2b1eeef32757817833d9c36d10486f`
 
 **包含的修复**：
@@ -217,7 +217,7 @@ db.products.updateMany(
 
 ### 解决方案
 
-1. **使用GHCR1_TOKEN**: Personal Access Token解决权限
+1. **使用 Registry 凭证**: 配置 `REGISTRY_USERNAME` / `REGISTRY_PASSWORD` 解决权限
 2. **强制重启**: kubectl rollout restart强制拉取新镜像
 3. **数据修复**: 直接更新数据库修正错误数据
 4. **遵循规范**: 使用现有枚举值而不是自定义值

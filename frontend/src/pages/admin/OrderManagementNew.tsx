@@ -24,7 +24,7 @@ export default function OrderManagementNew() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(50)  // 增加默认页面大小
+  const [pageSize, setPageSize] = useState(10000)  // 增加默认页面大小到10000
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)

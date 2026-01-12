@@ -378,6 +378,8 @@ export interface Order {
   updatedAt: string
   flatPriceAmount?: number
   isFlatPrice?: boolean
+  cancelRequest?: boolean
+  cancelRequestedAt?: string
 }
 
 // 退换货类型

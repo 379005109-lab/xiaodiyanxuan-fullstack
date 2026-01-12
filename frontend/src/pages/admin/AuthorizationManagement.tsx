@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle, Copy } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import FolderSelectionModal from '@/components/FolderSelectionModal'
+import apiClient from '@/lib/apiClient'
 
 interface Authorization {
   _id: string
@@ -10,7 +11,7 @@ interface Authorization {
   toManufacturer?: any
   toDesigner?: any
   authorizationType: 'manufacturer' | 'designer'
-  scope: 'all' | 'category' | 'specific'
+  scope: 'all' | 'category' | 'specific' | 'mixed'
   categories: string[]
   products: any[]
   priceSettings: {
@@ -23,6 +24,9 @@ interface Authorization {
   validUntil?: string
   allowSubAuthorization: boolean
   notes?: string
+  savedToFolderId?: string
+  savedToFolderName?: string
+  isFolderSelected?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -30,7 +34,13 @@ interface Authorization {
 export default function AuthorizationManagement() {
   const { token, user } = useAuthStore()
   const isDesigner = user?.role === 'designer'
-  const isManufacturerUser = !!(user as any)?.manufacturerId
+  const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin'
+  const isManufacturerUser = !!(
+    (user as any)?.manufacturerId ||
+    Array.isArray((user as any)?.manufacturerIds) && (user as any)?.manufacturerIds?.length > 0 ||
+    user?.role === 'enterprise_admin' ||
+    user?.role === 'enterprise_staff'
+  )
 
   type TabKey = 'granted' | 'received' | 'pending_requests' | 'my_requests'
   const [activeTab, setActiveTab] = useState<TabKey>('received')
@@ -45,46 +55,92 @@ export default function AuthorizationManagement() {
   const [selectedAuthId, setSelectedAuthId] = useState<string>('')
   const [categories, setCategories] = useState<any[]>([])
 
+  const [showDetailModal, setShowDetailModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [detailAuth, setDetailAuth] = useState<Authorization | null>(null)
+  const [editAuth, setEditAuth] = useState<Authorization | null>(null)
+  const [loadingAuthDetail, setLoadingAuthDetail] = useState(false)
+
+  // 审批模态框状态
+  const [showApproveModal, setShowApproveModal] = useState(false)
+  const [approveRequest, setApproveRequest] = useState<Authorization | null>(null)
+  const [approveDiscount, setApproveDiscount] = useState(85)
+  const [approveCommission, setApproveCommission] = useState(5)
+
   const didInitTab = useRef(false)
 
   useEffect(() => {
     if (didInitTab.current) return
     if (!user) return
-    const desired: TabKey = isDesigner ? 'received' : (isManufacturerUser ? 'granted' : 'received')
+    const desired: TabKey = (isDesigner || isPlatformAdmin) ? 'received' : (isManufacturerUser ? 'granted' : 'received')
     setActiveTab(desired)
     didInitTab.current = true
-  }, [user, isDesigner, isManufacturerUser])
+  }, [user, isDesigner, isManufacturerUser, isPlatformAdmin])
 
   useEffect(() => {
     loadAuthorizations()
   }, [activeTab])
 
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await apiClient.get('/categories')
+        const data = response.data
+        if (data?.success || data?.data) {
+          setCategories(data.data || [])
+        } else {
+          setCategories([])
+        }
+      } catch (e) {
+        setCategories([])
+      }
+    }
+    loadCategories()
+  }, [])
+
   const loadAuthorizations = async () => {
     setLoading(true)
     try {
-      const endpoint =
-        activeTab === 'granted'
-          ? '/api/authorizations/my-grants'
-          : activeTab === 'received'
-            ? '/api/authorizations/received'
-            : activeTab === 'pending_requests'
-              ? '/api/authorizations/designer-requests/pending'
-              : '/api/authorizations/designer-requests/my'
-      
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}${endpoint}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      if (activeTab === 'granted') {
+        const response = await apiClient.get('/authorizations/my-grants')
+        const data = response.data
+        if (data?.success) setGrantedAuths(data.data || [])
+        else toast.error(data?.message || '加载失败')
+      } else if (activeTab === 'received') {
+        const response = await apiClient.get('/authorizations/received')
+        const data = response.data
+        if (data?.success) setReceivedAuths(data.data || [])
+        else toast.error(data?.message || '加载失败')
+      } else if (activeTab === 'pending_requests') {
+        if (isManufacturerUser && !isDesigner) {
+          const [designerResp, manufacturerResp] = await Promise.all([
+            apiClient.get('/authorizations/designer-requests/pending').catch(() => null as any),
+            apiClient.get('/authorizations/manufacturer-requests/pending').catch(() => null as any),
+          ])
+
+          const designerList = designerResp?.data?.success ? (designerResp.data.data || []) : []
+          const manufacturerList = manufacturerResp?.data?.success ? (manufacturerResp.data.data || []) : []
+          setPendingRequests([...(designerList || []), ...(manufacturerList || [])])
+        } else {
+          const response = await apiClient.get('/authorizations/designer-requests/pending')
+          const data = response.data
+          if (data?.success) setPendingRequests(data.data || [])
+          else toast.error(data?.message || '加载失败')
         }
-      })
-      
-      const data = await response.json()
-      if (data.success) {
-        if (activeTab === 'granted') setGrantedAuths(data.data)
-        else if (activeTab === 'received') setReceivedAuths(data.data)
-        else if (activeTab === 'pending_requests') setPendingRequests(data.data)
-        else setMyRequests(data.data)
       } else {
-        toast.error(data.message)
+        if (isDesigner || isPlatformAdmin) {
+          const response = await apiClient.get('/authorizations/designer-requests/my')
+          const data = response.data
+          if (data?.success) setMyRequests(data.data || [])
+          else toast.error(data?.message || '加载失败')
+        } else if (isManufacturerUser) {
+          const response = await apiClient.get('/authorizations/manufacturer-requests/my')
+          const data = response.data
+          if (data?.success) setMyRequests(data.data || [])
+          else toast.error(data?.message || '加载失败')
+        } else {
+          setMyRequests([])
+        }
       }
     } catch (error) {
       console.error('加载授权列表失败:', error)
@@ -103,25 +159,35 @@ export default function AuthorizationManagement() {
     }
   }
 
-  const handleApproveRequest = async (id: string) => {
+  const openApproveModal = (id: string) => {
+    const req = pendingRequests.find((r) => r._id === id)
+    if (req) {
+      setApproveRequest(req)
+      setApproveDiscount(85)
+      setApproveCommission(5)
+      setShowApproveModal(true)
+    }
+  }
+
+  const handleApproveRequest = async () => {
+    if (!approveRequest) return
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/authorizations/designer-requests/${id}/approve`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({})
-        }
-      )
-      const data = await response.json()
-      if (data.success) {
+      const endpoint = approveRequest.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${approveRequest._id}/approve`
+        : `/authorizations/designer-requests/${approveRequest._id}/approve`
+
+      const response = await apiClient.put(endpoint, {
+        discountRate: approveDiscount,
+        commissionRate: approveCommission
+      })
+      const data = response.data
+      if (data?.success) {
         toast.success('已通过')
+        setShowApproveModal(false)
+        setApproveRequest(null)
         loadAuthorizations()
       } else {
-        toast.error(data.message)
+        toast.error(data?.message || '审核失败')
       }
     } catch (error) {
       console.error('审核失败:', error)
@@ -131,23 +197,18 @@ export default function AuthorizationManagement() {
 
   const handleRejectRequest = async (id: string) => {
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/authorizations/designer-requests/${id}/reject`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({})
-        }
-      )
-      const data = await response.json()
-      if (data.success) {
+      const req = pendingRequests.find((r) => r._id === id)
+      const endpoint = req?.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${id}/reject`
+        : `/authorizations/designer-requests/${id}/reject`
+
+      const response = await apiClient.put(endpoint, {})
+      const data = response.data
+      if (data?.success) {
         toast.success('已拒绝')
         loadAuthorizations()
       } else {
-        toast.error(data.message)
+        toast.error(data?.message || '拒绝失败')
       }
     } catch (error) {
       console.error('拒绝失败:', error)
@@ -159,23 +220,76 @@ export default function AuthorizationManagement() {
     if (!confirm('确定要撤销此授权吗？')) return
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/authorizations/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      const data = await response.json()
-      if (data.success) {
+      const response = await apiClient.delete(`/authorizations/${id}`)
+      const data = response.data
+      if (data?.success) {
         toast.success('授权已撤销')
         loadAuthorizations()
       } else {
-        toast.error(data.message)
+        toast.error(data?.message || '撤销授权失败')
       }
     } catch (error) {
       console.error('撤销授权失败:', error)
       toast.error('撤销授权失败')
+    }
+  }
+
+  const openFolderSelection = (authId: string) => {
+    setSelectedAuthId(authId)
+    setShowFolderModal(true)
+  }
+
+  const fetchAuthorizationDetail = async (id: string) => {
+    setLoadingAuthDetail(true)
+    try {
+      const resp = await apiClient.get(`/authorizations/${id}`)
+      const data = resp.data
+      if (!data?.success) {
+        toast.error(data?.message || '加载授权详情失败')
+        return null
+      }
+      return data.data as Authorization
+    } catch (e) {
+      toast.error('加载授权详情失败')
+      return null
+    } finally {
+      setLoadingAuthDetail(false)
+    }
+  }
+
+  const openDetail = async (id: string) => {
+    const auth = await fetchAuthorizationDetail(id)
+    if (!auth) return
+    setDetailAuth(auth)
+    setShowDetailModal(true)
+  }
+
+  const openEdit = async (id: string) => {
+    const auth = await fetchAuthorizationDetail(id)
+    if (!auth) return
+    setEditAuth(auth)
+    setShowEditModal(true)
+  }
+
+  const handleSaveFolder = async (folderId: string, folderName: string) => {
+    if (!selectedAuthId) return
+    try {
+      const response = await apiClient.put(`/authorizations/${selectedAuthId}/select-folder`, {
+        folderId,
+        folderName,
+      })
+      const data = response.data
+      if (data?.success) {
+        toast.success('已保存文件夹')
+        setShowFolderModal(false)
+        setSelectedAuthId('')
+        loadAuthorizations()
+      } else {
+        toast.error(data?.message || '保存失败')
+      }
+    } catch (error) {
+      console.error('保存文件夹失败:', error)
+      toast.error('保存文件夹失败')
     }
   }
 
@@ -198,6 +312,7 @@ export default function AuthorizationManagement() {
   const getScopeLabel = (scope: string, categories?: string[], productsCount?: number) => {
     if (scope === 'all') return '全部商品'
     if (scope === 'category') return `分类授权 (${categories?.join(', ')})`
+    if (scope === 'mixed') return `混合授权 (分类${categories?.length || 0} + 商品${productsCount || 0})`
     return `指定商品 (${productsCount}个)`
   }
 
@@ -220,7 +335,7 @@ export default function AuthorizationManagement() {
     { id: 'granted', label: '我授权的', visible: !isDesigner && isManufacturerUser },
     { id: 'received', label: '我收到的授权', visible: true },
     { id: 'pending_requests', label: '待审核申请', visible: !isDesigner && isManufacturerUser },
-    { id: 'my_requests', label: '我的申请', visible: isDesigner }
+    { id: 'my_requests', label: '我的申请', visible: isDesigner || isManufacturerUser }
   ]
 
   return (
@@ -299,14 +414,16 @@ export default function AuthorizationManagement() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900">
-                        设计师: {req.toDesigner?.nickname || req.toDesigner?.username || '未知'}
+                        {req.authorizationType === 'manufacturer'
+                          ? `厂家: ${req.toManufacturer?.fullName || req.toManufacturer?.name || '未知厂家'}`
+                          : `设计师: ${req.toDesigner?.nickname || req.toDesigner?.username || '未知'}`}
                       </h3>
                       {getStatusBadge(req.status)}
                     </div>
                     <div className="flex items-center gap-3 text-sm text-gray-600">
-                      <span className="font-mono">ID: {req.toDesigner?._id || req.toDesigner}</span>
+                      <span className="font-mono">ID: {req.authorizationType === 'manufacturer' ? (req.toManufacturer?._id || req.toManufacturer) : (req.toDesigner?._id || req.toDesigner)}</span>
                       <button
-                        onClick={() => copyText(String(req.toDesigner?._id || req.toDesigner || ''))}
+                        onClick={() => copyText(String(req.authorizationType === 'manufacturer' ? (req.toManufacturer?._id || req.toManufacturer || '') : (req.toDesigner?._id || req.toDesigner || '')))}
                         className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded"
                         title="复制ID"
                       >
@@ -325,7 +442,7 @@ export default function AuthorizationManagement() {
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleApproveRequest(req._id)}
+                      onClick={() => openApproveModal(req._id)}
                       className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
                     >
                       通过
@@ -346,11 +463,11 @@ export default function AuthorizationManagement() {
         <div>
           <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
             <div>
-              <div className="text-sm text-gray-600">我的设计师ID</div>
-              <div className="font-mono text-gray-900">{String((user as any)?._id || '')}</div>
+              <div className="text-sm text-gray-600">{isDesigner ? '我的设计师ID' : '我的厂家ID'}</div>
+              <div className="font-mono text-gray-900">{String(isDesigner ? ((user as any)?._id || '') : ((user as any)?.manufacturerId || ''))}</div>
             </div>
             <button
-              onClick={() => copyText(String((user as any)?._id || ''))}
+              onClick={() => copyText(String(isDesigner ? ((user as any)?._id || '') : ((user as any)?.manufacturerId || '')))}
               className="px-3 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50 flex items-center gap-2"
             >
               <Copy className="w-4 h-4" />
@@ -437,7 +554,7 @@ export default function AuthorizationManagement() {
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <span>授权范围: {getScopeLabel(auth.scope, auth.categories, auth.products?.length)}</span>
                     <span>•</span>
-                    <span>全局折扣: {(auth.priceSettings.globalDiscount * 100).toFixed(0)}折</span>
+                    <span>全局折扣: {(((auth.priceSettings?.globalDiscount ?? 1) as number) * 100).toFixed(0)}折</span>
                     <span>•</span>
                     <span>生效: {formatDate(auth.validFrom) || '-'}</span>
                     <span>•</span>
@@ -446,17 +563,23 @@ export default function AuthorizationManagement() {
                   {auth.notes && (
                     <p className="mt-2 text-sm text-gray-500">{auth.notes}</p>
                   )}
+
+                  {activeTab === 'received' && auth.savedToFolderName && (
+                    <p className="mt-2 text-sm text-gray-600">归档文件夹: {auth.savedToFolderName}</p>
+                  )}
                 </div>
                 
                 {activeTab === 'granted' && (
                   <div className="flex items-center gap-2 ml-4">
                     <button
+                      onClick={() => openDetail(auth._id)}
                       className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                       title="查看详情"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => openEdit(auth._id)}
                       className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       title="编辑"
                     >
@@ -473,14 +596,34 @@ export default function AuthorizationManagement() {
                     )}
                   </div>
                 )}
+
+                {activeTab === 'received' && (
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={() => openDetail(auth._id)}
+                      className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                      title="查看详情"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    {auth.status === 'active' && !auth.isFolderSelected && (
+                      <button
+                        onClick={() => openFolderSelection(auth._id)}
+                        className="px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                      >
+                        选择文件夹
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 价格设置详情 */}
-              {auth.priceSettings.categoryDiscounts.length > 0 && (
+              {(auth.priceSettings?.categoryDiscounts || []).length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">分类折扣设置</h4>
                   <div className="flex flex-wrap gap-2">
-                    {auth.priceSettings.categoryDiscounts.map((cd, idx) => (
+                    {(auth.priceSettings?.categoryDiscounts || []).map((cd, idx) => (
                       <span
                         key={idx}
                         className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs"
@@ -519,6 +662,424 @@ export default function AuthorizationManagement() {
           }}
         />
       )}
+
+      {showFolderModal && (
+        <FolderSelectionModal
+          categories={categories}
+          onClose={() => {
+            setShowFolderModal(false)
+            setSelectedAuthId('')
+          }}
+          onSave={handleSaveFolder}
+        />
+      )}
+
+      {showDetailModal && (
+        <AuthorizationDetailModal
+          authorization={detailAuth}
+          categories={categories}
+          loading={loadingAuthDetail}
+          onClose={() => {
+            setShowDetailModal(false)
+            setDetailAuth(null)
+          }}
+        />
+      )}
+
+      {showEditModal && (
+        <AuthorizationEditModal
+          authorization={editAuth}
+          categories={categories}
+          loading={loadingAuthDetail}
+          onClose={() => {
+            setShowEditModal(false)
+            setEditAuth(null)
+          }}
+          onSaved={() => {
+            setShowEditModal(false)
+            setEditAuth(null)
+            loadAuthorizations()
+          }}
+        />
+      )}
+
+      {/* 审批模态框 */}
+      {showApproveModal && approveRequest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-xl font-bold mb-4">审批授权申请</h3>
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="text-sm text-gray-600">申请方</div>
+              <div className="font-medium">
+                {approveRequest.authorizationType === 'manufacturer'
+                  ? (approveRequest.toManufacturer?.fullName || approveRequest.toManufacturer?.name || '未知厂家')
+                  : (approveRequest.toDesigner?.nickname || approveRequest.toDesigner?.username || '未知设计师')}
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  折扣比例 (%)
+                </label>
+                <input
+                  type="number"
+                  value={approveDiscount}
+                  onChange={(e) => setApproveDiscount(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                  className="input w-full"
+                  min="0"
+                  max="100"
+                  placeholder="如85表示85折"
+                />
+                <p className="text-xs text-gray-500 mt-1">授权方给申请方的折扣，如85表示可享受85折</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  返佣比例 (%)
+                </label>
+                <input
+                  type="number"
+                  value={approveCommission}
+                  onChange={(e) => setApproveCommission(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                  className="input w-full"
+                  min="0"
+                  max="100"
+                  placeholder="如5表示5%返佣"
+                />
+                <p className="text-xs text-gray-500 mt-1">申请方销售后可获得的返佣比例</p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+              <button
+                onClick={() => {
+                  setShowApproveModal(false)
+                  setApproveRequest(null)
+                }}
+                className="btn btn-secondary"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleApproveRequest}
+                className="btn btn-primary bg-green-600 hover:bg-green-700"
+              >
+                确认通过
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AuthorizationDetailModal({
+  authorization,
+  categories,
+  loading,
+  onClose
+}: {
+  authorization: Authorization | null
+  categories: any[]
+  loading: boolean
+  onClose: () => void
+}) {
+  const getCategoryName = (idOrObj: any) => {
+    const id = typeof idOrObj === 'string' ? idOrObj : (idOrObj?._id || idOrObj?.id)
+    if (!id) return ''
+    const match = categories.find((c) => String(c._id) === String(id) || String(c.slug) === String(id))
+    return match?.name || String(id)
+  }
+
+  const auth = authorization
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full overflow-hidden">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">授权详情</h2>
+          <button onClick={onClose} className="btn btn-secondary">关闭</button>
+        </div>
+        <div className="p-6">
+          {loading ? (
+            <div className="text-center py-10">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+              <p className="mt-2 text-sm text-gray-500">加载中...</p>
+            </div>
+          ) : !auth ? (
+            <div className="text-sm text-gray-500">暂无数据</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500">授权方</div>
+                  <div className="text-sm text-gray-900 mt-1">{auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '-'}</div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500">被授权方</div>
+                  <div className="text-sm text-gray-900 mt-1">
+                    {auth.authorizationType === 'manufacturer'
+                      ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '-')
+                      : (auth.toDesigner?.nickname || auth.toDesigner?.username || '-')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-gray-900 mb-2">授权范围</div>
+                <div className="text-sm text-gray-700">
+                  <div>scope: {auth.scope}</div>
+                  {(auth.categories || []).length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500 mb-1">分类</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(auth.categories || []).map((c: any) => (
+                          <span key={String(c?._id || c)} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
+                            {getCategoryName(c)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(auth.products || []).length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs text-gray-500 mb-2">授权商品 ({(auth.products || []).length}个)</div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                        {(auth.products || []).slice(0, 30).map((p: any) => (
+                          <div key={String(p?._id || p)} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                            {p?.thumbnail && (
+                              <img 
+                                src={p.thumbnail.startsWith('http') ? p.thumbnail : `/api/files/${p.thumbnail}`} 
+                                alt={p?.name || ''} 
+                                className="w-10 h-10 object-cover rounded"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-gray-900 truncate">{p?.name || p?.productCode || String(p?._id || p)}</div>
+                              {p?.productCode && <div className="text-xs text-gray-500">{p.productCode}</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {(auth.products || []).length > 30 && (
+                        <div className="text-xs text-gray-500 mt-2">仅展示前 30 个商品，共 {(auth.products || []).length} 个</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-gray-900 mb-2">折扣/价格设置</div>
+                <div className="text-sm text-gray-700">
+                  <div>全局折扣: {(((auth.priceSettings?.globalDiscount ?? 1) as number) * 100).toFixed(0)}折</div>
+                  {(auth.priceSettings?.categoryDiscounts || []).length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-500 mb-1">分类折扣</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(auth.priceSettings?.categoryDiscounts || []).map((cd: any, idx: number) => (
+                          <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
+                            {getCategoryName(cd.category)}: {((cd.discount ?? 1) * 100).toFixed(0)}折
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(auth.priceSettings?.productPrices || []).length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs text-gray-500 mb-1">单品设置</div>
+                      <div className="space-y-1">
+                        {(auth.priceSettings?.productPrices || []).slice(0, 50).map((pp: any, idx: number) => (
+                          <div key={idx} className="text-sm text-gray-700">
+                            {String(pp.productId)} — 折扣 {((pp.discount ?? 1) * 100).toFixed(0)}折{pp.price ? `，固定价 ${pp.price}` : ''}
+                          </div>
+                        ))}
+                        {(auth.priceSettings?.productPrices || []).length > 50 && (
+                          <div className="text-xs text-gray-500">仅展示前 50 条单品设置</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AuthorizationEditModal({
+  authorization,
+  categories,
+  loading,
+  onClose,
+  onSaved
+}: {
+  authorization: Authorization | null
+  categories: any[]
+  loading: boolean
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const auth = authorization
+  const [saving, setSaving] = useState(false)
+  const [globalDiscount, setGlobalDiscount] = useState<number>(auth?.priceSettings?.globalDiscount ?? 1)
+  const [categoryDiscounts, setCategoryDiscounts] = useState<Array<{ category: string; discount: number }>>(
+    (auth?.priceSettings?.categoryDiscounts || []).map((cd: any) => ({
+      category: String(cd.category?._id || cd.category || ''),
+      discount: Number(cd.discount ?? 1),
+    }))
+  )
+
+  useEffect(() => {
+    setGlobalDiscount(auth?.priceSettings?.globalDiscount ?? 1)
+    setCategoryDiscounts(
+      (auth?.priceSettings?.categoryDiscounts || []).map((cd: any) => ({
+        category: String(cd.category?._id || cd.category || ''),
+        discount: Number(cd.discount ?? 1),
+      }))
+    )
+  }, [auth?._id])
+
+  const addCategoryDiscount = () => {
+    setCategoryDiscounts((prev) => [...prev, { category: '', discount: globalDiscount }])
+  }
+
+  const updateCategoryDiscount = (idx: number, next: Partial<{ category: string; discount: number }>) => {
+    setCategoryDiscounts((prev) => prev.map((row, i) => (i === idx ? { ...row, ...next } : row)))
+  }
+
+  const removeCategoryDiscount = (idx: number) => {
+    setCategoryDiscounts((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleSave = async () => {
+    if (!auth?._id) return
+
+    const cleanedCategoryDiscounts = categoryDiscounts
+      .filter((cd) => cd.category)
+      .map((cd) => ({ category: cd.category, discount: cd.discount }))
+
+    try {
+      setSaving(true)
+      const resp = await apiClient.put(`/authorizations/${auth._id}`, {
+        priceSettings: {
+          globalDiscount,
+          categoryDiscounts: cleanedCategoryDiscounts,
+          productPrices: auth?.priceSettings?.productPrices || [],
+        }
+      })
+      const data = resp.data
+      if (data?.success) {
+        toast.success('已保存')
+        onSaved()
+      } else {
+        toast.error(data?.message || '保存失败')
+      }
+    } catch (e) {
+      toast.error('保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full overflow-hidden">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">编辑授权</h2>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="btn btn-secondary" disabled={saving}>取消</button>
+            <button onClick={handleSave} className="btn btn-primary" disabled={saving || loading || !auth}>保存</button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {loading ? (
+            <div className="text-center py-10">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+              <p className="mt-2 text-sm text-gray-500">加载中...</p>
+            </div>
+          ) : !auth ? (
+            <div className="text-sm text-gray-500">暂无数据</div>
+          ) : (
+            <div className="space-y-6">
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-gray-900 mb-3">全局折扣</div>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="1"
+                    step="0.05"
+                    value={globalDiscount}
+                    onChange={(e) => setGlobalDiscount(parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="w-20 text-right text-sm text-gray-700">{(globalDiscount * 100).toFixed(0)}折</div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-medium text-gray-900">分类折扣</div>
+                  <button type="button" onClick={addCategoryDiscount} className="btn btn-secondary">新增</button>
+                </div>
+                {categoryDiscounts.length === 0 ? (
+                  <div className="text-sm text-gray-500">暂无分类折扣</div>
+                ) : (
+                  <div className="space-y-3">
+                    {categoryDiscounts.map((row, idx) => (
+                      <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                        <div className="md:col-span-7">
+                          <select
+                            value={row.category}
+                            onChange={(e) => updateCategoryDiscount(idx, { category: e.target.value })}
+                            className="input w-full"
+                          >
+                            <option value="">-- 选择分类 --</option>
+                            {categories.map((c: any) => (
+                              <option key={String(c._id)} value={String(c._id)}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="md:col-span-4 flex items-center gap-3">
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="1"
+                            step="0.05"
+                            value={row.discount}
+                            onChange={(e) => updateCategoryDiscount(idx, { discount: parseFloat(e.target.value) })}
+                            className="w-full"
+                          />
+                          <div className="w-16 text-right text-sm text-gray-700">{(row.discount * 100).toFixed(0)}折</div>
+                        </div>
+                        <div className="md:col-span-1">
+                          <button type="button" onClick={() => removeCategoryDiscount(idx)} className="btn btn-secondary w-full">删</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <div className="text-sm font-medium text-gray-900 mb-2">单品设置</div>
+                {(auth.priceSettings?.productPrices || []).length === 0 ? (
+                  <div className="text-sm text-gray-500">暂无单品设置（当前版本仅展示/保留已有设置）</div>
+                ) : (
+                  <div className="text-sm text-gray-700">已存在 {(auth.priceSettings?.productPrices || []).length} 条单品设置（当前版本仅展示/保留已有设置）</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

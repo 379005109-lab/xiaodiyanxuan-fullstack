@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
-import { Bell, Menu, User, LogOut, Settings, ExternalLink, X, Lock, Phone, Camera } from 'lucide-react'
+import { useState, useEffect, type MouseEvent } from 'react'
+import { Bell, Menu, User, LogOut, Settings, ExternalLink, X, Lock, Phone, Camera, Image, Factory } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import cloudServices from '@/services/cloudServices'
+import apiClient from '@/lib/apiClient'
 
 interface AdminHeaderProps {
   toggleSidebar: () => void
@@ -19,18 +20,22 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [phone, setPhone] = useState(user?.phone || '')
   const [unreadCount, setUnreadCount] = useState(0)
+  const [authTodoCount, setAuthTodoCount] = useState(0)
   const [notifications, setNotifications] = useState<any[]>([])
+  const [pendingAuths, setPendingAuths] = useState<any[]>([])
 
   // 加载通知数据
   useEffect(() => {
     // 延迟加载通知，避免阻塞页面渲染
     const timer = setTimeout(() => {
       loadNotifications()
+      loadAuthorizationSummary()
     }, 500)
     
     // 监听通知更新事件
     const handleNotificationUpdate = () => {
       loadNotifications()
+      loadAuthorizationSummary()
     }
     
     window.addEventListener('notificationUpdated', handleNotificationUpdate)
@@ -39,6 +44,24 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
       window.removeEventListener('notificationUpdated', handleNotificationUpdate)
     }
   }, [])
+
+  const loadAuthorizationSummary = async () => {
+    try {
+      // 加载待审批的授权申请
+      const response = await apiClient.get('/authorizations/pending-requests')
+      const data = response.data
+      if (data?.success && Array.isArray(data.data)) {
+        setPendingAuths(data.data)
+        setAuthTodoCount(data.data.length)
+      } else {
+        setPendingAuths([])
+        setAuthTodoCount(0)
+      }
+    } catch (error) {
+      setPendingAuths([])
+      setAuthTodoCount(0)
+    }
+  }
 
   const loadNotifications = async () => {
     try {
@@ -152,7 +175,7 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
     }
   }
 
-  const handleDeleteNotification = async (notificationId: string, e: React.MouseEvent) => {
+  const handleDeleteNotification = async (notificationId: string, e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     try {
       await cloudServices.notificationService.deleteNotification(notificationId)
@@ -165,6 +188,7 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
   }
 
   const roleBadge = user?.role === 'designer'
+  const totalUnread = unreadCount + authTodoCount
 
   return (
     <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 sticky top-0 z-30">
@@ -198,9 +222,9 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
             className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <Bell className="h-5 w-5 text-gray-700" />
-            {unreadCount > 0 && (
+            {totalUnread > 0 && (
               <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                {unreadCount}
+                {totalUnread}
               </span>
             )}
           </button>
@@ -218,6 +242,36 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
                 </button>
               </div>
               <div className="max-h-96 overflow-y-auto">
+                {/* 待审批授权申请 */}
+                {pendingAuths.length > 0 && (
+                  <>
+                    <div className="px-4 py-2 bg-orange-50 border-b border-orange-100">
+                      <p className="text-xs font-medium text-orange-700">待审批授权申请 ({pendingAuths.length})</p>
+                    </div>
+                    {pendingAuths.map((auth) => (
+                      <div
+                        key={auth._id}
+                        onClick={() => {
+                          navigate('/admin/authorizations')
+                          setShowNotifications(false)
+                        }}
+                        className="px-4 py-3 border-b border-gray-50 hover:bg-orange-50 cursor-pointer transition-colors bg-orange-50/50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></span>
+                          <p className="text-sm font-medium text-gray-900">
+                            {auth.authorizationType === 'manufacturer' 
+                              ? (auth.toManufacturer?.fullName || auth.toManufacturer?.name || '厂家')
+                              : (auth.toDesigner?.nickname || auth.toDesigner?.username || '设计师')} 申请授权
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">点击前往审批</p>
+                      </div>
+                    ))}
+                  </>
+                )}
+                
+                {/* 普通通知 */}
                 {notifications.length > 0 ? (
                   notifications.map((notif) => (
                     <div
@@ -245,11 +299,11 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
                       </button>
                     </div>
                   ))
-                ) : (
+                ) : pendingAuths.length === 0 ? (
                   <div className="px-4 py-8 text-center text-gray-500">
                     <p className="text-sm">暂无通知</p>
                   </div>
-                )}
+                ) : null}
               </div>
               {notifications.length > 0 && (
                 <div className="p-3 border-t border-gray-100 text-center">
@@ -284,6 +338,25 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* 功能菜单 */}
+              <div className="border-b border-gray-100">
+                <button
+                  onClick={() => { navigate('/admin/images'); setShowSettings(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Image className="h-4 w-4" />
+                  网站图片管理
+                </button>
+
+                <button
+                  onClick={() => { navigate('/admin/manufacturers'); setShowSettings(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Factory className="h-4 w-4" />
+                  厂家短信绑定
                 </button>
               </div>
 

@@ -86,6 +86,28 @@ export const clearMaterialCache = () => {
   materialCachePromise = null;
 }
 
+// 强制从服务器获取最新材质列表（完全绕过缓存）
+export const fetchMaterialsFromServer = async (): Promise<Material[]> => {
+  // 先清除所有缓存
+  materialCache = null;
+  materialCachePromise = null;
+  
+  // 直接发起新请求，添加时间戳和缓存控制头防止HTTP缓存
+  const response = await apiClient.get('/materials', { 
+    params: { limit: 10000, _t: Date.now() },
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
+  })
+  const materials = response.data.data || []
+  console.log(`[材质服务] 强制刷新获取到 ${materials.length} 条材质`)
+  // 更新缓存
+  materialCache = materials;
+  return materials
+}
+
 // 清除材质图片缓存
 export const clearMaterialImageCache = () => {
   Object.keys(materialImageLocalCache).forEach(key => {
@@ -127,10 +149,14 @@ export const updateMaterial = async (id: string, materialData: Partial<Material>
 
 export const deleteMaterial = async (id: string): Promise<boolean> => {
   try {
-    await apiClient.delete(`/materials/${id}`)
+    console.log(`[materialService] 删除材质请求: DELETE /materials/${id}`)
+    const response = await apiClient.delete(`/materials/${id}`)
+    console.log(`[materialService] 删除材质响应:`, response.data)
+    // 清除材质缓存
+    clearMaterialCache()
     return true
   } catch (error: any) {
-    console.error('删除材质失败:', error)
+    console.error('[materialService] 删除材质失败:', error)
     throw new Error(error.response?.data?.message || '删除材质失败')
   }
 }
@@ -142,6 +168,16 @@ export const deleteMaterials = async (ids: string[]): Promise<boolean> => {
   } catch (error: any) {
     console.error('批量删除材质失败:', error)
     throw new Error(error.response?.data?.message || '批量删除材质失败')
+  }
+}
+
+export const cleanupOrphanedMaterials = async (): Promise<{ count: number; message: string }> => {
+  try {
+    const response = await apiClient.post('/materials/cleanup-orphaned')
+    return response.data
+  } catch (error: any) {
+    console.error('清理孤立材质失败:', error)
+    throw new Error(error.response?.data?.message || '清理孤立材质失败')
   }
 }
 
@@ -240,9 +276,9 @@ export const updateMaterialCategory = async (id: string, updates: Partial<Materi
   }
 }
 
-export const deleteMaterialCategory = async (id: string): Promise<void> => {
+export const deleteMaterialCategory = async (id: string, force: boolean = false): Promise<void> => {
   try {
-    await apiClient.delete(`/materials/categories/${id}`)
+    await apiClient.delete(`/materials/categories/${id}${force ? '?force=true' : ''}`)
   } catch (error: any) {
     console.error('删除材质分类失败:', error)
     throw new Error(error.response?.data?.message || '删除材质分类失败')

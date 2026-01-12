@@ -27,9 +27,9 @@ echo ""
 # 1. 构建后端镜像
 echo "📦 步骤 1/5: 构建后端Docker镜像..."
 echo "📦 Step 1/5: Building backend Docker image..."
-cd /home/devbox/project/backend
+cd /home/devbox/project/1114/client/backend
 
-docker build -t ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest .
+docker build -t registry.sealoshzh.site/xiaodiyanxuan-backend:latest .
 
 if [ $? -ne 0 ]; then
     echo "❌ 构建失败"
@@ -41,16 +41,12 @@ echo "✅ 镜像构建成功"
 echo "✅ Image built successfully"
 echo ""
 
-# 2. 登录GitHub Container Registry
-echo "🔐 步骤 2/5: 登录GitHub Container Registry..."
-echo "🔐 Step 2/5: Login to GitHub Container Registry..."
-echo ""
-echo "请输入GitHub Personal Access Token:"
-echo "Please enter your GitHub Personal Access Token:"
-echo "(需要 write:packages 权限 / Requires write:packages permission)"
+# 2. 登录 Registry
+echo "🔐 步骤 2/5: 登录 Docker Registry..."
+echo "🔐 Step 2/5: Login to Docker Registry..."
 echo ""
 
-docker login ghcr.io -u 379005109-lab
+docker login registry.sealoshzh.site
 
 if [ $? -ne 0 ]; then
     echo "❌ 登录失败"
@@ -66,7 +62,7 @@ echo ""
 echo "📤 步骤 3/5: 推送镜像到Registry..."
 echo "📤 Step 3/5: Pushing image to registry..."
 
-docker push ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest
+docker push registry.sealoshzh.site/xiaodiyanxuan-backend:latest
 
 if [ $? -ne 0 ]; then
     echo "❌ 推送失败"
@@ -85,7 +81,7 @@ echo "🔧 Step 4/5: Updating Kubernetes deployment..."
 export KUBECONFIG="/home/devbox/project/kubeconfig (7).yaml"
 
 kubectl set image deployment/xiaodiyanxuan-api \
-  api=ghcr.io/379005109-lab/xiaodiyanxuan-backend:latest \
+  api=registry.sealoshzh.site/xiaodiyanxuan-backend:latest \
   -n ns-cxxiwxce
 
 kubectl rollout restart deployment/xiaodiyanxuan-api -n ns-cxxiwxce

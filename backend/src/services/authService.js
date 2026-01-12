@@ -57,6 +57,7 @@ const wxLogin = async (code) => {
       id: user._id,
       _id: user._id,
       openId: user.openId,
+      phone: user.phone,
       nickname: user.nickname,
       avatar: user.avatar,
       gender: user.gender,
@@ -66,8 +67,9 @@ const wxLogin = async (code) => {
       permissions: user.permissions || {},
       accountType: user.accountType,
       status: user.status,
-      role: user.userType,
-      userType: user.userType
+      role: user.role || user.userType || 'customer',
+      userType: user.role || user.userType || 'customer',
+      organizationId: user.organizationId
     }
   }
 }
@@ -146,6 +148,7 @@ const usernamePasswordLogin = async (username, password) => {
       id: user._id,
       _id: user._id,
       username: user.username,
+      phone: user.phone,
       nickname: user.nickname,
       avatar: user.avatar,
       gender: user.gender,
@@ -156,7 +159,8 @@ const usernamePasswordLogin = async (username, password) => {
       accountType: user.accountType,
       status: user.status,
       role: user.role || user.userType || 'customer',
-      userType: user.role || user.userType || 'customer'
+      userType: user.role || user.userType || 'customer',
+      organizationId: user.organizationId
     }
   }
 }
@@ -262,7 +266,10 @@ const loginOrRegisterWithPhone = async (phone) => {
       accountType: user.accountType,
       status: user.status,
       role: user.role || user.userType || 'customer',
-      userType: user.role || user.userType || 'customer'
+      userType: user.role || user.userType || 'customer',
+      permissions: user.permissions,
+      status: user.status,
+      organizationId: user.organizationId
     }
   }
 }

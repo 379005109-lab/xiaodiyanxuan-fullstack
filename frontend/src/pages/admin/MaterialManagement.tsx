@@ -16,6 +16,10 @@ import {
   updateMaterial,
   getMaterialStats,
   updateMaterialCategory,
+  deleteMaterialCategory,
+  cleanupOrphanedMaterials,
+  clearMaterialCache,
+  fetchMaterialsFromServer,
 } from '@/services/materialService'
 import { getFileUrl } from '@/services/uploadService'
 import MaterialFormModal from '@/components/admin/MaterialFormModal'
@@ -28,6 +32,7 @@ export default function MaterialManagement() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [categories, setCategories] = useState<MaterialCategory[]>([])
   const [expandedIds, setExpandedIds] = useState<string[]>([])
+  const [refreshKey, setRefreshKey] = useState(0) // 强制刷新用
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('')
   const [expandedMaterialGroups, setExpandedMaterialGroups] = useState<Record<string, boolean>>({})
   const [expandedSKUGroup, setExpandedSKUGroup] = useState<string | null>(null)
@@ -77,6 +82,7 @@ export default function MaterialManagement() {
   }, [])
 
   const loadMaterials = async () => {
+    clearMaterialCache() // 清除缓存确保获取最新数据
     const allMaterials = await getAllMaterials()
     setMaterials(allMaterials)
   }
@@ -112,12 +118,55 @@ export default function MaterialManagement() {
     if (confirm(`确定要删除素材"${name}"吗？`)) {
       try {
         await deleteMaterial(id)
-        toast.success('素材已删除')
-        loadMaterials()
-        loadStats()
-      } catch (error) {
-        toast.error('删除失败')
+        toast.success('素材已删除，正在刷新...')
+        // 直接刷新页面确保显示最新数据
+        setTimeout(() => window.location.reload(), 500)
+      } catch (error: any) {
+        toast.error(error.message || '删除失败')
       }
+    }
+  }
+
+  // 删除整个材质组（包含所有SKU）
+  const handleDeleteGroup = async (groupKey: string, materialIds: string[]) => {
+    if (confirm(`确定要删除"${groupKey}"及其所有 ${materialIds.length} 个SKU吗？`)) {
+      try {
+        // 批量删除所有材质
+        await deleteMaterials(materialIds)
+        toast.success(`已删除 ${materialIds.length} 个素材，正在刷新...`)
+        // 直接刷新页面确保显示最新数据
+        setTimeout(() => window.location.reload(), 500)
+      } catch (error: any) {
+        toast.error(error.message || '删除失败')
+      }
+    }
+  }
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    // 检查分类下是否有材质
+    const categoryMaterialCount = materials.filter(m => m.categoryId === id).length
+    
+    let forceDelete = false
+    if (categoryMaterialCount > 0) {
+      const choice = confirm(`该分类下还有 ${categoryMaterialCount} 个材质。\n\n点击"确定"将同时删除分类和所有材质\n点击"取消"放弃操作`)
+      if (!choice) {
+        return
+      }
+      forceDelete = true
+    } else {
+      if (!confirm(`确定要删除分类"${name}"吗？`)) {
+        return
+      }
+    }
+    
+    try {
+      await deleteMaterialCategory(id, forceDelete)
+      toast.success(forceDelete ? `分类及 ${categoryMaterialCount} 个材质已删除` : '分类已删除')
+      loadCategories()
+      loadMaterials()
+      loadStats()
+    } catch (error: any) {
+      toast.error(error.message || '删除分类失败')
     }
   }
 
@@ -466,6 +515,27 @@ export default function MaterialManagement() {
           >
             <Plus className="h-4 w-4" />
           </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setEditingCategory(category)
+              setShowCategoryModal(true)
+            }}
+            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+            title="编辑分类"
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleDeleteCategory(category._id, category.name)
+            }}
+            className="p-1 text-red-600 hover:bg-red-50 rounded"
+            title="删除分类"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
 
         {hasChildren && isExpanded && category.children && (
@@ -653,12 +723,23 @@ export default function MaterialManagement() {
                   批量删除 ({selectedIds.length})
                 </button>
               )}
-              <button className="btn-secondary flex items-center text-sm px-4 py-2">
+              <button 
+                onClick={async () => {
+                  if (confirm('确定要清理所有孤立材质（已删除分类下的材质）吗？')) {
+                    try {
+                      const result = await cleanupOrphanedMaterials()
+                      toast.success(result.message || '清理完成')
+                      loadMaterials()
+                      loadStats()
+                    } catch (error: any) {
+                      toast.error(error.message || '清理失败')
+                    }
+                  }
+                }}
+                className="btn-secondary flex items-center text-sm px-4 py-2"
+              >
                 <RotateCcw className="h-4 w-4 mr-2" />
-                清除
-              </button>
-              <button className="btn-secondary flex items-center text-sm px-4 py-2">
-                查重
+                清理孤立材质
               </button>
               <button
                 onClick={() => {
@@ -675,7 +756,7 @@ export default function MaterialManagement() {
 
           {/* 材质列表 - 网格布局 */}
           {filteredMaterials.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div key={`materials-grid-${refreshKey}`} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {(() => {
                 // 按材质类型分组
                 const materialGroups: Record<string, typeof filteredMaterials> = {};
@@ -701,8 +782,86 @@ export default function MaterialManagement() {
                   const representativeMaterial = groupMaterials[0];
                   const isSkuExpanded = expandedSKUGroup === groupKey
                   
+                  // 获取当前分组在 groupOrder 中的索引
+                  const groupIndex = groupOrder.indexOf(groupKey)
+                  
                   return (
-                    <div key={groupKey} className="card overflow-hidden hover:shadow-lg transition-shadow group">
+                    <div 
+                      key={groupKey} 
+                      className={`card overflow-hidden hover:shadow-lg transition-all group ${
+                        draggedMaterial?._id === representativeMaterial._id ? 'opacity-50 scale-95 border-2 border-dashed border-primary-400' : ''
+                      } ${
+                        dragOverMaterialIndex === groupIndex ? 'ring-4 ring-primary-500 ring-offset-2 scale-105 bg-primary-50' : ''
+                      }`}
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggedMaterial(representativeMaterial)
+                        e.dataTransfer.effectAllowed = 'move'
+                        e.dataTransfer.setData('application/json', JSON.stringify({
+                          type: 'materialGroup',
+                          groupKey,
+                          groupIndex,
+                          materialIds: groupMaterials.map(m => m._id)
+                        }))
+                        // 添加拖拽图像
+                        const dragImage = e.currentTarget.cloneNode(true) as HTMLElement
+                        dragImage.style.opacity = '0.8'
+                        document.body.appendChild(dragImage)
+                        e.dataTransfer.setDragImage(dragImage, 50, 50)
+                        setTimeout(() => document.body.removeChild(dragImage), 0)
+                      }}
+                      onDragEnd={() => {
+                        setDraggedMaterial(null)
+                        setDragOverMaterialIndex(null)
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'move'
+                        if (draggedMaterial && draggedMaterial._id !== representativeMaterial._id) {
+                          setDragOverMaterialIndex(groupIndex)
+                        }
+                      }}
+                      onDragLeave={() => {
+                        setDragOverMaterialIndex(null)
+                      }}
+                      onDrop={async (e) => {
+                        e.preventDefault()
+                        setDragOverMaterialIndex(null)
+                        
+                        try {
+                          const dragData = JSON.parse(e.dataTransfer.getData('application/json'))
+                          if (dragData.type === 'materialGroup' && dragData.groupKey !== groupKey) {
+                            // 重新计算所有分组的顺序
+                            const newGroupOrder = [...groupOrder]
+                            const fromIndex = newGroupOrder.indexOf(dragData.groupKey)
+                            const toIndex = newGroupOrder.indexOf(groupKey)
+                            
+                            if (fromIndex !== -1 && toIndex !== -1) {
+                              // 移动分组
+                              newGroupOrder.splice(fromIndex, 1)
+                              newGroupOrder.splice(toIndex, 0, dragData.groupKey)
+                              
+                              // 更新所有材质的 order
+                              let orderCounter = 1
+                              for (const gk of newGroupOrder) {
+                                const gMaterials = materialGroups[gk]
+                                for (const mat of gMaterials) {
+                                  await updateMaterial(mat._id, { order: orderCounter++ })
+                                }
+                              }
+                              
+                              toast.success('排序已保存')
+                              loadMaterials()
+                            }
+                          }
+                        } catch (error) {
+                          console.error('拖拽错误:', error)
+                          toast.error('排序失败')
+                        }
+                        
+                        setDraggedMaterial(null)
+                      }}
+                    >
                       {/* 正方形图片区域 */}
                       <button
                         onClick={() => setExpandedSKUGroup(isSkuExpanded ? null : groupKey)}
@@ -753,7 +912,7 @@ export default function MaterialManagement() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleDelete(representativeMaterial._id, groupKey)
+                              handleDeleteGroup(groupKey, groupMaterials.map(m => m._id))
                             }}
                             className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="删除"

@@ -5,6 +5,7 @@ const Coupon = require('../models/Coupon')
 const Product = require('../models/Product')
 const Manufacturer = require('../models/Manufacturer')
 const ManufacturerOrder = require('../models/ManufacturerOrder')
+const { sendNewOrderNotification } = require('./smsService')
 const { generateOrderNo, calculatePagination } = require('../utils/helpers')
 const { ORDER_STATUS } = require('../config/constants')
 const { NotFoundError, ValidationError } = require('../utils/errors')
@@ -197,6 +198,30 @@ const dispatchOrderToManufacturers = async (order) => {
       }]
     })
     createdOrders.push(manufacturerOrder)
+
+    try {
+      if (group.manufacturerId) {
+        const manufacturer = await Manufacturer.findById(group.manufacturerId)
+          .select('settings.smsNotifyPhone')
+          .lean()
+        const phone = manufacturer?.settings?.smsNotifyPhone
+        if (phone) {
+          const itemCount = (group.items || []).reduce((s, it) => s + Number(it.quantity || 0), 0)
+          const notifyPayload = {
+            orderNo: order.orderNo,
+            count: String(itemCount || 0),
+            amount: String(Number(group.totalAmount || 0)),
+            time: new Date().toLocaleString('zh-CN')
+          }
+          const result = await sendNewOrderNotification(phone, notifyPayload)
+          if (!result?.success) {
+            console.error('📱 [SMS] 新订单通知发送失败:', { phone, orderNo: order.orderNo, message: result?.message })
+          }
+        }
+      }
+    } catch (err) {
+      console.error('📱 [SMS] 新订单通知异常:', err)
+    }
   }
 
   await Order.updateOne(
@@ -293,8 +318,8 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
   return order
 }
 
-const getOrders = async (userId, page = 1, pageSize = 10, status = null) => {
-  console.log('📋 [OrderService] getOrders called:', { userId, page, pageSize, status });
+const getOrders = async (userId, page = 1, pageSize = 10, status = null, manufacturerIds = null) => {
+  console.log('📋 [OrderService] getOrders called:', { userId, page, pageSize, status, manufacturerIds });
   const { skip, pageSize: size } = calculatePagination(page, pageSize)
   
   const query = { isDeleted: { $ne: true } }  // 排除已删除的订单
@@ -305,6 +330,13 @@ const getOrders = async (userId, page = 1, pageSize = 10, status = null) => {
   console.log('📋 [OrderService] query:', query);
   if (status) {
     query.status = status
+  }
+  
+  // 如果指定了厂家ID，只返回包含该厂家商品的订单
+  if (manufacturerIds && manufacturerIds.length > 0) {
+    const manufacturerIdStrings = manufacturerIds.map(id => id?.toString ? id.toString() : String(id))
+    query['items.manufacturerId'] = { $in: manufacturerIdStrings }
+    console.log('📋 [OrderService] filtering by manufacturerIds:', manufacturerIdStrings)
   }
   
   const total = await Order.countDocuments(query)
@@ -348,6 +380,30 @@ const cancelOrder = async (orderId, userId) => {
   await order.save()
   
   console.log('📝 用户提交取消请求，订单ID:', orderId)
+  
+  // 发送取消订单通知给管理员和厂家
+  try {
+    // 获取订单相关的厂家信息
+    const manufacturerIds = [...new Set((order.items || []).map(i => i.manufacturerId).filter(Boolean))]
+    
+    for (const mfId of manufacturerIds) {
+      const manufacturer = await Manufacturer.findById(mfId).select('smsPhone settings').lean()
+      const smsPhone = manufacturer?.smsPhone || manufacturer?.settings?.phone
+      
+      if (smsPhone) {
+        // 发送短信通知
+        sendNewOrderNotification(smsPhone, {
+          orderNo: order.orderNo,
+          type: 'cancel_request',
+          message: `订单${order.orderNo}客户申请取消，请及时处理`
+        }).catch(err => console.error('发送取消通知失败:', err))
+      }
+    }
+    
+    console.log('📧 已发送订单取消通知')
+  } catch (notifyErr) {
+    console.error('发送订单取消通知失败:', notifyErr)
+  }
   
   return order
 }

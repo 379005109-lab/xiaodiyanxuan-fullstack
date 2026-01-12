@@ -32,7 +32,7 @@ const authorizationSchema = new mongoose.Schema({
   // 授权商品范围
   scope: {
     type: String,
-    enum: ['all', 'category', 'specific'],  // 全部商品、按分类、指定商品
+    enum: ['all', 'category', 'specific', 'mixed'],  // 全部商品、按分类、指定商品
     default: 'all'
   },
   
@@ -44,6 +44,22 @@ const authorizationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product'
   }],
+  
+  // 最低折扣率（百分比，如 85 表示 85%）
+  minDiscountRate: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+  
+  // 返佣比例（百分比，如 10 表示 10%）
+  commissionRate: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
   
   // 授权价格设置（基于原价的折扣率）
   priceSettings: {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import { getThumbnailUrl } from '@/services/uploadService'
+import { useAuthStore } from '@/store/authStore'
 
 interface Manufacturer {
   _id: string
@@ -58,6 +59,7 @@ const asyncPool = async <T, R>(poolLimit: number, array: T[], iteratorFn: (item:
 
 export default function EliteManufacturerManagement() {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
 
   const pickImageId = (v: any): string => {
     if (!v) return ''
@@ -71,6 +73,29 @@ export default function EliteManufacturerManagement() {
   const [items, setItems] = useState<Manufacturer[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [metaById, setMetaById] = useState<Record<string, ManufacturerMeta>>({})
+
+  const userKey = String((user as any)?._id || (user as any)?.id || 'anonymous')
+  const enabledStorageKey = `manufacturer_library_enabled_${userKey}`
+  const [enabledById, setEnabledById] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(enabledStorageKey)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') {
+        setEnabledById(parsed)
+      }
+    } catch {
+    }
+  }, [enabledStorageKey])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(enabledStorageKey, JSON.stringify(enabledById))
+    } catch {
+    }
+  }, [enabledById, enabledStorageKey])
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -168,6 +193,10 @@ export default function EliteManufacturerManagement() {
   }, [filtered, metaById])
 
   const handleOpen = (m: Manufacturer) => {
+    const id = String(m._id)
+    const enabled = enabledById[id] !== false
+    const active = (m.status || 'active') === 'active'
+    if (!enabled || !active) return
     navigate(`/admin/manufacturers/${m._id}/product-authorization`)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -187,10 +216,8 @@ export default function EliteManufacturerManagement() {
       <div className="max-w-[1440px] mx-auto px-6 py-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
           <div>
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tighter mb-3">合作品牌库</h2>
-            <p className="text-gray-500 font-medium max-w-xl text-base md:text-lg leading-relaxed">
-              汇聚优质家具制造工厂，快速进入品牌库进行选品与授权。
-            </p>
+            <h2 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tighter mb-3">品牌合伙库</h2>
+            <p className="text-gray-400 font-bold uppercase tracking-widest mt-2 px-1">全域品牌准入控制与资产分销中心</p>
           </div>
 
           <div className="w-full md:w-[420px]">
@@ -234,6 +261,11 @@ export default function EliteManufacturerManagement() {
               const intro = m.shortName ? `核心系列：${m.shortName}` : '核心系列：暂无'
               const isOfficial = (m.name || '').includes('小迪严选') || (m.code || '').toUpperCase() === 'XDYX'
 
+              const id = String(m._id)
+              const enabled = enabledById[id] !== false
+              const active = (m.status || 'active') === 'active'
+              const canEnter = enabled && active
+
               const meta = metaById[String(m._id)]
               const discountRule = meta?.tierRule?.discountRule
               const discountText = discountRule
@@ -248,7 +280,7 @@ export default function EliteManufacturerManagement() {
               return (
                 <div
                   key={m._id}
-                  className="bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden flex flex-col h-full cursor-pointer group"
+                  className={`bg-white rounded-[2rem] border ${canEnter ? 'border-gray-100' : 'border-gray-200 bg-gray-50/50'} shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden flex flex-col h-full cursor-pointer group relative ${canEnter ? '' : 'opacity-60 grayscale'}`}
                   onClick={() => handleOpen(m)}
                   role="button"
                   tabIndex={0}
@@ -256,6 +288,22 @@ export default function EliteManufacturerManagement() {
                     if (e.key === 'Enter') handleOpen(m)
                   }}
                 >
+                  <div className="absolute top-4 left-4 z-30 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-2xl border border-gray-100 shadow-sm">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={enabled}
+                        onChange={(e) => {
+                          e.stopPropagation()
+                          setEnabledById(prev => ({ ...prev, [id]: !enabled }))
+                        }}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${enabled ? 'text-emerald-700' : 'text-gray-400'}`}>{enabled ? '已开启显示' : '已隐藏商品'}</span>
+                  </div>
+
                   <div className="relative h-40 bg-[#f9fbfc] flex items-center justify-center p-8 overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     {m.logo ? (
@@ -348,7 +396,7 @@ export default function EliteManufacturerManagement() {
                         </div>
                       </div>
                       <div className="flex items-center text-[#153e35] font-black text-xs group-hover:translate-x-1 transition-transform">
-                        进入品牌库
+                        {canEnter ? '进入品牌选库' : (active ? '开启后可进入' : '品牌已停用')}
                         <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                         </svg>

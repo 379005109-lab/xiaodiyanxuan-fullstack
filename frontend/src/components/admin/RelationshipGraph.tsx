@@ -15,6 +15,7 @@ const mockData = {
     { source: 'B', target: 'D' },
     { source: 'B', target: 'E' },
     { source: 'C', target: 'F' },
+    { source: 'A', target: 'E' },
   ],
 };
 

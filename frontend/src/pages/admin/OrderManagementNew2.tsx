@@ -14,24 +14,25 @@ import html2canvas from 'html2canvas'
 
 type TabType = 'all' | 'pending' | 'shipping' | 'afterSale' | 'cancelled'
 
-// 订单状态配置 - 支持数字和字符串状态
+// 订单状态配置 - 匹配后端常量
 const statusConfig: Record<number | string, { label: string; color: string; bgColor: string }> = {
   1: { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
   'pending': { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
-  2: { label: '已付款', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  'paid': { label: '已付款', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  3: { label: '待发货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  'processing': { label: '处理中', color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  4: { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-100' },
-  'shipped': { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-100' },
-  5: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
-  'completed': { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
+  2: { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  'paid': { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  3: { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  'processing': { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  'shipped': { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  4: { label: '已完成', color: 'text-green-600', bgColor: 'bg-green-100' },
+  'completed': { label: '已完成', color: 'text-green-600', bgColor: 'bg-green-100' },
+  5: { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
+  'cancelled': { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
   6: { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
   'refunding': { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
   7: { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-100' },
   'refunded': { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-100' },
-  8: { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
-  'cancelled': { label: '已取消', color: 'text-gray-500', bgColor: 'bg-gray-100' },
+  8: { label: '换货中', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+  'exchanging': { label: '换货中', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
 }
 
 // 隐藏手机号中间4位
@@ -72,8 +73,10 @@ export default function OrderManagementNew2() {
   const [orderLogs, setOrderLogs] = useState<any[]>([]) // 订单动态记录
   const [isAdmin, setIsAdmin] = useState(true) // 是否超级管理员（后续从用户信息获取）
   const [showPriceModal, setShowPriceModal] = useState(false) // 改价弹窗
+  const [priceEditMode, setPriceEditMode] = useState<'flat' | 'itemized'>('flat') // 改价模式：一口价或逐项改价
   const [newPrice, setNewPrice] = useState('') // 新价格
   const [priceReason, setPriceReason] = useState('') // 改价原因
+  const [itemPrices, setItemPrices] = useState<{[key: number]: string}>({}) // 单个商品价格
   
   // 统计数据
   const [stats, setStats] = useState({
@@ -99,7 +102,7 @@ export default function OrderManagementNew2() {
         return
       }
       
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?pageSize=100', {
+      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?pageSize=10000', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -117,13 +120,13 @@ export default function OrderManagementNew2() {
       
       setOrders(allOrders)
       
-      // 计算统计 - 兼容数字和字符串状态
+      // 计算统计 - 匹配后端状态常量
       setStats({
         all: allOrders.length,
         pending: allOrders.filter(o => o.status === 1 || o.status === 'pending').length,
-        shipping: allOrders.filter(o => o.status === 2 || o.status === 3 || o.status === 'paid' || o.status === 'processing').length,
-        afterSale: allOrders.filter(o => o.status === 6 || o.status === 7 || o.status === 'refunding' || o.status === 'refunded' || (o as any).refundStatus).length,
-        cancelled: allOrders.filter(o => o.status === 8 || o.status === 'cancelled').length,
+        shipping: allOrders.filter(o => o.status === 2 || o.status === 3 || o.status === 'paid' || o.status === 'processing' || o.status === 'shipped').length,
+        afterSale: allOrders.filter(o => o.status === 6 || o.status === 7 || o.status === 8 || o.status === 'refunding' || o.status === 'refunded' || o.status === 'exchanging' || (o as any).refundStatus).length,
+        cancelled: allOrders.filter(o => o.status === 5 || o.status === 'cancelled').length,
       })
     } catch (error) {
       console.error('加载订单失败:', error)
@@ -133,7 +136,7 @@ export default function OrderManagementNew2() {
     }
   }
 
-  // 过滤订单 - 兼容数字和字符串状态
+  // 过滤订单 - 匹配后端状态常量
   const filteredOrders = orders.filter(order => {
     // 搜索过滤 - 支持订单号和买家名字搜索
     const recipient = order.recipient || order.shippingAddress
@@ -146,16 +149,16 @@ export default function OrderManagementNew2() {
       }
     }
     
-    // Tab过滤
+    // Tab过滤 - 匹配后端状态: 1待付款 2待发货 3待收货 4已完成 5已取消 6退款中 7已退款 8换货中
     switch (activeTab) {
       case 'pending':
         return order.status === 1 || order.status === 'pending'
       case 'shipping':
-        return order.status === 2 || order.status === 3 || order.status === 'paid' || order.status === 'processing'
+        return order.status === 2 || order.status === 3 || order.status === 'paid' || order.status === 'processing' || order.status === 'shipped'
       case 'afterSale':
-        return order.status === 6 || order.status === 7 || order.status === 'refunding' || order.status === 'refunded' || (order as any).refundStatus
+        return order.status === 6 || order.status === 7 || order.status === 8 || order.status === 'refunding' || order.status === 'refunded' || order.status === 'exchanging' || (order as any).refundStatus
       case 'cancelled':
-        return order.status === 8 || order.status === 'cancelled'
+        return order.status === 5 || order.status === 'cancelled'
       default:
         return true
     }
@@ -244,21 +247,58 @@ export default function OrderManagementNew2() {
       setSelectedOrderId(orderId)
       setNewPrice(order.totalAmount?.toString() || '0')
       setPriceReason('')
+      setPriceEditMode('flat')
+      
+      // 初始化商品价格
+      const products = getProducts(order)
+      const prices: {[key: number]: string} = {}
+      products.forEach((_, index) => {
+        prices[index] = '0'
+      })
+      setItemPrices(prices)
+      
       setShowPriceModal(true)
     }
   }
 
   // 处理改价
   const handleChangePrice = async () => {
-    if (!selectedOrderId || !newPrice) {
-      toast.error('请输入新价格')
+    if (!selectedOrderId) {
+      toast.error('未选择订单')
       return
     }
     
-    const price = parseFloat(newPrice)
-    if (isNaN(price) || price < 0) {
-      toast.error('请输入有效的价格')
-      return
+    let finalPrice: number
+    let priceData: any = {
+      reason: priceReason || '管理员改价'
+    }
+    
+    if (priceEditMode === 'flat') {
+      // 一口价模式
+      if (!newPrice) {
+        toast.error('请输入新价格')
+        return
+      }
+      finalPrice = parseFloat(newPrice)
+      if (isNaN(finalPrice) || finalPrice < 0) {
+        toast.error('请输入有效的价格')
+        return
+      }
+      priceData.totalAmount = finalPrice
+      priceData.priceMode = 'flat'
+    } else {
+      // 逐项改价模式
+      const itemPricesArray = Object.values(itemPrices)
+      if (itemPricesArray.some(p => !p || parseFloat(p) < 0)) {
+        toast.error('请为所有商品输入有效价格')
+        return
+      }
+      
+      // 计算总价
+      finalPrice = itemPricesArray.reduce((sum, p) => sum + parseFloat(p), 0)
+      priceData.totalAmount = finalPrice
+      priceData.itemPrices = itemPrices
+      priceData.priceMode = 'itemized'
     }
     
     try {
@@ -269,10 +309,7 @@ export default function OrderManagementNew2() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
-          totalAmount: price,
-          reason: priceReason || '管理员改价'
-        })
+        body: JSON.stringify(priceData)
       })
       
       if (response.ok) {
@@ -845,14 +882,88 @@ export default function OrderManagementNew2() {
                     完成订单
                   </button>
                 )}
+                {/* 取消申请处理按钮 */}
+                {selectedOrder.cancelRequest && (
+                  <>
+                    <button 
+                      onClick={async () => {
+                        if (!window.confirm('确定要批准取消此订单吗？')) return
+                        try {
+                          const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/cancel-approve`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                              'Content-Type': 'application/json'
+                            }
+                          })
+                          if (response.ok) {
+                            toast.success('已批准取消')
+                            loadOrders()
+                            setSelectedOrderId(null)
+                          } else {
+                            toast.error('操作失败')
+                          }
+                        } catch (error) {
+                          toast.error('操作失败')
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center gap-1"
+                    >
+                      <Check className="w-4 h-4" />
+                      批准取消
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        if (!window.confirm('确定要拒绝取消请求吗？')) return
+                        try {
+                          const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/cancel-reject`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                              'Content-Type': 'application/json'
+                            }
+                          })
+                          if (response.ok) {
+                            toast.success('已拒绝取消')
+                            loadOrders()
+                          } else {
+                            toast.error('操作失败')
+                          }
+                        } catch (error) {
+                          toast.error('操作失败')
+                        }
+                      }}
+                      className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-1"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      拒绝取消
+                    </button>
+                  </>
+                )}
                 {/* 取消按钮（非已取消/已完成状态可用） */}
-                {selectedOrder.status !== 6 && selectedOrder.status !== 'cancelled' && selectedOrder.status !== 5 && selectedOrder.status !== 'completed' && (
+                {!selectedOrder.cancelRequest && selectedOrder.status !== 6 && selectedOrder.status !== 'cancelled' && selectedOrder.status !== 5 && selectedOrder.status !== 'completed' && (
                   <button 
                     onClick={() => setShowCancelModal(true)}
                     className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-1"
                   >
                     <Ban className="w-4 h-4" />
                     取消
+                  </button>
+                )}
+                {/* 改价按钮 - 仅待付款状态可改价 */}
+                {(selectedOrder.status === 1 || selectedOrder.status === 'pending') && (
+                  <button 
+                    onClick={() => {
+                      if (showPriceModal) {
+                        setShowPriceModal(false)
+                        return
+                      }
+                      openPriceModal(selectedOrder._id)
+                    }}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-1"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    改价
                   </button>
                 )}
                 {/* 导出订单清单图片按钮 */}
@@ -899,6 +1010,134 @@ export default function OrderManagementNew2() {
                       {s.label}
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {showPriceModal && (selectedOrder.status === 1 || selectedOrder.status === 'pending') && (
+              <div className="mt-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
+                <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                  <div className="text-sm font-semibold text-gray-900">改价</div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPriceEditMode('flat')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        priceEditMode === 'flat'
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      整单一口价
+                    </button>
+                    <button
+                      onClick={() => setPriceEditMode('itemized')}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        priceEditMode === 'itemized'
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      商品逐项
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <div className="text-xs text-gray-500">原价格</div>
+                  <div className="text-base font-semibold text-gray-400 line-through">
+                    ¥{formatPrice(selectedOrder.totalAmount)}
+                  </div>
+                </div>
+
+                {priceEditMode === 'flat' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">新总价</div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={newPrice}
+                        onChange={(e) => setNewPrice(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                        placeholder="请输入新总价"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">改价原因（可选）</div>
+                      <input
+                        type="text"
+                        value={priceReason}
+                        onChange={(e) => setPriceReason(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                        placeholder="如：优惠活动"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-xs text-gray-600">逐项输入每个商品的新价格（按行）</div>
+                    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      {products.map((p: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`flex items-center gap-3 px-3 py-2 ${idx > 0 ? 'border-t border-gray-100' : ''}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">{p.name}</div>
+                            <div className="text-xs text-gray-500">x{p.quantity}</div>
+                          </div>
+                          <div className="w-40">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={itemPrices[idx] || ''}
+                              onChange={(e) =>
+                                setItemPrices((prev) => ({
+                                  ...prev,
+                                  [idx]: e.target.value,
+                                }))
+                              }
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                              placeholder="该商品新价格"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      <div className="bg-gray-50 px-3 py-2 flex items-center justify-between border-t border-gray-200">
+                        <div className="text-sm font-medium text-gray-700">新总价（自动汇总）</div>
+                        <div className="text-base font-bold text-orange-700">
+                          ¥{formatPrice(
+                            Object.values(itemPrices).reduce((sum, v) => sum + parseFloat(v || '0'), 0)
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">改价原因（可选）</div>
+                      <input
+                        type="text"
+                        value={priceReason}
+                        onChange={(e) => setPriceReason(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                        placeholder="如：优惠活动"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={() => setShowPriceModal(false)}
+                    className="px-4 py-2 border border-gray-200 rounded-lg hover:bg-white text-sm"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleChangePrice}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm"
+                  >
+                    保存
+                  </button>
                 </div>
               </div>
             )}
@@ -1368,6 +1607,20 @@ export default function OrderManagementNew2() {
                   <p className="text-gray-600">订单创建</p>
                 </div>
               </div>
+              {((selectedOrder as any).priceModifyHistory || []).map((h: any, idx: number) => (
+                <div key={`${h.modifiedAt || ''}-${idx}`} className="text-sm text-gray-500 flex items-start gap-2 pb-3 border-b border-gray-100">
+                  <Edit2 className="w-4 h-4 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="text-gray-400 text-xs">{new Date(h.modifiedAt || Date.now()).toLocaleString('zh-CN')}</span>
+                    <p className="text-gray-600">
+                      改价{h.priceMode === 'itemized' ? '（逐项）' : h.priceMode === 'flat' ? '（整单）' : ''}：
+                      ¥{formatPrice(h.originalAmount)} → ¥{formatPrice(h.newAmount)}
+                      {h.reason ? `（${h.reason}）` : ''}
+                    </p>
+                    <span className="text-xs text-gray-400">操作人: 管理员</span>
+                  </div>
+                </div>
+              ))}
               {selectedOrder.paidAt && (
                 <div className="text-sm text-gray-500 flex items-start gap-2 pb-3 border-b border-gray-100">
                   <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
@@ -1564,7 +1817,7 @@ export default function OrderManagementNew2() {
                 const buyerInitial = buyerName.charAt(0)
                 
                 return (
-                  <tr key={order._id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedOrderId(order._id)}>
+                  <tr key={order._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div>
                         <div className="flex items-center gap-2">
@@ -1621,9 +1874,16 @@ export default function OrderManagementNew2() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-sm ${status.bgColor} ${status.color}`}>
-                        {status.label}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-3 py-1 rounded-full text-sm ${status.bgColor} ${status.color}`}>
+                          {status.label}
+                        </span>
+                        {order.cancelRequest && (
+                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-300 animate-pulse">
+                            ⚠️ 取消申请
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center gap-2 justify-end">
@@ -1656,69 +1916,6 @@ export default function OrderManagementNew2() {
           </tbody>
         </table>
       </div>
-
-      {/* 改价弹窗 */}
-      {showPriceModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6">
-            <h3 className="text-lg font-semibold mb-4">订单改价</h3>
-            <p className="text-sm text-gray-500 mb-4">订单号: {selectedOrder.orderNo}</p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  原价格
-                </label>
-                <div className="text-lg font-bold text-gray-400 line-through">
-                  ¥{formatPrice(selectedOrder.totalAmount)}
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  新价格 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={newPrice}
-                  onChange={(e) => setNewPrice(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  placeholder="请输入新价格"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  改价原因（可选）
-                </label>
-                <input
-                  type="text"
-                  value={priceReason}
-                  onChange={(e) => setPriceReason(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  placeholder="如：优惠活动、会员折扣等"
-                />
-              </div>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowPriceModal(false)}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleChangePrice}
-                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
-              >
-                确认改价
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

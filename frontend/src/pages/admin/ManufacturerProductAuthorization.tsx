@@ -37,7 +37,13 @@ export default function ManufacturerProductAuthorization() {
   const { user } = useAuthStore()
 
   const isDesigner = user?.role === 'designer'
-  const isManufacturerUser = !!(user as any)?.manufacturerId
+  const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin'
+  const isManufacturerUser = !!(
+    (user as any)?.manufacturerId ||
+    Array.isArray((user as any)?.manufacturerIds) && (user as any)?.manufacturerIds?.length > 0 ||
+    user?.role === 'enterprise_admin' ||
+    user?.role === 'enterprise_staff'
+  )
 
   const manufacturerId = String(params.manufacturerId || '')
 
@@ -73,9 +79,9 @@ export default function ManufacturerProductAuthorization() {
         const [mRes, cRes, pRes, tRes, aRes] = await Promise.all([
           apiClient.get(`/manufacturers/${manufacturerId}`),
           apiClient.get(`/manufacturers/${manufacturerId}/product-categories`),
-          apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 5000 } }),
+          apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 10000 } }),
           apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } })),
-          apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'approved' } }).catch(() => ({ data: { data: [] } }))
+          apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'active' } }).catch(() => ({ data: { data: [] } }))
         ])
 
         setManufacturer(mRes.data?.data || null)
@@ -160,6 +166,32 @@ export default function ManufacturerProductAuthorization() {
       return false
     })
   }
+
+  // Pre-select authorized products when data loads
+  useEffect(() => {
+    if (products.length > 0 && existingAuthorizations.length > 0) {
+      const authorizedProductIds: string[] = []
+      const authorizedCategoryIds: string[] = []
+
+      existingAuthorizations.forEach(auth => {
+        if (auth.scope === 'specific' && auth.products) {
+          authorizedProductIds.push(...auth.products.map((id: string) => String(id)))
+        } else if (auth.scope === 'category' && auth.categories) {
+          authorizedCategoryIds.push(...auth.categories.map((id: string) => String(id)))
+        }
+      })
+
+      setSelectedProductIds(prev => {
+        const combined = [...new Set([...prev, ...authorizedProductIds])]
+        return combined
+      })
+
+      setSelectedCategoryIds(prev => {
+        const combined = [...new Set([...prev, ...authorizedCategoryIds])]
+        return combined
+      })
+    }
+  }, [products, existingAuthorizations])
 
   // 构建分类树
   const categoryTree = useMemo(() => {
@@ -326,8 +358,8 @@ export default function ManufacturerProductAuthorization() {
   }, [selectedCategoryIds.length, selectedProductIds.length])
 
   const handleSubmit = async () => {
-    if (!isDesigner && !isManufacturerUser) {
-      toast.error('当前账号暂不支持发起授权申请，请使用设计师或厂家账号')
+    if (!isDesigner && !isManufacturerUser && !isPlatformAdmin) {
+      toast.error('当前账号暂不支持发起授权申请，请使用设计师、厂家或平台管理员账号')
       return
     }
     if (!canSubmit) {
@@ -342,8 +374,11 @@ export default function ManufacturerProductAuthorization() {
         : selectedCategoryIds.length > 0 
           ? 'category' 
           : 'specific'
-          
-      await apiClient.post('/authorizations/designer-requests', {
+
+      const endpoint = (isDesigner || isPlatformAdmin)
+        ? '/authorizations/designer-requests'
+        : '/authorizations/manufacturer-requests'
+      await apiClient.post(endpoint, {
         manufacturerId,
         scope,
         categories: selectedCategoryIds,
@@ -374,7 +409,7 @@ export default function ManufacturerProductAuthorization() {
         </div>
         <div className="flex items-center gap-3">
           <button className="btn btn-secondary" onClick={() => navigate('/admin/manufacturers')}>返回</button>
-          <button className="btn btn-primary" disabled={submitting || !canSubmit || (!isDesigner && !isManufacturerUser)} onClick={handleSubmit}>
+          <button className="btn btn-primary" disabled={submitting || !canSubmit} onClick={handleSubmit}>
             {submitting ? '提交中...' : '提交申请'}
           </button>
         </div>
