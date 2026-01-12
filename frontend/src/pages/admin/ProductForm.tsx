@@ -2111,31 +2111,45 @@ export default function ProductForm() {
                         />
                       </div>
                     </td>
-                    {/* 面料选择（从材质配置下拉选择） */}
+                    {/* 面料（材质库） - 图块选择 */}
                     <td className="py-3 px-4">
                       {formData.materialConfigs.length > 0 ? (
-                        <select
-                          value={sku.fabricMaterialId || ''}
-                          onChange={(e) => {
-                            const newSkus = [...formData.skus]
-                            const selectedConfig = formData.materialConfigs.find(c => c.id === e.target.value)
-                            newSkus[index].fabricMaterialId = e.target.value
-                            newSkus[index].fabricName = selectedConfig?.fabricName || ''
-                            // 同步材质图片到SKU图片
-                            if (selectedConfig?.images?.length) {
-                              newSkus[index].images = [...selectedConfig.images]
-                            }
-                            setFormData({ ...formData, skus: newSkus })
-                          }}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                        >
-                          <option value="">选择面料</option>
+                        <div className="flex flex-wrap gap-1">
                           {formData.materialConfigs.map((config) => (
-                            <option key={config.id} value={config.id}>
-                              {config.fabricName} {config.price > 0 ? `(+¥${config.price})` : ''}
-                            </option>
+                            <button
+                              key={config.id}
+                              type="button"
+                              onClick={() => {
+                                const newSkus = [...formData.skus]
+                                newSkus[index].fabricMaterialId = config.id
+                                newSkus[index].fabricName = config.fabricName
+                                // 同步材质图片到SKU图片
+                                if (config.images?.length) {
+                                  newSkus[index].images = [...config.images]
+                                }
+                                setFormData({ ...formData, skus: newSkus })
+                              }}
+                              className={`relative w-10 h-10 rounded border-2 overflow-hidden transition-all ${
+                                sku.fabricMaterialId === config.id
+                                  ? 'border-primary-500 ring-2 ring-primary-200'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                              title={`${config.fabricName}${config.price > 0 ? ` (+¥${config.price})` : ''}`}
+                            >
+                              {config.images?.[0] ? (
+                                <img
+                                  src={getThumbnailUrl(config.images[0], 64)}
+                                  alt={config.fabricName}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
+                                  {config.fabricName?.charAt(0) || '?'}
+                                </div>
+                              )}
+                            </button>
                           ))}
-                        </select>
+                        </div>
                       ) : (
                         <span className="text-xs text-gray-400">请先添加材质配置</span>
                       )}
@@ -2170,6 +2184,14 @@ export default function ProductForm() {
                         {sku.discountPrice > 0 && (
                           <span className="text-xs text-gray-500">原价</span>
                         )}
+                        {/* 材质加价显示在售价下方 */}
+                        {(() => {
+                          const selectedConfig = formData.materialConfigs.find(c => c.id === sku.fabricMaterialId)
+                          if (selectedConfig?.price > 0) {
+                            return <span className="text-xs text-red-500 font-medium">+¥{selectedConfig.price}</span>
+                          }
+                          return null
+                        })()}
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -2188,14 +2210,6 @@ export default function ProductForm() {
                         {sku.discountPrice > 0 && (
                           <span className="text-xs text-red-600 font-medium">折后价</span>
                         )}
-                        {/* 材质加价显示在折扣价下方 */}
-                        {(() => {
-                          const selectedConfig = formData.materialConfigs.find(c => c.id === sku.fabricMaterialId)
-                          if (selectedConfig?.price > 0) {
-                            return <span className="text-xs text-red-500 font-medium">+¥{selectedConfig.price}</span>
-                          }
-                          return null
-                        })()}
                       </div>
                     </td>
                     {/* 库存/发货 - 合并为一列 */}
