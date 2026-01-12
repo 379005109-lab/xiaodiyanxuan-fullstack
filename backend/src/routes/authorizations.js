@@ -347,6 +347,9 @@ router.get('/summary', auth, async (req, res) => {
         summary.minDiscountRate = auth.minDiscountRate || summary.minDiscountRate
         summary.commissionRate = auth.commissionRate || summary.commissionRate
         summary.authorizationId = auth._id
+      }
+      // 总是更新 isEnabled 状态（不管 status 是什么）
+      if (auth._id.toString() === summary.authorizationId.toString()) {
         summary.isEnabled = auth.isEnabled !== false
       }
       // 累加商品数量
