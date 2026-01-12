@@ -159,6 +159,12 @@ export default function MaterialSelectModal({ onSelect, onBatchSelect, onClose, 
       })
     } else {
       // 单选模式：直接选择并关闭
+      console.log('🔥 [MaterialSelectModal] 选择材质:', {
+        name: material.name,
+        image: material.image,
+        _id: material._id,
+        fullMaterial: material
+      })
       onSelect(material)
       onClose()
       toast.success(`已选择材质：${material.name}`)
