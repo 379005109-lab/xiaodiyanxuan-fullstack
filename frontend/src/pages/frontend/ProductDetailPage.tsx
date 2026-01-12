@@ -1679,23 +1679,25 @@ const ProductDetailPage = () => {
                           </div>
                         </div>
                       )}
-                      {filteredSkus.map(sku => {
+                      {Object.entries(groupedSkus).map(([specKey, skus]) => {
+                        // 使用第一个SKU作为代表显示规格信息
+                        const representativeSku = skus[0];
                         const isSelected = isComboProduct
-                          ? selectedSkuIds.includes(String(sku._id))
-                          : (multiSpecMode ? selectedSkuIds.includes(String(sku._id)) : selectedSku?._id === sku._id);
-                        const skuFinalPrice = getFinalPrice(sku);
-                        const specDetail = specificationList.find(spec => spec.name === sku.spec)?.value || `${sku.length}x${sku.width}x${sku.height}cm`;
+                          ? selectedSkuIds.includes(String(representativeSku._id))
+                          : (multiSpecMode ? selectedSkuIds.includes(String(representativeSku._id)) : selectedSku?._id === representativeSku._id);
+                        const skuFinalPrice = getFinalPrice(representativeSku);
+                        const specDetail = specificationList.find(spec => spec.name === representativeSku.spec)?.value || `${representativeSku.length}x${representativeSku.width}x${representativeSku.height}cm`;
                         return (
                           <button
-                            key={sku._id}
+                            key={specKey}
                             onClick={() => {
-                              syncFilterWithSku(sku);
+                              syncFilterWithSku(representativeSku);
                               if (isComboProduct) {
-                                handleToggleSku(sku);
+                                handleToggleSku(representativeSku);
                               } else if (multiSpecMode) {
-                                toggleSkuSelection(sku);
+                                toggleSkuSelection(representativeSku);
                               } else {
-                                handleSkuChange(sku);
+                                handleSkuChange(representativeSku);
                               }
                             }}
                             className={cn(
@@ -1716,13 +1718,14 @@ const ProductDetailPage = () => {
                                     {isSelected && <Check className="h-3 w-3 text-white" />}
                                   </span>
                                 )}
-                                <span>{sku.spec || sku.code || '默认规格'}</span>
-                                {sku.isPro && <span className="text-[11px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">PRO</span>}
+                                <span>{representativeSku.spec || representativeSku.code || '默认规格'}</span>
+                                {representativeSku.isPro && <span className="text-[11px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">PRO</span>}
+                                {skus.length > 1 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{skus.length}种材质</span>}
                               </div>
                               <div className="flex items-baseline gap-2">
                                 <span className="text-lg font-bold text-red-600">{formatPrice(skuFinalPrice)}</span>
-                                {sku.discountPrice && sku.discountPrice > 0 && sku.discountPrice < sku.price && (
-                                  <span className="text-xs text-gray-400 line-through">{formatPrice(sku.price)}</span>
+                                {representativeSku.discountPrice && representativeSku.discountPrice > 0 && representativeSku.discountPrice < representativeSku.price && (
+                                  <span className="text-xs text-gray-400 line-through">{formatPrice(representativeSku.price)}</span>
                                 )}
                               </div>
                             </div>
