@@ -202,19 +202,6 @@ export default function ProductManagement() {
           }
         }
         
-        // 应用本地存储的商品覆盖状态（隐藏/显示）
-        try {
-          const localOverrides = JSON.parse(localStorage.getItem('authorized_product_overrides') || '{}')
-          filteredProducts = filteredProducts.map((p: any) => {
-            const override = localOverrides[p._id]
-            if (override) {
-              return { ...p, isHidden: override.hidden }
-            }
-            return p
-          })
-        } catch (e) {
-          console.log('[ProductManagement] 加载本地覆盖状态失败:', e)
-        }
         
         setProducts(filteredProducts);
       }
@@ -402,10 +389,6 @@ export default function ProductManagement() {
     const currentHidden = (product as any).isHidden || false
     const newHiddenState = !currentHidden
     
-    // 本地存储key
-    const localStorageKey = 'authorized_product_overrides'
-    
-    // 先尝试API调用
     try {
       const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { hidden: newHiddenState })
       if (res.data.success) {
@@ -416,28 +399,10 @@ export default function ProductManagement() {
           return p
         }))
         toast.success(currentHidden ? '商品已显示' : '商品已隐藏')
-        return
       }
     } catch (error: any) {
-      console.log('API调用失败，使用本地存储:', error)
-    }
-    
-    // API失败时使用本地存储
-    try {
-      const existingOverrides = JSON.parse(localStorage.getItem(localStorageKey) || '{}')
-      existingOverrides[product._id] = { hidden: newHiddenState, updatedAt: new Date().toISOString() }
-      localStorage.setItem(localStorageKey, JSON.stringify(existingOverrides))
-      
-      setProducts(prev => prev.map(p => {
-        if (p._id === product._id) {
-          return { ...p, isHidden: newHiddenState } as any
-        }
-        return p
-      }))
-      toast.success(currentHidden ? '商品已显示' : '商品已隐藏')
-    } catch (localError: any) {
-      console.error('本地存储也失败:', localError)
-      toast.error('操作失败')
+      console.error('切换商品隐藏状态失败:', error)
+      toast.error(error.response?.data?.message || '操作失败')
     }
   }
 

@@ -274,19 +274,6 @@ export default function ManufacturerManagement() {
             })
           }
           
-          // 应用本地存储的启用/禁用状态覆盖
-          try {
-            const localStates = JSON.parse(localStorage.getItem('authorization_enabled_states') || '{}')
-            Object.keys(authMap).forEach(key => {
-              const authId = (authMap[key] as any).authorizationId || key
-              const localState = localStates[authId]
-              if (localState && localState.enabled !== undefined) {
-                (authMap[key] as any).isEnabled = localState.enabled
-              }
-            })
-          } catch (e) {
-            console.log('[ManufacturerManagement] 加载本地启用状态失败:', e)
-          }
           
           console.log('[ManufacturerManagement] Final authMap:', authMap)
           setAuthorizationMap(authMap)
@@ -994,29 +981,13 @@ export default function ManufacturerManagement() {
                             <button
                               onClick={async () => {
                                 const authId = authInfo.authorizationId || item._id
-                                // 先尝试API调用
                                 try {
                                   await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: false })
                                   toast.success('已关闭该厂家商品显示')
                                   fetchData()
-                                  return
                                 } catch (e: any) {
-                                  console.log('API调用失败，使用本地存储:', e)
-                                }
-                                // API失败时使用本地存储
-                                try {
-                                  const localKey = 'authorization_enabled_states'
-                                  const states = JSON.parse(localStorage.getItem(localKey) || '{}')
-                                  states[authId] = { enabled: false, updatedAt: new Date().toISOString() }
-                                  localStorage.setItem(localKey, JSON.stringify(states))
-                                  setAuthorizationMap(prev => ({
-                                    ...prev,
-                                    [item._id]: { ...prev[item._id], isEnabled: false } as any
-                                  }))
-                                  toast.success('已关闭该厂家商品显示')
-                                } catch (localError: any) {
-                                  console.error('本地存储也失败:', localError)
-                                  toast.error('操作失败')
+                                  console.error('关闭厂家失败:', e)
+                                  toast.error(e.response?.data?.message || '操作失败')
                                 }
                               }}
                               className="px-4 py-3 rounded-2xl text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
@@ -1028,29 +999,13 @@ export default function ManufacturerManagement() {
                             <button
                               onClick={async () => {
                                 const authId = authInfo.authorizationId || item._id
-                                // 先尝试API调用
                                 try {
                                   await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
                                   toast.success('已开启该厂家商品显示')
                                   fetchData()
-                                  return
                                 } catch (e: any) {
-                                  console.log('API调用失败，使用本地存储:', e)
-                                }
-                                // API失败时使用本地存储
-                                try {
-                                  const localKey = 'authorization_enabled_states'
-                                  const states = JSON.parse(localStorage.getItem(localKey) || '{}')
-                                  states[authId] = { enabled: true, updatedAt: new Date().toISOString() }
-                                  localStorage.setItem(localKey, JSON.stringify(states))
-                                  setAuthorizationMap(prev => ({
-                                    ...prev,
-                                    [item._id]: { ...prev[item._id], isEnabled: true } as any
-                                  }))
-                                  toast.success('已开启该厂家商品显示')
-                                } catch (localError: any) {
-                                  console.error('本地存储也失败:', localError)
-                                  toast.error('操作失败')
+                                  console.error('开启厂家失败:', e)
+                                  toast.error(e.response?.data?.message || '操作失败')
                                 }
                               }}
                               className="px-4 py-3 rounded-2xl text-sm font-semibold bg-green-50 text-green-600 hover:bg-green-100 transition-colors"

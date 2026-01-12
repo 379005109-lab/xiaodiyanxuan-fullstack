@@ -23,31 +23,9 @@ export default function HomePage() {
     const loadProducts = async () => {
       try {
         // 按热度（views）降序获取商品
-        const data = await getProducts({ limit: 20, sort: '-views' })
-        let products = Array.isArray(data) ? data : (data.products || [])
-        
-        // 过滤隐藏的商品
-        try {
-          const hiddenOverrides = JSON.parse(localStorage.getItem('authorized_product_overrides') || '{}')
-          products = products.filter((p: any) => {
-            const override = hiddenOverrides[p._id]
-            return !(override && override.hidden === true)
-          })
-        } catch (e) {}
-        
-        // 过滤关闭厂家的商品
-        try {
-          const enabledStates = JSON.parse(localStorage.getItem('authorization_enabled_states') || '{}')
-          const disabledIds = Object.keys(enabledStates).filter(id => enabledStates[id]?.enabled === false)
-          if (disabledIds.length > 0) {
-            products = products.filter((p: any) => {
-              const mfId = p.manufacturer?._id || p.manufacturer || p.manufacturerId
-              return !(mfId && disabledIds.includes(mfId))
-            })
-          }
-        } catch (e) {}
-        
-        setFeaturedProducts(products.slice(0, 8))
+        const data = await getProducts({ limit: 8, sort: '-views' })
+        const products = Array.isArray(data) ? data : (data.products || [])
+        setFeaturedProducts(products)
       } catch (error) {
         console.error('加载商品失败:', error)
       } finally {
