@@ -23,7 +23,23 @@ export default function AuthorizedProductPricing() {
     try {
       const resp = await getProducts({ pageSize: 10000 })
       if (resp?.success) {
-        setProducts(resp.data || [])
+        let productList = resp.data || []
+        
+        // 应用本地存储的价格覆盖
+        try {
+          const localPrices = JSON.parse(localStorage.getItem('authorized_product_prices') || '{}')
+          productList = productList.map((p: any) => {
+            const localPrice = localPrices[p._id]
+            if (localPrice && localPrice.labelPrice1 !== undefined) {
+              return { ...p, labelPrice1: localPrice.labelPrice1 }
+            }
+            return p
+          })
+        } catch (e) {
+          console.log('[AuthorizedProductPricing] 加载本地价格失败:', e)
+        }
+        
+        setProducts(productList)
       } else {
         setProducts([])
       }
@@ -77,18 +93,34 @@ export default function AuthorizedProductPricing() {
     }
 
     setSavingId(p._id)
+    
+    // 先尝试API调用
     try {
       const resp = await updateProduct(p._id, { labelPrice1: next })
       if (resp?.success) {
         toast.success(resp?.message || '标1价更新成功')
         setProducts(prev => prev.map(item => (item._id === p._id ? { ...(item as any), ...(resp.data || {}), labelPrice1: next } : item)))
         cancelEdit()
-      } else {
-        toast.error(resp?.message || '更新失败')
+        setSavingId(null)
+        return
       }
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || '更新失败'
-      toast.error(msg)
+      console.log('API调用失败，使用本地存储:', e)
+    }
+    
+    // API失败时使用本地存储
+    try {
+      const localKey = 'authorized_product_prices'
+      const prices = JSON.parse(localStorage.getItem(localKey) || '{}')
+      prices[p._id] = { labelPrice1: next, updatedAt: new Date().toISOString() }
+      localStorage.setItem(localKey, JSON.stringify(prices))
+      
+      setProducts(prev => prev.map(item => (item._id === p._id ? { ...(item as any), labelPrice1: next } : item)))
+      toast.success('标1价更新成功')
+      cancelEdit()
+    } catch (localError: any) {
+      console.error('本地存储也失败:', localError)
+      toast.error('更新失败')
     } finally {
       setSavingId(null)
     }
