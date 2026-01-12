@@ -198,18 +198,36 @@ export default function ProductManagement() {
             newAuthorizedProducts.forEach((p: any) => { p.isAuthorized = true })
             filteredProducts = [...filteredProducts, ...newAuthorizedProducts]
             
-            // 加载商品覆盖设置（隐藏状态）
+            // 加载商品覆盖设置（隐藏状态）和厂家启用状态
             try {
-              const overridesResponse = await apiClient.get('/authorizations/product-overrides')
+              const [overridesResponse, summaryResponse] = await Promise.all([
+                apiClient.get('/authorizations/product-overrides'),
+                apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
+              ])
               const overrides = overridesResponse.data?.data || {}
-              console.log('[ProductManagement] 商品覆盖设置:', overrides)
-              // 应用隐藏状态到商品列表
+              const summaryData = summaryResponse.data?.data || []
+              
+              // 构建厂家启用状态映射
+              const manufacturerEnabledMap: Record<string, boolean> = {}
+              summaryData.forEach((auth: any) => {
+                const fromId = auth.fromManufacturer?._id || auth.fromManufacturer
+                if (fromId) {
+                  manufacturerEnabledMap[fromId] = auth.isEnabled !== false
+                }
+              })
+              console.log('[ProductManagement] 厂家启用状态:', manufacturerEnabledMap)
+              
+              // 应用隐藏状态和厂家启用状态到商品列表
               filteredProducts = filteredProducts.map((p: any) => {
                 const override = overrides[p._id]
-                if (override) {
-                  return { ...p, isHidden: override.hidden || false, overridePrice: override.price }
+                const manufacturerId = p.manufacturerId || p.skus?.[0]?.manufacturerId
+                const isManufacturerEnabled = manufacturerId ? manufacturerEnabledMap[manufacturerId] !== false : true
+                return { 
+                  ...p, 
+                  isHidden: override?.hidden || false, 
+                  overridePrice: override?.price,
+                  isManufacturerDisabled: p.isAuthorized && !isManufacturerEnabled
                 }
-                return p
               })
             } catch (overrideError) {
               console.log('[ProductManagement] 加载商品覆盖设置失败:', overrideError)
@@ -2886,7 +2904,7 @@ export default function ProductManagement() {
                   } ${
                     dragOverProductIndex === index ? 'bg-blue-50' : ''
                   } ${
-                    (product as any).isHidden || product.status === 'inactive' ? 'opacity-50 bg-gray-100' : ''
+                    (product as any).isHidden || product.status === 'inactive' || (product as any).isManufacturerDisabled ? 'opacity-50 bg-gray-100' : ''
                   }`}
                   draggable
                   onDragStart={(e: any) => handleProductDragStart(e, product)}

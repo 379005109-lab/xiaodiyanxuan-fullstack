@@ -218,6 +218,7 @@ export default function ManufacturerManagement() {
     authorizationId?: string;
     minDiscountRate?: number;
     commissionRate?: number;
+    isEnabled?: boolean;
   }>>({})
   
   const [showSmsModal, setShowSmsModal] = useState(false)
@@ -255,7 +256,7 @@ export default function ManufacturerManagement() {
           const authRes = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
           console.log('[ManufacturerManagement] Authorization response:', authRes.data)
           const authData = authRes.data?.data || authRes.data || []
-          const authMap: Record<string, { status: string; productCount: number; authorizationId?: string; minDiscountRate?: number; commissionRate?: number }> = {}
+          const authMap: Record<string, { status: string; productCount: number; authorizationId?: string; minDiscountRate?: number; commissionRate?: number; isEnabled?: boolean }> = {}
           
           if (Array.isArray(authData)) {
             authData.forEach((auth: any) => {
@@ -920,17 +921,20 @@ export default function ManufacturerManagement() {
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex flex-col gap-1">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                            {item.status === 'active' ? '启用中' : '已停用'}
-                          </span>
-                          {isCooperating && (
+                          {/* 只有未关闭的厂家才显示"启用中" */}
+                          {!(isCooperating && authInfo.isEnabled === false) && (
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {item.status === 'active' ? '启用中' : '已停用'}
+                            </span>
+                          )}
+                          {isCooperating && authInfo.isEnabled !== false && (
                             <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
                               ✓ 已合作 · {authInfo.productCount || 0}件商品
                             </span>
                           )}
                           {isCooperating && authInfo.isEnabled === false && (
                             <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
-                              ⏸ 已关闭
+                              ⏸ 已关闭 · {authInfo.productCount || 0}件商品
                             </span>
                           )}
                           {isPending && (
@@ -992,13 +996,20 @@ export default function ManufacturerManagement() {
                             <button
                               onClick={async () => {
                                 const authId = authInfo.authorizationId || item._id
-                                console.log('[ManufacturerManagement] Opening manufacturer:', authId)
                                 try {
+                                  // 立即更新本地状态
+                                  setAuthorizationMap(prev => ({
+                                    ...prev,
+                                    [item._id]: { ...prev[item._id], isEnabled: true }
+                                  }))
                                   await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
                                   toast.success('已开启该厂家商品显示')
-                                  await fetchData()
                                 } catch (e: any) {
-                                  console.error('开启厂家失败:', e)
+                                  // 失败时回滚状态
+                                  setAuthorizationMap(prev => ({
+                                    ...prev,
+                                    [item._id]: { ...prev[item._id], isEnabled: false }
+                                  }))
                                   toast.error(e.response?.data?.message || '操作失败')
                                 }
                               }}
@@ -1011,13 +1022,20 @@ export default function ManufacturerManagement() {
                             <button
                               onClick={async () => {
                                 const authId = authInfo.authorizationId || item._id
-                                console.log('[ManufacturerManagement] Closing manufacturer:', authId)
                                 try {
+                                  // 立即更新本地状态
+                                  setAuthorizationMap(prev => ({
+                                    ...prev,
+                                    [item._id]: { ...prev[item._id], isEnabled: false }
+                                  }))
                                   await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: false })
                                   toast.success('已关闭该厂家商品显示')
-                                  await fetchData()
                                 } catch (e: any) {
-                                  console.error('关闭厂家失败:', e)
+                                  // 失败时回滚状态
+                                  setAuthorizationMap(prev => ({
+                                    ...prev,
+                                    [item._id]: { ...prev[item._id], isEnabled: true }
+                                  }))
                                   toast.error(e.response?.data?.message || '操作失败')
                                 }
                               }}
