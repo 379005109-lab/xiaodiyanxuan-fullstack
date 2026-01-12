@@ -335,7 +335,8 @@ router.get('/summary', auth, async (req, res) => {
           priceSettings: auth.priceSettings || {},
           minDiscountRate: auth.minDiscountRate || 0,
           commissionRate: auth.commissionRate || 0,
-          scope: auth.scope
+          scope: auth.scope,
+          isEnabled: auth.isEnabled !== false
         })
       }
       
@@ -345,6 +346,8 @@ router.get('/summary', auth, async (req, res) => {
         summary.status = auth.status
         summary.minDiscountRate = auth.minDiscountRate || summary.minDiscountRate
         summary.commissionRate = auth.commissionRate || summary.commissionRate
+        summary.authorizationId = auth._id
+        summary.isEnabled = auth.isEnabled !== false
       }
       // 累加商品数量
       if (auth.scope === 'all') {
