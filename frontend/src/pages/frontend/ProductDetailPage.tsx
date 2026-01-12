@@ -1697,55 +1697,46 @@ const ProductDetailPage = () => {
                 )}
               </div>
 
-              {/* 材质/颜色选择 - 色块展示 */}
+              {/* Material Color Swatches - 材质色块选择 */}
               {materialConfigs.length > 0 && (
                 <div className="border border-gray-200 rounded-2xl bg-white mt-4">
                   <div className="px-4 py-3 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900">选择材质/颜色</p>
+                    <p className="text-sm font-medium text-gray-900">选择材质</p>
                     <p className="text-xs text-gray-400 mt-0.5">点击色块切换材质</p>
                   </div>
                   <div className="p-4">
                     <div className="flex flex-wrap gap-2">
-                      {materialConfigs.map((config) => {
-                        const isSelected = selectedMaterialConfigId === config.id || 
-                          (!selectedMaterialConfigId && materialConfigs[0]?.id === config.id);
-                        return (
-                          <button
-                            key={config.id}
-                            type="button"
-                            onClick={() => setSelectedMaterialConfigId(config.id)}
-                            className={cn(
-                              'relative w-12 h-12 rounded-lg border-2 overflow-hidden transition-all',
-                              isSelected 
-                                ? 'border-emerald-500 ring-2 ring-emerald-200' 
-                                : 'border-gray-200 hover:border-gray-400'
-                            )}
-                            title={config.fabricName}
-                          >
-                            {config.images?.[0] ? (
-                              <img 
-                                src={getFileUrl(config.images[0])} 
-                                alt={config.fabricName}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                <span className="text-xs text-gray-500">{config.fabricName?.slice(0, 2)}</span>
-                              </div>
-                            )}
-                            {isSelected && (
-                              <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
-                                <Check className="w-4 h-4 text-emerald-600" />
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
+                      {materialConfigs.map((config) => (
+                        <button
+                          key={config.id}
+                          type="button"
+                          onClick={() => setSelectedMaterialConfigId(config.id)}
+                          className={cn(
+                            'relative w-12 h-12 rounded-lg border-2 overflow-hidden transition-all',
+                            selectedMaterialConfigId === config.id || (!selectedMaterialConfigId && materialConfigs[0]?.id === config.id)
+                              ? 'border-primary-500 ring-2 ring-primary-200'
+                              : 'border-gray-200 hover:border-gray-300'
+                          )}
+                          title={config.fabricName}
+                        >
+                          {config.images && config.images.length > 0 ? (
+                            <img 
+                              src={getFileUrl(config.images[0])} 
+                              alt={config.fabricName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                              <span className="text-xs text-gray-500">{config.fabricName?.charAt(0) || '?'}</span>
+                            </div>
+                          )}
+                        </button>
+                      ))}
                     </div>
-                    {/* 选中的材质名称和加价 */}
+                    {/* 显示选中材质的名称和加价 */}
                     {selectedMaterialConfig && (
                       <div className="mt-3 flex items-center justify-between">
-                        <span className="text-sm text-gray-700">{selectedMaterialConfig.fabricName}</span>
+                        <span className="text-sm font-medium text-gray-900">{selectedMaterialConfig.fabricName}</span>
                         {selectedMaterialConfig.price > 0 && (
                           <span className="text-sm text-red-500 font-medium">+¥{selectedMaterialConfig.price}</span>
                         )}
