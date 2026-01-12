@@ -909,6 +909,7 @@ const updateProduct = async (req, res) => {
     // 调试日志：检查更新数据
     console.log('🔥 [更新商品] ID:', id)
     console.log('🔥 [更新商品] 商品名称:', productData.name)
+    console.log('🔥 [更新商品] 接收到的materialConfigs:', JSON.stringify(productData.materialConfigs || []))
     console.log('🔥 [更新商品] 接收到的category:', productData.category)
     console.log('🔥 [更新商品] 接收到的categories:', productData.categories)
     console.log('🔥 [更新商品] 接收到的styles:', productData.styles)
@@ -941,6 +942,7 @@ const updateProduct = async (req, res) => {
     }
     
     // 调试日志：确认保存后的数据
+    console.log('🔥 [更新商品] 保存后的materialConfigs:', JSON.stringify(product.materialConfigs || []))
     console.log('🔥 [更新商品] 保存后的category:', product.category)
     console.log('🔥 [更新商品] 保存后的categories:', product.categories)
     console.log('🔥 [更新商品] 保存后的styles:', product.styles)
