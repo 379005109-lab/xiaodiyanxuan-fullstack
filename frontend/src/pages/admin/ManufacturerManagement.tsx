@@ -260,7 +260,13 @@ export default function ManufacturerManagement() {
           if (Array.isArray(authData)) {
             authData.forEach((auth: any) => {
               const targetId = auth.fromManufacturer?._id || auth.fromManufacturer
-              console.log('[ManufacturerManagement] Processing auth:', { targetId, productCount: auth.productCount, status: auth.status })
+              console.log('[ManufacturerManagement] Processing auth:', { 
+                targetId, 
+                productCount: auth.productCount, 
+                status: auth.status,
+                isEnabled: auth.isEnabled,
+                authorizationId: auth.authorizationId
+              })
               if (targetId) {
                 authMap[targetId] = {
                   status: auth.status || 'pending',
