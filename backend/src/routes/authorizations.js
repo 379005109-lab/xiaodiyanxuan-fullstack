@@ -322,7 +322,9 @@ router.get('/summary', auth, async (req, res) => {
         fromId,
         scope: auth.scope,
         status: auth.status,
-        productsLength: auth.products?.length
+        productsLength: auth.products?.length,
+        isEnabled: auth.isEnabled,
+        authId: auth._id
       })
       
       if (!summaryMap.has(fromId)) {
@@ -378,7 +380,12 @@ router.get('/summary', auth, async (req, res) => {
     
     console.log('[Authorization Summary] Final summaryMap size:', summaryMap.size)
     summaryMap.forEach((summary, key) => {
-      console.log('[Authorization Summary] Manufacturer:', key, 'productCount:', summary.productCount, 'status:', summary.status)
+      console.log('[Authorization Summary] Manufacturer:', key, {
+        productCount: summary.productCount, 
+        status: summary.status,
+        isEnabled: summary.isEnabled,
+        authorizationId: summary.authorizationId
+      })
     })
     
     const result = Array.from(summaryMap.values())
