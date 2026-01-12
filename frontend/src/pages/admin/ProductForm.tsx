@@ -414,6 +414,12 @@ export default function ProductForm() {
           images: material.images || [],
           price: upgradePrice || 0,
         }
+        console.log('🔥 [DEBUG] 添加材质配置:', {
+          name: material.name,
+          images: material.images,
+          imagesCount: material.images?.length || 0,
+          newConfig
+        })
         setShowMaterialSelectModal(false)
         setSelectingMaterialForSkuIndex(-1)
         return { ...prev, materialConfigs: [...prev.materialConfigs, newConfig] }
