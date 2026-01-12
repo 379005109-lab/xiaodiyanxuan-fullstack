@@ -928,6 +928,11 @@ export default function ManufacturerManagement() {
                               ✓ 已合作 · {authInfo.productCount || 0}件商品
                             </span>
                           )}
+                          {isCooperating && authInfo.isEnabled === false && (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                              ⏸ 已关闭
+                            </span>
+                          )}
                           {isPending && (
                             <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
                               ⏳ 申请中
@@ -983,14 +988,34 @@ export default function ManufacturerManagement() {
                           >
                             查看授权商品
                           </button>
-                          {authInfo.isEnabled !== false ? (
+                          {authInfo.isEnabled === false ? (
                             <button
                               onClick={async () => {
                                 const authId = authInfo.authorizationId || item._id
+                                console.log('[ManufacturerManagement] Opening manufacturer:', authId)
+                                try {
+                                  await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
+                                  toast.success('已开启该厂家商品显示')
+                                  await fetchData()
+                                } catch (e: any) {
+                                  console.error('开启厂家失败:', e)
+                                  toast.error(e.response?.data?.message || '操作失败')
+                                }
+                              }}
+                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-green-500 text-white hover:bg-green-600 transition-colors"
+                              title="开启后该厂家商品将在列表和商城中显示"
+                            >
+                              开启
+                            </button>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                const authId = authInfo.authorizationId || item._id
+                                console.log('[ManufacturerManagement] Closing manufacturer:', authId)
                                 try {
                                   await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: false })
                                   toast.success('已关闭该厂家商品显示')
-                                  fetchData()
+                                  await fetchData()
                                 } catch (e: any) {
                                   console.error('关闭厂家失败:', e)
                                   toast.error(e.response?.data?.message || '操作失败')
@@ -1000,24 +1025,6 @@ export default function ManufacturerManagement() {
                               title="关闭后该厂家商品不在列表和商城中显示"
                             >
                               关闭
-                            </button>
-                          ) : (
-                            <button
-                              onClick={async () => {
-                                const authId = authInfo.authorizationId || item._id
-                                try {
-                                  await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
-                                  toast.success('已开启该厂家商品显示')
-                                  fetchData()
-                                } catch (e: any) {
-                                  console.error('开启厂家失败:', e)
-                                  toast.error(e.response?.data?.message || '操作失败')
-                                }
-                              }}
-                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-                              title="开启后该厂家商品将在列表和商城中显示"
-                            >
-                              开启
                             </button>
                           )}
                         </div>
