@@ -96,15 +96,22 @@ export default function OrderManagementNew2() {
       setLoading(true)
       const token = localStorage.getItem('token')
       
+      console.log('[OrderManagement] Token from localStorage:', token ? `${token.substring(0, 20)}...` : 'null')
+      
       if (!token) {
         toast.error('请先登录')
         navigate('/')
         return
       }
       
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders?pageSize=10000', {
+      // 使用相对路径，让 nginx 代理转发请求
+      const apiUrl = '/api/orders?pageSize=10000'
+      console.log('[OrderManagement] Fetching from:', apiUrl)
+      
+      const response = await fetch(apiUrl, {
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       })
       
