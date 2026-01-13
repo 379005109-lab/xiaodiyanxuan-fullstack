@@ -1377,7 +1377,7 @@ const ProductDetailPage = () => {
                 )}
                 <button
                   type="button"
-                  onClick={() => setAllImageModalOpen(true)}
+                  onClick={() => setShowAllImagesModal(true)}
                   className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-black/70 text-white text-xs px-4 py-2 z-10"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />全部图片
@@ -1572,14 +1572,6 @@ const ProductDetailPage = () => {
               {selectedSku?.isPro && (
                 <div className="mt-2 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2">
                   <p className="text-xs font-semibold text-yellow-900">PRO 专业版: {selectedSku.proFeature || '更高端材质与功能升级'}</p>
-                </div>
-              )}
-              {/* 其他材质描述 */}
-              {otherMaterialsText && (
-                <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                  <p className="text-xs text-gray-600">
-                    {otherMaterialsText}
-                  </p>
                 </div>
               )}
             </div>
@@ -1801,6 +1793,14 @@ const ProductDetailPage = () => {
                         {selectedMaterialConfig.price > 0 && (
                           <span className="text-sm text-red-500 font-medium">+¥{selectedMaterialConfig.price}</span>
                         )}
+                      </div>
+                    )}
+                    {/* 其他材质文字显示在选择材质下面 */}
+                    {otherMaterialsText && (
+                      <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        <p className="text-xs text-gray-600">
+                          {otherMaterialsText}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -2159,13 +2159,6 @@ const ProductDetailPage = () => {
                   </div>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAllImagesModal(true)}
-                className="w-full mt-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium transition-colors"
-              >
-                查看全部图片
-              </button>
             </div>
           </div>
         </div>
