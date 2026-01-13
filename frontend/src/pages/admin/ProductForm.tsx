@@ -910,7 +910,7 @@ export default function ProductForm() {
           skuIndex++
           newSkus.push({
             id: `sku-${Date.now()}-${skuIndex}`,
-            images: matConfig.images?.length > 0 ? [...matConfig.images] : [], // 默认使用材质图片
+            images: [], // 不使用材质配置图片，SKU图片独立管理
             code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
             spec: spec.name,
             length: spec.length,

@@ -1566,43 +1566,6 @@ const ProductDetailPage = () => {
                   <p className="text-xs font-semibold text-yellow-900">PRO 专业版: {selectedSku.proFeature || '更高端材质与功能升级'}</p>
                 </div>
               )}
-              {/* 发货/制作时间提示 */}
-              {selectedSku && (
-                <div className={`mt-2 rounded-lg border px-3 py-2 ${
-                  (selectedSku as any).stockMode !== false 
-                    ? 'border-emerald-200 bg-emerald-50' 
-                    : 'border-orange-200 bg-orange-50'
-                }`}>
-                  {(selectedSku as any).stockMode !== false ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-emerald-700">
-                        📦 库存 {selectedSku.stock || 0} 件
-                      </span>
-                      <span className="text-xs text-emerald-600">
-                        · 预计 {(selectedSku as any).deliveryDays || 7} 天内发货
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-orange-700 font-medium">
-                        🛠️ 定制款
-                      </span>
-                      <span className="text-xs text-orange-600">
-                        · 下单后 {(selectedSku as any).productionDays || 30} 天内制作完成
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* 面料信息 */}
-              {selectedSku && (selectedSku as any).fabricName && (
-                <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                  <p className="text-xs text-emerald-700">
-                    <span className="font-medium">面料：</span>
-                    {(selectedSku as any).fabricName}
-                  </p>
-                </div>
-              )}
               {/* 其他材质描述 */}
               {selectedSku && (selectedSku as any).otherMaterials && (
                 <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
@@ -1768,7 +1731,20 @@ const ProductDetailPage = () => {
                       
                       return Object.entries(groupedMaterials).map(([category, configs]) => (
                         <div key={category}>
-                          <p className="text-xs text-gray-500 mb-2">{category}</p>
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="text-xs text-gray-500">{category}</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const materialInfo = configs.map(c => c.fabricName).join('\n');
+                                alert(`${category}\n\n${materialInfo}`);
+                              }}
+                              className="text-gray-400 hover:text-gray-600"
+                              title="查看材质详情"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                           <div className="flex flex-wrap gap-2">
                             {configs.map((config) => {
                         const isSelected = selectedMaterialConfigId === config.id || (!selectedMaterialConfigId && materialConfigs[0]?.id === config.id);
