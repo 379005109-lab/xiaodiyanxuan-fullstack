@@ -489,6 +489,14 @@ const ProductDetailPage = () => {
 
   // 当前选中的材质配置ID
   const [selectedMaterialConfigId, setSelectedMaterialConfigId] = useState<string | null>(null);
+  
+  // 材质详情弹窗
+  const [showMaterialDetailModal, setShowMaterialDetailModal] = useState(false);
+  const [selectedMaterialCategory, setSelectedMaterialCategory] = useState<string>('');
+  const [selectedCategoryConfigs, setSelectedCategoryConfigs] = useState<typeof materialConfigs>([]);
+  
+  // 全部图片弹窗
+  const [showAllImagesModal, setShowAllImagesModal] = useState(false);
 
   // 获取选中的材质配置
   const selectedMaterialConfig = useMemo(() => {
@@ -1567,11 +1575,10 @@ const ProductDetailPage = () => {
                 </div>
               )}
               {/* 其他材质描述 */}
-              {selectedSku && (selectedSku as any).otherMaterials && (
+              {otherMaterialsText && (
                 <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
                   <p className="text-xs text-gray-600">
-                    <span className="font-medium text-gray-700">材质工艺：</span>
-                    {(selectedSku as any).otherMaterials}
+                    {otherMaterialsText}
                   </p>
                 </div>
               )}
@@ -1736,8 +1743,9 @@ const ProductDetailPage = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                const materialInfo = configs.map(c => c.fabricName).join('\n');
-                                alert(`${category}\n\n${materialInfo}`);
+                                setSelectedMaterialCategory(category);
+                                setSelectedCategoryConfigs(configs);
+                                setShowMaterialDetailModal(true);
                               }}
                               className="text-gray-400 hover:text-gray-600"
                               title="查看材质详情"
@@ -2115,6 +2123,84 @@ const ProductDetailPage = () => {
             >
               关闭
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Material Detail Modal */}
+      {showMaterialDetailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowMaterialDetailModal(false)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-900">{selectedMaterialCategory}</h3>
+                <button onClick={() => setShowMaterialDetailModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                {selectedCategoryConfigs.map((config) => (
+                  <div key={config.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex gap-4">
+                      {config.images?.[0] && (
+                        <img 
+                          src={getFileUrl(config.images[0])} 
+                          alt={config.fabricName}
+                          className="w-24 h-24 rounded-lg object-cover"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 mb-2">{config.fabricName}</h4>
+                        {config.price > 0 && (
+                          <p className="text-sm text-red-500 font-medium">加价：¥{config.price}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllImagesModal(true)}
+                className="w-full mt-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium transition-colors"
+              >
+                查看全部图片
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Images Modal */}
+      {showAllImagesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAllImagesModal(false)}>
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-900">全部图片</h3>
+                <button onClick={() => setShowAllImagesModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {(() => {
+                  const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
+                  const allImages = allSkus.flatMap(sku => sku.images || []);
+                  const uniqueImages = Array.from(new Set(allImages));
+                  return uniqueImages.map((imageId, index) => (
+                    <img 
+                      key={index}
+                      src={getFileUrl(imageId)} 
+                      alt={`SKU图片 ${index + 1}`}
+                      className="w-full aspect-square rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => {
+                        // Optional: open image in full screen
+                      }}
+                    />
+                  ));
+                })()}
+              </div>
+            </div>
           </div>
         </div>
       )}
