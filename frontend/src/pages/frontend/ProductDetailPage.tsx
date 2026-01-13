@@ -1195,8 +1195,12 @@ const ProductDetailPage = () => {
   })();
   
   const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : productDisplayPrice;
+  
+  // 添加材质配置加价
+  const materialConfigPrice = selectedMaterialConfig?.price || 0;
+  const finalPriceWithMaterialConfig = finalSkuPrice + materialConfigPrice;
 
-  const displayPrice = isComboProduct ? comboTotalPrice : (multiSpecMode ? multiSpecTotalPrice : finalSkuPrice);
+  const displayPrice = isComboProduct ? comboTotalPrice : (multiSpecMode ? multiSpecTotalPrice : finalPriceWithMaterialConfig);
 
   const isFavorited = product ? favorites.some(f => {
     if (!f || !f.product) return false;
@@ -1750,9 +1754,23 @@ const ProductDetailPage = () => {
                     <p className="text-sm font-medium text-gray-900">选择材质</p>
                     <p className="text-xs text-gray-400 mt-0.5">点击图块切换整组图片</p>
                   </div>
-                  <div className="p-4">
-                    <div className="flex flex-wrap gap-2">
-                      {materialConfigs.map((config) => {
+                  <div className="p-4 space-y-3">
+                    {(() => {
+                      // 按材质类别分组
+                      const groupedMaterials = materialConfigs.reduce((acc, config) => {
+                        // 提取类别前缀（如"B类油蜡皮" 或 "B类头层真皮"）
+                        const categoryMatch = config.fabricName.match(/^([AB]类[^-–—]+)/);
+                        const category = categoryMatch ? categoryMatch[1] : config.fabricName.split(/[-–—]/)[0]?.trim() || '其他';
+                        if (!acc[category]) acc[category] = [];
+                        acc[category].push(config);
+                        return acc;
+                      }, {} as Record<string, typeof materialConfigs>);
+                      
+                      return Object.entries(groupedMaterials).map(([category, configs]) => (
+                        <div key={category}>
+                          <p className="text-xs text-gray-500 mb-2">{category}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {configs.map((config) => {
                         const isSelected = selectedMaterialConfigId === config.id || (!selectedMaterialConfigId && materialConfigs[0]?.id === config.id);
                         return (
                           <button
@@ -1788,7 +1806,10 @@ const ProductDetailPage = () => {
                           </button>
                         );
                       })}
-                    </div>
+                          </div>
+                        </div>
+                      ));
+                    })()}
                     {/* 显示选中材质的名称和加价 */}
                     {selectedMaterialConfig && (
                       <div className="mt-3 flex items-center justify-between">
