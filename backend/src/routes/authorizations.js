@@ -349,9 +349,7 @@ router.get('/summary', auth, async (req, res) => {
         summary.minDiscountRate = auth.minDiscountRate || summary.minDiscountRate
         summary.commissionRate = auth.commissionRate || summary.commissionRate
         summary.authorizationId = auth._id.toString() // 转换为字符串
-      }
-      // 总是更新 isEnabled 状态（不管 status 是什么）
-      if (auth._id.toString() === summary.authorizationId.toString()) {
+        // 对于active的授权，使用其isEnabled状态
         summary.isEnabled = auth.isEnabled !== false
       }
       // 累加商品数量
