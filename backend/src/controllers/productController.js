@@ -505,6 +505,13 @@ const listProducts = async (req, res) => {
     
     const allow = allowCostPriceForUser(user)
     const safeProducts = allow ? result.products : result.products.map(stripCostPriceFromProduct)
+    console.log('🔥 [listProducts] Total products:', result.total)
+    const testProduct = safeProducts.find(p => p.name?.includes('1213'))
+    if (testProduct) {
+      console.log('🔥 [listProducts] 1213 product materialConfigs count:', testProduct.materialConfigs?.length || 0)
+      console.log('🔥 [listProducts] 1213 product has materialConfigs:', 'materialConfigs' in testProduct)
+      console.log('🔥 [listProducts] 1213 product keys:', Object.keys(testProduct).filter(k => k.includes('material')))
+    }
     
     // 获取分类映射，将分类ID转换为分类名称
     const Category = require('../models/Category')
