@@ -2132,10 +2132,7 @@ export default function ProductForm() {
                                 const newSkus = [...formData.skus]
                                 newSkus[index].fabricMaterialId = config.id
                                 newSkus[index].fabricName = config.fabricName
-                                // 同步材质图片到SKU图片
-                                if (config.images?.length) {
-                                  newSkus[index].images = [...config.images]
-                                }
+                                // 注意：材质图片只用于面料列显示，不同步到SKU图片管理器
                                 setFormData({ ...formData, skus: newSkus })
                               }}
                               className={`relative w-10 h-10 rounded border-2 overflow-hidden transition-all ${
