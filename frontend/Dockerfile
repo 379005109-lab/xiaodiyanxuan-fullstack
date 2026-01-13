@@ -1,5 +1,8 @@
-# 构建阶段 - Updated 2024-12-13 - Force rebuild for test environment
+# 构建阶段 - Updated 2026-01-13 - Force rebuild with cache bust
 FROM node:18-alpine AS builder
+
+# Cache bust arg
+ARG CACHEBUST=1
 
 WORKDIR /app
 
@@ -9,7 +12,8 @@ COPY package*.json ./
 # 安装依赖（使用 npm install 代替 npm ci，更宽松）
 RUN npm install --legacy-peer-deps
 
-# 复制源代码
+# 复制源代码 - cache bust
+RUN echo "Cache bust: $CACHEBUST"
 COPY . .
 
 # 构建应用
