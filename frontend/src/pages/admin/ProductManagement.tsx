@@ -175,7 +175,8 @@ export default function ProductManagement() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await getProducts({ pageSize: 10000 });
+      // includeHidden=true 确保管理页面能看到所有商品（包括隐藏的）
+      const response = await getProducts({ pageSize: 10000, includeHidden: true });
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
         console.log('[ProductManagement] 加载商品数量:', response.data.length);
@@ -395,19 +396,11 @@ export default function ProductManagement() {
       // 使用授权商品覆盖API
       const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { price: newPrice })
       if (res.data.success) {
-        // 更新本地数据
-        setProducts(prev => prev.map(p => {
-          if (p._id === product._id) {
-            return {
-              ...p,
-              overridePrice: newPrice
-            } as any
-          }
-          return p
-        }))
         toast.success('价格已更新')
         setEditingPriceProductId(null)
         setEditingPriceValue('')
+        // 刷新商品列表确保数据同步
+        await loadProducts()
       } else {
         toast.error(res.data.message || '更新价格失败')
       }
@@ -427,13 +420,11 @@ export default function ProductManagement() {
     try {
       const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { hidden: newHiddenState })
       if (res.data.success) {
-        setProducts(prev => prev.map(p => {
-          if (p._id === product._id) {
-            return { ...p, isHidden: newHiddenState } as any
-          }
-          return p
-        }))
         toast.success(currentHidden ? '商品已显示' : '商品已隐藏')
+        // 刷新商品列表确保数据同步
+        await loadProducts()
+      } else {
+        toast.error(res.data.message || '操作失败')
       }
     } catch (error: any) {
       console.error('切换商品隐藏状态失败:', error)

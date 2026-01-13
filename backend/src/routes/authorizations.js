@@ -333,7 +333,7 @@ router.get('/summary', auth, async (req, res) => {
           status: auth.status,
           productCount: 0,
           products: [],
-          authorizationId: auth._id,
+          authorizationId: auth._id.toString(), // 转换为字符串
           priceSettings: auth.priceSettings || {},
           minDiscountRate: auth.minDiscountRate || 0,
           commissionRate: auth.commissionRate || 0,
@@ -348,7 +348,7 @@ router.get('/summary', auth, async (req, res) => {
         summary.status = auth.status
         summary.minDiscountRate = auth.minDiscountRate || summary.minDiscountRate
         summary.commissionRate = auth.commissionRate || summary.commissionRate
-        summary.authorizationId = auth._id
+        summary.authorizationId = auth._id.toString() // 转换为字符串
       }
       // 总是更新 isEnabled 状态（不管 status 是什么）
       if (auth._id.toString() === summary.authorizationId.toString()) {
