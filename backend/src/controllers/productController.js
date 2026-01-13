@@ -106,6 +106,9 @@ const stripCostPriceFromProduct = (product) => {
   if (!product || !Array.isArray(product.skus)) return product
   return {
     ...product,
+    materialConfigs: product.materialConfigs || [],
+    otherMaterialsText: product.otherMaterialsText || '',
+    otherMaterialsImage: product.otherMaterialsImage || '',
     skus: product.skus.map((sku) => {
       if (!sku || typeof sku !== 'object') return sku
       const { costPrice, ...rest } = sku
