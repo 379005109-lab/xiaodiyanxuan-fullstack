@@ -608,7 +608,10 @@ const getProduct = async (req, res) => {
     }
     
     const allow = allowCostPriceForUser(user)
-    res.json(successResponse(allow ? product : stripCostPriceFromProduct(product)))
+    const finalProduct = allow ? product : stripCostPriceFromProduct(product)
+    console.log('🔥 [getProduct] Final product materialConfigs count:', finalProduct.materialConfigs?.length || 0)
+    console.log('🔥 [getProduct] Final product keys:', Object.keys(finalProduct).filter(k => k.includes('material')))
+    res.json(successResponse(finalProduct))
   } catch (err) {
     console.error('Get product error:', err)
     const status = err.status || 500
