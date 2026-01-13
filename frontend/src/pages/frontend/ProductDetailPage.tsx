@@ -497,6 +497,7 @@ const ProductDetailPage = () => {
   
   // 全部图片弹窗
   const [showAllImagesModal, setShowAllImagesModal] = useState(false);
+  const [selectedAllImages, setSelectedAllImages] = useState<string[]>([]);
 
   // 获取选中的材质配置
   const selectedMaterialConfig = useMemo(() => {
@@ -997,14 +998,29 @@ const ProductDetailPage = () => {
 
     if (multiSpecMode && selectedSkus.length > 0) {
       for (const sku of selectedSkus) {
-        const chosenMaterials = resolveSelectedMaterialsForSku(sku);
-        if (!chosenMaterials) return;
-        addItem(product, sku, quantity, chosenMaterials, getFinalPrice(sku, chosenMaterials));
+        // 如果使用新的材质配置系统
+        if (materialConfigs.length > 0) {
+          const finalPrice = getFinalPrice(sku) + (selectedMaterialConfig?.price || 0);
+          addItem(product, sku, quantity, {}, finalPrice);
+        } else {
+          const chosenMaterials = resolveSelectedMaterialsForSku(sku);
+          if (!chosenMaterials) return;
+          addItem(product, sku, quantity, chosenMaterials, getFinalPrice(sku, chosenMaterials));
+        }
       }
       toast.success('已添加到购物车');
       return;
     }
 
+    // 如果使用新的材质配置系统
+    if (materialConfigs.length > 0) {
+      const finalPrice = displayPrice;
+      addItem(product, selectedSku, quantity, {}, finalPrice);
+      toast.success('已添加到购物车');
+      return;
+    }
+
+    // 旧的材质选择系统
     const chosenMaterials = resolveSelectedMaterials();
     if (!chosenMaterials) return;
 
@@ -1057,6 +1073,15 @@ const ProductDetailPage = () => {
       navigate('/checkout');
       return;
     }
+    // 如果使用新的材质配置系统，直接使用最终价格（已包含材质配置加价）
+    if (materialConfigs.length > 0) {
+      const finalPrice = displayPrice;
+      addItem(product, selectedSku, quantity, {}, finalPrice);
+      navigate('/checkout');
+      return;
+    }
+    
+    // 旧的材质选择系统
     const chosenMaterials = resolveSelectedMaterials();
     if (!chosenMaterials) return;
     addItem(product, selectedSku, quantity, chosenMaterials, getFinalPrice(selectedSku, chosenMaterials));
@@ -2171,26 +2196,65 @@ const ProductDetailPage = () => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-gray-900">全部图片</h3>
-                <button onClick={() => setShowAllImagesModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <X className="h-6 w-6" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
+                      const allImages = allSkus.flatMap(sku => sku.images || []);
+                      const uniqueImages = Array.from(new Set(allImages));
+                      selectedAllImages.forEach(imageId => {
+                        const link = document.createElement('a');
+                        link.href = getFileUrl(imageId);
+                        link.download = `image-${imageId}.jpg`;
+                        link.click();
+                      });
+                      toast.success(`已下载 ${selectedAllImages.length} 张图片`);
+                    }}
+                    disabled={selectedAllImages.length === 0}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="h-4 w-4 inline mr-2" />
+                    下载选中 ({selectedAllImages.length})
+                  </button>
+                  <button onClick={() => setShowAllImagesModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 {(() => {
                   const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
                   const allImages = allSkus.flatMap(sku => sku.images || []);
                   const uniqueImages = Array.from(new Set(allImages));
-                  return uniqueImages.map((imageId, index) => (
-                    <img 
-                      key={index}
-                      src={getFileUrl(imageId)} 
-                      alt={`SKU图片 ${index + 1}`}
-                      className="w-full aspect-square rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => {
-                        // Optional: open image in full screen
-                      }}
-                    />
-                  ));
+                  return uniqueImages.map((imageId, index) => {
+                    const isSelected = selectedAllImages.includes(imageId);
+                    return (
+                      <div 
+                        key={index}
+                        className="relative cursor-pointer"
+                        onClick={() => {
+                          setSelectedAllImages(prev => 
+                            prev.includes(imageId) 
+                              ? prev.filter(id => id !== imageId)
+                              : [...prev, imageId]
+                          );
+                        }}
+                      >
+                        <img 
+                          src={getFileUrl(imageId)} 
+                          alt={`SKU图片 ${index + 1}`}
+                          className={`w-full aspect-square rounded-lg object-cover transition-all ${
+                            isSelected ? 'ring-4 ring-primary-500' : 'hover:opacity-80'
+                          }`}
+                        />
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 bg-primary-600 text-white rounded-full p-1">
+                            <Check className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
                 })()}
               </div>
             </div>
