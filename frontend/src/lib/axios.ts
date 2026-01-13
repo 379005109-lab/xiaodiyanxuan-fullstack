@@ -91,13 +91,10 @@ const setupInterceptors = (instance: AxiosInstance) => {
       return response.data
     },
     async (error: AxiosError) => {
-      // 处理401错误，防止重复重定向
-      if (error.response?.status === 401 && !isRedirecting()) {
-        setRedirecting(true);
-        localStorage.removeItem('token')
-        setTimeout(() => {
-          window.location.href = '/'
-        }, 100)
+      // 处理401错误 - 不自动重定向，让用户看到错误信息
+      if (error.response?.status === 401) {
+        console.warn('⚠️ 401未授权错误，token可能已过期')
+        // 不自动清除token和重定向，让组件自己处理
         return Promise.reject(error)
       }
       

@@ -33,16 +33,24 @@ export default function CheckoutPage() {
   const navigate = useNavigate()
   const { items, getTotalPrice, clearCart } = useCartStore()
   const { user, isAuthenticated } = useAuthStore()
+  const [isHydrated, setIsHydrated] = useState(false)
+  
+  // 等待购物车状态从 localStorage 加载完成
+  useEffect(() => {
+    // 给 Zustand persist 一点时间来 hydrate
+    const timer = setTimeout(() => {
+      setIsHydrated(true)
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
   
   // 检查登录状态
   useEffect(() => {
     if (!isAuthenticated) {
       toast.error('请先登录')
       useAuthModalStore.getState().openLogin()
-      // Don't redirect to homepage, stay on checkout page
-      // User can login and continue checkout
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated])
   
   const [formData, setFormData] = useState({
     name: '',
@@ -103,6 +111,18 @@ export default function CheckoutPage() {
       address: `${address.province || ''}${address.city || ''}${address.district || ''}${address.address || ''}`,
       notes: formData.notes
     })
+  }
+
+  // 等待 hydration 完成后再检查购物车
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-gray-600">加载中...</p>
+        </div>
+      </div>
+    )
   }
 
   if (items.length === 0) {
