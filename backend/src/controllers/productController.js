@@ -611,7 +611,11 @@ const getProduct = async (req, res) => {
     const finalProduct = allow ? product : stripCostPriceFromProduct(product)
     console.log('🔥 [getProduct] Final product materialConfigs count:', finalProduct.materialConfigs?.length || 0)
     console.log('🔥 [getProduct] Final product keys:', Object.keys(finalProduct).filter(k => k.includes('material')))
-    res.json(successResponse(finalProduct))
+    const response = successResponse(finalProduct)
+    console.log('🔥 [getProduct] Response data has materialConfigs:', 'materialConfigs' in response.data)
+    console.log('🔥 [getProduct] Response data materialConfigs count:', response.data.materialConfigs?.length || 0)
+    console.log('🔥 [getProduct] About to send response')
+    res.json(response)
   } catch (err) {
     console.error('Get product error:', err)
     const status = err.status || 500
