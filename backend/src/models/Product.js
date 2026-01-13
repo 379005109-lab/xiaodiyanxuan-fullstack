@@ -120,6 +120,9 @@ const productSchema = new mongoose.Schema({
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
+}, {
+  toJSON: { virtuals: false },
+  toObject: { virtuals: false }
 })
 
 productSchema.index({ name: 'text', description: 'text' })
