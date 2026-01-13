@@ -352,13 +352,21 @@ export default function ProductForm() {
             isDefault: group.isDefault || idx === 0,
           })),
           // 加载材质配置（面料选择 + 其他材质）
-          materialConfigs: ((product as any).materialConfigs || []).map((config: any, idx: number) => ({
-            id: config.id || `mc-${idx}`,
-            fabricName: config.fabricName || '',
-            fabricId: config.fabricId || '',
-            images: config.images || [],
-            price: config.price || 0,
-          })),
+          materialConfigs: ((product as any).materialConfigs || []).map((config: any, idx: number) => {
+            console.log('🔥 [ProductForm] 加载材质配置:', {
+              id: config.id,
+              fabricName: config.fabricName,
+              images: config.images,
+              imagesCount: config.images?.length || 0
+            })
+            return {
+              id: config.id || `mc-${idx}`,
+              fabricName: config.fabricName || '',
+              fabricId: config.fabricId || '',
+              images: config.images || [],
+              price: config.price || 0,
+            }
+          }),
           otherMaterialsText: (product as any).otherMaterialsText || '',
           otherMaterialsImage: (product as any).otherMaterialsImage || '',
           files: ((product as any).files || []).filter((file: any) => {
@@ -1796,7 +1804,15 @@ export default function ProductForm() {
                 <p className="text-gray-400 text-xs mt-1">从材质库选择面料</p>
               </button>
             ) : (
-              formData.materialConfigs.map((config, index) => (
+              formData.materialConfigs.map((config, index) => {
+                console.log('🔥 [ProductForm] 渲染材质配置:', {
+                  id: config.id,
+                  fabricName: config.fabricName,
+                  images: config.images,
+                  firstImage: config.images?.[0],
+                  imagesCount: config.images?.length || 0
+                })
+                return (
                 <div key={config.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="flex-shrink-0">
                     {config.images?.[0] ? (
@@ -1852,7 +1868,8 @@ export default function ProductForm() {
                     </button>
                   </div>
                 </div>
-              ))
+              )
+              })
             )}
           </div>
 
