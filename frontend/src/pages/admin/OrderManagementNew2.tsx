@@ -108,11 +108,16 @@ export default function OrderManagementNew2() {
         },
       })
       
+      console.log('[OrderManagement] Response status:', response.status)
+      
       if (!response.ok) {
-        throw new Error('加载失败')
+        const errorText = await response.text()
+        console.error('[OrderManagement] Error response:', errorText)
+        throw new Error(`加载失败: ${response.status} ${response.statusText}`)
       }
       
       const data = await response.json()
+      console.log('[OrderManagement] Received data:', data)
       const allOrders: Order[] = data.data || []
       
       // 按时间倒序
@@ -128,9 +133,19 @@ export default function OrderManagementNew2() {
         afterSale: allOrders.filter(o => o.status === 6 || o.status === 7 || o.status === 8 || o.status === 'refunding' || o.status === 'refunded' || o.status === 'exchanging' || (o as any).refundStatus).length,
         cancelled: allOrders.filter(o => o.status === 5 || o.status === 'cancelled').length,
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('加载订单失败:', error)
-      toast.error('加载订单失败')
+      const errorMessage = error?.message || '加载订单失败'
+      toast.error(errorMessage)
+      // Set empty orders on error
+      setOrders([])
+      setStats({
+        all: 0,
+        pending: 0,
+        shipping: 0,
+        afterSale: 0,
+        cancelled: 0,
+      })
     } finally {
       setLoading(false)
     }
@@ -1773,13 +1788,22 @@ export default function OrderManagementNew2() {
           </div>
         </div>
         
-        <button 
-          onClick={handleExportExcel}
-          className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50"
-        >
-          <Download className="w-4 h-4" />
-          导出表格
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => navigate('/products')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            新增订单
+          </button>
+          <button 
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50"
+          >
+            <Download className="w-4 h-4" />
+            导出表格
+          </button>
+        </div>
       </div>
 
       {/* 订单表格 */}

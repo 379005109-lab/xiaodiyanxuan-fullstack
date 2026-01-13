@@ -39,7 +39,8 @@ export default function CheckoutPage() {
     if (!isAuthenticated) {
       toast.error('请先登录')
       useAuthModalStore.getState().openLogin()
-      navigate('/')
+      // Don't redirect to homepage, stay on checkout page
+      // User can login and continue checkout
     }
   }, [isAuthenticated, navigate])
   

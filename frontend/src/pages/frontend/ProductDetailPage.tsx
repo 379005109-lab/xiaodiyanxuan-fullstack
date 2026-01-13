@@ -939,11 +939,7 @@ const ProductDetailPage = () => {
     for (const categoryKey of materialCategories) {
       const options = normalizedMaterials[categoryKey] || [];
       const selectedOption = materialSelections[categoryKey] || (options.length === 1 ? options[0] : undefined);
-      const categoryConfig = getMaterialCategoryConfig(categoryKey);
-      if (options.length > 1 && !selectedOption) {
-        toast.error(`请选择${categoryConfig.label}`);
-        return undefined;
-      }
+      // Material selection is now optional - no validation error
       chosenMaterials[categoryKey] = selectedOption;
     }
     return chosenMaterials;
@@ -958,14 +954,7 @@ const ProductDetailPage = () => {
     for (const categoryKey of materialCategories) {
       const options = normalizedMaterials[categoryKey] || [];
       const selectedOption = selection[categoryKey] || (options.length === 1 ? options[0] : undefined);
-      const categoryConfig = getMaterialCategoryConfig(categoryKey);
-      if (options.length > 1 && !selectedOption) {
-        toast.error(`请选择${sku.spec || sku.code || '规格'}的${categoryConfig.label}`);
-        setSelectedSku(sku);
-        setSpecCollapsed(false);
-        setMaterialCollapsed(false);
-        return undefined;
-      }
+      // Material selection is now optional - no validation error
       chosenMaterials[categoryKey] = selectedOption;
     }
     return chosenMaterials;
@@ -1004,8 +993,8 @@ const ProductDetailPage = () => {
           addItem(product, sku, quantity, {}, finalPrice);
         } else {
           const chosenMaterials = resolveSelectedMaterialsForSku(sku);
-          if (!chosenMaterials) return;
-          addItem(product, sku, quantity, chosenMaterials, getFinalPrice(sku, chosenMaterials));
+          // Material selection is optional - proceed with empty object if not selected
+          addItem(product, sku, quantity, chosenMaterials || {}, getFinalPrice(sku, chosenMaterials || {}));
         }
       }
       toast.success('已添加到购物车');
@@ -1020,11 +1009,10 @@ const ProductDetailPage = () => {
       return;
     }
 
-    // 旧的材质选择系统
+    // 旧的材质选择系统 - material selection is optional
     const chosenMaterials = resolveSelectedMaterials();
-    if (!chosenMaterials) return;
-
-    addItem(product, selectedSku, quantity, chosenMaterials, getFinalPrice(selectedSku, chosenMaterials));
+    // Proceed with empty object if no materials selected
+    addItem(product, selectedSku, quantity, chosenMaterials || {}, getFinalPrice(selectedSku, chosenMaterials || {}));
     toast.success('已添加到购物车');
   };
 
@@ -1034,8 +1022,8 @@ const ProductDetailPage = () => {
       return;
     }
     const chosenMaterials = resolveSelectedMaterials();
-    if (!chosenMaterials) return;
-    const result = await addToCompare(product._id, selectedSku._id, chosenMaterials);
+    // Material selection is optional for comparison
+    const result = await addToCompare(product._id, selectedSku._id, chosenMaterials || {});
     toast[result.success ? 'success' : 'error'](result.message);
   };
 
@@ -1067,8 +1055,8 @@ const ProductDetailPage = () => {
     if (multiSpecMode && selectedSkus.length > 0) {
       for (const sku of selectedSkus) {
         const chosenMaterials = resolveSelectedMaterialsForSku(sku);
-        if (!chosenMaterials) return;
-        addItem(product, sku, quantity, chosenMaterials, getFinalPrice(sku, chosenMaterials));
+        // Material selection is optional, proceed even if not selected
+        addItem(product, sku, quantity, chosenMaterials || {}, getFinalPrice(sku, chosenMaterials || {}));
       }
       navigate('/checkout');
       return;
@@ -1086,11 +1074,10 @@ const ProductDetailPage = () => {
       return;
     }
     
-    // 旧的材质选择系统
+    // 旧的材质选择系统 - material selection is now optional
     const chosenMaterials = resolveSelectedMaterials();
-    if (!chosenMaterials) return;
     try {
-      addItem(product, selectedSku, quantity, chosenMaterials, getFinalPrice(selectedSku, chosenMaterials));
+      addItem(product, selectedSku, quantity, chosenMaterials || {}, getFinalPrice(selectedSku, chosenMaterials || {}));
       navigate('/checkout');
     } catch (error) {
       console.error('Add to cart error:', error);
