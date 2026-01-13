@@ -1076,16 +1076,26 @@ const ProductDetailPage = () => {
     // 如果使用新的材质配置系统，直接使用最终价格（已包含材质配置加价）
     if (materialConfigs.length > 0) {
       const finalPrice = displayPrice;
-      addItem(product, selectedSku, quantity, {}, finalPrice);
-      navigate('/checkout');
+      try {
+        addItem(product, selectedSku, quantity, {}, finalPrice);
+        navigate('/checkout');
+      } catch (error) {
+        console.error('Add to cart error:', error);
+        toast.error('添加到购物车失败');
+      }
       return;
     }
     
     // 旧的材质选择系统
     const chosenMaterials = resolveSelectedMaterials();
     if (!chosenMaterials) return;
-    addItem(product, selectedSku, quantity, chosenMaterials, getFinalPrice(selectedSku, chosenMaterials));
-    navigate('/checkout');
+    try {
+      addItem(product, selectedSku, quantity, chosenMaterials, getFinalPrice(selectedSku, chosenMaterials));
+      navigate('/checkout');
+    } catch (error) {
+      console.error('Add to cart error:', error);
+      toast.error('添加到购物车失败');
+    }
   };
 
   const handleMaterialChoice = (sectionKey: string, materialName: string) => {
@@ -2211,9 +2221,9 @@ const ProductDetailPage = () => {
                       toast.success(`已下载 ${selectedAllImages.length} 张图片`);
                     }}
                     disabled={selectedAllImages.length === 0}
-                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    <Download className="h-4 w-4 inline mr-2" />
+                    <Download className="h-4 w-4" />
                     下载选中 ({selectedAllImages.length})
                   </button>
                   <button onClick={() => setShowAllImagesModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -2248,8 +2258,8 @@ const ProductDetailPage = () => {
                           }`}
                         />
                         {isSelected && (
-                          <div className="absolute top-2 right-2 bg-primary-600 text-white rounded-full p-1">
-                            <Check className="h-4 w-4" />
+                          <div className="absolute top-2 right-2 bg-green-600 text-white rounded-full p-1.5 shadow-lg">
+                            <Check className="h-5 w-5" />
                           </div>
                         )}
                       </div>
