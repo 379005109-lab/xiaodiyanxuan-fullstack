@@ -519,6 +519,11 @@ const ProductDetailPage = () => {
   const defaultGalleryImages = useMemo(() => {
     if (!product) return [];
     
+    // 优先使用选中的材质配置的图片
+    if (selectedMaterialConfig && selectedMaterialConfig.images?.length > 0) {
+      return selectedMaterialConfig.images;
+    }
+    
     // 如果有选中的材质分组且有图片，使用材质分组的图片
     if (selectedMaterialGroup && selectedMaterialGroup.images?.length > 0) {
       return selectedMaterialGroup.images;
@@ -530,7 +535,7 @@ const ProductDetailPage = () => {
     const skuImages = skus.flatMap((sku: any) => sku.images || []);
     const merged = [...baseImages, ...skuImages].filter(Boolean);
     return Array.from(new Set(merged));
-  }, [product, selectedMaterialGroup]);
+  }, [product, selectedMaterialConfig, selectedMaterialGroup]);
 
   const isComboProduct = Boolean((product as any)?.isCombo);
 
