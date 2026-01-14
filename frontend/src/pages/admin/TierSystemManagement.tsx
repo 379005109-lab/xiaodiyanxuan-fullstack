@@ -728,6 +728,8 @@ export default function TierSystemManagement() {
               .then(() => toast.success('保存成功'))
               .catch(() => toast.error('保存失败'))
           }}
+          onSaveData={saveData}
+          data={data}
           activeTab={activeTab}
           onSetActiveTab={setActiveTab}
           logoSrc={logoSrc}
@@ -1557,6 +1559,8 @@ function HierarchyTab({
   onSetExpandedNodes: React.Dispatch<React.SetStateAction<Set<string>>>
   onToggleNode: (id: string) => void
   onSaveAccounts: (accounts: AuthorizedAccount[]) => void
+  onSaveData: (data: TierSystemData) => Promise<void>
+  data: TierSystemData
   activeTab: string
   onSetActiveTab: (tab: 'hierarchy' | 'pool' | 'reconciliation') => void
   logoSrc: string
@@ -1624,13 +1628,17 @@ function HierarchyTab({
   }
 
   // 删除规则
-  const handleDeleteRule = (ruleId: string) => {
+  const handleDeleteRule = async (ruleId: string) => {
     if (!confirm('确定要删除这个规则吗？')) return
     const newRules = localCommissionRules.filter(r => r._id !== ruleId)
     setLocalCommissionRules(newRules)
-    saveData({ ...data, commissionRules: newRules })
-      .then(() => toast.success('规则已删除'))
-      .catch(() => toast.error('删除失败'))
+    try {
+      await onSaveData({ ...data, commissionRules: newRules })
+      toast.success('规则已删除')
+    } catch (err) {
+      console.error('删除规则失败:', err)
+      toast.error('删除失败')
+    }
   }
 
   // 创建新规则
