@@ -18,7 +18,7 @@ import {
   Eye
 } from 'lucide-react'
 
-type TabType = 'channels' | 'products'
+type TabType = 'channels' | 'products' | 'received_auth' | 'granted_auth'
 type ProductFilter = 'all' | 'own' | 'authorized' | 'pending'
 
 interface ChannelItem {
@@ -92,6 +92,8 @@ export default function ManufacturerBusinessPanel() {
   const [pendingCount, setPendingCount] = useState(0)
   const [tierSystemConfig, setTierSystemConfig] = useState<any>(null)
   const [channelFilter, setChannelFilter] = useState<'all' | 'manufacturer' | 'designer'>('all')
+  const [receivedAuths, setReceivedAuths] = useState<any[]>([])
+  const [grantedAuths, setGrantedAuths] = useState<any[]>([])
 
   useEffect(() => {
     if (!manufacturerId) {
@@ -105,18 +107,21 @@ export default function ManufacturerBusinessPanel() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [mRes, pRes, cRes, authRes, tRes] = await Promise.all([
+      const [mRes, pRes, cRes, authRes, tRes, receivedRes] = await Promise.all([
         apiClient.get(`/manufacturers/${manufacturerId}`),
         apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 10000 } }),
         apiClient.get(`/categories`),
         apiClient.get(`/authorizations/my-grants`).catch(() => ({ data: { data: [] } })),
-        apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } }))
+        apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } })),
+        apiClient.get(`/authorizations/received`).catch(() => ({ data: { data: [] } }))
       ])
 
       setManufacturer(mRes.data?.data || null)
       const categoryList = cRes.data?.data || []
       setCategories(categoryList)
       setTierSystemConfig(tRes.data?.data || null)
+      setReceivedAuths(receivedRes.data?.data || [])
+      setGrantedAuths(authRes.data?.data || [])
       
       // Create category lookup map
       const categoryMap = new Map<string, any>()
@@ -453,6 +458,32 @@ export default function ManufacturerBusinessPanel() {
                   统一商品库
                 </span>
               </button>
+              <button
+                onClick={() => setActiveTab('received_auth')}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'received_auth'
+                    ? 'border-[#153e35] text-[#153e35]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  被授权模式
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('granted_auth')}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'granted_auth'
+                    ? 'border-[#153e35] text-[#153e35]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  授权模式
+                </span>
+              </button>
             </div>
           </div>
 
@@ -758,6 +789,130 @@ export default function ManufacturerBusinessPanel() {
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'received_auth' && (
+              <div>
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-gray-900">被授权模式</h3>
+                  <p className="text-sm text-gray-500">显示其他厂家授权给我的产品</p>
+                </div>
+
+                {receivedAuths.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>暂无收到的授权</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {receivedAuths.map(auth => {
+                      const fromName = auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家'
+                      const productCount = auth.scope === 'all' 
+                        ? '全部商品' 
+                        : auth.scope === 'category'
+                        ? `${auth.categories?.length || 0}个分类`
+                        : `${auth.products?.length || 0}个商品`
+
+                      return (
+                        <div key={auth._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h4 className="font-semibold text-gray-900">{fromName}</h4>
+                                <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                                  {auth.authorizationType === 'manufacturer' ? '厂家授权' : '设计师授权'}
+                                </span>
+                                <span className={`px-2 py-1 text-xs rounded ${
+                                  auth.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {auth.status === 'active' ? '有效' : '已失效'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-gray-600">
+                                <span>授权范围: {productCount}</span>
+                                {auth.minDiscountRate > 0 && (
+                                  <span>最低折扣: {auth.minDiscountRate}%</span>
+                                )}
+                                {auth.commissionRate > 0 && (
+                                  <span>返佣: {auth.commissionRate}%</span>
+                                )}
+                                <span>有效期: {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久有效'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'granted_auth' && (
+              <div>
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-gray-900">授权模式</h3>
+                  <p className="text-sm text-gray-500">显示我授权给对方的信息和分成体系</p>
+                </div>
+
+                {grantedAuths.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>暂无授权记录</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {grantedAuths.map(auth => {
+                      const toName = auth.authorizationType === 'manufacturer'
+                        ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知厂家')
+                        : (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师')
+                      const productCount = auth.scope === 'all' 
+                        ? '全部商品' 
+                        : auth.scope === 'category'
+                        ? `${auth.categories?.length || 0}个分类`
+                        : `${auth.products?.length || 0}个商品`
+
+                      return (
+                        <div key={auth._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h4 className="font-semibold text-gray-900">{toName}</h4>
+                                <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
+                                  {auth.authorizationType === 'manufacturer' ? '厂家' : '设计师'}
+                                </span>
+                                <span className={`px-2 py-1 text-xs rounded ${
+                                  auth.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {auth.status === 'active' ? '有效' : '已失效'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-gray-600">
+                                <span>授权范围: {productCount}</span>
+                                {auth.minDiscountRate > 0 && (
+                                  <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs">
+                                    最低折扣: {auth.minDiscountRate}%
+                                  </span>
+                                )}
+                                {auth.commissionRate > 0 && (
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                                    返佣: {auth.commissionRate}%
+                                  </span>
+                                )}
+                              </div>
+                              {auth.tierCompanyName && (
+                                <div className="mt-2 text-sm text-gray-500">
+                                  所属公司: {auth.tierCompanyName} (层级 {auth.tierLevel || 0})
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
