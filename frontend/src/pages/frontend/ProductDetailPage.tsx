@@ -697,6 +697,11 @@ const ProductDetailPage = () => {
       setLoading(true);
       try {
         const fetchedProduct = await getProductById(id);
+        console.log('[ProductDetailPage] 获取到的商品数据:', { 
+          labelPrice1: (fetchedProduct as any)?.labelPrice1, 
+          takePrice: (fetchedProduct as any)?.takePrice, 
+          basePrice: (fetchedProduct as any)?.basePrice 
+        })
         setProduct(fetchedProduct);
         
         // 记录用户浏览历史（异步，不影响页面加载）
