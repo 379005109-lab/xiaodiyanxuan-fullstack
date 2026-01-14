@@ -864,7 +864,31 @@ export default function ManufacturerBusinessPanel() {
               <div>
                 <div className="mb-6">
                   <h3 className="text-lg font-bold text-gray-900">授权模式</h3>
-                  <p className="text-sm text-gray-500">显示我授权给对方的信息和分成体系，点击查看分层体系</p>
+                  <p className="text-sm text-gray-500">管理我授权给对方的信息和分成体系</p>
+                </div>
+                
+                {/* 分成体系子标签页 */}
+                <div className="mb-6 border-b border-gray-200">
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => navigate('/admin/tier-system?tab=hierarchy')}
+                      className="pb-3 px-1 border-b-2 border-purple-600 text-purple-600 font-medium text-sm"
+                    >
+                      层级架构
+                    </button>
+                    <button
+                      onClick={() => navigate('/admin/tier-system?tab=pool')}
+                      className="pb-3 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 text-sm"
+                    >
+                      毛利池管理
+                    </button>
+                    <button
+                      onClick={() => navigate('/admin/tier-system?tab=reconciliation')}
+                      className="pb-3 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 text-sm"
+                    >
+                      对账管理
+                    </button>
+                  </div>
                 </div>
 
                 {grantedAuths.length === 0 ? (
