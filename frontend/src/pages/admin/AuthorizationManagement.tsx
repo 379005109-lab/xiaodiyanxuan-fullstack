@@ -159,9 +159,24 @@ export default function AuthorizationManagement() {
     }
   }
 
-  const openApproveModal = (id: string) => {
+  const openApproveModal = async (id: string) => {
     const req = pendingRequests.find((r) => r._id === id)
     if (req) {
+      // 加载申请人的详细信息
+      try {
+        const userId = req.authorizationType === 'designer' ? req.toDesigner?._id : req.toManufacturer?._id
+        if (userId) {
+          const response = await apiClient.get(`/users/${userId}/profile`)
+          const userData = response.data?.data
+          if (userData) {
+            // 将用户详细信息附加到请求对象
+            req.userProfile = userData
+          }
+        }
+      } catch (error) {
+        console.error('加载用户详情失败:', error)
+      }
+      
       setApproveRequest(req)
       setApproveDiscount(85)
       setApproveCommission(5)
@@ -705,19 +720,80 @@ export default function AuthorizationManagement() {
 
       {/* 审批模态框 */}
       {showApproveModal && approveRequest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-3xl shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold mb-4">审批授权申请</h3>
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600">申请方</div>
-              <div className="font-medium">
-                {approveRequest.authorizationType === 'manufacturer'
-                  ? (approveRequest.toManufacturer?.fullName || approveRequest.toManufacturer?.name || '未知厂家')
-                  : (approveRequest.toDesigner?.nickname || approveRequest.toDesigner?.username || '未知设计师')}
+            
+            {/* 申请人基本信息 */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="text-sm text-gray-600 mb-2">申请方信息</div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    {approveRequest.authorizationType === 'manufacturer'
+                      ? (approveRequest.toManufacturer?.fullName || approveRequest.toManufacturer?.name || '未知厂家')
+                      : (approveRequest.toDesigner?.nickname || approveRequest.toDesigner?.username || '未知设计师')}
+                  </span>
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
+                    {approveRequest.authorizationType === 'manufacturer' ? '企业' : '设计师'}
+                  </span>
+                </div>
+                {approveRequest.toDesigner?.phone && (
+                  <div className="text-sm text-gray-600">电话: {approveRequest.toDesigner.phone}</div>
+                )}
+                {approveRequest.toDesigner?.email && (
+                  <div className="text-sm text-gray-600">邮箱: {approveRequest.toDesigner.email}</div>
+                )}
               </div>
             </div>
+
+            {/* 身份证明文件 */}
+            {(approveRequest as any).userProfile && (
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-sm font-medium text-blue-900 mb-3">身份证明文件</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {approveRequest.authorizationType === 'manufacturer' && (approveRequest as any).userProfile?.businessLicense && (
+                    <div>
+                      <div className="text-xs text-gray-600 mb-2">营业执照</div>
+                      <img 
+                        src={(approveRequest as any).userProfile.businessLicense} 
+                        alt="营业执照" 
+                        className="w-full h-48 object-contain bg-white rounded border cursor-pointer hover:opacity-80"
+                        onClick={() => window.open((approveRequest as any).userProfile.businessLicense, '_blank')}
+                      />
+                    </div>
+                  )}
+                  {approveRequest.authorizationType === 'designer' && (approveRequest as any).userProfile?.workId && (
+                    <div>
+                      <div className="text-xs text-gray-600 mb-2">工作证</div>
+                      <img 
+                        src={(approveRequest as any).userProfile.workId} 
+                        alt="工作证" 
+                        className="w-full h-48 object-contain bg-white rounded border cursor-pointer hover:opacity-80"
+                        onClick={() => window.open((approveRequest as any).userProfile.workId, '_blank')}
+                      />
+                    </div>
+                  )}
+                  {(approveRequest as any).userProfile?.idCard && (
+                    <div>
+                      <div className="text-xs text-gray-600 mb-2">身份证</div>
+                      <img 
+                        src={(approveRequest as any).userProfile.idCard} 
+                        alt="身份证" 
+                        className="w-full h-48 object-contain bg-white rounded border cursor-pointer hover:opacity-80"
+                        onClick={() => window.open((approveRequest as any).userProfile.idCard, '_blank')}
+                      />
+                    </div>
+                  )}
+                </div>
+                {!(approveRequest as any).userProfile?.businessLicense && !(approveRequest as any).userProfile?.workId && (
+                  <div className="text-sm text-gray-500 italic">暂无上传身份证明文件</div>
+                )}
+              </div>
+            )}
             
-            <div className="space-y-4">
+            {/* 折扣和返佣设置 */}
+            <div className="space-y-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   折扣比例 (%)
