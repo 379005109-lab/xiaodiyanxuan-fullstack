@@ -1006,10 +1006,12 @@ export default function ManufacturerManagement() {
                                     ...prev,
                                     [item._id]: { ...prev[item._id], isEnabled: true }
                                   }))
-                                  await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
+                                  const response = await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
+                                  setAuthorizationMap(prev => ({
+                                    ...prev,
+                                    [item._id]: { ...prev[item._id], isEnabled: response.data.isEnabled }
+                                  }))
                                   toast.success('已开启该厂家商品显示')
-                                  // 刷新数据确保状态同步
-                                  fetchData()
                                 } catch (e: any) {
                                   // 失败时回滚状态
                                   setAuthorizationMap(prev => ({
@@ -1040,8 +1042,6 @@ export default function ManufacturerManagement() {
                                   }))
                                   await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: false })
                                   toast.success('已关闭该厂家商品显示')
-                                  // 刷新数据确保状态同步
-                                  fetchData()
                                 } catch (e: any) {
                                   // 失败时回滚状态
                                   setAuthorizationMap(prev => ({
