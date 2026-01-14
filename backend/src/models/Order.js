@@ -87,7 +87,20 @@ const orderSchema = new mongoose.Schema({
   refundStatus: { type: String, enum: ['pending', 'approved', 'rejected', 'completed', null], default: null },
   // 订单分发状态
   dispatchStatus: { type: String, enum: ['pending', 'dispatched', null], default: null },
-  dispatchedAt: Date
+  dispatchedAt: Date,
+  // 分层返佣计算结果
+  commissions: [{
+    accountId: String,           // 账号ID（TierSystem.authorizedAccounts 中的 _id）
+    userId: String,              // 用户ID
+    username: String,            // 用户名
+    nickname: String,            // 昵称
+    depth: Number,               // 层级深度（0=下单者自己，1=直接上级，2=上级的上级...）
+    commissionRate: Number,      // 返佣比例（0-1）
+    commissionAmount: Number,    // 返佣金额（元）
+    tierCompanyId: String,       // 所属公司ID
+    tierCompanyName: String,     // 所属公司名称
+    calculatedAt: { type: Date, default: Date.now }
+  }]
 })
 
 orderSchema.index({ userId: 1 })

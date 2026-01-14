@@ -77,8 +77,14 @@ interface AuthorizedAccount {
   commissionRuleId?: string
   // 被绑定人员的折扣设置
   boundUserDiscount?: number
-  // 被绑定人员的返佣设置
+  // 被绑定人员的返佣设置（旧字段，兼容用）
   boundUserCommission?: number
+  // 新增：按层级深度的返佣规则数组
+  depthBasedCommissionRules?: Array<{
+    depth: number           // 层级深度：0=自己下单，1=直接下级下单，2=下级的下级下单...
+    commissionRate: number  // 返佣比例（0-1，如 0.4 表示 40%）
+    description?: string    // 规则描述
+  }>
   children: AuthorizedAccount[]
   status: 'active' | 'suspended' | 'pending'
   createdAt: string
@@ -1714,6 +1720,11 @@ function HierarchyTab({
     nickname: string
     phone: string
     roleModuleId: string
+    depthBasedCommissionRules?: Array<{
+      depth: number
+      commissionRate: number
+      description?: string
+    }>
   }>) => {
     if (!manufacturerId) {
       toast.error('请先选择厂家')
@@ -1782,6 +1793,7 @@ function HierarchyTab({
         availableRate: 0,
         distributionRate: 0,
         visibleCategoryIds: parentAccount?.visibleCategoryIds ? parentAccount.visibleCategoryIds.map(String) : [],
+        depthBasedCommissionRules: it.depthBasedCommissionRules,
         children: [],
         status: 'active',
         createdAt: new Date().toISOString()
@@ -4652,6 +4664,11 @@ function AddAccountModal({
     nickname: string
     phone: string
     roleModuleId: string
+    depthBasedCommissionRules?: Array<{
+      depth: number
+      commissionRate: number
+      description?: string
+    }>
   }>) => void
 }) {
   const [manufacturerAccounts, setManufacturerAccounts] = useState<any[]>([])
@@ -4661,6 +4678,8 @@ function AddAccountModal({
   const [organizationsById, setOrganizationsById] = useState<Record<string, { name: string; type?: string }>>({})
 
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([])
+  const [showCommissionConfig, setShowCommissionConfig] = useState(false)
+  const [commissionRulesByAccountId, setCommissionRulesByAccountId] = useState<Record<string, Array<{ depth: number; commissionRate: number; description?: string }>>>({})
 
   const activeModules = useMemo(() => {
     return (modules || []).filter((m) => m?.isActive)
@@ -4878,12 +4897,14 @@ function AddAccountModal({
 
     const payload = selectedAccounts.map((a) => {
       const id = String(a._id)
+      const rules = commissionRulesByAccountId[id] || []
       return {
         accountId: id,
         username: String(a.username || ''),
         nickname: String(a.nickname || a.username || ''),
         phone: String(a.phone || ''),
-        roleModuleId: String(roleByAccountId[id] || '')
+        roleModuleId: String(roleByAccountId[id] || ''),
+        depthBasedCommissionRules: rules.length > 0 ? rules : undefined
       }
     })
 
@@ -5042,6 +5063,126 @@ function AddAccountModal({
             })
           )}
         </div>
+
+        {/* 多层级返佣规则配置区域 */}
+        {selectedAccountIds.length > 0 && (
+          <div className="px-12 py-6 border-t bg-blue-50/50">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="text-sm font-bold text-gray-900">多层级返佣规则配置</h4>
+                <p className="text-xs text-gray-500 mt-1">为选中账号配置不同层级深度的返佣比例（可选）</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCommissionConfig(!showCommissionConfig)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-gray-200 hover:bg-gray-50"
+              >
+                {showCommissionConfig ? '隐藏配置' : '展开配置'}
+              </button>
+            </div>
+
+            {showCommissionConfig && (
+              <div className="space-y-4">
+                {selectedAccountIds.map((accountId) => {
+                  const account = selectedAccounts.find(a => String(a._id) === accountId)
+                  const rules = commissionRulesByAccountId[accountId] || []
+                  
+                  const addRule = () => {
+                    const maxDepth = rules.length > 0 ? Math.max(...rules.map(r => r.depth)) : -1
+                    const newDepth = maxDepth + 1
+                    setCommissionRulesByAccountId(prev => ({
+                      ...prev,
+                      [accountId]: [...rules, { depth: newDepth, commissionRate: 0.2, description: `层级${newDepth}` }]
+                    }))
+                  }
+                  
+                  const removeRule = (depth: number) => {
+                    setCommissionRulesByAccountId(prev => ({
+                      ...prev,
+                      [accountId]: rules.filter(r => r.depth !== depth)
+                    }))
+                  }
+                  
+                  const updateRule = (depth: number, field: 'commissionRate' | 'description', value: any) => {
+                    setCommissionRulesByAccountId(prev => ({
+                      ...prev,
+                      [accountId]: rules.map(r => r.depth === depth ? { ...r, [field]: value } : r)
+                    }))
+                  }
+
+                  return (
+                    <div key={accountId} className="bg-white rounded-2xl p-4 border border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-bold text-gray-900">
+                          {account?.nickname || account?.username || accountId}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={addRule}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          添加层级
+                        </button>
+                      </div>
+
+                      {rules.length === 0 ? (
+                        <div className="text-xs text-gray-400 py-2">暂无配置（将使用默认规则）</div>
+                      ) : (
+                        <div className="space-y-2">
+                          {rules.sort((a, b) => a.depth - b.depth).map((rule) => (
+                            <div key={rule.depth} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                              <div className="text-xs font-bold text-gray-600 w-20">
+                                {rule.depth === 0 ? '自己下单' : `${rule.depth}级下级`}
+                              </div>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value={Math.round(rule.commissionRate * 100)}
+                                onChange={(e) => {
+                                  const pct = Number(e.target.value) || 0
+                                  updateRule(rule.depth, 'commissionRate', Math.max(0, Math.min(100, pct)) / 100)
+                                }}
+                                className="w-20 px-2 py-1 border border-gray-200 rounded text-xs text-center font-bold"
+                              />
+                              <span className="text-xs text-gray-500">%</span>
+                              <input
+                                type="text"
+                                placeholder="说明"
+                                value={rule.description || ''}
+                                onChange={(e) => updateRule(rule.depth, 'description', e.target.value)}
+                                className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeRule(rule.depth)}
+                                className="w-6 h-6 rounded bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                  <div className="text-xs font-bold text-yellow-900 mb-1">💡 配置说明</div>
+                  <ul className="text-xs text-yellow-700 space-y-1">
+                    <li>• <strong>层级0（自己下单）</strong>：该账号自己下单时获得的返佣</li>
+                    <li>• <strong>层级1（直接下级）</strong>：该账号的直接下级下单时，该账号获得的返佣</li>
+                    <li>• <strong>层级2+</strong>：更深层级下单时的返佣，依此类推</li>
+                    <li>• 不同层级账号因权限不同，下单金额也会不同</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="p-12 border-t bg-white flex gap-6 shrink-0 shadow-inner">
           <button type="button" onClick={onClose} className="flex-grow rounded-3xl py-6 font-black uppercase text-xs tracking-widest border-2 border-gray-200 bg-white hover:bg-gray-50">

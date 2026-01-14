@@ -5,10 +5,12 @@ const Coupon = require('../models/Coupon')
 const Product = require('../models/Product')
 const Manufacturer = require('../models/Manufacturer')
 const ManufacturerOrder = require('../models/ManufacturerOrder')
+const Authorization = require('../models/Authorization')
 const { sendNewOrderNotification } = require('./smsService')
 const { generateOrderNo, calculatePagination } = require('../utils/helpers')
 const { ORDER_STATUS } = require('../config/constants')
 const { NotFoundError, ValidationError } = require('../utils/errors')
+const { calculateTieredCommissions } = require('./commissionService')
 
 const enrichItemsWithManufacturer = async (items) => {
   const productIds = (items || [])
@@ -285,6 +287,41 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
 
   const enrichedItems = await enrichItemsWithManufacturer(items)
   
+  // 计算分层返佣
+  let commissions = []
+  try {
+    // 从订单商品中获取厂家ID和公司信息
+    const firstItem = enrichedItems[0]
+    const itemManufacturerId = firstItem?.manufacturerId ? String(firstItem.manufacturerId) : null
+    
+    if (itemManufacturerId) {
+      // 查找用户的授权信息，获取 tierCompanyId/tierCompanyName
+      const auth = await Authorization.findOne({
+        $or: [
+          { toDesigner: userId },
+          { toManufacturer: userId }
+        ],
+        fromManufacturer: itemManufacturerId,
+        status: 'active'
+      }).select('tierCompanyId tierCompanyName').lean()
+      
+      const tierCompanyId = auth?.tierCompanyId ? String(auth.tierCompanyId) : ''
+      const tierCompanyName = auth?.tierCompanyName ? String(auth.tierCompanyName) : ''
+      
+      commissions = await calculateTieredCommissions(
+        userId,
+        totalAmount,
+        itemManufacturerId,
+        tierCompanyId,
+        tierCompanyName
+      )
+      
+      console.log('💰 [OrderService] Calculated commissions:', commissions.length, 'items')
+    }
+  } catch (err) {
+    console.error('💰 [OrderService] Commission calculation failed:', err)
+  }
+  
   const order = await Order.create({
     orderNo,
     userId,
@@ -294,7 +331,8 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
     totalAmount,
     recipient,
     status: ORDER_STATUS.PENDING_PAYMENT,
-    couponCode
+    couponCode,
+    commissions
   })
   
   console.log('✅ [OrderService] Order created successfully!');
