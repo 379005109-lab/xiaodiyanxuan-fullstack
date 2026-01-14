@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle, Copy } from 'lucide-react'
+import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle, Copy, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import FolderSelectionModal from '@/components/FolderSelectionModal'
 import apiClient from '@/lib/apiClient'
@@ -29,6 +29,12 @@ interface Authorization {
   isFolderSelected?: boolean
   createdAt: string
   updatedAt: string
+  minDiscountRate?: number
+  commissionRate?: number
+  tierType?: 'new_company' | 'existing_tier'
+  tierLevel?: number
+  tierCompanyName?: string
+  parentAuthorizationId?: string
 }
 
 export default function AuthorizationManagement() {
@@ -75,6 +81,8 @@ export default function AuthorizationManagement() {
   // 层级结构状态
   const [tierHierarchy, setTierHierarchy] = useState<any[]>([])
   const [myAuthIds, setMyAuthIds] = useState<string[]>([])
+  const [showCommissionMap, setShowCommissionMap] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<{ name: string; auths: any[] } | null>(null)
 
   const didInitTab = useRef(false)
 
@@ -570,8 +578,8 @@ export default function AuthorizationManagement() {
                     key={companyName}
                     className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer"
                     onClick={() => {
-                      // TODO: 打开分成地图
-                      toast.info(`查看 ${companyName} 的分成地图`)
+                      setSelectedCompany({ name: companyName, auths })
+                      setShowCommissionMap(true)
                     }}
                   >
                     <div className="flex items-center justify-between">
@@ -1071,6 +1079,88 @@ export default function AuthorizationManagement() {
               >
                 确认通过
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 分成地图弹窗 */}
+      {showCommissionMap && selectedCompany && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">{selectedCompany.name}</h3>
+                  <p className="text-sm text-gray-500 mt-1">分成体系地图</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCommissionMap(false)
+                    setSelectedCompany(null)
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              {/* 层级树状结构 */}
+              <div className="space-y-4">
+                {selectedCompany.auths
+                  .sort((a, b) => (a.tierLevel || 0) - (b.tierLevel || 0))
+                  .map((auth: any) => {
+                    const isMyAuth = myAuthIds.includes(auth._id)
+                    const tierLevel = auth.tierLevel || 0
+                    const targetName = auth.authorizationType === 'designer'
+                      ? (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师')
+                      : (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知厂家')
+
+                    return (
+                      <div
+                        key={auth._id}
+                        className={`border-l-4 rounded-lg p-4 ${
+                          isMyAuth
+                            ? 'bg-green-50 border-green-500'
+                            : auth.isParent
+                            ? 'bg-blue-50 border-blue-500'
+                            : 'bg-purple-50 border-purple-500'
+                        }`}
+                        style={{ marginLeft: `${tierLevel * 3}rem` }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-semibold text-gray-900">{targetName}</span>
+                              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                                L{tierLevel}
+                              </span>
+                              {isMyAuth && (
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">
+                                  我
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                              {auth.minDiscountRate > 0 && (
+                                <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">
+                                  折扣 {auth.minDiscountRate}%
+                                </span>
+                              )}
+                              {auth.commissionRate > 0 && (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                  返佣 {auth.commissionRate}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
             </div>
           </div>
         </div>
