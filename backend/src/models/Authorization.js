@@ -134,6 +134,36 @@ const authorizationSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  
+  // === 分层体系相关字段 ===
+  // 层级类型：新建公司或插入现有层级
+  tierType: {
+    type: String,
+    enum: ['new_company', 'existing_tier'],  // 新建公司 或 插入现有层级
+    default: null
+  },
+  
+  // 父级授权ID（如果是插入现有层级）
+  parentAuthorizationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Authorization'
+  },
+  
+  // 层级深度（0表示顶级，1表示第一级下级，以此类推）
+  tierLevel: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  
+  // 公司/层级名称
+  tierCompanyName: String,
+  
+  // 是否可以再授权给下级
+  allowSubAuthorization: {
+    type: Boolean,
+    default: true
   }
 })
 

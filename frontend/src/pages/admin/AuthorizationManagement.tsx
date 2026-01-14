@@ -66,6 +66,11 @@ export default function AuthorizationManagement() {
   const [approveRequest, setApproveRequest] = useState<Authorization | null>(null)
   const [approveDiscount, setApproveDiscount] = useState(85)
   const [approveCommission, setApproveCommission] = useState(5)
+  const [tierType, setTierType] = useState<'new_company' | 'existing_tier'>('new_company')
+  const [tierCompanyName, setTierCompanyName] = useState('')
+  const [parentAuthId, setParentAuthId] = useState('')
+  const [allowSubAuth, setAllowSubAuth] = useState(true)
+  const [availableParentAuths, setAvailableParentAuths] = useState<Authorization[]>([])
 
   const didInitTab = useRef(false)
 
@@ -177,15 +182,45 @@ export default function AuthorizationManagement() {
         console.error('加载用户详情失败:', error)
       }
       
+      // 加载可用的父级授权（用于插入现有层级）
+      try {
+        const response = await apiClient.get('/authorizations/my-grants')
+        if (response.data?.success) {
+          // 只显示允许下级授权的授权
+          const availableAuths = (response.data.data || []).filter(
+            (auth: Authorization) => auth.status === 'active' && auth.allowSubAuthorization !== false
+          )
+          setAvailableParentAuths(availableAuths)
+        }
+      } catch (error) {
+        console.error('加载可用父级授权失败:', error)
+        setAvailableParentAuths([])
+      }
+      
       setApproveRequest(req)
       setApproveDiscount(85)
       setApproveCommission(5)
+      setTierType('new_company')
+      setTierCompanyName('')
+      setParentAuthId('')
+      setAllowSubAuth(true)
       setShowApproveModal(true)
     }
   }
 
   const handleApproveRequest = async () => {
     if (!approveRequest) return
+    
+    // 验证必填字段
+    if (tierType === 'new_company' && !tierCompanyName.trim()) {
+      toast.error('请输入公司名称')
+      return
+    }
+    if (tierType === 'existing_tier' && !parentAuthId) {
+      toast.error('请选择父级授权')
+      return
+    }
+    
     try {
       const endpoint = approveRequest.authorizationType === 'manufacturer'
         ? `/authorizations/manufacturer-requests/${approveRequest._id}/approve`
@@ -193,7 +228,11 @@ export default function AuthorizationManagement() {
 
       const response = await apiClient.put(endpoint, {
         discountRate: approveDiscount,
-        commissionRate: approveCommission
+        commissionRate: approveCommission,
+        tierType,
+        tierCompanyName: tierCompanyName.trim(),
+        parentAuthorizationId: tierType === 'existing_tier' ? parentAuthId : undefined,
+        allowSubAuthorization: allowSubAuth
       })
       const data = response.data
       if (data?.success) {
@@ -791,6 +830,108 @@ export default function AuthorizationManagement() {
                 )}
               </div>
             )}
+            
+            {/* 分层体系设置 */}
+            <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="text-sm font-medium text-purple-900 mb-3">分层体系设置</div>
+              
+              {/* 层级类型选择 */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">层级类型</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={tierType === 'new_company'}
+                      onChange={() => setTierType('new_company')}
+                      className="w-4 h-4 text-purple-600"
+                    />
+                    <span className="text-sm">新建公司</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={tierType === 'existing_tier'}
+                      onChange={() => setTierType('existing_tier')}
+                      className="w-4 h-4 text-purple-600"
+                    />
+                    <span className="text-sm">插入现有层级</span>
+                  </label>
+                </div>
+              </div>
+              
+              {/* 新建公司 */}
+              {tierType === 'new_company' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    公司名称 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={tierCompanyName}
+                    onChange={(e) => setTierCompanyName(e.target.value)}
+                    className="input w-full"
+                    placeholder="请输入公司名称"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">将创建一个新的顶级公司层级</p>
+                </div>
+              )}
+              
+              {/* 插入现有层级 */}
+              {tierType === 'existing_tier' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      选择父级授权 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={parentAuthId}
+                      onChange={(e) => setParentAuthId(e.target.value)}
+                      className="input w-full"
+                    >
+                      <option value="">请选择父级授权</option>
+                      {availableParentAuths.map((auth) => (
+                        <option key={auth._id} value={auth._id}>
+                          {auth.tierCompanyName || '未命名'} (层级 {auth.tierLevel || 0})
+                          {auth.toDesigner && ` - ${auth.toDesigner.nickname || auth.toDesigner.username}`}
+                          {auth.toManufacturer && ` - ${auth.toManufacturer.name}`}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">将作为所选授权的下级层级</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      层级名称
+                    </label>
+                    <input
+                      type="text"
+                      value={tierCompanyName}
+                      onChange={(e) => setTierCompanyName(e.target.value)}
+                      className="input w-full"
+                      placeholder="可选，留空将自动生成"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* 是否允许下级授权 */}
+              <div className="mt-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allowSubAuth}
+                    onChange={(e) => setAllowSubAuth(e.target.checked)}
+                    className="w-4 h-4 text-purple-600 rounded"
+                  />
+                  <span className="text-sm text-gray-700">允许该用户继续向下级授权</span>
+                </label>
+                <p className="text-xs text-gray-500 mt-1 ml-6">
+                  勾选后，该用户可以创建自己的下级授权层级
+                </p>
+              </div>
+            </div>
             
             {/* 折扣和返佣设置 */}
             <div className="space-y-4 mb-4">

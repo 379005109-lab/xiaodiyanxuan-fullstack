@@ -759,51 +759,8 @@ router.put('/manufacturer/designer-requests/:id/reject', verifyManufacturerToken
 
     res.json({ success: true, data: authDoc, message: '已拒绝' })
   } catch (error) {
-    console.error('拒绝授权申请失败(厂家端):', error)
-    res.status(500).json({ success: false, message: '拒绝授权申请失败' })
-  }
-})
-
-router.put('/manufacturer/manufacturer-requests/:id/approve', verifyManufacturerToken, async (req, res) => {
-  try {
-    const { id } = req.params
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'id 无效' })
-    }
-
-    const authDoc = await Authorization.findById(id)
-    if (!authDoc) {
-      return res.status(404).json({ success: false, message: '授权申请不存在' })
-    }
-
-    if (authDoc.authorizationType !== 'manufacturer') {
-      return res.status(403).json({ success: false, message: '只能审核厂家授权申请' })
-    }
-
-    if (authDoc.fromManufacturer?.toString() !== String(req.manufacturerId)) {
-      return res.status(403).json({ success: false, message: '无权限审核此申请' })
-    }
-
-    if (authDoc.status !== 'pending') {
-      return res.status(400).json({ success: false, message: '该申请不是待审核状态' })
-    }
-
-    const { scope, categories, products, priceSettings, validUntil, notes } = req.body || {}
-    if (scope) authDoc.scope = scope
-    if (categories !== undefined) authDoc.categories = categories
-    if (products !== undefined) authDoc.products = products
-    if (priceSettings) authDoc.priceSettings = priceSettings
-    if (validUntil !== undefined) authDoc.validUntil = validUntil
-    if (notes !== undefined) authDoc.notes = notes
-
-    authDoc.status = 'active'
-    authDoc.updatedAt = new Date()
-    await authDoc.save()
-
-    res.json({ success: true, data: authDoc, message: '已通过' })
-  } catch (error) {
-    console.error('审核厂家授权申请失败(厂家端):', error)
-    res.status(500).json({ success: false, message: '审核厂家授权申请失败' })
+    console.error('拒绝设计师授权申请失败(厂家端):', error)
+    res.status(500).json({ success: false, message: '拒绝设计师授权申请失败' })
   }
 })
 
@@ -1130,13 +1087,70 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: '该申请不是待审核状态' })
     }
 
-    const { scope, categories, products, priceSettings, validUntil, notes } = req.body
+    const { 
+      scope, 
+      categories, 
+      products, 
+      priceSettings, 
+      validUntil, 
+      notes,
+      discountRate,
+      commissionRate,
+      tierType,
+      parentAuthorizationId,
+      tierCompanyName,
+      allowSubAuthorization
+    } = req.body
+    
     if (scope) authDoc.scope = scope
     if (categories !== undefined) authDoc.categories = categories
     if (products !== undefined) authDoc.products = products
     if (priceSettings) authDoc.priceSettings = priceSettings
     if (validUntil !== undefined) authDoc.validUntil = validUntil
     if (notes !== undefined) authDoc.notes = notes
+    
+    // 设置折扣和返佣
+    if (discountRate !== undefined && discountRate >= 0 && discountRate <= 100) {
+      authDoc.minDiscountRate = discountRate
+    }
+    if (commissionRate !== undefined && commissionRate >= 0 && commissionRate <= 100) {
+      authDoc.commissionRate = commissionRate
+    }
+    
+    // 处理分层体系
+    if (tierType) {
+      authDoc.tierType = tierType
+      
+      if (tierType === 'new_company') {
+        // 新建公司，层级为0
+        authDoc.tierLevel = 0
+        authDoc.tierCompanyName = tierCompanyName || '未命名公司'
+        authDoc.parentAuthorizationId = null
+      } else if (tierType === 'existing_tier' && parentAuthorizationId) {
+        // 插入现有层级
+        if (!mongoose.Types.ObjectId.isValid(parentAuthorizationId)) {
+          return res.status(400).json({ success: false, message: '父级授权ID无效' })
+        }
+        
+        const parentAuth = await Authorization.findById(parentAuthorizationId)
+        if (!parentAuth) {
+          return res.status(404).json({ success: false, message: '父级授权不存在' })
+        }
+        
+        // 检查父级是否允许下级授权
+        if (!parentAuth.allowSubAuthorization) {
+          return res.status(403).json({ success: false, message: '父级不允许创建下级授权' })
+        }
+        
+        authDoc.parentAuthorizationId = parentAuthorizationId
+        authDoc.tierLevel = (parentAuth.tierLevel || 0) + 1
+        authDoc.tierCompanyName = tierCompanyName || `第${authDoc.tierLevel}级下级`
+      }
+    }
+    
+    if (allowSubAuthorization !== undefined) {
+      authDoc.allowSubAuthorization = allowSubAuthorization
+    }
 
     authDoc.status = 'active'
     authDoc.updatedAt = new Date()
