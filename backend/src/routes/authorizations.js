@@ -2008,6 +2008,7 @@ router.put('/product-override/:productId', auth, async (req, res) => {
     }
     
     // 检查是否有该商品的授权
+    console.log('[product-override] 查找授权:', { productId, productManufacturerId, userManufacturerId: user.manufacturerId })
     const authorization = await Authorization.findOne({
       fromManufacturer: productManufacturerId,
       $or: [
@@ -2018,8 +2019,11 @@ router.put('/product-override/:productId', auth, async (req, res) => {
     })
     
     if (!authorization) {
+      console.log('[product-override] 未找到授权')
       return res.status(403).json({ success: false, message: '您没有该商品的授权' })
     }
+    
+    console.log('[product-override] 找到授权:', authorization._id)
     
     // 验证价格下限（60%）
     if (price !== undefined) {
@@ -2050,13 +2054,19 @@ router.put('/product-override/:productId', auth, async (req, res) => {
     }
     
     // 使用Map的set方法更新
+    console.log('[product-override] 更新前:', { productId, existingOverride, updatedOverride })
     authorization.productOverrides.set(productId, updatedOverride)
     authorization.markModified('productOverrides')
-    await authorization.save()
+    
+    const saveResult = await authorization.save()
+    console.log('[product-override] 保存成功:', { authId: saveResult._id, updatedAt: saveResult.updatedAt })
+    
+    const finalData = authorization.productOverrides.get(productId)
+    console.log('[product-override] 最终数据:', finalData)
     
     res.json({ 
       success: true, 
-      data: authorization.productOverrides.get(productId),
+      data: finalData,
       message: price !== undefined ? '价格已更新' : (hidden ? '商品已隐藏' : '商品已显示')
     })
   } catch (error) {
