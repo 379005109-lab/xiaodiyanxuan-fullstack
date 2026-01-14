@@ -176,7 +176,7 @@ export default function ProductManagement() {
     setLoading(true);
     try {
       // includeHidden=true 确保管理页面能看到所有商品（包括隐藏的）
-      const response = await getProducts({ pageSize: 10000, includeHidden: true });
+      const response = await getProducts({ pageSize: 10000, includeHidden: true, _t: Date.now() });
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
         console.log('[ProductManagement] 加载商品数量:', response.data.length);
@@ -188,7 +188,7 @@ export default function ProductManagement() {
         // 对于厂家账号，也加载授权过来的商品
         if (!isPlatformAdminUser && myManufacturerId) {
           try {
-            const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } })
+            const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000, _t: Date.now() } })
             const authorizedProducts = authResponse.data?.data || []
             console.log('[ProductManagement] 授权商品数量:', authorizedProducts.length)
             
