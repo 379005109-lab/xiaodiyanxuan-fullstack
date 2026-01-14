@@ -990,6 +990,24 @@ export default function ManufacturerBusinessPanel() {
                               </div>
                               <div className="flex items-center gap-2">
                                 <button
+                                  className="px-3 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 text-sm"
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    if (!confirm(`确定要删除公司"${companyName}"的所有授权吗？此操作不可恢复。`)) return
+                                    try {
+                                      const authIds = auths.map((a: any) => a._id)
+                                      await Promise.all(authIds.map((id: string) => apiClient.delete(`/authorizations/${id}`)))
+                                      toast.success('已删除')
+                                      loadData()
+                                    } catch (err) {
+                                      console.error('删除失败:', err)
+                                      toast.error('删除失败')
+                                    }
+                                  }}
+                                >
+                                  删除
+                                </button>
+                                <button
                                   className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
                                   onClick={async (e) => {
                                     e.stopPropagation()
