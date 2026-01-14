@@ -1690,7 +1690,11 @@ const ProductDetailPage = () => {
                         const isSelected = isComboProduct
                           ? selectedSkuIds.includes(String(representativeSku._id))
                           : (multiSpecMode ? selectedSkuIds.includes(String(representativeSku._id)) : selectedSku?._id === representativeSku._id);
-                        const skuFinalPrice = getFinalPrice(representativeSku);
+                        let skuFinalPrice = getFinalPrice(representativeSku);
+                        // 授权商品优先使用labelPrice1
+                        if (p?.labelPrice1 && Number.isFinite(p.labelPrice1) && p.labelPrice1 > 0) {
+                          skuFinalPrice = p.labelPrice1;
+                        }
                         const specDetail = specificationList.find(spec => spec.name === representativeSku.spec)?.value || `${representativeSku.length}x${representativeSku.width}x${representativeSku.height}cm`;
                         return (
                           <button
