@@ -1230,7 +1230,13 @@ const ProductDetailPage = () => {
     return result;
   })();
   
-  const finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : productDisplayPrice;
+  let finalSkuPrice = selectedSku ? getFinalPrice(selectedSku, currentSelectedMaterials) : productDisplayPrice;
+  
+  // 授权商品优先使用labelPrice1（覆盖价格）
+  const p = product as any;
+  if (p?.labelPrice1 && Number.isFinite(p.labelPrice1) && p.labelPrice1 > 0) {
+    finalSkuPrice = p.labelPrice1;
+  }
   
   // 添加材质配置加价
   const materialConfigPrice = selectedMaterialConfig?.price || 0;
