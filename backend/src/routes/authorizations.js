@@ -2034,24 +2034,28 @@ router.put('/product-override/:productId', auth, async (req, res) => {
     
     // 更新或创建商品覆盖设置
     if (!authorization.productOverrides) {
-      authorization.productOverrides = {}
-    }
-    if (!authorization.productOverrides[productId]) {
-      authorization.productOverrides[productId] = {}
-    }
-    if (price !== undefined) {
-      authorization.productOverrides[productId].price = price
-    }
-    if (hidden !== undefined) {
-      authorization.productOverrides[productId].hidden = hidden
+      authorization.productOverrides = new Map()
     }
     
+    // 获取现有的覆盖设置或创建新的
+    const existingOverride = authorization.productOverrides.get(productId) || {}
+    const updatedOverride = { ...existingOverride }
+    
+    if (price !== undefined) {
+      updatedOverride.price = price
+    }
+    if (hidden !== undefined) {
+      updatedOverride.hidden = hidden
+    }
+    
+    // 使用Map的set方法更新
+    authorization.productOverrides.set(productId, updatedOverride)
     authorization.markModified('productOverrides')
     await authorization.save()
     
     res.json({ 
       success: true, 
-      data: authorization.productOverrides[productId],
+      data: authorization.productOverrides.get(productId),
       message: price !== undefined ? '价格已更新' : (hidden ? '商品已隐藏' : '商品已显示')
     })
   } catch (error) {
@@ -2079,7 +2083,15 @@ router.get('/product-overrides', auth, async (req, res) => {
     const allOverrides = {}
     for (const auth of authorizations) {
       if (auth.productOverrides) {
-        Object.assign(allOverrides, auth.productOverrides)
+        // productOverrides是Map类型，需要转换为普通对象
+        if (auth.productOverrides instanceof Map) {
+          auth.productOverrides.forEach((value, key) => {
+            allOverrides[key] = value
+          })
+        } else {
+          // 兼容旧数据格式
+          Object.assign(allOverrides, auth.productOverrides)
+        }
       }
     }
     
