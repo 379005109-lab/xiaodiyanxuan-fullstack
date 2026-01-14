@@ -912,6 +912,16 @@ export default function ManufacturerBusinessPanel() {
                         const avgDiscount = auths.reduce((sum, a) => sum + (a.minDiscountRate || 0), 0) / memberCount
                         const avgCommission = auths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / memberCount
 
+                        const companyIdShort = companyId ? `...${companyId.slice(-4)}` : ''
+                        const memberNames = auths.slice(0, 3).map((a: any) => 
+                          a.toDesigner?.nickname || a.toDesigner?.username || a.toManufacturer?.name || '未知'
+                        ).join('、')
+                        const moreCount = memberCount > 3 ? memberCount - 3 : 0
+                        const oldestAuth = auths.reduce((oldest: any, a: any) => 
+                          !oldest || new Date(a.createdAt) < new Date(oldest.createdAt) ? a : oldest
+                        , null)
+                        const createdDate = oldestAuth?.createdAt ? new Date(oldestAuth.createdAt).toLocaleDateString('zh-CN') : ''
+
                         return (
                           <div
                             key={companyKey}
@@ -926,19 +936,37 @@ export default function ManufacturerBusinessPanel() {
                             }}
                           >
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold">
+                              <div className="flex items-center gap-4 flex-1 min-w-0">
+                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold shrink-0">
                                   {companyName.charAt(0)}
                                 </div>
-                                <div>
-                                  <h3 className="text-xl font-bold text-gray-900">{companyName}</h3>
-                                  <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
-                                    <span>下属成员: {memberCount} 人</span>
-                                    <span>•</span>
-                                    <span>平均折扣: {avgDiscount.toFixed(0)}%</span>
-                                    <span>•</span>
-                                    <span>平均返佣: {avgCommission.toFixed(1)}%</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="text-xl font-bold text-gray-900">{companyName}</h3>
+                                    {companyIdShort && (
+                                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded font-mono">
+                                        ID{companyIdShort}
+                                      </span>
+                                    )}
                                   </div>
+                                  <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
+                                    <span>成员: {memberCount} 人</span>
+                                    <span>•</span>
+                                    <span>折扣: {avgDiscount.toFixed(0)}%</span>
+                                    <span>•</span>
+                                    <span>返佣: {avgCommission.toFixed(1)}%</span>
+                                    {createdDate && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-xs text-gray-400">{createdDate}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                  {memberNames && (
+                                    <div className="text-xs text-gray-500 mt-1 truncate">
+                                      成员: {memberNames}{moreCount > 0 && ` 等${moreCount}人`}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
