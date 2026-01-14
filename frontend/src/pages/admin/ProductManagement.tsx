@@ -202,8 +202,8 @@ export default function ProductManagement() {
             // 加载商品覆盖设置（隐藏状态）和厂家启用状态
             try {
               const [overridesResponse, summaryResponse] = await Promise.all([
-                apiClient.get('/authorizations/product-overrides'),
-                apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
+                apiClient.get('/authorizations/product-overrides', { params: { _t: Date.now() } }),
+                apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId, _t: Date.now() } })
               ])
               const overrides = overridesResponse.data?.data || {}
               const summaryData = summaryResponse.data?.data || []
@@ -397,6 +397,14 @@ export default function ProductManagement() {
       const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { price: newPrice })
       if (res.data.success) {
         toast.success('价格已更新')
+        setProducts(prev => prev.map(p => (
+          p._id === product._id
+            ? ({
+              ...(p as any),
+              overridePrice: newPrice
+            } as any)
+            : p
+        )))
         setEditingPriceProductId(null)
         setEditingPriceValue('')
         // 刷新商品列表确保数据同步
@@ -421,6 +429,14 @@ export default function ProductManagement() {
       const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { hidden: newHiddenState })
       if (res.data.success) {
         toast.success(currentHidden ? '商品已显示' : '商品已隐藏')
+        setProducts(prev => prev.map(p => (
+          p._id === product._id
+            ? ({
+              ...(p as any),
+              isHidden: newHiddenState
+            } as any)
+            : p
+        )))
         // 刷新商品列表确保数据同步
         await loadProducts()
       } else {
@@ -2881,7 +2897,11 @@ export default function ProductManagement() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((product, index) => (
+              {filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((product, index) => {
+                const pRow: any = product as any
+                const isRowDraggable = pRow.isAuthorized !== true && pRow.isHidden !== true && product.status !== 'inactive' && pRow.isManufacturerDisabled !== true
+
+                return (
                 <Fragment key={product._id}>
                 <motion.tr
                   initial={{ opacity: 0 }}
@@ -2890,19 +2910,20 @@ export default function ProductManagement() {
                     delay: filteredProducts.length > 100 ? 0 : index * 0.02,
                     duration: filteredProducts.length > 100 ? 0.1 : 0.3
                   }}
-                  className={`border-b border-gray-100 hover:bg-gray-50 cursor-move ${
+                  className={`border-b border-gray-100 hover:bg-gray-50 ${isRowDraggable ? 'cursor-move' : 'cursor-default'} ${
                     draggedProduct?._id === product._id ? 'opacity-50' : ''
                   } ${
                     dragOverProductIndex === index ? 'bg-blue-50' : ''
                   } ${
                     (product as any).isHidden || product.status === 'inactive' || (product as any).isManufacturerDisabled ? 'opacity-50 bg-gray-100' : ''
                   }`}
-                  draggable
+                  draggable={isRowDraggable}
                   onDragStart={(e: any) => handleProductDragStart(e, product)}
                   onDragOver={(e) => handleProductDragOver(e, index)}
                   onDragLeave={handleProductDragLeave}
                   onDrop={(e) => handleProductDrop(e, product, index)}
                 >
+ 
                   <td className="py-4 px-4">
                     <input 
                       type="checkbox" 
@@ -3381,7 +3402,8 @@ export default function ProductManagement() {
                   </motion.tr>
                 )}
                 </Fragment>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
