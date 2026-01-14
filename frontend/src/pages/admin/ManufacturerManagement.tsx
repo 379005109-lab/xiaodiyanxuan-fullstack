@@ -734,8 +734,8 @@ export default function ManufacturerManagement() {
   }
 
   const handleOpenTierSystem = (item: Manufacturer, tab?: 'hierarchy' | 'pool' | 'reconciliation') => {
-    localStorage.setItem('tier_system_selected_manufacturer', item._id)
-    navigate(`/admin/tier-system${tab ? `?tab=${tab}` : ''}`)
+    // 跳转到授权管理的层级结构标签页
+    navigate('/admin/authorizations?tab=tier_hierarchy')
   }
 
   const handleOpenProductAuthorization = (item: Manufacturer) => {

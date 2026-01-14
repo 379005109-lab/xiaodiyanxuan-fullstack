@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle, Copy, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
@@ -38,6 +39,7 @@ interface Authorization {
 }
 
 export default function AuthorizationManagement() {
+  const [searchParams] = useSearchParams()
   const { token, user } = useAuthStore()
   const isDesigner = user?.role === 'designer'
   const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin'
@@ -49,7 +51,8 @@ export default function AuthorizationManagement() {
   )
 
   type TabKey = 'granted' | 'received' | 'pending_requests' | 'my_requests' | 'tier_hierarchy'
-  const [activeTab, setActiveTab] = useState<TabKey>('received')
+  const urlTab = searchParams.get('tab') as TabKey | null
+  const [activeTab, setActiveTab] = useState<TabKey>(urlTab || 'received')
   const [grantedAuths, setGrantedAuths] = useState<Authorization[]>([])
   const [receivedAuths, setReceivedAuths] = useState<Authorization[]>([])
   const [pendingRequests, setPendingRequests] = useState<Authorization[]>([])
