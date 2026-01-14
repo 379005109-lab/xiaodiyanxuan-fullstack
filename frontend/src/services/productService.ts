@@ -15,7 +15,7 @@ export const getProducts = async (params?: any) => {
 // 获取单个商品
 export const getProductById = async (id: string): Promise<Product | null> => {
   try {
-    const response = await apiClient.get(`/products/${id}`);
+    const response = await apiClient.get(`/products/${id}`, { params: { _t: Date.now() } });
     return response.data.data;
   } catch (error: any) {
     console.error('获取商品失败:', error);
