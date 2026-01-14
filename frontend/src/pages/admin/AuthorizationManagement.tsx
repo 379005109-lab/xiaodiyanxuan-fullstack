@@ -184,11 +184,14 @@ export default function AuthorizationManagement() {
       try {
         const userId = req.authorizationType === 'designer' ? req.toDesigner?._id : req.toManufacturer?._id
         if (userId) {
+          console.log('[AuthorizationManagement] 加载用户资料:', userId)
           const response = await apiClient.get(`/users/${userId}/profile`)
-          const userData = response.data?.data
+          console.log('[AuthorizationManagement] 用户资料响应:', response)
+          const userData = response.data?.data || response.data
           if (userData) {
+            console.log('[AuthorizationManagement] 用户资料:', userData)
             // 将用户详细信息附加到请求对象
-            req.userProfile = userData
+            ;(req as any).userProfile = userData
           }
         }
       } catch (error) {
@@ -535,110 +538,66 @@ export default function AuthorizationManagement() {
             <p className="text-gray-500">暂无层级结构</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <h3 className="text-sm font-medium text-blue-900 mb-2">层级可见性说明</h3>
+              <h3 className="text-sm font-medium text-blue-900 mb-2">分成体系说明</h3>
               <ul className="text-sm text-blue-700 space-y-1">
-                <li>• 您只能看到直接授权给您的上级</li>
-                <li>• 您只能看到您直接创建的下级</li>
-                <li>• 其他层级对您不可见</li>
+                <li>• 点击公司名称查看该公司的分成地图</li>
+                <li>• 您只能看到直接授权给您的上级和您创建的下级</li>
               </ul>
             </div>
 
-            {tierHierarchy.map((auth: any) => {
-              const isMyAuth = myAuthIds.includes(auth._id)
-              const tierLevel = auth.tierLevel || 0
-              const tierName = auth.tierCompanyName || '未命名层级'
-              const targetName = auth.authorizationType === 'designer'
-                ? (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师')
-                : (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知厂家')
+            {/* 按公司分组显示 */}
+            {(() => {
+              // 按 tierCompanyName 分组
+              const companies = new Map<string, any[]>()
+              tierHierarchy.forEach((auth: any) => {
+                const companyName = auth.tierCompanyName || '未命名公司'
+                if (!companies.has(companyName)) {
+                  companies.set(companyName, [])
+                }
+                companies.get(companyName)!.push(auth)
+              })
 
-              return (
-                <div
-                  key={auth._id}
-                  className={`border-l-4 rounded-lg p-6 ${
-                    isMyAuth
-                      ? 'bg-green-50 border-green-500'
-                      : auth.isParent
-                      ? 'bg-blue-50 border-blue-500'
-                      : 'bg-purple-50 border-purple-500'
-                  }`}
-                  style={{ marginLeft: `${tierLevel * 2}rem` }}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{tierName}</h3>
-                        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-                          层级 {tierLevel}
-                        </span>
-                        {isMyAuth && (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded font-medium">
-                            我的授权
-                          </span>
-                        )}
-                        {auth.isParent && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-                            上级
-                          </span>
-                        )}
-                        {auth.isChild && (
-                          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
-                            下级
-                          </span>
-                        )}
-                        {getStatusBadge(auth.status)}
-                      </div>
+              return Array.from(companies.entries()).map(([companyName, auths]) => {
+                const topLevelAuth = auths.find(a => (a.tierLevel || 0) === 0) || auths[0]
+                const memberCount = auths.length
+                const avgDiscount = auths.reduce((sum, a) => sum + (a.minDiscountRate || 0), 0) / memberCount
+                const avgCommission = auths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / memberCount
 
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <div className="flex items-center gap-4">
-                          <span>被授权方: <strong>{targetName}</strong></span>
-                          <span>类型: {auth.authorizationType === 'designer' ? '设计师' : '企业'}</span>
+                return (
+                  <div
+                    key={companyName}
+                    className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer"
+                    onClick={() => {
+                      // TODO: 打开分成地图
+                      toast.info(`查看 ${companyName} 的分成地图`)
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold">
+                          {companyName.charAt(0)}
                         </div>
-
-                        <div className="flex items-center gap-4">
-                          {auth.minDiscountRate > 0 && (
-                            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                              最低折扣: {auth.minDiscountRate}%
-                            </span>
-                          )}
-                          {auth.commissionRate > 0 && (
-                            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                              返佣: {auth.commissionRate}%
-                            </span>
-                          )}
-                          {auth.allowSubAuthorization && (
-                            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
-                              允许下级授权
-                            </span>
-                          )}
-                        </div>
-
                         <div>
-                          <span>授权范围: {getScopeLabel(auth.scope, auth.categories, auth.products?.length)}</span>
-                        </div>
-
-                        {auth.parentAuthorizationId && (
-                          <div className="text-xs text-gray-500">
-                            父级ID: {auth.parentAuthorizationId}
+                          <h3 className="text-xl font-bold text-gray-900">{companyName}</h3>
+                          <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
+                            <span>下属成员: {memberCount} 人</span>
+                            <span>•</span>
+                            <span>平均折扣: {avgDiscount.toFixed(0)}%</span>
+                            <span>•</span>
+                            <span>平均返佣: {avgCommission.toFixed(1)}%</span>
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openDetail(auth._id)}
-                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        title="查看详情"
-                      >
-                        <Eye className="w-4 h-4" />
+                      <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        查看分成地图
                       </button>
                     </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })
+            })()}
           </div>
         )
       ) : activeTab === 'my_requests' ? (

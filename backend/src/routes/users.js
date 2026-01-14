@@ -15,6 +15,25 @@ router.get('/profile', getProfile)
 // PUT /api/users/profile - 更新用户资料
 router.put('/profile', updateProfile)
 
+// GET /api/users/:id/profile - 获取指定用户的详细资料（用于授权审批）
+router.get('/:id/profile', async (req, res) => {
+  try {
+    const User = require('../models/User')
+    const user = await User.findById(req.params.id)
+      .select('username nickname phone email avatar role manufacturerId businessLicense workId idCard')
+      .lean()
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: '用户不存在' })
+    }
+    
+    res.json({ success: true, data: user })
+  } catch (error) {
+    console.error('获取用户资料失败:', error)
+    res.status(500).json({ success: false, message: '获取用户资料失败' })
+  }
+})
+
 // PUT /api/users/:id - 更新指定用户信息（管理员）
 router.put('/:id', updateUserById)
 
