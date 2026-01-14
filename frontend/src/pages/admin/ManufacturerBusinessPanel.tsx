@@ -914,14 +914,9 @@ export default function ManufacturerBusinessPanel() {
                         const companyId = first.tierCompanyId ? String(first.tierCompanyId) : ''
                         let companyName = first.tierCompanyName || '未命名公司'
                         
-                        // 如果是'未命名公司'，尝试从授权目标用户中提取真实名称
-                        if (companyName === '未命名公司') {
-                          const rootAuth = auths.find((a: any) => (a.tierLevel || 0) === 0) || first
-                          if (rootAuth.toDesigner) {
-                            companyName = rootAuth.toDesigner.nickname || rootAuth.toDesigner.username || '未命名公司'
-                          } else if (rootAuth.toManufacturer) {
-                            companyName = rootAuth.toManufacturer.name || rootAuth.toManufacturer.fullName || '未命名公司'
-                          }
+                        // 如果是'未命名公司'，使用公司ID或成员信息作为标识
+                        if (companyName === '未命名公司' && companyId) {
+                          companyName = `公司 ${companyId.slice(-6)}`
                         }
                         
                         const memberCount = auths.length
