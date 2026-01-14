@@ -407,8 +407,6 @@ export default function ProductManagement() {
         )))
         setEditingPriceProductId(null)
         setEditingPriceValue('')
-        // 刷新商品列表确保数据同步
-        await loadProducts()
       } else {
         toast.error(res.data.message || '更新价格失败')
       }
@@ -437,8 +435,6 @@ export default function ProductManagement() {
             } as any)
             : p
         )))
-        // 刷新商品列表确保数据同步
-        await loadProducts()
       } else {
         toast.error(res.data.message || '操作失败')
       }
