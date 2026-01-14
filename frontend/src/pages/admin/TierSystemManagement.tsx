@@ -1628,6 +1628,9 @@ function HierarchyTab({
     if (!confirm('确定要删除这个规则吗？')) return
     const newRules = localCommissionRules.filter(r => r._id !== ruleId)
     setLocalCommissionRules(newRules)
+    saveData({ ...data, commissionRules: newRules })
+      .then(() => toast.success('规则已删除'))
+      .catch(() => toast.error('删除失败'))
   }
 
   // 创建新规则

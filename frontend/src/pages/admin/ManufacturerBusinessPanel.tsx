@@ -897,7 +897,12 @@ export default function ManufacturerBusinessPanel() {
                       grantedAuths.forEach((auth: any) => {
                         const companyId = auth.tierCompanyId ? String(auth.tierCompanyId) : ''
                         const companyName = auth.tierCompanyName || '未命名公司'
-                        const key = companyId || `name:${companyName}`
+                        // 使用 companyId 作为主键，如果没有则用目标用户ID避免重复
+                        let key = companyId
+                        if (!key) {
+                          const targetUserId = auth.toDesigner?._id || auth.toManufacturer?._id
+                          key = targetUserId ? `user:${targetUserId}` : `name:${companyName}`
+                        }
                         if (!companies.has(key)) {
                           companies.set(key, [])
                         }
