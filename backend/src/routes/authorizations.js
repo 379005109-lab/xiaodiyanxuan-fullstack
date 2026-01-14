@@ -849,6 +849,98 @@ router.put('/manufacturer/:id/select-folder', verifyManufacturerToken, async (re
   }
 })
 
+// GET /api/authorizations/tier-hierarchy - 获取当前用户可见的层级结构
+router.get('/tier-hierarchy', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+    if (!user) {
+      return res.status(404).json({ success: false, message: '用户不存在' })
+    }
+
+    // 查找所有与当前用户相关的授权
+    const query = {
+      status: 'active',
+      $or: [
+        { validUntil: { $exists: false } },
+        { validUntil: { $gt: new Date() } }
+      ]
+    }
+
+    // 根据用户类型构建查询
+    if (user.role === 'designer') {
+      query.toDesigner = req.userId
+    } else if (user.manufacturerId) {
+      query.toManufacturer = user.manufacturerId
+    } else {
+      return res.json({ success: true, data: { visible: [], parent: null, children: [] } })
+    }
+
+    // 查找授予给当前用户的授权（当前用户的授权记录）
+    const myAuthorizations = await Authorization.find(query)
+      .populate('fromManufacturer', 'name fullName shortName')
+      .populate('toDesigner', 'username nickname')
+      .populate('toManufacturer', 'name fullName shortName')
+      .populate('parentAuthorizationId')
+      .lean()
+
+    const visibleAuths = []
+
+    // 对每个授权，查找其可见的相关授权
+    for (const myAuth of myAuthorizations) {
+      visibleAuths.push(myAuth)
+
+      // 1. 查找直接父级（如果存在）
+      if (myAuth.parentAuthorizationId) {
+        const parentAuth = await Authorization.findById(myAuth.parentAuthorizationId)
+          .populate('fromManufacturer', 'name fullName shortName')
+          .populate('toDesigner', 'username nickname')
+          .populate('toManufacturer', 'name fullName shortName')
+          .lean()
+        
+        if (parentAuth && !visibleAuths.find(a => a._id.toString() === parentAuth._id.toString())) {
+          visibleAuths.push(parentAuth)
+        }
+      }
+
+      // 2. 查找直接下级（由当前用户创建的）
+      const childAuths = await Authorization.find({
+        parentAuthorizationId: myAuth._id,
+        status: 'active',
+        createdBy: req.userId
+      })
+        .populate('fromManufacturer', 'name fullName shortName')
+        .populate('toDesigner', 'username nickname')
+        .populate('toManufacturer', 'name fullName shortName')
+        .lean()
+
+      for (const childAuth of childAuths) {
+        if (!visibleAuths.find(a => a._id.toString() === childAuth._id.toString())) {
+          visibleAuths.push(childAuth)
+        }
+      }
+    }
+
+    // 构建层级结构
+    const hierarchy = visibleAuths.map(auth => ({
+      ...auth,
+      isMyAuth: myAuthorizations.some(a => a._id.toString() === auth._id.toString()),
+      isParent: myAuthorizations.some(a => a.parentAuthorizationId?.toString() === auth._id.toString()),
+      isChild: auth.parentAuthorizationId && myAuthorizations.some(a => a._id.toString() === auth.parentAuthorizationId.toString())
+    }))
+
+    res.json({ 
+      success: true, 
+      data: {
+        visible: hierarchy,
+        myAuthorizations: myAuthorizations.map(a => a._id.toString())
+      }
+    })
+  } catch (error) {
+    console.error('获取层级结构失败:', error)
+    res.status(500).json({ success: false, message: '获取层级结构失败' })
+  }
+})
+
 // GET /api/authorizations/received - 我收到的授权
 router.get('/received', auth, async (req, res) => {
   try {
