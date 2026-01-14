@@ -647,9 +647,18 @@ const getProduct = async (req, res) => {
         return res.status(403).json(errorResponse('您没有此商品的授权', 403))
       }
 
-      const takePrice = getAuthorizedTakePrice(auth, product)
+      let takePrice = getAuthorizedTakePrice(auth, product)
       const key = getAuthorizationViewerKey(user)
-      const labelPrice1 = (product.authorizedLabelPrices && key) ? (product.authorizedLabelPrices[key] || takePrice) : takePrice
+      let labelPrice1 = (product.authorizedLabelPrices && key) ? (product.authorizedLabelPrices[key] || takePrice) : takePrice
+      
+      // 检查是否有价格覆盖
+      const productOverride = auth.productOverrides?.get?.(id) || auth.productOverrides?.[id]
+      if (productOverride?.price) {
+        takePrice = productOverride.price
+        labelPrice1 = productOverride.price
+        console.log('[getProduct] 使用覆盖价格:', productOverride.price)
+      }
+      
       const allow = allowCostPriceForUser(user)
 
       const tierDocRaw = ownerManufacturerId
