@@ -338,7 +338,7 @@ router.get('/summary', auth, async (req, res) => {
           minDiscountRate: auth.minDiscountRate || 0,
           commissionRate: auth.commissionRate || 0,
           scope: auth.scope,
-          isEnabled: auth.isEnabled !== false
+          isEnabled: auth.status === 'active' ? (auth.isEnabled !== false) : true // 只有active状态才使用真实的isEnabled
         })
       }
       
