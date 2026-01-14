@@ -32,7 +32,7 @@ interface MerchantPaymentInfo {
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const { items, getTotalPrice, clearCart } = useCartStore()
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, token, isAuthenticated } = useAuthStore()
   const [isHydrated, setIsHydrated] = useState(false)
   
   // 等待购物车状态从 localStorage 加载完成
@@ -142,14 +142,15 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // 获取用户信息和token
-    const authState = useAuthStore.getState()
-    console.log('🔐 当前用户:', authState.user)
-    console.log('🔑 Token:', authState.token ? '存在' : '不存在')
+    console.log('🔐 提交订单 - 用户:', user)
+    console.log('🔑 提交订单 - Token:', token ? '存在' : '不存在')
+    console.log('🔑 提交订单 - isAuthenticated:', isAuthenticated)
     
-    // 验证用户登录
-    if (!authState.user || !authState.token) {
+    // 验证用户登录（使用组件级别的状态）
+    if (!user || !token) {
+      console.error('⚠️ 登录状态异常:', { user, token, isAuthenticated })
       toast.error('请先登录后再提交订单')
+      useAuthModalStore.getState().openLogin()
       return
     }
     
