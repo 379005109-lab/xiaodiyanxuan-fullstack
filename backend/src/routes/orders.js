@@ -550,6 +550,113 @@ router.post('/:id/restore', async (req, res) => {
   }
 })
 
+// POST /api/orders/:id/split - 分单（按厂家拆分订单）
+router.post('/:id/split', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { splitByManufacturer = true, notifyManufacturers = true } = req.body
+    const Order = require('../models/Order')
+    const Manufacturer = require('../models/Manufacturer')
+    
+    const order = await Order.findById(id).populate('items.manufacturer')
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    // 只有待发货状态的订单可以分单
+    if (order.status !== 2 && order.status !== 'paid') {
+      return res.status(400).json({ success: false, message: '只有待发货状态的订单可以分单' })
+    }
+    
+    // 按厂家分组商品
+    const manufacturerGroups = {}
+    ;(order.items || []).forEach((item, index) => {
+      const mfId = item.manufacturerId?.toString() || item.manufacturer?._id?.toString() || 'unknown'
+      if (!manufacturerGroups[mfId]) {
+        manufacturerGroups[mfId] = {
+          manufacturer: item.manufacturer,
+          manufacturerId: mfId,
+          items: []
+        }
+      }
+      manufacturerGroups[mfId].items.push(item)
+    })
+    
+    const manufacturerIds = Object.keys(manufacturerGroups)
+    
+    // 如果只有一个厂家，无需分单
+    if (manufacturerIds.length <= 1) {
+      return res.status(400).json({ success: false, message: '订单只有一个厂家，无需分单' })
+    }
+    
+    // 创建子订单
+    const subOrders = []
+    for (const mfId of manufacturerIds) {
+      const group = manufacturerGroups[mfId]
+      const subOrderItems = group.items
+      const subTotalAmount = subOrderItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0)
+      
+      const subOrder = new Order({
+        orderNo: `${order.orderNo}-${mfId.slice(-4)}`,
+        user: order.user,
+        items: subOrderItems,
+        totalAmount: subTotalAmount,
+        status: order.status,
+        recipient: order.recipient,
+        shippingAddress: order.shippingAddress,
+        paymentMethod: order.paymentMethod,
+        notes: order.notes,
+        parentOrderId: order._id,
+        manufacturerId: mfId !== 'unknown' ? mfId : undefined,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      
+      await subOrder.save()
+      subOrders.push(subOrder)
+      
+      // 通知厂家（如果需要）
+      if (notifyManufacturers && mfId !== 'unknown') {
+        try {
+          const manufacturer = await Manufacturer.findById(mfId)
+          if (manufacturer?.smsPhone) {
+            // TODO: 发送短信或微信通知给厂家
+            console.log(`📱 通知厂家 ${manufacturer.name} 有新的分单订单: ${subOrder.orderNo}`)
+          }
+        } catch (notifyError) {
+          console.error('通知厂家失败:', notifyError)
+        }
+      }
+    }
+    
+    // 标记原订单已分单
+    order.isSplit = true
+    order.splitOrderIds = subOrders.map(so => so._id)
+    order.splitAt = new Date()
+    await order.save()
+    
+    console.log(`📦 订单 ${order.orderNo} 已分单为 ${subOrders.length} 个子订单`)
+    
+    res.json({
+      success: true,
+      message: `订单已成功分为 ${subOrders.length} 个子订单`,
+      data: {
+        originalOrder: order._id,
+        subOrders: subOrders.map(so => ({
+          _id: so._id,
+          orderNo: so.orderNo,
+          manufacturerId: so.manufacturerId,
+          itemCount: so.items.length,
+          totalAmount: so.totalAmount
+        }))
+      }
+    })
+  } catch (error) {
+    console.error('分单失败:', error)
+    res.status(500).json({ success: false, message: '分单失败: ' + error.message })
+  }
+})
+
 // DELETE /api/orders/:id/permanent - 永久删除订单
 router.delete('/:id/permanent', async (req, res) => {
   try {

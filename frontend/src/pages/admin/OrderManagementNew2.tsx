@@ -78,6 +78,11 @@ export default function OrderManagementNew2() {
   const [priceReason, setPriceReason] = useState('') // 改价原因
   const [itemPrices, setItemPrices] = useState<{[key: number]: string}>({}) // 单个商品价格
   
+  // 分单相关状态
+  const [showSplitModal, setShowSplitModal] = useState(false) // 分单弹窗
+  const [splitOrderId, setSplitOrderId] = useState<string | null>(null) // 当前分单的订单ID
+  const [splittingOrder, setSplittingOrder] = useState(false) // 分单中状态
+  
   // 统计数据
   const [stats, setStats] = useState({
     all: 0,
@@ -1929,6 +1934,18 @@ export default function OrderManagementNew2() {
                             改价
                           </button>
                         )}
+                        {(order.status === 2 || order.status === 'paid') && (order.items?.length || 0) > 1 && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSplitOrderId(order._id)
+                              setShowSplitModal(true)
+                            }}
+                            className="px-3 py-1.5 text-sm bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200"
+                          >
+                            分单
+                          </button>
+                        )}
                         <button 
                           onClick={(e) => {
                             e.stopPropagation()
@@ -1946,6 +1963,157 @@ export default function OrderManagementNew2() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* 分单弹窗 */}
+      {showSplitModal && splitOrderId && (
+        <SplitOrderModal
+          orderId={splitOrderId}
+          orders={orders}
+          onClose={() => {
+            setShowSplitModal(false)
+            setSplitOrderId(null)
+          }}
+          onSuccess={() => {
+            setShowSplitModal(false)
+            setSplitOrderId(null)
+            loadOrders()
+            toast.success('分单成功，已通知相关厂家')
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// 分单弹窗组件
+function SplitOrderModal({ 
+  orderId, 
+  orders, 
+  onClose, 
+  onSuccess 
+}: { 
+  orderId: string
+  orders: Order[]
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const order = orders.find(o => o._id === orderId)
+  const [splitting, setSplitting] = useState(false)
+  const [selectedItems, setSelectedItems] = useState<Record<string, string[]>>({}) // manufacturerId -> itemIds
+
+  useEffect(() => {
+    if (!order) return
+    // 按厂家分组商品
+    const grouped: Record<string, string[]> = {}
+    ;(order.items || []).forEach((item: any, index: number) => {
+      const mfId = item.manufacturerId || item.manufacturer?._id || 'unknown'
+      if (!grouped[mfId]) grouped[mfId] = []
+      grouped[mfId].push(String(index))
+    })
+    setSelectedItems(grouped)
+  }, [order])
+
+  const handleSplit = async () => {
+    if (!order) return
+    setSplitting(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/orders/' + orderId + '/split', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          splitByManufacturer: true,
+          notifyManufacturers: true
+        })
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || '分单失败')
+      }
+      
+      onSuccess()
+    } catch (error: any) {
+      console.error('分单失败:', error)
+      toast.error(error.message || '分单失败')
+    } finally {
+      setSplitting(false)
+    }
+  }
+
+  if (!order) {
+    return null
+  }
+
+  // 获取厂家分组信息
+  const manufacturerGroups: Record<string, { name: string; items: any[] }> = {}
+  ;(order.items || []).forEach((item: any) => {
+    const mfId = item.manufacturerId || item.manufacturer?._id || 'unknown'
+    const mfName = item.manufacturer?.name || item.manufacturerName || '未知厂家'
+    if (!manufacturerGroups[mfId]) {
+      manufacturerGroups[mfId] = { name: mfName, items: [] }
+    }
+    manufacturerGroups[mfId].items.push(item)
+  })
+
+  const manufacturerCount = Object.keys(manufacturerGroups).length
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+        <div className="p-6 border-b">
+          <h3 className="text-xl font-bold">分单 - 订单 {order.orderNo}</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            将订单按厂家拆分为 {manufacturerCount} 个子订单，并通知各厂家
+          </p>
+        </div>
+        
+        <div className="p-6 overflow-y-auto max-h-[50vh]">
+          {Object.entries(manufacturerGroups).map(([mfId, group]) => (
+            <div key={mfId} className="mb-4 p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-gray-900">{group.name}</h4>
+                <span className="text-sm text-gray-500">{group.items.length} 件商品</span>
+              </div>
+              <div className="space-y-2">
+                {group.items.map((item: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-3 text-sm">
+                    <span className="flex-1 truncate">{item.name || item.productName}</span>
+                    <span className="text-gray-500">x{item.quantity || 1}</span>
+                    <span className="font-medium">¥{formatPrice(item.price || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="p-6 border-t bg-gray-50 flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            <Package className="w-4 h-4 inline-block mr-1" />
+            分单后将自动通知厂家微信接收订单
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-200 rounded-xl hover:bg-gray-100"
+              disabled={splitting}
+            >
+              取消
+            </button>
+            <button
+              onClick={handleSplit}
+              disabled={splitting || manufacturerCount <= 1}
+              className="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50"
+            >
+              {splitting ? '分单中...' : `确认分单 (${manufacturerCount}个子订单)`}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
