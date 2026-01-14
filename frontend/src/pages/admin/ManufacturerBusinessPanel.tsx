@@ -94,6 +94,8 @@ export default function ManufacturerBusinessPanel() {
   const [channelFilter, setChannelFilter] = useState<'all' | 'manufacturer' | 'designer'>('all')
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
+  const [showTierMapModal, setShowTierMapModal] = useState(false)
+  const [selectedAuthForMap, setSelectedAuthForMap] = useState<any>(null)
 
   useEffect(() => {
     if (!manufacturerId) {
@@ -886,9 +888,26 @@ export default function ManufacturerBusinessPanel() {
                         <div 
                           key={auth._id} 
                           className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer"
-                          onClick={() => {
-                            // 跳转到授权管理的层级结构页面
-                            navigate('/admin/authorizations?tab=tier_hierarchy')
+                          onClick={async () => {
+                            // 加载该授权的层级结构数据并打开分成地图
+                            try {
+                              const response = await apiClient.get('/authorizations/tier-hierarchy')
+                              if (response.data?.success) {
+                                const hierarchy = response.data.data?.visible || []
+                                // 找到与当前授权相关的公司层级
+                                const companyName = auth.tierCompanyName || '未命名公司'
+                                const companyAuths = hierarchy.filter((h: any) => 
+                                  (h.tierCompanyName || '未命名公司') === companyName
+                                )
+                                setSelectedAuthForMap({ name: companyName, auths: companyAuths.length > 0 ? companyAuths : [auth] })
+                                setShowTierMapModal(true)
+                              }
+                            } catch (error) {
+                              console.error('加载层级数据失败:', error)
+                              // 如果加载失败，至少显示当前授权
+                              setSelectedAuthForMap({ name: auth.tierCompanyName || '未命名公司', auths: [auth] })
+                              setShowTierMapModal(true)
+                            }
                           }}
                         >
                           <div className="flex items-center justify-between">
@@ -942,6 +961,75 @@ export default function ManufacturerBusinessPanel() {
           </div>
         </div>
       </div>
+
+      {/* 分成地图弹窗 */}
+      {showTierMapModal && selectedAuthForMap && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">{selectedAuthForMap.name}</h3>
+                  <p className="text-sm text-gray-500 mt-1">分成体系地图</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowTierMapModal(false)
+                    setSelectedAuthForMap(null)
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className="space-y-4">
+                {selectedAuthForMap.auths
+                  .sort((a: any, b: any) => (a.tierLevel || 0) - (b.tierLevel || 0))
+                  .map((auth: any) => {
+                    const tierLevel = auth.tierLevel || 0
+                    const targetName = auth.authorizationType === 'designer'
+                      ? (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师')
+                      : (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知厂家')
+
+                    return (
+                      <div
+                        key={auth._id}
+                        className="border-l-4 border-purple-500 rounded-lg p-4 bg-purple-50"
+                        style={{ marginLeft: `${tierLevel * 3}rem` }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="font-semibold text-gray-900">{targetName}</span>
+                              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                                L{tierLevel}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm">
+                              {auth.minDiscountRate > 0 && (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                  折扣 {auth.minDiscountRate}%
+                                </span>
+                              )}
+                              {auth.commissionRate > 0 && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                                  返佣 {auth.commissionRate}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

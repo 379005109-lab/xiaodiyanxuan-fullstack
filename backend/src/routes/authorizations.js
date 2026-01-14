@@ -975,8 +975,9 @@ router.get('/received', auth, async (req, res) => {
     }
 
     const authorizations = await Authorization.find(query)
-      .populate('fromManufacturer', 'name contactPerson')
+      .populate('fromManufacturer', 'name fullName contactPerson')
       .populate('products', 'name basePrice thumbnail')
+      .select('+minDiscountRate +commissionRate +tierCompanyName +tierLevel +tierType +parentAuthorizationId')
       .sort({ createdAt: -1 })
       .lean()
 
