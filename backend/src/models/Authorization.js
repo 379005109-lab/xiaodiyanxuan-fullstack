@@ -156,7 +156,7 @@ const authorizationSchema = new mongoose.Schema({
   // 层级类型：新建公司或插入现有层级
   tierType: {
     type: String,
-    enum: ['new_company', 'existing_tier'],  // 新建公司 或 插入现有层级
+    enum: ['new_company', 'existing_tier', null],  // 新建公司 或 插入现有层级，允许null
     default: null
   },
   
