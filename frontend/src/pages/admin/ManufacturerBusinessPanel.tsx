@@ -820,7 +820,7 @@ export default function ManufacturerBusinessPanel() {
                         <div key={auth._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
+                              <div className="flex items-center gap-3 mb-3">
                                 <h4 className="font-semibold text-gray-900">{fromName}</h4>
                                 <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
                                   {auth.authorizationType === 'manufacturer' ? '厂家授权' : '设计师授权'}
@@ -831,14 +831,21 @@ export default function ManufacturerBusinessPanel() {
                                   {auth.status === 'active' ? '有效' : '已失效'}
                                 </span>
                               </div>
+                              
+                              {/* 最低折扣和返佣 - 突出显示 */}
+                              <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                                  <div className="text-xs text-green-700">最低折扣</div>
+                                  <div className="text-2xl font-bold text-green-600">{auth.minDiscountRate || 0}%</div>
+                                </div>
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                                  <div className="text-xs text-blue-700">返佣比例</div>
+                                  <div className="text-2xl font-bold text-blue-600">{auth.commissionRate || 0}%</div>
+                                </div>
+                              </div>
+                              
                               <div className="flex items-center gap-4 text-sm text-gray-600">
                                 <span>授权范围: {productCount}</span>
-                                {auth.minDiscountRate > 0 && (
-                                  <span>最低折扣: {auth.minDiscountRate}%</span>
-                                )}
-                                {auth.commissionRate > 0 && (
-                                  <span>返佣: {auth.commissionRate}%</span>
-                                )}
                                 <span>有效期: {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久有效'}</span>
                               </div>
                             </div>
@@ -855,7 +862,7 @@ export default function ManufacturerBusinessPanel() {
               <div>
                 <div className="mb-6">
                   <h3 className="text-lg font-bold text-gray-900">授权模式</h3>
-                  <p className="text-sm text-gray-500">显示我授权给对方的信息和分成体系</p>
+                  <p className="text-sm text-gray-500">显示我授权给对方的信息和分成体系，点击查看分层体系</p>
                 </div>
 
                 {grantedAuths.length === 0 ? (
@@ -876,10 +883,17 @@ export default function ManufacturerBusinessPanel() {
                         : `${auth.products?.length || 0}个商品`
 
                       return (
-                        <div key={auth._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
+                        <div 
+                          key={auth._id} 
+                          className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer"
+                          onClick={() => {
+                            // 跳转到授权管理的层级结构页面
+                            navigate('/admin/authorizations?tab=tier_hierarchy')
+                          }}
+                        >
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
+                              <div className="flex items-center gap-3 mb-3">
                                 <h4 className="font-semibold text-gray-900">{toName}</h4>
                                 <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
                                   {auth.authorizationType === 'manufacturer' ? '厂家' : '设计师'}
@@ -890,24 +904,32 @@ export default function ManufacturerBusinessPanel() {
                                   {auth.status === 'active' ? '有效' : '已失效'}
                                 </span>
                               </div>
+                              
+                              {/* 最低折扣和返佣 - 突出显示 */}
+                              <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                                  <div className="text-xs text-green-700">最低折扣</div>
+                                  <div className="text-2xl font-bold text-green-600">{auth.minDiscountRate || 0}%</div>
+                                </div>
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                                  <div className="text-xs text-blue-700">返佣比例</div>
+                                  <div className="text-2xl font-bold text-blue-600">{auth.commissionRate || 0}%</div>
+                                </div>
+                              </div>
+                              
                               <div className="flex items-center gap-4 text-sm text-gray-600">
                                 <span>授权范围: {productCount}</span>
-                                {auth.minDiscountRate > 0 && (
-                                  <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs">
-                                    最低折扣: {auth.minDiscountRate}%
-                                  </span>
-                                )}
-                                {auth.commissionRate > 0 && (
-                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
-                                    返佣: {auth.commissionRate}%
-                                  </span>
-                                )}
                               </div>
+                              
                               {auth.tierCompanyName && (
-                                <div className="mt-2 text-sm text-gray-500">
-                                  所属公司: {auth.tierCompanyName} (层级 {auth.tierLevel || 0})
+                                <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-sm">
+                                  <span className="text-purple-700 font-medium">所属公司:</span> {auth.tierCompanyName} (层级 {auth.tierLevel || 0})
                                 </div>
                               )}
+                              
+                              <div className="mt-3 text-xs text-blue-600">
+                                点击查看分层体系 →
+                              </div>
                             </div>
                           </div>
                         </div>
