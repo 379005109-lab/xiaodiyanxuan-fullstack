@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle, Copy, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
@@ -35,11 +35,13 @@ interface Authorization {
   tierType?: 'new_company' | 'existing_tier'
   tierLevel?: number
   tierCompanyName?: string
-  parentAuthorizationId?: string
+  tierCompanyId?: string
+  parentAuthorizationId?: any
 }
 
 export default function AuthorizationManagement() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { token, user } = useAuthStore()
   const isDesigner = user?.role === 'designer'
   const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin'
@@ -85,7 +87,7 @@ export default function AuthorizationManagement() {
   const [tierHierarchy, setTierHierarchy] = useState<any[]>([])
   const [myAuthIds, setMyAuthIds] = useState<string[]>([])
   const [showCommissionMap, setShowCommissionMap] = useState(false)
-  const [selectedCompany, setSelectedCompany] = useState<{ name: string; auths: any[] } | null>(null)
+  const [selectedCompany, setSelectedCompany] = useState<{ id?: string; name: string; auths: any[] } | null>(null)
 
   const didInitTab = useRef(false)
 
@@ -560,28 +562,31 @@ export default function AuthorizationManagement() {
 
             {/* 按公司分组显示 */}
             {(() => {
-              // 按 tierCompanyName 分组
               const companies = new Map<string, any[]>()
               tierHierarchy.forEach((auth: any) => {
+                const companyId = auth.tierCompanyId ? String(auth.tierCompanyId) : ''
                 const companyName = auth.tierCompanyName || '未命名公司'
-                if (!companies.has(companyName)) {
-                  companies.set(companyName, [])
+                const key = companyId || `name:${companyName}`
+                if (!companies.has(key)) {
+                  companies.set(key, [])
                 }
-                companies.get(companyName)!.push(auth)
+                companies.get(key)!.push(auth)
               })
 
-              return Array.from(companies.entries()).map(([companyName, auths]) => {
-                const topLevelAuth = auths.find(a => (a.tierLevel || 0) === 0) || auths[0]
+              return Array.from(companies.entries()).map(([companyKey, auths]) => {
+                const first = auths[0] || {}
+                const companyId = first.tierCompanyId ? String(first.tierCompanyId) : ''
+                const companyName = first.tierCompanyName || '未命名公司'
                 const memberCount = auths.length
                 const avgDiscount = auths.reduce((sum, a) => sum + (a.minDiscountRate || 0), 0) / memberCount
                 const avgCommission = auths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / memberCount
 
                 return (
                   <div
-                    key={companyName}
+                    key={companyKey}
                     className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer"
                     onClick={() => {
-                      setSelectedCompany({ name: companyName, auths })
+                      setSelectedCompany({ id: companyId, name: companyName, auths })
                       setShowCommissionMap(true)
                     }}
                   >
@@ -1097,15 +1102,34 @@ export default function AuthorizationManagement() {
                   <h3 className="text-2xl font-bold text-gray-900">{selectedCompany.name}</h3>
                   <p className="text-sm text-gray-500 mt-1">分成体系地图</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setShowCommissionMap(false)
-                    setSelectedCompany(null)
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const manufacturerId = String((user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0] || '').trim()
+                      const companyName = String(selectedCompany.name || '').trim() || '未命名公司'
+                      const companyId = String(selectedCompany.id || '').trim()
+                      const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(manufacturerId)}`
+                      const withCompany = companyId
+                        ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
+                        : `${base}&companyName=${encodeURIComponent(companyName)}`
+                      setShowCommissionMap(false)
+                      setSelectedCompany(null)
+                      navigate(withCompany)
+                    }}
+                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                  >
+                    进入管理
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCommissionMap(false)
+                      setSelectedCompany(null)
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
             

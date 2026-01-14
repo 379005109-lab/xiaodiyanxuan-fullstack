@@ -18,6 +18,31 @@ const getProductOwnerManufacturerId = (product) => {
   return null
 }
 
+const resolveTierDocForAuth = (tierDocRaw, auth) => {
+  if (!tierDocRaw || typeof tierDocRaw !== 'object') return tierDocRaw
+  const companyId = auth?.tierCompanyId ? String(auth.tierCompanyId) : ''
+  const companyName = auth?.tierCompanyName ? String(auth.tierCompanyName) : ''
+  if (!companyId && !companyName) return tierDocRaw
+
+  const systems = Array.isArray(tierDocRaw.companySystems) ? tierDocRaw.companySystems : []
+  let found = null
+  if (companyId) {
+    found = systems.find((s) => String(s?.companyId || '') === companyId) || null
+  }
+  if (!found && companyName) {
+    found = systems.find((s) => String(s?.companyName || '') === companyName) || null
+  }
+  if (!found) return tierDocRaw
+
+  return {
+    manufacturerId: tierDocRaw.manufacturerId,
+    profitSettings: found.profitSettings || {},
+    roleModules: Array.isArray(found.roleModules) ? found.roleModules : [],
+    authorizedAccounts: Array.isArray(found.authorizedAccounts) ? found.authorizedAccounts : [],
+    commissionRules: Array.isArray(found.commissionRules) ? found.commissionRules : [],
+  }
+}
+
 const getAuthorizationViewerKey = (user) => {
   if (!user) return null
   if (user.manufacturerId) return `m:${user.manufacturerId.toString()}`
@@ -475,8 +500,9 @@ const listProducts = async (req, res) => {
         .filter(p => includeHidden || !hiddenProductIds.has(p._id.toString()))
         .map(p => {
         const ownerManufacturerId = getProductOwnerManufacturerId(p)
-        const tierDoc = ownerManufacturerId ? tierByOwnerId.get(ownerManufacturerId) : null
+        const tierDocRaw = ownerManufacturerId ? tierByOwnerId.get(ownerManufacturerId) : null
         const auth = authByProduct.get(p._id.toString())
+        const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
         const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth })
         
         // 获取商品覆盖设置
@@ -587,9 +613,10 @@ const getProduct = async (req, res) => {
       const ownerManufacturerId = getProductOwnerManufacturerId(product)
       const auth = await findAuthorizationForUserAndProduct(user, product)
 
-      const tierDoc = ownerManufacturerId
+      const tierDocRaw = ownerManufacturerId
         ? await TierSystem.findOne({ manufacturerId: ownerManufacturerId }).lean()
         : null
+      const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
       const tierPricing = computeTierPricing({ tierDoc, user, product, auth })
 
       let takePrice
@@ -625,9 +652,10 @@ const getProduct = async (req, res) => {
       const labelPrice1 = (product.authorizedLabelPrices && key) ? (product.authorizedLabelPrices[key] || takePrice) : takePrice
       const allow = allowCostPriceForUser(user)
 
-      const tierDoc = ownerManufacturerId
+      const tierDocRaw = ownerManufacturerId
         ? await TierSystem.findOne({ manufacturerId: ownerManufacturerId }).lean()
         : null
+      const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
       const tierPricing = computeTierPricing({ tierDoc, user, product, auth })
 
       return res.json(successResponse(sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1, allow, tierPricing)))

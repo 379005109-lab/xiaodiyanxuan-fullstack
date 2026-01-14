@@ -9,7 +9,7 @@ const { USER_ROLES, DEFAULT_DESIGNER_DISCOUNT } = require('../config/constants')
  * @param {String} manufacturerId - 厂家ID
  * @returns {Object|null} { discountRate, commissionRate, account, module, rule }
  */
-const getTierSystemPricing = async (user, manufacturerId, companyName = '') => {
+const getTierSystemPricing = async (user, manufacturerId, companyName = '', companyId = '') => {
   if (!user || !manufacturerId) return null
   
   try {
@@ -17,10 +17,17 @@ const getTierSystemPricing = async (user, manufacturerId, companyName = '') => {
     if (!tierDocRaw) return null
 
     let tierDoc = tierDocRaw
+    const cid = String(companyId || '').trim()
     const cname = String(companyName || '').trim()
-    if (cname) {
+    if (cid || cname) {
       const systems = Array.isArray(tierDocRaw.companySystems) ? tierDocRaw.companySystems : []
-      const found = systems.find((s) => String(s?.companyName || '') === cname) || null
+      let found = null
+      if (cid) {
+        found = systems.find((s) => String(s?.companyId || '') === cid) || null
+      }
+      if (!found && cname) {
+        found = systems.find((s) => String(s?.companyName || '') === cname) || null
+      }
       if (found) {
         tierDoc = {
           manufacturerId: tierDocRaw.manufacturerId,
@@ -110,7 +117,9 @@ const getUserPrice = async (user, product, category = null, options = {}) => {
   }
   
   // ========== 优先检查分层体系定价（授权账号以分层数据为准） ==========
-  const tierPricing = options.tierPricing || (manufacturerId ? await getTierSystemPricing(user, manufacturerId) : null)
+  const tierCompanyName = options?.companyName || options?.tierCompanyName || ''
+  const tierCompanyId = options?.companyId || options?.tierCompanyId || ''
+  const tierPricing = options.tierPricing || (manufacturerId ? await getTierSystemPricing(user, manufacturerId, tierCompanyName, tierCompanyId) : null)
   
   if (tierPricing) {
     // 用户在分层体系中，使用分层体系的折扣/返佣设置

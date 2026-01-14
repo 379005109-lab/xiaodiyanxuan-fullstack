@@ -417,6 +417,20 @@ router.get('/my-grants', auth, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean()
 
+    const needParents = (authorizations || []).filter((a) => !a.tierCompanyId && a.parentAuthorizationId)
+    const parentIds = Array.from(new Set(needParents.map((a) => String(a.parentAuthorizationId))))
+    const parents = parentIds.length > 0
+      ? await Authorization.find({ _id: { $in: parentIds } }).select('_id tierCompanyId tierLevel parentAuthorizationId').lean()
+      : []
+    const parentMap = new Map((parents || []).map((p) => [String(p._id), p]))
+    const resolveCompanyId = (a) => {
+      if (a.tierCompanyId) return String(a.tierCompanyId)
+      if (!a.parentAuthorizationId || Number(a.tierLevel || 0) === 0) return String(a._id)
+      const p = parentMap.get(String(a.parentAuthorizationId))
+      if (!p) return String(a.parentAuthorizationId)
+      return String(p.tierCompanyId || p._id)
+    }
+
     // 计算厂家的总产品数量
     const totalProductCount = await Product.countDocuments({
       manufacturerId: user.manufacturerId,
@@ -455,6 +469,7 @@ router.get('/my-grants', auth, async (req, res) => {
       
       return {
         ...auth,
+        tierCompanyId: resolveCompanyId(auth),
         actualProductCount: skuCount,
         // 优先使用授权记录的值，否则使用厂家默认值
         minDiscountRate: auth.minDiscountRate || mfrDefaultDiscount,
@@ -607,10 +622,30 @@ router.get('/manufacturer/my-grants', verifyManufacturerToken, async (req, res) 
     })
       .populate('toManufacturer', 'name fullName shortName code contactPerson')
       .populate('toDesigner', 'username nickname phone email')
+      .select('+tierCompanyName +tierCompanyId +tierLevel +tierType +parentAuthorizationId +minDiscountRate +commissionRate')
       .sort({ createdAt: -1 })
       .lean()
 
-    res.json({ success: true, data: authorizations })
+    const needParents = (authorizations || []).filter((a) => !a.tierCompanyId && a.parentAuthorizationId)
+    const parentIds = Array.from(new Set(needParents.map((a) => String(a.parentAuthorizationId))))
+    const parents = parentIds.length > 0
+      ? await Authorization.find({ _id: { $in: parentIds } }).select('_id tierCompanyId tierLevel parentAuthorizationId').lean()
+      : []
+    const parentMap = new Map((parents || []).map((p) => [String(p._id), p]))
+    const resolveCompanyId = (a) => {
+      if (a.tierCompanyId) return String(a.tierCompanyId)
+      if (!a.parentAuthorizationId || Number(a.tierLevel || 0) === 0) return String(a._id)
+      const p = parentMap.get(String(a.parentAuthorizationId))
+      if (!p) return String(a.parentAuthorizationId)
+      return String(p.tierCompanyId || p._id)
+    }
+
+    const withCompanyId = (authorizations || []).map((a) => ({
+      ...a,
+      tierCompanyId: resolveCompanyId(a)
+    }))
+
+    res.json({ success: true, data: withCompanyId })
   } catch (error) {
     console.error('获取授权列表失败(厂家端):', error)
     res.status(500).json({ success: false, message: '获取授权列表失败' })
@@ -632,10 +667,30 @@ router.get('/manufacturer/received', verifyManufacturerToken, async (req, res) =
     const authorizations = await Authorization.find(query)
       .populate('fromManufacturer', 'name fullName shortName code contactPerson')
       .populate('products', 'name basePrice thumbnail')
+      .select('+tierCompanyName +tierCompanyId +tierLevel +tierType +parentAuthorizationId +minDiscountRate +commissionRate')
       .sort({ createdAt: -1 })
       .lean()
 
-    res.json({ success: true, data: authorizations })
+    const needParents = (authorizations || []).filter((a) => !a.tierCompanyId && a.parentAuthorizationId)
+    const parentIds = Array.from(new Set(needParents.map((a) => String(a.parentAuthorizationId))))
+    const parents = parentIds.length > 0
+      ? await Authorization.find({ _id: { $in: parentIds } }).select('_id tierCompanyId tierLevel parentAuthorizationId').lean()
+      : []
+    const parentMap = new Map((parents || []).map((p) => [String(p._id), p]))
+    const resolveCompanyId = (a) => {
+      if (a.tierCompanyId) return String(a.tierCompanyId)
+      if (!a.parentAuthorizationId || Number(a.tierLevel || 0) === 0) return String(a._id)
+      const p = parentMap.get(String(a.parentAuthorizationId))
+      if (!p) return String(a.parentAuthorizationId)
+      return String(p.tierCompanyId || p._id)
+    }
+
+    const withCompanyId = (authorizations || []).map((a) => ({
+      ...a,
+      tierCompanyId: resolveCompanyId(a)
+    }))
+
+    res.json({ success: true, data: withCompanyId })
   } catch (error) {
     console.error('获取授权列表失败(厂家端):', error)
     res.status(500).json({ success: false, message: '获取授权列表失败' })
@@ -704,13 +759,67 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
       return res.status(400).json({ success: false, message: '该申请不是待审核状态' })
     }
 
-    const { scope, categories, products, priceSettings, validUntil, notes } = req.body || {}
+    const {
+      scope,
+      categories,
+      products,
+      priceSettings,
+      validUntil,
+      notes,
+      discountRate,
+      commissionRate,
+      tierType,
+      parentAuthorizationId,
+      tierCompanyName,
+      allowSubAuthorization
+    } = req.body || {}
     if (scope) authDoc.scope = scope
     if (categories !== undefined) authDoc.categories = categories
     if (products !== undefined) authDoc.products = products
     if (priceSettings) authDoc.priceSettings = priceSettings
     if (validUntil !== undefined) authDoc.validUntil = validUntil
     if (notes !== undefined) authDoc.notes = notes
+
+    // 设置折扣和返佣
+    if (discountRate !== undefined && discountRate >= 0 && discountRate <= 100) {
+      authDoc.minDiscountRate = discountRate
+    }
+    if (commissionRate !== undefined && commissionRate >= 0 && commissionRate <= 100) {
+      authDoc.commissionRate = commissionRate
+    }
+
+    // 处理分层体系
+    if (tierType) {
+      authDoc.tierType = tierType
+
+      if (tierType === 'new_company') {
+        authDoc.tierLevel = 0
+        authDoc.tierCompanyName = tierCompanyName || '未命名公司'
+        authDoc.parentAuthorizationId = null
+        authDoc.tierCompanyId = authDoc._id
+      } else if (tierType === 'existing_tier' && parentAuthorizationId) {
+        if (!mongoose.Types.ObjectId.isValid(parentAuthorizationId)) {
+          return res.status(400).json({ success: false, message: '父级授权ID无效' })
+        }
+
+        const parentAuth = await Authorization.findById(parentAuthorizationId)
+        if (!parentAuth) {
+          return res.status(404).json({ success: false, message: '父级授权不存在' })
+        }
+        if (!parentAuth.allowSubAuthorization) {
+          return res.status(403).json({ success: false, message: '父级不允许创建下级授权' })
+        }
+
+        authDoc.parentAuthorizationId = parentAuthorizationId
+        authDoc.tierLevel = (parentAuth.tierLevel || 0) + 1
+        authDoc.tierCompanyName = tierCompanyName || `第${authDoc.tierLevel}级下级`
+        authDoc.tierCompanyId = parentAuth.tierCompanyId || parentAuth._id
+      }
+    }
+
+    if (allowSubAuthorization !== undefined) {
+      authDoc.allowSubAuthorization = allowSubAuthorization
+    }
 
     authDoc.status = 'active'
     authDoc.updatedAt = new Date()
@@ -931,9 +1040,27 @@ router.get('/tier-hierarchy', auth, async (req, res) => {
       }
     }
 
+    const authMap = new Map(visibleAuths.map((a) => [String(a._id), a]))
+    const resolveCompanyId = (a, seen = new Set()) => {
+      const id = String(a?._id || '')
+      if (!id) return ''
+      if (a.tierCompanyId) return String(a.tierCompanyId)
+      if (!a.parentAuthorizationId || Number(a.tierLevel || 0) === 0) return id
+      const pid = typeof a.parentAuthorizationId === 'object'
+        ? String(a.parentAuthorizationId?._id || a.parentAuthorizationId)
+        : String(a.parentAuthorizationId)
+      if (!pid) return id
+      if (seen.has(pid)) return pid
+      seen.add(pid)
+      const p = authMap.get(pid)
+      if (!p) return pid
+      return p.tierCompanyId ? String(p.tierCompanyId) : resolveCompanyId(p, seen)
+    }
+
     // 构建层级结构
     const hierarchy = visibleAuths.map(auth => ({
       ...auth,
+      tierCompanyId: auth.tierCompanyId ? String(auth.tierCompanyId) : resolveCompanyId(auth),
       isMyAuth: myAuthorizations.some(a => a._id.toString() === auth._id.toString()),
       isParent: myAuthorizations.some(a => a.parentAuthorizationId?.toString() === auth._id.toString()),
       isChild: auth.parentAuthorizationId && myAuthorizations.some(a => a._id.toString() === auth.parentAuthorizationId.toString())
@@ -977,11 +1104,30 @@ router.get('/received', auth, async (req, res) => {
     const authorizations = await Authorization.find(query)
       .populate('fromManufacturer', 'name fullName contactPerson')
       .populate('products', 'name basePrice thumbnail')
-      .select('+minDiscountRate +commissionRate +tierCompanyName +tierLevel +tierType +parentAuthorizationId')
+      .select('+minDiscountRate +commissionRate +tierCompanyName +tierCompanyId +tierLevel +tierType +parentAuthorizationId')
       .sort({ createdAt: -1 })
       .lean()
 
-    res.json({ success: true, data: authorizations })
+    const needParents = (authorizations || []).filter((a) => !a.tierCompanyId && a.parentAuthorizationId)
+    const parentIds = Array.from(new Set(needParents.map((a) => String(a.parentAuthorizationId))))
+    const parents = parentIds.length > 0
+      ? await Authorization.find({ _id: { $in: parentIds } }).select('_id tierCompanyId tierLevel parentAuthorizationId').lean()
+      : []
+    const parentMap = new Map((parents || []).map((p) => [String(p._id), p]))
+    const resolveCompanyId = (a) => {
+      if (a.tierCompanyId) return String(a.tierCompanyId)
+      if (!a.parentAuthorizationId || Number(a.tierLevel || 0) === 0) return String(a._id)
+      const p = parentMap.get(String(a.parentAuthorizationId))
+      if (!p) return String(a.parentAuthorizationId)
+      return String(p.tierCompanyId || p._id)
+    }
+
+    const withCompanyId = (authorizations || []).map((a) => ({
+      ...a,
+      tierCompanyId: resolveCompanyId(a)
+    }))
+
+    res.json({ success: true, data: withCompanyId })
   } catch (error) {
     console.error('获取授权列表失败:', error)
     res.status(500).json({ success: false, message: '获取授权列表失败' })
@@ -1230,6 +1376,8 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
         authDoc.tierLevel = 0
         authDoc.tierCompanyName = tierCompanyName || '未命名公司'
         authDoc.parentAuthorizationId = null
+        // 根节点即公司唯一ID
+        authDoc.tierCompanyId = authDoc._id
       } else if (tierType === 'existing_tier' && parentAuthorizationId) {
         // 插入现有层级
         if (!mongoose.Types.ObjectId.isValid(parentAuthorizationId)) {
@@ -1249,6 +1397,7 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
         authDoc.parentAuthorizationId = parentAuthorizationId
         authDoc.tierLevel = (parentAuth.tierLevel || 0) + 1
         authDoc.tierCompanyName = tierCompanyName || `第${authDoc.tierLevel}级下级`
+        authDoc.tierCompanyId = parentAuth.tierCompanyId || parentAuth._id
       }
     }
     
@@ -1528,13 +1677,64 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: '该申请不是待审核状态' })
     }
 
-    const { scope, categories, products, priceSettings, validUntil, notes } = req.body
+    const {
+      scope,
+      categories,
+      products,
+      priceSettings,
+      validUntil,
+      notes,
+      discountRate,
+      commissionRate,
+      tierType,
+      parentAuthorizationId,
+      tierCompanyName,
+      allowSubAuthorization
+    } = req.body
     if (scope) authDoc.scope = scope
     if (categories !== undefined) authDoc.categories = categories
     if (products !== undefined) authDoc.products = products
     if (priceSettings) authDoc.priceSettings = priceSettings
     if (validUntil !== undefined) authDoc.validUntil = validUntil
     if (notes !== undefined) authDoc.notes = notes
+
+    // 设置折扣和返佣
+    if (discountRate !== undefined && discountRate >= 0 && discountRate <= 100) {
+      authDoc.minDiscountRate = discountRate
+    }
+    if (commissionRate !== undefined && commissionRate >= 0 && commissionRate <= 100) {
+      authDoc.commissionRate = commissionRate
+    }
+
+    // 处理分层体系
+    if (tierType) {
+      authDoc.tierType = tierType
+      if (tierType === 'new_company') {
+        authDoc.tierLevel = 0
+        authDoc.tierCompanyName = tierCompanyName || '未命名公司'
+        authDoc.parentAuthorizationId = null
+        authDoc.tierCompanyId = authDoc._id
+      } else if (tierType === 'existing_tier' && parentAuthorizationId) {
+        if (!mongoose.Types.ObjectId.isValid(parentAuthorizationId)) {
+          return res.status(400).json({ success: false, message: '父级授权ID无效' })
+        }
+        const parentAuth = await Authorization.findById(parentAuthorizationId)
+        if (!parentAuth) {
+          return res.status(404).json({ success: false, message: '父级授权不存在' })
+        }
+        if (!parentAuth.allowSubAuthorization) {
+          return res.status(403).json({ success: false, message: '父级不允许创建下级授权' })
+        }
+        authDoc.parentAuthorizationId = parentAuthorizationId
+        authDoc.tierLevel = (parentAuth.tierLevel || 0) + 1
+        authDoc.tierCompanyName = tierCompanyName || `第${authDoc.tierLevel}级下级`
+        authDoc.tierCompanyId = parentAuth.tierCompanyId || parentAuth._id
+      }
+    }
+
+    if (allowSubAuthorization !== undefined) {
+      authDoc.allowSubAuthorization = allowSubAuthorization
+    }
 
     authDoc.status = 'active'
     authDoc.updatedAt = new Date()

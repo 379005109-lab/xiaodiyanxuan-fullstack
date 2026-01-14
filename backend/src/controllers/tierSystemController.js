@@ -23,6 +23,13 @@ const resolveCompanyName = (req) => {
   return raw ? String(raw).trim() : ''
 }
 
+const resolveCompanyId = (req) => {
+  const raw = req.query.companyId || req.body?.companyId
+  if (!raw) return ''
+  const id = String(raw).trim()
+  return mongoose.Types.ObjectId.isValid(id) ? id : ''
+}
+
 const getTierSystem = async (req, res) => {
   try {
     const manufacturerId = resolveManufacturerId(req)
@@ -30,23 +37,34 @@ const getTierSystem = async (req, res) => {
       return res.status(400).json(errorResponse('manufacturerId is required', 400))
     }
 
+    const companyId = resolveCompanyId(req)
     const companyName = resolveCompanyName(req)
 
     const doc = await TierSystem.findOne({ manufacturerId }).lean()
 
-    if (!companyName) {
+    if (!companyId && !companyName) {
       return res.json(successResponse(doc, 'ok'))
     }
 
     const systems = Array.isArray(doc?.companySystems) ? doc.companySystems : []
-    const found = systems.find((s) => String(s?.companyName || '') === companyName) || null
+    let found = null
+    if (companyId) {
+      found = systems.find((s) => String(s?.companyId || '') === String(companyId)) || null
+      // 兼容旧数据：companyId 未命中时，允许回退到 companyName
+      if (!found && companyName) {
+        found = systems.find((s) => String(s?.companyName || '') === companyName) || null
+      }
+    } else {
+      found = systems.find((s) => String(s?.companyName || '') === companyName) || null
+    }
     if (!found) {
       return res.json(successResponse(null, 'ok'))
     }
 
     const payload = {
       manufacturerId: String(manufacturerId),
-      companyName,
+      companyId: companyId || String(found?.companyId || ''),
+      companyName: companyName || String(found?.companyName || ''),
       profitSettings: found.profitSettings || {},
       roleModules: Array.isArray(found.roleModules) ? found.roleModules : [],
       authorizedAccounts: Array.isArray(found.authorizedAccounts) ? found.authorizedAccounts : [],
@@ -65,18 +83,20 @@ const upsertTierSystem = async (req, res) => {
       return res.status(400).json(errorResponse('manufacturerId is required', 400))
     }
 
+    const companyId = resolveCompanyId(req)
     const companyName = resolveCompanyName(req)
 
     const payload = req.body || {}
 
-    if (companyName) {
+    if (companyId || companyName) {
       let doc = await TierSystem.findOne({ manufacturerId })
       if (!doc) {
         doc = new TierSystem({ manufacturerId })
       }
 
       const nextSystem = {
-        companyName,
+        ...(companyId ? { companyId } : {}),
+        ...(companyName ? { companyName } : {}),
         profitSettings: payload.profitSettings || {},
         roleModules: Array.isArray(payload.roleModules) ? payload.roleModules : [],
         authorizedAccounts: Array.isArray(payload.authorizedAccounts) ? payload.authorizedAccounts : [],
@@ -86,9 +106,22 @@ const upsertTierSystem = async (req, res) => {
       }
 
       const list = Array.isArray(doc.companySystems) ? doc.companySystems : []
-      const idx = list.findIndex((s) => String(s?.companyName || '') === companyName)
-      if (idx >= 0) list[idx] = { ...(list[idx] || {}), ...nextSystem }
-      else list.push(nextSystem)
+      let idx = -1
+      if (companyId) {
+        idx = list.findIndex((s) => String(s?.companyId || '') === String(companyId))
+        // 兼容旧数据：如果 companyId 未命中但 companyName 命中，则复用旧条目并补齐 companyId
+        if (idx < 0 && companyName) {
+          idx = list.findIndex((s) => String(s?.companyName || '') === String(companyName))
+        }
+      } else {
+        idx = list.findIndex((s) => String(s?.companyName || '') === String(companyName))
+      }
+
+      if (idx >= 0) {
+        list[idx] = { ...(list[idx] || {}), ...nextSystem }
+      } else {
+        list.push(nextSystem)
+      }
 
       doc.companySystems = list
       doc.updatedBy = req.user?._id

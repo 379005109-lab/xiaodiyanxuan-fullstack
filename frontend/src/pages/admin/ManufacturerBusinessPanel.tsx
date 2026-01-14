@@ -98,7 +98,7 @@ export default function ManufacturerBusinessPanel() {
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
   const [showTierMapModal, setShowTierMapModal] = useState(false)
-  const [selectedAuthForMap, setSelectedAuthForMap] = useState<any>(null)
+  const [selectedAuthForMap, setSelectedAuthForMap] = useState<{ id?: string; name: string; auths: any[] } | null>(null)
 
   useEffect(() => {
     if (!manufacturerId) {
@@ -895,25 +895,34 @@ export default function ManufacturerBusinessPanel() {
                     {(() => {
                       const companies = new Map<string, any[]>()
                       grantedAuths.forEach((auth: any) => {
+                        const companyId = auth.tierCompanyId ? String(auth.tierCompanyId) : ''
                         const companyName = auth.tierCompanyName || '未命名公司'
-                        if (!companies.has(companyName)) {
-                          companies.set(companyName, [])
+                        const key = companyId || `name:${companyName}`
+                        if (!companies.has(key)) {
+                          companies.set(key, [])
                         }
-                        companies.get(companyName)!.push(auth)
+                        companies.get(key)!.push(auth)
                       })
 
-                      return Array.from(companies.entries()).map(([companyName, auths]) => {
+                      return Array.from(companies.entries()).map(([companyKey, auths]) => {
+                        const first = auths[0] || {}
+                        const companyId = first.tierCompanyId ? String(first.tierCompanyId) : ''
+                        const companyName = first.tierCompanyName || '未命名公司'
                         const memberCount = auths.length
                         const avgDiscount = auths.reduce((sum, a) => sum + (a.minDiscountRate || 0), 0) / memberCount
                         const avgCommission = auths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / memberCount
 
                         return (
                           <div
-                            key={companyName}
+                            key={companyKey}
                             className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer"
                             onClick={() => {
                               const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=granted_auth`)
-                              navigate(`/admin/tier-system?tab=hierarchy&companyName=${encodeURIComponent(companyName)}&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`)
+                              const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
+                              const withCompany = companyId
+                                ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
+                                : `${base}&companyName=${encodeURIComponent(companyName)}`
+                              navigate(withCompany)
                             }}
                           >
                             <div className="flex items-center justify-between">
@@ -941,21 +950,34 @@ export default function ManufacturerBusinessPanel() {
                                       const response = await apiClient.get('/authorizations/tier-hierarchy')
                                       if (response.data?.success) {
                                         const hierarchy = response.data.data?.visible || []
-                                        const companyAuths = hierarchy.filter((h: any) =>
-                                          (h.tierCompanyName || '未命名公司') === companyName
-                                        )
-                                        setSelectedAuthForMap({ name: companyName, auths: companyAuths.length > 0 ? companyAuths : auths })
+                                        const companyAuths = hierarchy.filter((h: any) => {
+                                          const hid = h.tierCompanyId ? String(h.tierCompanyId) : ''
+                                          if (companyId) return hid === companyId
+                                          return (h.tierCompanyName || '未命名公司') === companyName
+                                        })
+                                        setSelectedAuthForMap({ id: companyId, name: companyName, auths: companyAuths.length > 0 ? companyAuths : auths })
                                         setShowTierMapModal(true)
                                       }
                                     } catch {
-                                      setSelectedAuthForMap({ name: companyName, auths })
+                                      setSelectedAuthForMap({ id: companyId, name: companyName, auths })
                                       setShowTierMapModal(true)
                                     }
                                   }}
                                 >
                                   预览地图
                                 </button>
-                                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                <button
+                                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=granted_auth`)
+                                    const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
+                                    const withCompany = companyId
+                                      ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
+                                      : `${base}&companyName=${encodeURIComponent(companyName)}`
+                                    navigate(withCompany)
+                                  }}
+                                >
                                   管理体系
                                 </button>
                               </div>
@@ -986,10 +1008,15 @@ export default function ManufacturerBusinessPanel() {
                   <button
                     onClick={() => {
                       const companyName = String(selectedAuthForMap.name || '').trim() || '未命名公司'
+                      const companyId = selectedAuthForMap.id ? String(selectedAuthForMap.id) : ''
                       const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=granted_auth`)
                       setShowTierMapModal(false)
                       setSelectedAuthForMap(null)
-                      navigate(`/admin/tier-system?tab=hierarchy&companyName=${encodeURIComponent(companyName)}&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`)
+                      const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
+                      const withCompany = companyId
+                        ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
+                        : `${base}&companyName=${encodeURIComponent(companyName)}`
+                      navigate(withCompany)
                     }}
                     className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2"
                   >
@@ -1019,7 +1046,9 @@ export default function ManufacturerBusinessPanel() {
                   
                   selectedAuthForMap.auths.forEach((auth: any) => {
                     if (auth.parentAuthorizationId) {
-                      const parentId = auth.parentAuthorizationId
+                      const parentId = typeof auth.parentAuthorizationId === 'object'
+                        ? String(auth.parentAuthorizationId?._id || auth.parentAuthorizationId)
+                        : String(auth.parentAuthorizationId)
                       if (!childrenMap.has(parentId)) {
                         childrenMap.set(parentId, [])
                       }

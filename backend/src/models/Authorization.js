@@ -175,6 +175,12 @@ const authorizationSchema = new mongoose.Schema({
   
   // 公司/层级名称
   tierCompanyName: String,
+
+  // 公司唯一ID（公司根授权的_id，用于唯一标识公司，避免重名）
+  tierCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Authorization'
+  },
   
   // 是否可以再授权给下级
   allowSubAuthorization: {

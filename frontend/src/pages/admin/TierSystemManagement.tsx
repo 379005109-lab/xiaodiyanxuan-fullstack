@@ -284,6 +284,7 @@ export default function TierSystemManagement() {
   const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'admin'
 
   const urlCompanyName = String(searchParams.get('companyName') || '').trim()
+  const urlCompanyId = String(searchParams.get('companyId') || '').trim()
   const urlManufacturerId = String(searchParams.get('manufacturerId') || '').trim()
   const returnTo = String(searchParams.get('returnTo') || '/admin/manufacturers')
   const goBack = () => navigate(returnTo)
@@ -296,6 +297,7 @@ export default function TierSystemManagement() {
   })
 
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>(() => urlCompanyName)
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(() => urlCompanyId)
 
   const [selectedManufacturerCommission, setSelectedManufacturerCommission] = useState<number>(0)
   const [selectedManufacturerMeta, setSelectedManufacturerMeta] = useState<{ name?: string; logo?: string } | null>(null)
@@ -324,10 +326,13 @@ export default function TierSystemManagement() {
     if (urlCompanyName && urlCompanyName !== selectedCompanyName) {
       setSelectedCompanyName(urlCompanyName)
     }
+    if (urlCompanyId && urlCompanyId !== selectedCompanyId) {
+      setSelectedCompanyId(urlCompanyId)
+    }
     if (urlManufacturerId && isSuperAdmin && !lockedManufacturerId && urlManufacturerId !== selectedManufacturerId) {
       setSelectedManufacturerId(urlManufacturerId)
     }
-  }, [urlCompanyName, urlManufacturerId, isSuperAdmin, lockedManufacturerId, selectedCompanyName, selectedManufacturerId])
+  }, [urlCompanyName, urlCompanyId, urlManufacturerId, isSuperAdmin, lockedManufacturerId, selectedCompanyName, selectedCompanyId, selectedManufacturerId])
 
   useEffect(() => {
     if (!isSuperAdmin) return
@@ -377,6 +382,7 @@ export default function TierSystemManagement() {
       try {
         const params: any = { _ts: Date.now() }
         if (isSuperAdmin && !lockedManufacturerId) params.manufacturerId = mid
+        if (selectedCompanyId) params.companyId = selectedCompanyId
         if (selectedCompanyName) params.companyName = selectedCompanyName
 
         const resp = await apiClient.get('/tier-system', { params })
@@ -387,6 +393,7 @@ export default function TierSystemManagement() {
           setData(next)
           await apiClient.put('/tier-system', {
             manufacturerId: mid,
+            ...(selectedCompanyId ? { companyId: selectedCompanyId } : {}),
             ...(selectedCompanyName ? { companyName: selectedCompanyName } : {}),
             ...next
           })
@@ -419,7 +426,7 @@ export default function TierSystemManagement() {
     }
 
     loadRemote()
-  }, [lockedManufacturerId, selectedManufacturerId, selectedCompanyName])
+  }, [lockedManufacturerId, selectedManufacturerId, selectedCompanyName, selectedCompanyId])
 
   useEffect(() => {
     const mid = lockedManufacturerId || selectedManufacturerId || ''
@@ -467,6 +474,7 @@ export default function TierSystemManagement() {
     if (!mid) return
     await apiClient.put('/tier-system', {
       manufacturerId: mid,
+      ...(selectedCompanyId ? { companyId: selectedCompanyId } : {}),
       ...(selectedCompanyName ? { companyName: selectedCompanyName } : {}),
       ...newData
     })
