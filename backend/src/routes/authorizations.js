@@ -2043,8 +2043,11 @@ router.put('/product-override/:productId', auth, async (req, res) => {
     }
     
     // 获取现有的覆盖设置或创建新的
-    const existingOverride = authorization.productOverrides.get(productId) || {}
-    const updatedOverride = { ...existingOverride }
+    const existingOverride = authorization.productOverrides.get(productId)
+    const updatedOverride = {
+      price: existingOverride?.price,
+      hidden: existingOverride?.hidden
+    }
     
     if (price !== undefined) {
       updatedOverride.price = price
