@@ -3059,27 +3059,37 @@ export default function ProductManagement() {
                         const hasDiscount = prices.some(p => p.discountPrice > 0 && p.discountPrice < p.price)
                         
                         const roleMultiplier = getDiscountMultiplier(product.category)
-                        let finalPrice = Math.round(minPrice * roleMultiplier)
+                        const computedPrice = Math.round(minPrice * roleMultiplier)
+                        let finalPrice = computedPrice
                         const finalOriginal = Math.round(minOriginalPrice * roleMultiplier)
-                        
-                        // 授权商品优先使用overridePrice
-                        if (isAuthorized && p.overridePrice) {
-                          finalPrice = p.overridePrice
+
+                        const hasOverridePrice = p.overridePrice !== undefined && p.overridePrice !== null
+                        const isPriceOverridden = isAuthorized && hasOverridePrice
+
+                        if (isAuthorized && hasOverridePrice) {
+                          finalPrice = Number(p.overridePrice)
                         }
                         
                         // 授权商品价格可点击编辑
                         if (isAuthorized) {
                           return (
-                            <span 
-                              className="font-medium text-primary-600 cursor-pointer hover:underline"
-                              onClick={() => {
-                                setEditingPriceProductId(product._id)
-                                setEditingPriceValue(String(finalPrice))
-                              }}
-                              title="点击编辑价格（不低于标价60%）"
-                            >
-                              {formatPrice(finalPrice)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span 
+                                className="font-medium text-primary-600 cursor-pointer hover:underline"
+                                onClick={() => {
+                                  setEditingPriceProductId(product._id)
+                                  setEditingPriceValue(String(finalPrice))
+                                }}
+                                title="点击编辑价格（不低于标价60%）"
+                              >
+                                {formatPrice(finalPrice)}
+                              </span>
+                              {isPriceOverridden && (
+                                <span className="px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-700">
+                                  已改价
+                                </span>
+                              )}
+                            </div>
                           )
                         }
                         
@@ -3198,15 +3208,22 @@ export default function ProductManagement() {
                     </div>
                   </td>
                   <td className="py-4 px-4">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        product.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      {product.status === 'active' ? '上架中' : '已下架'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          product.status === 'active'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {product.status === 'active' ? '上架中' : '已下架'}
+                      </span>
+                      {(product as any).isAuthorized && (product as any).isHidden === true && (
+                        <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">
+                          已隐藏
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-4 px-4 text-sm text-gray-600">
                     {formatDate(product.createdAt)}
