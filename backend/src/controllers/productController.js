@@ -290,8 +290,24 @@ const listProducts = async (req, res) => {
       const authorizations = await Authorization.find(authQuery).lean()
       const authorizedProductIds = new Set()
       const authByProduct = new Map()
+      const hiddenProductIds = new Set()
+      const productOverridesMap = new Map() // 存储商品覆盖设置
 
       for (const auth of authorizations) {
+        // 过滤关闭的授权
+        if (auth.isEnabled === false) {
+          continue
+        }
+        
+        // 收集隐藏的商品和覆盖设置
+        if (auth.productOverrides) {
+          for (const [productId, override] of Object.entries(auth.productOverrides)) {
+            productOverridesMap.set(productId, override)
+            if (override.hidden === true) {
+              hiddenProductIds.add(productId)
+            }
+          }
+        }
         if (auth.scope === 'all') {
           const manufacturerOid = auth.fromManufacturer
           const products = await Product.find({
@@ -453,11 +469,24 @@ const listProducts = async (req, res) => {
         : []
       const manufacturerById = new Map((manufacturerDocs || []).map((m) => [String(m._id), m]))
 
-      const shaped = products.map(p => {
+      // 在管理页面显示所有商品（包括隐藏的），在商城展示时过滤隐藏商品
+      const includeHidden = req.query.includeHidden === 'true'
+      const shaped = products
+        .filter(p => includeHidden || !hiddenProductIds.has(p._id.toString()))
+        .map(p => {
         const ownerManufacturerId = getProductOwnerManufacturerId(p)
         const tierDoc = ownerManufacturerId ? tierByOwnerId.get(ownerManufacturerId) : null
         const auth = authByProduct.get(p._id.toString())
         const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth })
+        
+        // 获取商品覆盖设置
+        const productIdStr = p._id.toString()
+        const override = productOverridesMap.get(productIdStr)
+        const overrideFields = {}
+        if (override) {
+          if (override.price !== undefined) overrideFields.overridePrice = override.price
+          if (override.hidden !== undefined) overrideFields.isHidden = override.hidden
+        }
 
         const manufacturerDoc = ownerManufacturerId ? manufacturerById.get(ownerManufacturerId) : null
         // 只要商品有厂家就显示厂家名，没有厂家的才显示平台
@@ -466,10 +495,10 @@ const listProducts = async (req, res) => {
           : '小迪严选（平台）'
 
         if (!isDesigner && ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
-          return { ...p, manufacturerDisplayName, ...(tierPricing ? { tierPricing } : {}) }
+          return { ...p, manufacturerDisplayName, ...overrideFields, ...(tierPricing ? { tierPricing } : {}) }
         }
         if (!auth) {
-          return sanitizeProductForAuthorizedViewer(p, 0, 0, false, tierPricing, manufacturerDisplayName)
+          return { ...sanitizeProductForAuthorizedViewer(p, 0, 0, false, tierPricing, manufacturerDisplayName), ...overrideFields }
         }
 
         const takePrice = getAuthorizedTakePrice(auth, p)
@@ -477,7 +506,7 @@ const listProducts = async (req, res) => {
         const labelPrice1 = (p.authorizedLabelPrices && key) ? (p.authorizedLabelPrices[key] || takePrice) : takePrice
 
         const allow = allowCostPriceForUser(user)
-        return sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1, allow, tierPricing, manufacturerDisplayName)
+        return { ...sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1, allow, tierPricing, manufacturerDisplayName), ...overrideFields }
       })
 
       return res.json(paginatedResponse(shaped, total, parseInt(page), parseInt(pageSize)))

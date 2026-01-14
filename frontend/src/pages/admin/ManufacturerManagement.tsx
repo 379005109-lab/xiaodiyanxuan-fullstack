@@ -218,6 +218,7 @@ export default function ManufacturerManagement() {
     authorizationId?: string;
     minDiscountRate?: number;
     commissionRate?: number;
+    isEnabled?: boolean;
   }>>({})
   
   const [showSmsModal, setShowSmsModal] = useState(false)
@@ -255,23 +256,32 @@ export default function ManufacturerManagement() {
           const authRes = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
           console.log('[ManufacturerManagement] Authorization response:', authRes.data)
           const authData = authRes.data?.data || authRes.data || []
-          const authMap: Record<string, { status: string; productCount: number; authorizationId?: string; minDiscountRate?: number; commissionRate?: number }> = {}
+          const authMap: Record<string, { status: string; productCount: number; authorizationId?: string; minDiscountRate?: number; commissionRate?: number; isEnabled?: boolean }> = {}
           
           if (Array.isArray(authData)) {
             authData.forEach((auth: any) => {
               const targetId = auth.fromManufacturer?._id || auth.fromManufacturer
-              console.log('[ManufacturerManagement] Processing auth:', { targetId, productCount: auth.productCount, status: auth.status })
+              console.log('[ManufacturerManagement] Processing auth:', { 
+                targetId, 
+                productCount: auth.productCount, 
+                status: auth.status,
+                isEnabled: auth.isEnabled,
+                authorizationId: auth.authorizationId
+              })
               if (targetId) {
                 authMap[targetId] = {
                   status: auth.status || 'pending',
                   productCount: auth.productCount || auth.products?.length || 0,
                   authorizationId: auth.authorizationId,
                   minDiscountRate: auth.minDiscountRate || 0,
-                  commissionRate: auth.commissionRate || 0
-                }
+                  commissionRate: auth.commissionRate || 0,
+                  isEnabled: auth.isEnabled !== false // 默认为启用
+                } as any
               }
             })
           }
+          
+          
           console.log('[ManufacturerManagement] Final authMap:', authMap)
           setAuthorizationMap(authMap)
         } catch (e) {
@@ -911,12 +921,20 @@ export default function ManufacturerManagement() {
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex flex-col gap-1">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                            {item.status === 'active' ? '启用中' : '已停用'}
-                          </span>
-                          {isCooperating && (
+                          {/* 只有未关闭的厂家才显示"启用中" */}
+                          {!(isCooperating && authInfo.isEnabled === false) && (
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {item.status === 'active' ? '启用中' : '已停用'}
+                            </span>
+                          )}
+                          {isCooperating && authInfo.isEnabled !== false && (
                             <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
                               ✓ 已合作 · {authInfo.productCount || 0}件商品
+                            </span>
+                          )}
+                          {isCooperating && authInfo.isEnabled === false && (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                              ⏸ 已关闭 · {authInfo.productCount || 0}件商品
                             </span>
                           )}
                           {isPending && (
@@ -974,37 +992,69 @@ export default function ManufacturerManagement() {
                           >
                             查看授权商品
                           </button>
-                          {authInfo.isEnabled !== false ? (
+                          {authInfo.isEnabled === false ? (
                             <button
                               onClick={async () => {
+                                const authId = authInfo.authorizationId
+                                if (!authId) {
+                                  toast.error('授权ID不存在，请刷新页面重试')
+                                  return
+                                }
                                 try {
-                                  await apiClient.put(`/authorizations/${authInfo.authorizationId}/toggle-enabled`, { enabled: false })
-                                  toast.success('已关闭该厂家商品显示')
+                                  // 立即更新本地状态
+                                  setAuthorizationMap(prev => ({
+                                    ...prev,
+                                    [item._id]: { ...prev[item._id], isEnabled: true }
+                                  }))
+                                  await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
+                                  toast.success('已开启该厂家商品显示')
+                                  // 刷新数据确保状态同步
                                   fetchData()
                                 } catch (e: any) {
-                                  toast.error(e?.response?.data?.message || '操作失败')
+                                  // 失败时回滚状态
+                                  setAuthorizationMap(prev => ({
+                                    ...prev,
+                                    [item._id]: { ...prev[item._id], isEnabled: false }
+                                  }))
+                                  toast.error(e.response?.data?.message || '操作失败')
+                                }
+                              }}
+                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-green-500 text-white hover:bg-green-600 transition-colors"
+                              title="开启后该厂家商品将在列表和商城中显示"
+                            >
+                              开启
+                            </button>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                const authId = authInfo.authorizationId
+                                if (!authId) {
+                                  toast.error('授权ID不存在，请刷新页面重试')
+                                  return
+                                }
+                                try {
+                                  // 立即更新本地状态
+                                  setAuthorizationMap(prev => ({
+                                    ...prev,
+                                    [item._id]: { ...prev[item._id], isEnabled: false }
+                                  }))
+                                  await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: false })
+                                  toast.success('已关闭该厂家商品显示')
+                                  // 刷新数据确保状态同步
+                                  fetchData()
+                                } catch (e: any) {
+                                  // 失败时回滚状态
+                                  setAuthorizationMap(prev => ({
+                                    ...prev,
+                                    [item._id]: { ...prev[item._id], isEnabled: true }
+                                  }))
+                                  toast.error(e.response?.data?.message || '操作失败')
                                 }
                               }}
                               className="px-4 py-3 rounded-2xl text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                               title="关闭后该厂家商品不在列表和商城中显示"
                             >
                               关闭
-                            </button>
-                          ) : (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await apiClient.put(`/authorizations/${authInfo.authorizationId}/toggle-enabled`, { enabled: true })
-                                  toast.success('已开启该厂家商品显示')
-                                  fetchData()
-                                } catch (e: any) {
-                                  toast.error(e?.response?.data?.message || '操作失败')
-                                }
-                              }}
-                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-                              title="开启后该厂家商品将在列表和商城中显示"
-                            >
-                              开启
                             </button>
                           )}
                         </div>

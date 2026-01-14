@@ -175,7 +175,8 @@ export default function ProductManagement() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const response = await getProducts({ pageSize: 10000 });
+      // includeHidden=true 确保管理页面能看到所有商品（包括隐藏的）
+      const response = await getProducts({ pageSize: 10000, includeHidden: true });
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
         console.log('[ProductManagement] 加载商品数量:', response.data.length);
@@ -197,10 +198,46 @@ export default function ProductManagement() {
             // 标记为授权商品
             newAuthorizedProducts.forEach((p: any) => { p.isAuthorized = true })
             filteredProducts = [...filteredProducts, ...newAuthorizedProducts]
+            
+            // 加载商品覆盖设置（隐藏状态）和厂家启用状态
+            try {
+              const [overridesResponse, summaryResponse] = await Promise.all([
+                apiClient.get('/authorizations/product-overrides'),
+                apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
+              ])
+              const overrides = overridesResponse.data?.data || {}
+              const summaryData = summaryResponse.data?.data || []
+              
+              // 构建厂家启用状态映射
+              const manufacturerEnabledMap: Record<string, boolean> = {}
+              summaryData.forEach((auth: any) => {
+                const fromId = auth.fromManufacturer?._id || auth.fromManufacturer
+                if (fromId) {
+                  manufacturerEnabledMap[fromId] = auth.isEnabled !== false
+                }
+              })
+              console.log('[ProductManagement] 厂家启用状态:', manufacturerEnabledMap)
+              
+              // 应用隐藏状态和厂家启用状态到商品列表
+              filteredProducts = filteredProducts.map((p: any) => {
+                const override = overrides[p._id]
+                const manufacturerId = p.manufacturerId || p.skus?.[0]?.manufacturerId
+                const isManufacturerEnabled = manufacturerId ? manufacturerEnabledMap[manufacturerId] !== false : true
+                return { 
+                  ...p, 
+                  isHidden: override?.hidden || false, 
+                  overridePrice: override?.price,
+                  isManufacturerDisabled: p.isAuthorized && !isManufacturerEnabled
+                }
+              })
+            } catch (overrideError) {
+              console.log('[ProductManagement] 加载商品覆盖设置失败:', overrideError)
+            }
           } catch (authError) {
             console.log('[ProductManagement] 加载授权商品失败:', authError)
           }
         }
+        
         
         setProducts(filteredProducts);
       }
@@ -359,19 +396,11 @@ export default function ProductManagement() {
       // 使用授权商品覆盖API
       const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { price: newPrice })
       if (res.data.success) {
-        // 更新本地数据
-        setProducts(prev => prev.map(p => {
-          if (p._id === product._id) {
-            return {
-              ...p,
-              overridePrice: newPrice
-            } as any
-          }
-          return p
-        }))
         toast.success('价格已更新')
         setEditingPriceProductId(null)
         setEditingPriceValue('')
+        // 刷新商品列表确保数据同步
+        await loadProducts()
       } else {
         toast.error(res.data.message || '更新价格失败')
       }
@@ -386,22 +415,20 @@ export default function ProductManagement() {
   // 授权商品切换隐藏/显示
   const handleAuthorizedToggleHidden = async (product: Product) => {
     const currentHidden = (product as any).isHidden || false
+    const newHiddenState = !currentHidden
+    
     try {
-      const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { hidden: !currentHidden })
+      const res = await apiClient.put(`/authorizations/product-override/${product._id}`, { hidden: newHiddenState })
       if (res.data.success) {
-        setProducts(prev => prev.map(p => {
-          if (p._id === product._id) {
-            return { ...p, isHidden: !currentHidden } as any
-          }
-          return p
-        }))
         toast.success(currentHidden ? '商品已显示' : '商品已隐藏')
+        // 刷新商品列表确保数据同步
+        await loadProducts()
       } else {
         toast.error(res.data.message || '操作失败')
       }
     } catch (error: any) {
-      console.error('切换隐藏状态失败:', error)
-      toast.error(error?.response?.data?.message || '操作失败')
+      console.error('切换商品隐藏状态失败:', error)
+      toast.error(error.response?.data?.message || '操作失败')
     }
   }
 
@@ -2868,7 +2895,7 @@ export default function ProductManagement() {
                   } ${
                     dragOverProductIndex === index ? 'bg-blue-50' : ''
                   } ${
-                    (product as any).isHidden || product.status === 'inactive' ? 'opacity-50 bg-gray-100' : ''
+                    (product as any).isHidden || product.status === 'inactive' || (product as any).isManufacturerDisabled ? 'opacity-50 bg-gray-100' : ''
                   }`}
                   draggable
                   onDragStart={(e: any) => handleProductDragStart(e, product)}

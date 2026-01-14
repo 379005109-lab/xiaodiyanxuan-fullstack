@@ -24,7 +24,8 @@ export default function HomePage() {
       try {
         // 按热度（views）降序获取商品
         const data = await getProducts({ limit: 8, sort: '-views' })
-        setFeaturedProducts(Array.isArray(data) ? data : (data.products || []))
+        const products = Array.isArray(data) ? data : (data.products || [])
+        setFeaturedProducts(products)
       } catch (error) {
         console.error('加载商品失败:', error)
       } finally {

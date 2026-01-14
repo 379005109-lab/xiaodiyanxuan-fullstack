@@ -322,7 +322,9 @@ router.get('/summary', auth, async (req, res) => {
         fromId,
         scope: auth.scope,
         status: auth.status,
-        productsLength: auth.products?.length
+        productsLength: auth.products?.length,
+        isEnabled: auth.isEnabled,
+        authId: auth._id
       })
       
       if (!summaryMap.has(fromId)) {
@@ -331,11 +333,12 @@ router.get('/summary', auth, async (req, res) => {
           status: auth.status,
           productCount: 0,
           products: [],
-          authorizationId: auth._id,
+          authorizationId: auth._id.toString(), // 转换为字符串
           priceSettings: auth.priceSettings || {},
           minDiscountRate: auth.minDiscountRate || 0,
           commissionRate: auth.commissionRate || 0,
-          scope: auth.scope
+          scope: auth.scope,
+          isEnabled: auth.isEnabled !== false
         })
       }
       
@@ -345,6 +348,9 @@ router.get('/summary', auth, async (req, res) => {
         summary.status = auth.status
         summary.minDiscountRate = auth.minDiscountRate || summary.minDiscountRate
         summary.commissionRate = auth.commissionRate || summary.commissionRate
+        summary.authorizationId = auth._id.toString() // 转换为字符串
+        // 对于active的授权，使用其isEnabled状态
+        summary.isEnabled = auth.isEnabled !== false
       }
       // 累加商品数量
       if (auth.scope === 'all') {
@@ -372,7 +378,12 @@ router.get('/summary', auth, async (req, res) => {
     
     console.log('[Authorization Summary] Final summaryMap size:', summaryMap.size)
     summaryMap.forEach((summary, key) => {
-      console.log('[Authorization Summary] Manufacturer:', key, 'productCount:', summary.productCount, 'status:', summary.status)
+      console.log('[Authorization Summary] Manufacturer:', key, {
+        productCount: summary.productCount, 
+        status: summary.status,
+        isEnabled: summary.isEnabled,
+        authorizationId: summary.authorizationId
+      })
     })
     
     const result = Array.from(summaryMap.values())
@@ -2172,14 +2183,24 @@ router.put('/:id/toggle-enabled', auth, async (req, res) => {
     const { id } = req.params
     const { enabled } = req.body
     
+    console.log('[toggle-enabled] Request:', { id, enabled, userId: req.userId })
+    
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: 'ID无效' })
     }
     
     const authorization = await Authorization.findById(id)
     if (!authorization) {
+      console.log('[toggle-enabled] Authorization not found:', id)
       return res.status(404).json({ success: false, message: '授权不存在' })
     }
+    
+    console.log('[toggle-enabled] Found authorization:', {
+      _id: authorization._id,
+      fromManufacturer: authorization.fromManufacturer,
+      toManufacturer: authorization.toManufacturer,
+      currentIsEnabled: authorization.isEnabled
+    })
     
     const user = await User.findById(req.userId).select('role manufacturerId').lean()
     if (!user) {
@@ -2195,6 +2216,11 @@ router.put('/:id/toggle-enabled', auth, async (req, res) => {
     
     authorization.isEnabled = enabled
     await authorization.save()
+    
+    console.log('[toggle-enabled] Saved successfully:', {
+      _id: authorization._id,
+      newIsEnabled: authorization.isEnabled
+    })
     
     res.json({ success: true, data: authorization, message: enabled ? '已开启商品显示' : '已关闭商品显示' })
   } catch (error) {

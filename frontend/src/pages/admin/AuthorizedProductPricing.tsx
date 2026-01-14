@@ -77,18 +77,17 @@ export default function AuthorizedProductPricing() {
     }
 
     setSavingId(p._id)
+    
     try {
       const resp = await updateProduct(p._id, { labelPrice1: next })
       if (resp?.success) {
         toast.success(resp?.message || '标1价更新成功')
         setProducts(prev => prev.map(item => (item._id === p._id ? { ...(item as any), ...(resp.data || {}), labelPrice1: next } : item)))
         cancelEdit()
-      } else {
-        toast.error(resp?.message || '更新失败')
       }
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || '更新失败'
-      toast.error(msg)
+      console.error('更新价格失败:', e)
+      toast.error(e.response?.data?.message || '更新失败')
     } finally {
       setSavingId(null)
     }

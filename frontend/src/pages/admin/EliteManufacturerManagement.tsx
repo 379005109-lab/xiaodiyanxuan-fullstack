@@ -74,28 +74,35 @@ export default function EliteManufacturerManagement() {
   const [searchQuery, setSearchQuery] = useState('')
   const [metaById, setMetaById] = useState<Record<string, ManufacturerMeta>>({})
 
-  const userKey = String((user as any)?._id || (user as any)?.id || 'anonymous')
-  const enabledStorageKey = `manufacturer_library_enabled_${userKey}`
-  const [enabledById, setEnabledById] = useState<Record<string, boolean>>({})
+  // 授权信息：存储每个厂家的授权ID和启用状态
+  const [authInfoById, setAuthInfoById] = useState<Record<string, { authorizationId?: string; isEnabled: boolean }>>({})
 
-  useEffect(() => {
+  // 获取授权摘要信息
+  const loadAuthorizationSummary = async () => {
     try {
-      const raw = localStorage.getItem(enabledStorageKey)
-      if (!raw) return
-      const parsed = JSON.parse(raw)
-      if (parsed && typeof parsed === 'object') {
-        setEnabledById(parsed)
+      const myManufacturerId = (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0]
+      if (!myManufacturerId) return
+      
+      const res = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
+      const authData = res.data?.data || []
+      
+      const authMap: Record<string, { authorizationId?: string; isEnabled: boolean }> = {}
+      if (Array.isArray(authData)) {
+        authData.forEach((auth: any) => {
+          const targetId = auth.fromManufacturer?._id || auth.fromManufacturer
+          if (targetId) {
+            authMap[targetId] = {
+              authorizationId: auth.authorizationId,
+              isEnabled: auth.isEnabled !== false
+            }
+          }
+        })
       }
-    } catch {
+      setAuthInfoById(authMap)
+    } catch (e) {
+      console.log('[EliteManufacturerManagement] 获取授权状态失败', e)
     }
-  }, [enabledStorageKey])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(enabledStorageKey, JSON.stringify(enabledById))
-    } catch {
-    }
-  }, [enabledById, enabledStorageKey])
+  }
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -125,6 +132,7 @@ export default function EliteManufacturerManagement() {
 
   useEffect(() => {
     load()
+    loadAuthorizationSummary()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery])
 
@@ -192,9 +200,45 @@ export default function EliteManufacturerManagement() {
     }
   }, [filtered, metaById])
 
+  // 切换厂家商品显示状态
+  const handleToggleEnabled = async (m: Manufacturer, currentEnabled: boolean) => {
+    const id = String(m._id)
+    const authInfo = authInfoById[id]
+    const authId = authInfo?.authorizationId
+    
+    if (!authId) {
+      toast.error('授权ID不存在，请刷新页面重试')
+      return
+    }
+    
+    const newEnabled = !currentEnabled
+    
+    try {
+      // 立即更新本地状态
+      setAuthInfoById(prev => ({
+        ...prev,
+        [id]: { ...prev[id], isEnabled: newEnabled }
+      }))
+      
+      await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: newEnabled })
+      toast.success(newEnabled ? '已开启该厂家商品显示' : '已关闭该厂家商品显示')
+      
+      // 刷新数据确保状态同步
+      loadAuthorizationSummary()
+    } catch (e: any) {
+      // 失败时回滚状态
+      setAuthInfoById(prev => ({
+        ...prev,
+        [id]: { ...prev[id], isEnabled: currentEnabled }
+      }))
+      toast.error(e.response?.data?.message || '操作失败')
+    }
+  }
+
   const handleOpen = (m: Manufacturer) => {
     const id = String(m._id)
-    const enabled = enabledById[id] !== false
+    const authInfo = authInfoById[id]
+    const enabled = authInfo?.isEnabled !== false
     const active = (m.status || 'active') === 'active'
     if (!enabled || !active) return
     navigate(`/admin/manufacturers/${m._id}/product-authorization`)
@@ -262,7 +306,8 @@ export default function EliteManufacturerManagement() {
               const isOfficial = (m.name || '').includes('小迪严选') || (m.code || '').toUpperCase() === 'XDYX'
 
               const id = String(m._id)
-              const enabled = enabledById[id] !== false
+              const authInfo = authInfoById[id]
+              const enabled = authInfo?.isEnabled !== false
               const active = (m.status || 'active') === 'active'
               const canEnter = enabled && active
 
@@ -296,7 +341,7 @@ export default function EliteManufacturerManagement() {
                         checked={enabled}
                         onChange={(e) => {
                           e.stopPropagation()
-                          setEnabledById(prev => ({ ...prev, [id]: !enabled }))
+                          handleToggleEnabled(m, enabled)
                         }}
                       />
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
