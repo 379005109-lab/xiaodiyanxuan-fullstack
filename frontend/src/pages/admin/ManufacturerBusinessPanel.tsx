@@ -914,9 +914,17 @@ export default function ManufacturerBusinessPanel() {
                         const companyId = first.tierCompanyId ? String(first.tierCompanyId) : ''
                         let companyName = first.tierCompanyName || '未命名公司'
                         
-                        // 如果是'未命名公司'，使用公司ID或成员信息作为标识
-                        if (companyName === '未命名公司' && companyId) {
-                          companyName = `公司 ${companyId.slice(-6)}`
+                        // 如果是'未命名公司'，尝试从根授权的目标用户中提取真实名称
+                        if (companyName === '未命名公司') {
+                          const rootAuth = auths.find((a: any) => (a.tierLevel || 0) === 0) || first
+                          if (rootAuth.toDesigner) {
+                            const designerName = rootAuth.toDesigner.nickname || rootAuth.toDesigner.username
+                            companyName = designerName ? `${designerName}的公司` : `公司 ${companyId.slice(-6)}`
+                          } else if (rootAuth.toManufacturer) {
+                            companyName = rootAuth.toManufacturer.name || rootAuth.toManufacturer.fullName || `公司 ${companyId.slice(-6)}`
+                          } else if (companyId) {
+                            companyName = `公司 ${companyId.slice(-6)}`
+                          }
                         }
                         
                         const memberCount = auths.length
