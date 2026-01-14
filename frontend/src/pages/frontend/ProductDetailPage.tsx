@@ -59,6 +59,7 @@ const determineDefaultFilter = (skus: ProductSKU[]): SkuFilter => {
 const getProductDisplayPrice = (product: any): number => {
   const raw = product?.labelPrice1 ?? product?.takePrice ?? product?.basePrice ?? 0
   const n = Number(raw)
+  console.log('[ProductDetailPage] 价格计算:', { labelPrice1: product?.labelPrice1, takePrice: product?.takePrice, basePrice: product?.basePrice, final: n })
   return Number.isFinite(n) ? n : 0
 }
 
