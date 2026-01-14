@@ -42,7 +42,7 @@ export default function AuthorizationManagement() {
     user?.role === 'enterprise_staff'
   )
 
-  type TabKey = 'granted' | 'received' | 'pending_requests' | 'my_requests'
+  type TabKey = 'granted' | 'received' | 'pending_requests' | 'my_requests' | 'tier_hierarchy'
   const [activeTab, setActiveTab] = useState<TabKey>('received')
   const [grantedAuths, setGrantedAuths] = useState<Authorization[]>([])
   const [receivedAuths, setReceivedAuths] = useState<Authorization[]>([])
@@ -71,6 +71,10 @@ export default function AuthorizationManagement() {
   const [parentAuthId, setParentAuthId] = useState('')
   const [allowSubAuth, setAllowSubAuth] = useState(true)
   const [availableParentAuths, setAvailableParentAuths] = useState<Authorization[]>([])
+  
+  // 层级结构状态
+  const [tierHierarchy, setTierHierarchy] = useState<any[]>([])
+  const [myAuthIds, setMyAuthIds] = useState<string[]>([])
 
   const didInitTab = useRef(false)
 
@@ -116,6 +120,15 @@ export default function AuthorizationManagement() {
         const data = response.data
         if (data?.success) setReceivedAuths(data.data || [])
         else toast.error(data?.message || '加载失败')
+      } else if (activeTab === 'tier_hierarchy') {
+        const response = await apiClient.get('/authorizations/tier-hierarchy')
+        const data = response.data
+        if (data?.success) {
+          setTierHierarchy(data.data?.visible || [])
+          setMyAuthIds(data.data?.myAuthorizations || [])
+        } else {
+          toast.error(data?.message || '加载失败')
+        }
       } else if (activeTab === 'pending_requests') {
         if (isManufacturerUser && !isDesigner) {
           const [designerResp, manufacturerResp] = await Promise.all([
@@ -382,12 +395,14 @@ export default function AuthorizationManagement() {
     granted: grantedAuths.length,
     received: receivedAuths.length,
     pending_requests: pendingRequests.length,
-    my_requests: myRequests.length
+    my_requests: myRequests.length,
+    tier_hierarchy: tierHierarchy.length
   }
 
   const tabs: Array<{ id: TabKey; label: string; visible: boolean }> = [
     { id: 'granted', label: '我授权的', visible: !isDesigner && isManufacturerUser },
     { id: 'received', label: '我收到的授权', visible: true },
+    { id: 'tier_hierarchy', label: '层级结构', visible: true },
     { id: 'pending_requests', label: '待审核申请', visible: !isDesigner && isManufacturerUser },
     { id: 'my_requests', label: '我的申请', visible: isDesigner || isManufacturerUser }
   ]
@@ -511,6 +526,119 @@ export default function AuthorizationManagement() {
                 </div>
               </div>
             ))}
+          </div>
+        )
+      ) : activeTab === 'tier_hierarchy' ? (
+        tierHierarchy.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 rounded-lg">
+            <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-500">暂无层级结构</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h3 className="text-sm font-medium text-blue-900 mb-2">层级可见性说明</h3>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• 您只能看到直接授权给您的上级</li>
+                <li>• 您只能看到您直接创建的下级</li>
+                <li>• 其他层级对您不可见</li>
+              </ul>
+            </div>
+
+            {tierHierarchy.map((auth: any) => {
+              const isMyAuth = myAuthIds.includes(auth._id)
+              const tierLevel = auth.tierLevel || 0
+              const tierName = auth.tierCompanyName || '未命名层级'
+              const targetName = auth.authorizationType === 'designer'
+                ? (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师')
+                : (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知厂家')
+
+              return (
+                <div
+                  key={auth._id}
+                  className={`border-l-4 rounded-lg p-6 ${
+                    isMyAuth
+                      ? 'bg-green-50 border-green-500'
+                      : auth.isParent
+                      ? 'bg-blue-50 border-blue-500'
+                      : 'bg-purple-50 border-purple-500'
+                  }`}
+                  style={{ marginLeft: `${tierLevel * 2}rem` }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">{tierName}</h3>
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                          层级 {tierLevel}
+                        </span>
+                        {isMyAuth && (
+                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded font-medium">
+                            我的授权
+                          </span>
+                        )}
+                        {auth.isParent && (
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                            上级
+                          </span>
+                        )}
+                        {auth.isChild && (
+                          <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
+                            下级
+                          </span>
+                        )}
+                        {getStatusBadge(auth.status)}
+                      </div>
+
+                      <div className="space-y-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-4">
+                          <span>被授权方: <strong>{targetName}</strong></span>
+                          <span>类型: {auth.authorizationType === 'designer' ? '设计师' : '企业'}</span>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          {auth.minDiscountRate > 0 && (
+                            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                              最低折扣: {auth.minDiscountRate}%
+                            </span>
+                          )}
+                          {auth.commissionRate > 0 && (
+                            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                              返佣: {auth.commissionRate}%
+                            </span>
+                          )}
+                          {auth.allowSubAuthorization && (
+                            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                              允许下级授权
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <span>授权范围: {getScopeLabel(auth.scope, auth.categories, auth.products?.length)}</span>
+                        </div>
+
+                        {auth.parentAuthorizationId && (
+                          <div className="text-xs text-gray-500">
+                            父级ID: {auth.parentAuthorizationId}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openDetail(auth._id)}
+                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="查看详情"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )
       ) : activeTab === 'my_requests' ? (
