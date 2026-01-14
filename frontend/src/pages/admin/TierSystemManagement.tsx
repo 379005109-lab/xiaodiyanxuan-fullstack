@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { 
   Plus, Minus, Edit2, Trash2, ChevronDown, ChevronRight, Users, 
@@ -278,9 +278,15 @@ const getLogoSrc = (logo: any, size: number) => {
 
 export default function TierSystemManagement() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   const lockedManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
   const isSuperAdmin = user?.role === 'super_admin' || user?.role === 'admin'
+
+  const urlCompanyName = String(searchParams.get('companyName') || '').trim()
+  const urlManufacturerId = String(searchParams.get('manufacturerId') || '').trim()
+  const returnTo = String(searchParams.get('returnTo') || '/admin/manufacturers')
+  const goBack = () => navigate(returnTo)
 
   const [manufacturers, setManufacturers] = useState<any[]>([])
   const [selectedManufacturerId, setSelectedManufacturerId] = useState<string>(() => {
@@ -288,6 +294,8 @@ export default function TierSystemManagement() {
     const saved = localStorage.getItem(STORAGE_SELECTED_MANUFACTURER_KEY)
     return saved || ''
   })
+
+  const [selectedCompanyName, setSelectedCompanyName] = useState<string>(() => urlCompanyName)
 
   const [selectedManufacturerCommission, setSelectedManufacturerCommission] = useState<number>(0)
   const [selectedManufacturerMeta, setSelectedManufacturerMeta] = useState<{ name?: string; logo?: string } | null>(null)
@@ -311,6 +319,15 @@ export default function TierSystemManagement() {
       // ignore
     }
   }, [])
+
+  useEffect(() => {
+    if (urlCompanyName && urlCompanyName !== selectedCompanyName) {
+      setSelectedCompanyName(urlCompanyName)
+    }
+    if (urlManufacturerId && isSuperAdmin && !lockedManufacturerId && urlManufacturerId !== selectedManufacturerId) {
+      setSelectedManufacturerId(urlManufacturerId)
+    }
+  }, [urlCompanyName, urlManufacturerId, isSuperAdmin, lockedManufacturerId, selectedCompanyName, selectedManufacturerId])
 
   useEffect(() => {
     if (!isSuperAdmin) return
@@ -360,6 +377,7 @@ export default function TierSystemManagement() {
       try {
         const params: any = { _ts: Date.now() }
         if (isSuperAdmin && !lockedManufacturerId) params.manufacturerId = mid
+        if (selectedCompanyName) params.companyName = selectedCompanyName
 
         const resp = await apiClient.get('/tier-system', { params })
         const doc = resp.data?.data
@@ -367,7 +385,11 @@ export default function TierSystemManagement() {
         if (!doc) {
           const next = createDefaultTierSystemData()
           setData(next)
-          await apiClient.put('/tier-system', { manufacturerId: mid, ...next })
+          await apiClient.put('/tier-system', {
+            manufacturerId: mid,
+            ...(selectedCompanyName ? { companyName: selectedCompanyName } : {}),
+            ...next
+          })
         } else {
           const defaultData = createDefaultTierSystemData()
           const next: TierSystemData = {
@@ -397,7 +419,7 @@ export default function TierSystemManagement() {
     }
 
     loadRemote()
-  }, [lockedManufacturerId, selectedManufacturerId])
+  }, [lockedManufacturerId, selectedManufacturerId, selectedCompanyName])
 
   useEffect(() => {
     const mid = lockedManufacturerId || selectedManufacturerId || ''
@@ -443,7 +465,11 @@ export default function TierSystemManagement() {
     const mid = lockedManufacturerId || selectedManufacturerId || ''
     setData(newData)
     if (!mid) return
-    await apiClient.put('/tier-system', { manufacturerId: mid, ...newData })
+    await apiClient.put('/tier-system', {
+      manufacturerId: mid,
+      ...(selectedCompanyName ? { companyName: selectedCompanyName } : {}),
+      ...newData
+    })
   }
 
   // 更新角色模块
@@ -625,7 +651,7 @@ export default function TierSystemManagement() {
             {/* 右侧：返回按钮 */}
             <button
               type="button"
-              onClick={() => navigate('/admin/manufacturers')}
+              onClick={goBack}
               className="px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 text-gray-500 hover:text-[#153e35] hover:border-[#153e35] transition-all"
             >
               返回主控
@@ -662,7 +688,7 @@ export default function TierSystemManagement() {
           profitSettings={data.profitSettings}
           commissionRate={selectedManufacturerCommission}
           commissionRules={data.commissionRules || []}
-          onBack={() => navigate('/admin/manufacturers')}
+          onBack={goBack}
           expandedNodes={expandedNodes}
           onSetExpandedNodes={setExpandedNodes}
           onToggleNode={(id) => {

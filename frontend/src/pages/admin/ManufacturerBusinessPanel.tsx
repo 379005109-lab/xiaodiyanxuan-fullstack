@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
@@ -71,11 +71,13 @@ interface DashboardStats {
 export default function ManufacturerBusinessPanel() {
   const navigate = useNavigate()
   const params = useParams()
+  const [searchParams] = useSearchParams()
   const { user, token } = useAuthStore()
 
   const manufacturerId = params.manufacturerId || (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0]
 
-  const [activeTab, setActiveTab] = useState<TabType>('channels')
+  const urlTab = searchParams.get('tab') as TabType | null
+  const [activeTab, setActiveTab] = useState<TabType>(urlTab || 'channels')
   const [productFilter, setProductFilter] = useState<ProductFilter>('all')
   const [loading, setLoading] = useState(true)
   const [manufacturer, setManufacturer] = useState<any>(null)
@@ -106,6 +108,14 @@ export default function ManufacturerBusinessPanel() {
     }
     loadData()
   }, [manufacturerId])
+
+  useEffect(() => {
+    const t = searchParams.get('tab') as TabType | null
+    if (t && t !== activeTab) {
+      setActiveTab(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const loadData = async () => {
     setLoading(true)
@@ -901,21 +911,9 @@ export default function ManufacturerBusinessPanel() {
                           <div
                             key={companyName}
                             className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer"
-                            onClick={async () => {
-                              try {
-                                const response = await apiClient.get('/authorizations/tier-hierarchy')
-                                if (response.data?.success) {
-                                  const hierarchy = response.data.data?.visible || []
-                                  const companyAuths = hierarchy.filter((h: any) => 
-                                    (h.tierCompanyName || '未命名公司') === companyName
-                                  )
-                                  setSelectedAuthForMap({ name: companyName, auths: companyAuths.length > 0 ? companyAuths : auths })
-                                  setShowTierMapModal(true)
-                                }
-                              } catch (error) {
-                                setSelectedAuthForMap({ name: companyName, auths })
-                                setShowTierMapModal(true)
-                              }
+                            onClick={() => {
+                              const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=granted_auth`)
+                              navigate(`/admin/tier-system?tab=hierarchy&companyName=${encodeURIComponent(companyName)}&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`)
                             }}
                           >
                             <div className="flex items-center justify-between">
@@ -934,9 +932,33 @@ export default function ManufacturerBusinessPanel() {
                                   </div>
                                 </div>
                               </div>
-                              <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                                查看分成体系
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    try {
+                                      const response = await apiClient.get('/authorizations/tier-hierarchy')
+                                      if (response.data?.success) {
+                                        const hierarchy = response.data.data?.visible || []
+                                        const companyAuths = hierarchy.filter((h: any) =>
+                                          (h.tierCompanyName || '未命名公司') === companyName
+                                        )
+                                        setSelectedAuthForMap({ name: companyName, auths: companyAuths.length > 0 ? companyAuths : auths })
+                                        setShowTierMapModal(true)
+                                      }
+                                    } catch {
+                                      setSelectedAuthForMap({ name: companyName, auths })
+                                      setShowTierMapModal(true)
+                                    }
+                                  }}
+                                >
+                                  预览地图
+                                </button>
+                                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                  管理体系
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )
@@ -960,15 +982,30 @@ export default function ManufacturerBusinessPanel() {
                   <h3 className="text-2xl font-bold text-gray-900">{selectedAuthForMap.name}</h3>
                   <p className="text-sm text-gray-500 mt-1">分成体系地图</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setShowTierMapModal(false)
-                    setSelectedAuthForMap(null)
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <XCircle className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const companyName = String(selectedAuthForMap.name || '').trim() || '未命名公司'
+                      const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=granted_auth`)
+                      setShowTierMapModal(false)
+                      setSelectedAuthForMap(null)
+                      navigate(`/admin/tier-system?tab=hierarchy&companyName=${encodeURIComponent(companyName)}&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`)
+                    }}
+                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center gap-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    进入管理
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowTierMapModal(false)
+                      setSelectedAuthForMap(null)
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <XCircle className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
             

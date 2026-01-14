@@ -9,12 +9,28 @@ const { USER_ROLES, DEFAULT_DESIGNER_DISCOUNT } = require('../config/constants')
  * @param {String} manufacturerId - 厂家ID
  * @returns {Object|null} { discountRate, commissionRate, account, module, rule }
  */
-const getTierSystemPricing = async (user, manufacturerId) => {
+const getTierSystemPricing = async (user, manufacturerId, companyName = '') => {
   if (!user || !manufacturerId) return null
   
   try {
-    const tierDoc = await TierSystem.findOne({ manufacturerId }).lean()
-    if (!tierDoc) return null
+    const tierDocRaw = await TierSystem.findOne({ manufacturerId }).lean()
+    if (!tierDocRaw) return null
+
+    let tierDoc = tierDocRaw
+    const cname = String(companyName || '').trim()
+    if (cname) {
+      const systems = Array.isArray(tierDocRaw.companySystems) ? tierDocRaw.companySystems : []
+      const found = systems.find((s) => String(s?.companyName || '') === cname) || null
+      if (found) {
+        tierDoc = {
+          manufacturerId: tierDocRaw.manufacturerId,
+          profitSettings: found.profitSettings || {},
+          roleModules: Array.isArray(found.roleModules) ? found.roleModules : [],
+          authorizedAccounts: Array.isArray(found.authorizedAccounts) ? found.authorizedAccounts : [],
+          commissionRules: Array.isArray(found.commissionRules) ? found.commissionRules : [],
+        }
+      }
+    }
     
     const modules = Array.isArray(tierDoc.roleModules) ? tierDoc.roleModules : []
     const accounts = Array.isArray(tierDoc.authorizedAccounts) ? tierDoc.authorizedAccounts : []

@@ -12,6 +12,8 @@ const tierSystemSchema = new mongoose.Schema({
   },
   roleModules: [mongoose.Schema.Types.Mixed],
   authorizedAccounts: [mongoose.Schema.Types.Mixed],
+  commissionRules: [mongoose.Schema.Types.Mixed],
+  companySystems: [mongoose.Schema.Types.Mixed],
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true })
 

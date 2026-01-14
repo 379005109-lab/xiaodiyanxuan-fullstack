@@ -18,6 +18,11 @@ const resolveManufacturerId = (req) => {
   return null
 }
 
+const resolveCompanyName = (req) => {
+  const raw = req.query.companyName || req.body?.companyName
+  return raw ? String(raw).trim() : ''
+}
+
 const getTierSystem = async (req, res) => {
   try {
     const manufacturerId = resolveManufacturerId(req)
@@ -25,8 +30,29 @@ const getTierSystem = async (req, res) => {
       return res.status(400).json(errorResponse('manufacturerId is required', 400))
     }
 
+    const companyName = resolveCompanyName(req)
+
     const doc = await TierSystem.findOne({ manufacturerId }).lean()
-    return res.json(successResponse(doc, 'ok'))
+
+    if (!companyName) {
+      return res.json(successResponse(doc, 'ok'))
+    }
+
+    const systems = Array.isArray(doc?.companySystems) ? doc.companySystems : []
+    const found = systems.find((s) => String(s?.companyName || '') === companyName) || null
+    if (!found) {
+      return res.json(successResponse(null, 'ok'))
+    }
+
+    const payload = {
+      manufacturerId: String(manufacturerId),
+      companyName,
+      profitSettings: found.profitSettings || {},
+      roleModules: Array.isArray(found.roleModules) ? found.roleModules : [],
+      authorizedAccounts: Array.isArray(found.authorizedAccounts) ? found.authorizedAccounts : [],
+      commissionRules: Array.isArray(found.commissionRules) ? found.commissionRules : [],
+    }
+    return res.json(successResponse(payload, 'ok'))
   } catch (err) {
     return res.status(500).json(errorResponse(err.message, 500))
   }
@@ -39,12 +65,44 @@ const upsertTierSystem = async (req, res) => {
       return res.status(400).json(errorResponse('manufacturerId is required', 400))
     }
 
+    const companyName = resolveCompanyName(req)
+
     const payload = req.body || {}
+
+    if (companyName) {
+      let doc = await TierSystem.findOne({ manufacturerId })
+      if (!doc) {
+        doc = new TierSystem({ manufacturerId })
+      }
+
+      const nextSystem = {
+        companyName,
+        profitSettings: payload.profitSettings || {},
+        roleModules: Array.isArray(payload.roleModules) ? payload.roleModules : [],
+        authorizedAccounts: Array.isArray(payload.authorizedAccounts) ? payload.authorizedAccounts : [],
+        commissionRules: Array.isArray(payload.commissionRules) ? payload.commissionRules : [],
+        updatedBy: req.user?._id,
+        updatedAt: new Date().toISOString(),
+      }
+
+      const list = Array.isArray(doc.companySystems) ? doc.companySystems : []
+      const idx = list.findIndex((s) => String(s?.companyName || '') === companyName)
+      if (idx >= 0) list[idx] = { ...(list[idx] || {}), ...nextSystem }
+      else list.push(nextSystem)
+
+      doc.companySystems = list
+      doc.updatedBy = req.user?._id
+      await doc.save()
+      return res.json(successResponse(nextSystem, '保存成功'))
+    }
+
     const update = {
       manufacturerId,
       profitSettings: payload.profitSettings || {},
       roleModules: Array.isArray(payload.roleModules) ? payload.roleModules : [],
       authorizedAccounts: Array.isArray(payload.authorizedAccounts) ? payload.authorizedAccounts : [],
+      commissionRules: Array.isArray(payload.commissionRules) ? payload.commissionRules : [],
+      companySystems: Array.isArray(payload.companySystems) ? payload.companySystems : [],
       updatedBy: req.user?._id
     }
 
