@@ -653,11 +653,14 @@ const getProduct = async (req, res) => {
       
       // 检查是否有价格覆盖
       const productOverride = auth.productOverrides?.get?.(id) || auth.productOverrides?.[id]
+      console.log('[getProduct] productOverride:', productOverride)
       if (productOverride?.price) {
         takePrice = productOverride.price
         labelPrice1 = productOverride.price
         console.log('[getProduct] 使用覆盖价格:', productOverride.price)
       }
+      
+      console.log('[getProduct] 最终价格:', { takePrice, labelPrice1 })
       
       const allow = allowCostPriceForUser(user)
 
@@ -666,8 +669,11 @@ const getProduct = async (req, res) => {
         : null
       const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
       const tierPricing = computeTierPricing({ tierDoc, user, product, auth })
+      
+      const finalData = sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1, allow, tierPricing)
+      console.log('[getProduct] 返回数据中的价格:', { takePrice: finalData.takePrice, labelPrice1: finalData.labelPrice1 })
 
-      return res.json(successResponse(sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1, allow, tierPricing)))
+      return res.json(successResponse(finalData))
     }
     
     // 异步记录浏览历史（如果用户已登录）
