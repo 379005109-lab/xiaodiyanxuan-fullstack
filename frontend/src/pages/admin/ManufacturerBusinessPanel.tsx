@@ -863,109 +863,85 @@ export default function ManufacturerBusinessPanel() {
 
             {activeTab === 'granted_auth' && (
               <div>
-                <div className="mb-6 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">授权模式 - 分成体系管理</h3>
-                    <p className="text-sm text-gray-500">管理我授权给对方的信息和分层体系</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => navigate('/admin/tier-system')}
-                      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-                    >
-                      <Settings className="w-4 h-4" />
-                      完整分成管理
-                    </button>
-                  </div>
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-gray-900">授权模式 - 分成体系管理</h3>
+                  <p className="text-sm text-gray-500">每个公司都是独立的分成体系，点击公司查看完整管理功能</p>
                 </div>
 
                 {grantedAuths.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     <p>暂无授权记录</p>
+                    <button
+                      onClick={() => navigate('/admin/authorizations?tab=pending_requests')}
+                      className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    >
+                      去审批授权申请
+                    </button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {grantedAuths.map(auth => {
-                      const toName = auth.authorizationType === 'manufacturer'
-                        ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知厂家')
-                        : (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师')
-                      const productCount = auth.scope === 'all' 
-                        ? '全部商品' 
-                        : auth.scope === 'category'
-                        ? `${auth.categories?.length || 0}个分类`
-                        : `${auth.products?.length || 0}个商品`
+                  <div>
+                    {/* 按公司分组显示 */}
+                    {(() => {
+                      const companies = new Map<string, any[]>()
+                      grantedAuths.forEach((auth: any) => {
+                        const companyName = auth.tierCompanyName || '未命名公司'
+                        if (!companies.has(companyName)) {
+                          companies.set(companyName, [])
+                        }
+                        companies.get(companyName)!.push(auth)
+                      })
 
-                      return (
-                        <div 
-                          key={auth._id} 
-                          className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow cursor-pointer"
-                          onClick={async () => {
-                            // 加载该授权的层级结构数据并打开分成地图
-                            try {
-                              const response = await apiClient.get('/authorizations/tier-hierarchy')
-                              if (response.data?.success) {
-                                const hierarchy = response.data.data?.visible || []
-                                // 找到与当前授权相关的公司层级
-                                const companyName = auth.tierCompanyName || '未命名公司'
-                                const companyAuths = hierarchy.filter((h: any) => 
-                                  (h.tierCompanyName || '未命名公司') === companyName
-                                )
-                                setSelectedAuthForMap({ name: companyName, auths: companyAuths.length > 0 ? companyAuths : [auth] })
+                      return Array.from(companies.entries()).map(([companyName, auths]) => {
+                        const memberCount = auths.length
+                        const avgDiscount = auths.reduce((sum, a) => sum + (a.minDiscountRate || 0), 0) / memberCount
+                        const avgCommission = auths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / memberCount
+
+                        return (
+                          <div
+                            key={companyName}
+                            className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer"
+                            onClick={async () => {
+                              try {
+                                const response = await apiClient.get('/authorizations/tier-hierarchy')
+                                if (response.data?.success) {
+                                  const hierarchy = response.data.data?.visible || []
+                                  const companyAuths = hierarchy.filter((h: any) => 
+                                    (h.tierCompanyName || '未命名公司') === companyName
+                                  )
+                                  setSelectedAuthForMap({ name: companyName, auths: companyAuths.length > 0 ? companyAuths : auths })
+                                  setShowTierMapModal(true)
+                                }
+                              } catch (error) {
+                                setSelectedAuthForMap({ name: companyName, auths })
                                 setShowTierMapModal(true)
                               }
-                            } catch (error) {
-                              console.error('加载层级数据失败:', error)
-                              // 如果加载失败，至少显示当前授权
-                              setSelectedAuthForMap({ name: auth.tierCompanyName || '未命名公司', auths: [auth] })
-                              setShowTierMapModal(true)
-                            }
-                          }}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-3">
-                                <h4 className="font-semibold text-gray-900">{toName}</h4>
-                                <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
-                                  {auth.authorizationType === 'manufacturer' ? '厂家' : '设计师'}
-                                </span>
-                                <span className={`px-2 py-1 text-xs rounded ${
-                                  auth.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                                }`}>
-                                  {auth.status === 'active' ? '有效' : '已失效'}
-                                </span>
-                              </div>
-                              
-                              {/* 最低折扣和返佣 - 突出显示 */}
-                              <div className="grid grid-cols-2 gap-3 mb-3">
-                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                                  <div className="text-xs text-green-700">最低折扣</div>
-                                  <div className="text-2xl font-bold text-green-600">{auth.minDiscountRate || 0}%</div>
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold">
+                                  {companyName.charAt(0)}
                                 </div>
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                                  <div className="text-xs text-blue-700">返佣比例</div>
-                                  <div className="text-2xl font-bold text-blue-600">{auth.commissionRate || 0}%</div>
+                                <div>
+                                  <h3 className="text-xl font-bold text-gray-900">{companyName}</h3>
+                                  <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
+                                    <span>下属成员: {memberCount} 人</span>
+                                    <span>•</span>
+                                    <span>平均折扣: {avgDiscount.toFixed(0)}%</span>
+                                    <span>•</span>
+                                    <span>平均返佣: {avgCommission.toFixed(1)}%</span>
+                                  </div>
                                 </div>
                               </div>
-                              
-                              <div className="flex items-center gap-4 text-sm text-gray-600">
-                                <span>授权范围: {productCount}</span>
-                              </div>
-                              
-                              {auth.tierCompanyName && (
-                                <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded text-sm">
-                                  <span className="text-purple-700 font-medium">所属公司:</span> {auth.tierCompanyName} (层级 {auth.tierLevel || 0})
-                                </div>
-                              )}
-                              
-                              <div className="mt-3 text-xs text-blue-600">
-                                点击查看分层体系 →
-                              </div>
+                              <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                                查看分成体系
+                              </button>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })
+                    })()}
                   </div>
                 )}
               </div>
