@@ -824,6 +824,147 @@ export default function OrderManagementNew2() {
     }
   }
 
+  // 导出整单图片（不分单）
+  const handleExportWholeOrderImages = async () => {
+    if (!selectedOrder) {
+      toast.error('请先选择一个订单')
+      return
+    }
+    
+    const products = getProducts(selectedOrder)
+    if (products.length === 0) {
+      toast.error('该订单没有商品')
+      return
+    }
+    const status = statusConfig[selectedOrder.status] || statusConfig[1]
+
+    const sanitizeFileName = (name: string) => (name || '').replace(/[\\/:*?"<>|]/g, '_')
+
+    const buildSpecHtml = (p: any) => {
+      const specs = p.specifications || p.specs || {}
+      const selectedMaterials = p.selectedMaterials || p.materials || {}
+      const merged: Record<string, any> = { ...specs, ...selectedMaterials }
+
+      const keyMap: Record<string, string> = {
+        'size': '尺寸', 'spec': '规格', 'material': '材质', 'fabric': '面料',
+        'filling': '填充', 'fill': '填充', 'frame': '框架', 'color': '颜色',
+        'style': '风格', 'leg': '脚架', 'legs': '脚架', 'armrest': '扶手',
+        'cushion': '坐垫', 'back': '靠背',
+      }
+
+      const lines = Object.entries(merged)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => {
+          const displayKey = keyMap[String(k).toLowerCase()] || k
+          return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${v}</div>`
+        })
+
+      return lines.length > 0 ? lines.join('') : (p.spec ? `<div>${p.spec}</div>` : '<div>-</div>')
+    }
+
+    const buildWholeOrderHtml = () => {
+      return `
+        <div style="border: 2px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 24px;">
+            <h1 style="margin: 0 0 8px 0; font-size: 24px; font-weight: bold;">订单商品清单（完整版）</h1>
+            <p style="margin: 0; opacity: 0.9;">订单号：${selectedOrder.orderNo}</p>
+            <p style="margin: 4px 0 0 0; opacity: 0.9;">下单时间：${new Date(selectedOrder.createdAt).toLocaleString('zh-CN')}</p>
+          </div>
+          <div style="padding: 20px;">
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #374151;">📦 商品清单</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <thead>
+                <tr style="background: #f3f4f6;">
+                  <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">商品图片</th>
+                  <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">商品名称</th>
+                  <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">规格/材质</th>
+                  <th style="padding: 12px; text-align: left; border: 1px solid #e5e7eb;">厂家</th>
+                  <th style="padding: 12px; text-align: center; border: 1px solid #e5e7eb;">数量</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map((p: any) => {
+                  const specHtml = buildSpecHtml(p)
+                  const manufacturerName = p.manufacturerName || '未分配厂家'
+                  return `
+                    <tr>
+                      <td style="padding: 12px; border: 1px solid #e5e7eb; vertical-align: middle;">
+                        ${p.image ? `<img src="${getFileUrl(p.image)}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;" crossorigin="anonymous" />` : '<div style="width: 80px; height: 80px; background: #e5e7eb; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #9ca3af;">无图</div>'}
+                      </td>
+                      <td style="padding: 12px; border: 1px solid #e5e7eb; vertical-align: middle;">
+                        <div style="font-weight: 600; color: #1f2937;">${p.name || '未知商品'}</div>
+                        ${p.category ? `<div style=\"margin-top: 4px; font-size: 12px; color: #6b7280;\">分类：${p.category}</div>` : ''}
+                      </td>
+                      <td style="padding: 12px; border: 1px solid #e5e7eb; vertical-align: top; color: #4b5563; font-size: 13px;">
+                        ${specHtml}
+                      </td>
+                      <td style="padding: 12px; border: 1px solid #e5e7eb; vertical-align: middle; color: #4b5563;">
+                        ${manufacturerName}
+                      </td>
+                      <td style="padding: 12px; border: 1px solid #e5e7eb; text-align: center; font-weight: 600; color: #1f2937; vertical-align: middle;">
+                        ×${p.quantity || 1}
+                      </td>
+                    </tr>
+                  `
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="padding: 20px; background: #f9fafb; border-top: 1px solid #e5e7eb;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 16px; color: #374151;">订单状态：<span style="color: #3b82f6; font-weight: 600;">${status.label}</span></span>
+              <span style="font-size: 14px; color: #6b7280;">共 ${products.length} 件商品</span>
+            </div>
+            ${(selectedOrder as any).adminNote ? `<p style="margin: 12px 0 0 0; color: #6b7280; font-size: 14px;">商家备注：${(selectedOrder as any).adminNote}</p>` : ''}
+          </div>
+        </div>
+        <p style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 16px;">生成时间：${new Date().toLocaleString('zh-CN')}</p>
+      `
+    }
+
+    try {
+      toast.loading('正在生成整单图片...')
+
+      const container = document.createElement('div')
+      container.style.cssText = 'position: absolute; left: -9999px; top: 0; width: 800px; background: white; padding: 40px; font-family: system-ui, -apple-system, sans-serif;'
+      container.innerHTML = buildWholeOrderHtml()
+      document.body.appendChild(container)
+
+      const images = container.querySelectorAll('img')
+      await Promise.all(Array.from(images).map(img => {
+        return new Promise((resolve) => {
+          if (img.complete) resolve(true)
+          else {
+            img.onload = () => resolve(true)
+            img.onerror = () => resolve(true)
+          }
+        })
+      }))
+
+      const canvas = await html2canvas(container, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false
+      })
+
+      const link = document.createElement('a')
+      link.download = `订单清单_${selectedOrder.orderNo}_完整版.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+
+      document.body.removeChild(container)
+
+      toast.dismiss()
+      toast.success('整单图片已导出')
+    } catch (error) {
+      console.error('生成整单图片失败:', error)
+      toast.dismiss()
+      toast.error('生成整单图片失败')
+    }
+  }
+
   // 记录查看客户信息（数据留痕）
   const handleViewCustomerInfo = async (orderId: string) => {
     // 记录查看敏感信息
@@ -1000,6 +1141,14 @@ export default function OrderManagementNew2() {
                 >
                   <ImageIcon className="w-4 h-4" />
                   导出清单图片
+                </button>
+                {/* 导出整单图片按钮（不分单） */}
+                <button 
+                  onClick={handleExportWholeOrderImages}
+                  className="px-4 py-2 border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm flex items-center gap-1"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  导出整单图片
                 </button>
                 {/* 删除按钮 */}
                 <button 
