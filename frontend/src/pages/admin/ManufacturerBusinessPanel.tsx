@@ -962,10 +962,10 @@ export default function ManufacturerBusinessPanel() {
         </div>
       </div>
 
-      {/* 分成地图弹窗 */}
+      {/* 分成地图弹窗 - 卡片连线可视化 */}
       {showTierMapModal && selectedAuthForMap && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
                 <div>
@@ -984,47 +984,81 @@ export default function ManufacturerBusinessPanel() {
               </div>
             </div>
             
-            <div className="p-6 overflow-y-auto max-h-[70vh]">
-              <div className="space-y-4">
-                {selectedAuthForMap.auths
-                  .sort((a: any, b: any) => (a.tierLevel || 0) - (b.tierLevel || 0))
-                  .map((auth: any) => {
-                    const tierLevel = auth.tierLevel || 0
-                    const targetName = auth.authorizationType === 'designer'
-                      ? (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师')
-                      : (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知厂家')
+            <div className="p-8 overflow-auto max-h-[70vh] bg-gray-50">
+              {/* 层级卡片连线地图 */}
+              <div className="flex flex-col items-center gap-8 min-w-max">
+                {(() => {
+                  const sortedAuths = selectedAuthForMap.auths.sort((a: any, b: any) => (a.tierLevel || 0) - (b.tierLevel || 0))
+                  const levelGroups = new Map<number, any[]>()
+                  
+                  sortedAuths.forEach((auth: any) => {
+                    const level = auth.tierLevel || 0
+                    if (!levelGroups.has(level)) {
+                      levelGroups.set(level, [])
+                    }
+                    levelGroups.get(level)!.push(auth)
+                  })
 
-                    return (
-                      <div
-                        key={auth._id}
-                        className="border-l-4 border-purple-500 rounded-lg p-4 bg-purple-50"
-                        style={{ marginLeft: `${tierLevel * 3}rem` }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="font-semibold text-gray-900">{targetName}</span>
-                              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
-                                L{tierLevel}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm">
-                              {auth.minDiscountRate > 0 && (
-                                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                                  折扣 {auth.minDiscountRate}%
-                                </span>
-                              )}
-                              {auth.commissionRate > 0 && (
-                                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                                  返佣 {auth.commissionRate}%
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                  return Array.from(levelGroups.entries()).map(([level, auths], levelIndex) => (
+                    <div key={level} className="flex flex-col items-center gap-4 w-full">
+                      {/* 层级标签 */}
+                      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                        层级 {level}
                       </div>
-                    )
-                  })}
+                      
+                      {/* 该层级的所有成员卡片 */}
+                      <div className="flex items-center justify-center gap-8 flex-wrap">
+                        {auths.map((auth: any) => {
+                          const targetName = auth.authorizationType === 'designer'
+                            ? (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师')
+                            : (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知厂家')
+                          const initial = targetName.charAt(0)
+
+                          return (
+                            <div key={auth._id} className="relative">
+                              {/* 连接线到下一层 */}
+                              {levelIndex < levelGroups.size - 1 && (
+                                <div className="absolute top-full left-1/2 w-0.5 h-8 bg-gradient-to-b from-purple-300 to-transparent"></div>
+                              )}
+                              
+                              {/* 成员卡片 */}
+                              <div className="bg-white rounded-2xl shadow-lg border-2 border-purple-200 p-6 w-64 hover:shadow-xl transition-all">
+                                <div className="flex items-center gap-3 mb-4">
+                                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-xl font-bold">
+                                    {initial}
+                                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="font-bold text-gray-900 truncate">{targetName}</h4>
+                                    <p className="text-xs text-gray-500">
+                                      {auth.authorizationType === 'designer' ? '设计师' : '厂家'}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="bg-green-50 rounded-lg p-3 text-center">
+                                    <div className="text-xs text-green-700">最低折扣</div>
+                                    <div className="text-xl font-bold text-green-600">{auth.minDiscountRate || 0}%</div>
+                                  </div>
+                                  <div className="bg-blue-50 rounded-lg p-3 text-center">
+                                    <div className="text-xs text-blue-700">返佣比例</div>
+                                    <div className="text-xl font-bold text-blue-600">{auth.commissionRate || 0}%</div>
+                                  </div>
+                                </div>
+                                
+                                {auth.allowSubAuthorization && (
+                                  <div className="mt-3 text-xs text-center text-purple-600">
+                                    ✓ 允许下级授权
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))
+                })()}
               </div>
             </div>
           </div>
