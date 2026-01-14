@@ -225,7 +225,7 @@ export default function ProductManagement() {
                 const isManufacturerEnabled = manufacturerId ? manufacturerEnabledMap[manufacturerId] !== false : true
                 return { 
                   ...p, 
-                  isHidden: override?.hidden || false, 
+                  isHidden: override?.hidden === true, 
                   overridePrice: override?.price,
                   isManufacturerDisabled: p.isAuthorized && !isManufacturerEnabled
                 }
@@ -3059,8 +3059,13 @@ export default function ProductManagement() {
                         const hasDiscount = prices.some(p => p.discountPrice > 0 && p.discountPrice < p.price)
                         
                         const roleMultiplier = getDiscountMultiplier(product.category)
-                        const finalPrice = Math.round(minPrice * roleMultiplier)
+                        let finalPrice = Math.round(minPrice * roleMultiplier)
                         const finalOriginal = Math.round(minOriginalPrice * roleMultiplier)
+                        
+                        // 授权商品优先使用overridePrice
+                        if (isAuthorized && p.overridePrice) {
+                          finalPrice = p.overridePrice
+                        }
                         
                         // 授权商品价格可点击编辑
                         if (isAuthorized) {
