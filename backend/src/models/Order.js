@@ -67,6 +67,16 @@ const orderSchema = new mongoose.Schema({
   notes: String,
   // 支付信息
   paymentMethod: String, // wechat, alipay, bank
+  
+  // 付款比例功能
+  paymentRatioEnabled: { type: Boolean, default: false },  // 是否启用分期付款
+  paymentRatio: { type: Number, default: 100 },  // 首付比例（如50表示50%）
+  firstPaymentAmount: { type: Number, default: 0 },  // 首付金额
+  remainingPaymentAmount: { type: Number, default: 0 },  // 剩余应付金额
+  remainingPaymentStatus: { type: String, enum: ['pending', 'paid', null], default: null },  // 尾款支付状态
+  remainingPaymentPaidAt: Date,  // 尾款支付时间
+  remainingPaymentRemindedAt: Date,  // 尾款提醒时间
+  
   // 物流信息
   shippingCompany: String,
   trackingNumber: String,

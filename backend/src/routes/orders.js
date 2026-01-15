@@ -312,10 +312,23 @@ router.patch('/:id/status', async (req, res) => {
       order.shippedAt = new Date()
       if (shippingCompany) order.shippingCompany = shippingCompany
       if (trackingNumber) order.trackingNumber = trackingNumber
+      
+      // 发货后检查是否有尾款需要支付，发送提醒
+      if (order.paymentRatioEnabled && order.remainingPaymentAmount > 0 && order.remainingPaymentStatus === 'pending') {
+        order.remainingPaymentRemindedAt = new Date()
+        console.log('💰 订单发货，需支付尾款:', order.orderNo, '尾款金额:', order.remainingPaymentAmount)
+        // TODO: 可以在这里添加短信/邮件提醒逻辑
+      }
     } else if (status === 4) {
       order.shippedAt = new Date()
       if (shippingCompany) order.shippingCompany = shippingCompany
       if (trackingNumber) order.trackingNumber = trackingNumber
+      
+      // 发货后检查是否有尾款需要支付
+      if (order.paymentRatioEnabled && order.remainingPaymentAmount > 0 && order.remainingPaymentStatus === 'pending') {
+        order.remainingPaymentRemindedAt = new Date()
+        console.log('💰 订单发货，需支付尾款:', order.orderNo, '尾款金额:', order.remainingPaymentAmount)
+      }
     } else if (status === ORDER_STATUS.COMPLETED || status === 5) {
       order.completedAt = new Date()
     } else if (status === ORDER_STATUS.CANCELLED || status === 6) {
@@ -368,6 +381,12 @@ router.patch('/:id', async (req, res) => {
         order.paidAt = new Date()
       } else if (status === ORDER_STATUS.PENDING_RECEIPT && oldStatus === ORDER_STATUS.PENDING_SHIPMENT) {
         order.shippedAt = new Date()
+        
+        // 发货后检查是否有尾款需要支付
+        if (order.paymentRatioEnabled && order.remainingPaymentAmount > 0 && order.remainingPaymentStatus === 'pending') {
+          order.remainingPaymentRemindedAt = new Date()
+          console.log('💰 订单发货，需支付尾款:', order.orderNo, '尾款金额:', order.remainingPaymentAmount)
+        }
       } else if (status === ORDER_STATUS.COMPLETED) {
         order.completedAt = new Date()
       } else if (status === ORDER_STATUS.CANCELLED) {
@@ -385,6 +404,39 @@ router.patch('/:id', async (req, res) => {
   } catch (error) {
     console.error('更新订单失败:', error)
     res.status(500).json({ success: false, message: '更新订单失败' })
+  }
+})
+
+// POST /api/orders/:id/pay-remaining - 确认尾款支付
+router.post('/:id/pay-remaining', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (!order.paymentRatioEnabled) {
+      return res.status(400).json({ success: false, message: '该订单未启用分期付款' })
+    }
+    
+    if (order.remainingPaymentStatus === 'paid') {
+      return res.status(400).json({ success: false, message: '尾款已支付' })
+    }
+    
+    order.remainingPaymentStatus = 'paid'
+    order.remainingPaymentPaidAt = new Date()
+    order.updatedAt = new Date()
+    await order.save()
+    
+    console.log('💰 尾款支付确认:', order.orderNo, '金额:', order.remainingPaymentAmount)
+    
+    res.json({ success: true, message: '尾款支付确认成功', data: order })
+  } catch (error) {
+    console.error('确认尾款支付失败:', error)
+    res.status(500).json({ success: false, message: '确认尾款支付失败' })
   }
 })
 
