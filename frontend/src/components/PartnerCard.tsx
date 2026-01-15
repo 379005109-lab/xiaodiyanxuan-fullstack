@@ -5,6 +5,7 @@ interface PartnerCardProps {
   partnerId: string
   partnerName: string
   partnerLogo?: string
+  partnerType?: 'manufacturer' | 'designer'
   status: 'active' | 'inactive'
   productCount: number
   grantedAuth?: {
@@ -17,6 +18,7 @@ interface PartnerCardProps {
   }
   onViewProducts: () => void
   onViewTierSystem: () => void
+  onToggleStatus?: () => void
   onClose?: () => void
 }
 
@@ -24,116 +26,109 @@ export default function PartnerCard({
   partnerId,
   partnerName,
   partnerLogo,
+  partnerType = 'manufacturer',
   status,
   productCount,
   grantedAuth,
   receivedAuth,
   onViewProducts,
   onViewTierSystem,
+  onToggleStatus,
   onClose
 }: PartnerCardProps) {
   const [mode, setMode] = useState<'granted' | 'received'>(grantedAuth ? 'granted' : 'received')
+  const [isEnabled, setIsEnabled] = useState(status === 'active')
   
   const currentAuth = mode === 'granted' ? grantedAuth : receivedAuth
   const hasGranted = !!grantedAuth
   const hasReceived = !!receivedAuth
 
+  const handleToggle = () => {
+    setIsEnabled(!isEnabled)
+    onToggleStatus?.()
+  }
+
   return (
-    <div className="bg-white border-2 border-emerald-400 rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all">
-      {/* 状态标签 */}
+    <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all">
+      {/* 顶部：启用开关 + 按钮 */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">
-            {status === 'active' ? '启用中' : '已停用'}
+          {/* Toggle Switch */}
+          <button
+            onClick={handleToggle}
+            className={`relative w-12 h-6 rounded-full transition-colors ${
+              isEnabled ? 'bg-emerald-500' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                isEnabled ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
+          <span className={`text-sm font-medium ${isEnabled ? 'text-emerald-600' : 'text-gray-500'}`}>
+            {isEnabled ? '启用中' : '已停用'}
           </span>
-          {productCount > 0 && (
-            <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full flex items-center gap-1">
-              <CheckCircle className="w-3 h-3" />
-              已合作 {productCount} 件商品
-            </span>
-          )}
         </div>
-        {onClose && (
+        {productCount > 0 && (
+          <span className="px-3 py-1.5 bg-yellow-50 text-yellow-700 text-xs font-medium rounded-lg flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" />
+            已合作 · {productCount}件商品
+          </span>
+        )}
+      </div>
+
+      {/* 合作商类型标签 */}
+      <div className="text-xs text-gray-400 mb-1">
+        {partnerType === 'manufacturer' ? '工厂门户' : '设计师'}
+      </div>
+
+      {/* 合作商名称 */}
+      <h3 className="text-2xl font-bold text-gray-900 mb-1">{partnerName}</h3>
+      
+      {/* ID号 */}
+      <p className="text-sm text-emerald-500 font-mono mb-6">{partnerId}</p>
+
+      {/* 折扣和返佣显示 */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+          <div className="text-xs text-gray-500 mb-2">经销折扣(%)</div>
+          <div className="text-3xl font-bold text-gray-900">{currentAuth?.minDiscountRate || 0}</div>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+          <div className="text-xs text-gray-500 mb-2">返佣比例(%)</div>
+          <div className="text-3xl font-bold text-gray-900">{currentAuth?.commissionRate || 0}</div>
+        </div>
+      </div>
+
+      {/* 经营授权按钮 */}
+      <button
+        onClick={onViewProducts}
+        className="w-full py-3.5 bg-[#153e35] text-white rounded-xl font-medium hover:bg-[#1a4d42] transition-colors mb-4"
+      >
+        经营授权
+      </button>
+
+      {/* 底部按钮：分成体系 + 下架停运 */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={onViewTierSystem}
+          className="py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+        >
+          分成体系
+        </button>
+        {onClose ? (
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg"
+            className="py-3 bg-white border border-gray-300 text-gray-500 rounded-xl font-medium hover:bg-gray-50 transition-colors"
           >
             关闭
           </button>
-        )}
-      </div>
-
-      {/* 合作商信息 */}
-      <div className="flex items-center gap-4 mb-6">
-        {partnerLogo ? (
-          <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-gray-100">
-            <img src={partnerLogo} alt={partnerName} className="w-full h-full object-cover" />
-          </div>
         ) : (
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-2xl font-bold">
-            {partnerName.substring(0, 2)}
-          </div>
-        )}
-        <div className="flex-1">
-          <h3 className="text-2xl font-bold text-gray-900">{partnerName}</h3>
-          <p className="text-sm text-gray-400 font-mono">{partnerId}</p>
-        </div>
-      </div>
-
-      {/* 授权模式切换 */}
-      {hasGranted && hasReceived && (
-        <div className="flex gap-2 mb-4">
           <button
-            onClick={() => setMode('granted')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-              mode === 'granted'
-                ? 'bg-emerald-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
+            className="py-3 bg-white border border-gray-300 text-emerald-600 rounded-xl font-medium hover:bg-gray-50 transition-colors"
           >
-            授权模式
-          </button>
-          <button
-            onClick={() => setMode('received')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
-              mode === 'received'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            被授权模式
-          </button>
-        </div>
-      )}
-
-      {/* 折扣和返佣显示 */}
-      {currentAuth && (
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-            <div className="text-xs text-emerald-700 mb-1">授权折扣(%)</div>
-            <div className="text-3xl font-bold text-emerald-600">{currentAuth.minDiscountRate || 0}</div>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-            <div className="text-xs text-blue-700 mb-1">授权返佣(%)</div>
-            <div className="text-3xl font-bold text-blue-600">{currentAuth.commissionRate || 0}</div>
-          </div>
-        </div>
-      )}
-
-      {/* 操作按钮 */}
-      <div className="flex gap-3">
-        <button
-          onClick={onViewProducts}
-          className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
-        >
-          查看授权商品
-        </button>
-        {hasGranted && (
-          <button
-            onClick={onViewTierSystem}
-            className="px-6 py-3 bg-white border-2 border-emerald-600 text-emerald-600 rounded-xl font-medium hover:bg-emerald-50 transition-colors"
-          >
-            分成体系
+            下架停运
           </button>
         )}
       </div>
