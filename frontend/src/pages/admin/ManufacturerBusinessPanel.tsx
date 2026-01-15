@@ -98,6 +98,7 @@ export default function ManufacturerBusinessPanel() {
   const [channelFilter, setChannelFilter] = useState<'all' | 'manufacturer' | 'designer'>('all')
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
+  const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [showTierMapModal, setShowTierMapModal] = useState(false)
   const [selectedAuthForMap, setSelectedAuthForMap] = useState<{ id?: string; name: string; auths: any[] } | null>(null)
 
@@ -121,13 +122,15 @@ export default function ManufacturerBusinessPanel() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [mRes, pRes, cRes, authRes, tRes, receivedRes] = await Promise.all([
+      const [mRes, pRes, cRes, authRes, tRes, receivedRes, pendingDesignerRes, pendingManufacturerRes] = await Promise.all([
         apiClient.get(`/manufacturers/${manufacturerId}`),
         apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 10000 } }),
         apiClient.get(`/categories`),
         apiClient.get(`/authorizations/my-grants`).catch(() => ({ data: { data: [] } })),
         apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } })),
-        apiClient.get(`/authorizations/received`).catch(() => ({ data: { data: [] } }))
+        apiClient.get(`/authorizations/received`).catch(() => ({ data: { data: [] } })),
+        apiClient.get(`/authorizations/designer-requests/pending`).catch(() => ({ data: { data: [] } })),
+        apiClient.get(`/authorizations/manufacturer-requests/pending`).catch(() => ({ data: { data: [] } }))
       ])
 
       setManufacturer(mRes.data?.data || null)
@@ -136,6 +139,11 @@ export default function ManufacturerBusinessPanel() {
       setTierSystemConfig(tRes.data?.data || null)
       setReceivedAuths(receivedRes.data?.data || [])
       setGrantedAuths((authRes.data?.data || []).filter((a: any) => a?.status === 'active'))
+      
+      // 合并待审批请求
+      const pendingDesigner = pendingDesignerRes.data?.data || []
+      const pendingManufacturer = pendingManufacturerRes.data?.data || []
+      setPendingRequests([...pendingDesigner, ...pendingManufacturer])
       
       // Create category lookup map
       const categoryMap = new Map<string, any>()
@@ -248,6 +256,56 @@ export default function ManufacturerBusinessPanel() {
       toast.error(e?.response?.data?.message || '加载数据失败')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 快速审批通过
+  const handleQuickApprove = async (request: any) => {
+    try {
+      const endpoint = request.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${request._id}/approve`
+        : `/authorizations/designer-requests/${request._id}/approve`
+      
+      const response = await apiClient.put(endpoint, {
+        discountRate: 85,
+        commissionRate: 5,
+        tierType: 'new_company',
+        tierCompanyName: request.toDesigner?.nickname || request.toManufacturer?.name || '新合作商',
+        allowSubAuthorization: true
+      })
+      
+      if (response.data?.success) {
+        toast.success('审批通过')
+        loadData()
+      } else {
+        toast.error(response.data?.message || '审批失败')
+      }
+    } catch (error) {
+      console.error('审批失败:', error)
+      toast.error('审批失败')
+    }
+  }
+
+  // 拒绝申请
+  const handleRejectRequest = async (request: any) => {
+    if (!confirm('确定要拒绝此申请吗？')) return
+    
+    try {
+      const endpoint = request.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${request._id}/reject`
+        : `/authorizations/designer-requests/${request._id}/reject`
+      
+      const response = await apiClient.put(endpoint, {})
+      
+      if (response.data?.success) {
+        toast.success('已拒绝')
+        loadData()
+      } else {
+        toast.error(response.data?.message || '拒绝失败')
+      }
+    } catch (error) {
+      console.error('拒绝失败:', error)
+      toast.error('拒绝失败')
     }
   }
 
@@ -801,6 +859,62 @@ export default function ManufacturerBusinessPanel() {
                   <h3 className="text-lg font-bold text-gray-900">授权管理</h3>
                   <p className="text-sm text-gray-500">管理所有合作商的授权关系（我授权的 + 我收到的）</p>
                 </div>
+
+                {/* 待审批申请区域 */}
+                {pendingRequests.length > 0 && (
+                  <div className="mb-8">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Clock className="w-5 h-5 text-yellow-500" />
+                      <h4 className="text-md font-semibold text-gray-800">待审批申请 ({pendingRequests.length})</h4>
+                    </div>
+                    <div className="space-y-3">
+                      {pendingRequests.map((request: any) => {
+                        const requesterName = request.toDesigner?.nickname || request.toDesigner?.username || 
+                                             request.toManufacturer?.name || request.toManufacturer?.fullName || '未知申请人'
+                        const requesterAvatar = request.toDesigner?.avatar || request.toManufacturer?.logo
+                        const requestType = request.authorizationType === 'designer' ? '设计师' : '厂家'
+                        
+                        return (
+                          <div key={request._id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {requesterAvatar ? (
+                                  <img src={requesterAvatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                                    <Users className="w-5 h-5 text-yellow-600" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-medium text-gray-900">{requesterName}</div>
+                                  <div className="text-sm text-gray-500">
+                                    {requestType}申请授权 · {new Date(request.createdAt).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleQuickApprove(request)}
+                                  className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 flex items-center gap-1"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                  通过
+                                </button>
+                                <button
+                                  onClick={() => handleRejectRequest(request)}
+                                  className="px-4 py-2 bg-red-100 text-red-600 text-sm rounded-lg hover:bg-red-200 flex items-center gap-1"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                  拒绝
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {(() => {
                   // 合并 receivedAuths 和 grantedAuths，按合作商分组
