@@ -2923,12 +2923,32 @@ export default function ManufacturerManagement() {
                     </div>
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">厂家ID</label>
-                      <input
-                        type="text"
-                        value={myManufacturer.code || myManufacturer._id}
-                        disabled
-                        className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-500"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={myManufacturer.code || myManufacturer._id}
+                          disabled
+                          className="flex-1 px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!confirm('确定要重新生成厂家ID吗？将根据简称生成英文格式ID。')) return
+                            try {
+                              // 清空code让后端自动重新生成
+                              await apiClient.put(`/manufacturers/${myManufacturer._id}`, { code: '' })
+                              toast.success('ID已更新，请刷新页面查看')
+                              fetchData()
+                            } catch (error) {
+                              toast.error('重新生成失败')
+                            }
+                          }}
+                          className="px-4 py-2 bg-[#153e35] text-white text-sm rounded-xl hover:bg-[#1a4d42]"
+                        >
+                          重新生成
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">点击重新生成将根据简称自动生成英文格式ID</p>
                     </div>
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">厂家全称</label>
