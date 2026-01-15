@@ -199,8 +199,16 @@ const update = async (req, res) => {
       isPreferred,
       expiryDate,
       styleTags,
+      categoryTags,
+      priceRangeMin,
+      priceRangeMax,
       defaultDiscount,
       defaultCommission,
+      paymentRatioEnabled,
+      paymentRatios,
+      invoiceEnabled,
+      invoiceMarkupPercent,
+      certification,
     } = req.body
     
     const manufacturer = await Manufacturer.findById(id)
@@ -231,9 +239,25 @@ const update = async (req, res) => {
     if (isPreferred !== undefined) manufacturer.isPreferred = Boolean(isPreferred)
     if (expiryDate !== undefined) manufacturer.expiryDate = expiryDate ? new Date(expiryDate) : null
     if (styleTags !== undefined) manufacturer.styleTags = Array.isArray(styleTags) ? styleTags : []
+    if (categoryTags !== undefined) manufacturer.categoryTags = Array.isArray(categoryTags) ? categoryTags : []
+    if (priceRangeMin !== undefined) manufacturer.priceRangeMin = Number(priceRangeMin)
+    if (priceRangeMax !== undefined) manufacturer.priceRangeMax = Number(priceRangeMax)
     if (defaultDiscount !== undefined) manufacturer.defaultDiscount = Number(defaultDiscount)
     if (defaultCommission !== undefined) manufacturer.defaultCommission = Number(defaultCommission)
+    if (paymentRatioEnabled !== undefined) manufacturer.paymentRatioEnabled = Boolean(paymentRatioEnabled)
+    if (paymentRatios !== undefined) manufacturer.paymentRatios = Array.isArray(paymentRatios) ? paymentRatios : []
+    if (invoiceEnabled !== undefined) manufacturer.invoiceEnabled = Boolean(invoiceEnabled)
+    if (invoiceMarkupPercent !== undefined) manufacturer.invoiceMarkupPercent = Number(invoiceMarkupPercent)
     if (status !== undefined) manufacturer.status = status
+    
+    // 更新认证信息
+    if (certification !== undefined) {
+      const existingCert = manufacturer.certification ? manufacturer.certification.toObject() : {}
+      manufacturer.certification = {
+        ...existingCert,
+        ...certification
+      }
+    }
     
     // 更新账号配额
     if (accountQuota !== undefined) {
