@@ -72,6 +72,9 @@ interface Manufacturer {
   defaultCommission?: number
   productIntro?: string
   styleTags?: string[]
+  tags?: string[]
+  priceRangeMin?: number
+  priceRangeMax?: number
   contactName?: string
   contactPhone?: string
   contactEmail?: string
@@ -228,6 +231,10 @@ export default function ManufacturerManagement() {
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
   const [showMarketplace, setShowMarketplace] = useState(false) // 是否显示合作市场
   const [marketplaceFilter, setMarketplaceFilter] = useState('') // 合作市场筛选标签
+  const [showEditSectionModal, setShowEditSectionModal] = useState(false) // 资料编辑弹窗
+  const [editSection, setEditSection] = useState<'basic' | 'settlement' | 'qualification' | 'tags' | 'priceRange' | 'discount' | 'commission'>('basic')
+  const [editSectionData, setEditSectionData] = useState<any>({})
+  const [editSectionSaving, setEditSectionSaving] = useState(false)
   
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
@@ -956,6 +963,146 @@ export default function ManufacturerManagement() {
                   >
                     {myManufacturer.status === 'active' ? '下架停运' : '恢复启用'}
                   </button>
+                </div>
+              </div>
+
+              {/* 资料编辑模块 */}
+              <div className="bg-gradient-to-br from-gray-50 to-white rounded-[2.5rem] border border-gray-100 p-8 shadow-sm">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">资料编辑</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* 基础档案 */}
+                  <button
+                    onClick={() => {
+                      setEditSection('basic')
+                      setShowEditSectionModal(true)
+                    }}
+                    className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                      <Factory className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-900">基础档案</div>
+                      <div className="text-xs text-gray-500">公司名称、LOGO、联系方式</div>
+                    </div>
+                  </button>
+
+                  {/* 结算账号配置 */}
+                  <button
+                    onClick={() => {
+                      setEditSection('settlement')
+                      setShowEditSectionModal(true)
+                    }}
+                    className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                      <Layers className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-900">结算账号配置</div>
+                      <div className="text-xs text-gray-500">银行账号、收款码</div>
+                    </div>
+                  </button>
+
+                  {/* 资质与开票 */}
+                  <button
+                    onClick={() => {
+                      setEditSection('qualification')
+                      setShowEditSectionModal(true)
+                    }}
+                    className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                      <Shield className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-900">资质与开票</div>
+                      <div className="text-xs text-gray-500">营业执照、开票信息</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* 业务设置模块 */}
+              <div className="bg-gradient-to-br from-[#153e35]/5 to-white rounded-[2.5rem] border border-[#153e35]/10 p-8 shadow-sm mt-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">业务设置</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* 标签 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="text-xs font-medium text-gray-500 mb-2">产品标签</div>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {(myManufacturer.tags && myManufacturer.tags.length > 0) ? (
+                        myManufacturer.tags.slice(0, 3).map((tag: string, idx: number) => (
+                          <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">{tag}</span>
+                        ))
+                      ) : (
+                        <span className="text-gray-400 text-sm">未设置</span>
+                      )}
+                      {myManufacturer.tags && myManufacturer.tags.length > 3 && (
+                        <span className="text-gray-400 text-xs">+{myManufacturer.tags.length - 3}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditSection('tags')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      编辑标签
+                    </button>
+                  </div>
+
+                  {/* 价格范围 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="text-xs font-medium text-gray-500 mb-2">产品价格范围</div>
+                    <div className="text-xl font-bold text-gray-900 mb-3">
+                      {myManufacturer.priceRangeMin || 0} - {myManufacturer.priceRangeMax || 0}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditSection('priceRange')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      编辑范围
+                    </button>
+                  </div>
+
+                  {/* 最低折扣 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="text-xs font-medium text-gray-500 mb-2">最低折扣</div>
+                    <div className="text-xl font-bold text-[#153e35] mb-3">
+                      {myManufacturer.defaultDiscount || 0}%
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditSection('discount')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      编辑折扣
+                    </button>
+                  </div>
+
+                  {/* 返佣 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="text-xs font-medium text-gray-500 mb-2">默认返佣</div>
+                    <div className="text-xl font-bold text-blue-600 mb-3">
+                      {myManufacturer.defaultCommission || 0}%
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditSection('commission')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      编辑返佣
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2550,6 +2697,294 @@ export default function ManufacturerManagement() {
         </div>
       )}
       
+      {/* 资料编辑弹窗 */}
+      {showEditSectionModal && myManufacturer && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowEditSectionModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-xl font-bold text-gray-900">
+                {editSection === 'basic' && '基础档案'}
+                {editSection === 'settlement' && '结算账号配置'}
+                {editSection === 'qualification' && '资质与开票'}
+                {editSection === 'tags' && '编辑标签'}
+                {editSection === 'priceRange' && '产品价格范围'}
+                {editSection === 'discount' && '最低折扣设置'}
+                {editSection === 'commission' && '默认返佣设置'}
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* 基础档案 */}
+              {editSection === 'basic' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">公司全称</label>
+                    <input
+                      type="text"
+                      defaultValue={myManufacturer.fullName || myManufacturer.name}
+                      onChange={(e) => setEditSectionData({...editSectionData, fullName: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">公司简称</label>
+                    <input
+                      type="text"
+                      defaultValue={myManufacturer.shortName || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, shortName: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.contactName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, contactName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.contactPhone || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, contactPhone: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">公司地址</label>
+                    <textarea
+                      defaultValue={myManufacturer.address || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, address: e.target.value})}
+                      rows={2}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* 结算账号配置 */}
+              {editSection === 'settlement' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">开户银行</label>
+                    <input
+                      type="text"
+                      defaultValue={myManufacturer.settings?.bankInfo?.bankName || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, bankName: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="如: 中国工商银行"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">户名</label>
+                    <input
+                      type="text"
+                      defaultValue={myManufacturer.settings?.bankInfo?.accountName || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, accountName: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="公司名称"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">银行账号</label>
+                    <input
+                      type="text"
+                      defaultValue={myManufacturer.settings?.bankInfo?.accountNumber || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, accountNumber: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="银行账号"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* 资质与开票 */}
+              {editSection === 'qualification' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">公司名称（开票）</label>
+                    <input
+                      type="text"
+                      defaultValue={myManufacturer.certification?.companyName || myManufacturer.fullName || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, invoiceCompanyName: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">统一社会信用代码</label>
+                    <input
+                      type="text"
+                      defaultValue={myManufacturer.certification?.creditCode || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, creditCode: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      placeholder="18位统一社会信用代码"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">营业执照等资质文件请联系平台管理员上传</p>
+                </>
+              )}
+
+              {/* 标签编辑 */}
+              {editSection === 'tags' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">产品标签</label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {['中古风', '现代简约', '轻奢', '北欧', '新中式', '单椅', '沙发', '床', '餐桌', '柜类', '灯具', '软装'].map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => {
+                            const currentTags = editSectionData.tags || myManufacturer.tags || []
+                            if (currentTags.includes(tag)) {
+                              setEditSectionData({...editSectionData, tags: currentTags.filter((t: string) => t !== tag)})
+                            } else {
+                              setEditSectionData({...editSectionData, tags: [...currentTags, tag]})
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                            (editSectionData.tags || myManufacturer.tags || []).includes(tag)
+                              ? 'bg-[#153e35] text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 价格范围 */}
+              {editSection === 'priceRange' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">最低价格</label>
+                    <input
+                      type="number"
+                      defaultValue={myManufacturer.priceRangeMin || 0}
+                      onChange={(e) => setEditSectionData({...editSectionData, priceRangeMin: Number(e.target.value)})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">最高价格</label>
+                    <input
+                      type="number"
+                      defaultValue={myManufacturer.priceRangeMax || 0}
+                      onChange={(e) => setEditSectionData({...editSectionData, priceRangeMax: Number(e.target.value)})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 最低折扣 */}
+              {editSection === 'discount' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">最低折扣 (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    defaultValue={myManufacturer.defaultDiscount || 0}
+                    onChange={(e) => setEditSectionData({...editSectionData, defaultDiscount: Number(e.target.value)})}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">设置后，授权给其他商家时的最低折扣不得低于此值</p>
+                </div>
+              )}
+
+              {/* 默认返佣 */}
+              {editSection === 'commission' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">默认返佣比例 (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    defaultValue={myManufacturer.defaultCommission || 0}
+                    onChange={(e) => setEditSectionData({...editSectionData, defaultCommission: Number(e.target.value)})}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">授权给其他商家时的默认返佣比例</p>
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowEditSectionModal(false)
+                  setEditSectionData({})
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    setEditSectionSaving(true)
+                    const updateData: any = {}
+                    
+                    if (editSection === 'basic') {
+                      if (editSectionData.fullName) updateData.fullName = editSectionData.fullName
+                      if (editSectionData.shortName) updateData.shortName = editSectionData.shortName
+                      if (editSectionData.contactName) updateData.contactName = editSectionData.contactName
+                      if (editSectionData.contactPhone) updateData.contactPhone = editSectionData.contactPhone
+                      if (editSectionData.address) updateData.address = editSectionData.address
+                    } else if (editSection === 'settlement') {
+                      updateData.settings = {
+                        ...myManufacturer.settings,
+                        bankInfo: {
+                          bankName: editSectionData.bankName || myManufacturer.settings?.bankInfo?.bankName,
+                          accountName: editSectionData.accountName || myManufacturer.settings?.bankInfo?.accountName,
+                          accountNumber: editSectionData.accountNumber || myManufacturer.settings?.bankInfo?.accountNumber
+                        }
+                      }
+                    } else if (editSection === 'qualification') {
+                      updateData.certification = {
+                        ...myManufacturer.certification,
+                        companyName: editSectionData.invoiceCompanyName || myManufacturer.certification?.companyName,
+                        creditCode: editSectionData.creditCode || myManufacturer.certification?.creditCode
+                      }
+                    } else if (editSection === 'tags') {
+                      updateData.tags = editSectionData.tags || myManufacturer.tags
+                    } else if (editSection === 'priceRange') {
+                      if (editSectionData.priceRangeMin !== undefined) updateData.priceRangeMin = editSectionData.priceRangeMin
+                      if (editSectionData.priceRangeMax !== undefined) updateData.priceRangeMax = editSectionData.priceRangeMax
+                    } else if (editSection === 'discount') {
+                      if (editSectionData.defaultDiscount !== undefined) updateData.defaultDiscount = editSectionData.defaultDiscount
+                    } else if (editSection === 'commission') {
+                      if (editSectionData.defaultCommission !== undefined) updateData.defaultCommission = editSectionData.defaultCommission
+                    }
+
+                    await apiClient.put(`/manufacturers/${myManufacturer._id}`, updateData)
+                    toast.success('保存成功')
+                    setShowEditSectionModal(false)
+                    setEditSectionData({})
+                    fetchData()
+                  } catch (error: any) {
+                    toast.error(error.response?.data?.message || '保存失败')
+                  } finally {
+                    setEditSectionSaving(false)
+                  }
+                }}
+                disabled={editSectionSaving}
+                className="px-6 py-2 bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42] disabled:opacity-50 flex items-center gap-2"
+              >
+                {editSectionSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 厂家资料编辑抽屉 - 使用共享组件 */}
       <ManufacturerEditDrawer
         open={showEditDrawer}
