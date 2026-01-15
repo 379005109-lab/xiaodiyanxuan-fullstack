@@ -66,6 +66,7 @@ interface Manufacturer {
   code?: string
   username?: string
   logo?: string
+  galleryImages?: string[]
   isPreferred?: boolean
   expiryDate?: string
   defaultDiscount?: number
@@ -257,6 +258,9 @@ export default function ManufacturerManagement() {
   const [editSection, setEditSection] = useState<'basic' | 'settlement' | 'qualification' | 'tags' | 'priceRange' | 'discount' | 'commission' | 'paymentRatio' | 'invoice'>('basic')
   const [editSectionData, setEditSectionData] = useState<any>({})
   const [editSectionSaving, setEditSectionSaving] = useState(false)
+  
+  const [showGalleryModal, setShowGalleryModal] = useState(false)
+  const [galleryTarget, setGalleryTarget] = useState<Manufacturer | null>(null)
   
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
@@ -911,9 +915,15 @@ export default function ManufacturerManagement() {
               <div 
                 className="rounded-[2.5rem] border border-gray-100 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all relative overflow-hidden bg-white"
               >
-                {/* 卡片上半部分：LOGO图片填充 */}
+                {/* 卡片上半部分：LOGO图片填充，点击查看相册 */}
                 {myManufacturer.logo ? (
-                  <div className="h-40 w-full overflow-hidden relative">
+                  <div 
+                    className="h-40 w-full overflow-hidden relative cursor-pointer"
+                    onClick={() => {
+                      setGalleryTarget(myManufacturer)
+                      setShowGalleryModal(true)
+                    }}
+                  >
                     <img
                       src={getFileUrl(myManufacturer.logo)}
                       alt={myManufacturer.fullName || myManufacturer.name}
@@ -1378,15 +1388,6 @@ export default function ManufacturerManagement() {
                             查看授权商品
                           </button>
                           <div className="grid grid-cols-2 gap-3 mt-4">
-                            <button
-                              onClick={() => {
-                                const returnTo = encodeURIComponent(`/admin/manufacturer-management`)
-                                navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${item._id}&returnTo=${returnTo}`)
-                              }}
-                              className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              分成体系
-                            </button>
                             {authInfo?.isEnabled === false ? (
                               <button
                                 onClick={async () => {
@@ -2977,6 +2978,15 @@ export default function ManufacturerManagement() {
                         className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm text-gray-600 mb-2">厂家图片相册</label>
+                      <ImageUploader
+                        images={editSectionData.galleryImages !== undefined ? editSectionData.galleryImages : (myManufacturer.galleryImages || [])}
+                        onChange={(urls) => setEditSectionData({...editSectionData, galleryImages: urls})}
+                        maxImages={10}
+                        label="上传厂家图片（最多10张）"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-8">
@@ -3561,6 +3571,7 @@ export default function ManufacturerManagement() {
                     
                     if (editSection === 'basic') {
                       if (editSectionData.logo) updateData.logo = editSectionData.logo
+                      if (editSectionData.galleryImages !== undefined) updateData.galleryImages = editSectionData.galleryImages
                       if (editSectionData.fullName) updateData.fullName = editSectionData.fullName
                       if (editSectionData.shortName) updateData.shortName = editSectionData.shortName
                       if (editSectionData.contactName) updateData.contactName = editSectionData.contactName
@@ -3650,6 +3661,70 @@ export default function ManufacturerManagement() {
         }}
         isFactoryPortal={isFactoryPortal}
       />
+
+      {/* 厂家图片相册弹窗 */}
+      {showGalleryModal && galleryTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">
+                {galleryTarget.shortName || galleryTarget.fullName} - 图片相册
+              </h3>
+              <button
+                onClick={() => setShowGalleryModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              {/* LOGO */}
+              {galleryTarget.logo && (
+                <div className="mb-6">
+                  <div className="text-sm font-semibold text-gray-500 mb-2">品牌LOGO</div>
+                  <img
+                    src={getFileUrl(galleryTarget.logo)}
+                    alt="LOGO"
+                    className="max-w-xs rounded-xl shadow-md"
+                  />
+                </div>
+              )}
+              {/* 相册图片 */}
+              <div className="text-sm font-semibold text-gray-500 mb-2">厂家相册</div>
+              {galleryTarget.galleryImages && galleryTarget.galleryImages.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {galleryTarget.galleryImages.map((img: string, idx: number) => (
+                    <img
+                      key={idx}
+                      src={getFileUrl(img)}
+                      alt={`图片${idx + 1}`}
+                      className="w-full h-48 object-cover rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => window.open(getFileUrl(img), '_blank')}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-gray-400 text-center py-8">暂无相册图片</div>
+              )}
+              {/* 编辑按钮 - 仅对自己的厂家显示 */}
+              {myManufacturer && galleryTarget._id === myManufacturer._id && (
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                  <button
+                    onClick={() => {
+                      setShowGalleryModal(false)
+                      setEditSection('basic')
+                      setShowEditSectionModal(true)
+                    }}
+                    className="px-4 py-2 bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
+                  >
+                    编辑图片
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -74,14 +74,20 @@ const manufacturerSchema = new mongoose.Schema({
   },
   defaultDiscount: {
     type: Number,
-    default: 0
+    default: 60,  // 默认不低于60%
+    min: 60  // 最低60%
   },
   defaultCommission: {
     type: Number,
-    default: 0
+    default: 40  // 自己产品默认返佣40%
   },
   logo: {
     type: String
+  },
+  // 厂家图片相册
+  galleryImages: {
+    type: [String],
+    default: []
   },
   isPreferred: {
     type: Boolean,
@@ -345,45 +351,17 @@ function generateRandomDigits(length = 4) {
   return result
 }
 
-// 中文转拼音首字母映射表
-const pinyinMap = {
-  '各': 'G', '色': 'S', '佛': 'F', '山': 'S', '家': 'J', '具': 'J', '有': 'Y', '限': 'X', '公': 'G', '司': 'S',
-  '广': 'G', '州': 'Z', '深': 'S', '圳': 'Z', '东': 'D', '莞': 'G', '惠': 'H', '中': 'Z', '珠': 'Z', '海': 'H',
-  '顺': 'S', '德': 'D', '江': 'J', '门': 'M', '肇': 'Z', '庆': 'Q', '清': 'Q', '远': 'Y', '韶': 'S', '关': 'G',
-  '梅': 'M', '汕': 'S', '头': 'T', '潮': 'C', '揭': 'J', '阳': 'Y', '湛': 'Z', '茂': 'M', '名': 'M', '云': 'Y',
-  '浮': 'F', '河': 'H', '源': 'Y', '北': 'B', '京': 'J', '上': 'S', '天': 'T', '津': 'J', '重': 'C', '新': 'X',
-  '美': 'M', '华': 'H', '国': 'G', '际': 'J', '贸': 'M', '易': 'Y', '科': 'K', '技': 'J', '实': 'S', '业': 'Y',
-  '制': 'Z', '造': 'Z', '厂': 'C', '品': 'P', '牌': 'P', '设': 'S', '计': 'J', '装': 'Z', '饰': 'S', '建': 'J',
-  '材': 'C', '木': 'M', '金': 'J', '属': 'S', '塑': 'S', '料': 'L', '皮': 'P', '革': 'G', '布': 'B', '艺': 'Y',
-  '沙': 'S', '发': 'F', '床': 'C', '柜': 'G', '桌': 'Z', '椅': 'Y', '灯': 'D', '饰': 'S', '软': 'R', '装': 'Z',
-  '定': 'D', '制': 'Z', '全': 'Q', '屋': 'W', '整': 'Z', '体': 'T', '办': 'B', '工': 'G', '酒': 'J', '店': 'D',
-  '居': 'J', '住': 'Z', '宅': 'Z', '别': 'B', '墅': 'S', '样': 'Y', '板': 'B', '间': 'J', '展': 'Z', '厅': 'T',
-  '欧': 'O', '式': 'S', '古': 'G', '典': 'D', '现': 'X', '代': 'D', '简': 'J', '约': 'Y', '轻': 'Q', '奢': 'S',
-  '极': 'J', '简': 'J', '北': 'B', '欧': 'O', '意': 'Y', '法': 'F', '英': 'Y', '德': 'D', '美': 'M', '日': 'R',
-  '韩': 'H', '港': 'G', '台': 'T', '澳': 'A', '丽': 'L', '雅': 'Y', '优': 'Y', '尚': 'S', '臻': 'Z', '雅': 'Y'
-}
-
-// 将中文转换为拼音首字母
-function toPinyinInitials(str) {
+// 从字符串中提取英文字母
+function extractEnglishLetters(str) {
   if (!str) return 'XX'
-  let result = ''
-  for (const char of str) {
-    if (/[A-Za-z]/.test(char)) {
-      result += char.toUpperCase()
-    } else if (pinyinMap[char]) {
-      result += pinyinMap[char]
-    } else if (/[\u4e00-\u9fa5]/.test(char)) {
-      // 未知中文字符，用X代替
-      result += 'X'
-    }
-    // 忽略其他字符
-  }
-  // 返回前2-4个字母
-  return (result || 'XX').substring(0, 4).toUpperCase()
+  // 只提取英文字母
+  const letters = str.replace(/[^A-Za-z]/g, '').toUpperCase()
+  // 返回前2-4个字母，如果没有英文字母则返回XX
+  return (letters || 'XX').substring(0, 4)
 }
 
 // 生成唯一编号的辅助函数
-async function generateUniqueCode(shortName) {
+async function generateUniqueCode(fullName) {
   const today = new Date()
   const dateStr = today.getFullYear().toString() +
     (today.getMonth() + 1).toString().padStart(2, '0') +
@@ -392,17 +370,17 @@ async function generateUniqueCode(shortName) {
   // 生成4位随机数字
   const randomDigits = generateRandomDigits(4)
   
-  // 将shortName转换为英文首字母缩写
-  const prefix = toPinyinInitials(shortName)
+  // 从厂家全称中提取英文字母作为前缀
+  const prefix = extractEnglishLetters(fullName)
   
-  // 组合编号：英文缩写 + 日期 + 4位随机数字（如：GS202512110001）
+  // 组合编号：英文字母 + 日期 + 4位随机数字（如：ED202601150001）
   const code = `${prefix}${dateStr}${randomDigits}`
   
   // 检查是否已存在
   const existing = await mongoose.model('Manufacturer').findOne({ code })
   if (existing) {
     // 如果存在，递归生成新的
-    return generateUniqueCode(shortName)
+    return generateUniqueCode(fullName)
   }
   
   return code
@@ -412,8 +390,9 @@ manufacturerSchema.pre('save', async function(next) {
   this.updatedAt = new Date()
   
   // 自动生成编号（缺失时自动补齐，兼容旧数据）
-  if (!this.code && this.shortName) {
-    this.code = await generateUniqueCode(this.shortName)
+  // 优先使用fullName中的英文字母，没有则使用shortName
+  if (!this.code && (this.fullName || this.shortName)) {
+    this.code = await generateUniqueCode(this.fullName || this.shortName)
   }
   
   // 兼容：将fullName同步到name字段

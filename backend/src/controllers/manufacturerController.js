@@ -193,6 +193,7 @@ const update = async (req, res) => {
       description,
       productIntro,
       logo,
+      galleryImages,
       status,
       accountQuota,
       settings,
@@ -236,6 +237,7 @@ const update = async (req, res) => {
     if (description !== undefined) manufacturer.description = description
     if (productIntro !== undefined) manufacturer.productIntro = productIntro
     if (logo !== undefined) manufacturer.logo = logo
+    if (galleryImages !== undefined) manufacturer.galleryImages = Array.isArray(galleryImages) ? galleryImages : []
     if (isPreferred !== undefined) manufacturer.isPreferred = Boolean(isPreferred)
     if (expiryDate !== undefined) manufacturer.expiryDate = expiryDate ? new Date(expiryDate) : null
     if (styleTags !== undefined) manufacturer.styleTags = Array.isArray(styleTags) ? styleTags : []
