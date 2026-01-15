@@ -1,12 +1,24 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Plus, Search, Key, Edit, Trash2 } from 'lucide-react'
+import { Plus, Search, Key, Edit, Trash2, Power, Ban } from 'lucide-react'
 import * as accountService from '@/services/accountService'
+import apiClient from '@/lib/apiClient'
+
+interface ManufacturerQuota {
+  accountQuota?: {
+    totalAccounts?: number
+    subAccounts?: number
+  }
+  accountUsage?: {
+    subAccounts?: number
+  }
+}
 
 export default function EnterpriseUserManagement() {
   const [loading, setLoading] = useState(false)
   const [users, setUsers] = useState<accountService.AccountUser[]>([])
   const [keyword, setKeyword] = useState('')
+  const [quota, setQuota] = useState<ManufacturerQuota>({})
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
@@ -27,6 +39,16 @@ export default function EnterpriseUserManagement() {
     try {
       const data = await accountService.getUsers({ keyword: keyword || undefined })
       setUsers(data.list || [])
+      
+      // 加载厂家配额信息
+      try {
+        const quotaRes = await apiClient.get('/manufacturers/me')
+        if (quotaRes.data.success) {
+          setQuota(quotaRes.data.data)
+        }
+      } catch (err) {
+        console.error('加载配额信息失败:', err)
+      }
     } catch (error: any) {
       toast.error(error.message || '加载用户列表失败')
     } finally {
@@ -49,6 +71,16 @@ export default function EnterpriseUserManagement() {
     }
     if (!createForm.password.trim() || createForm.password.length < 6) {
       toast.error('密码至少6位')
+      return
+    }
+
+    // 检查账号配额
+    const maxAccounts = quota.accountQuota?.subAccounts || quota.accountQuota?.totalAccounts || 0
+    const usedAccounts = quota.accountUsage?.subAccounts || 0
+    const activeUsers = users.filter(u => u.status === 'active').length
+    
+    if (maxAccounts > 0 && activeUsers >= maxAccounts) {
+      toast.error(`账号数量已达上限（${maxAccounts}个），无法创建新账号。冻结的账号不占用额度。`)
       return
     }
 
@@ -128,11 +160,27 @@ export default function EnterpriseUserManagement() {
     }
   }
 
+  const maxAccounts = quota.accountQuota?.subAccounts || quota.accountQuota?.totalAccounts || 0
+  const activeUsers = users.filter(u => u.status === 'active').length
+  const bannedUsers = users.filter(u => u.status === 'banned').length
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">账号管理</h1>
         <p className="text-gray-500 mt-1">仅管理本厂家体系下的子账号</p>
+        {maxAccounts > 0 && (
+          <div className="mt-3 flex items-center gap-4 text-sm">
+            <span className="text-gray-600">
+              账号配额：<span className="font-semibold text-blue-600">{activeUsers}</span> / {maxAccounts}
+            </span>
+            {bannedUsers > 0 && (
+              <span className="text-gray-500">
+                冻结账号：{bannedUsers} （不占用额度）
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm">
@@ -159,7 +207,7 @@ export default function EnterpriseUserManagement() {
 
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm"
             disabled={loading}
           >
             <Plus className="w-4 h-4" />
@@ -211,11 +259,15 @@ export default function EnterpriseUserManagement() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleToggleStatus(u)}
-                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                          title="启用/禁用"
+                          className={`p-2 rounded-lg ${
+                            u.status === 'active' 
+                              ? 'text-green-600 hover:text-green-700 hover:bg-green-50' 
+                              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                          }`}
+                          title={u.status === 'active' ? '关闭账号' : '开启账号'}
                           disabled={loading}
                         >
-                          <Edit className="w-4 h-4" />
+                          {u.status === 'active' ? <Power className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                         </button>
                         <button
                           onClick={() => openResetModal(u)}
