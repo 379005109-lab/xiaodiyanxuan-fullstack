@@ -69,14 +69,13 @@ export default function EnterpriseUserManagement() {
       toast.error('请输入用户名')
       return
     }
-    if (!createForm.password.trim() || createForm.password.length < 6) {
-      toast.error('密码至少6位')
+    if (!createForm.phone.trim()) {
+      toast.error('请输入手机号')
       return
     }
 
     // 检查账号配额
     const maxAccounts = quota.accountQuota?.subAccounts || quota.accountQuota?.totalAccounts || 0
-    const usedAccounts = quota.accountUsage?.subAccounts || 0
     const activeUsers = users.filter(u => u.status === 'active').length
     
     if (maxAccounts > 0 && activeUsers >= maxAccounts) {
@@ -86,15 +85,18 @@ export default function EnterpriseUserManagement() {
 
     setLoading(true)
     try {
+      // 生成默认密码：手机号后6位
+      const defaultPassword = createForm.phone.slice(-6)
+      
       await accountService.createUser({
         username: createForm.username.trim(),
-        password: createForm.password,
-        nickname: createForm.nickname || createForm.username.trim(),
-        phone: createForm.phone || undefined,
-        email: createForm.email || undefined,
+        password: defaultPassword,
+        nickname: createForm.username.trim(),
+        phone: createForm.phone.trim(),
+        email: undefined,
         role: 'enterprise_staff',
       })
-      toast.success('账号创建成功')
+      toast.success(`账号创建成功！默认密码为手机号后6位：${defaultPassword}`)
       setShowCreateModal(false)
       setCreateForm({ username: '', password: '', nickname: '', phone: '', email: '' })
       await loadUsers()
@@ -133,14 +135,28 @@ export default function EnterpriseUserManagement() {
   }
 
   const handleToggleStatus = async (user: accountService.AccountUser) => {
+    // 企业管理员账号不能被关闭
+    if (user.role === 'enterprise_admin') {
+      toast.error('企业管理员账号不能被关闭')
+      return
+    }
+    
     const nextStatus = user.status === 'active' ? 'banned' : 'active'
+    const actionText = nextStatus === 'banned' ? '关闭' : '开启'
+    
+    if (!confirm(`确定要${actionText}账号 "${user.username}" 吗？`)) {
+      return
+    }
+    
     setLoading(true)
     try {
       await accountService.updateUser(user._id, { status: nextStatus })
-      toast.success('状态已更新')
+      toast.success(`账号已${actionText}`)
       setUsers(prev => prev.map(u => (u._id === user._id ? { ...u, status: nextStatus } : u)))
+      // 重新加载配额信息
+      await loadUsers()
     } catch (error: any) {
-      toast.error(error.message || '更新失败')
+      toast.error(error.message || '操作失败')
     } finally {
       setLoading(false)
     }
@@ -257,18 +273,20 @@ export default function EnterpriseUserManagement() {
                     <td className="px-4 py-3 text-sm text-gray-500">{new Date(u.createdAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleToggleStatus(u)}
-                          className={`p-2 rounded-lg ${
-                            u.status === 'active' 
-                              ? 'text-green-600 hover:text-green-700 hover:bg-green-50' 
-                              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                          }`}
-                          title={u.status === 'active' ? '关闭账号' : '开启账号'}
-                          disabled={loading}
-                        >
-                          {u.status === 'active' ? <Power className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                        </button>
+                        {u.role !== 'enterprise_admin' && (
+                          <button
+                            onClick={() => handleToggleStatus(u)}
+                            className={`p-2 rounded-lg ${
+                              u.status === 'active' 
+                                ? 'text-green-600 hover:text-green-700 hover:bg-green-50' 
+                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                            }`}
+                            title={u.status === 'active' ? '关闭账号' : '开启账号'}
+                            disabled={loading}
+                          >
+                            {u.status === 'active' ? <Power className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                          </button>
+                        )}
                         <button
                           onClick={() => openResetModal(u)}
                           className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg"
@@ -301,52 +319,30 @@ export default function EnterpriseUserManagement() {
             <h2 className="text-xl font-bold mb-4">新建子账号</h2>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">用户名 *</label>
-                  <input
-                    value={createForm.username}
-                    onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">密码 *</label>
-                  <input
-                    type="password"
-                    value={createForm.password}
-                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">昵称</label>
-                  <input
-                    value={createForm.nickname}
-                    onChange={(e) => setCreateForm({ ...createForm, nickname: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">手机</label>
-                  <input
-                    value={createForm.phone}
-                    onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">用户名 *</label>
+                <input
+                  value={createForm.username}
+                  onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
+                  placeholder="请输入用户名"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">手机号 *</label>
                 <input
-                  value={createForm.email}
-                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                  className="w-full px-4 py-2 border rounded-lg"
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                  placeholder="请输入手机号"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-700">
+                  🔑 默认密码为手机号后6位，用户首次登录后可自行修改。
+                </p>
               </div>
 
               <div className="text-sm text-gray-500">
