@@ -109,8 +109,8 @@ export default function OrderManagementNew2() {
         return
       }
       
-      // 使用相对路径，让 nginx 代理转发请求
-      const apiUrl = '/api/orders?pageSize=10000'
+      // 使用完整的公网地址
+      const apiUrl = 'https://pkochbpmcgaa.sealoshzh.site/api/orders?pageSize=10000'
       console.log('[OrderManagement] Fetching from:', apiUrl)
       
       const response = await fetch(apiUrl, {
@@ -129,7 +129,8 @@ export default function OrderManagementNew2() {
       }
       
       const data = await response.json()
-      console.log('[OrderManagement] Received data:', data)
+      console.log('[OrderManagement] Received data - total:', data.pagination?.total, 'count:', data.data?.length)
+      console.log('[OrderManagement] Order numbers:', data.data?.map(o => o.orderNo))
       const allOrders: Order[] = data.data || []
       
       // 按时间倒序
