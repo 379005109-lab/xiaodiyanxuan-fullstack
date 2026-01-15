@@ -119,9 +119,12 @@ export default function OrderManagement() {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       })
       
+      console.log('[OrderManagement] 准备设置订单状态:', allOrders.length, '个订单')
+      console.log('[OrderManagement] 订单号列表:', allOrders.map(o => o.orderNo))
       setOrders(allOrders)
-      setTotal(data.total || allOrders.length)
-      setTotalPages(Math.ceil((data.total || allOrders.length) / 10))
+      setTotal(data.pagination?.total || allOrders.length)
+      setTotalPages(Math.ceil((data.pagination?.total || allOrders.length) / 10))
+      console.log('[OrderManagement] 订单状态已设置')
       
       // 初始化代客下单和一口价草稿
       setConciergeDrafts((prev) => {
