@@ -142,13 +142,23 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // 详细的token调试信息
+    const localStorageToken = localStorage.getItem('token')
     console.log('🔐 提交订单 - 用户:', user)
-    console.log('🔑 提交订单 - Token:', token ? '存在' : '不存在')
+    console.log('🔑 提交订单 - Store Token:', token ? '存在' : '不存在')
+    console.log('🔑 提交订单 - LocalStorage Token:', localStorageToken ? '存在' : '不存在')
+    console.log('🔑 提交订单 - Token前10位:', localStorageToken ? localStorageToken.substring(0, 10) + '...' : '无')
     console.log('🔑 提交订单 - isAuthenticated:', isAuthenticated)
+    console.log('🔑 提交订单 - User ID:', user?._id)
     
     // 验证用户登录（使用组件级别的状态）
-    if (!user || !token) {
-      console.error('⚠️ 登录状态异常:', { user, token, isAuthenticated })
+    if (!user || !token || !localStorageToken) {
+      console.error('⚠️ 登录状态异常:', { 
+        user: !!user, 
+        storeToken: !!token, 
+        localStorageToken: !!localStorageToken,
+        isAuthenticated 
+      })
       toast.error('请先登录后再提交订单')
       useAuthModalStore.getState().openLogin()
       return
@@ -226,13 +236,13 @@ export default function CheckoutPage() {
     const orderNo = `ORD${dateStr}${random}`
     
     // 获取用户信息
-    const { user } = useAuthStore.getState()
+    const currentUser = useAuthStore.getState().user
     
     // 创建本地订单（无论API是否成功都保存）
     const localOrder = {
       _id: `local_${Date.now()}_${random}`,
       orderNo,
-      user: user?._id || user || 'local_user',
+      user: currentUser?._id || currentUser || 'local_user',
       items: orderData.items.map((item: any) => ({
         product: item.product || item.productId,
         productName: item.productName || '',
@@ -391,11 +401,22 @@ export default function CheckoutPage() {
         code: error.code,
         response: error.response?.data,
         status: error.response?.status,
+        headers: error.config?.headers,
       })
       
       // 如果API失败，显示错误信息
       if (error.response?.status === 401) {
-        toast.error('请先登录后再提交订单')
+        console.error('⚠️ 401错误 - Token验证失败')
+        console.error('⚠️ 请求头:', error.config?.headers)
+        console.error('⚠️ LocalStorage Token:', localStorage.getItem('token'))
+        
+        // 清除登录状态并提示重新登录
+        localStorage.removeItem('token')
+        useAuthStore.getState().logout()
+        toast.error('登录已过期，请重新登录')
+        useAuthModalStore.getState().openLogin()
+        setSubmitting(false)
+        return
       } else if (error.response?.data?.message) {
         toast.error('订单提交失败：' + error.response.data.message)
       } else {
