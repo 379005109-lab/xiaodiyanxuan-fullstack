@@ -5,6 +5,9 @@ const orderSchema = new mongoose.Schema({
   orderNo: { type: String, unique: true, required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   
+  // 订单归属厂家（下单用户的厂家）
+  ownerManufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+  
   // 订单类型：product=普通商品订单, package=套餐订单
   orderType: { type: String, enum: ['product', 'package'], default: 'product' },
   
