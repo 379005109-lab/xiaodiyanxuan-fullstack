@@ -1,7 +1,7 @@
 // Build cache bust: 20260110-v1
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -72,12 +72,15 @@ interface Manufacturer {
   defaultCommission?: number
   productIntro?: string
   styleTags?: string[]
+  categoryTags?: string[]
   tags?: string[]
   priceRangeMin?: number
   priceRangeMax?: number
   contactName?: string
   contactPhone?: string
   contactEmail?: string
+  companyPhone?: string
+  servicePhone?: string
   address?: string
   description?: string
   status: 'active' | 'inactive'
@@ -94,11 +97,25 @@ interface Manufacturer {
       accountName?: string
       accountNumber?: string
     }
+    settlementAccounts?: Array<{
+      type: 'bank' | 'wechat' | 'alipay'
+      bankName?: string
+      accountName?: string
+      accountNumber?: string
+    }>
   }
   certification?: {
     status: 'none' | 'pending' | 'approved' | 'rejected'
     companyName?: string
     creditCode?: string
+    businessLicense?: string
+    legalPerson?: string
+    invoiceName?: string
+    taxNumber?: string
+    invoiceBankName?: string
+    invoiceBankAccount?: string
+    invoiceAddress?: string
+    invoicePhone?: string
   }
 }
 
@@ -926,14 +943,55 @@ export default function ManufacturerManagement() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
+                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 text-center">
                     <div className="text-xs font-semibold text-emerald-700">经销折扣(%)</div>
-                    <div className="text-3xl font-black text-[#153e35] mt-2">{myManufacturer.defaultDiscount || 0}</div>
+                    <div className="text-2xl font-black text-[#153e35] mt-1">{myManufacturer.defaultDiscount || 0}</div>
                   </div>
-                  <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
+                  <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 text-center">
                     <div className="text-xs font-semibold text-blue-700">返佣比例(%)</div>
-                    <div className="text-3xl font-black text-blue-700 mt-2">{myManufacturer.defaultCommission || 0}</div>
+                    <div className="text-2xl font-black text-blue-700 mt-1">{myManufacturer.defaultCommission || 0}</div>
                   </div>
+                </div>
+
+                {/* 价格范围 */}
+                <div className="mt-4 bg-gray-50 rounded-2xl p-4">
+                  <div className="text-xs font-semibold text-gray-500 mb-1">产品价格范围</div>
+                  <div className="text-lg font-bold text-gray-900">
+                    ¥{myManufacturer.priceRangeMin || 0} - ¥{myManufacturer.priceRangeMax || 0}
+                  </div>
+                </div>
+
+                {/* 标签 */}
+                <div className="mt-4">
+                  {(myManufacturer.styleTags && myManufacturer.styleTags.length > 0) && (
+                    <div className="mb-2">
+                      <div className="text-xs font-semibold text-gray-500 mb-1">风格</div>
+                      <div className="flex flex-wrap gap-1">
+                        {myManufacturer.styleTags.slice(0, 4).map((tag: string, idx: number) => (
+                          <span key={idx} className="px-2 py-0.5 bg-[#153e35]/10 text-[#153e35] text-xs rounded-full">{tag}</span>
+                        ))}
+                        {myManufacturer.styleTags.length > 4 && (
+                          <span className="text-xs text-gray-400">+{myManufacturer.styleTags.length - 4}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {(myManufacturer.categoryTags && myManufacturer.categoryTags.length > 0) && (
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 mb-1">品类</div>
+                      <div className="flex flex-wrap gap-1">
+                        {myManufacturer.categoryTags.slice(0, 4).map((tag: string, idx: number) => (
+                          <span key={idx} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{tag}</span>
+                        ))}
+                        {myManufacturer.categoryTags.length > 4 && (
+                          <span className="text-xs text-gray-400">+{myManufacturer.categoryTags.length - 4}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {(!myManufacturer.styleTags || myManufacturer.styleTags.length === 0) && (!myManufacturer.categoryTags || myManufacturer.categoryTags.length === 0) && (
+                    <div className="text-xs text-gray-400">暂未设置标签</div>
+                  )}
                 </div>
 
                 <button
@@ -2700,43 +2758,89 @@ export default function ManufacturerManagement() {
       {/* 资料编辑弹窗 */}
       {showEditSectionModal && myManufacturer && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowEditSectionModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-gray-100">
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900">
                 {editSection === 'basic' && '基础档案'}
-                {editSection === 'settlement' && '结算账号配置'}
+                {editSection === 'settlement' && '结算账户配置'}
                 {editSection === 'qualification' && '资质与开票'}
                 {editSection === 'tags' && '编辑标签'}
                 {editSection === 'priceRange' && '产品价格范围'}
                 {editSection === 'discount' && '最低折扣设置'}
                 {editSection === 'commission' && '默认返佣设置'}
               </h3>
+              <button onClick={() => setShowEditSectionModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-6">
               {/* 基础档案 */}
               {editSection === 'basic' && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">公司全称</label>
-                    <input
-                      type="text"
-                      defaultValue={myManufacturer.fullName || myManufacturer.name}
-                      onChange={(e) => setEditSectionData({...editSectionData, fullName: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    01. 品牌身份与经营地址
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">公司简称</label>
-                    <input
-                      type="text"
-                      defaultValue={myManufacturer.shortName || ''}
-                      onChange={(e) => setEditSectionData({...editSectionData, shortName: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
+                  <div className="grid grid-cols-3 gap-6">
+                    <div className="row-span-2">
+                      <label className="block text-sm text-gray-600 mb-2">LOGO</label>
+                      <div className="w-32 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 bg-gray-50">
+                        {editSectionData.logo || myManufacturer.logo ? (
+                          <img src={getFileUrl(editSectionData.logo || myManufacturer.logo)} alt="Logo" className="w-full h-full object-contain rounded-xl" />
+                        ) : (
+                          <>
+                            <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                            <span className="text-sm text-gray-500">上传LOGO</span>
+                            <span className="text-xs text-gray-400">点击上传或拖拽文件到此处</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">厂家ID</label>
+                      <input
+                        type="text"
+                        value={myManufacturer.code || myManufacturer._id}
+                        disabled
+                        className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">厂家全称</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.fullName || myManufacturer.name}
+                        onChange={(e) => setEditSectionData({...editSectionData, fullName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">厂家简称（字母缩写）</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.shortName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, shortName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm text-gray-600 mb-1">经营办公地址</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.address || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, address: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-8">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    02. 联系人 & 服务信息
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+                      <label className="block text-sm text-gray-600 mb-1">联系人</label>
                       <input
                         type="text"
                         defaultValue={myManufacturer.contactName || ''}
@@ -2745,7 +2849,7 @@ export default function ManufacturerManagement() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+                      <label className="block text-sm text-gray-600 mb-1">联系人电话</label>
                       <input
                         type="text"
                         defaultValue={myManufacturer.contactPhone || ''}
@@ -2753,108 +2857,358 @@ export default function ManufacturerManagement() {
                         className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">公司地址</label>
-                    <textarea
-                      defaultValue={myManufacturer.address || ''}
-                      onChange={(e) => setEditSectionData({...editSectionData, address: e.target.value})}
-                      rows={2}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                    />
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">联系人邮箱</label>
+                      <input
+                        type="email"
+                        defaultValue={myManufacturer.contactEmail || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, contactEmail: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">公司电话</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.companyPhone || myManufacturer.settings?.phone || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, companyPhone: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">客服电话</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.servicePhone || myManufacturer.settings?.servicePhone || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, servicePhone: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">状态</label>
+                      <select
+                        defaultValue={myManufacturer.status}
+                        onChange={(e) => setEditSectionData({...editSectionData, status: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="active">启用</option>
+                        <option value="inactive">停用</option>
+                      </select>
+                    </div>
                   </div>
                 </>
               )}
 
-              {/* 结算账号配置 */}
+              {/* 结算账户配置 */}
               {editSection === 'settlement' && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">开户银行</label>
-                    <input
-                      type="text"
-                      defaultValue={myManufacturer.settings?.bankInfo?.bankName || ''}
-                      onChange={(e) => setEditSectionData({...editSectionData, bankName: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      placeholder="如: 中国工商银行"
-                    />
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    01. 收款码
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">户名</label>
-                    <input
-                      type="text"
-                      defaultValue={myManufacturer.settings?.bankInfo?.accountName || ''}
-                      onChange={(e) => setEditSectionData({...editSectionData, accountName: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      placeholder="公司名称"
-                    />
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-green-400 bg-gray-50">
+                      {editSectionData.wechatQrCode || myManufacturer.settings?.wechatQrCode ? (
+                        <img src={getFileUrl(editSectionData.wechatQrCode || myManufacturer.settings?.wechatQrCode)} alt="微信收款码" className="max-h-[160px] object-contain" />
+                      ) : (
+                        <>
+                          <Upload className="w-10 h-10 text-gray-400 mb-3" />
+                          <span className="text-gray-700 font-medium">上传微信收款码</span>
+                          <span className="text-xs text-gray-400 mt-1">点击上传或拖拽文件到此处</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-blue-400 bg-gray-50">
+                      {editSectionData.alipayQrCode || myManufacturer.settings?.alipayQrCode ? (
+                        <img src={getFileUrl(editSectionData.alipayQrCode || myManufacturer.settings?.alipayQrCode)} alt="支付宝收款码" className="max-h-[160px] object-contain" />
+                      ) : (
+                        <>
+                          <Upload className="w-10 h-10 text-gray-400 mb-3" />
+                          <span className="text-gray-700 font-medium">上传支付宝收款码</span>
+                          <span className="text-xs text-gray-400 mt-1">点击上传或拖拽文件到此处</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">银行账号</label>
-                    <input
-                      type="text"
-                      defaultValue={myManufacturer.settings?.bankInfo?.accountNumber || ''}
-                      onChange={(e) => setEditSectionData({...editSectionData, accountNumber: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      placeholder="银行账号"
-                    />
+
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-8">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    02. 银行/三方结算信息
                   </div>
+                  <div className="bg-gray-50 rounded-xl p-6">
+                    <div className="flex gap-2 mb-4">
+                      {['bank', 'wechat', 'alipay'].map(type => (
+                        <button
+                          key={type}
+                          onClick={() => setEditSectionData({...editSectionData, settlementType: type})}
+                          className={`px-4 py-2 rounded-full text-sm ${
+                            (editSectionData.settlementType || 'bank') === type
+                              ? 'bg-[#153e35] text-white'
+                              : 'bg-white text-gray-600 border border-gray-200'
+                          }`}
+                        >
+                          {type === 'bank' ? '银行' : type === 'wechat' ? '微信' : '支付宝'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">开户银行/平台全称</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.settings?.bankInfo?.bankName || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, bankName: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                          placeholder="招商银行 / 支付宝..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">收款人/实名姓名</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.settings?.bankInfo?.accountName || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, accountName: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <label className="block text-sm text-gray-600 mb-1">卡号 / UID / 账号</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.settings?.bankInfo?.accountNumber || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, accountNumber: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                      />
+                    </div>
+                  </div>
+                  <button className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 hover:border-primary/50 hover:text-primary">
+                    + 新增财务结算方式
+                  </button>
                 </>
               )}
 
               {/* 资质与开票 */}
               {editSection === 'qualification' && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">公司名称（开票）</label>
-                    <input
-                      type="text"
-                      defaultValue={myManufacturer.certification?.companyName || myManufacturer.fullName || ''}
-                      onChange={(e) => setEditSectionData({...editSectionData, invoiceCompanyName: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    01. 资质合规：营业执照认证
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">统一社会信用代码</label>
-                    <input
-                      type="text"
-                      defaultValue={myManufacturer.certification?.creditCode || ''}
-                      onChange={(e) => setEditSectionData({...editSectionData, creditCode: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      placeholder="18位统一社会信用代码"
-                    />
+                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-primary/50 bg-gray-50">
+                    {editSectionData.businessLicense || myManufacturer.certification?.businessLicense ? (
+                      <img src={getFileUrl(editSectionData.businessLicense || myManufacturer.certification?.businessLicense)} alt="营业执照" className="max-h-[180px] object-contain" />
+                    ) : (
+                      <>
+                        <Upload className="w-12 h-12 text-gray-400 mb-3" />
+                        <span className="text-gray-700 font-medium text-lg">上传营业执照</span>
+                        <span className="text-sm text-gray-400 mt-1">点击上传或拖拽文件到此处</span>
+                      </>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500">营业执照等资质文件请联系平台管理员上传</p>
+                  <p className="text-xs text-gray-500">需确保执照处于有效期内，公章清晰。支持 JPG、PDF 格式。</p>
+
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-8">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    02. 税务开票资料
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">企业名称</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.companyName || myManufacturer.fullName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoiceCompanyName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">统一社会信用代码</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.certification?.creditCode || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, creditCode: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">法人代表</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.certification?.legalPerson || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, legalPerson: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">开票名称</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.invoiceName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoiceName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">税号</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.taxNumber || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, taxNumber: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">开户银行</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.certification?.invoiceBankName || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, invoiceBankName: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">银行账号</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.certification?.invoiceBankAccount || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, invoiceBankAccount: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">企业地址</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.invoiceAddress || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoiceAddress: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">企业电话</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.invoicePhone || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoicePhone: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
                 </>
               )}
 
-              {/* 标签编辑 */}
+              {/* 标签编辑 - 风格和品类分开 */}
               {editSection === 'tags' && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">产品标签</label>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {['中古风', '现代简约', '轻奢', '北欧', '新中式', '单椅', '沙发', '床', '餐桌', '柜类', '灯具', '软装'].map(tag => (
-                        <button
-                          key={tag}
-                          onClick={() => {
-                            const currentTags = editSectionData.tags || myManufacturer.tags || []
-                            if (currentTags.includes(tag)) {
-                              setEditSectionData({...editSectionData, tags: currentTags.filter((t: string) => t !== tag)})
-                            } else {
-                              setEditSectionData({...editSectionData, tags: [...currentTags, tag]})
-                            }
-                          }}
-                          className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                            (editSectionData.tags || myManufacturer.tags || []).includes(tag)
-                              ? 'bg-[#153e35] text-white'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    风格标签
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {['中古风', '现代简约', '轻奢', '北欧', '新中式', '美式', '欧式', '日式', '工业风', '田园'].map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          const currentTags = editSectionData.styleTags || myManufacturer.styleTags || []
+                          if (currentTags.includes(tag)) {
+                            setEditSectionData({...editSectionData, styleTags: currentTags.filter((t: string) => t !== tag)})
+                          } else {
+                            setEditSectionData({...editSectionData, styleTags: [...currentTags, tag]})
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                          (editSectionData.styleTags || myManufacturer.styleTags || []).includes(tag)
+                            ? 'bg-[#153e35] text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="自定义风格标签"
+                      value={editSectionData.customStyleTag || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, customStyleTag: e.target.value})}
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                    <button
+                      onClick={() => {
+                        if (editSectionData.customStyleTag?.trim()) {
+                          const currentTags = editSectionData.styleTags || myManufacturer.styleTags || []
+                          if (!currentTags.includes(editSectionData.customStyleTag.trim())) {
+                            setEditSectionData({
+                              ...editSectionData, 
+                              styleTags: [...currentTags, editSectionData.customStyleTag.trim()],
+                              customStyleTag: ''
+                            })
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 bg-[#153e35] text-white rounded-xl hover:bg-[#1a4d42]"
+                    >
+                      添加
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-6">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    品类标签
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {['单椅', '沙发', '床', '餐桌', '餐椅', '柜类', '茶几', '书桌', '灯具', '软装', '地毯', '装饰品'].map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          const currentTags = editSectionData.categoryTags || myManufacturer.categoryTags || []
+                          if (currentTags.includes(tag)) {
+                            setEditSectionData({...editSectionData, categoryTags: currentTags.filter((t: string) => t !== tag)})
+                          } else {
+                            setEditSectionData({...editSectionData, categoryTags: [...currentTags, tag]})
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                          (editSectionData.categoryTags || myManufacturer.categoryTags || []).includes(tag)
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="自定义品类标签"
+                      value={editSectionData.customCategoryTag || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, customCategoryTag: e.target.value})}
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                    <button
+                      onClick={() => {
+                        if (editSectionData.customCategoryTag?.trim()) {
+                          const currentTags = editSectionData.categoryTags || myManufacturer.categoryTags || []
+                          if (!currentTags.includes(editSectionData.customCategoryTag.trim())) {
+                            setEditSectionData({
+                              ...editSectionData, 
+                              categoryTags: [...currentTags, editSectionData.customCategoryTag.trim()],
+                              customCategoryTag: ''
+                            })
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+                    >
+                      添加
+                    </button>
                   </div>
                 </>
               )}
@@ -2863,7 +3217,7 @@ export default function ManufacturerManagement() {
               {editSection === 'priceRange' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">最低价格</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">最低价格 (元)</label>
                     <input
                       type="number"
                       defaultValue={myManufacturer.priceRangeMin || 0}
@@ -2872,7 +3226,7 @@ export default function ManufacturerManagement() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">最高价格</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">最高价格 (元)</label>
                     <input
                       type="number"
                       defaultValue={myManufacturer.priceRangeMax || 0}
@@ -2936,10 +3290,16 @@ export default function ManufacturerManagement() {
                       if (editSectionData.shortName) updateData.shortName = editSectionData.shortName
                       if (editSectionData.contactName) updateData.contactName = editSectionData.contactName
                       if (editSectionData.contactPhone) updateData.contactPhone = editSectionData.contactPhone
+                      if (editSectionData.contactEmail) updateData.contactEmail = editSectionData.contactEmail
+                      if (editSectionData.companyPhone) updateData.companyPhone = editSectionData.companyPhone
+                      if (editSectionData.servicePhone) updateData.servicePhone = editSectionData.servicePhone
                       if (editSectionData.address) updateData.address = editSectionData.address
+                      if (editSectionData.status) updateData.status = editSectionData.status
                     } else if (editSection === 'settlement') {
                       updateData.settings = {
                         ...myManufacturer.settings,
+                        wechatQrCode: editSectionData.wechatQrCode || myManufacturer.settings?.wechatQrCode,
+                        alipayQrCode: editSectionData.alipayQrCode || myManufacturer.settings?.alipayQrCode,
                         bankInfo: {
                           bankName: editSectionData.bankName || myManufacturer.settings?.bankInfo?.bankName,
                           accountName: editSectionData.accountName || myManufacturer.settings?.bankInfo?.accountName,
@@ -2949,11 +3309,20 @@ export default function ManufacturerManagement() {
                     } else if (editSection === 'qualification') {
                       updateData.certification = {
                         ...myManufacturer.certification,
+                        businessLicense: editSectionData.businessLicense || myManufacturer.certification?.businessLicense,
                         companyName: editSectionData.invoiceCompanyName || myManufacturer.certification?.companyName,
-                        creditCode: editSectionData.creditCode || myManufacturer.certification?.creditCode
+                        creditCode: editSectionData.creditCode || myManufacturer.certification?.creditCode,
+                        legalPerson: editSectionData.legalPerson || myManufacturer.certification?.legalPerson,
+                        invoiceName: editSectionData.invoiceName || myManufacturer.certification?.invoiceName,
+                        taxNumber: editSectionData.taxNumber || myManufacturer.certification?.taxNumber,
+                        invoiceBankName: editSectionData.invoiceBankName || myManufacturer.certification?.invoiceBankName,
+                        invoiceBankAccount: editSectionData.invoiceBankAccount || myManufacturer.certification?.invoiceBankAccount,
+                        invoiceAddress: editSectionData.invoiceAddress || myManufacturer.certification?.invoiceAddress,
+                        invoicePhone: editSectionData.invoicePhone || myManufacturer.certification?.invoicePhone
                       }
                     } else if (editSection === 'tags') {
-                      updateData.tags = editSectionData.tags || myManufacturer.tags
+                      updateData.styleTags = editSectionData.styleTags || myManufacturer.styleTags
+                      updateData.categoryTags = editSectionData.categoryTags || myManufacturer.categoryTags
                     } else if (editSection === 'priceRange') {
                       if (editSectionData.priceRangeMin !== undefined) updateData.priceRangeMin = editSectionData.priceRangeMin
                       if (editSectionData.priceRangeMax !== undefined) updateData.priceRangeMax = editSectionData.priceRangeMax
