@@ -87,6 +87,11 @@ interface Manufacturer {
   createdAt: string
   accountQuota?: AccountQuota
   accountUsage?: AccountQuota
+  // 业务设置新增字段
+  paymentRatioEnabled?: boolean
+  paymentRatios?: number[] // 如 [50, 75, 100]
+  invoiceEnabled?: boolean
+  invoiceMarkupPercent?: number // 开票加价比例，如10表示10%
   settings?: {
     phone?: string
     servicePhone?: string
@@ -249,7 +254,7 @@ export default function ManufacturerManagement() {
   const [showMarketplace, setShowMarketplace] = useState(false) // 是否显示合作市场
   const [marketplaceFilter, setMarketplaceFilter] = useState('') // 合作市场筛选标签
   const [showEditSectionModal, setShowEditSectionModal] = useState(false) // 资料编辑弹窗
-  const [editSection, setEditSection] = useState<'basic' | 'settlement' | 'qualification' | 'tags' | 'priceRange' | 'discount' | 'commission'>('basic')
+  const [editSection, setEditSection] = useState<'basic' | 'settlement' | 'qualification' | 'tags' | 'priceRange' | 'discount' | 'commission' | 'paymentRatio' | 'invoice'>('basic')
   const [editSectionData, setEditSectionData] = useState<any>({})
   const [editSectionSaving, setEditSectionSaving] = useState(false)
   
@@ -903,8 +908,15 @@ export default function ManufacturerManagement() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all">
-                <div className="flex items-start justify-between">
+              <div 
+                className="rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all relative overflow-hidden"
+                style={{
+                  background: myManufacturer.logo 
+                    ? `linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0.98)), url(${getFileUrl(myManufacturer.logo)}) center/cover no-repeat`
+                    : 'white'
+                }}
+              >
+                <div className="flex items-start justify-between relative z-10">
                   <div className="flex items-center gap-3">
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -923,7 +935,7 @@ export default function ManufacturerManagement() {
                     </span>
                   </div>
 
-                  <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                  <div className="w-14 h-14 rounded-2xl bg-white/80 border shadow-inner flex items-center justify-center overflow-hidden backdrop-blur-sm">
                     <img
                       src={getFileUrl(myManufacturer.logo || '')}
                       alt={myManufacturer.fullName || myManufacturer.name}
@@ -1159,6 +1171,95 @@ export default function ManufacturerManagement() {
                       className="text-xs text-primary hover:underline"
                     >
                       编辑返佣
+                    </button>
+                  </div>
+
+                  {/* 付款比例 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium text-gray-500">付款比例</div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={myManufacturer.paymentRatioEnabled || false}
+                          onChange={async () => {
+                            try {
+                              await apiClient.put(`/manufacturers/${myManufacturer._id}`, {
+                                paymentRatioEnabled: !myManufacturer.paymentRatioEnabled
+                              })
+                              fetchData()
+                            } catch (error) {
+                              toast.error('更新失败')
+                            }
+                          }}
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-[#153e35] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                      </label>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      {myManufacturer.paymentRatioEnabled ? (
+                        <span className="text-[#153e35] font-medium">已开启</span>
+                      ) : (
+                        <span className="text-gray-400">未开启</span>
+                      )}
+                    </div>
+                    {myManufacturer.paymentRatioEnabled && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {(myManufacturer.paymentRatios || [50, 75, 100]).map((ratio: number) => (
+                          <span key={ratio} className="px-2 py-0.5 bg-[#153e35]/10 text-[#153e35] text-xs rounded-full">{ratio}%</span>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        setEditSection('paymentRatio')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      设置比例
+                    </button>
+                  </div>
+
+                  {/* 开票设置 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium text-gray-500">开票加价</div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={myManufacturer.invoiceEnabled || false}
+                          onChange={async () => {
+                            try {
+                              await apiClient.put(`/manufacturers/${myManufacturer._id}`, {
+                                invoiceEnabled: !myManufacturer.invoiceEnabled
+                              })
+                              fetchData()
+                            } catch (error) {
+                              toast.error('更新失败')
+                            }
+                          }}
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                      </label>
+                    </div>
+                    {myManufacturer.invoiceEnabled ? (
+                      <div className="text-xl font-bold text-amber-600 mb-2">
+                        +{myManufacturer.invoiceMarkupPercent || 10}%
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400 mb-2">未开启</div>
+                    )}
+                    <button
+                      onClick={() => {
+                        setEditSection('invoice')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      设置加价
                     </button>
                   </div>
                 </div>
@@ -2768,6 +2869,8 @@ export default function ManufacturerManagement() {
                 {editSection === 'priceRange' && '产品价格范围'}
                 {editSection === 'discount' && '最低折扣设置'}
                 {editSection === 'commission' && '默认返佣设置'}
+                {editSection === 'paymentRatio' && '付款比例设置'}
+                {editSection === 'invoice' && '开票加价设置'}
               </h3>
               <button onClick={() => setShowEditSectionModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5 text-gray-500" />
@@ -2784,17 +2887,11 @@ export default function ManufacturerManagement() {
                   <div className="grid grid-cols-3 gap-6">
                     <div className="row-span-2">
                       <label className="block text-sm text-gray-600 mb-2">LOGO</label>
-                      <div className="w-32 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 bg-gray-50">
-                        {editSectionData.logo || myManufacturer.logo ? (
-                          <img src={getFileUrl(editSectionData.logo || myManufacturer.logo)} alt="Logo" className="w-full h-full object-contain rounded-xl" />
-                        ) : (
-                          <>
-                            <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                            <span className="text-sm text-gray-500">上传LOGO</span>
-                            <span className="text-xs text-gray-400">点击上传或拖拽文件到此处</span>
-                          </>
-                        )}
-                      </div>
+                      <ImageUploader
+                        images={editSectionData.logo ? [editSectionData.logo] : (myManufacturer.logo ? [myManufacturer.logo] : [])}
+                        onChange={(urls) => setEditSectionData({...editSectionData, logo: urls[0] || ''})}
+                        label="上传LOGO"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">厂家ID</label>
@@ -2907,27 +3004,19 @@ export default function ManufacturerManagement() {
                     01. 收款码
                   </div>
                   <div className="grid grid-cols-2 gap-6">
-                    <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-green-400 bg-gray-50">
-                      {editSectionData.wechatQrCode || myManufacturer.settings?.wechatQrCode ? (
-                        <img src={getFileUrl(editSectionData.wechatQrCode || myManufacturer.settings?.wechatQrCode)} alt="微信收款码" className="max-h-[160px] object-contain" />
-                      ) : (
-                        <>
-                          <Upload className="w-10 h-10 text-gray-400 mb-3" />
-                          <span className="text-gray-700 font-medium">上传微信收款码</span>
-                          <span className="text-xs text-gray-400 mt-1">点击上传或拖拽文件到此处</span>
-                        </>
-                      )}
+                    <div className="text-center">
+                      <ImageUploader
+                        images={editSectionData.wechatQrCode ? [editSectionData.wechatQrCode] : (myManufacturer.settings?.wechatQrCode ? [myManufacturer.settings.wechatQrCode] : [])}
+                        onChange={(urls) => setEditSectionData({...editSectionData, wechatQrCode: urls[0] || ''})}
+                        label="微信收款码"
+                      />
                     </div>
-                    <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-blue-400 bg-gray-50">
-                      {editSectionData.alipayQrCode || myManufacturer.settings?.alipayQrCode ? (
-                        <img src={getFileUrl(editSectionData.alipayQrCode || myManufacturer.settings?.alipayQrCode)} alt="支付宝收款码" className="max-h-[160px] object-contain" />
-                      ) : (
-                        <>
-                          <Upload className="w-10 h-10 text-gray-400 mb-3" />
-                          <span className="text-gray-700 font-medium">上传支付宝收款码</span>
-                          <span className="text-xs text-gray-400 mt-1">点击上传或拖拽文件到此处</span>
-                        </>
-                      )}
+                    <div className="text-center">
+                      <ImageUploader
+                        images={editSectionData.alipayQrCode ? [editSectionData.alipayQrCode] : (myManufacturer.settings?.alipayQrCode ? [myManufacturer.settings.alipayQrCode] : [])}
+                        onChange={(urls) => setEditSectionData({...editSectionData, alipayQrCode: urls[0] || ''})}
+                        label="支付宝收款码"
+                      />
                     </div>
                   </div>
 
@@ -2995,17 +3084,11 @@ export default function ManufacturerManagement() {
                     <div className="w-1 h-5 bg-[#153e35] rounded"></div>
                     01. 资质合规：营业执照认证
                   </div>
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-primary/50 bg-gray-50">
-                    {editSectionData.businessLicense || myManufacturer.certification?.businessLicense ? (
-                      <img src={getFileUrl(editSectionData.businessLicense || myManufacturer.certification?.businessLicense)} alt="营业执照" className="max-h-[180px] object-contain" />
-                    ) : (
-                      <>
-                        <Upload className="w-12 h-12 text-gray-400 mb-3" />
-                        <span className="text-gray-700 font-medium text-lg">上传营业执照</span>
-                        <span className="text-sm text-gray-400 mt-1">点击上传或拖拽文件到此处</span>
-                      </>
-                    )}
-                  </div>
+                  <ImageUploader
+                    images={editSectionData.businessLicense ? [editSectionData.businessLicense] : (myManufacturer.certification?.businessLicense ? [myManufacturer.certification.businessLicense] : [])}
+                    onChange={(urls) => setEditSectionData({...editSectionData, businessLicense: urls[0] || ''})}
+                    label="上传营业执照"
+                  />
                   <p className="text-xs text-gray-500">需确保执照处于有效期内，公章清晰。支持 JPG、PDF 格式。</p>
 
                   <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-8">
@@ -3268,6 +3351,122 @@ export default function ManufacturerManagement() {
                   <p className="text-xs text-gray-500 mt-1">授权给其他商家时的默认返佣比例</p>
                 </div>
               )}
+
+              {/* 付款比例设置 */}
+              {editSection === 'paymentRatio' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div>
+                      <div className="font-medium text-gray-900">启用付款比例</div>
+                      <div className="text-sm text-gray-500">开启后，客户可选择定制状态下的付款比例</div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={editSectionData.paymentRatioEnabled ?? myManufacturer.paymentRatioEnabled ?? false}
+                        onChange={(e) => setEditSectionData({...editSectionData, paymentRatioEnabled: e.target.checked})}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-[#153e35] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">可选付款比例</label>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {[25, 30, 50, 70, 75, 100].map(ratio => (
+                        <button
+                          key={ratio}
+                          onClick={() => {
+                            const currentRatios = editSectionData.paymentRatios || myManufacturer.paymentRatios || [50, 75, 100]
+                            if (currentRatios.includes(ratio)) {
+                              setEditSectionData({...editSectionData, paymentRatios: currentRatios.filter((r: number) => r !== ratio)})
+                            } else {
+                              setEditSectionData({...editSectionData, paymentRatios: [...currentRatios, ratio].sort((a, b) => a - b)})
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                            (editSectionData.paymentRatios || myManufacturer.paymentRatios || [50, 75, 100]).includes(ratio)
+                              ? 'bg-[#153e35] text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {ratio}%
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        placeholder="自定义比例"
+                        value={editSectionData.customPaymentRatio || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, customPaymentRatio: e.target.value})}
+                        className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                      <button
+                        onClick={() => {
+                          const val = Number(editSectionData.customPaymentRatio)
+                          if (val > 0 && val <= 100) {
+                            const currentRatios = editSectionData.paymentRatios || myManufacturer.paymentRatios || [50, 75, 100]
+                            if (!currentRatios.includes(val)) {
+                              setEditSectionData({
+                                ...editSectionData,
+                                paymentRatios: [...currentRatios, val].sort((a, b) => a - b),
+                                customPaymentRatio: ''
+                              })
+                            }
+                          }
+                        }}
+                        className="px-4 py-2 bg-[#153e35] text-white rounded-xl hover:bg-[#1a4d42]"
+                      >
+                        添加
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-500">
+                    已选比例：{(editSectionData.paymentRatios || myManufacturer.paymentRatios || [50, 75, 100]).map((r: number) => `${r}%`).join('、') || '无'}
+                  </p>
+                </div>
+              )}
+
+              {/* 开票加价设置 */}
+              {editSection === 'invoice' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div>
+                      <div className="font-medium text-gray-900">启用开票加价</div>
+                      <div className="text-sm text-gray-500">开启后，需要开票的订单将按比例加价</div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={editSectionData.invoiceEnabled ?? myManufacturer.invoiceEnabled ?? false}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoiceEnabled: e.target.checked})}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">开票加价比例 (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      defaultValue={myManufacturer.invoiceMarkupPercent || 10}
+                      onChange={(e) => setEditSectionData({...editSectionData, invoiceMarkupPercent: Number(e.target.value)})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      例如：售价1000元的产品，开票加价10%后，客户需支付1100元
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
               <button
@@ -3286,6 +3485,7 @@ export default function ManufacturerManagement() {
                     const updateData: any = {}
                     
                     if (editSection === 'basic') {
+                      if (editSectionData.logo) updateData.logo = editSectionData.logo
                       if (editSectionData.fullName) updateData.fullName = editSectionData.fullName
                       if (editSectionData.shortName) updateData.shortName = editSectionData.shortName
                       if (editSectionData.contactName) updateData.contactName = editSectionData.contactName
@@ -3330,6 +3530,12 @@ export default function ManufacturerManagement() {
                       if (editSectionData.defaultDiscount !== undefined) updateData.defaultDiscount = editSectionData.defaultDiscount
                     } else if (editSection === 'commission') {
                       if (editSectionData.defaultCommission !== undefined) updateData.defaultCommission = editSectionData.defaultCommission
+                    } else if (editSection === 'paymentRatio') {
+                      if (editSectionData.paymentRatioEnabled !== undefined) updateData.paymentRatioEnabled = editSectionData.paymentRatioEnabled
+                      if (editSectionData.paymentRatios) updateData.paymentRatios = editSectionData.paymentRatios
+                    } else if (editSection === 'invoice') {
+                      if (editSectionData.invoiceEnabled !== undefined) updateData.invoiceEnabled = editSectionData.invoiceEnabled
+                      if (editSectionData.invoiceMarkupPercent !== undefined) updateData.invoiceMarkupPercent = editSectionData.invoiceMarkupPercent
                     }
 
                     await apiClient.put(`/manufacturers/${myManufacturer._id}`, updateData)
