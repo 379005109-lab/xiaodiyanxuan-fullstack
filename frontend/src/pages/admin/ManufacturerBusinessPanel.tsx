@@ -997,7 +997,7 @@ export default function ManufacturerBusinessPanel() {
                                     try {
                                       const authIds = auths.map((a: any) => a._id)
                                       const results = await Promise.allSettled(
-                                        authIds.map((id: string) => apiClient.delete(`/authorizations/${id}`))
+                                        authIds.map((id: string) => apiClient.delete(`/authorizations/${id}?permanent=true`))
                                       )
                                       const failed = results.filter(r => r.status === 'rejected')
                                       if (failed.length > 0) {

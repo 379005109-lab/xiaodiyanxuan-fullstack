@@ -1957,7 +1957,7 @@ router.put('/:id/designer-product-discount/:productId', auth, async (req, res) =
   }
 })
 
-// DELETE /api/authorizations/:id - 撤销授权
+// DELETE /api/authorizations/:id - 撤销/删除授权
 router.delete('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
   try {
     const authorization = await Authorization.findById(req.params.id)
@@ -1967,18 +1967,27 @@ router.delete('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
 
     // 权限检查
     const user = await User.findById(req.userId)
-    if (authorization.fromManufacturer.toString() !== user.manufacturerId?.toString()) {
+    const isAdmin = user?.role === 'super_admin' || user?.role === 'admin'
+    const isOwner = authorization.fromManufacturer.toString() === user.manufacturerId?.toString()
+    
+    if (!isAdmin && !isOwner) {
       return res.status(403).json({ success: false, message: '只有授权方可以撤销授权' })
     }
 
-    authorization.status = 'revoked'
-    authorization.updatedAt = new Date()
-    await authorization.save()
-
-    res.json({ success: true, message: '授权已撤销' })
+    // 如果请求永久删除，则真正删除；否则只标记为revoked
+    const permanent = req.query.permanent === 'true'
+    if (permanent) {
+      await Authorization.findByIdAndDelete(req.params.id)
+      res.json({ success: true, message: '授权已删除' })
+    } else {
+      authorization.status = 'revoked'
+      authorization.updatedAt = new Date()
+      await authorization.save()
+      res.json({ success: true, message: '授权已撤销' })
+    }
   } catch (error) {
-    console.error('撤销授权失败:', error)
-    res.status(500).json({ success: false, message: '撤销授权失败' })
+    console.error('撤销/删除授权失败:', error)
+    res.status(500).json({ success: false, message: '操作失败' })
   }
 })
 
