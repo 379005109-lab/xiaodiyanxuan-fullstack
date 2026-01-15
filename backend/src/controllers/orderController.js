@@ -26,8 +26,12 @@ const create = async (req, res) => {
     }
     
     console.log('📝 [Order] recipient:', JSON.stringify(recipient));
+    
+    // 获取下单用户的厂家ID（授权商品订单归属）
+    const ownerManufacturerId = req.user?.manufacturerId || req.user?.manufacturerIds?.[0] || null
+    console.log('📝 [Order] ownerManufacturerId:', ownerManufacturerId);
     console.log('📝 [Order] 开始创建订单...');
-    const order = await createOrder(req.userId, items, recipient, couponCode)
+    const order = await createOrder(req.userId, { items, recipient, couponCode, ownerManufacturerId })
     console.log('✅ [Order] 订单创建成功:', order._id);
     
     // 异步发送邮件通知（不阻塞响应）

@@ -234,12 +234,13 @@ const dispatchOrderToManufacturers = async (order) => {
   return createdOrders
 }
 
-const createOrder = async (userId, items, recipient, couponCode = null) => {
+const createOrder = async (userId, { items, recipient, couponCode, ownerManufacturerId }) => {
   console.log('🛒 [OrderService] createOrder called');
   console.log('🛒 [OrderService] userId:', userId);
   console.log('🛒 [OrderService] userId type:', typeof userId);
   console.log('🛒 [OrderService] items count:', items?.length);
   console.log('🛒 [OrderService] recipient:', recipient);
+  console.log('🛒 [OrderService] ownerManufacturerId:', ownerManufacturerId);
   
   if (!items || items.length === 0) {
     throw new ValidationError('Order must contain at least one item')
@@ -325,6 +326,7 @@ const createOrder = async (userId, items, recipient, couponCode = null) => {
   const order = await Order.create({
     orderNo,
     userId,
+    ownerManufacturerId: ownerManufacturerId || null,
     items: enrichedItems,
     subtotal,
     discountAmount,
@@ -370,11 +372,15 @@ const getOrders = async (userId, page = 1, pageSize = 10, status = null, manufac
     query.status = status
   }
   
-  // 如果指定了厂家ID，只返回包含该厂家商品的订单
+  // 如果指定了厂家ID，返回该厂家拥有的订单 或 包含该厂家商品的订单
   if (manufacturerIds && manufacturerIds.length > 0) {
     const manufacturerIdStrings = manufacturerIds.map(id => id?.toString ? id.toString() : String(id))
-    query['items.manufacturerId'] = { $in: manufacturerIdStrings }
-    console.log('📋 [OrderService] filtering by manufacturerIds:', manufacturerIdStrings)
+    // 同时匹配：ownerManufacturerId（订单归属厂家）或 items.manufacturerId（商品原厂家）
+    query.$or = [
+      { ownerManufacturerId: { $in: manufacturerIdStrings } },
+      { 'items.manufacturerId': { $in: manufacturerIdStrings } }
+    ]
+    console.log('📋 [OrderService] filtering by manufacturerIds (owner or item):', manufacturerIdStrings)
   }
   
   const total = await Order.countDocuments(query)
