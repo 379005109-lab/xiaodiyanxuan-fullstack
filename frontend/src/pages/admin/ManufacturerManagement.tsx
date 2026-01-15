@@ -220,6 +220,12 @@ export default function ManufacturerManagement() {
     commissionRate?: number;
     isEnabled?: boolean;
   }>>({})
+
+  // 厂家管理TAB
+  type FactoryTabType = 'home' | 'partners' | 'channels'
+  const [factoryTab, setFactoryTab] = useState<FactoryTabType>('home')
+  const [receivedAuths, setReceivedAuths] = useState<any[]>([])
+  const [grantedAuths, setGrantedAuths] = useState<any[]>([])
   
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
@@ -286,6 +292,18 @@ export default function ManufacturerManagement() {
           setAuthorizationMap(authMap)
         } catch (e) {
           console.log('[ManufacturerManagement] 获取授权状态失败', e)
+        }
+
+        // 获取合作商家（其他商家授权给本厂家）和渠道管理（本厂家授权给其他商家）
+        try {
+          const [receivedRes, grantedRes] = await Promise.all([
+            apiClient.get('/authorizations/received').catch(() => ({ data: { data: [] } })),
+            apiClient.get('/authorizations/my-grants').catch(() => ({ data: { data: [] } }))
+          ])
+          setReceivedAuths(receivedRes.data?.data || [])
+          setGrantedAuths((grantedRes.data?.data || []).filter((a: any) => a?.status === 'active'))
+        } catch (e) {
+          console.log('[ManufacturerManagement] 获取授权列表失败', e)
         }
       }
     } catch (error) {
@@ -768,6 +786,42 @@ export default function ManufacturerManagement() {
 
       {isFactoryPortal ? (
         <>
+          {/* 厂家管理TAB */}
+          <div className="flex items-center gap-6 mb-6 border-b border-gray-200">
+            <button
+              onClick={() => setFactoryTab('home')}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                factoryTab === 'home'
+                  ? 'border-[#153e35] text-[#153e35]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              首页
+            </button>
+            <button
+              onClick={() => setFactoryTab('partners')}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                factoryTab === 'partners'
+                  ? 'border-[#153e35] text-[#153e35]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              合作商家 {receivedAuths.length > 0 && `(${receivedAuths.length})`}
+            </button>
+            <button
+              onClick={() => setFactoryTab('channels')}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                factoryTab === 'channels'
+                  ? 'border-[#153e35] text-[#153e35]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              渠道管理 {grantedAuths.length > 0 && `(${grantedAuths.length})`}
+            </button>
+          </div>
+
+          {factoryTab === 'home' && (
+          <>
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
             <div>
               <h2 className="text-4xl font-black text-gray-900 tracking-tight">品牌工厂中心</h2>
@@ -1082,6 +1136,179 @@ export default function ManufacturerManagement() {
                     </div>
                   )
                 })
+              )}
+            </div>
+          )}
+          </>
+          )}
+
+          {/* 合作商家TAB：其他商家授权给本厂家的信息 */}
+          {factoryTab === 'partners' && (
+            <div>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">合作商家</h2>
+                <p className="text-sm text-gray-500 mt-1">其他商家授权给本厂家的合作信息</p>
+              </div>
+
+              {receivedAuths.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+                  <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">暂无合作商家</p>
+                  <p className="text-sm text-gray-400 mt-2">当其他商家授权给您时，会显示在这里</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {receivedAuths.map((auth: any) => {
+                    const partnerName = auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家'
+                    const partnerLogo = auth.fromManufacturer?.logo
+                    const partnerId = auth.fromManufacturer?._id || auth._id
+                    const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
+                    
+                    return (
+                      <div key={auth._id} className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+                            {partnerLogo ? (
+                              <img src={getFileUrl(partnerLogo)} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Factory className="w-6 h-6 text-gray-300" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 truncate">{partnerName}</h4>
+                            <p className="text-xs text-gray-500">{partnerId?.slice(-8)}</p>
+                          </div>
+                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">已授权</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className="bg-gray-50 rounded-xl p-3 text-center">
+                            <div className="text-xs text-gray-500 mb-1">授权折扣</div>
+                            <div className="text-xl font-bold text-gray-900">{auth.minDiscountRate || 0}%</div>
+                          </div>
+                          <div className="bg-gray-50 rounded-xl p-3 text-center">
+                            <div className="text-xs text-gray-500 mb-1">返佣比例</div>
+                            <div className="text-xl font-bold text-gray-900">{auth.commissionRate || 0}%</div>
+                          </div>
+                        </div>
+                        
+                        <div className="text-sm text-gray-500 mb-4">
+                          已授权 {productCount} 件商品
+                        </div>
+                        
+                        <button
+                          onClick={() => navigate(`/admin/manufacturers/${myManufacturerId}/authorized-products?partnerId=${partnerId}`)}
+                          className="w-full py-2.5 bg-[#153e35] text-white rounded-xl text-sm hover:bg-[#1a4d42]"
+                        >
+                          查看授权商品
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 渠道管理TAB：本厂家授权给其他商家的信息 */}
+          {factoryTab === 'channels' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">渠道管理</h2>
+                  <p className="text-sm text-gray-500 mt-1">本厂家授权给其他商家的信息</p>
+                </div>
+                <button
+                  onClick={() => navigate(`/admin/authorization-requests`)}
+                  className="px-4 py-2 bg-[#153e35] text-white text-sm rounded-lg hover:bg-[#1a4d42]"
+                >
+                  下发准入邀请码
+                </button>
+              </div>
+
+              {grantedAuths.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+                  <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">暂无渠道授权</p>
+                  <p className="text-sm text-gray-400 mt-2">您授权给其他商家时，会显示在这里</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {grantedAuths.map((auth: any) => {
+                    const targetName = auth.toDesigner?.nickname || auth.toDesigner?.username || 
+                                      auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知渠道'
+                    const targetAvatar = auth.toDesigner?.avatar || auth.toManufacturer?.logo
+                    const targetType = auth.authorizationType === 'manufacturer' ? '厂家' : '设计师'
+                    const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
+                    
+                    return (
+                      <div key={auth._id} className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
+                              {targetAvatar ? (
+                                <img src={getFileUrl(targetAvatar)} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                  <Factory className="w-6 h-6" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-gray-900">{targetName}</span>
+                                <span className={`px-2 py-0.5 text-xs rounded ${
+                                  auth.authorizationType === 'manufacturer' 
+                                    ? 'bg-blue-100 text-blue-700' 
+                                    : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                  {targetType}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                合约期至: {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久有效'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-6">
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">最低折扣</div>
+                              <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">返佣比例</div>
+                              <div className="text-lg font-bold text-blue-600">{auth.commissionRate ?? '--'}%</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">已授权SKU</div>
+                              <div className="text-lg font-bold text-gray-900">{productCount}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing`)}
+                                className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+                              >
+                                专属价格池
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  const rt = encodeURIComponent(`/admin/manufacturer-management`)
+                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${myManufacturerId}&returnTo=${rt}`)
+                                }}
+                                className="px-4 py-2 text-sm bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
+                              >
+                                分成体系
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
           )}
