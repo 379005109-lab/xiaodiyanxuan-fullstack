@@ -52,6 +52,18 @@ export default function AuthorizationManagement() {
     user?.role === 'enterprise_staff'
   )
 
+  // 厂家用户自动重定向到新的统一授权管理页面
+  useEffect(() => {
+    if (isManufacturerUser && !isPlatformAdmin) {
+      const manufacturerId = (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0]
+      if (manufacturerId) {
+        navigate(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`, { replace: true })
+      } else {
+        navigate(`/admin/business-panel?tab=authorizations`, { replace: true })
+      }
+    }
+  }, [isManufacturerUser, isPlatformAdmin, user, navigate])
+
   type TabKey = 'granted' | 'received' | 'pending_requests' | 'my_requests' | 'tier_hierarchy'
   const urlTab = searchParams.get('tab') as TabKey | null
   const [activeTab, setActiveTab] = useState<TabKey>(urlTab || 'received')
