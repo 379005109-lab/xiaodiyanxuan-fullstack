@@ -160,7 +160,18 @@ router.get('/', auth, requireRole(ADMIN_ROLES), async (req, res) => {
     
     const query = {};
     if (status) query.status = status;
-    if (manufacturerId) query.manufacturerId = manufacturerId;
+    
+    // ★ 关键修复：厂家管理员只能看到自己厂家的订单
+    const isSuperAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin'].includes(req.user?.role);
+    const userManufacturerId = req.user?.manufacturerId || req.user?.manufacturerIds?.[0];
+    
+    if (manufacturerId) {
+      query.manufacturerId = manufacturerId;
+    } else if (!isSuperAdmin && userManufacturerId) {
+      // 非超级管理员，自动过滤为自己厂家的订单
+      query.manufacturerId = userManufacturerId;
+      console.log('📋 [ManufacturerOrder] 自动过滤厂家订单:', userManufacturerId);
+    }
     if (keyword) {
       query.$or = [
         { orderNo: { $regex: keyword, $options: 'i' } },
