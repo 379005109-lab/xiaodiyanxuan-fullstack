@@ -409,12 +409,10 @@ export default function CheckoutPage() {
         console.error('⚠️ 401错误 - Token验证失败')
         console.error('⚠️ 请求头:', error.config?.headers)
         console.error('⚠️ LocalStorage Token:', localStorage.getItem('token'))
+        console.error('⚠️ 后端返回:', error.response?.data)
         
-        // 清除登录状态并提示重新登录
-        localStorage.removeItem('token')
-        useAuthStore.getState().logout()
-        toast.error('登录已过期，请重新登录')
-        useAuthModalStore.getState().openLogin()
+        // 不要自动清除登录状态，只显示错误信息
+        toast.error('订单提交失败：认证错误，请刷新页面后重试')
         setSubmitting(false)
         return
       } else if (error.response?.data?.message) {
