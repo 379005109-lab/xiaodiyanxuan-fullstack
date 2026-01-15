@@ -421,6 +421,30 @@ router.post('/:manufacturerId/certification', manufacturerAccountController.subm
 // PUT /api/manufacturers/:manufacturerId/certification/review - 审核企业认证（管理员）
 router.put('/:manufacturerId/certification/review', manufacturerAccountController.reviewCertification)
 
+// ========== 厂家ID重新生成 ==========
+
+// POST /api/manufacturers/regenerate-codes - 重新生成所有厂家的英文ID
+router.post('/regenerate-codes', requireRole(PLATFORM_ONLY_ROLES), async (req, res) => {
+  try {
+    const manufacturers = await ManufacturerModel.find({})
+    let updated = 0
+    
+    for (const m of manufacturers) {
+      if (m.shortName) {
+        // 强制重新生成code
+        m.code = undefined
+        await m.save()
+        updated++
+      }
+    }
+    
+    res.json({ success: true, message: `已更新 ${updated} 个厂家的ID`, updated })
+  } catch (error) {
+    console.error('重新生成厂家ID失败:', error)
+    res.status(500).json({ success: false, message: '重新生成失败', error: error.message })
+  }
+})
+
 // ========== OCR识别 ==========
 
 // POST /api/manufacturers/ocr/business-license - 营业执照OCR识别

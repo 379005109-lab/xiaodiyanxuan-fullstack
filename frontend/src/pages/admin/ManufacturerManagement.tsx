@@ -909,42 +909,65 @@ export default function ManufacturerManagement() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               <div 
-                className="rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all relative overflow-hidden"
-                style={{
-                  background: myManufacturer.logo 
-                    ? `linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0.98)), url(${getFileUrl(myManufacturer.logo)}) center/cover no-repeat`
-                    : 'white'
-                }}
+                className="rounded-[2.5rem] border border-gray-100 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all relative overflow-hidden bg-white"
               >
-                <div className="flex items-start justify-between relative z-10">
-                  <div className="flex items-center gap-3">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={myManufacturer.status === 'active'}
-                        onChange={() => {
-                          if (!confirm(myManufacturer.status === 'active' ? '确定要下架停运该品牌吗？' : '确定要恢复启用该品牌吗？')) return
-                          handleToggleStatus(myManufacturer)
-                        }}
-                      />
-                      <div className="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-5"></div>
-                    </label>
-                    <span className={`text-xs font-semibold ${myManufacturer.status === 'active' ? 'text-emerald-700' : 'text-gray-500'}`}>
-                      {myManufacturer.status === 'active' ? '启用中' : '已停用'}
-                    </span>
-                  </div>
-
-                  <div className="w-14 h-14 rounded-2xl bg-white/80 border shadow-inner flex items-center justify-center overflow-hidden backdrop-blur-sm">
+                {/* 卡片上半部分：LOGO图片填充 */}
+                {myManufacturer.logo ? (
+                  <div className="h-40 w-full overflow-hidden relative">
                     <img
-                      src={getFileUrl(myManufacturer.logo || '')}
+                      src={getFileUrl(myManufacturer.logo)}
                       alt={myManufacturer.fullName || myManufacturer.name}
                       className="w-full h-full object-cover"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/30"></div>
+                    <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={myManufacturer.status === 'active'}
+                            onChange={() => {
+                              if (!confirm(myManufacturer.status === 'active' ? '确定要下架停运该品牌吗？' : '确定要恢复启用该品牌吗？')) return
+                              handleToggleStatus(myManufacturer)
+                            }}
+                          />
+                          <div className="w-12 h-7 bg-white/50 backdrop-blur-sm peer-focus:outline-none rounded-full peer peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-5"></div>
+                        </label>
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full backdrop-blur-sm ${myManufacturer.status === 'active' ? 'bg-emerald-500/80 text-white' : 'bg-gray-500/80 text-white'}`}>
+                          {myManufacturer.status === 'active' ? '启用中' : '已停用'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                <div className="mt-5">
+                ) : (
+                  <div className="h-32 w-full bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
+                    <div className="text-gray-300 text-4xl font-black">{(myManufacturer.shortName || myManufacturer.name || '?')[0]}</div>
+                    <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={myManufacturer.status === 'active'}
+                            onChange={() => {
+                              if (!confirm(myManufacturer.status === 'active' ? '确定要下架停运该品牌吗？' : '确定要恢复启用该品牌吗？')) return
+                              handleToggleStatus(myManufacturer)
+                            }}
+                          />
+                          <div className="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-5"></div>
+                        </label>
+                        <span className={`text-xs font-semibold ${myManufacturer.status === 'active' ? 'text-emerald-700' : 'text-gray-500'}`}>
+                          {myManufacturer.status === 'active' ? '启用中' : '已停用'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 卡片下半部分：信息 */}
+                <div className="p-8 pt-4">
+                <div>
                   <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest">工厂门户</div>
                   <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
                     {myManufacturer.shortName || myManufacturer.fullName || myManufacturer.name}
@@ -1034,6 +1057,7 @@ export default function ManufacturerManagement() {
                     {myManufacturer.status === 'active' ? '下架停运' : '恢复启用'}
                   </button>
                 </div>
+                </div>
               </div>
 
               {/* 资料编辑模块 */}
@@ -1115,6 +1139,10 @@ export default function ManufacturerManagement() {
                     <button
                       onClick={() => {
                         setEditSection('tags')
+                        setEditSectionData({
+                          styleTags: myManufacturer.styleTags || [],
+                          categoryTags: myManufacturer.categoryTags || []
+                        })
                         setShowEditSectionModal(true)
                       }}
                       className="text-xs text-primary hover:underline"
