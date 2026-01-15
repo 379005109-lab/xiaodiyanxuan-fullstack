@@ -134,7 +134,7 @@ export default function ManufacturerBusinessPanel() {
       setCategories(categoryList)
       setTierSystemConfig(tRes.data?.data || null)
       setReceivedAuths(receivedRes.data?.data || [])
-      setGrantedAuths(authRes.data?.data || [])
+      setGrantedAuths((authRes.data?.data || []).filter((a: any) => a?.status === 'active'))
       
       // Create category lookup map
       const categoryMap = new Map<string, any>()

@@ -638,9 +638,7 @@ export default function TierSystemManagement() {
             <div className="flex items-center bg-gray-100 rounded-xl p-1">
               <button
                 onClick={() => setActiveTab('hierarchy')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  activeTab === 'hierarchy' ? 'bg-[#153e35] text-white shadow-sm' : 'text-gray-600 hover:bg-white'
-                }`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-gray-600 hover:bg-white"
               >
                 <GitBranch className="w-3.5 h-3.5" />
                 公司分层
@@ -1540,6 +1538,8 @@ function HierarchyTab({
   onSetExpandedNodes,
   onToggleNode,
   onSaveAccounts,
+  onSaveData,
+  data,
   activeTab,
   onSetActiveTab,
   logoSrc,
@@ -1591,6 +1591,47 @@ function HierarchyTab({
   const [manufacturerAccounts, setManufacturerAccounts] = useState<any[]>([])
   const [bindSearchKeyword, setBindSearchKeyword] = useState('')
   const [loadingAccounts, setLoadingAccounts] = useState(false)
+
+  const buildDepthRulesFromTemplate = (ruleId?: string) => {
+    const rid = String(ruleId || '').trim()
+    if (!rid) return []
+    const rule = (localCommissionRules || []).find(r => String(r._id) === rid)
+    if (!rule) return []
+    const next: Array<{ depth: number; commissionRate: number; description?: string }> = []
+    next.push({ depth: 0, commissionRate: Math.max(0, Math.min(1, Number(rule.selfRate || 0) / 100)) })
+    ;(rule.subordinateRates || []).forEach((pct, idx) => {
+      next.push({ depth: idx + 1, commissionRate: Math.max(0, Math.min(1, Number(pct || 0) / 100)) })
+    })
+    return next
+  }
+
+  const handleDeleteAccount = async (accountId: string) => {
+    const targetId = String(accountId || '')
+    if (!targetId) return
+    try {
+      const toDelete = new Set<string>([targetId])
+      let changed = true
+      while (changed) {
+        changed = false
+        ;(data.authorizedAccounts || []).forEach((a: any) => {
+          const id = String(a?._id || '')
+          const pid = a?.parentId ? String(a.parentId) : ''
+          if (!id) return
+          if (pid && toDelete.has(pid) && !toDelete.has(id)) {
+            toDelete.add(id)
+            changed = true
+          }
+        })
+      }
+
+      const nextAccounts = (data.authorizedAccounts || []).filter((a: any) => !toDelete.has(String(a?._id || '')))
+      await onSaveData({ ...data, authorizedAccounts: nextAccounts })
+      toast.success('层级已删除')
+    } catch (e: any) {
+      console.error('[TierSystem] 删除层级失败:', e)
+      toast.error(e?.response?.data?.message || e?.message || '删除失败')
+    }
+  }
   
   // 加载厂家账号
   const loadManufacturerAccounts = async () => {
@@ -2433,14 +2474,13 @@ function HierarchyTab({
     items.push({ id: 'headquarters', label: hierarchyData.headquarters?.name || '总部' })
     hierarchyData.staffNodes.forEach((s) => {
       const n = String(s.name || s.id || '').toLowerCase()
-      const e = String(s.account?.email || s.email || '').toLowerCase()
       const p = String(s.phone || '').toLowerCase()
       const r = modules.find(m => String(m._id) === String(s.account?.roleModuleId))?.name || ''
-      if (n.includes(q) || e.includes(q) || p.includes(q) || r.toLowerCase().includes(q)) {
+      if (n.includes(q) || p.includes(q) || r.toLowerCase().includes(q)) {
         items.push({
           id: String(s.id),
           label: String(s.name || s.id || ''),
-          extra: [s.account?.email || s.email, s.phone, r].filter(Boolean).join(' · ')
+          extra: [s.phone, r].filter(Boolean).join(' · ')
         })
       }
     })
@@ -3360,7 +3400,12 @@ function HierarchyTab({
                                   value={entityRuleId || ''}
                                   onChange={(e) => {
                                     const newBindings = [...(selectedStaff.boundEntities || [])]
-                                    newBindings[idx] = { ...newBindings[idx], commissionRuleId: e.target.value || undefined }
+                                    const nextRuleId = e.target.value || undefined
+                                    newBindings[idx] = {
+                                      ...newBindings[idx],
+                                      commissionRuleId: nextRuleId,
+                                      depthBasedCommissionRules: buildDepthRulesFromTemplate(nextRuleId)
+                                    }
                                     setSelectedStaff({ ...selectedStaff, boundEntities: newBindings })
                                   }}
                                   className="flex-1 text-xs p-1.5 border border-gray-200 rounded bg-white"
@@ -3383,6 +3428,78 @@ function HierarchyTab({
                                       {i+1}级下级 {rate}%
                                     </span>
                                   ))}
+                                </div>
+                              )}
+
+                              {Array.isArray((entity as any).depthBasedCommissionRules) && (
+                                <div className="mt-2 pt-2 border-t border-blue-100">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs text-gray-600">多层级返佣(按层级深度)</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newBindings = [...(selectedStaff.boundEntities || [])]
+                                        const prevRules = Array.isArray((newBindings[idx] as any).depthBasedCommissionRules)
+                                          ? (newBindings[idx] as any).depthBasedCommissionRules
+                                          : []
+                                        const used = new Set(prevRules.map((r: any) => Number(r?.depth)))
+                                        let d = 0
+                                        while (used.has(d)) d++
+                                        const nextRules = [...prevRules, { depth: d, commissionRate: 0 }]
+                                        newBindings[idx] = { ...newBindings[idx], depthBasedCommissionRules: nextRules }
+                                        setSelectedStaff({ ...selectedStaff, boundEntities: newBindings })
+                                      }}
+                                      className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                                    >
+                                      + 添加层级
+                                    </button>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {((entity as any).depthBasedCommissionRules || []).map((r: any, ri: number) => {
+                                      const pct = Math.round(Number(r?.commissionRate || 0) * 100)
+                                      return (
+                                        <div key={ri} className="flex items-center gap-2">
+                                          <span className="text-xs text-gray-600 w-14">层级 {Number(r?.depth || 0)}</span>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={pct}
+                                            onChange={(e) => {
+                                              const newBindings = [...(selectedStaff.boundEntities || [])]
+                                              const prevRules = Array.isArray((newBindings[idx] as any).depthBasedCommissionRules)
+                                                ? (newBindings[idx] as any).depthBasedCommissionRules
+                                                : []
+                                              const nextRules = [...prevRules]
+                                              nextRules[ri] = {
+                                                ...nextRules[ri],
+                                                commissionRate: Math.max(0, Math.min(1, (Number(e.target.value) || 0) / 100))
+                                              }
+                                              newBindings[idx] = { ...newBindings[idx], depthBasedCommissionRules: nextRules }
+                                              setSelectedStaff({ ...selectedStaff, boundEntities: newBindings })
+                                            }}
+                                            className="w-20 text-xs p-1.5 border border-gray-200 rounded bg-white text-center"
+                                          />
+                                          <span className="text-xs text-gray-500">%</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const newBindings = [...(selectedStaff.boundEntities || [])]
+                                              const prevRules = Array.isArray((newBindings[idx] as any).depthBasedCommissionRules)
+                                                ? (newBindings[idx] as any).depthBasedCommissionRules
+                                                : []
+                                              const nextRules = prevRules.filter((_: any, i: number) => i !== ri)
+                                              newBindings[idx] = { ...newBindings[idx], depthBasedCommissionRules: nextRules }
+                                              setSelectedStaff({ ...selectedStaff, boundEntities: newBindings })
+                                            }}
+                                            className="p-1 text-red-500 hover:text-red-700"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
                                 </div>
                               )}
                             </div>
