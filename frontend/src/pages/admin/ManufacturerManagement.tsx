@@ -3086,10 +3086,37 @@ export default function ManufacturerManagement() {
                   </div>
                   <ImageUploader
                     images={editSectionData.businessLicense ? [editSectionData.businessLicense] : (myManufacturer.certification?.businessLicense ? [myManufacturer.certification.businessLicense] : [])}
-                    onChange={(urls) => setEditSectionData({...editSectionData, businessLicense: urls[0] || ''})}
-                    label="上传营业执照"
+                    onChange={async (urls) => {
+                      const imageUrl = urls[0] || ''
+                      setEditSectionData({...editSectionData, businessLicense: imageUrl})
+                      
+                      // 自动OCR识别
+                      if (imageUrl) {
+                        try {
+                          toast.info('正在识别营业执照...')
+                          const res = await apiClient.post('/manufacturers/ocr/business-license', { 
+                            imageUrl: getFileUrl(imageUrl) 
+                          })
+                          if (res.data.success && res.data.data) {
+                            const ocr = res.data.data
+                            setEditSectionData((prev: any) => ({
+                              ...prev,
+                              businessLicense: imageUrl,
+                              invoiceCompanyName: ocr.companyName || prev.invoiceCompanyName,
+                              creditCode: ocr.creditCode || prev.creditCode,
+                              legalPerson: ocr.legalPerson || prev.legalPerson,
+                              invoiceAddress: ocr.address || prev.invoiceAddress
+                            }))
+                            toast.success('识别完成，请核对信息')
+                          }
+                        } catch (error) {
+                          console.log('OCR识别失败，请手动填写')
+                        }
+                      }
+                    }}
+                    label="上传营业执照（自动识别）"
                   />
-                  <p className="text-xs text-gray-500">需确保执照处于有效期内，公章清晰。支持 JPG、PDF 格式。</p>
+                  <p className="text-xs text-gray-500">上传后自动识别营业执照信息。需确保执照处于有效期内，公章清晰。</p>
 
                   <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-8">
                     <div className="w-1 h-5 bg-[#153e35] rounded"></div>
