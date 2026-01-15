@@ -588,11 +588,14 @@ export default function TierSystemManagement() {
   // 删除层级账号
   const handleDeleteAccount = async (accountId: string) => {
     try {
+      console.log('[TierSystem] 删除层级账号:', accountId)
       const newAccounts = data.authorizedAccounts.filter(a => String(a._id) !== accountId)
+      console.log('[TierSystem] 删除后账号数:', newAccounts.length, '原数:', data.authorizedAccounts.length)
       await saveData({ ...data, authorizedAccounts: newAccounts })
       toast.success('层级已删除')
-    } catch (e) {
-      toast.error('删除失败')
+    } catch (e: any) {
+      console.error('[TierSystem] 删除层级失败:', e)
+      toast.error(e?.message || '删除失败')
     }
   }
 

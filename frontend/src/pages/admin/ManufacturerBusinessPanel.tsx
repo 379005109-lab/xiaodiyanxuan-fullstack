@@ -996,12 +996,20 @@ export default function ManufacturerBusinessPanel() {
                                     if (!confirm(`确定要删除公司"${companyName}"的所有授权吗？此操作不可恢复。`)) return
                                     try {
                                       const authIds = auths.map((a: any) => a._id)
-                                      await Promise.all(authIds.map((id: string) => apiClient.delete(`/authorizations/${id}`)))
-                                      toast.success('已删除')
-                                      loadData()
-                                    } catch (err) {
+                                      const results = await Promise.allSettled(
+                                        authIds.map((id: string) => apiClient.delete(`/authorizations/${id}`))
+                                      )
+                                      const failed = results.filter(r => r.status === 'rejected')
+                                      if (failed.length > 0) {
+                                        console.error('部分删除失败:', failed)
+                                        toast.error(`删除失败 ${failed.length}/${authIds.length} 条`)
+                                      } else {
+                                        toast.success(`已删除 ${authIds.length} 条授权`)
+                                      }
+                                      await loadData()
+                                    } catch (err: any) {
                                       console.error('删除失败:', err)
-                                      toast.error('删除失败')
+                                      toast.error(err?.response?.data?.message || '删除失败')
                                     }
                                   }}
                                 >
