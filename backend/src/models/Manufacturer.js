@@ -94,6 +94,20 @@ const manufacturerSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  // 品类标签
+  categoryTags: {
+    type: [String],
+    default: []
+  },
+  // 价格范围
+  priceRangeMin: {
+    type: Number,
+    default: 0
+  },
+  priceRangeMax: {
+    type: Number,
+    default: 0
+  },
   defaultDiscount: {
     type: Number,
     default: 0
@@ -102,26 +116,46 @@ const manufacturerSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  // 付款比例设置
+  // 付款比例设置（新版 - 支持多比例选择）
+  paymentRatioEnabled: {
+    type: Boolean,
+    default: false
+  },
+  // 可选付款比例数组（如 [50, 75, 100]）
+  paymentRatios: {
+    type: [Number],
+    default: [50, 75, 100]
+  },
+  // 开票设置（新版）
+  invoiceEnabled: {
+    type: Boolean,
+    default: false
+  },
+  // 开票加价比例 (百分比，如 10 表示加价10%)
+  invoiceMarkupPercent: {
+    type: Number,
+    default: 10,
+    min: 0,
+    max: 100
+  },
+  // 兼容旧版付款比例设置
   paymentRatio: {
     enabled: {
       type: Boolean,
       default: false
     },
-    // 付款比例: 50, 75, 100 (百分比)
     ratio: {
       type: Number,
       default: 100,
       enum: [50, 75, 100]
     }
   },
-  // 开票设置
+  // 兼容旧版开票设置
   invoiceSetting: {
     enabled: {
       type: Boolean,
       default: false
     },
-    // 开票加价比例 (百分比，如 6 表示加价6%)
     ratio: {
       type: Number,
       default: 0,
@@ -191,7 +225,11 @@ const manufacturerSchema = new mongoose.Schema({
       enum: ['none', 'pending', 'approved', 'rejected'],
       default: 'none'
     },
-    // 营业执照图片
+    // 营业执照图片（新字段，与前端匹配）
+    businessLicense: {
+      type: String
+    },
+    // 营业执照图片（旧字段，兼容）
     businessLicenseImage: {
       type: String
     },
@@ -205,24 +243,35 @@ const manufacturerSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
-    // 法人代表
+    // 法人代表（新字段，与前端匹配）
+    legalPerson: {
+      type: String,
+      trim: true
+    },
+    // 法人代表（旧字段，兼容）
     legalRepresentative: {
       type: String,
       trim: true
     },
-    // 开票信息
+    // 开票名称（与前端匹配）
+    invoiceName: { type: String, trim: true },
+    // 税号（与前端匹配）
+    taxNumber: { type: String, trim: true },
+    // 开户银行（与前端匹配）
+    invoiceBankName: { type: String, trim: true },
+    // 银行账号（与前端匹配）
+    invoiceBankAccount: { type: String, trim: true },
+    // 企业地址（与前端匹配）
+    invoiceAddress: { type: String, trim: true },
+    // 企业电话（与前端匹配）
+    invoicePhone: { type: String, trim: true },
+    // 开票信息（旧嵌套结构，兼容）
     invoiceInfo: {
-      // 开票名称
       name: { type: String, trim: true },
-      // 税号
       taxNumber: { type: String, trim: true },
-      // 开户银行
       bankName: { type: String, trim: true },
-      // 银行账号
       bankAccount: { type: String, trim: true },
-      // 企业地址
       address: { type: String, trim: true },
-      // 企业电话
       phone: { type: String, trim: true }
     },
     // 认证时间
