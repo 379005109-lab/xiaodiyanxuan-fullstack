@@ -91,6 +91,19 @@ const dispatchOrderToManufacturers = async (order) => {
 
   if (!items.length) return []
 
+  // ★ 关键修复：如果订单有 ownerManufacturerId，说明是授权商品订单
+  // 订单应该分配给下单用户所属的厂家（ownerManufacturerId），而不是商品的原始厂家
+  let orderOwnerManufacturerId = order.ownerManufacturerId ? String(order.ownerManufacturerId) : null
+  let orderOwnerManufacturerName = null
+  
+  if (orderOwnerManufacturerId) {
+    const ownerManufacturer = await Manufacturer.findById(orderOwnerManufacturerId)
+      .select('fullName name shortName')
+      .lean()
+    orderOwnerManufacturerName = ownerManufacturer?.fullName || ownerManufacturer?.name || ownerManufacturer?.shortName || '未知厂家'
+    console.log('📦 [Dispatch] 授权商品订单，分配给下单用户厂家:', orderOwnerManufacturerId, orderOwnerManufacturerName)
+  }
+
   let basePriceMap = null
   let totalWeight = 0
   if (order.orderType === 'package') {
@@ -115,8 +128,9 @@ const dispatchOrderToManufacturers = async (order) => {
 
   const groups = new Map()
   for (const item of items) {
-    const manufacturerId = item.manufacturerId
-    const manufacturerName = item.manufacturerName
+    // ★ 关键修复：优先使用订单的 ownerManufacturerId
+    const manufacturerId = orderOwnerManufacturerId || item.manufacturerId
+    const manufacturerName = orderOwnerManufacturerName || item.manufacturerName
 
     const key = manufacturerId ? String(manufacturerId) : 'unknown'
     if (!groups.has(key)) {

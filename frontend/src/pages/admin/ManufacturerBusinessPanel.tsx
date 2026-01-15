@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
+import PartnerCard from '@/components/PartnerCard'
 import { 
   ChevronDown, 
   ChevronRight,
@@ -19,7 +20,7 @@ import {
   Settings
 } from 'lucide-react'
 
-type TabType = 'channels' | 'products' | 'received_auth' | 'granted_auth'
+type TabType = 'channels' | 'products' | 'authorizations'
 type ProductFilter = 'all' | 'own' | 'authorized' | 'pending'
 
 interface ChannelItem {
@@ -77,7 +78,7 @@ export default function ManufacturerBusinessPanel() {
   const manufacturerId = params.manufacturerId || (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0]
 
   const urlTab = searchParams.get('tab') as TabType | null
-  const [activeTab, setActiveTab] = useState<TabType>(urlTab || 'channels')
+  const [activeTab, setActiveTab] = useState<TabType>(urlTab || 'authorizations')
   const [productFilter, setProductFilter] = useState<ProductFilter>('all')
   const [loading, setLoading] = useState(true)
   const [manufacturer, setManufacturer] = useState<any>(null)
@@ -134,7 +135,7 @@ export default function ManufacturerBusinessPanel() {
       setCategories(categoryList)
       setTierSystemConfig(tRes.data?.data || null)
       setReceivedAuths(receivedRes.data?.data || [])
-      setGrantedAuths(authRes.data?.data || [])
+      setGrantedAuths((authRes.data?.data || []).filter((a: any) => a?.status === 'active'))
       
       // Create category lookup map
       const categoryMap = new Map<string, any>()
@@ -472,29 +473,16 @@ export default function ManufacturerBusinessPanel() {
                 </span>
               </button>
               <button
-                onClick={() => setActiveTab('received_auth')}
+                onClick={() => setActiveTab('authorizations')}
                 className={`py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'received_auth'
+                  activeTab === 'authorizations'
                     ? 'border-[#153e35] text-[#153e35]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <Eye className="w-4 h-4" />
-                  被授权模式
-                </span>
-              </button>
-              <button
-                onClick={() => setActiveTab('granted_auth')}
-                className={`py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'granted_auth'
-                    ? 'border-[#153e35] text-[#153e35]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  授权模式
+                  <Users className="w-4 h-4" />
+                  授权管理
                 </span>
               </button>
             </div>
@@ -807,71 +795,125 @@ export default function ManufacturerBusinessPanel() {
               </div>
             )}
 
-            {activeTab === 'received_auth' && (
+            {activeTab === 'authorizations' && (
               <div>
                 <div className="mb-6">
-                  <h3 className="text-lg font-bold text-gray-900">被授权模式</h3>
-                  <p className="text-sm text-gray-500">显示其他厂家授权给我的产品</p>
+                  <h3 className="text-lg font-bold text-gray-900">授权管理</h3>
+                  <p className="text-sm text-gray-500">管理所有合作商的授权关系（我授权的 + 我收到的）</p>
                 </div>
 
-                {receivedAuths.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>暂无收到的授权</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {receivedAuths.map(auth => {
-                      const fromName = auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家'
-                      const productCount = auth.scope === 'all' 
-                        ? '全部商品' 
-                        : auth.scope === 'category'
-                        ? `${auth.categories?.length || 0}个分类`
-                        : `${auth.products?.length || 0}个商品`
+                {(() => {
+                  // 合并 receivedAuths 和 grantedAuths，按合作商分组
+                  const partnerMap = new Map<string, { 
+                    partnerId: string
+                    partnerName: string
+                    partnerLogo?: string
+                    grantedAuths: any[]
+                    receivedAuths: any[]
+                  }>()
 
-                      return (
-                        <div key={auth._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-3">
-                                <h4 className="font-semibold text-gray-900">{fromName}</h4>
-                                <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-                                  {auth.authorizationType === 'manufacturer' ? '厂家授权' : '设计师授权'}
-                                </span>
-                                <span className={`px-2 py-1 text-xs rounded ${
-                                  auth.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                                }`}>
-                                  {auth.status === 'active' ? '有效' : '已失效'}
-                                </span>
-                              </div>
-                              
-                              {/* 最低折扣和返佣 - 突出显示 */}
-                              <div className="grid grid-cols-2 gap-3 mb-3">
-                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                                  <div className="text-xs text-green-700">最低折扣</div>
-                                  <div className="text-2xl font-bold text-green-600">{auth.minDiscountRate || 0}%</div>
-                                </div>
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                                  <div className="text-xs text-blue-700">返佣比例</div>
-                                  <div className="text-2xl font-bold text-blue-600">{auth.commissionRate || 0}%</div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center gap-4 text-sm text-gray-600">
-                                <span>授权范围: {productCount}</span>
-                                <span>有效期: {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久有效'}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+                  // 处理我授权给别人的（granted）
+                  grantedAuths.forEach((auth: any) => {
+                    const partnerId = auth.toDesigner?._id || auth.toManufacturer?._id || auth._id
+                    const partnerName = auth.toDesigner?.nickname || auth.toDesigner?.username || auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知合作商'
+                    const partnerLogo = auth.toDesigner?.avatar || auth.toManufacturer?.logo
+                    
+                    if (!partnerMap.has(partnerId)) {
+                      partnerMap.set(partnerId, {
+                        partnerId,
+                        partnerName,
+                        partnerLogo,
+                        grantedAuths: [],
+                        receivedAuths: []
+                      })
+                    }
+                    partnerMap.get(partnerId)!.grantedAuths.push(auth)
+                  })
+
+                  // 处理别人授权给我的（received）
+                  receivedAuths.forEach((auth: any) => {
+                    const partnerId = auth.fromManufacturer?._id || auth._id
+                    const partnerName = auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家'
+                    const partnerLogo = auth.fromManufacturer?.logo
+                    
+                    if (!partnerMap.has(partnerId)) {
+                      partnerMap.set(partnerId, {
+                        partnerId,
+                        partnerName,
+                        partnerLogo,
+                        grantedAuths: [],
+                        receivedAuths: []
+                      })
+                    }
+                    partnerMap.get(partnerId)!.receivedAuths.push(auth)
+                  })
+
+                  const partners = Array.from(partnerMap.values())
+
+                  if (partners.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-gray-500">
+                        <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p>暂无合作商</p>
+                        <button
+                          onClick={() => navigate('/admin/authorizations?tab=pending_requests')}
+                          className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                        >
+                          去审批授权申请
+                        </button>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {partners.map(partner => {
+                        // 计算总商品数
+                        const totalProducts = [...partner.grantedAuths, ...partner.receivedAuths].reduce((sum, auth) => {
+                          if (auth.scope === 'all') return sum + 1000
+                          if (auth.scope === 'category') return sum + (auth.categories?.length || 0) * 10
+                          return sum + (auth.products?.length || 0)
+                        }, 0)
+
+                        // 计算平均折扣和返佣
+                        const allAuths = [...partner.grantedAuths, ...partner.receivedAuths]
+                        const avgDiscount = allAuths.reduce((sum, a) => sum + (a.minDiscountRate || 0), 0) / allAuths.length
+                        const avgCommission = allAuths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / allAuths.length
+
+                        return (
+                          <PartnerCard
+                            key={partner.partnerId}
+                            partnerId={partner.partnerId}
+                            partnerName={partner.partnerName}
+                            partnerLogo={partner.partnerLogo}
+                            status="active"
+                            productCount={totalProducts}
+                            grantedAuth={partner.grantedAuths.length > 0 ? {
+                              minDiscountRate: Math.round(partner.grantedAuths.reduce((sum, a) => sum + (a.minDiscountRate || 0), 0) / partner.grantedAuths.length),
+                              commissionRate: Math.round(partner.grantedAuths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / partner.grantedAuths.length * 10) / 10
+                            } : undefined}
+                            receivedAuth={partner.receivedAuths.length > 0 ? {
+                              minDiscountRate: Math.round(partner.receivedAuths.reduce((sum, a) => sum + (a.minDiscountRate || 0), 0) / partner.receivedAuths.length),
+                              commissionRate: Math.round(partner.receivedAuths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / partner.receivedAuths.length * 10) / 10
+                            } : undefined}
+                            onViewProducts={() => {
+                              navigate(`/admin/manufacturers/${manufacturerId}/authorized-products?partnerId=${partner.partnerId}`)
+                            }}
+                            onViewTierSystem={() => {
+                              const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)
+                              navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${manufacturerId}&partnerId=${partner.partnerId}&returnTo=${rt}`)
+                            }}
+                          />
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </div>
             )}
 
-            {activeTab === 'granted_auth' && (
+            {/* 旧的 granted_auth 代码已删除，合并到上面的 authorizations tab */}
+            {false && (
               <div>
                 <div className="mb-6">
                   <h3 className="text-lg font-bold text-gray-900">授权模式 - 分成体系管理</h3>
@@ -946,7 +988,7 @@ export default function ManufacturerBusinessPanel() {
                             key={companyKey}
                             className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer"
                             onClick={() => {
-                              const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=granted_auth`)
+                              const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)
                               const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
                               const withCompany = companyId
                                 ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
@@ -1043,7 +1085,7 @@ export default function ManufacturerBusinessPanel() {
                                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=granted_auth`)
+                                    const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)
                                     const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
                                     const withCompany = companyId
                                       ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`

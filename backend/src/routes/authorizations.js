@@ -1967,7 +1967,7 @@ router.delete('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
 
     // 权限检查
     const user = await User.findById(req.userId)
-    const isAdmin = user?.role === 'super_admin' || user?.role === 'admin'
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin'].includes(user?.role)
     const isOwner = authorization.fromManufacturer.toString() === user.manufacturerId?.toString()
     
     if (!isAdmin && !isOwner) {
