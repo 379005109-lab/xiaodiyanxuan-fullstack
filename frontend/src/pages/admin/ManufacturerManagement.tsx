@@ -956,6 +956,30 @@ export default function ManufacturerManagement() {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+          </>
+          )}
+
+          {/* 合作商家TAB：其他可申请授权的厂家 */}
+          {factoryTab === 'partners' && (
+            <div>
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">合作商家</h2>
+                  <p className="text-sm text-gray-500 mt-1">其他可申请授权的品牌厂家</p>
+                </div>
+                <div className="relative max-w-md w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="搜索品牌库..."
+                    value={portalKeyword}
+                    onChange={(e) => setPortalKeyword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-full bg-white shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+              </div>
 
               {filteredOtherManufacturers.length === 0 ? (
                 <div className="text-center py-12 bg-white rounded-[2.5rem] border border-gray-100 flex flex-col items-center justify-center">
@@ -963,7 +987,8 @@ export default function ManufacturerManagement() {
                   <p className="text-gray-500">暂无可申请的品牌</p>
                 </div>
               ) : (
-                filteredOtherManufacturers.map((item) => {
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredOtherManufacturers.map((item) => {
                   const authInfo = authorizationMap[item._id]
                   const isCooperating = authInfo?.status === 'approved' || authInfo?.status === 'active'
                   const isPending = authInfo?.status === 'pending'
@@ -1136,78 +1161,8 @@ export default function ManufacturerManagement() {
                     </div>
                   )
                 })
-              )}
-            </div>
-          )}
-          </>
-          )}
-
-          {/* 合作商家TAB：其他商家授权给本厂家的信息 */}
-          {factoryTab === 'partners' && (
-            <div>
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">合作商家</h2>
-                <p className="text-sm text-gray-500 mt-1">其他商家授权给本厂家的合作信息</p>
+              }
               </div>
-
-              {receivedAuths.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-                  <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">暂无合作商家</p>
-                  <p className="text-sm text-gray-400 mt-2">当其他商家授权给您时，会显示在这里</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {receivedAuths.map((auth: any) => {
-                    const partnerName = auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家'
-                    const partnerLogo = auth.fromManufacturer?.logo
-                    const partnerId = auth.fromManufacturer?._id || auth._id
-                    const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
-                    
-                    return (
-                      <div key={auth._id} className="bg-white rounded-[2rem] border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-                            {partnerLogo ? (
-                              <img src={getFileUrl(partnerLogo)} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Factory className="w-6 h-6 text-gray-300" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900 truncate">{partnerName}</h4>
-                            <p className="text-xs text-gray-500">{partnerId?.slice(-8)}</p>
-                          </div>
-                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">已授权</span>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                          <div className="bg-gray-50 rounded-xl p-3 text-center">
-                            <div className="text-xs text-gray-500 mb-1">授权折扣</div>
-                            <div className="text-xl font-bold text-gray-900">{auth.minDiscountRate || 0}%</div>
-                          </div>
-                          <div className="bg-gray-50 rounded-xl p-3 text-center">
-                            <div className="text-xs text-gray-500 mb-1">返佣比例</div>
-                            <div className="text-xl font-bold text-gray-900">{auth.commissionRate || 0}%</div>
-                          </div>
-                        </div>
-                        
-                        <div className="text-sm text-gray-500 mb-4">
-                          已授权 {productCount} 件商品
-                        </div>
-                        
-                        <button
-                          onClick={() => navigate(`/admin/manufacturers/${myManufacturerId}/authorized-products?partnerId=${partnerId}`)}
-                          className="w-full py-2.5 bg-[#153e35] text-white rounded-xl text-sm hover:bg-[#1a4d42]"
-                        >
-                          查看授权商品
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
               )}
             </div>
           )}
