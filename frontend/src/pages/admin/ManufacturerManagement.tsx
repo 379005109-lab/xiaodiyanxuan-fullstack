@@ -984,82 +984,89 @@ export default function ManufacturerManagement() {
                         </div>
                       </div>
 
-                      {isCooperating && (
-                        <div className="flex gap-2 mt-6">
+                      {isCooperating ? (
+                        <>
+                          {/* 经营授权按钮 - 全宽 */}
                           <button
                             onClick={() => handleOpenProductAuthorization(item)}
-                            className="flex-1 px-6 py-3 rounded-2xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                            className="mt-6 w-full px-6 py-3 rounded-2xl bg-[#123a32] text-white font-bold hover:bg-[#0f2f29] transition-colors"
                           >
                             查看授权商品
                           </button>
-                          {authInfo.isEnabled === false ? (
+
+                          {/* 底部按钮：分成体系 + 关闭/开启 */}
+                          <div className="grid grid-cols-2 gap-3 mt-4">
                             <button
-                              onClick={async () => {
-                                const authId = authInfo.authorizationId
-                                if (!authId) {
-                                  toast.error('授权ID不存在，请刷新页面重试')
-                                  return
-                                }
-                                try {
-                                  // 立即更新本地状态
-                                  setAuthorizationMap(prev => ({
-                                    ...prev,
-                                    [item._id]: { ...prev[item._id], isEnabled: true }
-                                  }))
-                                  const response = await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
-                                  setAuthorizationMap(prev => ({
-                                    ...prev,
-                                    [item._id]: { ...prev[item._id], isEnabled: response.data.isEnabled }
-                                  }))
-                                  toast.success('已开启该厂家商品显示')
-                                } catch (e: any) {
-                                  // 失败时回滚状态
-                                  setAuthorizationMap(prev => ({
-                                    ...prev,
-                                    [item._id]: { ...prev[item._id], isEnabled: false }
-                                  }))
-                                  toast.error(e.response?.data?.message || '操作失败')
-                                }
+                              onClick={() => {
+                                const returnTo = encodeURIComponent(`/admin/manufacturer-management`)
+                                navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${item._id}&returnTo=${returnTo}`)
                               }}
-                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-green-500 text-white hover:bg-green-600 transition-colors"
-                              title="开启后该厂家商品将在列表和商城中显示"
+                              className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                              开启
+                              分成体系
                             </button>
-                          ) : (
-                            <button
-                              onClick={async () => {
-                                const authId = authInfo.authorizationId
-                                if (!authId) {
-                                  toast.error('授权ID不存在，请刷新页面重试')
-                                  return
-                                }
-                                try {
-                                  // 立即更新本地状态
-                                  setAuthorizationMap(prev => ({
-                                    ...prev,
-                                    [item._id]: { ...prev[item._id], isEnabled: false }
-                                  }))
-                                  await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: false })
-                                  toast.success('已关闭该厂家商品显示')
-                                } catch (e: any) {
-                                  // 失败时回滚状态
-                                  setAuthorizationMap(prev => ({
-                                    ...prev,
-                                    [item._id]: { ...prev[item._id], isEnabled: true }
-                                  }))
-                                  toast.error(e.response?.data?.message || '操作失败')
-                                }
-                              }}
-                              className="px-4 py-3 rounded-2xl text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                              title="关闭后该厂家商品不在列表和商城中显示"
-                            >
-                              关闭
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      {!isCooperating && (
+                            {authInfo.isEnabled === false ? (
+                              <button
+                                onClick={async () => {
+                                  const authId = authInfo.authorizationId
+                                  if (!authId) {
+                                    toast.error('授权ID不存在，请刷新页面重试')
+                                    return
+                                  }
+                                  try {
+                                    setAuthorizationMap(prev => ({
+                                      ...prev,
+                                      [item._id]: { ...prev[item._id], isEnabled: true }
+                                    }))
+                                    const response = await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
+                                    setAuthorizationMap(prev => ({
+                                      ...prev,
+                                      [item._id]: { ...prev[item._id], isEnabled: response.data.isEnabled }
+                                    }))
+                                    toast.success('已开启该厂家商品显示')
+                                  } catch (e: any) {
+                                    setAuthorizationMap(prev => ({
+                                      ...prev,
+                                      [item._id]: { ...prev[item._id], isEnabled: false }
+                                    }))
+                                    toast.error(e.response?.data?.message || '操作失败')
+                                  }
+                                }}
+                                className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              >
+                                恢复启用
+                              </button>
+                            ) : (
+                              <button
+                                onClick={async () => {
+                                  const authId = authInfo.authorizationId
+                                  if (!authId) {
+                                    toast.error('授权ID不存在，请刷新页面重试')
+                                    return
+                                  }
+                                  try {
+                                    setAuthorizationMap(prev => ({
+                                      ...prev,
+                                      [item._id]: { ...prev[item._id], isEnabled: false }
+                                    }))
+                                    await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: false })
+                                    toast.success('已关闭该厂家商品显示')
+                                  } catch (e: any) {
+                                    setAuthorizationMap(prev => ({
+                                      ...prev,
+                                      [item._id]: { ...prev[item._id], isEnabled: true }
+                                    }))
+                                    toast.error(e.response?.data?.message || '操作失败')
+                                  }
+                                }}
+                                className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors"
+                              >
+                                下架停运
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : (
                         <button
                           disabled={item.status !== 'active'}
                           onClick={() => handleOpenProductAuthorization(item)}
