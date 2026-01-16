@@ -293,7 +293,7 @@ export default function AuthorizationPricingPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-bold text-gray-900">授权商品价格预览</h2>
-                <p className="text-sm text-gray-500">共 {products.length} 个商品</p>
+                <p className="text-sm text-gray-500">共 {ownProducts.length + partnerProducts.length} 个商品</p>
               </div>
               {/* 产品分类TAB */}
               <div className="flex items-center gap-2">
