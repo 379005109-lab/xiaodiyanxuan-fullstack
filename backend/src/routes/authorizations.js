@@ -2630,15 +2630,12 @@ router.get('/:id/products', auth, async (req, res) => {
     const categoryIds = new Set()
     for (const p of partnerProducts) {
       const cat = p.category
-      // 调试：打印前几个产品的category字段
-      if (partnerProducts.indexOf(p) < 3) {
-        console.log('[Auth Products] product category:', p.name, 'category:', JSON.stringify(cat), 'type:', typeof cat)
-      }
       if (cat) {
         if (typeof cat === 'string' && mongoose.Types.ObjectId.isValid(cat)) {
           categoryIds.add(cat)
-        } else if (typeof cat === 'object' && cat._id) {
-          categoryIds.add(String(cat._id))
+        } else if (typeof cat === 'object') {
+          const catId = cat._id || cat.id
+          if (catId) categoryIds.add(String(catId))
         }
       }
     }
@@ -2650,15 +2647,20 @@ router.get('/:id/products', auth, async (req, res) => {
       const categories = await Category.find({ _id: { $in: Array.from(categoryIds) } }).select('name').lean()
       categoryMap = categories.reduce((acc, c) => { acc[String(c._id)] = c.name; return acc }, {})
     }
+    console.log('[Auth Products] categoryMap:', Object.keys(categoryMap).length, 'categories found')
     
     // 为每个产品附加categoryName
     const enrichedPartnerProducts = partnerProducts.map(p => {
       let catName = null
-      if (p.category) {
-        if (typeof p.category === 'object' && p.category.name) {
-          catName = p.category.name
-        } else if (typeof p.category === 'string') {
-          catName = categoryMap[p.category] || null
+      const cat = p.category
+      if (cat) {
+        if (typeof cat === 'object' && cat.name) {
+          catName = cat.name
+        } else if (typeof cat === 'string') {
+          catName = categoryMap[cat] || null
+        } else if (typeof cat === 'object') {
+          const catId = String(cat._id || cat.id || '')
+          catName = categoryMap[catId] || null
         }
       }
       return { ...p, categoryName: catName }
