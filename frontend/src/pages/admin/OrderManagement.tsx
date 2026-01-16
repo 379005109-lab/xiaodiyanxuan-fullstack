@@ -653,6 +653,17 @@ export default function OrderManagement() {
                       </span>
                     )}
                     
+                    {/* 调试按钮 - 显示订单状态 */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        alert(`订单状态: ${order.status}\n结算模式: ${order.settlementMode || '未设置'}\n条件检查: status=${order.status}, settlementMode=${order.settlementMode}`)
+                      }}
+                      className="px-2 py-1 bg-gray-500 text-white text-xs rounded"
+                    >
+                      🔍
+                    </button>
+                    
                     {/* 结算模式快捷按钮 - 待确认或待付款且未选择模式 */}
                     {(order.status === 0 || order.status === 1 || order.status === 'pending') && !order.settlementMode && (
                       <button
