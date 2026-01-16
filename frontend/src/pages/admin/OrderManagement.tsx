@@ -659,9 +659,10 @@ export default function OrderManagement() {
                         e.stopPropagation()
                         alert(`订单状态: ${order.status}\n结算模式: ${order.settlementMode || '未设置'}\n条件检查: status=${order.status}, settlementMode=${order.settlementMode}`)
                       }}
-                      className="px-2 py-1 bg-gray-500 text-white text-xs rounded"
+                      className="px-3 py-1.5 bg-red-600 text-white text-sm font-bold rounded hover:bg-red-700"
+                      title="点击查看订单状态"
                     >
-                      🔍
+                      🔍 调试
                     </button>
                     
                     {/* 结算模式快捷按钮 - 待确认或待付款且未选择模式 */}
