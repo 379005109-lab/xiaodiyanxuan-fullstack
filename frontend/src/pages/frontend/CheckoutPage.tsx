@@ -861,10 +861,12 @@ export default function CheckoutPage() {
             
             <div className="p-6 space-y-6">
               {/* 商家信息 */}
-              <div className="bg-emerald-50 rounded-2xl p-4">
-                <p className="text-sm text-emerald-700">
-                  请向 <span className="font-bold">{merchantPaymentInfo.manufacturerName}</span> 支付
+              <div className="bg-[#fff8e6] rounded-xl p-4 mb-6">
+                <p className="text-[#f59e0b] font-medium">
+                  请向 <span className="text-primary font-bold">{merchantPaymentInfo.manufacturerName}</span> 支付
                 </p>
+                {/* 调试信息 */}
+                <p className="text-xs text-gray-400 mt-1">厂家ID: {merchantPaymentInfo.manufacturerId || '未找到'}</p>
                 <p className="text-2xl font-bold text-emerald-800 mt-1">
                   {formatPrice(getTotalPrice())}
                 </p>
