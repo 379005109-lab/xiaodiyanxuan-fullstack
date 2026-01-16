@@ -2588,25 +2588,25 @@ router.get('/:id/products', auth, async (req, res) => {
     const otherAuths = await Authorization.find(otherAuthQuery).lean()
     console.log('[Auth Products] found otherAuths:', otherAuths.length)
     
-    // 收集所有合作商产品
+    // 收集所有合作商产品，并附带厂家信息
     for (const otherAuth of otherAuths) {
       let products = []
       if (otherAuth.scope === 'all') {
         products = await Product.find({ 
           manufacturerId: otherAuth.fromManufacturer,
           status: 'active'
-        }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
+        }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').populate('manufacturerId', 'name logo').lean()
       } else if (otherAuth.scope === 'category') {
         products = await Product.find({
           manufacturerId: otherAuth.fromManufacturer,
           category: { $in: otherAuth.categories || [] },
           status: 'active'
-        }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
+        }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').populate('manufacturerId', 'name logo').lean()
       } else if (otherAuth.scope === 'specific' || otherAuth.scope === 'mixed') {
         products = await Product.find({
           _id: { $in: otherAuth.products || [] },
           status: 'active'
-        }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
+        }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').populate('manufacturerId', 'name logo').lean()
       }
       console.log('[Auth Products] from auth', otherAuth._id, 'got', products.length, 'products')
       partnerProducts.push(...products)

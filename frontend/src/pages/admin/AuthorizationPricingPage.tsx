@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Package, Save, Percent, Lock, Building2, Users } from 'lucide-react'
+import { ArrowLeft, Package, Save, Percent, Lock, Building2, Users, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
 
@@ -29,7 +29,7 @@ interface ProductItem {
   images?: string[]
   basePrice?: number
   skus?: Array<{ price?: number }>
-  manufacturerId?: string
+  manufacturerId?: string | { _id: string; name: string; logo?: string }
   isOwnProduct?: boolean
   category?: { _id: string; name: string }
 }
@@ -48,6 +48,8 @@ export default function AuthorizationPricingPage() {
   const [minDiscountRate, setMinDiscountRate] = useState(60)
   const [commissionRate, setCommissionRate] = useState(40)
   const [productTab, setProductTab] = useState<'own' | 'partner'>('own')
+  const [partnerSearchTerm, setPartnerSearchTerm] = useState('')
+  const [expandedManufacturers, setExpandedManufacturers] = useState<Set<string>>(new Set())
   
   // Check if user is the owner (grantor) of this authorization
   const isOwner = useMemo(() => {
@@ -63,6 +65,54 @@ export default function AuthorizationPricingPage() {
   const isReadOnly = !isOwner
 
   const displayProducts = productTab === 'own' ? ownProducts : partnerProducts
+
+  // 按厂家分组合作商产品
+  const groupedPartnerProducts = useMemo(() => {
+    const filtered = partnerSearchTerm
+      ? partnerProducts.filter(p => 
+          p.name.toLowerCase().includes(partnerSearchTerm.toLowerCase()) ||
+          p.productCode?.toLowerCase().includes(partnerSearchTerm.toLowerCase())
+        )
+      : partnerProducts
+    
+    const groups: Record<string, { 
+      manufacturerId: string
+      manufacturerName: string
+      manufacturerLogo?: string
+      categories: Record<string, ProductItem[]>
+    }> = {}
+    
+    for (const product of filtered) {
+      const mfr = product.manufacturerId as { _id: string; name: string; logo?: string } | undefined
+      const mfrId = mfr?._id || 'unknown'
+      const mfrName = mfr?.name || '未知厂家'
+      const mfrLogo = mfr?.logo
+      
+      if (!groups[mfrId]) {
+        groups[mfrId] = { manufacturerId: mfrId, manufacturerName: mfrName, manufacturerLogo: mfrLogo, categories: {} }
+      }
+      
+      const catName = product.category?.name || '未分类'
+      if (!groups[mfrId].categories[catName]) {
+        groups[mfrId].categories[catName] = []
+      }
+      groups[mfrId].categories[catName].push(product)
+    }
+    
+    return Object.values(groups)
+  }, [partnerProducts, partnerSearchTerm])
+
+  const toggleManufacturer = (mfrId: string) => {
+    setExpandedManufacturers(prev => {
+      const next = new Set(prev)
+      if (next.has(mfrId)) {
+        next.delete(mfrId)
+      } else {
+        next.add(mfrId)
+      }
+      return next
+    })
+  }
 
   // 计算分类汇总统计
   const categoryStats = useMemo(() => {
@@ -340,73 +390,189 @@ export default function AuthorizationPricingPage() {
                   <div className="text-xs text-gray-500">最低折扣</div>
                   <div className="text-lg font-bold text-orange-600">{minDiscountRate}%</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-xs text-gray-500">预计总返佣</div>
-                  <div className="text-lg font-bold text-green-600">
-                    ¥{(productTab === 'own' ? categoryStats.own.totalCommission : categoryStats.partner.totalCommission).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-gray-500">商品总价</div>
-                  <div className="text-lg font-bold text-gray-700">
-                    ¥{(productTab === 'own' ? categoryStats.own.totalRetail : categoryStats.partner.totalRetail).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </div>
-                </div>
+                {productTab === 'own' && (
+                  <>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500">预计总返佣</div>
+                      <div className="text-lg font-bold text-green-600">
+                        ¥{categoryStats.own.totalCommission.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500">商品总价</div>
+                      <div className="text-lg font-bold text-gray-700">
+                        ¥{categoryStats.own.totalRetail.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
-          
-          {displayProducts.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p>{productTab === 'own' ? '暂无自有产品' : '暂无合作商产品'}</p>
+
+          {/* 合作商产品搜索框 */}
+          {productTab === 'partner' && (
+            <div className="px-6 py-3 border-b border-gray-100">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="搜索商品名称或编码..."
+                  value={partnerSearchTerm}
+                  onChange={e => setPartnerSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#153e35]/20 focus:border-[#153e35]"
+                />
+              </div>
             </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {displayProducts.map(product => {
-                const retailPrice = getProductPrice(product)
-                const minPrice = retailPrice * (minDiscountRate / 100)
-                const commission = minPrice * (commissionRate / 100)
-                
-                return (
-                  <div key={product._id} className="px-6 py-4 flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                      {product.images?.[0] ? (
-                        <img 
-                          src={product.images[0].startsWith('http') ? product.images[0] : `/api/files/${product.images[0]}`}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-300">
-                          <Package className="w-6 h-6" />
+          )}
+          
+          {/* 自有产品列表 */}
+          {productTab === 'own' && (
+            ownProducts.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>暂无自有产品</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {ownProducts.map(product => {
+                  const retailPrice = getProductPrice(product)
+                  const minPrice = retailPrice * (minDiscountRate / 100)
+                  const commission = minPrice * (commissionRate / 100)
+                  
+                  return (
+                    <div key={product._id} className="px-6 py-4 flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                        {product.images?.[0] ? (
+                          <img 
+                            src={product.images[0].startsWith('http') ? product.images[0] : `/api/files/${product.images[0]}`}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-300">
+                            <Package className="w-6 h-6" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900">{product.name}</div>
+                        <div className="text-xs text-gray-500">{product.productCode || '-'}</div>
+                      </div>
+                      
+                      <div className="flex items-center gap-6 text-sm">
+                        <div className="text-center">
+                          <div className="text-xs text-gray-500">零售价</div>
+                          <div className="font-semibold text-gray-900">¥{retailPrice.toFixed(0)}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-orange-500">最低售价</div>
+                          <div className="font-semibold text-orange-600">¥{minPrice.toFixed(0)}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-green-500">渠道佣金</div>
+                          <div className="font-semibold text-green-600">¥{commission.toFixed(0)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          )}
+
+          {/* 合作商产品按厂家分组显示 */}
+          {productTab === 'partner' && (
+            groupedPartnerProducts.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>{partnerSearchTerm ? '未找到匹配的商品' : '暂无合作商产品'}</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {groupedPartnerProducts.map(group => {
+                  const isExpanded = expandedManufacturers.has(group.manufacturerId)
+                  const totalProducts = Object.values(group.categories).flat().length
+                  
+                  return (
+                    <div key={group.manufacturerId}>
+                      {/* 厂家标题栏 */}
+                      <button
+                        onClick={() => toggleManufacturer(group.manufacturerId)}
+                        className="w-full px-6 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-[#153e35] text-white flex items-center justify-center font-bold flex-shrink-0">
+                          {group.manufacturerName.slice(0, 2)}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="font-semibold text-gray-900">{group.manufacturerName}</div>
+                          <div className="text-xs text-gray-500">{totalProducts} 个商品 · {Object.keys(group.categories).length} 个分类</div>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronDown className="w-5 h-5 text-gray-400" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-gray-400" />
+                        )}
+                      </button>
+                      
+                      {/* 展开的分类和产品 */}
+                      {isExpanded && (
+                        <div className="bg-gray-50">
+                          {Object.entries(group.categories).map(([catName, products]) => (
+                            <div key={catName} className="border-t border-gray-100">
+                              <div className="px-6 py-2 bg-gray-100 text-sm font-medium text-gray-600">
+                                {catName} ({products.length})
+                              </div>
+                              <div className="divide-y divide-gray-100">
+                                {products.map(product => {
+                                  const retailPrice = getProductPrice(product)
+                                  const minPrice = retailPrice * (minDiscountRate / 100)
+                                  
+                                  return (
+                                    <div key={product._id} className="px-6 py-3 flex items-center gap-4 bg-white">
+                                      <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                                        {product.images?.[0] ? (
+                                          <img 
+                                            src={product.images[0].startsWith('http') ? product.images[0] : `/api/files/${product.images[0]}`}
+                                            alt={product.name}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                            <Package className="w-5 h-5" />
+                                          </div>
+                                        )}
+                                      </div>
+                                      
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-gray-900 text-sm">{product.name}</div>
+                                        <div className="text-xs text-gray-500">{product.productCode || '-'}</div>
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-4 text-sm">
+                                        <div className="text-center">
+                                          <div className="text-xs text-gray-500">零售价</div>
+                                          <div className="font-semibold text-gray-900">¥{retailPrice.toFixed(0)}</div>
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="text-xs text-orange-500">最低售价</div>
+                                          <div className="font-semibold text-orange-600">¥{minPrice.toFixed(0)}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900">{product.name}</div>
-                      <div className="text-xs text-gray-500">{product.productCode || '-'}</div>
-                    </div>
-                    
-                    <div className="flex items-center gap-6 text-sm">
-                      <div className="text-center">
-                        <div className="text-xs text-gray-500">零售价</div>
-                        <div className="font-semibold text-gray-900">¥{retailPrice.toFixed(0)}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-orange-500">最低售价</div>
-                        <div className="font-semibold text-orange-600">¥{minPrice.toFixed(0)}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-green-500">渠道佣金</div>
-                        <div className="font-semibold text-green-600">¥{commission.toFixed(0)}</div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )
           )}
         </div>
       </div>
