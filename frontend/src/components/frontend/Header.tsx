@@ -10,6 +10,13 @@ import { getAllCategories } from '@/services/categoryService'
 import { getFileUrl } from '@/services/uploadService'
 import SearchModal from './SearchModal'
 import ImageSearchModal from './ImageSearchModal'
+import apiClient from '@/lib/apiClient'
+
+interface SiteSettings {
+  siteName: string
+  siteSubtitle: string
+  siteLogo: string
+}
 
 export default function Header() {
   const { isAuthenticated, user, logout } = useAuthStore()
@@ -23,6 +30,11 @@ export default function Header() {
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [showImageSearchModal, setShowImageSearchModal] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>({
+    siteName: 'XIAODI',
+    siteSubtitle: 'SUPPLY CHAIN',
+    siteLogo: ''
+  })
 
   const isAdminUser = Boolean(user?.permissions?.canAccessAdmin) ||
     ['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin'].includes(user?.role as any)
@@ -57,6 +69,25 @@ export default function Header() {
     if (isAuthenticated) {
       loadFavorites()
       loadCompareItems()
+    }
+  }, [isAuthenticated])
+  
+  // 加载网站设置
+  useEffect(() => {
+    const loadSiteSettings = async () => {
+      try {
+        const response = await apiClient.get('/site-settings/me')
+        if (response.data.success && response.data.data) {
+          setSiteSettings(response.data.data)
+          console.log('✅ 网站设置已加载:', response.data.data)
+        }
+      } catch (error) {
+        console.error('加载网站设置失败:', error)
+      }
+    }
+    
+    if (isAuthenticated) {
+      loadSiteSettings()
     }
   }, [isAuthenticated])
   
@@ -250,12 +281,18 @@ export default function Header() {
         {/* Center: Logo */}
         <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center justify-center cursor-pointer" onClick={() => navigate('/')}>
           <div className="flex flex-col items-center">
-            <div className="text-2xl font-serif font-bold tracking-tighter text-primary leading-none">
-              XIAODI
-            </div>
-            <span className="text-[10px] font-sans font-normal tracking-[0.3em] text-accent uppercase leading-tight mt-1">
-              SUPPLY CHAIN
-            </span>
+            {siteSettings.siteLogo ? (
+              <img src={siteSettings.siteLogo} alt={siteSettings.siteName} className="h-10 object-contain" />
+            ) : (
+              <>
+                <div className="text-2xl font-serif font-bold tracking-tighter text-primary leading-none">
+                  {siteSettings.siteName}
+                </div>
+                <span className="text-[10px] font-sans font-normal tracking-[0.3em] text-accent uppercase leading-tight mt-1">
+                  {siteSettings.siteSubtitle}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
