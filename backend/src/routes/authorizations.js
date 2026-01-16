@@ -2549,20 +2549,20 @@ router.get('/:id/products', auth, async (req, res) => {
       products = await Product.find({ 
         manufacturerId: authorization.fromManufacturer,
         status: 'active'
-      }).select('name productCode images basePrice skus category').populate('category', 'name').lean()
+      }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
     } else if (authorization.scope === 'category') {
       // 按分类
       products = await Product.find({
         manufacturerId: authorization.fromManufacturer,
         category: { $in: authorization.categories || [] },
         status: 'active'
-      }).select('name productCode images basePrice skus category').populate('category', 'name').lean()
+      }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
     } else if (authorization.scope === 'specific' || authorization.scope === 'mixed') {
       // 指定商品
       products = await Product.find({
         _id: { $in: authorization.products || [] },
         status: 'active'
-      }).select('name productCode images basePrice skus category').populate('category', 'name').lean()
+      }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
     }
     
     res.json({ success: true, data: products })
