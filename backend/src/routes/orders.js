@@ -265,6 +265,235 @@ router.post('/:id/manufacturer-confirm', async (req, res) => {
   }
 })
 
+// POST /api/orders/:id/settlement-mode - 选择结算模式
+router.post('/:id/settlement-mode', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { settlementMode, minDiscountRate, commissionRate, paymentRatio } = req.body
+    const Order = require('../models/Order')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    // 获取原价（商城标价）
+    const originalPrice = order.totalAmount || 0
+    
+    // 使用传入的折扣率和返佣率，或使用默认值
+    const discountRate = minDiscountRate || 0.6
+    const commRate = commissionRate || 0.4
+    
+    // 计算价格
+    const minDiscountPrice = originalPrice * discountRate           // 最低折扣价
+    const commissionAmount = minDiscountPrice * commRate            // 返佣金额
+    const supplierPrice = minDiscountPrice - commissionAmount       // 供应商价格（一键到底）
+    
+    // 更新订单
+    order.settlementMode = settlementMode
+    order.originalPrice = originalPrice
+    order.minDiscountRate = discountRate
+    order.commissionRate = commRate
+    order.minDiscountPrice = minDiscountPrice
+    order.commissionAmount = commissionAmount
+    order.supplierPrice = supplierPrice
+    
+    if (settlementMode === 'supplier_transfer') {
+      // 供应商调货模式：直接使用供应商价格
+      order.totalAmount = supplierPrice
+      order.paymentRatioEnabled = false
+      order.commissionStatus = null  // 返佣已包含在价格中
+    } else if (settlementMode === 'commission_mode') {
+      // 返佣模式：使用最低折扣价，返佣单独申请
+      order.totalAmount = minDiscountPrice
+      order.commissionStatus = 'pending'  // 返佣待申请
+      
+      // 检查是否启用分期付款
+      if (paymentRatio && paymentRatio < 100) {
+        order.paymentRatioEnabled = true
+        order.paymentRatio = paymentRatio
+        order.firstPaymentAmount = Math.round(minDiscountPrice * paymentRatio / 100)
+        order.remainingPaymentAmount = minDiscountPrice - order.firstPaymentAmount
+        order.remainingPaymentStatus = 'pending'
+      }
+    }
+    
+    await order.save()
+    
+    console.log(`✅ 订单 ${order.orderNo} 结算模式设置为: ${settlementMode}`)
+    res.json({ 
+      success: true, 
+      message: settlementMode === 'supplier_transfer' ? '已选择供应商调货模式' : '已选择返佣模式',
+      data: order 
+    })
+  } catch (error) {
+    console.error('设置结算模式失败:', error)
+    res.status(500).json({ success: false, message: '设置结算模式失败' })
+  }
+})
+
+// POST /api/orders/:id/request-remaining-payment - 厂家发起尾款收款
+router.post('/:id/request-remaining-payment', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (!order.paymentRatioEnabled) {
+      return res.status(400).json({ success: false, message: '该订单未启用分期付款' })
+    }
+    
+    if (order.remainingPaymentStatus === 'paid') {
+      return res.status(400).json({ success: false, message: '尾款已支付' })
+    }
+    
+    order.remainingPaymentRemindedAt = new Date()
+    await order.save()
+    
+    console.log(`✅ 订单 ${order.orderNo} 尾款收款提醒已发送`)
+    res.json({ 
+      success: true, 
+      message: `尾款收款提醒已发送，待收金额: ¥${order.remainingPaymentAmount}`,
+      data: order 
+    })
+  } catch (error) {
+    console.error('发起尾款收款失败:', error)
+    res.status(500).json({ success: false, message: '发起尾款收款失败' })
+  }
+})
+
+// POST /api/orders/:id/pay-remaining - 用户支付尾款
+router.post('/:id/pay-remaining', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { paymentMethod } = req.body
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (!order.paymentRatioEnabled) {
+      return res.status(400).json({ success: false, message: '该订单未启用分期付款' })
+    }
+    
+    if (order.remainingPaymentStatus === 'paid') {
+      return res.status(400).json({ success: false, message: '尾款已支付' })
+    }
+    
+    order.remainingPaymentStatus = 'paid'
+    order.remainingPaymentPaidAt = new Date()
+    order.paymentMethod = paymentMethod || order.paymentMethod
+    
+    await order.save()
+    
+    console.log(`✅ 订单 ${order.orderNo} 尾款支付成功`)
+    res.json({ success: true, message: '尾款支付成功', data: order })
+  } catch (error) {
+    console.error('尾款支付失败:', error)
+    res.status(500).json({ success: false, message: '尾款支付失败' })
+  }
+})
+
+// POST /api/orders/:id/apply-commission - 用户申请返佣
+router.post('/:id/apply-commission', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.settlementMode !== 'commission_mode') {
+      return res.status(400).json({ success: false, message: '该订单不是返佣模式' })
+    }
+    
+    if (order.commissionStatus !== 'pending') {
+      return res.status(400).json({ success: false, message: '返佣状态不允许申请' })
+    }
+    
+    order.commissionStatus = 'applied'
+    order.commissionAppliedAt = new Date()
+    await order.save()
+    
+    console.log(`✅ 订单 ${order.orderNo} 返佣申请已提交，金额: ¥${order.commissionAmount}`)
+    res.json({ 
+      success: true, 
+      message: `返佣申请已提交，金额: ¥${order.commissionAmount}`,
+      data: order 
+    })
+  } catch (error) {
+    console.error('返佣申请失败:', error)
+    res.status(500).json({ success: false, message: '返佣申请失败' })
+  }
+})
+
+// POST /api/orders/:id/approve-commission - 厂家核销返佣
+router.post('/:id/approve-commission', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.commissionStatus !== 'applied') {
+      return res.status(400).json({ success: false, message: '该订单没有待核销的返佣申请' })
+    }
+    
+    order.commissionStatus = 'approved'
+    order.commissionApprovedAt = new Date()
+    await order.save()
+    
+    console.log(`✅ 订单 ${order.orderNo} 返佣已核销`)
+    res.json({ success: true, message: '返佣已核销', data: order })
+  } catch (error) {
+    console.error('返佣核销失败:', error)
+    res.status(500).json({ success: false, message: '返佣核销失败' })
+  }
+})
+
+// POST /api/orders/:id/pay-commission - 厂家发放返佣
+router.post('/:id/pay-commission', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.commissionStatus !== 'approved') {
+      return res.status(400).json({ success: false, message: '返佣未核销，无法发放' })
+    }
+    
+    order.commissionStatus = 'paid'
+    order.commissionPaidAt = new Date()
+    await order.save()
+    
+    console.log(`✅ 订单 ${order.orderNo} 返佣已发放，金额: ¥${order.commissionAmount}`)
+    res.json({ 
+      success: true, 
+      message: `返佣已发放，金额: ¥${order.commissionAmount}`,
+      data: order 
+    })
+  } catch (error) {
+    console.error('返佣发放失败:', error)
+    res.status(500).json({ success: false, message: '返佣发放失败' })
+  }
+})
+
 // GET /api/orders/cancel-requests - 获取所有取消请求
 router.get('/cancel-requests', async (req, res) => {
   try {

@@ -326,6 +326,95 @@ export default function OrdersPageNew() {
                   </div>
                 )}
 
+                {/* 结算模式信息 */}
+                {order.settlementMode && (
+                  <div className={`px-6 py-3 border-b ${order.settlementMode === 'supplier_transfer' ? 'bg-indigo-50 border-indigo-100' : 'bg-purple-50 border-purple-100'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {order.settlementMode === 'supplier_transfer' ? '🚚 供应商调货模式' : '💰 返佣模式'}
+                        </p>
+                        <div className="text-xs mt-1 space-x-3">
+                          <span>原价: ¥{order.originalPrice?.toLocaleString() || 0}</span>
+                          <span>折扣价: ¥{order.minDiscountPrice?.toLocaleString() || 0}</span>
+                          {order.settlementMode === 'supplier_transfer' ? (
+                            <span className="font-bold text-indigo-700">实付: ¥{order.supplierPrice?.toLocaleString() || 0}</span>
+                          ) : (
+                            <span className="text-purple-700">返佣: ¥{order.commissionAmount?.toLocaleString() || 0}</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* 返佣模式下的操作按钮 */}
+                      {order.settlementMode === 'commission_mode' && (
+                        <div className="flex items-center gap-2">
+                          {/* 尾款支付按钮 */}
+                          {order.paymentRatioEnabled && order.remainingPaymentStatus !== 'paid' && order.remainingPaymentRemindedAt && (
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`确认支付尾款 ¥${order.remainingPaymentAmount?.toLocaleString()}？`)) return
+                                try {
+                                  const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/pay-remaining`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ paymentMethod: 'wechat' })
+                                  })
+                                  if (response.ok) {
+                                    toast.success('尾款支付成功')
+                                    window.location.reload()
+                                  } else {
+                                    toast.error('支付失败')
+                                  }
+                                } catch (error) { toast.error('支付失败') }
+                              }}
+                              className="px-3 py-1.5 bg-orange-500 text-white text-xs rounded hover:bg-orange-600"
+                            >
+                              支付尾款 ¥{order.remainingPaymentAmount?.toLocaleString()}
+                            </button>
+                          )}
+                          
+                          {/* 申请返佣按钮 */}
+                          {order.commissionStatus === 'pending' && order.status >= 2 && (
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`确认申请返佣 ¥${order.commissionAmount?.toLocaleString()}？`)) return
+                                try {
+                                  const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/apply-commission`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                                  })
+                                  if (response.ok) {
+                                    toast.success('返佣申请已提交')
+                                    window.location.reload()
+                                  } else {
+                                    toast.error('申请失败')
+                                  }
+                                } catch (error) { toast.error('申请失败') }
+                              }}
+                              className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded hover:bg-purple-600"
+                            >
+                              申请返佣
+                            </button>
+                          )}
+                          
+                          {/* 返佣状态显示 */}
+                          {order.commissionStatus && order.commissionStatus !== 'pending' && (
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              order.commissionStatus === 'applied' ? 'bg-yellow-100 text-yellow-700' :
+                              order.commissionStatus === 'approved' ? 'bg-blue-100 text-blue-700' :
+                              order.commissionStatus === 'paid' ? 'bg-green-100 text-green-700' : ''
+                            }`}>
+                              {order.commissionStatus === 'applied' ? '返佣已申请' :
+                               order.commissionStatus === 'approved' ? '返佣已核销' :
+                               order.commissionStatus === 'paid' ? '返佣已发放' : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* 订单商品列表 */}
                 <div className="p-6">
                   <div className="space-y-4">

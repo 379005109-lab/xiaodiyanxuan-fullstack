@@ -68,6 +68,23 @@ const orderSchema = new mongoose.Schema({
   // 支付信息
   paymentMethod: String, // wechat, alipay, bank
   
+  // 结算模式: supplier_transfer=供应商调货(一键到底), commission_mode=返佣模式
+  settlementMode: { type: String, enum: ['supplier_transfer', 'commission_mode', null], default: null },
+  
+  // 价格计算相关字段
+  originalPrice: { type: Number, default: 0 },          // 原价（商城标价）
+  minDiscountRate: { type: Number, default: 0.6 },      // 最低折扣率（如0.6表示60%）
+  commissionRate: { type: Number, default: 0.4 },       // 返佣率（如0.4表示40%）
+  minDiscountPrice: { type: Number, default: 0 },       // 最低折扣价 = 原价 × 最低折扣率
+  commissionAmount: { type: Number, default: 0 },       // 返佣金额 = 最低折扣价 × 返佣率
+  supplierPrice: { type: Number, default: 0 },          // 供应商价格（一键到底）= 最低折扣价 - 返佣金额
+  
+  // 返佣申请状态（返佣模式下使用）
+  commissionStatus: { type: String, enum: ['pending', 'applied', 'approved', 'paid', null], default: null },
+  commissionAppliedAt: Date,     // 返佣申请时间
+  commissionApprovedAt: Date,    // 返佣审批时间
+  commissionPaidAt: Date,        // 返佣发放时间
+  
   // 付款比例功能
   paymentRatioEnabled: { type: Boolean, default: false },  // 是否启用分期付款
   paymentRatio: { type: Number, default: 100 },  // 首付比例（如50表示50%）
