@@ -2515,7 +2515,7 @@ router.get('/:id', auth, async (req, res) => {
     const authorization = await Authorization.findById(id)
       .populate('toManufacturer', 'name logo fullName')
       .populate('toDesigner', 'nickname username avatar')
-      .populate('fromManufacturer', 'name logo fullName')
+      .populate('fromManufacturer', '_id name logo fullName')
       .lean()
     
     if (!authorization) {
@@ -2543,17 +2543,20 @@ router.get('/:id/products', auth, async (req, res) => {
     }
     
     let products = []
+    const fromManufacturerId = authorization.fromManufacturer
+    
+    console.log('[Auth Products] authId:', id, 'scope:', authorization.scope, 'fromManufacturer:', fromManufacturerId)
     
     if (authorization.scope === 'all') {
       // 全部商品
       products = await Product.find({ 
-        manufacturerId: authorization.fromManufacturer,
+        manufacturerId: fromManufacturerId,
         status: 'active'
       }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
     } else if (authorization.scope === 'category') {
       // 按分类
       products = await Product.find({
-        manufacturerId: authorization.fromManufacturer,
+        manufacturerId: fromManufacturerId,
         category: { $in: authorization.categories || [] },
         status: 'active'
       }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
@@ -2565,7 +2568,10 @@ router.get('/:id/products', auth, async (req, res) => {
       }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
     }
     
-    res.json({ success: true, data: products })
+    console.log('[Auth Products] found:', products.length, 'products, first manufacturerId:', products[0]?.manufacturerId)
+    
+    // 返回fromManufacturerId供前端比对
+    res.json({ success: true, data: products, fromManufacturerId: String(fromManufacturerId) })
   } catch (error) {
     console.error('获取授权商品列表失败:', error)
     res.status(500).json({ success: false, message: '获取授权商品列表失败' })

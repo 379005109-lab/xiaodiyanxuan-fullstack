@@ -42,6 +42,7 @@ export default function AuthorizationPricingPage() {
   const [saving, setSaving] = useState(false)
   const [authorization, setAuthorization] = useState<AuthorizationDetail | null>(null)
   const [products, setProducts] = useState<ProductItem[]>([])
+  const [productsFromManufacturerId, setProductsFromManufacturerId] = useState<string>('')
   
   const [minDiscountRate, setMinDiscountRate] = useState(60)
   const [commissionRate, setCommissionRate] = useState(40)
@@ -62,12 +63,15 @@ export default function AuthorizationPricingPage() {
 
   // 分离自有产品和合作商产品
   const { ownProducts, partnerProducts } = useMemo(() => {
-    const fromManufacturerId = authorization?.fromManufacturer?._id || (authorization as any)?.fromManufacturer
+    // 优先使用后端返回的fromManufacturerId，其次从authorization中获取
+    const fromManufacturerId = productsFromManufacturerId || 
+      authorization?.fromManufacturer?._id || 
+      (authorization as any)?.fromManufacturer
     const own: ProductItem[] = []
     const partner: ProductItem[] = []
     
     console.log('[ProductClassify] fromManufacturerId:', fromManufacturerId)
-    console.log('[ProductClassify] authorization:', authorization)
+    console.log('[ProductClassify] productsFromManufacturerId:', productsFromManufacturerId)
     console.log('[ProductClassify] products count:', products.length)
     if (products.length > 0) {
       console.log('[ProductClassify] first product manufacturerId:', products[0].manufacturerId)
@@ -76,7 +80,7 @@ export default function AuthorizationPricingPage() {
     products.forEach(product => {
       const productManufacturerId = product.manufacturerId
       // 自有产品：产品的厂家ID等于授权方厂家ID
-      if (productManufacturerId && String(productManufacturerId) === String(fromManufacturerId)) {
+      if (fromManufacturerId && productManufacturerId && String(productManufacturerId) === String(fromManufacturerId)) {
         own.push({ ...product, isOwnProduct: true })
       } else {
         // 合作商产品：产品来自其他厂家（通过授权获得）
@@ -86,7 +90,7 @@ export default function AuthorizationPricingPage() {
     
     console.log('[ProductClassify] own count:', own.length, 'partner count:', partner.length)
     return { ownProducts: own, partnerProducts: partner }
-  }, [products, authorization])
+  }, [products, authorization, productsFromManufacturerId])
 
   const displayProducts = productTab === 'own' ? ownProducts : partnerProducts
 
@@ -132,6 +136,10 @@ export default function AuthorizationPricingPage() {
       if (authData) {
         const prodRes = await apiClient.get(`/authorizations/${authorizationId}/products`)
         setProducts(prodRes.data?.data || [])
+        // 使用后端返回的fromManufacturerId
+        if (prodRes.data?.fromManufacturerId) {
+          setProductsFromManufacturerId(prodRes.data.fromManufacturerId)
+        }
       }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '加载失败')
