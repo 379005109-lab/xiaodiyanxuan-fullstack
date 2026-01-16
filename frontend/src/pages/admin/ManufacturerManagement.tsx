@@ -3592,17 +3592,21 @@ export default function ManufacturerManagement() {
                       if (editSectionData.address) updateData.address = editSectionData.address
                       if (editSectionData.status) updateData.status = editSectionData.status
                     } else if (editSection === 'settlement') {
-                      updateData.settings = {
-                        ...myManufacturer.settings,
-                        wechatQrCode: editSectionData.wechatQrCode ?? myManufacturer.settings?.wechatQrCode,
-                        alipayQrCode: editSectionData.alipayQrCode ?? myManufacturer.settings?.alipayQrCode,
-                        bankInfo: {
-                          companyName: editSectionData.companyName || myManufacturer.settings?.bankInfo?.companyName || myManufacturer.fullName,
-                          bankName: editSectionData.bankName || myManufacturer.settings?.bankInfo?.bankName,
-                          accountName: editSectionData.accountName || myManufacturer.settings?.bankInfo?.accountName,
-                          accountNumber: editSectionData.accountNumber || myManufacturer.settings?.bankInfo?.accountNumber
-                        }
+                      // 获取现有settings的纯对象形式
+                      const existingSettings = myManufacturer.settings ? JSON.parse(JSON.stringify(myManufacturer.settings)) : {}
+                      const newBankInfo = {
+                        companyName: editSectionData.companyName ?? existingSettings?.bankInfo?.companyName ?? myManufacturer.fullName ?? '',
+                        bankName: editSectionData.bankName ?? existingSettings?.bankInfo?.bankName ?? '',
+                        accountName: editSectionData.accountName ?? existingSettings?.bankInfo?.accountName ?? '',
+                        accountNumber: editSectionData.accountNumber ?? existingSettings?.bankInfo?.accountNumber ?? ''
                       }
+                      updateData.settings = {
+                        ...existingSettings,
+                        wechatQrCode: editSectionData.wechatQrCode ?? existingSettings?.wechatQrCode ?? '',
+                        alipayQrCode: editSectionData.alipayQrCode ?? existingSettings?.alipayQrCode ?? '',
+                        bankInfo: newBankInfo
+                      }
+                      console.log('🔍 保存结算账户配置:', { editSectionData, existingSettings, updateData })
                     } else if (editSection === 'qualification') {
                       updateData.certification = {
                         ...myManufacturer.certification,

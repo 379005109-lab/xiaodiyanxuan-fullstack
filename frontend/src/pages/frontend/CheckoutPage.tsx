@@ -446,30 +446,37 @@ export default function CheckoutPage() {
           }
         }
         
+        // 如果仍然没有厂家ID，尝试使用当前用户的厂家ID（适用于厂家下单自己的商品）
+        if (!manufacturerId && user?.manufacturerId) {
+          manufacturerId = user.manufacturerId
+          console.log('🔍 使用当前用户的厂家ID:', manufacturerId)
+        }
+        
         let manufacturerName = '商家'
         let bankInfo = null
         let wechatQrCode = ''
         let alipayQrCode = ''
         let paymentAccounts: any[] = []
         
-        console.log('🔍 厂家ID:', manufacturerId)
+        console.log('🔍 最终厂家ID:', manufacturerId)
         
         if (manufacturerId) {
           try {
             const paymentRes = await axios.get(`/manufacturers/${manufacturerId}`)
             const manufacturerData = paymentRes.data?.data || paymentRes.data
             console.log('🔍 厂家数据:', manufacturerData)
+            console.log('🔍 厂家settings:', manufacturerData?.settings)
             manufacturerName = manufacturerData?.fullName || manufacturerData?.shortName || manufacturerData?.name || '商家'
             wechatQrCode = manufacturerData?.settings?.wechatQrCode || ''
             alipayQrCode = manufacturerData?.settings?.alipayQrCode || ''
-            bankInfo = manufacturerData?.settings?.bankInfo
+            bankInfo = manufacturerData?.settings?.bankInfo || null
             paymentAccounts = manufacturerData?.settings?.paymentAccounts || []
             console.log('🔍 结算信息:', { wechatQrCode, alipayQrCode, bankInfo, paymentAccounts })
           } catch (e) {
             console.log('获取厂家信息失败:', e)
           }
         } else {
-          console.log('⚠️ 未找到商品的厂家ID')
+          console.log('⚠️ 未找到商品的厂家ID，也无法获取当前用户的厂家ID')
         }
         
         // 不再使用模拟数据，显示实际配置的结算信息
@@ -861,10 +868,12 @@ export default function CheckoutPage() {
             
             <div className="p-6 space-y-6">
               {/* 商家信息 */}
-              <div className="bg-emerald-50 rounded-2xl p-4">
-                <p className="text-sm text-emerald-700">
-                  请向 <span className="font-bold">{merchantPaymentInfo.manufacturerName}</span> 支付
+              <div className="bg-[#fff8e6] rounded-xl p-4 mb-6">
+                <p className="text-[#f59e0b] font-medium">
+                  请向 <span className="text-primary font-bold">{merchantPaymentInfo.manufacturerName}</span> 支付
                 </p>
+                {/* 调试信息 */}
+                <p className="text-xs text-gray-400 mt-1">厂家ID: {merchantPaymentInfo.manufacturerId || '未找到'}</p>
                 <p className="text-2xl font-bold text-emerald-800 mt-1">
                   {formatPrice(getTotalPrice())}
                 </p>
