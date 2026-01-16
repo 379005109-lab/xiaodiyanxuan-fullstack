@@ -2595,22 +2595,25 @@ router.get('/:id/products', auth, async (req, res) => {
       let products = []
       const mfrInfo = otherAuth.fromManufacturer // 已经populate了厂家信息
       
+      const productSelect = 'name productCode images basePrice skus category manufacturerId manufacturerName'
+      const categoryPopulate = { path: 'category', select: 'name' }
+      
       if (otherAuth.scope === 'all') {
         products = await Product.find({ 
           manufacturerId: mfrInfo?._id || otherAuth.fromManufacturer,
           status: 'active'
-        }).select('name productCode images basePrice skus category manufacturerId manufacturerName').populate('category', 'name').lean()
+        }).select(productSelect).populate(categoryPopulate).lean()
       } else if (otherAuth.scope === 'category') {
         products = await Product.find({
           manufacturerId: mfrInfo?._id || otherAuth.fromManufacturer,
           category: { $in: otherAuth.categories || [] },
           status: 'active'
-        }).select('name productCode images basePrice skus category manufacturerId manufacturerName').populate('category', 'name').lean()
+        }).select(productSelect).populate(categoryPopulate).lean()
       } else if (otherAuth.scope === 'specific' || otherAuth.scope === 'mixed') {
         products = await Product.find({
           _id: { $in: otherAuth.products || [] },
           status: 'active'
-        }).select('name productCode images basePrice skus category manufacturerId manufacturerName').populate('category', 'name').lean()
+        }).select(productSelect).populate(categoryPopulate).lean()
       }
       
       // 为每个产品附加厂家信息（从授权中获取）
@@ -2623,12 +2626,41 @@ router.get('/:id/products', auth, async (req, res) => {
       partnerProducts.push(...products)
     }
     
-    console.log('[Auth Products] own:', ownProducts.length, 'partner:', partnerProducts.length)
+    // 收集所有需要查询的category ID
+    const categoryIds = new Set()
+    for (const p of partnerProducts) {
+      if (p.category && typeof p.category === 'string' && mongoose.Types.ObjectId.isValid(p.category)) {
+        categoryIds.add(p.category)
+      }
+    }
+    
+    // 批量查询category名称
+    let categoryMap = {}
+    if (categoryIds.size > 0) {
+      const Category = require('../models/Category')
+      const categories = await Category.find({ _id: { $in: Array.from(categoryIds) } }).select('name').lean()
+      categoryMap = categories.reduce((acc, c) => { acc[String(c._id)] = c.name; return acc }, {})
+    }
+    
+    // 为每个产品附加categoryName
+    const enrichedPartnerProducts = partnerProducts.map(p => {
+      let catName = null
+      if (p.category) {
+        if (typeof p.category === 'object' && p.category.name) {
+          catName = p.category.name
+        } else if (typeof p.category === 'string') {
+          catName = categoryMap[p.category] || null
+        }
+      }
+      return { ...p, categoryName: catName }
+    })
+    
+    console.log('[Auth Products] own:', ownProducts.length, 'partner:', enrichedPartnerProducts.length)
     
     res.json({ 
       success: true, 
       ownProducts,
-      partnerProducts,
+      partnerProducts: enrichedPartnerProducts,
       fromManufacturerId: String(fromManufacturerId)
     })
   } catch (error) {

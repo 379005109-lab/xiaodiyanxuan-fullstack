@@ -95,7 +95,7 @@ export default function AuthorizationPricingPage() {
         groups[mfrId] = { manufacturerId: mfrId, manufacturerName: mfrName, manufacturerLogo: mfrLogo, categories: {} }
       }
       
-      const catName = product.category?.name || '未分类'
+      const catName = (product as any).categoryName || product.category?.name || '未分类'
       if (!groups[mfrId].categories[catName]) {
         groups[mfrId].categories[catName] = []
       }
