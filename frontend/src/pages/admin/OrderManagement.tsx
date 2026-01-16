@@ -156,6 +156,7 @@ export default function OrderManagement() {
   // 订单状态映射（后端使用数字，前端显示文本）
   const statusConfig: Record<string | number, { label: string; color: string }> = {
     // 数字状态（后端实际值）
+    0: { label: '待确认', color: 'bg-amber-100 text-amber-700' },
     1: { label: '待付款', color: 'bg-yellow-100 text-yellow-700' },
     2: { label: '待发货', color: 'bg-green-100 text-green-700' },
     3: { label: '待收货', color: 'bg-blue-100 text-blue-700' },
@@ -544,6 +545,7 @@ export default function OrderManagement() {
           >
             <option value="">所有状态</option>
             <option value="cancel_request">⚠️ 取消申请</option>
+            <option value="confirmation">待确认</option>
             <option value="pending">待付款</option>
             <option value="paid">已付款</option>
             <option value="shipped">已发货</option>
@@ -1069,6 +1071,40 @@ export default function OrderManagement() {
                           ))}
                         </div>
                       </div>
+
+                      {/* 确认订单按钮 - 仅待确认状态显示 */}
+                      {order.status === 0 && (
+                        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100">
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!window.confirm('确认此订单后，用户将可以进行付款。确定要确认吗？')) return
+                              try {
+                                const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/manufacturer-confirm`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                    'Content-Type': 'application/json'
+                                  }
+                                })
+                                if (response.ok) {
+                                  toast.success('订单已确认，等待用户付款')
+                                  loadOrders()
+                                } else {
+                                  const data = await response.json()
+                                  toast.error(data.message || '确认失败')
+                                }
+                              } catch (error) {
+                                toast.error('确认失败')
+                              }
+                            }}
+                            className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center justify-center gap-2"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            确认订单
+                          </button>
+                        </div>
+                      )}
 
                       {/* 改价按钮 - 仅待付款状态可改价 */}
                       {(order.status === 1 || order.status === 'pending') && (

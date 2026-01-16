@@ -185,8 +185,9 @@ export default function OrdersPageNew() {
     }
   }
 
-  // 后端使用数字状态: 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
+  // 后端使用数字状态: 0=待确认, 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
   const statusConfig: Record<string | number, { label: string; color: string; icon: React.ReactNode }> = {
+    0: { label: '待确认', color: 'text-amber-600 bg-amber-50', icon: <Clock className="w-4 h-4" /> },
     1: { label: '待付款', color: 'text-orange-600 bg-orange-50', icon: <Clock className="w-4 h-4" /> },
     2: { label: '待发货', color: 'text-blue-600 bg-blue-50', icon: <Package className="w-4 h-4" /> },
     3: { label: '待收货', color: 'text-purple-600 bg-purple-50', icon: <Truck className="w-4 h-4" /> },
@@ -201,6 +202,7 @@ export default function OrdersPageNew() {
 
   const statusOptions = [
     { value: '', label: '全部订单' },
+    { value: 'confirmation', label: '待确认' },
     { value: 'pending', label: '待付款' },
     { value: 'paid', label: '已付款' },
     { value: 'shipped', label: '已发货' },

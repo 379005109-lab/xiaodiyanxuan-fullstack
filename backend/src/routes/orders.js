@@ -237,6 +237,34 @@ router.post('/:id/pay', async (req, res) => {
   }
 })
 
+// POST /api/orders/:id/manufacturer-confirm - 厂家确认订单（状态从0变为1）
+router.post('/:id/manufacturer-confirm', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.status !== ORDER_STATUS.PENDING_CONFIRMATION) {
+      return res.status(400).json({ success: false, message: '订单状态不允许确认，当前状态需为待确认' })
+    }
+    
+    order.status = ORDER_STATUS.PENDING_PAYMENT
+    order.confirmedAt = new Date()
+    await order.save()
+    
+    console.log(`✅ 订单 ${order.orderNo} 厂家已确认，状态更新为待付款`)
+    res.json({ success: true, message: '订单已确认，等待用户付款', data: order })
+  } catch (error) {
+    console.error('厂家确认订单失败:', error)
+    res.status(500).json({ success: false, message: '确认订单失败' })
+  }
+})
+
 // GET /api/orders/cancel-requests - 获取所有取消请求
 router.get('/cancel-requests', async (req, res) => {
   try {
