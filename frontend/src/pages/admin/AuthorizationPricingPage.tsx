@@ -66,6 +66,13 @@ export default function AuthorizationPricingPage() {
     const own: ProductItem[] = []
     const partner: ProductItem[] = []
     
+    console.log('[ProductClassify] fromManufacturerId:', fromManufacturerId)
+    console.log('[ProductClassify] authorization:', authorization)
+    console.log('[ProductClassify] products count:', products.length)
+    if (products.length > 0) {
+      console.log('[ProductClassify] first product manufacturerId:', products[0].manufacturerId)
+    }
+    
     products.forEach(product => {
       const productManufacturerId = product.manufacturerId
       // 自有产品：产品的厂家ID等于授权方厂家ID
@@ -77,6 +84,7 @@ export default function AuthorizationPricingPage() {
       }
     })
     
+    console.log('[ProductClassify] own count:', own.length, 'partner count:', partner.length)
     return { ownProducts: own, partnerProducts: partner }
   }, [products, authorization])
 
