@@ -243,6 +243,8 @@ export interface Product {
   updatedAt: string
   videos?: string[]
   files?: ProductFile[]
+  manufacturerId?: string  // 厂家ID
+  manufacturerName?: string  // 厂家名称
 }
 
 // 套餐相关类型

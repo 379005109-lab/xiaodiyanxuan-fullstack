@@ -17,6 +17,7 @@ interface MerchantPaymentInfo {
   wechatQrCode?: string
   alipayQrCode?: string
   bankInfo?: {
+    companyName?: string  // 公户单位全称
     bankName: string
     accountName: string
     accountNumber: string
@@ -427,7 +428,23 @@ export default function CheckoutPage() {
       try {
         // 获取商品所属厂家的支付信息
         const firstProduct = items[0].product as any
-        const manufacturerId = firstProduct.manufacturerId || firstProduct.manufacturer?._id || firstProduct.manufacturer
+        console.log('🔍 商品数据:', firstProduct)
+        
+        // 尝试多种方式获取厂家ID
+        let manufacturerId = firstProduct.manufacturerId || firstProduct.manufacturer?._id || firstProduct.manufacturer
+        
+        // 如果商品没有厂家ID，尝试从商品详情API重新获取
+        if (!manufacturerId && firstProduct._id) {
+          try {
+            console.log('🔍 尝试从API获取商品厂家信息...')
+            const productRes = await axios.get(`/products/${firstProduct._id}`)
+            const productData = productRes.data?.data || productRes.data
+            manufacturerId = productData?.manufacturerId || productData?.manufacturer?._id || productData?.manufacturer
+            console.log('🔍 从API获取到厂家ID:', manufacturerId)
+          } catch (e) {
+            console.log('获取商品详情失败:', e)
+          }
+        }
         
         let manufacturerName = '商家'
         let bankInfo = null
@@ -435,28 +452,27 @@ export default function CheckoutPage() {
         let alipayQrCode = ''
         let paymentAccounts: any[] = []
         
+        console.log('🔍 厂家ID:', manufacturerId)
+        
         if (manufacturerId) {
           try {
             const paymentRes = await axios.get(`/manufacturers/${manufacturerId}`)
             const manufacturerData = paymentRes.data?.data || paymentRes.data
+            console.log('🔍 厂家数据:', manufacturerData)
             manufacturerName = manufacturerData?.fullName || manufacturerData?.shortName || manufacturerData?.name || '商家'
             wechatQrCode = manufacturerData?.settings?.wechatQrCode || ''
             alipayQrCode = manufacturerData?.settings?.alipayQrCode || ''
             bankInfo = manufacturerData?.settings?.bankInfo
             paymentAccounts = manufacturerData?.settings?.paymentAccounts || []
+            console.log('🔍 结算信息:', { wechatQrCode, alipayQrCode, bankInfo, paymentAccounts })
           } catch (e) {
-            console.log('获取厂家信息失败，使用模拟数据')
+            console.log('获取厂家信息失败:', e)
           }
+        } else {
+          console.log('⚠️ 未找到商品的厂家ID')
         }
         
-        // 如果没有真实支付信息，使用模拟数据
-        if (!bankInfo?.bankName && !paymentAccounts?.some((p: any) => p?.type === 'bank')) {
-          bankInfo = {
-            bankName: '中国工商银行佛山顺德支行',
-            accountName: manufacturerName,
-            accountNumber: '6222 0200 1234 5678 901'
-          }
-        }
+        // 不再使用模拟数据，显示实际配置的结算信息
         
         setMerchantPaymentInfo({
           manufacturerId: manufacturerId || '',
@@ -947,39 +963,59 @@ export default function CheckoutPage() {
                       return (
                         <>
                           <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                            <span className="text-gray-500">单位名称</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">{merchantPaymentInfo.bankInfo?.companyName || merchantPaymentInfo.manufacturerName || '未设置'}</span>
+                              {(merchantPaymentInfo.bankInfo?.companyName || merchantPaymentInfo.manufacturerName) && (
+                                <button
+                                  onClick={() => copyToClipboard(merchantPaymentInfo.bankInfo?.companyName || merchantPaymentInfo.manufacturerName, 'company')}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  {copiedField === 'company' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between py-3 border-b border-gray-200">
                             <span className="text-gray-500">开户银行</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">{bankAccount.bankName}</span>
-                              <button
-                                onClick={() => copyToClipboard(bankAccount.bankName, 'bank')}
-                                className="p-1 hover:bg-gray-200 rounded"
-                              >
-                                {copiedField === 'bank' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                              </button>
+                              <span className="font-medium text-gray-900">{bankAccount.bankName || '未设置'}</span>
+                              {bankAccount.bankName && (
+                                <button
+                                  onClick={() => copyToClipboard(bankAccount.bankName, 'bank')}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  {copiedField === 'bank' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                                </button>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center justify-between py-3 border-b border-gray-200">
                             <span className="text-gray-500">户名</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">{bankAccount.accountName}</span>
-                              <button
-                                onClick={() => copyToClipboard(bankAccount.accountName, 'name')}
-                                className="p-1 hover:bg-gray-200 rounded"
-                              >
-                                {copiedField === 'name' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                              </button>
+                              <span className="font-medium text-gray-900">{bankAccount.accountName || '未设置'}</span>
+                              {bankAccount.accountName && (
+                                <button
+                                  onClick={() => copyToClipboard(bankAccount.accountName, 'name')}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  {copiedField === 'name' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                                </button>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center justify-between py-3">
                             <span className="text-gray-500">银行账号</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900 font-mono">{bankAccount.accountNumber}</span>
-                              <button
-                                onClick={() => copyToClipboard(bankAccount.accountNumber, 'account')}
-                                className="p-1 hover:bg-gray-200 rounded"
-                              >
-                                {copiedField === 'account' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                              </button>
+                              <span className="font-medium text-gray-900 font-mono">{bankAccount.accountNumber || '未设置'}</span>
+                              {bankAccount.accountNumber && (
+                                <button
+                                  onClick={() => copyToClipboard(bankAccount.accountNumber, 'account')}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  {copiedField === 'account' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </>

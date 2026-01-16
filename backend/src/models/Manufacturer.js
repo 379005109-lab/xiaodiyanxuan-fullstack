@@ -198,6 +198,7 @@ const manufacturerSchema = new mongoose.Schema({
     },
     // 银行转账信息
     bankInfo: {
+      companyName: String,  // 公户单位全称
       bankName: String,
       accountName: String,
       accountNumber: String

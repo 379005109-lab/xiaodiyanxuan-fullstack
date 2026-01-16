@@ -3098,6 +3098,16 @@ export default function ManufacturerManagement() {
                         </button>
                       ))}
                     </div>
+                    <div className="mb-4">
+                      <label className="block text-sm text-gray-600 mb-1">公户单位全称</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.settings?.bankInfo?.companyName || myManufacturer.fullName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, companyName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                        placeholder="公司全称（用于银行转账显示）"
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-gray-600 mb-1">开户银行/平台全称</label>
@@ -3584,9 +3594,10 @@ export default function ManufacturerManagement() {
                     } else if (editSection === 'settlement') {
                       updateData.settings = {
                         ...myManufacturer.settings,
-                        wechatQrCode: editSectionData.wechatQrCode || myManufacturer.settings?.wechatQrCode,
-                        alipayQrCode: editSectionData.alipayQrCode || myManufacturer.settings?.alipayQrCode,
+                        wechatQrCode: editSectionData.wechatQrCode ?? myManufacturer.settings?.wechatQrCode,
+                        alipayQrCode: editSectionData.alipayQrCode ?? myManufacturer.settings?.alipayQrCode,
                         bankInfo: {
+                          companyName: editSectionData.companyName || myManufacturer.settings?.bankInfo?.companyName || myManufacturer.fullName,
                           bankName: editSectionData.bankName || myManufacturer.settings?.bankInfo?.bankName,
                           accountName: editSectionData.accountName || myManufacturer.settings?.bankInfo?.accountName,
                           accountNumber: editSectionData.accountNumber || myManufacturer.settings?.bankInfo?.accountNumber
