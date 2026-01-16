@@ -206,6 +206,37 @@ router.put('/:id/cancel', cancel)  // 支持PUT方法
 // POST /api/orders/:id/confirm - 确认收货
 router.post('/:id/confirm', confirm)
 
+// POST /api/orders/:id/pay - 确认付款
+router.post('/:id/pay', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { paymentMethod } = req.body
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.status !== ORDER_STATUS.PENDING_PAYMENT) {
+      return res.status(400).json({ success: false, message: '订单状态不允许付款' })
+    }
+    
+    order.status = ORDER_STATUS.PENDING_SHIPMENT
+    order.paymentMethod = paymentMethod || 'wechat'
+    order.paidAt = new Date()
+    
+    await order.save()
+    console.log(`✅ 订单 ${order.orderNo} 付款成功，状态更新为待发货`)
+    
+    res.json({ success: true, message: '付款成功', data: order })
+  } catch (error) {
+    console.error('付款失败:', error)
+    res.status(500).json({ success: false, message: '付款失败' })
+  }
+})
+
 // GET /api/orders/cancel-requests - 获取所有取消请求
 router.get('/cancel-requests', async (req, res) => {
   try {

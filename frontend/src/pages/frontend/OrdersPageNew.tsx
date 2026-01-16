@@ -152,6 +152,39 @@ export default function OrdersPageNew() {
     }
   }
 
+  const handleConfirmPayment = async (order: any) => {
+    const orderId = order._id || order.id
+    const amount = order.totalAmount
+    const isPriceModified = order.priceModified
+    
+    if (isPriceModified) {
+      const latestModify = order.priceModifyHistory?.[order.priceModifyHistory.length - 1]
+      const confirmMsg = `商家已将订单价格从 ¥${latestModify?.originalAmount?.toLocaleString()} 调整为 ¥${amount?.toLocaleString()}${latestModify?.reason ? `\n原因：${latestModify.reason}` : ''}\n\n确认接受改价并继续付款吗？`
+      if (!window.confirm(confirmMsg)) return
+    }
+    
+    toast.success(`正在跳转到付款页面，订单金额：¥${amount?.toLocaleString()}`)
+    
+    try {
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod: 'wechat' })
+      })
+      
+      if (response.ok) {
+        toast.success('付款成功！')
+        setOrders(prev => prev.map((o: any) => (o._id || o.id) === orderId ? { ...o, status: 2 } : o))
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.message || '付款失败，请重试')
+      }
+    } catch (error) {
+      console.error('付款失败:', error)
+      toast.error('付款失败，请重试')
+    }
+  }
+
   // 后端使用数字状态: 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
   const statusConfig: Record<string | number, { label: string; color: string; icon: React.ReactNode }> = {
     1: { label: '待付款', color: 'text-orange-600 bg-orange-50', icon: <Clock className="w-4 h-4" /> },
@@ -249,7 +282,7 @@ export default function OrdersPageNew() {
               }`}>
                 {/* 订单头部 */}
                 <div className={`flex justify-between items-center px-6 py-4 border-b ${
-                  isCancelled ? 'bg-gray-100 border-gray-200' : hasCancelRequest ? 'bg-orange-100 border-orange-200' : 'bg-stone-50 border-stone-100'
+                  isCancelled ? 'bg-gray-100 border-gray-200' : hasCancelRequest ? 'bg-orange-100 border-orange-200' : order.priceModified ? 'bg-blue-50 border-blue-200' : 'bg-stone-50 border-stone-100'
                 }`}>
                   <div className="flex items-center gap-2">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[order.status]?.color || 'text-stone-600 bg-stone-50'}`}>
@@ -259,13 +292,37 @@ export default function OrdersPageNew() {
                     {hasCancelRequest && !isCancelled && (
                       <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded-full">取消申请中</span>
                     )}
+                    {order.priceModified && (order.status === 1 || order.status === 'pending') && (
+                      <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">商家已改价</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
+                    {order.priceModified && order.priceModifyHistory?.length > 0 && (
+                      <div className="text-sm text-stone-400 line-through">¥{order.priceModifyHistory[0]?.originalAmount?.toLocaleString() || 0}</div>
+                    )}
                     <div className={`text-2xl font-bold ${
-                      isCancelled ? 'text-gray-400' : 'text-red-600'
+                      isCancelled ? 'text-gray-400' : order.priceModified ? 'text-blue-600' : 'text-red-600'
                     }`}>¥{order.totalAmount?.toLocaleString() || 0}</div>
                   </div>
                 </div>
+                
+                {/* 改价通知 */}
+                {order.priceModified && (order.status === 1 || order.status === 'pending') && order.priceModifyHistory?.length > 0 && (
+                  <div className="px-6 py-3 bg-blue-50 border-b border-blue-100">
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs flex-shrink-0 mt-0.5">!</div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-blue-800">商家已调整订单价格</p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          原价 ¥{order.priceModifyHistory[order.priceModifyHistory.length - 1]?.originalAmount?.toLocaleString()} → 现价 ¥{order.totalAmount?.toLocaleString()}
+                          {order.priceModifyHistory[order.priceModifyHistory.length - 1]?.reason && (
+                            <span className="ml-2">（{order.priceModifyHistory[order.priceModifyHistory.length - 1]?.reason}）</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 订单商品列表 */}
                 <div className="p-6">
@@ -446,6 +503,19 @@ export default function OrdersPageNew() {
                         className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"
                       >
                         删除订单
+                      </button>
+                    )}
+                    {/* 确认付款按钮 - 待付款状态显示 */}
+                    {(order.status === 1 || order.status === 'pending') && !order.cancelRequest && (
+                      <button
+                        onClick={() => handleConfirmPayment(order)}
+                        className={`px-6 py-2 text-sm rounded-lg transition-colors ${
+                          order.priceModified 
+                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                            : 'bg-primary text-white hover:bg-green-900'
+                        }`}
+                      >
+                        {order.priceModified ? '确认改价并付款' : '立即付款'}
                       </button>
                     )}
                   </div>
