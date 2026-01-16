@@ -274,10 +274,13 @@ const update = async (req, res) => {
     
     // 更新设置
     if (settings !== undefined) {
+      // 将Mongoose子文档转为普通对象再合并
+      const existingSettings = manufacturer.settings ? manufacturer.settings.toObject() : {}
       manufacturer.settings = {
-        ...manufacturer.settings,
+        ...existingSettings,
         ...settings
       }
+      console.log('📊 更新settings:', { existingSettings, newSettings: settings, merged: manufacturer.settings })
     }
     
     await manufacturer.save()
