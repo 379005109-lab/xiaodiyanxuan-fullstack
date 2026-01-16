@@ -652,6 +652,53 @@ export default function OrderManagement() {
                         ⚠️ 取消申请中
                       </span>
                     )}
+                    
+                    {/* 结算模式快捷按钮 - 待付款且未选择模式 */}
+                    {(order.status === 1 || order.status === 'pending') && !order.settlementMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!window.confirm(`供应商调货模式（一键到底）\n\n原价: ¥${order.totalAmount?.toLocaleString()}\n最低折扣价(60%): ¥${(order.totalAmount * 0.6).toLocaleString()}\n返佣(40%): ¥${(order.totalAmount * 0.6 * 0.4).toLocaleString()}\n\n实付金额: ¥${(order.totalAmount * 0.6 * 0.6).toLocaleString()}\n\n确定选择此模式？`)) return
+                          fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/settlement-mode`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ settlementMode: 'supplier_transfer', minDiscountRate: 0.6, commissionRate: 0.4 })
+                          }).then(r => r.ok ? (toast.success('已选择供应商调货模式'), loadOrders()) : toast.error('设置失败'))
+                        }}
+                        className="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 whitespace-nowrap"
+                        title="供应商调货"
+                      >
+                        🚚 调货
+                      </button>
+                    )}
+                    
+                    {(order.status === 1 || order.status === 'pending') && !order.settlementMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!window.confirm(`返佣模式\n\n原价: ¥${order.totalAmount?.toLocaleString()}\n最低折扣价(60%): ¥${(order.totalAmount * 0.6).toLocaleString()}\n\n首付(50%): ¥${(order.totalAmount * 0.6 * 0.5).toLocaleString()}\n尾款(50%): ¥${(order.totalAmount * 0.6 * 0.5).toLocaleString()}\n\n返佣(40%): ¥${(order.totalAmount * 0.6 * 0.4).toLocaleString()}（完成后申请）\n\n确定选择此模式？`)) return
+                          fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/settlement-mode`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50 })
+                          }).then(r => r.ok ? (toast.success('已选择返佣模式'), loadOrders()) : toast.error('设置失败'))
+                        }}
+                        className="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 whitespace-nowrap"
+                        title="返佣模式"
+                      >
+                        💰 返佣
+                      </button>
+                    )}
+                    
+                    {/* 已选择结算模式标记 */}
+                    {order.settlementMode && (
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                        order.settlementMode === 'supplier_transfer' ? 'bg-indigo-100 text-indigo-700' : 'bg-purple-100 text-purple-700'
+                      }`}>
+                        {order.settlementMode === 'supplier_transfer' ? '🚚 调货' : '💰 返佣'}
+                      </span>
+                    )}
+                    
                     {/* 状态徽章 */}
                     <span className={`px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap ${statusConfig[order.status]?.color || 'bg-gray-100 text-gray-700'}`}>
                       {statusConfig[order.status]?.label || order.status}
