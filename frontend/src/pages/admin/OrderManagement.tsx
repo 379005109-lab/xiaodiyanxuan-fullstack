@@ -747,6 +747,86 @@ export default function OrderManagement() {
                 {/* 展开详情 */}
                 {isExpanded && (
                   <div className="border-t border-gray-100 px-4 py-4 space-y-4">
+                    {/* 结算模式选择 - 在详情顶部显示 */}
+                    {(order.status === 0 || order.status === 1 || order.status === 'pending') && !order.settlementMode && (
+                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-6 mb-4">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                          <span className="text-2xl">💰</span>
+                          选择结算模式
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!window.confirm(`供应商调货模式（一键到底）\n\n原价: ¥${order.totalAmount?.toLocaleString()}\n最低折扣价(60%): ¥${(order.totalAmount * 0.6).toLocaleString()}\n返佣(40%): ¥${(order.totalAmount * 0.6 * 0.4).toLocaleString()}\n\n实付金额: ¥${(order.totalAmount * 0.6 * 0.6).toLocaleString()}\n\n确定选择此模式？`)) return
+                              try {
+                                const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/settlement-mode`, {
+                                  method: 'POST',
+                                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ settlementMode: 'supplier_transfer', minDiscountRate: 0.6, commissionRate: 0.4 })
+                                })
+                                if (response.ok) {
+                                  toast.success('已选择供应商调货模式')
+                                  loadOrders()
+                                } else {
+                                  toast.error('设置失败')
+                                }
+                              } catch (error) { toast.error('设置失败') }
+                            }}
+                            className="flex flex-col items-center justify-center p-6 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all transform hover:scale-105 shadow-lg"
+                          >
+                            <span className="text-4xl mb-3">🚚</span>
+                            <span className="text-xl font-bold mb-2">供应商调货</span>
+                            <span className="text-sm opacity-90">一键到底 36%</span>
+                            <span className="text-xs mt-2 opacity-75">实付: ¥{(order.totalAmount * 0.36).toLocaleString()}</span>
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!window.confirm(`返佣模式\n\n原价: ¥${order.totalAmount?.toLocaleString()}\n最低折扣价(60%): ¥${(order.totalAmount * 0.6).toLocaleString()}\n\n首付(50%): ¥${(order.totalAmount * 0.6 * 0.5).toLocaleString()}\n尾款(50%): ¥${(order.totalAmount * 0.6 * 0.5).toLocaleString()}\n\n返佣(40%): ¥${(order.totalAmount * 0.6 * 0.4).toLocaleString()}（完成后申请）\n\n确定选择此模式？`)) return
+                              try {
+                                const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/settlement-mode`, {
+                                  method: 'POST',
+                                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50 })
+                                })
+                                if (response.ok) {
+                                  toast.success('已选择返佣模式')
+                                  loadOrders()
+                                } else {
+                                  toast.error('设置失败')
+                                }
+                              } catch (error) { toast.error('设置失败') }
+                            }}
+                            className="flex flex-col items-center justify-center p-6 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all transform hover:scale-105 shadow-lg"
+                          >
+                            <span className="text-4xl mb-3">💰</span>
+                            <span className="text-xl font-bold mb-2">返佣模式</span>
+                            <span className="text-sm opacity-90">60% + 40%返佣</span>
+                            <span className="text-xs mt-2 opacity-75">首付: ¥{(order.totalAmount * 0.3).toLocaleString()}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* 已选择结算模式显示 */}
+                    {order.settlementMode && (
+                      <div className={`border-2 rounded-xl p-4 mb-4 ${
+                        order.settlementMode === 'supplier_transfer' 
+                          ? 'bg-indigo-50 border-indigo-300' 
+                          : 'bg-purple-50 border-purple-300'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">{order.settlementMode === 'supplier_transfer' ? '🚚' : '💰'}</span>
+                          <div>
+                            <p className="font-bold text-lg">
+                              {order.settlementMode === 'supplier_transfer' ? '供应商调货模式' : '返佣模式'}
+                            </p>
+                            <p className="text-sm text-gray-600">已选择结算模式</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {/* 商品和地址信息 */}
                     <div className="grid md:grid-cols-2 gap-3">
                       {/* 套餐订单显示 */}
