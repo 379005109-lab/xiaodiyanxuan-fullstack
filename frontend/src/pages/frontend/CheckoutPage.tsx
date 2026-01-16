@@ -449,14 +449,7 @@ export default function CheckoutPage() {
           }
         }
         
-        // 如果没有真实支付信息，使用模拟数据
-        if (!bankInfo?.bankName && !paymentAccounts?.some((p: any) => p?.type === 'bank')) {
-          bankInfo = {
-            bankName: '中国工商银行佛山顺德支行',
-            accountName: manufacturerName,
-            accountNumber: '6222 0200 1234 5678 901'
-          }
-        }
+        // 不再使用模拟数据，显示实际配置的结算信息
         
         setMerchantPaymentInfo({
           manufacturerId: manufacturerId || '',
@@ -947,39 +940,57 @@ export default function CheckoutPage() {
                       return (
                         <>
                           <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                            <span className="text-gray-500">开户银行</span>
+                            <span className="text-gray-500">单位名称</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">{bankAccount.bankName}</span>
+                              <span className="font-medium text-gray-900">{merchantPaymentInfo.manufacturerName}</span>
                               <button
-                                onClick={() => copyToClipboard(bankAccount.bankName, 'bank')}
+                                onClick={() => copyToClipboard(merchantPaymentInfo.manufacturerName, 'company')}
                                 className="p-1 hover:bg-gray-200 rounded"
                               >
-                                {copiedField === 'bank' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                                {copiedField === 'company' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
                               </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between py-3 border-b border-gray-200">
+                            <span className="text-gray-500">开户银行</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900">{bankAccount.bankName || '未设置'}</span>
+                              {bankAccount.bankName && (
+                                <button
+                                  onClick={() => copyToClipboard(bankAccount.bankName, 'bank')}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  {copiedField === 'bank' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                                </button>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center justify-between py-3 border-b border-gray-200">
                             <span className="text-gray-500">户名</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">{bankAccount.accountName}</span>
-                              <button
-                                onClick={() => copyToClipboard(bankAccount.accountName, 'name')}
-                                className="p-1 hover:bg-gray-200 rounded"
-                              >
-                                {copiedField === 'name' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                              </button>
+                              <span className="font-medium text-gray-900">{bankAccount.accountName || '未设置'}</span>
+                              {bankAccount.accountName && (
+                                <button
+                                  onClick={() => copyToClipboard(bankAccount.accountName, 'name')}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  {copiedField === 'name' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                                </button>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center justify-between py-3">
                             <span className="text-gray-500">银行账号</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900 font-mono">{bankAccount.accountNumber}</span>
-                              <button
-                                onClick={() => copyToClipboard(bankAccount.accountNumber, 'account')}
-                                className="p-1 hover:bg-gray-200 rounded"
-                              >
-                                {copiedField === 'account' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                              </button>
+                              <span className="font-medium text-gray-900 font-mono">{bankAccount.accountNumber || '未设置'}</span>
+                              {bankAccount.accountNumber && (
+                                <button
+                                  onClick={() => copyToClipboard(bankAccount.accountNumber, 'account')}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  {copiedField === 'account' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </>
