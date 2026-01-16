@@ -427,7 +427,23 @@ export default function CheckoutPage() {
       try {
         // 获取商品所属厂家的支付信息
         const firstProduct = items[0].product as any
-        const manufacturerId = firstProduct.manufacturerId || firstProduct.manufacturer?._id || firstProduct.manufacturer
+        console.log('🔍 商品数据:', firstProduct)
+        
+        // 尝试多种方式获取厂家ID
+        let manufacturerId = firstProduct.manufacturerId || firstProduct.manufacturer?._id || firstProduct.manufacturer
+        
+        // 如果商品没有厂家ID，尝试从商品详情API重新获取
+        if (!manufacturerId && firstProduct._id) {
+          try {
+            console.log('🔍 尝试从API获取商品厂家信息...')
+            const productRes = await axios.get(`/products/${firstProduct._id}`)
+            const productData = productRes.data?.data || productRes.data
+            manufacturerId = productData?.manufacturerId || productData?.manufacturer?._id || productData?.manufacturer
+            console.log('🔍 从API获取到厂家ID:', manufacturerId)
+          } catch (e) {
+            console.log('获取商品详情失败:', e)
+          }
+        }
         
         let manufacturerName = '商家'
         let bankInfo = null
@@ -435,18 +451,24 @@ export default function CheckoutPage() {
         let alipayQrCode = ''
         let paymentAccounts: any[] = []
         
+        console.log('🔍 厂家ID:', manufacturerId)
+        
         if (manufacturerId) {
           try {
             const paymentRes = await axios.get(`/manufacturers/${manufacturerId}`)
             const manufacturerData = paymentRes.data?.data || paymentRes.data
+            console.log('🔍 厂家数据:', manufacturerData)
             manufacturerName = manufacturerData?.fullName || manufacturerData?.shortName || manufacturerData?.name || '商家'
             wechatQrCode = manufacturerData?.settings?.wechatQrCode || ''
             alipayQrCode = manufacturerData?.settings?.alipayQrCode || ''
             bankInfo = manufacturerData?.settings?.bankInfo
             paymentAccounts = manufacturerData?.settings?.paymentAccounts || []
+            console.log('🔍 结算信息:', { wechatQrCode, alipayQrCode, bankInfo, paymentAccounts })
           } catch (e) {
-            console.log('获取厂家信息失败，使用模拟数据')
+            console.log('获取厂家信息失败:', e)
           }
+        } else {
+          console.log('⚠️ 未找到商品的厂家ID')
         }
         
         // 不再使用模拟数据，显示实际配置的结算信息
