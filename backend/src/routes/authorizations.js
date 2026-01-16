@@ -2585,30 +2585,41 @@ router.get('/:id/products', auth, async (req, res) => {
     
     console.log('[Auth Products] otherAuthQuery:', JSON.stringify(otherAuthQuery))
     
-    const otherAuths = await Authorization.find(otherAuthQuery).lean()
+    const otherAuths = await Authorization.find(otherAuthQuery)
+      .populate('fromManufacturer', 'name logo')
+      .lean()
     console.log('[Auth Products] found otherAuths:', otherAuths.length)
     
     // 收集所有合作商产品，并附带厂家信息
     for (const otherAuth of otherAuths) {
       let products = []
+      const mfrInfo = otherAuth.fromManufacturer // 已经populate了厂家信息
+      
       if (otherAuth.scope === 'all') {
         products = await Product.find({ 
-          manufacturerId: otherAuth.fromManufacturer,
+          manufacturerId: mfrInfo?._id || otherAuth.fromManufacturer,
           status: 'active'
-        }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').populate('manufacturerId', 'name logo').lean()
+        }).select('name productCode images basePrice skus category manufacturerId manufacturerName').populate('category', 'name').lean()
       } else if (otherAuth.scope === 'category') {
         products = await Product.find({
-          manufacturerId: otherAuth.fromManufacturer,
+          manufacturerId: mfrInfo?._id || otherAuth.fromManufacturer,
           category: { $in: otherAuth.categories || [] },
           status: 'active'
-        }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').populate('manufacturerId', 'name logo').lean()
+        }).select('name productCode images basePrice skus category manufacturerId manufacturerName').populate('category', 'name').lean()
       } else if (otherAuth.scope === 'specific' || otherAuth.scope === 'mixed') {
         products = await Product.find({
           _id: { $in: otherAuth.products || [] },
           status: 'active'
-        }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').populate('manufacturerId', 'name logo').lean()
+        }).select('name productCode images basePrice skus category manufacturerId manufacturerName').populate('category', 'name').lean()
       }
-      console.log('[Auth Products] from auth', otherAuth._id, 'got', products.length, 'products')
+      
+      // 为每个产品附加厂家信息（从授权中获取）
+      products = products.map(p => ({
+        ...p,
+        manufacturer: mfrInfo ? { _id: mfrInfo._id, name: mfrInfo.name, logo: mfrInfo.logo } : null
+      }))
+      
+      console.log('[Auth Products] from auth', otherAuth._id, 'mfr:', mfrInfo?.name, 'got', products.length, 'products')
       partnerProducts.push(...products)
     }
     

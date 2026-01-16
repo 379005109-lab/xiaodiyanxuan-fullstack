@@ -30,6 +30,8 @@ interface ProductItem {
   basePrice?: number
   skus?: Array<{ price?: number }>
   manufacturerId?: string | { _id: string; name: string; logo?: string }
+  manufacturer?: { _id: string; name: string; logo?: string }
+  manufacturerName?: string
   isOwnProduct?: boolean
   category?: { _id: string; name: string }
 }
@@ -83,9 +85,10 @@ export default function AuthorizationPricingPage() {
     }> = {}
     
     for (const product of filtered) {
-      const mfr = product.manufacturerId as { _id: string; name: string; logo?: string } | undefined
-      const mfrId = mfr?._id || 'unknown'
-      const mfrName = mfr?.name || '未知厂家'
+      // 优先使用manufacturer字段，其次是manufacturerId（如果是对象），最后用manufacturerName
+      const mfr = product.manufacturer || (typeof product.manufacturerId === 'object' ? product.manufacturerId : null)
+      const mfrId = mfr?._id || (typeof product.manufacturerId === 'string' ? product.manufacturerId : 'unknown')
+      const mfrName = mfr?.name || product.manufacturerName || '未知厂家'
       const mfrLogo = mfr?.logo
       
       if (!groups[mfrId]) {
