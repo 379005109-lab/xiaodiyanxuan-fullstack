@@ -2629,8 +2629,17 @@ router.get('/:id/products', auth, async (req, res) => {
     // 收集所有需要查询的category ID
     const categoryIds = new Set()
     for (const p of partnerProducts) {
-      if (p.category && typeof p.category === 'string' && mongoose.Types.ObjectId.isValid(p.category)) {
-        categoryIds.add(p.category)
+      const cat = p.category
+      // 调试：打印前几个产品的category字段
+      if (partnerProducts.indexOf(p) < 3) {
+        console.log('[Auth Products] product category:', p.name, 'category:', JSON.stringify(cat), 'type:', typeof cat)
+      }
+      if (cat) {
+        if (typeof cat === 'string' && mongoose.Types.ObjectId.isValid(cat)) {
+          categoryIds.add(cat)
+        } else if (typeof cat === 'object' && cat._id) {
+          categoryIds.add(String(cat._id))
+        }
       }
     }
     
