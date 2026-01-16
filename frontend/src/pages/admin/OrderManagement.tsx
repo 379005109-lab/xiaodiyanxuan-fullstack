@@ -653,8 +653,8 @@ export default function OrderManagement() {
                       </span>
                     )}
                     
-                    {/* 结算模式快捷按钮 - 待付款且未选择模式 */}
-                    {(order.status === 1 || order.status === 'pending') && !order.settlementMode && (
+                    {/* 结算模式快捷按钮 - 待确认或待付款且未选择模式 */}
+                    {(order.status === 0 || order.status === 1 || order.status === 'pending') && !order.settlementMode && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -672,7 +672,7 @@ export default function OrderManagement() {
                       </button>
                     )}
                     
-                    {(order.status === 1 || order.status === 'pending') && !order.settlementMode && (
+                    {(order.status === 0 || order.status === 1 || order.status === 'pending') && !order.settlementMode && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
