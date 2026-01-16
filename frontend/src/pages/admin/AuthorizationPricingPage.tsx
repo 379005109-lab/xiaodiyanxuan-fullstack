@@ -52,6 +52,7 @@ export default function AuthorizationPricingPage() {
   const [productTab, setProductTab] = useState<'own' | 'partner'>('own')
   const [partnerSearchTerm, setPartnerSearchTerm] = useState('')
   const [expandedManufacturers, setExpandedManufacturers] = useState<Set<string>>(new Set())
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   
   // Check if user is the owner (grantor) of this authorization
   const isOwner = useMemo(() => {
@@ -112,6 +113,18 @@ export default function AuthorizationPricingPage() {
         next.delete(mfrId)
       } else {
         next.add(mfrId)
+      }
+      return next
+    })
+  }
+
+  const toggleCategory = (key: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
       }
       return next
     })
@@ -522,53 +535,73 @@ export default function AuthorizationPricingPage() {
                       {/* 展开的分类和产品 */}
                       {isExpanded && (
                         <div className="bg-gray-50">
-                          {Object.entries(group.categories).map(([catName, products]) => (
-                            <div key={catName} className="border-t border-gray-100">
-                              <div className="px-6 py-2 bg-gray-100 text-sm font-medium text-gray-600">
-                                {catName} ({products.length})
-                              </div>
-                              <div className="divide-y divide-gray-100">
-                                {products.map(product => {
-                                  const retailPrice = getProductPrice(product)
-                                  const minPrice = retailPrice * (minDiscountRate / 100)
-                                  
-                                  return (
-                                    <div key={product._id} className="px-6 py-3 flex items-center gap-4 bg-white">
-                                      <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                                        {product.images?.[0] ? (
-                                          <img 
-                                            src={product.images[0].startsWith('http') ? product.images[0] : `/api/files/${product.images[0]}`}
-                                            alt={product.name}
-                                            className="w-full h-full object-cover"
-                                          />
-                                        ) : (
-                                          <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                            <Package className="w-5 h-5" />
+                          {Object.entries(group.categories).map(([catName, products]) => {
+                            const catKey = `${group.manufacturerId}-${catName}`
+                            const isCatExpanded = expandedCategories.has(catKey)
+                            
+                            return (
+                              <div key={catName} className="border-t border-gray-100">
+                                <button
+                                  onClick={() => toggleCategory(catKey)}
+                                  className="w-full px-6 py-2 bg-gray-100 text-sm font-medium text-gray-600 flex items-center justify-between hover:bg-gray-200 transition-colors"
+                                >
+                                  <span>{catName} ({products.length})</span>
+                                  {isCatExpanded ? (
+                                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                                  )}
+                                </button>
+                                {isCatExpanded && (
+                                  <div className="divide-y divide-gray-100">
+                                    {products.map(product => {
+                                      const retailPrice = getProductPrice(product)
+                                      const minPrice = retailPrice * (minDiscountRate / 100)
+                                      const commission = minPrice * (commissionRate / 100)
+                                      
+                                      return (
+                                        <div key={product._id} className="px-6 py-3 flex items-center gap-4 bg-white">
+                                          <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                                            {product.images?.[0] ? (
+                                              <img 
+                                                src={product.images[0].startsWith('http') ? product.images[0] : `/api/files/${product.images[0]}`}
+                                                alt={product.name}
+                                                className="w-full h-full object-cover"
+                                              />
+                                            ) : (
+                                              <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                                <Package className="w-5 h-5" />
+                                              </div>
+                                            )}
                                           </div>
-                                        )}
-                                      </div>
-                                      
-                                      <div className="flex-1 min-w-0">
-                                        <div className="font-medium text-gray-900 text-sm">{product.name}</div>
-                                        <div className="text-xs text-gray-500">{product.productCode || '-'}</div>
-                                      </div>
-                                      
-                                      <div className="flex items-center gap-4 text-sm">
-                                        <div className="text-center">
-                                          <div className="text-xs text-gray-500">零售价</div>
-                                          <div className="font-semibold text-gray-900">¥{retailPrice.toFixed(0)}</div>
+                                          
+                                          <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-gray-900 text-sm">{product.name}</div>
+                                            <div className="text-xs text-gray-500">{product.productCode || '-'}</div>
+                                          </div>
+                                          
+                                          <div className="flex items-center gap-4 text-sm">
+                                            <div className="text-center">
+                                              <div className="text-xs text-gray-500">零售价</div>
+                                              <div className="font-semibold text-gray-900">¥{retailPrice.toFixed(0)}</div>
+                                            </div>
+                                            <div className="text-center">
+                                              <div className="text-xs text-orange-500">最低售价</div>
+                                              <div className="font-semibold text-orange-600">¥{minPrice.toFixed(0)}</div>
+                                            </div>
+                                            <div className="text-center">
+                                              <div className="text-xs text-green-500">返佣金额</div>
+                                              <div className="font-semibold text-green-600">¥{commission.toFixed(0)}</div>
+                                            </div>
+                                          </div>
                                         </div>
-                                        <div className="text-center">
-                                          <div className="text-xs text-orange-500">最低售价</div>
-                                          <div className="font-semibold text-orange-600">¥{minPrice.toFixed(0)}</div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
+                                      )
+                                    })}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       )}
                     </div>
