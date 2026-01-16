@@ -2572,22 +2572,15 @@ router.get('/:id/products', auth, async (req, res) => {
       }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
     }
     
-    // 获取合作商产品（来自其他厂家对同一渠道的授权）
+    // 获取合作商产品（其他厂家授权给当前授权方的产品）
+    // 例如：恩都授权给设计师，合作商产品 = 其他厂家授权给恩都的产品
     let partnerProducts = []
     
-    // 根据授权类型查找合作商授权
-    let otherAuthQuery = {
-      fromManufacturer: { $ne: fromManufacturerId },
+    // 查找其他厂家授权给当前授权方(fromManufacturer)的授权
+    const otherAuthQuery = {
+      toManufacturer: fromManufacturerId,  // 授权给当前授权方
+      fromManufacturer: { $ne: fromManufacturerId },  // 来自其他厂家
       status: { $in: ['approved', 'active'] }
-    }
-    
-    if (authorization.authorizationType === 'designer' && authorization.toDesigner) {
-      // 设计师类型授权：查找其他厂家对同一设计师的授权
-      otherAuthQuery.toDesigner = authorization.toDesigner
-      otherAuthQuery.authorizationType = 'designer'
-    } else if (toManufacturerId) {
-      // 厂家类型授权：查找其他厂家对同一厂家的授权
-      otherAuthQuery.toManufacturer = toManufacturerId
     }
     
     console.log('[Auth Products] otherAuthQuery:', JSON.stringify(otherAuthQuery))
