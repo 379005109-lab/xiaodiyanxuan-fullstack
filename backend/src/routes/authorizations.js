@@ -2574,7 +2574,7 @@ router.get('/:id/products', auth, async (req, res) => {
     // 根据授权类型查找合作商授权
     let otherAuthQuery = {
       fromManufacturer: { $ne: fromManufacturerId },
-      status: 'approved'
+      status: { $in: ['approved', 'active'] }
     }
     
     if (authorization.authorizationType === 'designer' && authorization.toDesigner) {
