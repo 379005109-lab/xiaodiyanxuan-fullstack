@@ -17,6 +17,7 @@ interface MerchantPaymentInfo {
   wechatQrCode?: string
   alipayQrCode?: string
   bankInfo?: {
+    companyName?: string  // 公户单位全称
     bankName: string
     accountName: string
     accountNumber: string
@@ -964,13 +965,15 @@ export default function CheckoutPage() {
                           <div className="flex items-center justify-between py-3 border-b border-gray-200">
                             <span className="text-gray-500">单位名称</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">{merchantPaymentInfo.manufacturerName}</span>
-                              <button
-                                onClick={() => copyToClipboard(merchantPaymentInfo.manufacturerName, 'company')}
-                                className="p-1 hover:bg-gray-200 rounded"
-                              >
-                                {copiedField === 'company' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                              </button>
+                              <span className="font-medium text-gray-900">{merchantPaymentInfo.bankInfo?.companyName || merchantPaymentInfo.manufacturerName || '未设置'}</span>
+                              {(merchantPaymentInfo.bankInfo?.companyName || merchantPaymentInfo.manufacturerName) && (
+                                <button
+                                  onClick={() => copyToClipboard(merchantPaymentInfo.bankInfo?.companyName || merchantPaymentInfo.manufacturerName, 'company')}
+                                  className="p-1 hover:bg-gray-200 rounded"
+                                >
+                                  {copiedField === 'company' ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-400" />}
+                                </button>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center justify-between py-3 border-b border-gray-200">
