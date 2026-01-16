@@ -62,7 +62,9 @@ router.post('/', auth, async (req, res) => {
       products,
       priceSettings,
       validUntil,
-      notes
+      notes,
+      minDiscountRate,
+      commissionRate
     } = req.body
 
     // 验证当前用户是否有权限创建授权（必须是厂家管理员）
@@ -117,6 +119,8 @@ router.post('/', auth, async (req, res) => {
       priceSettings,
       validUntil,
       notes,
+      minDiscountRate: minDiscountRate || 0,
+      commissionRate: commissionRate || 0,
       createdBy: req.userId
     })
 
