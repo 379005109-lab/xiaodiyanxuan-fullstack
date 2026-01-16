@@ -105,6 +105,7 @@ export default function AuthorizationPricingPage() {
       // Load authorized products
       if (authData) {
         const prodRes = await apiClient.get(`/authorizations/${authorizationId}/products`)
+        console.log('[AuthPricing] products response:', prodRes.data)
         setOwnProducts(prodRes.data?.ownProducts || [])
         setPartnerProducts(prodRes.data?.partnerProducts || [])
       }
