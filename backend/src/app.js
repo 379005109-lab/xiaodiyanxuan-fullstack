@@ -88,6 +88,7 @@ app.use('/api/image-search', require('./routes/imageSearch'))
 app.use('/api/authorizations', require('./routes/authorizations'))
 app.use('/api/commission-system', require('./routes/commissionSystem'))
 app.use('/api/tier-system', require('./routes/tierSystem'))
+app.use('/api/site-settings', require('./routes/siteSettings'))
 
 // 微信小程序专用接口
 app.use('/api/miniapp', require('./routes/miniapp'))
