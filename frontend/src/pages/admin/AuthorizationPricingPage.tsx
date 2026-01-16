@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Package, Save, Percent, Lock, Building2, Users, ChevronDown, ChevronRight, Menu } from 'lucide-react'
+import { ArrowLeft, Package, Save, Percent, Lock, Building2, Users } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
 
@@ -42,13 +42,12 @@ export default function AuthorizationPricingPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [authorization, setAuthorization] = useState<AuthorizationDetail | null>(null)
-  const [products, setProducts] = useState<ProductItem[]>([])
-  const [productsFromManufacturerId, setProductsFromManufacturerId] = useState<string>('')
+  const [ownProducts, setOwnProducts] = useState<ProductItem[]>([])
+  const [partnerProducts, setPartnerProducts] = useState<ProductItem[]>([])
   
   const [minDiscountRate, setMinDiscountRate] = useState(60)
   const [commissionRate, setCommissionRate] = useState(40)
   const [productTab, setProductTab] = useState<'own' | 'partner'>('own')
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   
   // Check if user is the owner (grantor) of this authorization
   const isOwner = useMemo(() => {
@@ -63,69 +62,7 @@ export default function AuthorizationPricingPage() {
   
   const isReadOnly = !isOwner
 
-  // 分离自有产品和合作商产品
-  const { ownProducts, partnerProducts } = useMemo(() => {
-    // 优先使用后端返回的fromManufacturerId，其次从authorization中获取
-    const fromManufacturerId = productsFromManufacturerId || 
-      authorization?.fromManufacturer?._id || 
-      (authorization as any)?.fromManufacturer
-    const own: ProductItem[] = []
-    const partner: ProductItem[] = []
-    
-    console.log('[ProductClassify] fromManufacturerId:', fromManufacturerId)
-    console.log('[ProductClassify] productsFromManufacturerId:', productsFromManufacturerId)
-    console.log('[ProductClassify] products count:', products.length)
-    if (products.length > 0) {
-      console.log('[ProductClassify] first product manufacturerId:', products[0].manufacturerId)
-    }
-    
-    products.forEach(product => {
-      const productManufacturerId = product.manufacturerId
-      // 自有产品：产品的厂家ID等于授权方厂家ID
-      if (fromManufacturerId && productManufacturerId && String(productManufacturerId) === String(fromManufacturerId)) {
-        own.push({ ...product, isOwnProduct: true })
-      } else {
-        // 合作商产品：产品来自其他厂家（通过授权获得）
-        partner.push({ ...product, isOwnProduct: false })
-      }
-    })
-    
-    console.log('[ProductClassify] own count:', own.length, 'partner count:', partner.length)
-    return { ownProducts: own, partnerProducts: partner }
-  }, [products, authorization, productsFromManufacturerId])
-
   const displayProducts = productTab === 'own' ? ownProducts : partnerProducts
-
-  // 按分类分组产品
-  const groupedProducts = useMemo(() => {
-    const groups: Record<string, { name: string; products: ProductItem[] }> = {}
-    displayProducts.forEach(product => {
-      const categoryId = product.category?._id || 'uncategorized'
-      const categoryName = product.category?.name || '未分类'
-      if (!groups[categoryId]) {
-        groups[categoryId] = { name: categoryName, products: [] }
-      }
-      groups[categoryId].products.push(product)
-    })
-    return Object.entries(groups).map(([id, data]) => ({
-      id,
-      name: data.name,
-      products: data.products
-    }))
-  }, [displayProducts])
-
-  // 切换分类展开/折叠
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategories(prev => {
-      const next = new Set(prev)
-      if (next.has(categoryId)) {
-        next.delete(categoryId)
-      } else {
-        next.add(categoryId)
-      }
-      return next
-    })
-  }
 
   // 计算分类汇总统计
   const categoryStats = useMemo(() => {
@@ -168,11 +105,8 @@ export default function AuthorizationPricingPage() {
       // Load authorized products
       if (authData) {
         const prodRes = await apiClient.get(`/authorizations/${authorizationId}/products`)
-        setProducts(prodRes.data?.data || [])
-        // 使用后端返回的fromManufacturerId
-        if (prodRes.data?.fromManufacturerId) {
-          setProductsFromManufacturerId(prodRes.data.fromManufacturerId)
-        }
+        setOwnProducts(prodRes.data?.ownProducts || [])
+        setPartnerProducts(prodRes.data?.partnerProducts || [])
       }
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '加载失败')
@@ -428,77 +362,46 @@ export default function AuthorizationPricingPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {groupedProducts.map(group => {
-                const isExpanded = expandedCategories.has(group.id)
+              {displayProducts.map(product => {
+                const retailPrice = getProductPrice(product)
+                const minPrice = retailPrice * (minDiscountRate / 100)
+                const commission = minPrice * (commissionRate / 100)
+                
                 return (
-                  <div key={group.id}>
-                    {/* 分类标题 */}
-                    <div 
-                      className="px-6 py-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => toggleCategory(group.id)}
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <Menu className="w-5 h-5 text-gray-500" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{group.name}</div>
-                        <div className="text-xs text-gray-500">{group.products.length} 款商品</div>
-                      </div>
-                      <div className="text-gray-400">
-                        {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                      </div>
+                  <div key={product._id} className="px-6 py-4 flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                      {product.images?.[0] ? (
+                        <img 
+                          src={product.images[0].startsWith('http') ? product.images[0] : `/api/files/${product.images[0]}`}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                          <Package className="w-6 h-6" />
+                        </div>
+                      )}
                     </div>
                     
-                    {/* 分类下的产品列表 */}
-                    {isExpanded && (
-                      <div className="bg-gray-50 divide-y divide-gray-100">
-                        {group.products.map(product => {
-                          const retailPrice = getProductPrice(product)
-                          const minPrice = retailPrice * (minDiscountRate / 100)
-                          const commission = minPrice * (commissionRate / 100)
-                          
-                          return (
-                            <div key={product._id} className="px-6 py-4 flex items-center gap-4 ml-6">
-                              <div className="w-16 h-16 rounded-lg bg-white border border-gray-200 overflow-hidden flex-shrink-0">
-                                {product.images?.[0] ? (
-                                  <img 
-                                    src={product.images[0].startsWith('http') ? product.images[0] : `/api/files/${product.images[0]}`}
-                                    alt={product.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                    <Package className="w-6 h-6" />
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-gray-900">{product.name}</span>
-                                </div>
-                                <div className="text-xs text-gray-500">编码: {product.productCode || '-'}</div>
-                              </div>
-                              
-                              <div className="flex items-center gap-6 text-sm">
-                                <div className="text-center">
-                                  <div className="text-xs text-gray-500">价格</div>
-                                  <div className="font-semibold text-gray-900">¥{retailPrice.toFixed(0)}</div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-xs text-orange-500">最低折扣价</div>
-                                  <div className="font-semibold text-orange-600">¥{minPrice.toFixed(0)}</div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-xs text-green-500">返佣价格</div>
-                                  <div className="font-semibold text-green-600">¥{commission.toFixed(0)}</div>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900">{product.name}</div>
+                      <div className="text-xs text-gray-500">{product.productCode || '-'}</div>
+                    </div>
+                    
+                    <div className="flex items-center gap-6 text-sm">
+                      <div className="text-center">
+                        <div className="text-xs text-gray-500">零售价</div>
+                        <div className="font-semibold text-gray-900">¥{retailPrice.toFixed(0)}</div>
                       </div>
-                    )}
+                      <div className="text-center">
+                        <div className="text-xs text-orange-500">最低售价</div>
+                        <div className="font-semibold text-orange-600">¥{minPrice.toFixed(0)}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-green-500">渠道佣金</div>
+                        <div className="font-semibold text-green-600">¥{commission.toFixed(0)}</div>
+                      </div>
+                    </div>
                   </div>
                 )
               })}
