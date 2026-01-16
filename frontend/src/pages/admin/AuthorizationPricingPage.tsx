@@ -68,9 +68,11 @@ export default function AuthorizationPricingPage() {
     
     products.forEach(product => {
       const productManufacturerId = product.manufacturerId
+      // 自有产品：产品的厂家ID等于授权方厂家ID
       if (productManufacturerId && String(productManufacturerId) === String(fromManufacturerId)) {
         own.push({ ...product, isOwnProduct: true })
       } else {
+        // 合作商产品：产品来自其他厂家（通过授权获得）
         partner.push({ ...product, isOwnProduct: false })
       }
     })
@@ -79,6 +81,24 @@ export default function AuthorizationPricingPage() {
   }, [products, authorization])
 
   const displayProducts = productTab === 'own' ? ownProducts : partnerProducts
+
+  // 计算分类汇总统计
+  const categoryStats = useMemo(() => {
+    const calcPrice = (product: ProductItem) => {
+      const skuPrices = product.skus?.map(s => s.price || 0).filter(p => p > 0) || []
+      return skuPrices.length > 0 ? Math.min(...skuPrices) : (product.basePrice || 0)
+    }
+    const calcStats = (items: ProductItem[]) => {
+      const totalRetail = items.reduce((sum, p) => sum + calcPrice(p), 0)
+      const totalMinPrice = totalRetail * (minDiscountRate / 100)
+      const totalCommission = totalMinPrice * (commissionRate / 100)
+      return { count: items.length, totalRetail, totalMinPrice, totalCommission }
+    }
+    return {
+      own: calcStats(ownProducts),
+      partner: calcStats(partnerProducts)
+    }
+  }, [ownProducts, partnerProducts, minDiscountRate, commissionRate])
 
   useEffect(() => {
     if (authorizationId) {
@@ -315,6 +335,39 @@ export default function AuthorizationPricingPage() {
                   <Users className="w-4 h-4" />
                   合作商产品 ({partnerProducts.length})
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 当前分类汇总统计 */}
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                {productTab === 'own' ? '自有产品' : '合作商产品'}汇总
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <div className="text-xs text-gray-500">商品数量</div>
+                  <div className="text-lg font-bold text-gray-900">
+                    {productTab === 'own' ? categoryStats.own.count : categoryStats.partner.count}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-gray-500">最低折扣</div>
+                  <div className="text-lg font-bold text-orange-600">{minDiscountRate}%</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-gray-500">预计总返佣</div>
+                  <div className="text-lg font-bold text-green-600">
+                    ¥{(productTab === 'own' ? categoryStats.own.totalCommission : categoryStats.partner.totalCommission).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-gray-500">商品总价</div>
+                  <div className="text-lg font-bold text-gray-700">
+                    ¥{(productTab === 'own' ? categoryStats.own.totalRetail : categoryStats.partner.totalRetail).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
