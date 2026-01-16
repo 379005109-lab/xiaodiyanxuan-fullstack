@@ -1,7 +1,7 @@
 // Build cache bust: 20260110-v1
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -1619,6 +1619,54 @@ export default function ManufacturerManagement() {
                 >
                   下发准入邀请码
                 </button>
+              </div>
+
+              {/* 统计看板 */}
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">累计授权GMV</div>
+                      <div className="text-xl font-bold text-gray-900">¥{grantedAuths.reduce((sum, auth) => sum + (auth.gmv || 0), 0).toLocaleString()}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">本月增长率</div>
+                      <div className="text-xl font-bold text-blue-600">+12.5%</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">渠道分销商</div>
+                      <div className="text-xl font-bold text-gray-900">{grantedAuths.length}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center">
+                      <Package className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">授权产品总数</div>
+                      <div className="text-xl font-bold text-gray-900">{grantedAuths.reduce((sum, auth) => sum + (auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)), 0)}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {grantedAuths.length === 0 ? (

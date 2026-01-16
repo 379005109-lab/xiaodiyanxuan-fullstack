@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Package, Save, Percent, Lock } from 'lucide-react'
+import { ArrowLeft, Package, Save, Percent, Lock, Building2, Users } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { useAuthStore } from '@/store/authStore'
 
@@ -29,6 +29,8 @@ interface ProductItem {
   images?: string[]
   basePrice?: number
   skus?: Array<{ price?: number }>
+  manufacturerId?: string
+  isOwnProduct?: boolean
 }
 
 export default function AuthorizationPricingPage() {
@@ -43,6 +45,7 @@ export default function AuthorizationPricingPage() {
   
   const [minDiscountRate, setMinDiscountRate] = useState(60)
   const [commissionRate, setCommissionRate] = useState(40)
+  const [productTab, setProductTab] = useState<'own' | 'partner'>('own')
   
   // Check if user is the owner (grantor) of this authorization
   const isOwner = useMemo(() => {
@@ -56,6 +59,26 @@ export default function AuthorizationPricingPage() {
   }, [authorization, user])
   
   const isReadOnly = !isOwner
+
+  // 分离自有产品和合作商产品
+  const { ownProducts, partnerProducts } = useMemo(() => {
+    const fromManufacturerId = authorization?.fromManufacturer?._id || (authorization as any)?.fromManufacturer
+    const own: ProductItem[] = []
+    const partner: ProductItem[] = []
+    
+    products.forEach(product => {
+      const productManufacturerId = product.manufacturerId
+      if (productManufacturerId && String(productManufacturerId) === String(fromManufacturerId)) {
+        own.push({ ...product, isOwnProduct: true })
+      } else {
+        partner.push({ ...product, isOwnProduct: false })
+      }
+    })
+    
+    return { ownProducts: own, partnerProducts: partner }
+  }, [products, authorization])
+
+  const displayProducts = productTab === 'own' ? ownProducts : partnerProducts
 
   useEffect(() => {
     if (authorizationId) {
@@ -263,18 +286,47 @@ export default function AuthorizationPricingPage() {
         {/* Product List Preview */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="font-bold text-gray-900">授权商品价格预览</h2>
-            <p className="text-sm text-gray-500">共 {products.length} 个商品</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-bold text-gray-900">授权商品价格预览</h2>
+                <p className="text-sm text-gray-500">共 {products.length} 个商品</p>
+              </div>
+              {/* 产品分类TAB */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setProductTab('own')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    productTab === 'own'
+                      ? 'bg-[#153e35] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  自有产品 ({ownProducts.length})
+                </button>
+                <button
+                  onClick={() => setProductTab('partner')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    productTab === 'partner'
+                      ? 'bg-[#153e35] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  合作商产品 ({partnerProducts.length})
+                </button>
+              </div>
+            </div>
           </div>
           
-          {products.length === 0 ? (
+          {displayProducts.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p>暂无授权商品</p>
+              <p>{productTab === 'own' ? '暂无自有产品' : '暂无合作商产品'}</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {products.slice(0, 20).map(product => {
+              {displayProducts.slice(0, 20).map(product => {
                 const retailPrice = getProductPrice(product)
                 const minPrice = retailPrice * (minDiscountRate / 100)
                 const commission = minPrice * (commissionRate / 100)
@@ -318,9 +370,9 @@ export default function AuthorizationPricingPage() {
                 )
               })}
               
-              {products.length > 20 && (
+              {displayProducts.length > 20 && (
                 <div className="px-6 py-4 text-center text-sm text-gray-500">
-                  还有 {products.length - 20} 个商品未显示
+                  还有 {displayProducts.length - 20} 个商品未显示
                 </div>
               )}
             </div>
