@@ -2545,6 +2545,9 @@ router.get('/:id/products', auth, async (req, res) => {
     const fromManufacturerId = authorization.fromManufacturer
     const toManufacturerId = authorization.toManufacturer
     
+    console.log('[Auth Products] authId:', id, 'scope:', authorization.scope, 'authType:', authorization.authorizationType)
+    console.log('[Auth Products] fromManufacturer:', fromManufacturerId, 'toManufacturer:', toManufacturerId, 'toDesigner:', authorization.toDesigner)
+    
     // 获取自有产品（来自当前授权的fromManufacturer）
     let ownProducts = []
     if (authorization.scope === 'all') {
