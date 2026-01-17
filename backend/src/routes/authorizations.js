@@ -1314,7 +1314,7 @@ router.get('/designer-requests/pending', auth, async (req, res) => {
 router.put('/designer-requests/:id/approve', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'enterprise_admin'].includes(currentUser?.role)
     
     if (!isAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
@@ -1439,7 +1439,7 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
 router.put('/designer-requests/:id/reject', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'enterprise_admin'].includes(currentUser?.role)
     
     if (!isAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
@@ -1655,7 +1655,7 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
 router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'enterprise_admin'].includes(currentUser?.role)
 
     if (!isAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
@@ -1756,7 +1756,7 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
 router.put('/manufacturer-requests/:id/reject', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'enterprise_admin'].includes(currentUser?.role)
 
     if (!isAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
