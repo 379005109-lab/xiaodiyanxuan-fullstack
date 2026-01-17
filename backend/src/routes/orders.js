@@ -345,9 +345,10 @@ router.get('/:id/payment-info', async (req, res) => {
       return res.status(404).json({ success: false, message: '订单不存在' })
     }
     
-    // 获取订单关联的厂家ID - 尝试多种方式
-    let manufacturerId = order.manufacturerId || order.items?.[0]?.manufacturerId || order.items?.[0]?.manufacturer
-    console.log('📍 [payment-info] 订单:', order.orderNo, '厂家ID:', manufacturerId)
+    // 优先使用订单归属厂家（下单用户的厂家），而不是商品生产厂家
+    // 因为付款应该给渠道商/下单账户，而不是商品的生产厂家
+    let manufacturerId = order.ownerManufacturerId || order.manufacturerId || order.items?.[0]?.manufacturerId
+    console.log('📍 [payment-info] 订单:', order.orderNo, '归属厂家ID:', order.ownerManufacturerId, '商品厂家ID:', order.items?.[0]?.manufacturerId)
     
     let paymentInfo = {
       wechatQrCode: null,
