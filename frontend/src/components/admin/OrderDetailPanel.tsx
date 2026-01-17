@@ -412,6 +412,89 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
           </div>
         </div>
 
+        {/* 预付定制订单信息 */}
+        {(order as any).paymentRatioEnabled && (
+          <div className="bg-gradient-to-r from-cyan-50 to-pink-50 rounded-xl p-4 border border-cyan-100">
+            <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+              📦 预付定制订单
+            </h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-white/60 rounded-lg p-2">
+                <div className="text-gray-500 text-xs">定金(50%)</div>
+                <div className="font-bold text-cyan-700">¥{((order as any).depositAmount || 0).toLocaleString()}</div>
+                {(order as any).depositVerified && <span className="text-xs text-green-600">✓已核销</span>}
+                {(order as any).depositPaidAt && !(order as any).depositVerified && <span className="text-xs text-amber-600">待核销</span>}
+              </div>
+              <div className="bg-white/60 rounded-lg p-2">
+                <div className="text-gray-500 text-xs">尾款(50%)</div>
+                <div className="font-bold text-pink-700">¥{((order as any).finalPaymentAmount || 0).toLocaleString()}</div>
+                {(order as any).finalPaymentVerified && <span className="text-xs text-green-600">✓已核销</span>}
+              </div>
+              <div className="bg-white/60 rounded-lg p-2">
+                <div className="text-gray-500 text-xs">返佣金额</div>
+                <div className="font-bold text-purple-700">¥{((order as any).commissionAmount || 0).toLocaleString()}</div>
+              </div>
+              <div className="bg-white/60 rounded-lg p-2">
+                <div className="text-gray-500 text-xs">生产周期</div>
+                <div className="font-bold text-teal-700">{(order as any).estimatedProductionDays || 0} 天</div>
+              </div>
+            </div>
+            
+            {/* 生产进度和剩余天数 */}
+            {(order as any).depositPaidAt && (
+              <div className="mt-3 p-2 bg-white/60 rounded-lg">
+                <div className="text-xs text-gray-500 mb-1">生产进度</div>
+                {(() => {
+                  const startDate = new Date((order as any).depositPaidAt)
+                  const days = (order as any).estimatedProductionDays || 30
+                  const deadline = new Date(startDate.getTime() + days * 24 * 60 * 60 * 1000)
+                  const remaining = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+                  const progress = Math.min(100, Math.max(0, ((days - remaining) / days) * 100))
+                  return (
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span>开始: {startDate.toLocaleDateString('zh-CN')}</span>
+                        <span className={remaining > 0 ? 'text-teal-600' : 'text-red-600'}>
+                          {remaining > 0 ? `剩余 ${remaining} 天` : '已到期'}
+                        </span>
+                        <span>截止: {deadline.toLocaleDateString('zh-CN')}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className={`h-2 rounded-full ${remaining > 0 ? 'bg-teal-500' : 'bg-red-500'}`} style={{width: `${progress}%`}}></div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+            
+            {/* 提前交付按钮 */}
+            {(order as any).depositVerified && order.status === 11 && (
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/request-final-payment`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' }
+                    })
+                    if (response.ok) {
+                      toast.success('已发起尾款请求，等待客户支付')
+                      onRefresh?.()
+                    } else {
+                      toast.error('操作失败')
+                    }
+                  } catch (error) {
+                    toast.error('操作失败')
+                  }
+                }}
+                className="mt-3 w-full px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 text-sm"
+              >
+                🚀 提前交付 - 发起尾款请求
+              </button>
+            )}
+          </div>
+        )}
+
         {/* 订单动态 & 跟进 - 仅管理员显示 */}
         {showFollowUp && (
           <div>
