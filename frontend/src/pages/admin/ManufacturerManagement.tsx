@@ -3971,14 +3971,49 @@ export default function ManufacturerManagement() {
       {/* 审批配置弹窗 */}
       {showApproveModal && approveTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden">
+          <div className="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[90vh] flex flex-col">
             <div className="p-6 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-900">审批合作申请</h3>
               <p className="text-sm text-gray-500 mt-1">
                 配置 {approveTarget.toDesigner?.nickname || approveTarget.toManufacturer?.name || '申请人'} 的授权参数
               </p>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* 申请方信息 */}
+              {approveTarget.toManufacturer && (
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700">申请方信息</h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-500">公司名称:</span>
+                      <span className="ml-2 text-gray-900">{approveTarget.toManufacturer.fullName || approveTarget.toManufacturer.name || '--'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">经营品类:</span>
+                      <span className="ml-2 text-gray-900">{approveTarget.toManufacturer.businessCategories || '--'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">年营业额:</span>
+                      <span className="ml-2 text-gray-900">{approveTarget.toManufacturer.annualRevenue || '--'}</span>
+                    </div>
+                  </div>
+                  {approveTarget.toManufacturer.businessLicense ? (
+                    <div>
+                      <span className="text-gray-500 text-sm">营业执照:</span>
+                      <img 
+                        src={getFileUrl(approveTarget.toManufacturer.businessLicense)} 
+                        alt="营业执照" 
+                        className="mt-2 w-full max-h-48 object-contain rounded-lg border border-gray-200 cursor-pointer hover:opacity-80"
+                        onClick={() => window.open(getFileUrl(approveTarget.toManufacturer.businessLicense), '_blank')}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
+                      ⚠️ 申请方未上传营业执照
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">最低折扣 (%)</label>
                 <input
