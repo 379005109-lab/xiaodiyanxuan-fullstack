@@ -74,14 +74,20 @@ const manufacturerSchema = new mongoose.Schema({
   },
   defaultDiscount: {
     type: Number,
-    default: 0
+    default: 60,  // 默认不低于60%
+    min: 60  // 最低60%
   },
   defaultCommission: {
     type: Number,
-    default: 0
+    default: 40  // 自己产品默认返佣40%
   },
   logo: {
     type: String
+  },
+  // 厂家图片相册
+  galleryImages: {
+    type: [String],
+    default: []
   },
   isPreferred: {
     type: Boolean,
@@ -94,6 +100,20 @@ const manufacturerSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  // 品类标签
+  categoryTags: {
+    type: [String],
+    default: []
+  },
+  // 价格范围
+  priceRangeMin: {
+    type: Number,
+    default: 0
+  },
+  priceRangeMax: {
+    type: Number,
+    default: 0
+  },
   defaultDiscount: {
     type: Number,
     default: 0
@@ -102,26 +122,46 @@ const manufacturerSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  // 付款比例设置
+  // 付款比例设置（新版 - 支持多比例选择）
+  paymentRatioEnabled: {
+    type: Boolean,
+    default: false
+  },
+  // 可选付款比例数组（如 [50, 75, 100]）
+  paymentRatios: {
+    type: [Number],
+    default: [50, 75, 100]
+  },
+  // 开票设置（新版）
+  invoiceEnabled: {
+    type: Boolean,
+    default: false
+  },
+  // 开票加价比例 (百分比，如 10 表示加价10%)
+  invoiceMarkupPercent: {
+    type: Number,
+    default: 10,
+    min: 0,
+    max: 100
+  },
+  // 兼容旧版付款比例设置
   paymentRatio: {
     enabled: {
       type: Boolean,
       default: false
     },
-    // 付款比例: 50, 75, 100 (百分比)
     ratio: {
       type: Number,
       default: 100,
       enum: [50, 75, 100]
     }
   },
-  // 开票设置
+  // 兼容旧版开票设置
   invoiceSetting: {
     enabled: {
       type: Boolean,
       default: false
     },
-    // 开票加价比例 (百分比，如 6 表示加价6%)
     ratio: {
       type: Number,
       default: 0,
@@ -158,6 +198,7 @@ const manufacturerSchema = new mongoose.Schema({
     },
     // 银行转账信息
     bankInfo: {
+      companyName: String,  // 公户单位全称
       bankName: String,
       accountName: String,
       accountNumber: String
@@ -191,7 +232,11 @@ const manufacturerSchema = new mongoose.Schema({
       enum: ['none', 'pending', 'approved', 'rejected'],
       default: 'none'
     },
-    // 营业执照图片
+    // 营业执照图片（新字段，与前端匹配）
+    businessLicense: {
+      type: String
+    },
+    // 营业执照图片（旧字段，兼容）
     businessLicenseImage: {
       type: String
     },
@@ -205,24 +250,35 @@ const manufacturerSchema = new mongoose.Schema({
       type: String,
       trim: true
     },
-    // 法人代表
+    // 法人代表（新字段，与前端匹配）
+    legalPerson: {
+      type: String,
+      trim: true
+    },
+    // 法人代表（旧字段，兼容）
     legalRepresentative: {
       type: String,
       trim: true
     },
-    // 开票信息
+    // 开票名称（与前端匹配）
+    invoiceName: { type: String, trim: true },
+    // 税号（与前端匹配）
+    taxNumber: { type: String, trim: true },
+    // 开户银行（与前端匹配）
+    invoiceBankName: { type: String, trim: true },
+    // 银行账号（与前端匹配）
+    invoiceBankAccount: { type: String, trim: true },
+    // 企业地址（与前端匹配）
+    invoiceAddress: { type: String, trim: true },
+    // 企业电话（与前端匹配）
+    invoicePhone: { type: String, trim: true },
+    // 开票信息（旧嵌套结构，兼容）
     invoiceInfo: {
-      // 开票名称
       name: { type: String, trim: true },
-      // 税号
       taxNumber: { type: String, trim: true },
-      // 开户银行
       bankName: { type: String, trim: true },
-      // 银行账号
       bankAccount: { type: String, trim: true },
-      // 企业地址
       address: { type: String, trim: true },
-      // 企业电话
       phone: { type: String, trim: true }
     },
     // 认证时间
@@ -296,8 +352,17 @@ function generateRandomDigits(length = 4) {
   return result
 }
 
+// 从字符串中提取英文字母
+function extractEnglishLetters(str) {
+  if (!str) return 'XX'
+  // 只提取英文字母
+  const letters = str.replace(/[^A-Za-z]/g, '').toUpperCase()
+  // 返回前2-4个字母，如果没有英文字母则返回XX
+  return (letters || 'XX').substring(0, 4)
+}
+
 // 生成唯一编号的辅助函数
-async function generateUniqueCode(shortName) {
+async function generateUniqueCode(fullName) {
   const today = new Date()
   const dateStr = today.getFullYear().toString() +
     (today.getMonth() + 1).toString().padStart(2, '0') +
@@ -306,14 +371,17 @@ async function generateUniqueCode(shortName) {
   // 生成4位随机数字
   const randomDigits = generateRandomDigits(4)
   
-  // 组合编号：简称 + 日期 + 4位随机数字（如：GS20251211XXXX）
-  const code = `${shortName.toUpperCase()}${dateStr}${randomDigits}`
+  // 从厂家全称中提取英文字母作为前缀
+  const prefix = extractEnglishLetters(fullName)
+  
+  // 组合编号：英文字母 + 日期 + 4位随机数字（如：ED202601150001）
+  const code = `${prefix}${dateStr}${randomDigits}`
   
   // 检查是否已存在
   const existing = await mongoose.model('Manufacturer').findOne({ code })
   if (existing) {
     // 如果存在，递归生成新的
-    return generateUniqueCode(shortName)
+    return generateUniqueCode(fullName)
   }
   
   return code
@@ -323,8 +391,9 @@ manufacturerSchema.pre('save', async function(next) {
   this.updatedAt = new Date()
   
   // 自动生成编号（缺失时自动补齐，兼容旧数据）
-  if (!this.code && this.shortName) {
-    this.code = await generateUniqueCode(this.shortName)
+  // 优先使用fullName中的英文字母，没有则使用shortName
+  if (!this.code && (this.fullName || this.shortName)) {
+    this.code = await generateUniqueCode(this.fullName || this.shortName)
   }
   
   // 兼容：将fullName同步到name字段

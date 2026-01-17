@@ -168,7 +168,10 @@ interface CommissionRule {
   _id: string
   name: string  // 规则名称，如"2层分佣"、"3层分佣"
   description?: string
+  // 返佣模式: 'fixed' = 上级固定比例，下级自由分配; 'formula' = 按公式各层级分配
+  commissionMode?: 'fixed' | 'formula'
   selfRate: number  // 自己销售的返佣比例 (%)
+  upperFixedRate?: number  // 上级固定获取比例 (仅fixed模式)
   subordinateRates: number[]  // 各层级下级的返佣比例 (%)，索引0=直接下级
   maxTotal: number  // 最大总返佣比例，默认40
   isDefault?: boolean
@@ -201,21 +204,33 @@ const DEFAULT_COMMISSION_RULES: Omit<CommissionRule, '_id' | 'createdAt'>[] = [
   {
     name: '直销模式',
     description: '无下级，自己获得全部返佣',
+    commissionMode: 'formula',
     selfRate: 40,
     subordinateRates: [],
     maxTotal: 40,
     isDefault: true
   },
   {
-    name: '2层分佣',
+    name: '上级固定分佣',
+    description: '上级固定拿5%，剩余35%下级自由分配',
+    commissionMode: 'fixed',
+    selfRate: 40,
+    upperFixedRate: 5,
+    subordinateRates: [],
+    maxTotal: 40
+  },
+  {
+    name: '2层公式分佣',
     description: '自己20%，直接下级20%',
+    commissionMode: 'formula',
     selfRate: 20,
     subordinateRates: [20],
     maxTotal: 40
   },
   {
-    name: '3层分佣',
+    name: '3层公式分佣',
     description: '自己10%，一级下级15%，二级下级15%',
+    commissionMode: 'formula',
     selfRate: 10,
     subordinateRates: [15, 15],
     maxTotal: 40
@@ -2914,6 +2929,20 @@ function HierarchyTab({
                     <div className="text-xl font-bold text-blue-800">{hierarchyData.headquarters.distribution}%</div>
                   </div>
                 </div>
+                
+                {/* 添加下级按钮 - 在总控节点下方 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setParentAccount(null)
+                    setShowAddModal(true)
+                  }}
+                  className="mt-4 w-full py-3 rounded-xl border-2 border-dashed border-emerald-300 text-emerald-600 hover:bg-emerald-50 flex items-center justify-center gap-2 transition-all"
+                  title="添加一级层级"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span className="font-bold text-sm">添加层级</span>
+                </button>
               </div>
 
               {visibleStaffNodesForRender.map((staff) => (
@@ -2972,8 +3001,9 @@ function HierarchyTab({
                       <input
                         type="number"
                         value={nodeDraft[String(staff.id)]?.minDiscount ?? staff.minDiscount}
+                        min={60}
                         onChange={(e) => {
-                          const v = Math.max(0, Math.min(100, Number(e.target.value) || 0))
+                          const v = Math.max(60, Math.min(100, Number(e.target.value) || 60))
                           setNodeDraft(prev => ({
                             ...prev,
                             [String(staff.id)]: {
@@ -3646,70 +3676,149 @@ function HierarchyTab({
                 />
               </div>
 
-              <div className="bg-emerald-50 p-4 rounded-lg">
-                <div className="mb-3">
-                  <label className="text-sm font-medium text-emerald-800 block mb-1">自己销售返佣 (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="40"
-                    value={editingRule.selfRate}
-                    onChange={(e) => setEditingRule({ 
-                      ...editingRule, 
-                      selfRate: Math.min(40, Math.max(0, Number(e.target.value) || 0))
-                    })}
-                    className="w-full p-2.5 border border-emerald-300 rounded-lg text-sm"
-                  />
+              {/* 返佣模式选择 */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-2">返佣模式</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingRule({ ...editingRule, commissionMode: 'fixed' })}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      editingRule.commissionMode === 'fixed' 
+                        ? 'border-emerald-500 bg-emerald-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-medium text-sm text-gray-900">上级固定分佣</div>
+                    <div className="text-xs text-gray-500 mt-1">上级拿固定比例，剩余下级自由分配</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingRule({ ...editingRule, commissionMode: 'formula' })}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                      (editingRule.commissionMode || 'formula') === 'formula' 
+                        ? 'border-emerald-500 bg-emerald-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="font-medium text-sm text-gray-900">公式分佣</div>
+                    <div className="text-xs text-gray-500 mt-1">按层级公式分配，每层固定比例</div>
+                  </button>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-emerald-800">下级层级返佣</label>
-                    <button
-                      type="button"
-                      onClick={() => setEditingRule({
-                        ...editingRule,
-                        subordinateRates: [...(editingRule.subordinateRates || []), 10]
-                      })}
-                      className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
-                    >
-                      + 添加层级
-                    </button>
-                  </div>
-
-                  {(editingRule.subordinateRates || []).map((rate, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span className="text-xs text-emerald-700 w-20">第{idx + 1}级下级</span>
+              <div className="bg-emerald-50 p-4 rounded-lg">
+                {/* 上级固定分佣模式 */}
+                {editingRule.commissionMode === 'fixed' && (
+                  <>
+                    <div className="mb-3">
+                      <label className="text-sm font-medium text-emerald-800 block mb-1">总返佣池 (%)</label>
                       <input
                         type="number"
                         min="0"
                         max="40"
-                        value={rate}
-                        onChange={(e) => {
-                          const newRates = [...(editingRule.subordinateRates || [])]
-                          newRates[idx] = Math.min(40, Math.max(0, Number(e.target.value) || 0))
-                          setEditingRule({ ...editingRule, subordinateRates: newRates })
-                        }}
-                        className="flex-1 p-2 border border-emerald-300 rounded-lg text-sm"
+                        value={editingRule.selfRate}
+                        onChange={(e) => setEditingRule({ 
+                          ...editingRule, 
+                          selfRate: Math.min(40, Math.max(0, Number(e.target.value) || 0))
+                        })}
+                        className="w-full p-2.5 border border-emerald-300 rounded-lg text-sm"
                       />
-                      <span className="text-xs text-emerald-600">%</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newRates = (editingRule.subordinateRates || []).filter((_, i) => i !== idx)
-                          setEditingRule({ ...editingRule, subordinateRates: newRates })
-                        }}
-                        className="p-1 text-red-500 hover:text-red-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+                      <p className="text-xs text-emerald-600 mt-1">如：总数40%，上级拿5%，下级可分配35%</p>
                     </div>
-                  ))}
+                    <div className="mb-3">
+                      <label className="text-sm font-medium text-emerald-800 block mb-1">上级固定获取 (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={editingRule.selfRate}
+                        value={editingRule.upperFixedRate || 0}
+                        onChange={(e) => setEditingRule({ 
+                          ...editingRule, 
+                          upperFixedRate: Math.min(editingRule.selfRate, Math.max(0, Number(e.target.value) || 0))
+                        })}
+                        className="w-full p-2.5 border border-emerald-300 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div className="bg-emerald-100 p-3 rounded-lg">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-emerald-700">下级可自由分配：</span>
+                        <span className="font-bold text-emerald-800">
+                          {editingRule.selfRate - (editingRule.upperFixedRate || 0)}%
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
 
-                  {(editingRule.subordinateRates || []).length === 0 && (
-                    <p className="text-xs text-emerald-600 italic">点击"添加层级"设置下级返佣</p>
-                  )}
-                </div>
+                {/* 公式分佣模式 */}
+                {(editingRule.commissionMode || 'formula') === 'formula' && (
+                  <>
+                    <div className="mb-3">
+                      <label className="text-sm font-medium text-emerald-800 block mb-1">自己销售返佣 (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="40"
+                        value={editingRule.selfRate}
+                        onChange={(e) => setEditingRule({ 
+                          ...editingRule, 
+                          selfRate: Math.min(40, Math.max(0, Number(e.target.value) || 0))
+                        })}
+                        className="w-full p-2.5 border border-emerald-300 rounded-lg text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-emerald-800">下级层级返佣</label>
+                        <button
+                          type="button"
+                          onClick={() => setEditingRule({
+                            ...editingRule,
+                            subordinateRates: [...(editingRule.subordinateRates || []), 10]
+                          })}
+                          className="text-xs px-2 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+                        >
+                          + 添加层级
+                        </button>
+                      </div>
+
+                      {(editingRule.subordinateRates || []).map((rate, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="text-xs text-emerald-700 w-20">第{idx + 1}级下级</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="40"
+                            value={rate}
+                            onChange={(e) => {
+                              const newRates = [...(editingRule.subordinateRates || [])]
+                              newRates[idx] = Math.min(40, Math.max(0, Number(e.target.value) || 0))
+                              setEditingRule({ ...editingRule, subordinateRates: newRates })
+                            }}
+                            className="flex-1 p-2 border border-emerald-300 rounded-lg text-sm"
+                          />
+                          <span className="text-xs text-emerald-600">%</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newRates = (editingRule.subordinateRates || []).filter((_, i) => i !== idx)
+                              setEditingRule({ ...editingRule, subordinateRates: newRates })
+                            }}
+                            className="p-1 text-red-500 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {(editingRule.subordinateRates || []).length === 0 && (
+                        <p className="text-xs text-emerald-600 italic">点击"添加层级"设置下级返佣</p>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 <div className="mt-4 pt-3 border-t border-emerald-200">
                   <div className="flex justify-between text-sm">
@@ -4381,55 +4490,15 @@ function ProductProfitModal({
             </div>
           </div>
 
+          {/* 已移除自定义折扣和返佣设置 - 统一使用厂家最低折扣价结算，返佣按层级地图计算 */}
           {checked && (
             <div className="border-t border-gray-100 pt-4">
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">自定义折扣%</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    placeholder="留空继承规则"
-                    value={prodOverride?.discountRate != null ? rateToPct(prodOverride.discountRate) : ''}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      if (!v) {
-                        setProductOverrideField(pid, { discountRate: null })
-                        return
-                      }
-                      const r = pctToRate(v)
-                      setProductOverrideField(pid, { discountRate: r == null ? null : Math.max(r, safeGlobalMinSaleDiscountRate) })
-                    }}
-                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#153e35] focus:ring-1 focus:ring-[#153e35]"
-                  />
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-500">
+                  结算价按厂家最低折扣价，返佣按层级地图计算
                 </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">自定义返佣%</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={Math.round(safeCommissionMax * 100)}
-                    step={1}
-                    placeholder="留空继承规则"
-                    value={prodOverride?.commissionRate != null ? commissionToPct(prodOverride.commissionRate) : ''}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      if (!v) {
-                        setProductOverrideField(pid, { commissionRate: null })
-                        return
-                      }
-                      const r = pctToRate(v)
-                      setProductOverrideField(pid, { commissionRate: r == null ? null : Math.max(0, Math.min(safeCommissionMax, r)) })
-                    }}
-                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#153e35] focus:ring-1 focus:ring-[#153e35]"
-                  />
-                </div>
-                <div className="flex items-end pb-2">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <Check className="w-6 h-6" />
-                  </div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Check className="w-5 h-5" />
                 </div>
               </div>
             </div>
@@ -4577,46 +4646,7 @@ function ProductProfitModal({
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                step={1}
-                                placeholder="品类折扣%"
-                                value={catDiscountPct}
-                                onChange={(e) => {
-                                  const v = e.target.value
-                                  if (!v) {
-                                    setCategoryOverrideField(id, { discountRate: null })
-                                    return
-                                  }
-                                  const r = pctToRate(v)
-                                  setCategoryOverrideField(id, { discountRate: r == null ? null : Math.max(r, safeGlobalMinSaleDiscountRate) })
-                                }}
-                                className="w-24 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
-                                title="品类最低折扣%（留空表示继承规则）"
-                              />
-                              <input
-                                type="number"
-                                min={0}
-                                max={Math.round(safeCommissionMax * 100)}
-                                step={1}
-                                placeholder="品类返佣%"
-                                value={catCommissionPct}
-                                onChange={(e) => {
-                                  const v = e.target.value
-                                  if (!v) {
-                                    setCategoryOverrideField(id, { commissionRate: null })
-                                    return
-                                  }
-                                  const r = pctToRate(v)
-                                  setCategoryOverrideField(id, { commissionRate: r == null ? null : Math.max(0, Math.min(safeCommissionMax, r)) })
-                                }}
-                                className="w-24 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-black text-center shadow-inner focus:ring-2 focus:ring-[#153e35] outline-none"
-                                title="品类返佣%（留空表示继承规则）"
-                              />
-                            </div>
+                            {/* 已移除品类自定义折扣和返佣 - 统一使用厂家最低折扣价结算 */}
                             {subtreeIds.length > 0 ? (
                               <button
                                 type="button"

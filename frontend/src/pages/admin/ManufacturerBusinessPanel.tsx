@@ -20,7 +20,7 @@ import {
   Settings
 } from 'lucide-react'
 
-type TabType = 'channels' | 'products' | 'authorizations'
+type TabType = 'home' | 'partners' | 'channels'
 type ProductFilter = 'all' | 'own' | 'authorized' | 'pending'
 
 interface ChannelItem {
@@ -78,7 +78,7 @@ export default function ManufacturerBusinessPanel() {
   const manufacturerId = params.manufacturerId || (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0]
 
   const urlTab = searchParams.get('tab') as TabType | null
-  const [activeTab, setActiveTab] = useState<TabType>(urlTab || 'authorizations')
+  const [activeTab, setActiveTab] = useState<TabType>(urlTab || 'home')
   const [productFilter, setProductFilter] = useState<ProductFilter>('all')
   const [loading, setLoading] = useState(true)
   const [manufacturer, setManufacturer] = useState<any>(null)
@@ -505,6 +505,32 @@ export default function ManufacturerBusinessPanel() {
           <div className="border-b border-gray-100">
             <div className="flex items-center gap-8 px-6">
               <button
+                onClick={() => setActiveTab('home')}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'home'
+                    ? 'border-[#153e35] text-[#153e35]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  首页
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('partners')}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'partners'
+                    ? 'border-[#153e35] text-[#153e35]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  合作商家
+                </span>
+              </button>
+              <button
                 onClick={() => setActiveTab('channels')}
                 className={`py-4 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === 'channels'
@@ -514,33 +540,7 @@ export default function ManufacturerBusinessPanel() {
               >
                 <span className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
-                  渠道管控
-                </span>
-              </button>
-              <button
-                onClick={() => setActiveTab('products')}
-                className={`py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'products'
-                    ? 'border-[#153e35] text-[#153e35]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Package className="w-4 h-4" />
-                  统一商品库
-                </span>
-              </button>
-              <button
-                onClick={() => setActiveTab('authorizations')}
-                className={`py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === 'authorizations'
-                    ? 'border-[#153e35] text-[#153e35]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  授权管理
+                  渠道管理
                 </span>
               </button>
             </div>
@@ -676,9 +676,176 @@ export default function ManufacturerBusinessPanel() {
               </div>
             )}
 
-            {activeTab === 'products' && (
+            {activeTab === 'home' && (
               <div>
-                {/* Product Library Header */}
+                {/* 厂家本家信息 */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-gray-900">厂家信息</h3>
+                  <p className="text-sm text-gray-500">本厂家的基本信息和商品概览</p>
+                </div>
+
+                {/* 厂家基本信息卡片 */}
+                <div className="bg-gray-50 rounded-2xl p-6 mb-6">
+                  <div className="flex items-start gap-6">
+                    <div className="w-20 h-20 rounded-2xl bg-white border overflow-hidden flex-shrink-0">
+                      {manufacturer?.logo ? (
+                        <img src={manufacturer.logo.startsWith('http') ? manufacturer.logo : `/api/files/${manufacturer.logo}`} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="w-10 h-10 text-gray-300" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-2xl font-bold text-gray-900 mb-1">{manufacturer?.name || manufacturer?.fullName || '厂家'}</h2>
+                      <p className="text-sm text-gray-500 mb-3">{manufacturer?.code || manufacturerId}</p>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full">
+                          {manufacturer?.status === 'active' ? '运营中' : '已停用'}
+                        </span>
+                        <span className="text-gray-500">商品数量: {products.length}</span>
+                        <span className="text-gray-500">渠道数量: {channels.length}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => navigate(`/admin/manufacturers/${manufacturerId}/settings`)}
+                        className="px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
+                      >
+                        <Settings className="w-4 h-4 inline mr-1" />
+                        设置
+                      </button>
+                      <button
+                        onClick={() => navigate(`/admin/product-management`)}
+                        className="px-4 py-2 bg-[#153e35] text-white rounded-lg text-sm hover:bg-[#1a4d42]"
+                      >
+                        商品管理
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 快捷操作 */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <button
+                    onClick={() => setActiveTab('partners')}
+                    className="bg-blue-50 border border-blue-100 rounded-xl p-6 text-left hover:shadow-md transition-all"
+                  >
+                    <Users className="w-8 h-8 text-blue-600 mb-3" />
+                    <h4 className="font-semibold text-gray-900 mb-1">合作商家</h4>
+                    <p className="text-sm text-gray-500">查看授权给本厂家的商家 ({receivedAuths.length})</p>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('channels')}
+                    className="bg-green-50 border border-green-100 rounded-xl p-6 text-left hover:shadow-md transition-all"
+                  >
+                    <TrendingUp className="w-8 h-8 text-green-600 mb-3" />
+                    <h4 className="font-semibold text-gray-900 mb-1">渠道管理</h4>
+                    <p className="text-sm text-gray-500">管理本厂家授权的渠道商 ({channels.length})</p>
+                  </button>
+                  <button
+                    onClick={() => navigate(`/admin/tier-system?manufacturerId=${manufacturerId}`)}
+                    className="bg-purple-50 border border-purple-100 rounded-xl p-6 text-left hover:shadow-md transition-all"
+                  >
+                    <DollarSign className="w-8 h-8 text-purple-600 mb-3" />
+                    <h4 className="font-semibold text-gray-900 mb-1">分成体系</h4>
+                    <p className="text-sm text-gray-500">管理层级分成规则</p>
+                  </button>
+                </div>
+
+                {/* 待审批提醒 */}
+                {pendingRequests.length > 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Clock className="w-5 h-5 text-yellow-600" />
+                        <span className="font-medium text-yellow-800">有 {pendingRequests.length} 条待审批申请</span>
+                      </div>
+                      <button
+                        onClick={() => navigate('/admin/authorizations?tab=pending_requests')}
+                        className="px-4 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700"
+                      >
+                        去审批
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'partners' && (
+              <div>
+                {/* 合作商家：其他商家授权给本厂家的信息 */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-gray-900">合作商家</h3>
+                  <p className="text-sm text-gray-500">其他商家授权给本厂家的合作信息</p>
+                </div>
+
+                {receivedAuths.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>暂无合作商家</p>
+                    <p className="text-sm mt-2">当其他商家授权给您时，会显示在这里</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {receivedAuths.map((auth: any) => {
+                      const partnerName = auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家'
+                      const partnerLogo = auth.fromManufacturer?.logo
+                      const partnerId = auth.fromManufacturer?._id || auth._id
+                      const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
+                      
+                      return (
+                        <div key={auth._id} className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-md transition-all">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+                              {partnerLogo ? (
+                                <img src={partnerLogo.startsWith('http') ? partnerLogo : `/api/files/${partnerLogo}`} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Package className="w-6 h-6 text-gray-300" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-gray-900 truncate">{partnerName}</h4>
+                              <p className="text-xs text-gray-500">{partnerId?.slice(-8)}</p>
+                            </div>
+                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">已授权</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div className="bg-gray-50 rounded-lg p-3 text-center">
+                              <div className="text-xs text-gray-500 mb-1">授权折扣</div>
+                              <div className="text-xl font-bold text-gray-900">{auth.minDiscountRate || 0}%</div>
+                            </div>
+                            <div className="bg-gray-50 rounded-lg p-3 text-center">
+                              <div className="text-xs text-gray-500 mb-1">返佣比例</div>
+                              <div className="text-xl font-bold text-gray-900">{auth.commissionRate || 0}%</div>
+                            </div>
+                          </div>
+                          
+                          <div className="text-sm text-gray-500 mb-4">
+                            已授权 {productCount} 件商品
+                          </div>
+                          
+                          <button
+                            onClick={() => navigate(`/admin/manufacturers/${manufacturerId}/authorized-products?partnerId=${partnerId}`)}
+                            className="w-full py-2.5 bg-[#153e35] text-white rounded-lg text-sm hover:bg-[#1a4d42]"
+                          >
+                            查看授权商品
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {false && (
+              <div>
+                {/* 旧的products tab内容 - 已废弃 */}
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden">
@@ -853,8 +1020,9 @@ export default function ManufacturerBusinessPanel() {
               </div>
             )}
 
-            {activeTab === 'authorizations' && (
+            {false && (
               <div>
+                {/* 旧的授权管理 - 已废弃 */}
                 <div className="mb-6">
                   <h3 className="text-lg font-bold text-gray-900">授权管理</h3>
                   <p className="text-sm text-gray-500">管理所有合作商的授权关系（我授权的 + 我收到的）</p>

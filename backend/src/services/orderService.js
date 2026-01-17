@@ -91,6 +91,19 @@ const dispatchOrderToManufacturers = async (order) => {
 
   if (!items.length) return []
 
+  // ★ 关键修复：如果订单有 ownerManufacturerId，说明是授权商品订单
+  // 订单应该分配给下单用户所属的厂家（ownerManufacturerId），而不是商品的原始厂家
+  let orderOwnerManufacturerId = order.ownerManufacturerId ? String(order.ownerManufacturerId) : null
+  let orderOwnerManufacturerName = null
+  
+  if (orderOwnerManufacturerId) {
+    const ownerManufacturer = await Manufacturer.findById(orderOwnerManufacturerId)
+      .select('fullName name shortName')
+      .lean()
+    orderOwnerManufacturerName = ownerManufacturer?.fullName || ownerManufacturer?.name || ownerManufacturer?.shortName || '未知厂家'
+    console.log('📦 [Dispatch] 授权商品订单，分配给下单用户厂家:', orderOwnerManufacturerId, orderOwnerManufacturerName)
+  }
+
   let basePriceMap = null
   let totalWeight = 0
   if (order.orderType === 'package') {
@@ -115,8 +128,9 @@ const dispatchOrderToManufacturers = async (order) => {
 
   const groups = new Map()
   for (const item of items) {
-    const manufacturerId = item.manufacturerId
-    const manufacturerName = item.manufacturerName
+    // ★ 关键修复：优先使用订单的 ownerManufacturerId
+    const manufacturerId = orderOwnerManufacturerId || item.manufacturerId
+    const manufacturerName = orderOwnerManufacturerName || item.manufacturerName
 
     const key = manufacturerId ? String(manufacturerId) : 'unknown'
     if (!groups.has(key)) {
@@ -234,13 +248,14 @@ const dispatchOrderToManufacturers = async (order) => {
   return createdOrders
 }
 
-const createOrder = async (userId, { items, recipient, couponCode, ownerManufacturerId }) => {
+const createOrder = async (userId, { items, recipient, couponCode, ownerManufacturerId, paymentRatio }) => {
   console.log('🛒 [OrderService] createOrder called');
   console.log('🛒 [OrderService] userId:', userId);
   console.log('🛒 [OrderService] userId type:', typeof userId);
   console.log('🛒 [OrderService] items count:', items?.length);
   console.log('🛒 [OrderService] recipient:', recipient);
   console.log('🛒 [OrderService] ownerManufacturerId:', ownerManufacturerId);
+  console.log('🛒 [OrderService] paymentRatio:', paymentRatio);
   
   if (!items || items.length === 0) {
     throw new ValidationError('Order must contain at least one item')
@@ -323,6 +338,20 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
     console.error('💰 [OrderService] Commission calculation failed:', err)
   }
   
+  // 计算付款比例相关金额
+  let paymentRatioEnabled = false
+  let firstPaymentAmount = totalAmount
+  let remainingPaymentAmount = 0
+  let remainingPaymentStatus = null
+  
+  if (paymentRatio && paymentRatio < 100) {
+    paymentRatioEnabled = true
+    firstPaymentAmount = Math.round(totalAmount * paymentRatio / 100 * 100) / 100  // 保留2位小数
+    remainingPaymentAmount = Math.round((totalAmount - firstPaymentAmount) * 100) / 100
+    remainingPaymentStatus = 'pending'
+    console.log('💰 [OrderService] Payment ratio enabled:', paymentRatio, '%, first:', firstPaymentAmount, ', remaining:', remainingPaymentAmount)
+  }
+  
   const order = await Order.create({
     orderNo,
     userId,
@@ -334,7 +363,12 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
     recipient,
     status: ORDER_STATUS.PENDING_PAYMENT,
     couponCode,
-    commissions
+    commissions,
+    paymentRatioEnabled,
+    paymentRatio: paymentRatio || 100,
+    firstPaymentAmount,
+    remainingPaymentAmount,
+    remainingPaymentStatus
   })
   
   console.log('✅ [OrderService] Order created successfully!');

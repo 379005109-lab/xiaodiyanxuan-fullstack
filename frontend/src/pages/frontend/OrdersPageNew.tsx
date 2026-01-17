@@ -152,8 +152,42 @@ export default function OrdersPageNew() {
     }
   }
 
-  // 后端使用数字状态: 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
+  const handleConfirmPayment = async (order: any) => {
+    const orderId = order._id || order.id
+    const amount = order.totalAmount
+    const isPriceModified = order.priceModified
+    
+    if (isPriceModified) {
+      const latestModify = order.priceModifyHistory?.[order.priceModifyHistory.length - 1]
+      const confirmMsg = `商家已将订单价格从 ¥${latestModify?.originalAmount?.toLocaleString()} 调整为 ¥${amount?.toLocaleString()}${latestModify?.reason ? `\n原因：${latestModify.reason}` : ''}\n\n确认接受改价并继续付款吗？`
+      if (!window.confirm(confirmMsg)) return
+    }
+    
+    toast.success(`正在跳转到付款页面，订单金额：¥${amount?.toLocaleString()}`)
+    
+    try {
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentMethod: 'wechat' })
+      })
+      
+      if (response.ok) {
+        toast.success('付款成功！')
+        setOrders(prev => prev.map((o: any) => (o._id || o.id) === orderId ? { ...o, status: 2 } : o))
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        toast.error(errorData.message || '付款失败，请重试')
+      }
+    } catch (error) {
+      console.error('付款失败:', error)
+      toast.error('付款失败，请重试')
+    }
+  }
+
+  // 后端使用数字状态: 0=待确认, 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
   const statusConfig: Record<string | number, { label: string; color: string; icon: React.ReactNode }> = {
+    0: { label: '待确认', color: 'text-amber-600 bg-amber-50', icon: <Clock className="w-4 h-4" /> },
     1: { label: '待付款', color: 'text-orange-600 bg-orange-50', icon: <Clock className="w-4 h-4" /> },
     2: { label: '待发货', color: 'text-blue-600 bg-blue-50', icon: <Package className="w-4 h-4" /> },
     3: { label: '待收货', color: 'text-purple-600 bg-purple-50', icon: <Truck className="w-4 h-4" /> },
@@ -168,6 +202,7 @@ export default function OrdersPageNew() {
 
   const statusOptions = [
     { value: '', label: '全部订单' },
+    { value: 'confirmation', label: '待确认' },
     { value: 'pending', label: '待付款' },
     { value: 'paid', label: '已付款' },
     { value: 'shipped', label: '已发货' },
@@ -249,7 +284,7 @@ export default function OrdersPageNew() {
               }`}>
                 {/* 订单头部 */}
                 <div className={`flex justify-between items-center px-6 py-4 border-b ${
-                  isCancelled ? 'bg-gray-100 border-gray-200' : hasCancelRequest ? 'bg-orange-100 border-orange-200' : 'bg-stone-50 border-stone-100'
+                  isCancelled ? 'bg-gray-100 border-gray-200' : hasCancelRequest ? 'bg-orange-100 border-orange-200' : order.priceModified ? 'bg-blue-50 border-blue-200' : 'bg-stone-50 border-stone-100'
                 }`}>
                   <div className="flex items-center gap-2">
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[order.status]?.color || 'text-stone-600 bg-stone-50'}`}>
@@ -259,13 +294,126 @@ export default function OrdersPageNew() {
                     {hasCancelRequest && !isCancelled && (
                       <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded-full">取消申请中</span>
                     )}
+                    {order.priceModified && (order.status === 1 || order.status === 'pending') && (
+                      <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">商家已改价</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
+                    {order.priceModified && order.priceModifyHistory?.length > 0 && (
+                      <div className="text-sm text-stone-400 line-through">¥{order.priceModifyHistory[0]?.originalAmount?.toLocaleString() || 0}</div>
+                    )}
                     <div className={`text-2xl font-bold ${
-                      isCancelled ? 'text-gray-400' : 'text-red-600'
+                      isCancelled ? 'text-gray-400' : order.priceModified ? 'text-blue-600' : 'text-red-600'
                     }`}>¥{order.totalAmount?.toLocaleString() || 0}</div>
                   </div>
                 </div>
+                
+                {/* 改价通知 */}
+                {order.priceModified && (order.status === 1 || order.status === 'pending') && order.priceModifyHistory?.length > 0 && (
+                  <div className="px-6 py-3 bg-blue-50 border-b border-blue-100">
+                    <div className="flex items-start gap-2">
+                      <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs flex-shrink-0 mt-0.5">!</div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-blue-800">商家已调整订单价格</p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          原价 ¥{order.priceModifyHistory[order.priceModifyHistory.length - 1]?.originalAmount?.toLocaleString()} → 现价 ¥{order.totalAmount?.toLocaleString()}
+                          {order.priceModifyHistory[order.priceModifyHistory.length - 1]?.reason && (
+                            <span className="ml-2">（{order.priceModifyHistory[order.priceModifyHistory.length - 1]?.reason}）</span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 结算模式信息 */}
+                {order.settlementMode && (
+                  <div className={`px-6 py-3 border-b ${order.settlementMode === 'supplier_transfer' ? 'bg-indigo-50 border-indigo-100' : 'bg-purple-50 border-purple-100'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {order.settlementMode === 'supplier_transfer' ? '🚚 供应商调货模式' : '💰 返佣模式'}
+                        </p>
+                        <div className="text-xs mt-1 space-x-3">
+                          <span>原价: ¥{order.originalPrice?.toLocaleString() || 0}</span>
+                          <span>折扣价: ¥{order.minDiscountPrice?.toLocaleString() || 0}</span>
+                          {order.settlementMode === 'supplier_transfer' ? (
+                            <span className="font-bold text-indigo-700">实付: ¥{order.supplierPrice?.toLocaleString() || 0}</span>
+                          ) : (
+                            <span className="text-purple-700">返佣: ¥{order.commissionAmount?.toLocaleString() || 0}</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* 返佣模式下的操作按钮 */}
+                      {order.settlementMode === 'commission_mode' && (
+                        <div className="flex items-center gap-2">
+                          {/* 尾款支付按钮 */}
+                          {order.paymentRatioEnabled && order.remainingPaymentStatus !== 'paid' && order.remainingPaymentRemindedAt && (
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`确认支付尾款 ¥${order.remainingPaymentAmount?.toLocaleString()}？`)) return
+                                try {
+                                  const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/pay-remaining`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ paymentMethod: 'wechat' })
+                                  })
+                                  if (response.ok) {
+                                    toast.success('尾款支付成功')
+                                    window.location.reload()
+                                  } else {
+                                    toast.error('支付失败')
+                                  }
+                                } catch (error) { toast.error('支付失败') }
+                              }}
+                              className="px-3 py-1.5 bg-orange-500 text-white text-xs rounded hover:bg-orange-600"
+                            >
+                              支付尾款 ¥{order.remainingPaymentAmount?.toLocaleString()}
+                            </button>
+                          )}
+                          
+                          {/* 申请返佣按钮 */}
+                          {order.commissionStatus === 'pending' && order.status >= 2 && (
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`确认申请返佣 ¥${order.commissionAmount?.toLocaleString()}？`)) return
+                                try {
+                                  const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/apply-commission`, {
+                                    method: 'POST',
+                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                                  })
+                                  if (response.ok) {
+                                    toast.success('返佣申请已提交')
+                                    window.location.reload()
+                                  } else {
+                                    toast.error('申请失败')
+                                  }
+                                } catch (error) { toast.error('申请失败') }
+                              }}
+                              className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded hover:bg-purple-600"
+                            >
+                              申请返佣
+                            </button>
+                          )}
+                          
+                          {/* 返佣状态显示 */}
+                          {order.commissionStatus && order.commissionStatus !== 'pending' && (
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              order.commissionStatus === 'applied' ? 'bg-yellow-100 text-yellow-700' :
+                              order.commissionStatus === 'approved' ? 'bg-blue-100 text-blue-700' :
+                              order.commissionStatus === 'paid' ? 'bg-green-100 text-green-700' : ''
+                            }`}>
+                              {order.commissionStatus === 'applied' ? '返佣已申请' :
+                               order.commissionStatus === 'approved' ? '返佣已核销' :
+                               order.commissionStatus === 'paid' ? '返佣已发放' : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* 订单商品列表 */}
                 <div className="p-6">
@@ -446,6 +594,19 @@ export default function OrdersPageNew() {
                         className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"
                       >
                         删除订单
+                      </button>
+                    )}
+                    {/* 确认付款按钮 - 待付款状态显示 */}
+                    {(order.status === 1 || order.status === 'pending') && !order.cancelRequest && (
+                      <button
+                        onClick={() => handleConfirmPayment(order)}
+                        className={`px-6 py-2 text-sm rounded-lg transition-colors ${
+                          order.priceModified 
+                            ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                            : 'bg-primary text-white hover:bg-green-900'
+                        }`}
+                      >
+                        {order.priceModified ? '确认改价并付款' : '立即付款'}
                       </button>
                     )}
                   </div>

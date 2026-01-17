@@ -62,7 +62,9 @@ router.post('/', auth, async (req, res) => {
       products,
       priceSettings,
       validUntil,
-      notes
+      notes,
+      minDiscountRate,
+      commissionRate
     } = req.body
 
     // 验证当前用户是否有权限创建授权（必须是厂家管理员）
@@ -117,6 +119,8 @@ router.post('/', auth, async (req, res) => {
       priceSettings,
       validUntil,
       notes,
+      minDiscountRate: minDiscountRate || 0,
+      commissionRate: commissionRate || 0,
       createdBy: req.userId
     })
 
@@ -2515,7 +2519,7 @@ router.get('/:id', auth, async (req, res) => {
     const authorization = await Authorization.findById(id)
       .populate('toManufacturer', 'name logo fullName')
       .populate('toDesigner', 'nickname username avatar')
-      .populate('fromManufacturer', 'name logo fullName')
+      .populate('fromManufacturer', '_id name logo fullName')
       .lean()
     
     if (!authorization) {
@@ -2529,7 +2533,7 @@ router.get('/:id', auth, async (req, res) => {
   }
 })
 
-// GET /api/authorizations/:id/products - 获取授权商品列表
+// GET /api/authorizations/:id/products - 获取授权商品列表（含自有产品和合作商产品）
 router.get('/:id/products', auth, async (req, res) => {
   try {
     const { id } = req.params
@@ -2542,30 +2546,134 @@ router.get('/:id/products', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: '授权不存在' })
     }
     
-    let products = []
+    const fromManufacturerId = authorization.fromManufacturer
+    const toManufacturerId = authorization.toManufacturer
     
+    console.log('[Auth Products] authId:', id, 'scope:', authorization.scope, 'authType:', authorization.authorizationType)
+    console.log('[Auth Products] fromManufacturer:', fromManufacturerId, 'toManufacturer:', toManufacturerId, 'toDesigner:', authorization.toDesigner)
+    
+    // 获取自有产品（来自当前授权的fromManufacturer）
+    let ownProducts = []
     if (authorization.scope === 'all') {
-      // 全部商品
-      products = await Product.find({ 
-        manufacturerId: authorization.fromManufacturer,
+      ownProducts = await Product.find({ 
+        manufacturerId: fromManufacturerId,
         status: 'active'
-      }).select('name productCode images basePrice skus category').populate('category', 'name').lean()
+      }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
     } else if (authorization.scope === 'category') {
-      // 按分类
-      products = await Product.find({
-        manufacturerId: authorization.fromManufacturer,
+      ownProducts = await Product.find({
+        manufacturerId: fromManufacturerId,
         category: { $in: authorization.categories || [] },
         status: 'active'
-      }).select('name productCode images basePrice skus category').populate('category', 'name').lean()
+      }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
     } else if (authorization.scope === 'specific' || authorization.scope === 'mixed') {
-      // 指定商品
-      products = await Product.find({
+      ownProducts = await Product.find({
         _id: { $in: authorization.products || [] },
         status: 'active'
-      }).select('name productCode images basePrice skus category').populate('category', 'name').lean()
+      }).select('name productCode images basePrice skus category manufacturerId').populate('category', 'name').lean()
     }
     
-    res.json({ success: true, data: products })
+    // 获取合作商产品（其他厂家授权给当前授权方的产品）
+    // 例如：恩都授权给设计师，合作商产品 = 其他厂家授权给恩都的产品
+    let partnerProducts = []
+    
+    // 查找其他厂家授权给当前授权方(fromManufacturer)的授权
+    const otherAuthQuery = {
+      toManufacturer: fromManufacturerId,  // 授权给当前授权方
+      fromManufacturer: { $ne: fromManufacturerId },  // 来自其他厂家
+      status: { $in: ['approved', 'active'] }
+    }
+    
+    console.log('[Auth Products] otherAuthQuery:', JSON.stringify(otherAuthQuery))
+    
+    const otherAuths = await Authorization.find(otherAuthQuery)
+      .populate('fromManufacturer', 'name logo')
+      .lean()
+    console.log('[Auth Products] found otherAuths:', otherAuths.length)
+    
+    // 收集所有合作商产品，并附带厂家信息
+    for (const otherAuth of otherAuths) {
+      let products = []
+      const mfrInfo = otherAuth.fromManufacturer // 已经populate了厂家信息
+      
+      const productSelect = 'name productCode images basePrice skus category manufacturerId manufacturerName'
+      const categoryPopulate = { path: 'category', select: 'name' }
+      
+      if (otherAuth.scope === 'all') {
+        products = await Product.find({ 
+          manufacturerId: mfrInfo?._id || otherAuth.fromManufacturer,
+          status: 'active'
+        }).select(productSelect).populate(categoryPopulate).lean()
+      } else if (otherAuth.scope === 'category') {
+        products = await Product.find({
+          manufacturerId: mfrInfo?._id || otherAuth.fromManufacturer,
+          category: { $in: otherAuth.categories || [] },
+          status: 'active'
+        }).select(productSelect).populate(categoryPopulate).lean()
+      } else if (otherAuth.scope === 'specific' || otherAuth.scope === 'mixed') {
+        products = await Product.find({
+          _id: { $in: otherAuth.products || [] },
+          status: 'active'
+        }).select(productSelect).populate(categoryPopulate).lean()
+      }
+      
+      // 为每个产品附加厂家信息（从授权中获取）
+      products = products.map(p => ({
+        ...p,
+        manufacturer: mfrInfo ? { _id: mfrInfo._id, name: mfrInfo.name, logo: mfrInfo.logo } : null
+      }))
+      
+      console.log('[Auth Products] from auth', otherAuth._id, 'mfr:', mfrInfo?.name, 'got', products.length, 'products')
+      partnerProducts.push(...products)
+    }
+    
+    // 收集所有需要查询的category ID
+    const categoryIds = new Set()
+    for (const p of partnerProducts) {
+      const cat = p.category
+      if (cat) {
+        if (typeof cat === 'string' && mongoose.Types.ObjectId.isValid(cat)) {
+          categoryIds.add(cat)
+        } else if (typeof cat === 'object') {
+          const catId = cat._id || cat.id
+          if (catId) categoryIds.add(String(catId))
+        }
+      }
+    }
+    
+    // 批量查询category名称
+    let categoryMap = {}
+    if (categoryIds.size > 0) {
+      const Category = require('../models/Category')
+      const categories = await Category.find({ _id: { $in: Array.from(categoryIds) } }).select('name').lean()
+      categoryMap = categories.reduce((acc, c) => { acc[String(c._id)] = c.name; return acc }, {})
+    }
+    console.log('[Auth Products] categoryMap:', Object.keys(categoryMap).length, 'categories found')
+    
+    // 为每个产品附加categoryName
+    const enrichedPartnerProducts = partnerProducts.map(p => {
+      let catName = null
+      const cat = p.category
+      if (cat) {
+        if (typeof cat === 'object' && cat.name) {
+          catName = cat.name
+        } else if (typeof cat === 'string') {
+          catName = categoryMap[cat] || null
+        } else if (typeof cat === 'object') {
+          const catId = String(cat._id || cat.id || '')
+          catName = categoryMap[catId] || null
+        }
+      }
+      return { ...p, categoryName: catName }
+    })
+    
+    console.log('[Auth Products] own:', ownProducts.length, 'partner:', enrichedPartnerProducts.length)
+    
+    res.json({ 
+      success: true, 
+      ownProducts,
+      partnerProducts: enrichedPartnerProducts,
+      fromManufacturerId: String(fromManufacturerId)
+    })
   } catch (error) {
     console.error('获取授权商品列表失败:', error)
     res.status(500).json({ success: false, message: '获取授权商品列表失败' })

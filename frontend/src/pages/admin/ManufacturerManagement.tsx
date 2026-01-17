@@ -1,7 +1,7 @@
 // Build cache bust: 20260110-v1
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -66,21 +66,33 @@ interface Manufacturer {
   code?: string
   username?: string
   logo?: string
+  galleryImages?: string[]
   isPreferred?: boolean
   expiryDate?: string
   defaultDiscount?: number
   defaultCommission?: number
   productIntro?: string
   styleTags?: string[]
+  categoryTags?: string[]
+  tags?: string[]
+  priceRangeMin?: number
+  priceRangeMax?: number
   contactName?: string
   contactPhone?: string
   contactEmail?: string
+  companyPhone?: string
+  servicePhone?: string
   address?: string
   description?: string
   status: 'active' | 'inactive'
   createdAt: string
   accountQuota?: AccountQuota
   accountUsage?: AccountQuota
+  // 业务设置新增字段
+  paymentRatioEnabled?: boolean
+  paymentRatios?: number[] // 如 [50, 75, 100]
+  invoiceEnabled?: boolean
+  invoiceMarkupPercent?: number // 开票加价比例，如10表示10%
   settings?: {
     phone?: string
     servicePhone?: string
@@ -91,11 +103,25 @@ interface Manufacturer {
       accountName?: string
       accountNumber?: string
     }
+    settlementAccounts?: Array<{
+      type: 'bank' | 'wechat' | 'alipay'
+      bankName?: string
+      accountName?: string
+      accountNumber?: string
+    }>
   }
   certification?: {
     status: 'none' | 'pending' | 'approved' | 'rejected'
     companyName?: string
     creditCode?: string
+    businessLicense?: string
+    legalPerson?: string
+    invoiceName?: string
+    taxNumber?: string
+    invoiceBankName?: string
+    invoiceBankAccount?: string
+    invoiceAddress?: string
+    invoicePhone?: string
   }
 }
 
@@ -220,6 +246,21 @@ export default function ManufacturerManagement() {
     commissionRate?: number;
     isEnabled?: boolean;
   }>>({})
+
+  // 厂家管理TAB
+  type FactoryTabType = 'home' | 'partners' | 'channels'
+  const [factoryTab, setFactoryTab] = useState<FactoryTabType>('home')
+  const [receivedAuths, setReceivedAuths] = useState<any[]>([])
+  const [grantedAuths, setGrantedAuths] = useState<any[]>([])
+  const [showMarketplace, setShowMarketplace] = useState(false) // 是否显示合作市场
+  const [marketplaceFilter, setMarketplaceFilter] = useState('') // 合作市场筛选标签
+  const [showEditSectionModal, setShowEditSectionModal] = useState(false) // 资料编辑弹窗
+  const [editSection, setEditSection] = useState<'basic' | 'settlement' | 'qualification' | 'tags' | 'priceRange' | 'discount' | 'commission' | 'paymentRatio' | 'invoice'>('basic')
+  const [editSectionData, setEditSectionData] = useState<any>({})
+  const [editSectionSaving, setEditSectionSaving] = useState(false)
+  
+  const [showGalleryModal, setShowGalleryModal] = useState(false)
+  const [galleryTarget, setGalleryTarget] = useState<Manufacturer | null>(null)
   
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
@@ -286,6 +327,18 @@ export default function ManufacturerManagement() {
           setAuthorizationMap(authMap)
         } catch (e) {
           console.log('[ManufacturerManagement] 获取授权状态失败', e)
+        }
+
+        // 获取合作商家（其他商家授权给本厂家）和渠道管理（本厂家授权给其他商家）
+        try {
+          const [receivedRes, grantedRes] = await Promise.all([
+            apiClient.get('/authorizations/received').catch(() => ({ data: { data: [] } })),
+            apiClient.get('/authorizations/my-grants').catch(() => ({ data: { data: [] } }))
+          ])
+          setReceivedAuths(receivedRes.data?.data || [])
+          setGrantedAuths((grantedRes.data?.data || []).filter((a: any) => a?.status === 'active'))
+        } catch (e) {
+          console.log('[ManufacturerManagement] 获取授权列表失败', e)
         }
       }
     } catch (error) {
@@ -768,6 +821,42 @@ export default function ManufacturerManagement() {
 
       {isFactoryPortal ? (
         <>
+          {/* 厂家管理TAB */}
+          <div className="flex items-center gap-6 mb-6 border-b border-gray-200">
+            <button
+              onClick={() => setFactoryTab('home')}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                factoryTab === 'home'
+                  ? 'border-[#153e35] text-[#153e35]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              首页
+            </button>
+            <button
+              onClick={() => setFactoryTab('partners')}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                factoryTab === 'partners'
+                  ? 'border-[#153e35] text-[#153e35]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              合作商家 {receivedAuths.length > 0 && `(${receivedAuths.length})`}
+            </button>
+            <button
+              onClick={() => setFactoryTab('channels')}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                factoryTab === 'channels'
+                  ? 'border-[#153e35] text-[#153e35]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              渠道管理 {grantedAuths.length > 0 && `(${grantedAuths.length})`}
+            </button>
+          </div>
+
+          {factoryTab === 'home' && (
+          <>
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
             <div>
               <h2 className="text-4xl font-black text-gray-900 tracking-tight">品牌工厂中心</h2>
@@ -823,36 +912,72 @@ export default function ManufacturerManagement() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <div className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={myManufacturer.status === 'active'}
-                        onChange={() => {
-                          if (!confirm(myManufacturer.status === 'active' ? '确定要下架停运该品牌吗？' : '确定要恢复启用该品牌吗？')) return
-                          handleToggleStatus(myManufacturer)
-                        }}
-                      />
-                      <div className="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-5"></div>
-                    </label>
-                    <span className={`text-xs font-semibold ${myManufacturer.status === 'active' ? 'text-emerald-700' : 'text-gray-500'}`}>
-                      {myManufacturer.status === 'active' ? '启用中' : '已停用'}
-                    </span>
-                  </div>
-
-                  <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+              <div 
+                className="rounded-[2.5rem] border border-gray-100 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all relative overflow-hidden bg-white"
+              >
+                {/* 卡片上半部分：LOGO图片填充，点击查看相册 */}
+                {myManufacturer.logo ? (
+                  <div 
+                    className="h-40 w-full overflow-hidden relative cursor-pointer"
+                    onClick={() => {
+                      setGalleryTarget(myManufacturer)
+                      setShowGalleryModal(true)
+                    }}
+                  >
                     <img
-                      src={getFileUrl(myManufacturer.logo || '')}
+                      src={getFileUrl(myManufacturer.logo)}
                       alt={myManufacturer.fullName || myManufacturer.name}
                       className="w-full h-full object-cover"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/30"></div>
+                    <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={myManufacturer.status === 'active'}
+                            onChange={() => {
+                              if (!confirm(myManufacturer.status === 'active' ? '确定要下架停运该品牌吗？' : '确定要恢复启用该品牌吗？')) return
+                              handleToggleStatus(myManufacturer)
+                            }}
+                          />
+                          <div className="w-12 h-7 bg-white/50 backdrop-blur-sm peer-focus:outline-none rounded-full peer peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-5"></div>
+                        </label>
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full backdrop-blur-sm ${myManufacturer.status === 'active' ? 'bg-emerald-500/80 text-white' : 'bg-gray-500/80 text-white'}`}>
+                          {myManufacturer.status === 'active' ? '启用中' : '已停用'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                <div className="mt-5">
+                ) : (
+                  <div className="h-32 w-full bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
+                    <div className="text-gray-300 text-4xl font-black">{(myManufacturer.shortName || myManufacturer.name || '?')[0]}</div>
+                    <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={myManufacturer.status === 'active'}
+                            onChange={() => {
+                              if (!confirm(myManufacturer.status === 'active' ? '确定要下架停运该品牌吗？' : '确定要恢复启用该品牌吗？')) return
+                              handleToggleStatus(myManufacturer)
+                            }}
+                          />
+                          <div className="w-12 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-5"></div>
+                        </label>
+                        <span className={`text-xs font-semibold ${myManufacturer.status === 'active' ? 'text-emerald-700' : 'text-gray-500'}`}>
+                          {myManufacturer.status === 'active' ? '启用中' : '已停用'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 卡片下半部分：信息 */}
+                <div className="p-8 pt-4">
+                <div>
                   <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest">工厂门户</div>
                   <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
                     {myManufacturer.shortName || myManufacturer.fullName || myManufacturer.name}
@@ -863,14 +988,55 @@ export default function ManufacturerManagement() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
+                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 text-center">
                     <div className="text-xs font-semibold text-emerald-700">经销折扣(%)</div>
-                    <div className="text-3xl font-black text-[#153e35] mt-2">{myManufacturer.defaultDiscount || 0}</div>
+                    <div className="text-2xl font-black text-[#153e35] mt-1">{myManufacturer.defaultDiscount || 0}</div>
                   </div>
-                  <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
+                  <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 text-center">
                     <div className="text-xs font-semibold text-blue-700">返佣比例(%)</div>
-                    <div className="text-3xl font-black text-blue-700 mt-2">{myManufacturer.defaultCommission || 0}</div>
+                    <div className="text-2xl font-black text-blue-700 mt-1">{myManufacturer.defaultCommission || 0}</div>
                   </div>
+                </div>
+
+                {/* 价格范围 */}
+                <div className="mt-4 bg-gray-50 rounded-2xl p-4">
+                  <div className="text-xs font-semibold text-gray-500 mb-1">产品价格范围</div>
+                  <div className="text-lg font-bold text-gray-900">
+                    ¥{myManufacturer.priceRangeMin || 0} - ¥{myManufacturer.priceRangeMax || 0}
+                  </div>
+                </div>
+
+                {/* 标签 */}
+                <div className="mt-4">
+                  {(myManufacturer.styleTags && myManufacturer.styleTags.length > 0) && (
+                    <div className="mb-2">
+                      <div className="text-xs font-semibold text-gray-500 mb-1">风格</div>
+                      <div className="flex flex-wrap gap-1">
+                        {myManufacturer.styleTags.slice(0, 4).map((tag: string, idx: number) => (
+                          <span key={idx} className="px-2 py-0.5 bg-[#153e35]/10 text-[#153e35] text-xs rounded-full">{tag}</span>
+                        ))}
+                        {myManufacturer.styleTags.length > 4 && (
+                          <span className="text-xs text-gray-400">+{myManufacturer.styleTags.length - 4}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {(myManufacturer.categoryTags && myManufacturer.categoryTags.length > 0) && (
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 mb-1">品类</div>
+                      <div className="flex flex-wrap gap-1">
+                        {myManufacturer.categoryTags.slice(0, 4).map((tag: string, idx: number) => (
+                          <span key={idx} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">{tag}</span>
+                        ))}
+                        {myManufacturer.categoryTags.length > 4 && (
+                          <span className="text-xs text-gray-400">+{myManufacturer.categoryTags.length - 4}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {(!myManufacturer.styleTags || myManufacturer.styleTags.length === 0) && (!myManufacturer.categoryTags || myManufacturer.categoryTags.length === 0) && (
+                    <div className="text-xs text-gray-400">暂未设置标签</div>
+                  )}
                 </div>
 
                 <button
@@ -901,134 +1067,339 @@ export default function ManufacturerManagement() {
                     {myManufacturer.status === 'active' ? '下架停运' : '恢复启用'}
                   </button>
                 </div>
+                </div>
               </div>
 
-              {filteredOtherManufacturers.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-[2.5rem] border border-gray-100 flex flex-col items-center justify-center">
-                  <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">暂无可申请的品牌</p>
+              {/* 资料编辑模块 */}
+              <div className="bg-gradient-to-br from-gray-50 to-white rounded-[2.5rem] border border-gray-100 p-8 shadow-sm">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">资料编辑</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* 基础档案 */}
+                  <button
+                    onClick={() => {
+                      setEditSection('basic')
+                      setShowEditSectionModal(true)
+                    }}
+                    className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                      <Factory className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-900">基础档案</div>
+                      <div className="text-xs text-gray-500">公司名称、LOGO、联系方式</div>
+                    </div>
+                  </button>
+
+                  {/* 结算账号配置 */}
+                  <button
+                    onClick={() => {
+                      setEditSection('settlement')
+                      setShowEditSectionModal(true)
+                    }}
+                    className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                      <Layers className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-900">结算账号配置</div>
+                      <div className="text-xs text-gray-500">银行账号、收款码</div>
+                    </div>
+                  </button>
+
+                  {/* 资质与开票 */}
+                  <button
+                    onClick={() => {
+                      setEditSection('qualification')
+                      setShowEditSectionModal(true)
+                    }}
+                    className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                      <Shield className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-900">资质与开票</div>
+                      <div className="text-xs text-gray-500">营业执照、开票信息</div>
+                    </div>
+                  </button>
                 </div>
-              ) : (
-                filteredOtherManufacturers.map((item) => {
-                  const authInfo = authorizationMap[item._id]
-                  const isCooperating = authInfo?.status === 'approved' || authInfo?.status === 'active'
-                  const isPending = authInfo?.status === 'pending'
-                  
-                  return (
-                    <div
-                      key={item._id}
-                      className={`bg-white rounded-[2.5rem] border p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all ${isCooperating ? 'border-emerald-200 ring-2 ring-emerald-100' : 'border-gray-100'}`}
+              </div>
+
+              {/* 业务设置模块 */}
+              <div className="bg-gradient-to-br from-[#153e35]/5 to-white rounded-[2.5rem] border border-[#153e35]/10 p-8 shadow-sm mt-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">业务设置</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* 标签 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="text-xs font-medium text-gray-500 mb-2">产品标签</div>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {(myManufacturer.tags && myManufacturer.tags.length > 0) ? (
+                        myManufacturer.tags.slice(0, 3).map((tag: string, idx: number) => (
+                          <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">{tag}</span>
+                        ))
+                      ) : (
+                        <span className="text-gray-400 text-sm">未设置</span>
+                      )}
+                      {myManufacturer.tags && myManufacturer.tags.length > 3 && (
+                        <span className="text-gray-400 text-xs">+{myManufacturer.tags.length - 3}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditSection('tags')
+                        setEditSectionData({
+                          styleTags: myManufacturer.styleTags || [],
+                          categoryTags: myManufacturer.categoryTags || []
+                        })
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex flex-col gap-1">
-                          {/* 只有未关闭的厂家才显示"启用中" */}
-                          {!(isCooperating && authInfo.isEnabled === false) && (
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                              {item.status === 'active' ? '启用中' : '已停用'}
-                            </span>
-                          )}
-                          {isCooperating && authInfo.isEnabled !== false && (
-                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
-                              ✓ 已合作 · {authInfo.productCount || 0}件商品
-                            </span>
-                          )}
-                          {isCooperating && authInfo.isEnabled === false && (
-                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
-                              ⏸ 已关闭 · {authInfo.productCount || 0}件商品
-                            </span>
-                          )}
-                          {isPending && (
-                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
-                              ⏳ 申请中
-                            </span>
-                          )}
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
-                          <img
-                            src={getFileUrl(item.logo || '')}
-                            alt={item.fullName || item.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      </div>
+                      编辑标签
+                    </button>
+                  </div>
 
-                      <div className="mt-5">
-                        <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
-                          {item.shortName || item.fullName || item.name}
-                        </div>
-                        <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
-                          {item.code || ''}
-                        </div>
-                      </div>
+                  {/* 价格范围 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="text-xs font-medium text-gray-500 mb-2">产品价格范围</div>
+                    <div className="text-xl font-bold text-gray-900 mb-3">
+                      {myManufacturer.priceRangeMin || 0} - {myManufacturer.priceRangeMax || 0}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditSection('priceRange')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      编辑范围
+                    </button>
+                  </div>
 
-                      <div className="grid grid-cols-2 gap-4 mt-6">
-                        <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
-                          <div className="text-xs font-semibold text-emerald-700">
-                            {isCooperating ? '授权折扣(%)' : '经销折扣(%)'}
-                          </div>
-                          <div className="text-3xl font-black text-[#153e35] mt-2">
-                            {isCooperating 
-                              ? (authInfo?.minDiscountRate || 0)
-                              : (item.defaultDiscount || 0)}
-                          </div>
-                        </div>
-                        <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
-                          <div className="text-xs font-semibold text-blue-700">
-                            {isCooperating ? '授权返佣(%)' : '返佣比例(%)'}
-                          </div>
-                          <div className="text-3xl font-black text-blue-700 mt-2">
-                            {isCooperating 
-                              ? (authInfo?.commissionRate || 0)
-                              : (item.defaultCommission || 0)}
-                          </div>
-                        </div>
-                      </div>
+                  {/* 最低折扣 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="text-xs font-medium text-gray-500 mb-2">最低折扣</div>
+                    <div className="text-xl font-bold text-[#153e35] mb-3">
+                      {myManufacturer.defaultDiscount || 0}%
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditSection('discount')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      编辑折扣
+                    </button>
+                  </div>
 
-                      {isCooperating ? (
-                        <>
-                          {/* 经营授权按钮 - 全宽 */}
+                  {/* 返佣 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="text-xs font-medium text-gray-500 mb-2">默认返佣</div>
+                    <div className="text-xl font-bold text-blue-600 mb-3">
+                      {myManufacturer.defaultCommission || 0}%
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditSection('commission')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      编辑返佣
+                    </button>
+                  </div>
+
+                  {/* 付款比例 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium text-gray-500">付款比例</div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={myManufacturer.paymentRatioEnabled || false}
+                          onChange={async () => {
+                            try {
+                              await apiClient.put(`/manufacturers/${myManufacturer._id}`, {
+                                paymentRatioEnabled: !myManufacturer.paymentRatioEnabled
+                              })
+                              fetchData()
+                            } catch (error) {
+                              toast.error('更新失败')
+                            }
+                          }}
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-[#153e35] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                      </label>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      {myManufacturer.paymentRatioEnabled ? (
+                        <span className="text-[#153e35] font-medium">已开启</span>
+                      ) : (
+                        <span className="text-gray-400">未开启</span>
+                      )}
+                    </div>
+                    {myManufacturer.paymentRatioEnabled && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {(myManufacturer.paymentRatios || [50, 75, 100]).map((ratio: number) => (
+                          <span key={ratio} className="px-2 py-0.5 bg-[#153e35]/10 text-[#153e35] text-xs rounded-full">{ratio}%</span>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        setEditSection('paymentRatio')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      设置比例
+                    </button>
+                  </div>
+
+                  {/* 开票设置 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium text-gray-500">开票加价</div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={myManufacturer.invoiceEnabled || false}
+                          onChange={async () => {
+                            try {
+                              await apiClient.put(`/manufacturers/${myManufacturer._id}`, {
+                                invoiceEnabled: !myManufacturer.invoiceEnabled
+                              })
+                              fetchData()
+                            } catch (error) {
+                              toast.error('更新失败')
+                            }
+                          }}
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                      </label>
+                    </div>
+                    {myManufacturer.invoiceEnabled ? (
+                      <div className="text-xl font-bold text-amber-600 mb-2">
+                        +{myManufacturer.invoiceMarkupPercent || 10}%
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400 mb-2">未开启</div>
+                    )}
+                    <button
+                      onClick={() => {
+                        setEditSection('invoice')
+                        setShowEditSectionModal(true)
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      设置加价
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          </>
+          )}
+
+          {/* 合作商家TAB */}
+          {factoryTab === 'partners' && !showMarketplace && (
+            <div>
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">合作商家</h2>
+                  <p className="text-sm text-gray-500 mt-1">已建立合作关系的品牌厂家</p>
+                </div>
+              </div>
+
+              {/* 已合作厂家区域 */}
+              {(() => {
+                const cooperatingManufacturers = filteredOtherManufacturers.filter(item => {
+                  const authInfo = authorizationMap[item._id]
+                  return authInfo?.status === 'approved' || authInfo?.status === 'active'
+                })
+                
+                return cooperatingManufacturers.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-[2.5rem] border border-gray-100 flex flex-col items-center justify-center mb-8">
+                    <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">暂无已合作的品牌</p>
+                    <p className="text-sm text-gray-400 mt-2">点击下方"合作市场"寻找合作伙伴</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+                    {cooperatingManufacturers.map((item) => {
+                      const authInfo = authorizationMap[item._id]
+                      return (
+                        <div
+                          key={item._id}
+                          className="bg-white rounded-[2.5rem] border border-emerald-200 ring-2 ring-emerald-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex flex-col gap-1">
+                              {authInfo?.isEnabled !== false ? (
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                                  ✓ 已合作 · {authInfo?.productCount || 0}件商品
+                                </span>
+                              ) : (
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                                  ⏸ 已关闭 · {authInfo?.productCount || 0}件商品
+                                </span>
+                              )}
+                            </div>
+                            <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                              <img
+                                src={getFileUrl(item.logo || '')}
+                                alt={item.fullName || item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-5">
+                            <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
+                              {item.shortName || item.fullName || item.name}
+                            </div>
+                            <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
+                              {item.code || ''}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-6">
+                            <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
+                              <div className="text-xs font-semibold text-emerald-700">授权折扣(%)</div>
+                              <div className="text-3xl font-black text-[#153e35] mt-2">
+                                {authInfo?.minDiscountRate || 0}
+                              </div>
+                            </div>
+                            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
+                              <div className="text-xs font-semibold text-blue-700">授权返佣(%)</div>
+                              <div className="text-3xl font-black text-blue-700 mt-2">
+                                {authInfo?.commissionRate || 0}
+                              </div>
+                            </div>
+                          </div>
                           <button
                             onClick={() => handleOpenProductAuthorization(item)}
                             className="mt-6 w-full px-6 py-3 rounded-2xl bg-[#123a32] text-white font-bold hover:bg-[#0f2f29] transition-colors"
                           >
                             查看授权商品
                           </button>
-
-                          {/* 底部按钮：分成体系 + 关闭/开启 */}
                           <div className="grid grid-cols-2 gap-3 mt-4">
-                            <button
-                              onClick={() => {
-                                const returnTo = encodeURIComponent(`/admin/manufacturer-management`)
-                                navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${item._id}&returnTo=${returnTo}`)
-                              }}
-                              className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              分成体系
-                            </button>
-                            {authInfo.isEnabled === false ? (
+                            {authInfo?.isEnabled === false ? (
                               <button
                                 onClick={async () => {
-                                  const authId = authInfo.authorizationId
-                                  if (!authId) {
-                                    toast.error('授权ID不存在，请刷新页面重试')
-                                    return
-                                  }
+                                  const authId = authInfo?.authorizationId
+                                  if (!authId) return
                                   try {
-                                    setAuthorizationMap(prev => ({
-                                      ...prev,
-                                      [item._id]: { ...prev[item._id], isEnabled: true }
-                                    }))
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: true } }))
                                     const response = await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
-                                    setAuthorizationMap(prev => ({
-                                      ...prev,
-                                      [item._id]: { ...prev[item._id], isEnabled: response.data.isEnabled }
-                                    }))
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: response.data.isEnabled } }))
                                     toast.success('已开启该厂家商品显示')
                                   } catch (e: any) {
-                                    setAuthorizationMap(prev => ({
-                                      ...prev,
-                                      [item._id]: { ...prev[item._id], isEnabled: false }
-                                    }))
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: false } }))
                                     toast.error(e.response?.data?.message || '操作失败')
                                   }
                                 }}
@@ -1039,23 +1410,14 @@ export default function ManufacturerManagement() {
                             ) : (
                               <button
                                 onClick={async () => {
-                                  const authId = authInfo.authorizationId
-                                  if (!authId) {
-                                    toast.error('授权ID不存在，请刷新页面重试')
-                                    return
-                                  }
+                                  const authId = authInfo?.authorizationId
+                                  if (!authId) return
                                   try {
-                                    setAuthorizationMap(prev => ({
-                                      ...prev,
-                                      [item._id]: { ...prev[item._id], isEnabled: false }
-                                    }))
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: false } }))
                                     await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: false })
                                     toast.success('已关闭该厂家商品显示')
                                   } catch (e: any) {
-                                    setAuthorizationMap(prev => ({
-                                      ...prev,
-                                      [item._id]: { ...prev[item._id], isEnabled: true }
-                                    }))
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: true } }))
                                     toast.error(e.response?.data?.message || '操作失败')
                                   }
                                 }}
@@ -1065,23 +1427,329 @@ export default function ManufacturerManagement() {
                               </button>
                             )}
                           </div>
-                        </>
-                      ) : (
-                        <button
-                          disabled={item.status !== 'active'}
-                          onClick={() => handleOpenProductAuthorization(item)}
-                          className={`mt-6 w-full px-6 py-3 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                            isPending
-                              ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
-                              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {isPending ? '查看申请状态' : '申请经销授权'}
-                        </button>
-                      )}
-                    </div>
-                  )
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+
+              {/* 合作市场入口 */}
+              <div 
+                onClick={() => setShowMarketplace(true)}
+                className="bg-gradient-to-r from-[#153e35] to-[#1a5548] rounded-[2rem] p-8 cursor-pointer hover:shadow-xl transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-2">合作市场</h3>
+                    <p className="text-emerald-200 text-sm">探索更多品牌厂家，寻找合作伙伴</p>
+                    <p className="text-emerald-300/70 text-xs mt-2">
+                      {filteredOtherManufacturers.filter(item => {
+                        const authInfo = authorizationMap[item._id]
+                        return authInfo?.status !== 'approved' && authInfo?.status !== 'active'
+                      }).length} 个待合作品牌
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                    <ChevronRight className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 合作市场视图 */}
+          {factoryTab === 'partners' && showMarketplace && (
+            <div>
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setShowMarketplace(false)
+                      setMarketplaceFilter('')
+                      setPortalKeyword('')
+                    }}
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">合作市场</h2>
+                    <p className="text-sm text-gray-500 mt-1">探索品牌厂家，申请建立合作</p>
+                  </div>
+                </div>
+                <div className="relative max-w-md w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="搜索品牌..."
+                    value={portalKeyword}
+                    onChange={(e) => setPortalKeyword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-full bg-white shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              {/* 标签筛选 */}
+              <div className="flex flex-wrap gap-2 mb-6">
+                <button
+                  onClick={() => setMarketplaceFilter('')}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    marketplaceFilter === '' 
+                      ? 'bg-[#153e35] text-white' 
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  全部
+                </button>
+                {['中古风', '现代简约', '轻奢', '北欧', '新中式', '单椅', '沙发', '床', '餐桌', '柜类'].map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => setMarketplaceFilter(marketplaceFilter === tag ? '' : tag)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      marketplaceFilter === tag 
+                        ? 'bg-[#153e35] text-white' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+
+              {/* 待合作厂家列表 */}
+              {(() => {
+                const pendingManufacturers = filteredOtherManufacturers.filter(item => {
+                  const authInfo = authorizationMap[item._id]
+                  const isNotCooperating = authInfo?.status !== 'approved' && authInfo?.status !== 'active'
+                  // 如果有筛选标签，可以根据厂家的tags或category进行筛选（假设厂家有tags字段）
+                  if (marketplaceFilter && item.tags && Array.isArray(item.tags)) {
+                    return isNotCooperating && item.tags.includes(marketplaceFilter)
+                  }
+                  return isNotCooperating
                 })
+
+                return pendingManufacturers.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-[2.5rem] border border-gray-100 flex flex-col items-center justify-center">
+                    <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">暂无匹配的品牌</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {pendingManufacturers.map((item) => {
+                      const authInfo = authorizationMap[item._id]
+                      const isPending = authInfo?.status === 'pending'
+                      return (
+                        <div
+                          key={item._id}
+                          className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex flex-col gap-1">
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {item.status === 'active' ? '启用中' : '已停用'}
+                              </span>
+                              {isPending && (
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                                  ⏳ 申请中
+                                </span>
+                              )}
+                            </div>
+                            <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                              <img
+                                src={getFileUrl(item.logo || '')}
+                                alt={item.fullName || item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-5">
+                            <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
+                              {item.shortName || item.fullName || item.name}
+                            </div>
+                            <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
+                              {item.code || ''}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-6">
+                            <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
+                              <div className="text-xs font-semibold text-emerald-700">经销折扣(%)</div>
+                              <div className="text-3xl font-black text-[#153e35] mt-2">
+                                {item.defaultDiscount || 0}
+                              </div>
+                            </div>
+                            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
+                              <div className="text-xs font-semibold text-blue-700">返佣比例(%)</div>
+                              <div className="text-3xl font-black text-blue-700 mt-2">
+                                {item.defaultCommission || 0}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            disabled={item.status !== 'active'}
+                            onClick={() => handleOpenProductAuthorization(item)}
+                            className={`mt-6 w-full px-6 py-3 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                              isPending
+                                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
+                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {isPending ? '查看申请状态' : '申请经销授权'}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* 渠道管理TAB：本厂家授权给其他商家的信息 */}
+          {factoryTab === 'channels' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">渠道管理</h2>
+                  <p className="text-sm text-gray-500 mt-1">本厂家授权给其他商家的信息</p>
+                </div>
+                <button
+                  onClick={() => navigate(`/admin/authorization-requests`)}
+                  className="px-4 py-2 bg-[#153e35] text-white text-sm rounded-lg hover:bg-[#1a4d42]"
+                >
+                  下发准入邀请码
+                </button>
+              </div>
+
+              {/* 统计看板 */}
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">累计授权GMV</div>
+                      <div className="text-xl font-bold text-gray-900">¥{grantedAuths.reduce((sum, auth) => sum + (auth.gmv || 0), 0).toLocaleString()}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">本月增长率</div>
+                      <div className="text-xl font-bold text-blue-600">+12.5%</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">渠道分销商</div>
+                      <div className="text-xl font-bold text-gray-900">{grantedAuths.length}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center">
+                      <Package className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">授权产品总数</div>
+                      <div className="text-xl font-bold text-gray-900">{grantedAuths.reduce((sum, auth) => sum + (auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)), 0)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {grantedAuths.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+                  <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">暂无渠道授权</p>
+                  <p className="text-sm text-gray-400 mt-2">您授权给其他商家时，会显示在这里</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {grantedAuths.map((auth: any) => {
+                    const targetName = auth.toDesigner?.nickname || auth.toDesigner?.username || 
+                                      auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知渠道'
+                    const targetAvatar = auth.toDesigner?.avatar || auth.toManufacturer?.logo
+                    const targetType = auth.authorizationType === 'manufacturer' ? '厂家' : '设计师'
+                    const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
+                    
+                    return (
+                      <div key={auth._id} className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
+                              {targetAvatar ? (
+                                <img src={getFileUrl(targetAvatar)} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                  <Factory className="w-6 h-6" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-gray-900">{targetName}</span>
+                                <span className={`px-2 py-0.5 text-xs rounded ${
+                                  auth.authorizationType === 'manufacturer' 
+                                    ? 'bg-blue-100 text-blue-700' 
+                                    : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                  {targetType}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                合约期至: {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久有效'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-6">
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">最低折扣</div>
+                              <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">返佣比例</div>
+                              <div className="text-lg font-bold text-blue-600">{auth.commissionRate ?? '--'}%</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">已授权SKU</div>
+                              <div className="text-lg font-bold text-gray-900">{productCount}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing`)}
+                                className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+                              >
+                                专属价格池
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  const rt = encodeURIComponent(`/admin/manufacturer-management`)
+                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${myManufacturerId}&returnTo=${rt}`)
+                                }}
+                                className="px-4 py-2 text-sm bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
+                              >
+                                分成体系
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
           )}
@@ -2265,6 +2933,782 @@ export default function ManufacturerManagement() {
         </div>
       )}
       
+      {/* 资料编辑弹窗 */}
+      {showEditSectionModal && myManufacturer && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowEditSectionModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">
+                {editSection === 'basic' && '基础档案'}
+                {editSection === 'settlement' && '结算账户配置'}
+                {editSection === 'qualification' && '资质与开票'}
+                {editSection === 'tags' && '编辑标签'}
+                {editSection === 'priceRange' && '产品价格范围'}
+                {editSection === 'discount' && '最低折扣设置'}
+                {editSection === 'commission' && '默认返佣设置'}
+                {editSection === 'paymentRatio' && '付款比例设置'}
+                {editSection === 'invoice' && '开票加价设置'}
+              </h3>
+              <button onClick={() => setShowEditSectionModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* 基础档案 */}
+              {editSection === 'basic' && (
+                <>
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    01. 品牌身份与经营地址
+                  </div>
+                  <div className="grid grid-cols-3 gap-6">
+                    <div className="row-span-2">
+                      <label className="block text-sm text-gray-600 mb-2">LOGO</label>
+                      <ImageUploader
+                        images={editSectionData.logo ? [editSectionData.logo] : (myManufacturer.logo ? [myManufacturer.logo] : [])}
+                        onChange={(urls) => setEditSectionData({...editSectionData, logo: urls[0] || ''})}
+                        label="上传LOGO"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">厂家ID</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={myManufacturer.code || myManufacturer._id}
+                          disabled
+                          className="flex-1 px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!confirm('确定要重新生成厂家ID吗？将根据简称生成英文格式ID。')) return
+                            try {
+                              // 清空code让后端自动重新生成
+                              await apiClient.put(`/manufacturers/${myManufacturer._id}`, { code: '' })
+                              toast.success('ID已更新，请刷新页面查看')
+                              fetchData()
+                            } catch (error) {
+                              toast.error('重新生成失败')
+                            }
+                          }}
+                          className="px-4 py-2 bg-[#153e35] text-white text-sm rounded-xl hover:bg-[#1a4d42]"
+                        >
+                          重新生成
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">点击重新生成将根据简称自动生成英文格式ID</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">厂家全称</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.fullName || myManufacturer.name}
+                        onChange={(e) => setEditSectionData({...editSectionData, fullName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">厂家简称（字母缩写）</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.shortName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, shortName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm text-gray-600 mb-1">经营办公地址</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.address || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, address: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm text-gray-600 mb-2">厂家图片相册</label>
+                      <ImageUploader
+                        images={editSectionData.galleryImages !== undefined ? editSectionData.galleryImages : (myManufacturer.galleryImages || [])}
+                        onChange={(urls) => setEditSectionData({...editSectionData, galleryImages: urls})}
+                        maxImages={10}
+                        label="上传厂家图片（最多10张）"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-8">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    02. 联系人 & 服务信息
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">联系人</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.contactName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, contactName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">联系人电话</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.contactPhone || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, contactPhone: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">联系人邮箱</label>
+                      <input
+                        type="email"
+                        defaultValue={myManufacturer.contactEmail || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, contactEmail: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">公司电话</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.companyPhone || myManufacturer.settings?.phone || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, companyPhone: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">客服电话</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.servicePhone || myManufacturer.settings?.servicePhone || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, servicePhone: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">状态</label>
+                      <select
+                        defaultValue={myManufacturer.status}
+                        onChange={(e) => setEditSectionData({...editSectionData, status: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="active">启用</option>
+                        <option value="inactive">停用</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 结算账户配置 */}
+              {editSection === 'settlement' && (
+                <>
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    01. 收款码
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="text-center">
+                      <ImageUploader
+                        images={editSectionData.wechatQrCode ? [editSectionData.wechatQrCode] : (myManufacturer.settings?.wechatQrCode ? [myManufacturer.settings.wechatQrCode] : [])}
+                        onChange={(urls) => setEditSectionData({...editSectionData, wechatQrCode: urls[0] || ''})}
+                        label="微信收款码"
+                      />
+                    </div>
+                    <div className="text-center">
+                      <ImageUploader
+                        images={editSectionData.alipayQrCode ? [editSectionData.alipayQrCode] : (myManufacturer.settings?.alipayQrCode ? [myManufacturer.settings.alipayQrCode] : [])}
+                        onChange={(urls) => setEditSectionData({...editSectionData, alipayQrCode: urls[0] || ''})}
+                        label="支付宝收款码"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-8">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    02. 银行/三方结算信息
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-6">
+                    <div className="flex gap-2 mb-4">
+                      {['bank', 'wechat', 'alipay'].map(type => (
+                        <button
+                          key={type}
+                          onClick={() => setEditSectionData({...editSectionData, settlementType: type})}
+                          className={`px-4 py-2 rounded-full text-sm ${
+                            (editSectionData.settlementType || 'bank') === type
+                              ? 'bg-[#153e35] text-white'
+                              : 'bg-white text-gray-600 border border-gray-200'
+                          }`}
+                        >
+                          {type === 'bank' ? '银行' : type === 'wechat' ? '微信' : '支付宝'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mb-4">
+                      <label className="block text-sm text-gray-600 mb-1">公户单位全称</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.settings?.bankInfo?.companyName || myManufacturer.fullName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, companyName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                        placeholder="公司全称（用于银行转账显示）"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">开户银行/平台全称</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.settings?.bankInfo?.bankName || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, bankName: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                          placeholder="招商银行 / 支付宝..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">收款人/实名姓名</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.settings?.bankInfo?.accountName || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, accountName: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <label className="block text-sm text-gray-600 mb-1">卡号 / UID / 账号</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.settings?.bankInfo?.accountNumber || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, accountNumber: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                      />
+                    </div>
+                  </div>
+                  <button className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 hover:border-primary/50 hover:text-primary">
+                    + 新增财务结算方式
+                  </button>
+                </>
+              )}
+
+              {/* 资质与开票 */}
+              {editSection === 'qualification' && (
+                <>
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    01. 资质合规：营业执照认证
+                  </div>
+                  <ImageUploader
+                    images={editSectionData.businessLicense ? [editSectionData.businessLicense] : (myManufacturer.certification?.businessLicense ? [myManufacturer.certification.businessLicense] : [])}
+                    onChange={async (urls) => {
+                      const imageUrl = urls[0] || ''
+                      setEditSectionData({...editSectionData, businessLicense: imageUrl})
+                      
+                      // 自动OCR识别
+                      if (imageUrl) {
+                        try {
+                          toast.info('正在识别营业执照...')
+                          const res = await apiClient.post('/manufacturers/ocr/business-license', { 
+                            imageUrl: getFileUrl(imageUrl) 
+                          })
+                          if (res.data.success && res.data.data) {
+                            const ocr = res.data.data
+                            setEditSectionData((prev: any) => ({
+                              ...prev,
+                              businessLicense: imageUrl,
+                              invoiceCompanyName: ocr.companyName || prev.invoiceCompanyName,
+                              creditCode: ocr.creditCode || prev.creditCode,
+                              legalPerson: ocr.legalPerson || prev.legalPerson,
+                              invoiceAddress: ocr.address || prev.invoiceAddress
+                            }))
+                            toast.success('识别完成，请核对信息')
+                          }
+                        } catch (error) {
+                          console.log('OCR识别失败，请手动填写')
+                        }
+                      }
+                    }}
+                    label="上传营业执照（自动识别）"
+                  />
+                  <p className="text-xs text-gray-500">上传后自动识别营业执照信息。需确保执照处于有效期内，公章清晰。</p>
+
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-8">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    02. 税务开票资料
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">企业名称</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.companyName || myManufacturer.fullName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoiceCompanyName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">统一社会信用代码</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.certification?.creditCode || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, creditCode: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">法人代表</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.certification?.legalPerson || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, legalPerson: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">开票名称</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.invoiceName || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoiceName: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">税号</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.taxNumber || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, taxNumber: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">开户银行</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.certification?.invoiceBankName || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, invoiceBankName: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">银行账号</label>
+                        <input
+                          type="text"
+                          defaultValue={myManufacturer.certification?.invoiceBankAccount || ''}
+                          onChange={(e) => setEditSectionData({...editSectionData, invoiceBankAccount: e.target.value})}
+                          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">企业地址</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.invoiceAddress || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoiceAddress: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">企业电话</label>
+                      <input
+                        type="text"
+                        defaultValue={myManufacturer.certification?.invoicePhone || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoicePhone: e.target.value})}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 标签编辑 - 风格和品类分开 */}
+              {editSection === 'tags' && (
+                <>
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    风格标签
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {['中古风', '现代简约', '轻奢', '北欧', '新中式', '美式', '欧式', '日式', '工业风', '田园'].map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          const currentTags = editSectionData.styleTags || myManufacturer.styleTags || []
+                          if (currentTags.includes(tag)) {
+                            setEditSectionData({...editSectionData, styleTags: currentTags.filter((t: string) => t !== tag)})
+                          } else {
+                            setEditSectionData({...editSectionData, styleTags: [...currentTags, tag]})
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                          (editSectionData.styleTags || myManufacturer.styleTags || []).includes(tag)
+                            ? 'bg-[#153e35] text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="自定义风格标签"
+                      value={editSectionData.customStyleTag || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, customStyleTag: e.target.value})}
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                    <button
+                      onClick={() => {
+                        if (editSectionData.customStyleTag?.trim()) {
+                          const currentTags = editSectionData.styleTags || myManufacturer.styleTags || []
+                          if (!currentTags.includes(editSectionData.customStyleTag.trim())) {
+                            setEditSectionData({
+                              ...editSectionData, 
+                              styleTags: [...currentTags, editSectionData.customStyleTag.trim()],
+                              customStyleTag: ''
+                            })
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 bg-[#153e35] text-white rounded-xl hover:bg-[#1a4d42]"
+                    >
+                      添加
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[#153e35] font-semibold mt-6">
+                    <div className="w-1 h-5 bg-[#153e35] rounded"></div>
+                    品类标签
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {['单椅', '沙发', '床', '餐桌', '餐椅', '柜类', '茶几', '书桌', '灯具', '软装', '地毯', '装饰品'].map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          const currentTags = editSectionData.categoryTags || myManufacturer.categoryTags || []
+                          if (currentTags.includes(tag)) {
+                            setEditSectionData({...editSectionData, categoryTags: currentTags.filter((t: string) => t !== tag)})
+                          } else {
+                            setEditSectionData({...editSectionData, categoryTags: [...currentTags, tag]})
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                          (editSectionData.categoryTags || myManufacturer.categoryTags || []).includes(tag)
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="自定义品类标签"
+                      value={editSectionData.customCategoryTag || ''}
+                      onChange={(e) => setEditSectionData({...editSectionData, customCategoryTag: e.target.value})}
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                    <button
+                      onClick={() => {
+                        if (editSectionData.customCategoryTag?.trim()) {
+                          const currentTags = editSectionData.categoryTags || myManufacturer.categoryTags || []
+                          if (!currentTags.includes(editSectionData.customCategoryTag.trim())) {
+                            setEditSectionData({
+                              ...editSectionData, 
+                              categoryTags: [...currentTags, editSectionData.customCategoryTag.trim()],
+                              customCategoryTag: ''
+                            })
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+                    >
+                      添加
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* 价格范围 */}
+              {editSection === 'priceRange' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">最低价格 (元)</label>
+                    <input
+                      type="number"
+                      defaultValue={myManufacturer.priceRangeMin || 0}
+                      onChange={(e) => setEditSectionData({...editSectionData, priceRangeMin: Number(e.target.value)})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">最高价格 (元)</label>
+                    <input
+                      type="number"
+                      defaultValue={myManufacturer.priceRangeMax || 0}
+                      onChange={(e) => setEditSectionData({...editSectionData, priceRangeMax: Number(e.target.value)})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 最低折扣 */}
+              {editSection === 'discount' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">最低折扣 (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    defaultValue={myManufacturer.defaultDiscount || 0}
+                    onChange={(e) => setEditSectionData({...editSectionData, defaultDiscount: Number(e.target.value)})}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">设置后，授权给其他商家时的最低折扣不得低于此值</p>
+                </div>
+              )}
+
+              {/* 默认返佣 */}
+              {editSection === 'commission' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">默认返佣比例 (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    defaultValue={myManufacturer.defaultCommission || 0}
+                    onChange={(e) => setEditSectionData({...editSectionData, defaultCommission: Number(e.target.value)})}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">授权给其他商家时的默认返佣比例</p>
+                </div>
+              )}
+
+              {/* 付款比例设置 */}
+              {editSection === 'paymentRatio' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div>
+                      <div className="font-medium text-gray-900">启用付款比例</div>
+                      <div className="text-sm text-gray-500">开启后，客户可选择定制状态下的付款比例</div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={editSectionData.paymentRatioEnabled ?? myManufacturer.paymentRatioEnabled ?? false}
+                        onChange={(e) => setEditSectionData({...editSectionData, paymentRatioEnabled: e.target.checked})}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-[#153e35] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">可选付款比例</label>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {[25, 30, 50, 70, 75, 100].map(ratio => (
+                        <button
+                          key={ratio}
+                          onClick={() => {
+                            const currentRatios = editSectionData.paymentRatios || myManufacturer.paymentRatios || [50, 75, 100]
+                            if (currentRatios.includes(ratio)) {
+                              setEditSectionData({...editSectionData, paymentRatios: currentRatios.filter((r: number) => r !== ratio)})
+                            } else {
+                              setEditSectionData({...editSectionData, paymentRatios: [...currentRatios, ratio].sort((a, b) => a - b)})
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                            (editSectionData.paymentRatios || myManufacturer.paymentRatios || [50, 75, 100]).includes(ratio)
+                              ? 'bg-[#153e35] text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {ratio}%
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        placeholder="自定义比例"
+                        value={editSectionData.customPaymentRatio || ''}
+                        onChange={(e) => setEditSectionData({...editSectionData, customPaymentRatio: e.target.value})}
+                        className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                      <button
+                        onClick={() => {
+                          const val = Number(editSectionData.customPaymentRatio)
+                          if (val > 0 && val <= 100) {
+                            const currentRatios = editSectionData.paymentRatios || myManufacturer.paymentRatios || [50, 75, 100]
+                            if (!currentRatios.includes(val)) {
+                              setEditSectionData({
+                                ...editSectionData,
+                                paymentRatios: [...currentRatios, val].sort((a, b) => a - b),
+                                customPaymentRatio: ''
+                              })
+                            }
+                          }
+                        }}
+                        className="px-4 py-2 bg-[#153e35] text-white rounded-xl hover:bg-[#1a4d42]"
+                      >
+                        添加
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-500">
+                    已选比例：{(editSectionData.paymentRatios || myManufacturer.paymentRatios || [50, 75, 100]).map((r: number) => `${r}%`).join('、') || '无'}
+                  </p>
+                </div>
+              )}
+
+              {/* 开票加价设置 */}
+              {editSection === 'invoice' && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div>
+                      <div className="font-medium text-gray-900">启用开票加价</div>
+                      <div className="text-sm text-gray-500">开启后，需要开票的订单将按比例加价</div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={editSectionData.invoiceEnabled ?? myManufacturer.invoiceEnabled ?? false}
+                        onChange={(e) => setEditSectionData({...editSectionData, invoiceEnabled: e.target.checked})}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">开票加价比例 (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      defaultValue={myManufacturer.invoiceMarkupPercent || 10}
+                      onChange={(e) => setEditSectionData({...editSectionData, invoiceMarkupPercent: Number(e.target.value)})}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      例如：售价1000元的产品，开票加价10%后，客户需支付1100元
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowEditSectionModal(false)
+                  setEditSectionData({})
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    setEditSectionSaving(true)
+                    const updateData: any = {}
+                    
+                    if (editSection === 'basic') {
+                      if (editSectionData.logo) updateData.logo = editSectionData.logo
+                      if (editSectionData.galleryImages !== undefined) updateData.galleryImages = editSectionData.galleryImages
+                      if (editSectionData.fullName) updateData.fullName = editSectionData.fullName
+                      if (editSectionData.shortName) updateData.shortName = editSectionData.shortName
+                      if (editSectionData.contactName) updateData.contactName = editSectionData.contactName
+                      if (editSectionData.contactPhone) updateData.contactPhone = editSectionData.contactPhone
+                      if (editSectionData.contactEmail) updateData.contactEmail = editSectionData.contactEmail
+                      if (editSectionData.companyPhone) updateData.companyPhone = editSectionData.companyPhone
+                      if (editSectionData.servicePhone) updateData.servicePhone = editSectionData.servicePhone
+                      if (editSectionData.address) updateData.address = editSectionData.address
+                      if (editSectionData.status) updateData.status = editSectionData.status
+                    } else if (editSection === 'settlement') {
+                      // 获取现有settings的纯对象形式
+                      const existingSettings = myManufacturer.settings ? JSON.parse(JSON.stringify(myManufacturer.settings)) : {}
+                      const newBankInfo = {
+                        companyName: editSectionData.companyName ?? existingSettings?.bankInfo?.companyName ?? myManufacturer.fullName ?? '',
+                        bankName: editSectionData.bankName ?? existingSettings?.bankInfo?.bankName ?? '',
+                        accountName: editSectionData.accountName ?? existingSettings?.bankInfo?.accountName ?? '',
+                        accountNumber: editSectionData.accountNumber ?? existingSettings?.bankInfo?.accountNumber ?? ''
+                      }
+                      updateData.settings = {
+                        ...existingSettings,
+                        wechatQrCode: editSectionData.wechatQrCode ?? existingSettings?.wechatQrCode ?? '',
+                        alipayQrCode: editSectionData.alipayQrCode ?? existingSettings?.alipayQrCode ?? '',
+                        bankInfo: newBankInfo
+                      }
+                      console.log('🔍 保存结算账户配置:', { editSectionData, existingSettings, updateData })
+                    } else if (editSection === 'qualification') {
+                      updateData.certification = {
+                        ...myManufacturer.certification,
+                        businessLicense: editSectionData.businessLicense || myManufacturer.certification?.businessLicense,
+                        companyName: editSectionData.invoiceCompanyName || myManufacturer.certification?.companyName,
+                        creditCode: editSectionData.creditCode || myManufacturer.certification?.creditCode,
+                        legalPerson: editSectionData.legalPerson || myManufacturer.certification?.legalPerson,
+                        invoiceName: editSectionData.invoiceName || myManufacturer.certification?.invoiceName,
+                        taxNumber: editSectionData.taxNumber || myManufacturer.certification?.taxNumber,
+                        invoiceBankName: editSectionData.invoiceBankName || myManufacturer.certification?.invoiceBankName,
+                        invoiceBankAccount: editSectionData.invoiceBankAccount || myManufacturer.certification?.invoiceBankAccount,
+                        invoiceAddress: editSectionData.invoiceAddress || myManufacturer.certification?.invoiceAddress,
+                        invoicePhone: editSectionData.invoicePhone || myManufacturer.certification?.invoicePhone
+                      }
+                    } else if (editSection === 'tags') {
+                      updateData.styleTags = editSectionData.styleTags || myManufacturer.styleTags
+                      updateData.categoryTags = editSectionData.categoryTags || myManufacturer.categoryTags
+                    } else if (editSection === 'priceRange') {
+                      if (editSectionData.priceRangeMin !== undefined) updateData.priceRangeMin = editSectionData.priceRangeMin
+                      if (editSectionData.priceRangeMax !== undefined) updateData.priceRangeMax = editSectionData.priceRangeMax
+                    } else if (editSection === 'discount') {
+                      if (editSectionData.defaultDiscount !== undefined) updateData.defaultDiscount = editSectionData.defaultDiscount
+                    } else if (editSection === 'commission') {
+                      if (editSectionData.defaultCommission !== undefined) updateData.defaultCommission = editSectionData.defaultCommission
+                    } else if (editSection === 'paymentRatio') {
+                      if (editSectionData.paymentRatioEnabled !== undefined) updateData.paymentRatioEnabled = editSectionData.paymentRatioEnabled
+                      if (editSectionData.paymentRatios) updateData.paymentRatios = editSectionData.paymentRatios
+                    } else if (editSection === 'invoice') {
+                      if (editSectionData.invoiceEnabled !== undefined) updateData.invoiceEnabled = editSectionData.invoiceEnabled
+                      if (editSectionData.invoiceMarkupPercent !== undefined) updateData.invoiceMarkupPercent = editSectionData.invoiceMarkupPercent
+                    }
+
+                    await apiClient.put(`/manufacturers/${myManufacturer._id}`, updateData)
+                    toast.success('保存成功')
+                    setShowEditSectionModal(false)
+                    setEditSectionData({})
+                    fetchData()
+                  } catch (error: any) {
+                    toast.error(error.response?.data?.message || '保存失败')
+                  } finally {
+                    setEditSectionSaving(false)
+                  }
+                }}
+                disabled={editSectionSaving}
+                className="px-6 py-2 bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42] disabled:opacity-50 flex items-center gap-2"
+              >
+                {editSectionSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 厂家资料编辑抽屉 - 使用共享组件 */}
       <ManufacturerEditDrawer
         open={showEditDrawer}
@@ -2280,6 +3724,70 @@ export default function ManufacturerManagement() {
         }}
         isFactoryPortal={isFactoryPortal}
       />
+
+      {/* 厂家图片相册弹窗 */}
+      {showGalleryModal && galleryTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">
+                {galleryTarget.shortName || galleryTarget.fullName} - 图片相册
+              </h3>
+              <button
+                onClick={() => setShowGalleryModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              {/* LOGO */}
+              {galleryTarget.logo && (
+                <div className="mb-6">
+                  <div className="text-sm font-semibold text-gray-500 mb-2">品牌LOGO</div>
+                  <img
+                    src={getFileUrl(galleryTarget.logo)}
+                    alt="LOGO"
+                    className="max-w-xs rounded-xl shadow-md"
+                  />
+                </div>
+              )}
+              {/* 相册图片 */}
+              <div className="text-sm font-semibold text-gray-500 mb-2">厂家相册</div>
+              {galleryTarget.galleryImages && galleryTarget.galleryImages.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {galleryTarget.galleryImages.map((img: string, idx: number) => (
+                    <img
+                      key={idx}
+                      src={getFileUrl(img)}
+                      alt={`图片${idx + 1}`}
+                      className="w-full h-48 object-cover rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => window.open(getFileUrl(img), '_blank')}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-gray-400 text-center py-8">暂无相册图片</div>
+              )}
+              {/* 编辑按钮 - 仅对自己的厂家显示 */}
+              {myManufacturer && galleryTarget._id === myManufacturer._id && (
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                  <button
+                    onClick={() => {
+                      setShowGalleryModal(false)
+                      setEditSection('basic')
+                      setShowEditSectionModal(true)
+                    }}
+                    className="px-4 py-2 bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
+                  >
+                    编辑图片
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

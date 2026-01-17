@@ -6,6 +6,7 @@ const { USER_ROLES } = require('../config/constants')
 const { list, listAll, get, create, update, remove } = require('../controllers/manufacturerController')
 const manufacturerAccountController = require('../controllers/manufacturerAccountController')
 const { sendVerificationCode, verifyCode } = require('../services/smsService')
+const { recognizeBusinessLicense } = require('../services/ocrService')
 const Product = require('../models/Product')
 const Category = require('../models/Category')
 const ManufacturerModel = require('../models/Manufacturer')
@@ -419,5 +420,47 @@ router.post('/:manufacturerId/certification', manufacturerAccountController.subm
 
 // PUT /api/manufacturers/:manufacturerId/certification/review - 审核企业认证（管理员）
 router.put('/:manufacturerId/certification/review', manufacturerAccountController.reviewCertification)
+
+// ========== 厂家ID重新生成 ==========
+
+// POST /api/manufacturers/regenerate-codes - 重新生成所有厂家的英文ID
+router.post('/regenerate-codes', requireRole(PLATFORM_ONLY_ROLES), async (req, res) => {
+  try {
+    const manufacturers = await ManufacturerModel.find({})
+    let updated = 0
+    
+    for (const m of manufacturers) {
+      if (m.shortName) {
+        // 强制重新生成code
+        m.code = undefined
+        await m.save()
+        updated++
+      }
+    }
+    
+    res.json({ success: true, message: `已更新 ${updated} 个厂家的ID`, updated })
+  } catch (error) {
+    console.error('重新生成厂家ID失败:', error)
+    res.status(500).json({ success: false, message: '重新生成失败', error: error.message })
+  }
+})
+
+// ========== OCR识别 ==========
+
+// POST /api/manufacturers/ocr/business-license - 营业执照OCR识别
+router.post('/ocr/business-license', async (req, res) => {
+  try {
+    const { imageUrl } = req.body
+    if (!imageUrl) {
+      return res.status(400).json({ success: false, message: '请提供图片URL' })
+    }
+    
+    const result = await recognizeBusinessLicense(imageUrl)
+    res.json(result)
+  } catch (error) {
+    console.error('OCR识别失败:', error)
+    res.status(500).json({ success: false, message: '识别失败', error: error.message })
+  }
+})
 
 module.exports = router

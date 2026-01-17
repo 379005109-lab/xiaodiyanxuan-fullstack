@@ -109,8 +109,8 @@ export default function OrderManagementNew2() {
         return
       }
       
-      // 使用相对路径，让 nginx 代理转发请求
-      const apiUrl = '/api/orders?pageSize=10000'
+      // 使用完整的公网地址
+      const apiUrl = 'https://pkochbpmcgaa.sealoshzh.site/api/orders?pageSize=10000'
       console.log('[OrderManagement] Fetching from:', apiUrl)
       
       const response = await fetch(apiUrl, {
@@ -129,7 +129,8 @@ export default function OrderManagementNew2() {
       }
       
       const data = await response.json()
-      console.log('[OrderManagement] Received data:', data)
+      console.log('[OrderManagement] Received data - total:', data.pagination?.total, 'count:', data.data?.length)
+      console.log('[OrderManagement] Order numbers:', data.data?.map(o => o.orderNo))
       const allOrders: Order[] = data.data || []
       
       // 按时间倒序
@@ -1027,7 +1028,7 @@ export default function OrderManagementNew2() {
                 {(selectedOrder.status === 1 || selectedOrder.status === 'pending') && (
                   <button 
                     onClick={() => setShowPaymentModal(true)}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
                   >
                     标记已付
                   </button>
@@ -1036,7 +1037,7 @@ export default function OrderManagementNew2() {
                 {(selectedOrder.status === 2 || selectedOrder.status === 3 || selectedOrder.status === 'paid' || selectedOrder.status === 'processing') && (
                   <button 
                     onClick={() => setShowShippingModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
                   >
                     发货
                   </button>
@@ -1045,7 +1046,7 @@ export default function OrderManagementNew2() {
                 {(selectedOrder.status === 4 || selectedOrder.status === 'shipped') && (
                   <button 
                     onClick={() => handleCompleteOrder(selectedOrder._id)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
                   >
                     完成订单
                   </button>
@@ -1075,7 +1076,7 @@ export default function OrderManagementNew2() {
                           toast.error('操作失败')
                         }
                       }}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm flex items-center gap-1"
+                      className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm flex items-center gap-1"
                     >
                       <Check className="w-4 h-4" />
                       批准取消
@@ -1128,32 +1129,41 @@ export default function OrderManagementNew2() {
                       }
                       openPriceModal(selectedOrder._id)
                     }}
-                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm flex items-center gap-1"
+                    className="px-4 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors text-sm flex items-center gap-1"
                   >
                     <Edit2 className="w-4 h-4" />
                     改价
                   </button>
                 )}
-                {/* 导出订单清单图片按钮 */}
-                <button 
-                  onClick={handleExportImages}
-                  className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-1"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                  导出清单图片
-                </button>
-                {/* 导出整单图片按钮（不分单） */}
-                <button 
-                  onClick={handleExportWholeOrderImages}
-                  className="px-4 py-2 border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm flex items-center gap-1"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                  导出整单图片
-                </button>
+                {/* 导出图片按钮 - 合并为下拉菜单 */}
+                <div className="relative group">
+                  <button 
+                    onClick={handleExportWholeOrderImages}
+                    className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-1"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    导出图片
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </button>
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 min-w-[140px]">
+                    <button 
+                      onClick={handleExportWholeOrderImages}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-t-lg"
+                    >
+                      整单图片
+                    </button>
+                    <button 
+                      onClick={handleExportImages}
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 rounded-b-lg border-t border-gray-100"
+                    >
+                      分单图片
+                    </button>
+                  </div>
+                </div>
                 {/* 删除按钮 */}
                 <button 
                   onClick={() => handleDeleteOrder(selectedOrder._id)}
-                  className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm flex items-center gap-1"
+                  className="px-4 py-2 border border-gray-300 text-gray-500 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-1"
                 >
                   <Trash2 className="w-4 h-4" />
                   删除
@@ -1318,6 +1328,63 @@ export default function OrderManagementNew2() {
               </div>
             )}
           </div>
+
+          {/* 结算模式选择 - 简洁版 */}
+          {(selectedOrder.status === 0 || selectedOrder.status === 1 || selectedOrder.status === 'pending') && !(selectedOrder as any).settlementMode && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">结算模式</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm(`供应商调货模式\n\n实付: ¥${(selectedOrder.totalAmount * 0.36).toLocaleString()}\n\n确定？`)) return
+                      try {
+                        const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/settlement-mode`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ settlementMode: 'supplier_transfer', minDiscountRate: 0.6, commissionRate: 0.4 })
+                        })
+                        if (response.ok) { toast.success('已选择供应商调货模式'); loadOrders() }
+                        else { toast.error('设置失败') }
+                      } catch (error) { toast.error('设置失败') }
+                    }}
+                    className="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-900 transition-colors"
+                  >
+                    供应商调货 (36%)
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm(`返佣模式\n\n首付: ¥${(selectedOrder.totalAmount * 0.3).toLocaleString()}\n\n确定？`)) return
+                      try {
+                        const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/settlement-mode`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50 })
+                        })
+                        if (response.ok) { toast.success('已选择返佣模式'); loadOrders() }
+                        else { toast.error('设置失败') }
+                      } catch (error) { toast.error('设置失败') }
+                    }}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors border border-gray-300"
+                  >
+                    返佣模式 (60%+返佣)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* 已选择结算模式显示 */}
+          {(selectedOrder as any).settlementMode && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">结算模式</span>
+                <span className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-lg">
+                  {(selectedOrder as any).settlementMode === 'supplier_transfer' ? '供应商调货' : '返佣模式'}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* 客户信息 */}
           <div className="bg-white rounded-2xl p-6 shadow-sm">
@@ -1558,61 +1625,6 @@ export default function OrderManagementNew2() {
             </div>
           )}
 
-          {/* 商家备注 */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Tag className="w-5 h-5 text-gray-500" />
-                <h2 className="font-semibold">商家备注</h2>
-              </div>
-              <button 
-                onClick={() => {
-                  setRemarkText((selectedOrder as any).adminNote || '')
-                  setShowRemarkEdit(!showRemarkEdit)
-                }}
-                className="text-blue-600 text-sm hover:text-blue-700 flex items-center gap-1"
-              >
-                <Edit2 className="w-4 h-4" />
-                {showRemarkEdit ? '取消' : '编辑'}
-              </button>
-            </div>
-            {showRemarkEdit ? (
-              <div className="space-y-3">
-                <textarea
-                  value={remarkText}
-                  onChange={(e) => setRemarkText(e.target.value)}
-                  placeholder="添加商家备注，如：客户要求加急处理..."
-                  rows={3}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                />
-                <div className="flex gap-2 justify-end">
-                  <button 
-                    onClick={() => setShowRemarkEdit(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm"
-                  >
-                    取消
-                  </button>
-                  <button 
-                    onClick={() => handleSaveRemark(selectedOrder._id, remarkText)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                  >
-                    保存备注
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {(selectedOrder as any).adminNote ? (
-                  <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm">
-                    {(selectedOrder as any).adminNote}
-                  </span>
-                ) : (
-                  <span className="text-gray-400 text-sm">暂无备注，点击编辑添加</span>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* 买家备注 */}
           {selectedOrder.notes && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -1851,6 +1863,55 @@ export default function OrderManagementNew2() {
                 ))
               }
             </div>
+          </div>
+
+          {/* 商家备注 - 移到最下面 */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Tag className="w-5 h-5 text-gray-500" />
+                <h2 className="font-semibold">商家备注</h2>
+              </div>
+              <button 
+                onClick={() => {
+                  setRemarkText((selectedOrder as any).adminNote || '')
+                  setShowRemarkEdit(!showRemarkEdit)
+                }}
+                className="text-gray-600 text-sm hover:text-gray-800 flex items-center gap-1"
+              >
+                <Edit2 className="w-4 h-4" />
+                {showRemarkEdit ? '取消' : '编辑'}
+              </button>
+            </div>
+            {showRemarkEdit ? (
+              <div className="space-y-3">
+                <textarea
+                  value={remarkText}
+                  onChange={(e) => setRemarkText(e.target.value)}
+                  placeholder="添加商家备注..."
+                  rows={2}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 resize-none"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button 
+                    onClick={() => setShowRemarkEdit(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm"
+                  >
+                    取消
+                  </button>
+                  <button 
+                    onClick={() => handleSaveRemark(selectedOrder._id, remarkText)}
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 text-sm"
+                  >
+                    保存
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">
+                {(selectedOrder as any).adminNote || '暂无备注'}
+              </p>
+            )}
           </div>
         </div>
       </div>

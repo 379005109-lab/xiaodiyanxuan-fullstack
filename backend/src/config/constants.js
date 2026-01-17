@@ -1,5 +1,6 @@
 // Order status
 const ORDER_STATUS = {
+  PENDING_CONFIRMATION: 0,  // 待厂家确认
   PENDING_PAYMENT: 1,
   PENDING_SHIPMENT: 2,
   PENDING_RECEIPT: 3,
@@ -11,6 +12,7 @@ const ORDER_STATUS = {
 }
 
 const ORDER_STATUS_TEXT = {
+  0: '待确认',
   1: '待付款',
   2: '待发货',
   3: '待收货',

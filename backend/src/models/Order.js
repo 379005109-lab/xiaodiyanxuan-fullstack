@@ -5,6 +5,9 @@ const orderSchema = new mongoose.Schema({
   orderNo: { type: String, unique: true, required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   
+  // 订单归属厂家（下单用户的厂家）
+  ownerManufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
+  
   // 订单类型：product=普通商品订单, package=套餐订单
   orderType: { type: String, enum: ['product', 'package'], default: 'product' },
   
@@ -64,6 +67,33 @@ const orderSchema = new mongoose.Schema({
   notes: String,
   // 支付信息
   paymentMethod: String, // wechat, alipay, bank
+  
+  // 结算模式: supplier_transfer=供应商调货(一键到底), commission_mode=返佣模式
+  settlementMode: { type: String, enum: ['supplier_transfer', 'commission_mode', null], default: null },
+  
+  // 价格计算相关字段
+  originalPrice: { type: Number, default: 0 },          // 原价（商城标价）
+  minDiscountRate: { type: Number, default: 0.6 },      // 最低折扣率（如0.6表示60%）
+  commissionRate: { type: Number, default: 0.4 },       // 返佣率（如0.4表示40%）
+  minDiscountPrice: { type: Number, default: 0 },       // 最低折扣价 = 原价 × 最低折扣率
+  commissionAmount: { type: Number, default: 0 },       // 返佣金额 = 最低折扣价 × 返佣率
+  supplierPrice: { type: Number, default: 0 },          // 供应商价格（一键到底）= 最低折扣价 - 返佣金额
+  
+  // 返佣申请状态（返佣模式下使用）
+  commissionStatus: { type: String, enum: ['pending', 'applied', 'approved', 'paid', null], default: null },
+  commissionAppliedAt: Date,     // 返佣申请时间
+  commissionApprovedAt: Date,    // 返佣审批时间
+  commissionPaidAt: Date,        // 返佣发放时间
+  
+  // 付款比例功能
+  paymentRatioEnabled: { type: Boolean, default: false },  // 是否启用分期付款
+  paymentRatio: { type: Number, default: 100 },  // 首付比例（如50表示50%）
+  firstPaymentAmount: { type: Number, default: 0 },  // 首付金额
+  remainingPaymentAmount: { type: Number, default: 0 },  // 剩余应付金额
+  remainingPaymentStatus: { type: String, enum: ['pending', 'paid', null], default: null },  // 尾款支付状态
+  remainingPaymentPaidAt: Date,  // 尾款支付时间
+  remainingPaymentRemindedAt: Date,  // 尾款提醒时间
+  
   // 物流信息
   shippingCompany: String,
   trackingNumber: String,

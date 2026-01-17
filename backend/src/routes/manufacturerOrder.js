@@ -38,12 +38,25 @@ router.post('/dispatch/:orderId', auth, requireRole(ADMIN_ROLES), async (req, re
       return res.status(400).json({ success: false, message: '该订单已经分发过，请勿重复分发' });
     }
     
+    // ★ 关键修复：如果订单有 ownerManufacturerId，优先使用它
+    let orderOwnerManufacturerId = order.ownerManufacturerId ? String(order.ownerManufacturerId) : null;
+    let orderOwnerManufacturerName = null;
+    
+    if (orderOwnerManufacturerId) {
+      const ownerManufacturer = await Manufacturer.findById(orderOwnerManufacturerId)
+        .select('fullName name shortName')
+        .lean();
+      orderOwnerManufacturerName = ownerManufacturer?.fullName || ownerManufacturer?.name || ownerManufacturer?.shortName || '未知厂家';
+      console.log('📦 [Dispatch Route] 授权商品订单，分配给下单用户厂家:', orderOwnerManufacturerId, orderOwnerManufacturerName);
+    }
+    
     // 按厂家分组商品
     const manufacturerItems = {};
     
     for (const item of order.items) {
-      const manufacturerId = item.manufacturerId || item.productId?.manufacturerId;
-      const manufacturerName = item.manufacturerName || item.productId?.manufacturerName || '未知厂家';
+      // ★ 关键修复：优先使用订单的 ownerManufacturerId
+      const manufacturerId = orderOwnerManufacturerId || item.manufacturerId || item.productId?.manufacturerId;
+      const manufacturerName = orderOwnerManufacturerName || item.manufacturerName || item.productId?.manufacturerName || '未知厂家';
       
       if (!manufacturerId) {
         // 如果商品没有厂家信息，归类到"未分配"
@@ -147,7 +160,18 @@ router.get('/', auth, requireRole(ADMIN_ROLES), async (req, res) => {
     
     const query = {};
     if (status) query.status = status;
-    if (manufacturerId) query.manufacturerId = manufacturerId;
+    
+    // ★ 关键修复：厂家管理员只能看到自己厂家的订单
+    const isSuperAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin'].includes(req.user?.role);
+    const userManufacturerId = req.user?.manufacturerId || req.user?.manufacturerIds?.[0];
+    
+    if (manufacturerId) {
+      query.manufacturerId = manufacturerId;
+    } else if (!isSuperAdmin && userManufacturerId) {
+      // 非超级管理员，自动过滤为自己厂家的订单
+      query.manufacturerId = userManufacturerId;
+      console.log('📋 [ManufacturerOrder] 自动过滤厂家订单:', userManufacturerId);
+    }
     if (keyword) {
       query.$or = [
         { orderNo: { $regex: keyword, $options: 'i' } },
