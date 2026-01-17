@@ -2970,7 +2970,7 @@ function HierarchyTab({
                         handleAvatarClick(staff)
                       }}
                       className="w-12 h-12 rounded-full bg-emerald-100 hover:ring-4 hover:ring-emerald-300 transition-all flex-shrink-0 flex items-center justify-center"
-                      title="编辑层级返佣配置"
+                      title="配置角色、人员和商品"
                     >
                       <Users className="w-6 h-6 text-emerald-600" />
                     </button>
@@ -2978,45 +2978,14 @@ function HierarchyTab({
                       <h4 className="text-base font-bold text-gray-900 mb-1">{staff.name}</h4>
                       <div className="text-sm text-gray-600">{staff.role}</div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
-                        if (!acc) return
-                        setProductAccount(acc)
-                        setShowProductModal(true)
-                      }}
-                      className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition-all flex-shrink-0"
-                      title="绑定商品"
-                    >
-                      <FileText className="w-4 h-4" />
-                    </button>
                   </div>
 
                   {/* 折扣和返佣显示 - 紧凑布局 */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-green-50 p-3 rounded-xl text-center">
                       <div className="text-xs text-green-700 font-medium mb-1">最低折扣</div>
-                      <input
-                        type="number"
-                        value={nodeDraft[String(staff.id)]?.minDiscount ?? staff.minDiscount}
-                        min={60}
-                        onChange={(e) => {
-                          const v = Math.max(60, Math.min(100, Number(e.target.value) || 60))
-                          setNodeDraft(prev => ({
-                            ...prev,
-                            [String(staff.id)]: {
-                              ...(prev[String(staff.id)] || { minDiscount: staff.minDiscount, distribution: staff.distribution }),
-                              minDiscount: v
-                            }
-                          }))
-                        }}
-                        onBlur={() => commitNodeDraft(String(staff.id))}
-                        onKeyDown={(e) => e.key === 'Enter' && commitNodeDraft(String(staff.id))}
-                        className="text-xl font-bold text-green-800 bg-transparent text-center w-full outline-none"
-                      />
-                      <div className="text-xs text-green-600">%</div>
+                      <div className="text-xl font-bold text-green-800">{hierarchyData.headquarters.minDiscount}</div>
+                      <div className="text-xs text-green-600">%（厂家授权）</div>
                     </div>
                     <div className="bg-blue-50 p-3 rounded-xl text-center">
                       <div className="text-xs text-blue-700 font-medium mb-1">返佣比例</div>
@@ -3045,7 +3014,17 @@ function HierarchyTab({
 
                   {/* 绑定信息和添加下级 */}
                   <div className="mt-3 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-3 text-gray-500">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const acc = accounts.find(a => String(a._id) === String(staff.id)) || null
+                        if (!acc) return
+                        handleAvatarClick(staff)
+                      }}
+                      className="flex items-center gap-3 text-gray-500 hover:text-emerald-600 transition-colors"
+                      title="配置人员和商品"
+                    >
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
                         {staff.boundEntities?.length || 0}人
@@ -3054,7 +3033,7 @@ function HierarchyTab({
                         <FileText className="w-3 h-3" />
                         {staff.account?.visibleProductIds?.length || 0}商品
                       </span>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-1">
                       {/* 展开/收起按钮 - 移到底部避免遮挡商品图标 */}
                       {hasChildren(String(staff.id)) && (
@@ -3537,6 +3516,32 @@ function HierarchyTab({
                         )
                       })
                     )}
+                  </div>
+                </div>
+
+                {/* 绑定商品 */}
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-medium text-orange-900">绑定商品</h4>
+                      <p className="text-xs text-orange-700">选择该节点可见的商品范围</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const acc = accounts.find(a => String(a._id) === String(selectedStaff.account?._id)) || null
+                        if (acc) {
+                          setProductAccount(acc)
+                          setShowProductModal(true)
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-orange-600 text-white text-xs font-medium rounded-lg hover:bg-orange-700"
+                    >
+                      选择商品
+                    </button>
+                  </div>
+                  <div className="text-xs text-orange-700">
+                    已绑定商品: <span className="font-bold">{selectedStaff.account?.visibleProductIds?.length || 0}</span> 个
                   </div>
                 </div>
 
