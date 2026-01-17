@@ -18,6 +18,8 @@ type TabType = 'all' | 'pending' | 'shipping' | 'afterSale' | 'cancelled'
 const statusConfig: Record<number | string, { label: string; color: string; bgColor: string }> = {
   1: { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
   'pending': { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
+  9: { label: '待确认收款', color: 'text-amber-600', bgColor: 'bg-amber-100' },
+  'pending_payment_verify': { label: '待确认收款', color: 'text-amber-600', bgColor: 'bg-amber-100' },
   2: { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
   'paid': { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
   3: { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
@@ -64,6 +66,8 @@ export default function OrderManagementNew2() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('') // 选择的支付方式
   const [showShippingModal, setShowShippingModal] = useState(false) // 发货物流弹窗
   const [shippingInfo, setShippingInfo] = useState({ company: '', trackingNo: '' }) // 物流信息
+  const [showVerifyPaymentModal, setShowVerifyPaymentModal] = useState(false) // 确认收款弹窗
+  const [verifyPaymentMethod, setVerifyPaymentMethod] = useState<string>('') // 确认的收款方式
   const [showCancelModal, setShowCancelModal] = useState(false) // 取消订单弹窗
   const [cancelReason, setCancelReason] = useState('') // 取消原因
   const [showRemarkEdit, setShowRemarkEdit] = useState(false) // 备注编辑
@@ -516,6 +520,39 @@ export default function OrderManagementNew2() {
         loadOrders()
       } else {
         toast.error('操作失败')
+      }
+    } catch (error) {
+      toast.error('操作失败')
+    }
+  }
+
+  // 确认收款（核销）
+  const handleVerifyPayment = async (orderId: string) => {
+    if (!verifyPaymentMethod) {
+      toast.error('请选择收款方式')
+      return
+    }
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/verify-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ paymentMethod: verifyPaymentMethod })
+      })
+      
+      if (response.ok) {
+        const methodText = verifyPaymentMethod === 'wechat' ? '微信' : verifyPaymentMethod === 'alipay' ? '支付宝' : '银行卡'
+        toast.success(`已确认收款(${methodText})`)
+        setShowVerifyPaymentModal(false)
+        setVerifyPaymentMethod('')
+        addOrderLog(orderId, 'verify_payment', `已确认收款(${methodText})`)
+        loadOrders()
+      } else {
+        const data = await response.json().catch(() => ({}))
+        toast.error(data.message || '操作失败')
       }
     } catch (error) {
       toast.error('操作失败')
@@ -1033,6 +1070,19 @@ export default function OrderManagementNew2() {
                     标记已付
                   </button>
                 )}
+                {/* 待确认收款 -> 确认收款（核销） */}
+                {selectedOrder.status === 9 && (
+                  <button 
+                    onClick={() => {
+                      setVerifyPaymentMethod(selectedOrder.paymentMethod || '')
+                      setShowVerifyPaymentModal(true)
+                    }}
+                    className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm flex items-center gap-1"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    确认收款
+                  </button>
+                )}
                 {/* 已付款 -> 发货 */}
                 {(selectedOrder.status === 2 || selectedOrder.status === 3 || selectedOrder.status === 'paid' || selectedOrder.status === 'processing') && (
                   <button 
@@ -1537,6 +1587,90 @@ export default function OrderManagementNew2() {
                     className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
                     确认发货
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 确认收款弹窗 */}
+          {showVerifyPaymentModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-amber-600" />
+                    确认收款
+                  </h3>
+                  <button onClick={() => setShowVerifyPaymentModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-gray-600 mb-4">请确认已收到客户付款，选择实际收款方式：</p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setVerifyPaymentMethod('wechat')}
+                    className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                      verifyPaymentMethod === 'wechat' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">微</span>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="font-medium">微信到账</div>
+                      <div className="text-sm text-gray-500">已通过微信收到款项</div>
+                    </div>
+                    {verifyPaymentMethod === 'wechat' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                  </button>
+                  <button
+                    onClick={() => setVerifyPaymentMethod('alipay')}
+                    className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                      verifyPaymentMethod === 'alipay' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">支</span>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="font-medium">支付宝到账</div>
+                      <div className="text-sm text-gray-500">已通过支付宝收到款项</div>
+                    </div>
+                    {verifyPaymentMethod === 'alipay' && <CheckCircle2 className="w-5 h-5 text-blue-500" />}
+                  </button>
+                  <button
+                    onClick={() => setVerifyPaymentMethod('bank')}
+                    className={`w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                      verifyPaymentMethod === 'bank' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">银</span>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="font-medium">银行卡到账</div>
+                      <div className="text-sm text-gray-500">已通过银行转账收到款项</div>
+                    </div>
+                    {verifyPaymentMethod === 'bank' && <CheckCircle2 className="w-5 h-5 text-purple-500" />}
+                  </button>
+                </div>
+                <div className="mt-6 flex gap-3">
+                  <button 
+                    onClick={() => setShowVerifyPaymentModal(false)}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button 
+                    onClick={() => handleVerifyPayment(selectedOrder._id)}
+                    disabled={!verifyPaymentMethod}
+                    className={`flex-1 px-4 py-2.5 rounded-lg ${
+                      verifyPaymentMethod 
+                        ? 'bg-amber-600 text-white hover:bg-amber-700' 
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    确认已收款
                   </button>
                 </div>
               </div>

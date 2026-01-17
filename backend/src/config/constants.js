@@ -1,14 +1,15 @@
 // Order status
 const ORDER_STATUS = {
   PENDING_CONFIRMATION: 0,  // 待厂家确认
-  PENDING_PAYMENT: 1,
-  PENDING_SHIPMENT: 2,
-  PENDING_RECEIPT: 3,
-  COMPLETED: 4,
-  CANCELLED: 5,
-  REFUNDING: 6,      // 退款中
-  REFUNDED: 7,       // 已退款
-  EXCHANGING: 8      // 换货中
+  PENDING_PAYMENT: 1,       // 待付款
+  PENDING_PAYMENT_VERIFY: 9, // 待确认收款（客户已付款，厂家待核销）
+  PENDING_SHIPMENT: 2,      // 待发货
+  PENDING_RECEIPT: 3,       // 待收货
+  COMPLETED: 4,             // 已完成
+  CANCELLED: 5,             // 已取消
+  REFUNDING: 6,             // 退款中
+  REFUNDED: 7,              // 已退款
+  EXCHANGING: 8             // 换货中
 }
 
 const ORDER_STATUS_TEXT = {
@@ -20,7 +21,8 @@ const ORDER_STATUS_TEXT = {
   5: '已取消',
   6: '退款中',
   7: '已退款',
-  8: '换货中'
+  8: '换货中',
+  9: '待确认收款'
 }
 
 // User types

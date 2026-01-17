@@ -206,7 +206,7 @@ router.put('/:id/cancel', cancel)  // 支持PUT方法
 // POST /api/orders/:id/confirm - 确认收货
 router.post('/:id/confirm', confirm)
 
-// POST /api/orders/:id/pay - 确认付款
+// POST /api/orders/:id/pay - 确认付款（客户付款后进入待确认收款状态）
 router.post('/:id/pay', async (req, res) => {
   try {
     const { id } = req.params
@@ -223,17 +223,55 @@ router.post('/:id/pay', async (req, res) => {
       return res.status(400).json({ success: false, message: '订单状态不允许付款' })
     }
     
-    order.status = ORDER_STATUS.PENDING_SHIPMENT
+    // 客户付款后进入"待确认收款"状态，等待厂家核销
+    order.status = ORDER_STATUS.PENDING_PAYMENT_VERIFY
     order.paymentMethod = paymentMethod || 'wechat'
     order.paidAt = new Date()
     
     await order.save()
-    console.log(`✅ 订单 ${order.orderNo} 付款成功，状态更新为待发货`)
+    console.log(`✅ 订单 ${order.orderNo} 客户已付款，等待厂家确认收款`)
     
-    res.json({ success: true, message: '付款成功', data: order })
+    res.json({ success: true, message: '付款成功，等待商家确认收款', data: order })
   } catch (error) {
     console.error('付款失败:', error)
     res.status(500).json({ success: false, message: '付款失败' })
+  }
+})
+
+// POST /api/orders/:id/verify-payment - 厂家确认收款（核销）
+router.post('/:id/verify-payment', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { paymentMethod, verifyNote } = req.body
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.status !== ORDER_STATUS.PENDING_PAYMENT_VERIFY) {
+      return res.status(400).json({ success: false, message: '订单状态不允许确认收款' })
+    }
+    
+    // 厂家确认收款后进入待发货状态
+    order.status = ORDER_STATUS.PENDING_SHIPMENT
+    order.paymentVerifiedAt = new Date()
+    order.paymentVerifiedMethod = paymentMethod || order.paymentMethod
+    order.paymentVerifyNote = verifyNote || ''
+    
+    await order.save()
+    console.log(`✅ 订单 ${order.orderNo} 厂家已确认收款(${paymentMethod})，进入待发货状态`)
+    
+    res.json({ 
+      success: true, 
+      message: `已确认收款(${paymentMethod === 'wechat' ? '微信' : paymentMethod === 'alipay' ? '支付宝' : '银行卡'})`, 
+      data: order 
+    })
+  } catch (error) {
+    console.error('确认收款失败:', error)
+    res.status(500).json({ success: false, message: '确认收款失败' })
   }
 })
 
