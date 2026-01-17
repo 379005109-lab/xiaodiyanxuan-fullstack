@@ -345,8 +345,9 @@ router.get('/:id/payment-info', async (req, res) => {
       return res.status(404).json({ success: false, message: '订单不存在' })
     }
     
-    // 获取订单关联的厂家ID
-    const manufacturerId = order.manufacturerId || order.items?.[0]?.manufacturerId
+    // 获取订单关联的厂家ID - 尝试多种方式
+    let manufacturerId = order.manufacturerId || order.items?.[0]?.manufacturerId || order.items?.[0]?.manufacturer
+    console.log('📍 [payment-info] 订单:', order.orderNo, '厂家ID:', manufacturerId)
     
     let paymentInfo = {
       wechatQrCode: null,
@@ -355,14 +356,45 @@ router.get('/:id/payment-info', async (req, res) => {
       paymentAccounts: []
     }
     
+    // 如果订单没有厂家ID，尝试从商品中获取
+    if (!manufacturerId && order.items?.length > 0) {
+      const Product = require('../models/Product')
+      const firstItem = order.items[0]
+      if (firstItem.productId) {
+        const product = await Product.findById(firstItem.productId)
+        manufacturerId = product?.manufacturerId
+        console.log('📍 [payment-info] 从商品获取厂家ID:', manufacturerId)
+      }
+    }
+    
     if (manufacturerId) {
       const manufacturer = await Manufacturer.findById(manufacturerId)
+      console.log('📍 [payment-info] 厂家:', manufacturer?.fullName, '设置:', JSON.stringify(manufacturer?.settings))
       if (manufacturer?.settings) {
         paymentInfo = {
           wechatQrCode: manufacturer.settings.wechatQrCode,
           alipayQrCode: manufacturer.settings.alipayQrCode,
           bankInfo: manufacturer.settings.bankInfo,
           paymentAccounts: manufacturer.settings.paymentAccounts || []
+        }
+      }
+    } else {
+      console.log('📍 [payment-info] 未找到厂家ID，尝试获取默认收款配置')
+      // 如果没有厂家ID，尝试获取第一个有收款配置的厂家（作为默认）
+      const defaultManufacturer = await Manufacturer.findOne({
+        $or: [
+          { 'settings.wechatQrCode': { $exists: true, $ne: null } },
+          { 'settings.alipayQrCode': { $exists: true, $ne: null } },
+          { 'settings.bankInfo': { $exists: true, $ne: null } }
+        ]
+      })
+      if (defaultManufacturer?.settings) {
+        console.log('📍 [payment-info] 使用默认厂家:', defaultManufacturer.fullName)
+        paymentInfo = {
+          wechatQrCode: defaultManufacturer.settings.wechatQrCode,
+          alipayQrCode: defaultManufacturer.settings.alipayQrCode,
+          bankInfo: defaultManufacturer.settings.bankInfo,
+          paymentAccounts: defaultManufacturer.settings.paymentAccounts || []
         }
       }
     }
