@@ -1282,7 +1282,7 @@ router.get('/designer-requests/my', auth, async (req, res) => {
 router.get('/designer-requests/pending', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin' || currentUser?.role === 'enterprise_admin'
     
     if (!isAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户或管理员可以查看授权申请' })
@@ -1293,7 +1293,8 @@ router.get('/designer-requests/pending', auth, async (req, res) => {
       status: 'pending'
     }
     
-    if (!isAdmin) {
+    // 管理员可以看到所有待审批请求，厂家用户只能看到自己厂家的
+    if (!isAdmin && currentUser?.manufacturerId) {
       query.fromManufacturer = currentUser.manufacturerId
     }
 
@@ -1622,7 +1623,7 @@ router.get('/manufacturer-requests/my', auth, async (req, res) => {
 router.get('/manufacturer-requests/pending', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin' || currentUser?.role === 'enterprise_admin'
 
     if (!isAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户或管理员可以查看授权申请' })
@@ -1633,7 +1634,8 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
       status: 'pending'
     }
 
-    if (!isAdmin) {
+    // 管理员可以看到所有待审批请求，厂家用户只能看到自己厂家的
+    if (!isAdmin && currentUser?.manufacturerId) {
       query.fromManufacturer = currentUser.manufacturerId
     }
 
