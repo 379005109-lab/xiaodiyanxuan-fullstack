@@ -1299,8 +1299,10 @@ router.get('/designer-requests/pending', auth, async (req, res) => {
     }
 
     const list = await Authorization.find(query)
-      .populate('toDesigner', 'username nickname phone email')
+      .populate('toDesigner', 'username nickname phone email avatar')
       .populate('fromManufacturer', 'fullName shortName name')
+      .populate('categories', 'name')
+      .populate('products', 'name mainImage')
       .sort({ createdAt: -1 })
       .lean()
 
@@ -1640,8 +1642,10 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
     }
 
     const list = await Authorization.find(query)
-      .populate('toManufacturer', 'name fullName shortName code contactPerson')
+      .populate('toManufacturer', 'name fullName shortName code contactPerson logo businessLicense businessCategories annualRevenue')
       .populate('fromManufacturer', 'fullName shortName name')
+      .populate('categories', 'name')
+      .populate('products', 'name mainImage')
       .sort({ createdAt: -1 })
       .lean()
 
