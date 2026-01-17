@@ -291,8 +291,8 @@ export default function ManufacturerManagement() {
       
       console.log('[ManufacturerManagement] isFactoryPortal:', isFactoryPortal, 'myManufacturerId:', myManufacturerId, 'isAdmin:', isAdmin)
       
-      // 如果是厂家门户，获取授权状态
-      if (isFactoryPortal && myManufacturerId) {
+      // 如果是厂家门户或管理员，获取授权状态
+      if (isFactoryPortal || isAdmin || myManufacturerId) {
         try {
           console.log('[ManufacturerManagement] Fetching authorization summary for:', myManufacturerId)
           const authRes = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
