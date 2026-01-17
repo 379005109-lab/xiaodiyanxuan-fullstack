@@ -417,13 +417,54 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-1">
               <FileText className="w-4 h-4" />
-              订单动态 & 跟进
+              订单动态
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-60 overflow-y-auto">
               <div className="text-xs text-gray-400 flex items-center gap-2">
                 <Clock className="w-3 h-3" />
                 {new Date(order.createdAt).toLocaleString('zh-CN')} 订单创建
               </div>
+              
+              {/* 显示后端返回的活动日志 */}
+              {(order as any).activityLogs?.map((log: any, idx: number) => (
+                <div key={idx} className={`text-xs flex items-start gap-2 p-2 rounded ${
+                  log.action === 'settlement_mode_set' ? 'bg-purple-50 text-purple-700' :
+                  log.action === 'deposit_paid' ? 'bg-cyan-50 text-cyan-700' :
+                  log.action === 'final_payment_paid' ? 'bg-pink-50 text-pink-700' :
+                  log.action === 'deposit_verified' ? 'bg-green-50 text-green-700' :
+                  log.action === 'production_started' ? 'bg-teal-50 text-teal-700' :
+                  'bg-gray-50 text-gray-600'
+                }`}>
+                  <CheckCircle2 className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div>{new Date(log.timestamp).toLocaleString('zh-CN')}</div>
+                    <div className="font-medium">{log.details}</div>
+                    {log.operator && <div className="text-xs opacity-70">操作人: {log.operator}</div>}
+                  </div>
+                </div>
+              ))}
+              
+              {/* 预付定制订单生产周期显示 */}
+              {(order as any).paymentRatioEnabled && (order as any).estimatedProductionDays && (
+                <div className="text-xs p-2 bg-teal-50 text-teal-700 rounded">
+                  <div className="font-medium">📦 预付定制订单</div>
+                  <div>生产周期: {(order as any).estimatedProductionDays} 天</div>
+                  {(order as any).productionDeadline && (
+                    <div>预计完成: {new Date((order as any).productionDeadline).toLocaleDateString('zh-CN')}</div>
+                  )}
+                  {(order as any).depositPaidAt && !((order as any).productionDeadline) && (
+                    <div>
+                      预计完成: {new Date(new Date((order as any).depositPaidAt).getTime() + (order as any).estimatedProductionDays * 24 * 60 * 60 * 1000).toLocaleDateString('zh-CN')}
+                      {(() => {
+                        const deadline = new Date(new Date((order as any).depositPaidAt).getTime() + (order as any).estimatedProductionDays * 24 * 60 * 60 * 1000)
+                        const remaining = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+                        return remaining > 0 ? ` (剩余 ${remaining} 天)` : ' (已到期)'
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {order.paidAt && (
                 <div className="text-xs text-gray-400 flex items-center gap-2">
                   <CheckCircle2 className="w-3 h-3" />

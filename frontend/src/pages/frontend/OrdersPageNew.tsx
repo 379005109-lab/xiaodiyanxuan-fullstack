@@ -195,21 +195,37 @@ export default function OrdersPageNew() {
     }
     
     const orderId = paymentModalOrder._id || paymentModalOrder.id
-    const amount = paymentModalOrder.totalAmount
+    const isStagedPayment = paymentModalOrder.paymentRatioEnabled
+    const isPayingDeposit = paymentModalOrder.status === 1 && isStagedPayment
+    const isPayingFinal = paymentModalOrder.status === 12
     
-    toast.success(`正在跳转到${selectedPaymentMethod === 'wechat' ? '微信' : selectedPaymentMethod === 'alipay' ? '支付宝' : '银行卡'}支付页面，订单金额：¥${amount?.toLocaleString()}`)
+    const amount = isPayingDeposit 
+      ? paymentModalOrder.depositAmount 
+      : isPayingFinal 
+        ? paymentModalOrder.finalPaymentAmount 
+        : paymentModalOrder.totalAmount
+    
+    const paymentType = isPayingDeposit ? '定金' : isPayingFinal ? '尾款' : '订单'
+    const methodText = selectedPaymentMethod === 'wechat' ? '微信' : selectedPaymentMethod === 'alipay' ? '支付宝' : '银行卡'
+    
+    toast.success(`正在跳转到${methodText}支付页面，${paymentType}金额：¥${amount?.toLocaleString()}`)
     
     try {
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`, {
+      // 统一使用/pay API，后端会根据订单状态自动判断是定金、尾款还是全款
+      const apiUrl = `https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentMethod: selectedPaymentMethod })
       })
       
       if (response.ok) {
-        toast.success('付款成功！')
-        setOrders(prev => prev.map((o: any) => (o._id || o.id) === orderId ? { ...o, status: 2 } : o))
+        const newStatus = isPayingDeposit ? 10 : isPayingFinal ? 13 : 9
+        toast.success(`${paymentType}支付成功！`)
+        setOrders(prev => prev.map((o: any) => (o._id || o.id) === orderId ? { ...o, status: newStatus } : o))
         setPaymentModalOrder(null)
+        loadOrders() // 刷新订单列表
       } else {
         const errorData = await response.json().catch(() => ({}))
         toast.error(errorData.message || '付款失败，请重试')
@@ -220,7 +236,7 @@ export default function OrdersPageNew() {
     }
   }
 
-  // 后端使用数字状态: 0=待确认, 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消
+  // 后端使用数字状态: 0=待确认, 1=待付款, 2=待发货, 3=待收货, 4=已完成, 5=已取消, 9=待确认收款, 10-13=分期付款状态
   const statusConfig: Record<string | number, { label: string; color: string; icon: React.ReactNode }> = {
     0: { label: '待确认', color: 'text-amber-600 bg-amber-50', icon: <Clock className="w-4 h-4" /> },
     1: { label: '待付款', color: 'text-orange-600 bg-orange-50', icon: <Clock className="w-4 h-4" /> },
@@ -228,6 +244,12 @@ export default function OrdersPageNew() {
     3: { label: '待收货', color: 'text-purple-600 bg-purple-50', icon: <Truck className="w-4 h-4" /> },
     4: { label: '已完成', color: 'text-green-600 bg-green-50', icon: <CheckCircle2 className="w-4 h-4" /> },
     5: { label: '已取消', color: 'text-red-600 bg-red-50', icon: <X className="w-4 h-4" /> },
+    9: { label: '待确认收款', color: 'text-amber-600 bg-amber-50', icon: <Clock className="w-4 h-4" /> },
+    // 分期付款状态
+    10: { label: '定金已付', color: 'text-cyan-600 bg-cyan-50', icon: <CreditCard className="w-4 h-4" /> },
+    11: { label: '生产中', color: 'text-teal-600 bg-teal-50', icon: <Package className="w-4 h-4" /> },
+    12: { label: '待付尾款', color: 'text-pink-600 bg-pink-50', icon: <CreditCard className="w-4 h-4" /> },
+    13: { label: '尾款已付', color: 'text-rose-600 bg-rose-50', icon: <Clock className="w-4 h-4" /> },
     pending: { label: '待付款', color: 'text-orange-600 bg-orange-50', icon: <Clock className="w-4 h-4" /> },
     paid: { label: '已付款', color: 'text-blue-600 bg-blue-50', icon: <Package className="w-4 h-4" /> },
     shipped: { label: '已发货', color: 'text-purple-600 bg-purple-50', icon: <Truck className="w-4 h-4" /> },
@@ -357,6 +379,58 @@ export default function OrdersPageNew() {
                           )}
                         </p>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 预付定制订单信息 */}
+                {order.paymentRatioEnabled && (
+                  <div className="px-6 py-3 bg-gradient-to-r from-cyan-50 to-pink-50 border-b border-cyan-100">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-700">📦 预付定制订单</p>
+                        {order.estimatedProductionDays && (
+                          <span className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded-full">
+                            🏭 制作周期: {order.estimatedProductionDays} 天
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs mt-2 grid grid-cols-2 gap-2">
+                        <div className="bg-white/60 rounded p-2">
+                          <span className="text-gray-500">定金(50%):</span>
+                          <span className={`ml-1 font-bold ${order.depositVerified ? 'text-green-600' : 'text-cyan-700'}`}>
+                            ¥{order.depositAmount?.toLocaleString() || 0}
+                          </span>
+                          {order.depositVerified && <span className="ml-1 text-green-600">✓已核销</span>}
+                          {order.depositPaidAt && !order.depositVerified && <span className="ml-1 text-amber-600">待核销</span>}
+                        </div>
+                        <div className="bg-white/60 rounded p-2">
+                          <span className="text-gray-500">尾款(50%):</span>
+                          <span className={`ml-1 font-bold ${order.finalPaymentVerified ? 'text-green-600' : 'text-pink-700'}`}>
+                            ¥{order.finalPaymentAmount?.toLocaleString() || 0}
+                          </span>
+                          {order.finalPaymentVerified && <span className="ml-1 text-green-600">✓已核销</span>}
+                        </div>
+                      </div>
+                      {/* 返佣信息 */}
+                      {order.commissionAmount && (
+                        <div className="text-xs mt-2 p-2 bg-white/60 rounded">
+                          <span className="text-gray-500">💰 返佣金额:</span>
+                          <span className="ml-1 font-bold text-purple-700">¥{order.commissionAmount?.toLocaleString()}</span>
+                          <span className="ml-2 text-gray-400">(订单完成后可申请)</span>
+                        </div>
+                      )}
+                      {/* 状态提示 */}
+                      {order.status === 11 && (
+                        <div className="text-xs mt-2 p-2 bg-teal-100 rounded text-teal-700 font-medium">
+                          🏭 正在生产中，完成后厂家会发起尾款请求
+                        </div>
+                      )}
+                      {order.status === 12 && (
+                        <div className="text-xs mt-2 p-2 bg-pink-100 rounded text-pink-700 font-medium">
+                          ⚠️ 厂家已发起尾款请求，请尽快支付尾款
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -641,7 +715,20 @@ export default function OrdersPageNew() {
                             : 'bg-primary text-white hover:bg-green-900'
                         }`}
                       >
-                        {order.priceModified ? '确认改价并付款' : '立即付款'}
+                        {order.paymentRatioEnabled 
+                          ? `支付定金 ¥${order.depositAmount?.toLocaleString() || 0}` 
+                          : order.priceModified 
+                            ? '确认改价并付款' 
+                            : '立即付款'}
+                      </button>
+                    )}
+                    {/* 支付尾款按钮 - 待付尾款状态(12)显示 */}
+                    {order.status === 12 && (
+                      <button
+                        onClick={() => handleConfirmPayment(order)}
+                        className="px-6 py-2 text-sm bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+                      >
+                        支付尾款 ¥{order.finalPaymentAmount?.toLocaleString() || 0}
                       </button>
                     )}
                   </div>
@@ -666,9 +753,27 @@ export default function OrdersPageNew() {
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-              <p className="text-sm text-gray-500 mt-1">
-                订单金额：<span className="text-lg font-bold text-primary">¥{paymentModalOrder.totalAmount?.toLocaleString()}</span>
-              </p>
+              {/* 分期付款显示定金/尾款，否则显示全款 */}
+              {paymentModalOrder.paymentRatioEnabled ? (
+                <div className="mt-2 p-3 bg-gradient-to-r from-cyan-50 to-pink-50 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    {paymentModalOrder.status === 12 ? (
+                      <>本次支付尾款：<span className="text-lg font-bold text-pink-600">¥{paymentModalOrder.finalPaymentAmount?.toLocaleString()}</span></>
+                    ) : (
+                      <>本次支付定金：<span className="text-lg font-bold text-cyan-600">¥{paymentModalOrder.depositAmount?.toLocaleString()}</span></>
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    订单总额 ¥{paymentModalOrder.totalAmount?.toLocaleString()} = 
+                    定金 ¥{paymentModalOrder.depositAmount?.toLocaleString()} + 
+                    尾款 ¥{paymentModalOrder.finalPaymentAmount?.toLocaleString()}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 mt-1">
+                  订单金额：<span className="text-lg font-bold text-primary">¥{paymentModalOrder.totalAmount?.toLocaleString()}</span>
+                </p>
+              )}
             </div>
             
             <div className="p-6 space-y-3">
@@ -746,7 +851,7 @@ export default function OrdersPageNew() {
                         alt="微信收款码" 
                         className="w-48 h-48 mx-auto rounded-lg border border-gray-200"
                       />
-                      <p className="text-xs text-gray-500 mt-2">付款金额：¥{paymentModalOrder.totalAmount?.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500 mt-2">{paymentModalOrder.paymentRatioEnabled ? (paymentModalOrder.status === 12 ? '尾款金额' : '定金金额') : '付款金额'}：¥{(paymentModalOrder.paymentRatioEnabled ? (paymentModalOrder.status === 12 ? paymentModalOrder.finalPaymentAmount : paymentModalOrder.depositAmount) : paymentModalOrder.totalAmount)?.toLocaleString()}</p>
                     </div>
                   )}
                   {selectedPaymentMethod === 'alipay' && paymentInfo.alipayQrCode && (
@@ -757,7 +862,7 @@ export default function OrdersPageNew() {
                         alt="支付宝收款码" 
                         className="w-48 h-48 mx-auto rounded-lg border border-gray-200"
                       />
-                      <p className="text-xs text-gray-500 mt-2">付款金额：¥{paymentModalOrder.totalAmount?.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500 mt-2">{paymentModalOrder.paymentRatioEnabled ? (paymentModalOrder.status === 12 ? '尾款金额' : '定金金额') : '付款金额'}：¥{(paymentModalOrder.paymentRatioEnabled ? (paymentModalOrder.status === 12 ? paymentModalOrder.finalPaymentAmount : paymentModalOrder.depositAmount) : paymentModalOrder.totalAmount)?.toLocaleString()}</p>
                     </div>
                   )}
                   {selectedPaymentMethod === 'bank' && paymentInfo.bankInfo && (
@@ -766,7 +871,13 @@ export default function OrdersPageNew() {
                         <p className="text-sm font-medium text-gray-700">银行转账信息</p>
                         <button
                           onClick={() => {
-                            const bankText = `公户单位：${paymentInfo.bankInfo.companyName}\n开户银行：${paymentInfo.bankInfo.bankName}\n收款人：${paymentInfo.bankInfo.accountName}\n银行账号：${paymentInfo.bankInfo.accountNumber}\n付款金额：¥${paymentModalOrder.totalAmount?.toLocaleString()}`
+                            const payAmount = paymentModalOrder.paymentRatioEnabled 
+                              ? (paymentModalOrder.status === 12 ? paymentModalOrder.finalPaymentAmount : paymentModalOrder.depositAmount) 
+                              : paymentModalOrder.totalAmount
+                            const payLabel = paymentModalOrder.paymentRatioEnabled 
+                              ? (paymentModalOrder.status === 12 ? '尾款金额' : '定金金额') 
+                              : '付款金额'
+                            const bankText = `公户单位：${paymentInfo.bankInfo.companyName}\n开户银行：${paymentInfo.bankInfo.bankName}\n收款人：${paymentInfo.bankInfo.accountName}\n银行账号：${paymentInfo.bankInfo.accountNumber}\n${payLabel}：¥${payAmount?.toLocaleString()}`
                             navigator.clipboard.writeText(bankText)
                             toast.success('已复制全部转账信息')
                           }}
@@ -806,10 +917,10 @@ export default function OrdersPageNew() {
                           </div>
                         </div>
                         <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                          <span className="text-gray-500">付款金额</span>
+                          <span className="text-gray-500">{paymentModalOrder.paymentRatioEnabled ? (paymentModalOrder.status === 12 ? '尾款金额' : '定金金额') : '付款金额'}</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-red-600 font-bold text-lg">¥{paymentModalOrder.totalAmount?.toLocaleString()}</span>
-                            <button onClick={() => { navigator.clipboard.writeText(paymentModalOrder.totalAmount?.toString() || ''); toast.success('已复制金额') }} className="p-1 hover:bg-gray-100 rounded"><Copy className="w-3.5 h-3.5 text-gray-400" /></button>
+                            <span className="text-red-600 font-bold text-lg">¥{(paymentModalOrder.paymentRatioEnabled ? (paymentModalOrder.status === 12 ? paymentModalOrder.finalPaymentAmount : paymentModalOrder.depositAmount) : paymentModalOrder.totalAmount)?.toLocaleString()}</span>
+                            <button onClick={() => { navigator.clipboard.writeText((paymentModalOrder.paymentRatioEnabled ? (paymentModalOrder.status === 12 ? paymentModalOrder.finalPaymentAmount : paymentModalOrder.depositAmount) : paymentModalOrder.totalAmount)?.toString() || ''); toast.success('已复制金额') }} className="p-1 hover:bg-gray-100 rounded"><Copy className="w-3.5 h-3.5 text-gray-400" /></button>
                           </div>
                         </div>
                       </div>

@@ -85,11 +85,37 @@ const orderSchema = new mongoose.Schema({
   commissionApprovedAt: Date,    // 返佣审批时间
   commissionPaidAt: Date,        // 返佣发放时间
   
-  // 付款比例功能
+  // 付款比例功能（分期付款）
   paymentRatioEnabled: { type: Boolean, default: false },  // 是否启用分期付款
   paymentRatio: { type: Number, default: 100 },  // 首付比例（如50表示50%）
-  firstPaymentAmount: { type: Number, default: 0 },  // 首付金额
-  remainingPaymentAmount: { type: Number, default: 0 },  // 剩余应付金额
+  
+  // 定金相关
+  depositAmount: { type: Number, default: 0 },  // 定金金额
+  depositPaidAt: Date,  // 定金支付时间
+  depositPaymentMethod: String,  // 定金支付方式
+  depositVerified: { type: Boolean, default: false },  // 定金已核销
+  depositVerifiedAt: Date,  // 定金核销时间
+  depositVerifyMethod: String,  // 定金核销确认的收款方式 (wechat/alipay/bank)
+  
+  // 生产周期
+  estimatedProductionDays: { type: Number, default: 0 },  // 预计生产天数
+  productionStartDate: Date,  // 生产开始日期（定金核销后设置）
+  productionDeadline: Date,  // 生产截止日期
+  productionReminderSent: { type: Boolean, default: false },  // 是否已发送生产提醒
+  
+  // 尾款相关
+  finalPaymentAmount: { type: Number, default: 0 },  // 尾款金额
+  finalPaymentRequested: { type: Boolean, default: false },  // 厂家是否已发起尾款请求
+  finalPaymentRequestedAt: Date,  // 尾款请求时间
+  finalPaymentPaidAt: Date,  // 尾款支付时间
+  finalPaymentMethod: String,  // 尾款支付方式
+  finalPaymentVerified: { type: Boolean, default: false },  // 尾款已核销
+  finalPaymentVerifiedAt: Date,  // 尾款核销时间
+  finalPaymentVerifyMethod: String,  // 尾款核销确认的收款方式
+  
+  // 兼容旧字段
+  firstPaymentAmount: { type: Number, default: 0 },  // 首付金额（等同于depositAmount）
+  remainingPaymentAmount: { type: Number, default: 0 },  // 剩余应付金额（等同于finalPaymentAmount）
   remainingPaymentStatus: { type: String, enum: ['pending', 'paid', null], default: null },  // 尾款支付状态
   remainingPaymentPaidAt: Date,  // 尾款支付时间
   remainingPaymentRemindedAt: Date,  // 尾款提醒时间

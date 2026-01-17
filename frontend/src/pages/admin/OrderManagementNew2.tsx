@@ -35,6 +35,15 @@ const statusConfig: Record<number | string, { label: string; color: string; bgCo
   'refunded': { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-100' },
   8: { label: '换货中', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
   'exchanging': { label: '换货中', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+  // 分期付款状态
+  10: { label: '定金已付', color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
+  'deposit_paid': { label: '定金已付', color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
+  11: { label: '生产中', color: 'text-teal-600', bgColor: 'bg-teal-100' },
+  'in_production': { label: '生产中', color: 'text-teal-600', bgColor: 'bg-teal-100' },
+  12: { label: '待付尾款', color: 'text-pink-600', bgColor: 'bg-pink-100' },
+  'awaiting_final_payment': { label: '待付尾款', color: 'text-pink-600', bgColor: 'bg-pink-100' },
+  13: { label: '尾款已付', color: 'text-rose-600', bgColor: 'bg-rose-100' },
+  'final_payment_paid': { label: '尾款已付', color: 'text-rose-600', bgColor: 'bg-rose-100' },
 }
 
 // 隐藏手机号中间4位
@@ -86,6 +95,15 @@ export default function OrderManagementNew2() {
   const [showSplitModal, setShowSplitModal] = useState(false) // 分单弹窗
   const [splitOrderId, setSplitOrderId] = useState<string | null>(null) // 当前分单的订单ID
   const [splittingOrder, setSplittingOrder] = useState(false) // 分单中状态
+  
+  // 分期付款相关状态
+  const [showVerifyDepositModal, setShowVerifyDepositModal] = useState(false) // 核销定金弹窗
+  const [depositVerifyMethod, setDepositVerifyMethod] = useState<string>('') // 定金核销收款方式
+  const [productionDays, setProductionDays] = useState<string>('') // 预计生产天数
+  const [showVerifyFinalModal, setShowVerifyFinalModal] = useState(false) // 核销尾款弹窗
+  const [finalVerifyMethod, setFinalVerifyMethod] = useState<string>('') // 尾款核销收款方式
+  const [showCommissionModeModal, setShowCommissionModeModal] = useState(false) // 返佣模式设置弹窗
+  const [commissionProductionDays, setCommissionProductionDays] = useState<string>('30') // 返佣模式生产周期
   
   // 统计数据
   const [stats, setStats] = useState({
@@ -558,6 +576,109 @@ export default function OrderManagementNew2() {
       toast.error('操作失败')
     }
   }
+
+  // ==================== 分期付款相关处理函数 ====================
+  
+  // 核销定金并设置生产周期
+  const handleVerifyDeposit = async (orderId: string) => {
+    if (!depositVerifyMethod) {
+      toast.error('请选择收款方式')
+      return
+    }
+    if (!productionDays || parseInt(productionDays) < 1) {
+      toast.error('请填写预计生产天数')
+      return
+    }
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/verify-deposit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ 
+          paymentMethod: depositVerifyMethod,
+          estimatedProductionDays: parseInt(productionDays)
+        })
+      })
+      
+      if (response.ok) {
+        const methodText = depositVerifyMethod === 'wechat' ? '微信' : depositVerifyMethod === 'alipay' ? '支付宝' : '银行卡'
+        toast.success(`定金已核销(${methodText})，开始生产`)
+        setShowVerifyDepositModal(false)
+        setDepositVerifyMethod('')
+        setProductionDays('')
+        addOrderLog(orderId, 'verify_deposit', `定金已核销(${methodText})，预计生产${productionDays}天`)
+        loadOrders()
+      } else {
+        const data = await response.json().catch(() => ({}))
+        toast.error(data.message || '操作失败')
+      }
+    } catch (error) {
+      toast.error('操作失败')
+    }
+  }
+
+  // 发起尾款请求
+  const handleRequestFinalPayment = async (orderId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/request-final-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        }
+      })
+      
+      if (response.ok) {
+        toast.success('已发起尾款请求，等待客户支付')
+        addOrderLog(orderId, 'request_final', '发起尾款请求')
+        loadOrders()
+      } else {
+        const data = await response.json().catch(() => ({}))
+        toast.error(data.message || '操作失败')
+      }
+    } catch (error) {
+      toast.error('操作失败')
+    }
+  }
+
+  // 核销尾款
+  const handleVerifyFinalPayment = async (orderId: string) => {
+    if (!finalVerifyMethod) {
+      toast.error('请选择收款方式')
+      return
+    }
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/verify-final-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ paymentMethod: finalVerifyMethod })
+      })
+      
+      if (response.ok) {
+        const methodText = finalVerifyMethod === 'wechat' ? '微信' : finalVerifyMethod === 'alipay' ? '支付宝' : '银行卡'
+        toast.success(`尾款已核销(${methodText})，可以发货`)
+        setShowVerifyFinalModal(false)
+        setFinalVerifyMethod('')
+        addOrderLog(orderId, 'verify_final', `尾款已核销(${methodText})`)
+        loadOrders()
+      } else {
+        const data = await response.json().catch(() => ({}))
+        toast.error(data.message || '操作失败')
+      }
+    } catch (error) {
+      toast.error('操作失败')
+    }
+  }
+
+  // ==================== 分期付款处理函数结束 ====================
 
   // 完成订单
   const handleCompleteOrder = async (orderId: string) => {
@@ -1070,8 +1191,8 @@ export default function OrderManagementNew2() {
                     标记已付
                   </button>
                 )}
-                {/* 待确认收款 -> 确认收款（核销） */}
-                {selectedOrder.status === 9 && (
+                {/* 待确认收款 -> 确认收款（核销）- 非分期付款 */}
+                {selectedOrder.status === 9 && !(selectedOrder as any).paymentRatioEnabled && (
                   <button 
                     onClick={() => {
                       setVerifyPaymentMethod(selectedOrder.paymentMethod || '')
@@ -1081,6 +1202,42 @@ export default function OrderManagementNew2() {
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     确认收款
+                  </button>
+                )}
+                {/* 分期付款：定金已付(10) -> 核销定金 */}
+                {selectedOrder.status === 10 && (
+                  <button 
+                    onClick={() => {
+                      setDepositVerifyMethod((selectedOrder as any).depositPaymentMethod || '')
+                      setShowVerifyDepositModal(true)
+                    }}
+                    className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors text-sm flex items-center gap-1"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    核销定金
+                  </button>
+                )}
+                {/* 分期付款：生产中(11) -> 发起尾款 */}
+                {selectedOrder.status === 11 && (
+                  <button 
+                    onClick={() => handleRequestFinalPayment(selectedOrder._id)}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm flex items-center gap-1"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    发起尾款
+                  </button>
+                )}
+                {/* 分期付款：尾款已付(13) -> 核销尾款 */}
+                {selectedOrder.status === 13 && (
+                  <button 
+                    onClick={() => {
+                      setFinalVerifyMethod((selectedOrder as any).finalPaymentMethod || '')
+                      setShowVerifyFinalModal(true)
+                    }}
+                    className="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors text-sm flex items-center gap-1"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    核销尾款
                   </button>
                 )}
                 {/* 已付款 -> 发货 */}
@@ -1403,17 +1560,9 @@ export default function OrderManagementNew2() {
                     供应商调货 (36%)
                   </button>
                   <button
-                    onClick={async () => {
-                      if (!window.confirm(`返佣模式\n\n首付: ¥${(selectedOrder.totalAmount * 0.3).toLocaleString()}\n\n确定？`)) return
-                      try {
-                        const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/settlement-mode`, {
-                          method: 'POST',
-                          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50 })
-                        })
-                        if (response.ok) { toast.success('已选择返佣模式'); loadOrders() }
-                        else { toast.error('设置失败') }
-                      } catch (error) { toast.error('设置失败') }
+                    onClick={() => {
+                      setCommissionProductionDays('30')
+                      setShowCommissionModeModal(true)
                     }}
                     className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors border border-gray-300"
                   >
@@ -1677,6 +1826,255 @@ export default function OrderManagementNew2() {
             </div>
           )}
           
+          {/* 核销定金弹窗 */}
+          {showVerifyDepositModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-cyan-600" />
+                    核销定金
+                  </h3>
+                  <button onClick={() => setShowVerifyDepositModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-4 mb-4">
+                  <div className="text-sm text-cyan-800">
+                    <div>定金金额：<span className="font-bold text-lg">¥{(selectedOrder as any).depositAmount || 0}</span></div>
+                    <div className="text-xs mt-1">尾款金额：¥{(selectedOrder as any).finalPaymentAmount || 0}</div>
+                  </div>
+                </div>
+                <p className="text-gray-600 mb-4">请确认已收到定金，并填写预计生产天数：</p>
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-600 mb-1.5">预计生产天数 <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    value={productionDays}
+                    onChange={(e) => setProductionDays(e.target.value)}
+                    placeholder="请输入天数，如 15"
+                    min="1"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">到期后系统将提醒厂家和客户</p>
+                </div>
+                <div className="space-y-3 mb-4">
+                  <p className="text-sm text-gray-600">选择收款方式：</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => setDepositVerifyMethod('wechat')}
+                      className={`p-3 rounded-lg border-2 text-center ${
+                        depositVerifyMethod === 'wechat' ? 'border-green-500 bg-green-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="text-green-600 font-medium">微信</div>
+                    </button>
+                    <button
+                      onClick={() => setDepositVerifyMethod('alipay')}
+                      className={`p-3 rounded-lg border-2 text-center ${
+                        depositVerifyMethod === 'alipay' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="text-blue-600 font-medium">支付宝</div>
+                    </button>
+                    <button
+                      onClick={() => setDepositVerifyMethod('bank')}
+                      className={`p-3 rounded-lg border-2 text-center ${
+                        depositVerifyMethod === 'bank' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="text-purple-600 font-medium">银行卡</div>
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowVerifyDepositModal(false)}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button 
+                    onClick={() => handleVerifyDeposit(selectedOrder._id)}
+                    disabled={!depositVerifyMethod || !productionDays}
+                    className={`flex-1 px-4 py-2.5 rounded-lg ${
+                      depositVerifyMethod && productionDays
+                        ? 'bg-cyan-600 text-white hover:bg-cyan-700' 
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    确认核销定金
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 核销尾款弹窗 */}
+          {showVerifyFinalModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-rose-600" />
+                    核销尾款
+                  </h3>
+                  <button onClick={() => setShowVerifyFinalModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 mb-4">
+                  <div className="text-sm text-rose-800">
+                    <div>尾款金额：<span className="font-bold text-lg">¥{(selectedOrder as any).finalPaymentAmount || 0}</span></div>
+                    <div className="text-xs mt-1">定金已核销：¥{(selectedOrder as any).depositAmount || 0}</div>
+                  </div>
+                </div>
+                <p className="text-gray-600 mb-4">请确认已收到尾款，核销后订单将进入待发货状态：</p>
+                <div className="space-y-3 mb-4">
+                  <p className="text-sm text-gray-600">选择收款方式：</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => setFinalVerifyMethod('wechat')}
+                      className={`p-3 rounded-lg border-2 text-center ${
+                        finalVerifyMethod === 'wechat' ? 'border-green-500 bg-green-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="text-green-600 font-medium">微信</div>
+                    </button>
+                    <button
+                      onClick={() => setFinalVerifyMethod('alipay')}
+                      className={`p-3 rounded-lg border-2 text-center ${
+                        finalVerifyMethod === 'alipay' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="text-blue-600 font-medium">支付宝</div>
+                    </button>
+                    <button
+                      onClick={() => setFinalVerifyMethod('bank')}
+                      className={`p-3 rounded-lg border-2 text-center ${
+                        finalVerifyMethod === 'bank' ? 'border-purple-500 bg-purple-50' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="text-purple-600 font-medium">银行卡</div>
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowVerifyFinalModal(false)}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button 
+                    onClick={() => handleVerifyFinalPayment(selectedOrder._id)}
+                    disabled={!finalVerifyMethod}
+                    className={`flex-1 px-4 py-2.5 rounded-lg ${
+                      finalVerifyMethod
+                        ? 'bg-rose-600 text-white hover:bg-rose-700' 
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    确认核销尾款
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 返佣模式设置弹窗 */}
+          {showCommissionModeModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    💰 设置返佣模式
+                  </h3>
+                  <button onClick={() => setShowCommissionModeModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                  <div className="text-sm text-purple-800 space-y-1">
+                    <div>订单总额：<span className="font-bold">¥{selectedOrder.totalAmount?.toLocaleString()}</span></div>
+                    <div>折扣价(60%)：<span className="font-bold">¥{(selectedOrder.totalAmount * 0.6).toLocaleString()}</span></div>
+                    <div className="pt-2 border-t border-purple-200 mt-2">
+                      <div>定金(50%)：<span className="font-bold text-cyan-700">¥{(selectedOrder.totalAmount * 0.6 * 0.5).toLocaleString()}</span></div>
+                      <div>尾款(50%)：<span className="font-bold text-pink-700">¥{(selectedOrder.totalAmount * 0.6 * 0.5).toLocaleString()}</span></div>
+                    </div>
+                    <div className="pt-2 border-t border-purple-200 mt-2">
+                      <div>返佣(40%)：<span className="font-bold text-green-700">¥{(selectedOrder.totalAmount * 0.6 * 0.4).toLocaleString()}</span>（完成后申请）</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    预计生产周期（天）<span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={commissionProductionDays}
+                    onChange={(e) => setCommissionProductionDays(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="请输入预计生产天数，如 30"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">客户支付定金后，将进入生产周期</p>
+                </div>
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowCommissionModeModal(false)}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    取消
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (!commissionProductionDays || parseInt(commissionProductionDays) <= 0) {
+                        toast.error('请填写有效的生产周期')
+                        return
+                      }
+                      try {
+                        const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/settlement-mode`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ 
+                            settlementMode: 'commission_mode', 
+                            minDiscountRate: 0.6, 
+                            commissionRate: 0.4, 
+                            paymentRatio: 50,
+                            estimatedProductionDays: parseInt(commissionProductionDays)
+                          })
+                        })
+                        if (response.ok) { 
+                          toast.success('已设置返佣模式，预计生产' + commissionProductionDays + '天')
+                          setShowCommissionModeModal(false)
+                          loadOrders() 
+                        } else { 
+                          toast.error('设置失败') 
+                        }
+                      } catch (error) { 
+                        toast.error('设置失败') 
+                      }
+                    }}
+                    disabled={!commissionProductionDays || parseInt(commissionProductionDays) <= 0}
+                    className={`flex-1 px-4 py-2.5 rounded-lg ${
+                      commissionProductionDays && parseInt(commissionProductionDays) > 0
+                        ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    确认设置
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 取消订单弹窗 */}
           {showCancelModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

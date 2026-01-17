@@ -206,7 +206,7 @@ router.put('/:id/cancel', cancel)  // 支持PUT方法
 // POST /api/orders/:id/confirm - 确认收货
 router.post('/:id/confirm', confirm)
 
-// POST /api/orders/:id/pay - 确认付款（客户付款后进入待确认收款状态）
+// POST /api/orders/:id/pay - 确认付款（支持全款和分期付款）
 router.post('/:id/pay', async (req, res) => {
   try {
     const { id } = req.params
@@ -219,19 +219,51 @@ router.post('/:id/pay', async (req, res) => {
       return res.status(404).json({ success: false, message: '订单不存在' })
     }
     
-    if (order.status !== ORDER_STATUS.PENDING_PAYMENT) {
+    // 支持待付款(1)和待付尾款(12)状态
+    if (order.status !== ORDER_STATUS.PENDING_PAYMENT && order.status !== 12) {
       return res.status(400).json({ success: false, message: '订单状态不允许付款' })
     }
     
-    // 客户付款后进入"待确认收款"状态，等待厂家核销
-    order.status = ORDER_STATUS.PENDING_PAYMENT_VERIFY
-    order.paymentMethod = paymentMethod || 'wechat'
-    order.paidAt = new Date()
+    // 添加订单活动日志辅助函数
+    const addActivityLog = (action, details) => {
+      if (!order.activityLogs) order.activityLogs = []
+      order.activityLogs.push({
+        action,
+        timestamp: new Date(),
+        details,
+        operator: 'customer'
+      })
+    }
     
-    await order.save()
-    console.log(`✅ 订单 ${order.orderNo} 客户已付款，等待厂家确认收款`)
-    
-    res.json({ success: true, message: '付款成功，等待商家确认收款', data: order })
+    // 判断是支付定金、尾款还是全款
+    if (order.paymentRatioEnabled && order.status === ORDER_STATUS.PENDING_PAYMENT) {
+      // 分期付款 - 支付定金
+      order.status = 10 // DEPOSIT_PAID
+      order.depositPaymentMethod = paymentMethod || 'wechat'
+      order.depositPaidAt = new Date()
+      addActivityLog('deposit_paid', `客户已支付定金 ¥${order.depositAmount}（${paymentMethod === 'wechat' ? '微信' : paymentMethod === 'alipay' ? '支付宝' : '银行卡'}），等待厂家核销`)
+      console.log(`✅ 订单 ${order.orderNo} 客户已支付定金 ¥${order.depositAmount}，等待厂家核销`)
+      await order.save()
+      res.json({ success: true, message: '定金支付成功，等待商家确认', data: order })
+    } else if (order.paymentRatioEnabled && order.status === 12) {
+      // 分期付款 - 支付尾款
+      order.status = 13 // FINAL_PAYMENT_PAID
+      order.finalPaymentMethod = paymentMethod || 'wechat'
+      order.finalPaymentPaidAt = new Date()
+      addActivityLog('final_payment_paid', `客户已支付尾款 ¥${order.finalPaymentAmount}（${paymentMethod === 'wechat' ? '微信' : paymentMethod === 'alipay' ? '支付宝' : '银行卡'}），等待厂家核销`)
+      console.log(`✅ 订单 ${order.orderNo} 客户已支付尾款 ¥${order.finalPaymentAmount}，等待厂家核销`)
+      await order.save()
+      res.json({ success: true, message: '尾款支付成功，等待商家确认', data: order })
+    } else {
+      // 全款支付
+      order.status = ORDER_STATUS.PENDING_PAYMENT_VERIFY
+      order.paymentMethod = paymentMethod || 'wechat'
+      order.paidAt = new Date()
+      addActivityLog('payment_submitted', `客户已付款 ¥${order.totalAmount}（${paymentMethod === 'wechat' ? '微信' : paymentMethod === 'alipay' ? '支付宝' : '银行卡'}），等待厂家确认收款`)
+      console.log(`✅ 订单 ${order.orderNo} 客户已付款，等待厂家确认收款`)
+      await order.save()
+      res.json({ success: true, message: '付款成功，等待商家确认收款', data: order })
+    }
   } catch (error) {
     console.error('付款失败:', error)
     res.status(500).json({ success: false, message: '付款失败' })
@@ -275,6 +307,190 @@ router.post('/:id/verify-payment', async (req, res) => {
   }
 })
 
+// ==================== 分期付款相关API ====================
+
+// POST /api/orders/:id/pay-deposit - 客户支付定金
+router.post('/:id/pay-deposit', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { paymentMethod } = req.body
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.status !== ORDER_STATUS.PENDING_PAYMENT) {
+      return res.status(400).json({ success: false, message: '订单状态不允许支付定金' })
+    }
+    
+    if (!order.paymentRatioEnabled) {
+      return res.status(400).json({ success: false, message: '该订单未启用分期付款' })
+    }
+    
+    // 支付定金后进入"定金已付"状态
+    order.status = ORDER_STATUS.DEPOSIT_PAID
+    order.depositPaymentMethod = paymentMethod || 'wechat'
+    order.depositPaidAt = new Date()
+    
+    await order.save()
+    console.log(`✅ 订单 ${order.orderNo} 客户已支付定金 ¥${order.depositAmount}，等待厂家核销`)
+    
+    res.json({ success: true, message: '定金支付成功，等待商家确认', data: order })
+  } catch (error) {
+    console.error('支付定金失败:', error)
+    res.status(500).json({ success: false, message: '支付定金失败' })
+  }
+})
+
+// POST /api/orders/:id/verify-deposit - 厂家核销定金并设置生产周期
+router.post('/:id/verify-deposit', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { paymentMethod, estimatedProductionDays } = req.body
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.status !== ORDER_STATUS.DEPOSIT_PAID) {
+      return res.status(400).json({ success: false, message: '订单状态不允许核销定金' })
+    }
+    
+    if (!estimatedProductionDays || estimatedProductionDays < 1) {
+      return res.status(400).json({ success: false, message: '请填写预计生产天数' })
+    }
+    
+    // 核销定金，设置生产周期，进入生产中状态
+    order.status = ORDER_STATUS.IN_PRODUCTION
+    order.depositVerified = true
+    order.depositVerifiedAt = new Date()
+    order.depositVerifyMethod = paymentMethod || order.depositPaymentMethod
+    
+    // 设置生产周期
+    order.estimatedProductionDays = estimatedProductionDays
+    order.productionStartDate = new Date()
+    const deadline = new Date()
+    deadline.setDate(deadline.getDate() + estimatedProductionDays)
+    order.productionDeadline = deadline
+    
+    await order.save()
+    console.log(`✅ 订单 ${order.orderNo} 定金已核销，预计生产 ${estimatedProductionDays} 天，截止日期 ${deadline.toLocaleDateString()}`)
+    
+    res.json({ 
+      success: true, 
+      message: `定金已核销，开始生产，预计 ${estimatedProductionDays} 天完成`, 
+      data: order 
+    })
+  } catch (error) {
+    console.error('核销定金失败:', error)
+    res.status(500).json({ success: false, message: '核销定金失败' })
+  }
+})
+
+// POST /api/orders/:id/request-final-payment - 厂家发起收尾款请求
+router.post('/:id/request-final-payment', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.status !== ORDER_STATUS.IN_PRODUCTION) {
+      return res.status(400).json({ success: false, message: '订单状态不允许发起尾款请求' })
+    }
+    
+    // 发起尾款请求，状态变为待付尾款
+    order.status = ORDER_STATUS.AWAITING_FINAL_PAYMENT
+    order.finalPaymentRequested = true
+    order.finalPaymentRequestedAt = new Date()
+    
+    await order.save()
+    console.log(`✅ 订单 ${order.orderNo} 厂家已发起尾款请求，尾款金额 ¥${order.finalPaymentAmount}`)
+    
+    res.json({ success: true, message: '已发起尾款请求，等待客户支付', data: order })
+  } catch (error) {
+    console.error('发起尾款请求失败:', error)
+    res.status(500).json({ success: false, message: '发起尾款请求失败' })
+  }
+})
+
+// POST /api/orders/:id/pay-final - 客户支付尾款
+router.post('/:id/pay-final', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { paymentMethod } = req.body
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.status !== ORDER_STATUS.AWAITING_FINAL_PAYMENT) {
+      return res.status(400).json({ success: false, message: '订单状态不允许支付尾款' })
+    }
+    
+    // 支付尾款后进入"尾款已付"状态
+    order.status = ORDER_STATUS.FINAL_PAYMENT_PAID
+    order.finalPaymentMethod = paymentMethod || 'wechat'
+    order.finalPaymentPaidAt = new Date()
+    
+    await order.save()
+    console.log(`✅ 订单 ${order.orderNo} 客户已支付尾款 ¥${order.finalPaymentAmount}，等待厂家核销`)
+    
+    res.json({ success: true, message: '尾款支付成功，等待商家确认', data: order })
+  } catch (error) {
+    console.error('支付尾款失败:', error)
+    res.status(500).json({ success: false, message: '支付尾款失败' })
+  }
+})
+
+// POST /api/orders/:id/verify-final-payment - 厂家核销尾款
+router.post('/:id/verify-final-payment', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { paymentMethod } = req.body
+    const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (order.status !== ORDER_STATUS.FINAL_PAYMENT_PAID) {
+      return res.status(400).json({ success: false, message: '订单状态不允许核销尾款' })
+    }
+    
+    // 核销尾款后进入待发货状态
+    order.status = ORDER_STATUS.PENDING_SHIPMENT
+    order.finalPaymentVerified = true
+    order.finalPaymentVerifiedAt = new Date()
+    order.finalPaymentVerifyMethod = paymentMethod || order.finalPaymentMethod
+    
+    await order.save()
+    console.log(`✅ 订单 ${order.orderNo} 尾款已核销，进入待发货状态`)
+    
+    res.json({ success: true, message: '尾款已核销，可以发货', data: order })
+  } catch (error) {
+    console.error('核销尾款失败:', error)
+    res.status(500).json({ success: false, message: '核销尾款失败' })
+  }
+})
+
+// ==================== 分期付款API结束 ====================
+
 // POST /api/orders/:id/manufacturer-confirm - 厂家确认订单（状态从0变为1）
 router.post('/:id/manufacturer-confirm', async (req, res) => {
   try {
@@ -308,7 +524,7 @@ router.post('/:id/settlement-mode', async (req, res) => {
   console.log('📍 [settlement-mode] 收到请求:', req.params.id, req.body)
   try {
     const { id } = req.params
-    const { settlementMode, minDiscountRate, commissionRate, paymentRatio } = req.body
+    const { settlementMode, minDiscountRate, commissionRate, paymentRatio, estimatedProductionDays } = req.body
     const Order = require('../models/Order')
     
     const order = await Order.findById(id)
@@ -351,11 +567,38 @@ router.post('/:id/settlement-mode', async (req, res) => {
       if (paymentRatio && paymentRatio < 100) {
         order.paymentRatioEnabled = true
         order.paymentRatio = paymentRatio
-        order.firstPaymentAmount = Math.round(minDiscountPrice * paymentRatio / 100)
-        order.remainingPaymentAmount = minDiscountPrice - order.firstPaymentAmount
+        
+        // 计算定金和尾款金额
+        const depositAmt = Math.round(minDiscountPrice * paymentRatio / 100)
+        const finalAmt = minDiscountPrice - depositAmt
+        
+        // 设置新字段
+        order.depositAmount = depositAmt
+        order.finalPaymentAmount = finalAmt
+        
+        // 兼容旧字段
+        order.firstPaymentAmount = depositAmt
+        order.remainingPaymentAmount = finalAmt
         order.remainingPaymentStatus = 'pending'
+        
+        // 保存预计生产周期
+        if (estimatedProductionDays) {
+          order.estimatedProductionDays = estimatedProductionDays
+        }
       }
     }
+    
+    // 添加订单活动日志
+    if (!order.activityLogs) order.activityLogs = []
+    const logEntry = {
+      action: 'settlement_mode_set',
+      timestamp: new Date(),
+      details: settlementMode === 'supplier_transfer' 
+        ? `设置为供应商调货模式，实付金额 ¥${supplierPrice.toFixed(2)}`
+        : `设置为返佣模式，定金 ¥${order.depositAmount || 0}，尾款 ¥${order.finalPaymentAmount || 0}，生产周期 ${estimatedProductionDays || 0} 天，返佣 ¥${commissionAmount.toFixed(2)}`,
+      operator: 'manufacturer'
+    }
+    order.activityLogs.push(logEntry)
     
     await order.save()
     
