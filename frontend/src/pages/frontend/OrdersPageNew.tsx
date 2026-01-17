@@ -16,6 +16,8 @@ export default function OrdersPageNew() {
   const [filterStatus, setFilterStatus] = useState('')
   const [paymentModalOrder, setPaymentModalOrder] = useState<any>(null)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('')
+  const [paymentInfo, setPaymentInfo] = useState<any>(null)
+  const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false)
 
   // 检查登录状态
   useEffect(() => {
@@ -166,6 +168,24 @@ export default function OrdersPageNew() {
     // 打开支付方式选择弹窗
     setPaymentModalOrder(order)
     setSelectedPaymentMethod('')
+    setPaymentInfo(null)
+    
+    // 获取支付信息
+    try {
+      setLoadingPaymentInfo(true)
+      const orderId = order._id || order.id
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/payment-info`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const result = await response.json()
+        setPaymentInfo(result.data)
+      }
+    } catch (error) {
+      console.error('获取支付信息失败:', error)
+    } finally {
+      setLoadingPaymentInfo(false)
+    }
   }
 
   const handlePaymentSubmit = async () => {
@@ -714,6 +734,57 @@ export default function OrdersPageNew() {
                   <CheckCircle2 className="w-6 h-6 text-purple-500" />
                 )}
               </button>
+
+              {/* 显示收款码或银行信息 */}
+              {selectedPaymentMethod && paymentInfo && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  {selectedPaymentMethod === 'wechat' && paymentInfo.wechatQrCode && (
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600 mb-3">请使用微信扫描下方二维码付款</p>
+                      <img 
+                        src={paymentInfo.wechatQrCode} 
+                        alt="微信收款码" 
+                        className="w-48 h-48 mx-auto rounded-lg border border-gray-200"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">付款金额：¥{paymentModalOrder.totalAmount?.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {selectedPaymentMethod === 'alipay' && paymentInfo.alipayQrCode && (
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600 mb-3">请使用支付宝扫描下方二维码付款</p>
+                      <img 
+                        src={paymentInfo.alipayQrCode} 
+                        alt="支付宝收款码" 
+                        className="w-48 h-48 mx-auto rounded-lg border border-gray-200"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">付款金额：¥{paymentModalOrder.totalAmount?.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {selectedPaymentMethod === 'bank' && paymentInfo.bankInfo && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-700 mb-2">银行转账信息</p>
+                      <div className="text-sm">
+                        <p className="text-gray-600">公户单位：<span className="text-gray-900 font-medium">{paymentInfo.bankInfo.companyName}</span></p>
+                        <p className="text-gray-600">开户银行：<span className="text-gray-900 font-medium">{paymentInfo.bankInfo.bankName}</span></p>
+                        <p className="text-gray-600">收款人：<span className="text-gray-900 font-medium">{paymentInfo.bankInfo.accountName}</span></p>
+                        <p className="text-gray-600">银行账号：<span className="text-gray-900 font-medium select-all">{paymentInfo.bankInfo.accountNumber}</span></p>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">付款金额：¥{paymentModalOrder.totalAmount?.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {((selectedPaymentMethod === 'wechat' && !paymentInfo.wechatQrCode) ||
+                    (selectedPaymentMethod === 'alipay' && !paymentInfo.alipayQrCode) ||
+                    (selectedPaymentMethod === 'bank' && !paymentInfo.bankInfo)) && (
+                    <p className="text-sm text-gray-500 text-center">商家暂未配置该支付方式</p>
+                  )}
+                </div>
+              )}
+              {selectedPaymentMethod && loadingPaymentInfo && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200 text-center">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                  <p className="text-sm text-gray-500 mt-2">加载中...</p>
+                </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-gray-100 flex gap-3">

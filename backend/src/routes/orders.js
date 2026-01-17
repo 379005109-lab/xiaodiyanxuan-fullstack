@@ -333,6 +333,55 @@ router.post('/:id/settlement-mode', async (req, res) => {
   }
 })
 
+// GET /api/orders/:id/payment-info - 获取订单支付信息（收款码等）
+router.get('/:id/payment-info', async (req, res) => {
+  try {
+    const { id } = req.params
+    const Order = require('../models/Order')
+    const Manufacturer = require('../models/Manufacturer')
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    // 获取订单关联的厂家ID
+    const manufacturerId = order.manufacturerId || order.items?.[0]?.manufacturerId
+    
+    let paymentInfo = {
+      wechatQrCode: null,
+      alipayQrCode: null,
+      bankInfo: null,
+      paymentAccounts: []
+    }
+    
+    if (manufacturerId) {
+      const manufacturer = await Manufacturer.findById(manufacturerId)
+      if (manufacturer?.settings) {
+        paymentInfo = {
+          wechatQrCode: manufacturer.settings.wechatQrCode,
+          alipayQrCode: manufacturer.settings.alipayQrCode,
+          bankInfo: manufacturer.settings.bankInfo,
+          paymentAccounts: manufacturer.settings.paymentAccounts || []
+        }
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      data: {
+        orderId: order._id,
+        orderNo: order.orderNo,
+        totalAmount: order.totalAmount,
+        ...paymentInfo
+      }
+    })
+  } catch (error) {
+    console.error('获取支付信息失败:', error)
+    res.status(500).json({ success: false, message: '获取支付信息失败' })
+  }
+})
+
 // POST /api/orders/:id/request-remaining-payment - 厂家发起尾款收款
 router.post('/:id/request-remaining-payment', async (req, res) => {
   try {
