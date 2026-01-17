@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Package, Clock, CheckCircle2, Truck, X, Loader2, CreditCard, Smartphone, Building2 } from 'lucide-react'
+import { Search, Package, Clock, CheckCircle2, Truck, X, Loader2, CreditCard, Smartphone, Building2, Copy } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
@@ -761,15 +761,58 @@ export default function OrdersPageNew() {
                     </div>
                   )}
                   {selectedPaymentMethod === 'bank' && paymentInfo.bankInfo && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-700 mb-2">银行转账信息</p>
-                      <div className="text-sm">
-                        <p className="text-gray-600">公户单位：<span className="text-gray-900 font-medium">{paymentInfo.bankInfo.companyName}</span></p>
-                        <p className="text-gray-600">开户银行：<span className="text-gray-900 font-medium">{paymentInfo.bankInfo.bankName}</span></p>
-                        <p className="text-gray-600">收款人：<span className="text-gray-900 font-medium">{paymentInfo.bankInfo.accountName}</span></p>
-                        <p className="text-gray-600">银行账号：<span className="text-gray-900 font-medium select-all">{paymentInfo.bankInfo.accountNumber}</span></p>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-700">银行转账信息</p>
+                        <button
+                          onClick={() => {
+                            const bankText = `公户单位：${paymentInfo.bankInfo.companyName}\n开户银行：${paymentInfo.bankInfo.bankName}\n收款人：${paymentInfo.bankInfo.accountName}\n银行账号：${paymentInfo.bankInfo.accountNumber}\n付款金额：¥${paymentModalOrder.totalAmount?.toLocaleString()}`
+                            navigator.clipboard.writeText(bankText)
+                            toast.success('已复制全部转账信息')
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                          一键复制全部
+                        </button>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">付款金额：¥{paymentModalOrder.totalAmount?.toLocaleString()}</p>
+                      <div className="text-sm space-y-2 bg-white p-3 rounded-lg border border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">公户单位</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-900 font-medium">{paymentInfo.bankInfo.companyName}</span>
+                            <button onClick={() => { navigator.clipboard.writeText(paymentInfo.bankInfo.companyName); toast.success('已复制') }} className="p-1 hover:bg-gray-100 rounded"><Copy className="w-3.5 h-3.5 text-gray-400" /></button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">开户银行</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-900 font-medium">{paymentInfo.bankInfo.bankName}</span>
+                            <button onClick={() => { navigator.clipboard.writeText(paymentInfo.bankInfo.bankName); toast.success('已复制') }} className="p-1 hover:bg-gray-100 rounded"><Copy className="w-3.5 h-3.5 text-gray-400" /></button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-500">收款人</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-900 font-medium">{paymentInfo.bankInfo.accountName}</span>
+                            <button onClick={() => { navigator.clipboard.writeText(paymentInfo.bankInfo.accountName); toast.success('已复制') }} className="p-1 hover:bg-gray-100 rounded"><Copy className="w-3.5 h-3.5 text-gray-400" /></button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <span className="text-gray-500">银行账号</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-900 font-bold tracking-wide">{paymentInfo.bankInfo.accountNumber}</span>
+                            <button onClick={() => { navigator.clipboard.writeText(paymentInfo.bankInfo.accountNumber); toast.success('已复制银行账号') }} className="p-1 hover:bg-gray-100 rounded"><Copy className="w-3.5 h-3.5 text-gray-400" /></button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <span className="text-gray-500">付款金额</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-red-600 font-bold text-lg">¥{paymentModalOrder.totalAmount?.toLocaleString()}</span>
+                            <button onClick={() => { navigator.clipboard.writeText(paymentModalOrder.totalAmount?.toString() || ''); toast.success('已复制金额') }} className="p-1 hover:bg-gray-100 rounded"><Copy className="w-3.5 h-3.5 text-gray-400" /></button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                   {((selectedPaymentMethod === 'wechat' && !paymentInfo.wechatQrCode) ||
