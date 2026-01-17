@@ -1777,38 +1777,80 @@ export default function ManufacturerManagement() {
                       
                       return (
                         <div key={req._id} className="border-2 border-orange-200 bg-orange-50 rounded-xl p-4">
+                          {/* 申请方身份信息 - 直接显示在卡片中 */}
+                          {req.authorizationType === 'manufacturer' && req.toManufacturer && (
+                            <div className="mb-4 bg-white rounded-lg p-3 border border-orange-200">
+                              <div className="flex items-start gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="font-semibold text-gray-900">{req.toManufacturer.fullName || req.toManufacturer.name || '未知商家'}</span>
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">厂家</span>
+                                    <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs rounded">待审批</span>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-3 text-sm">
+                                    <div>
+                                      <span className="text-gray-500">经营品类:</span>
+                                      <span className="ml-1 text-gray-900">{req.toManufacturer.businessCategories || '--'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">年营业额:</span>
+                                      <span className="ml-1 text-gray-900">{req.toManufacturer.annualRevenue || '--'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">申请时间:</span>
+                                      <span className="ml-1 text-gray-900">{new Date(req.createdAt || req.validFrom).toLocaleDateString()}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                {req.toManufacturer.businessLicense ? (
+                                  <div className="flex-shrink-0">
+                                    <img 
+                                      src={getFileUrl(req.toManufacturer.businessLicense)} 
+                                      alt="营业执照" 
+                                      className="w-24 h-16 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-80"
+                                      onClick={() => window.open(getFileUrl(req.toManufacturer.businessLicense), '_blank')}
+                                    />
+                                    <div className="text-xs text-gray-500 text-center mt-1">营业执照</div>
+                                  </div>
+                                ) : (
+                                  <div className="flex-shrink-0 w-24 h-16 bg-gray-100 rounded border border-dashed border-gray-300 flex items-center justify-center">
+                                    <span className="text-xs text-gray-400">未上传执照</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                              <div className="relative">
-                                <div className="w-12 h-12 rounded-full bg-white border-2 border-orange-300 overflow-hidden">
-                                  {applicantAvatar ? (
-                                    <img src={getFileUrl(applicantAvatar)} alt="" className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-orange-400">
-                                      {req.authorizationType === 'manufacturer' ? <Factory className="w-6 h-6" /> : <Users className="w-6 h-6" />}
+                              {req.authorizationType !== 'manufacturer' && (
+                                <>
+                                  <div className="relative">
+                                    <div className="w-12 h-12 rounded-full bg-white border-2 border-orange-300 overflow-hidden">
+                                      {applicantAvatar ? (
+                                        <img src={getFileUrl(applicantAvatar)} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-orange-400">
+                                          <Users className="w-6 h-6" />
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
-                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
-                                  <Clock className="w-3 h-3 text-white" />
-                                </div>
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-gray-900">{applicantName}</span>
-                                  <span className={`px-2 py-0.5 text-xs rounded ${
-                                    req.authorizationType === 'manufacturer' 
-                                      ? 'bg-blue-100 text-blue-700' 
-                                      : 'bg-purple-100 text-purple-700'
-                                  }`}>
-                                    {req.authorizationType === 'manufacturer' ? '厂家' : '设计师'}
-                                  </span>
-                                  <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs rounded">待审批</span>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  申请时间: {new Date(req.createdAt || req.validFrom).toLocaleDateString()}
-                                </div>
-                              </div>
+                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                                      <Clock className="w-3 h-3 text-white" />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-gray-900">{applicantName}</span>
+                                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">设计师</span>
+                                      <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs rounded">待审批</span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      申请时间: {new Date(req.createdAt || req.validFrom).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-4">
