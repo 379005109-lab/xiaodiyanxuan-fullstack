@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Package, Clock, CheckCircle2, Truck, X, Loader2 } from 'lucide-react'
+import { Search, Package, Clock, CheckCircle2, Truck, X, Loader2, CreditCard, Smartphone, Building2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
@@ -14,6 +14,8 @@ export default function OrdersPageNew() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('')
+  const [paymentModalOrder, setPaymentModalOrder] = useState<any>(null)
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('')
 
   // 检查登录状态
   useEffect(() => {
@@ -153,28 +155,41 @@ export default function OrdersPageNew() {
   }
 
   const handleConfirmPayment = async (order: any) => {
-    const orderId = order._id || order.id
-    const amount = order.totalAmount
     const isPriceModified = order.priceModified
     
     if (isPriceModified) {
       const latestModify = order.priceModifyHistory?.[order.priceModifyHistory.length - 1]
-      const confirmMsg = `商家已将订单价格从 ¥${latestModify?.originalAmount?.toLocaleString()} 调整为 ¥${amount?.toLocaleString()}${latestModify?.reason ? `\n原因：${latestModify.reason}` : ''}\n\n确认接受改价并继续付款吗？`
+      const confirmMsg = `商家已将订单价格从 ¥${latestModify?.originalAmount?.toLocaleString()} 调整为 ¥${order.totalAmount?.toLocaleString()}${latestModify?.reason ? `\n原因：${latestModify.reason}` : ''}\n\n确认接受改价并继续付款吗？`
       if (!window.confirm(confirmMsg)) return
     }
     
-    toast.success(`正在跳转到付款页面，订单金额：¥${amount?.toLocaleString()}`)
+    // 打开支付方式选择弹窗
+    setPaymentModalOrder(order)
+    setSelectedPaymentMethod('')
+  }
+
+  const handlePaymentSubmit = async () => {
+    if (!paymentModalOrder || !selectedPaymentMethod) {
+      toast.error('请选择支付方式')
+      return
+    }
+    
+    const orderId = paymentModalOrder._id || paymentModalOrder.id
+    const amount = paymentModalOrder.totalAmount
+    
+    toast.success(`正在跳转到${selectedPaymentMethod === 'wechat' ? '微信' : selectedPaymentMethod === 'alipay' ? '支付宝' : '银行卡'}支付页面，订单金额：¥${amount?.toLocaleString()}`)
     
     try {
       const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentMethod: 'wechat' })
+        body: JSON.stringify({ paymentMethod: selectedPaymentMethod })
       })
       
       if (response.ok) {
         toast.success('付款成功！')
         setOrders(prev => prev.map((o: any) => (o._id || o.id) === orderId ? { ...o, status: 2 } : o))
+        setPaymentModalOrder(null)
       } else {
         const errorData = await response.json().catch(() => ({}))
         toast.error(errorData.message || '付款失败，请重试')
@@ -616,6 +631,113 @@ export default function OrdersPageNew() {
           </div>
         )}
       </div>
+
+      {/* 支付方式选择弹窗 */}
+      {paymentModalOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">选择支付方式</h3>
+                <button
+                  onClick={() => setPaymentModalOrder(null)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                订单金额：<span className="text-lg font-bold text-primary">¥{paymentModalOrder.totalAmount?.toLocaleString()}</span>
+              </p>
+            </div>
+            
+            <div className="p-6 space-y-3">
+              {/* 微信支付 */}
+              <button
+                onClick={() => setSelectedPaymentMethod('wechat')}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                  selectedPaymentMethod === 'wechat'
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
+                  <Smartphone className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-medium text-gray-900">微信支付</div>
+                  <div className="text-sm text-gray-500">推荐使用微信扫码支付</div>
+                </div>
+                {selectedPaymentMethod === 'wechat' && (
+                  <CheckCircle2 className="w-6 h-6 text-green-500" />
+                )}
+              </button>
+
+              {/* 支付宝 */}
+              <button
+                onClick={() => setSelectedPaymentMethod('alipay')}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                  selectedPaymentMethod === 'alipay'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+                  <CreditCard className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-medium text-gray-900">支付宝</div>
+                  <div className="text-sm text-gray-500">使用支付宝APP扫码支付</div>
+                </div>
+                {selectedPaymentMethod === 'alipay' && (
+                  <CheckCircle2 className="w-6 h-6 text-blue-500" />
+                )}
+              </button>
+
+              {/* 银行卡 */}
+              <button
+                onClick={() => setSelectedPaymentMethod('bank')}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                  selectedPaymentMethod === 'bank'
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
+                  <Building2 className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-medium text-gray-900">银行卡支付</div>
+                  <div className="text-sm text-gray-500">使用银行卡快捷支付</div>
+                </div>
+                {selectedPaymentMethod === 'bank' && (
+                  <CheckCircle2 className="w-6 h-6 text-purple-500" />
+                )}
+              </button>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => setPaymentModalOrder(null)}
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              >
+                取消
+              </button>
+              <button
+                onClick={handlePaymentSubmit}
+                disabled={!selectedPaymentMethod}
+                className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${
+                  selectedPaymentMethod
+                    ? 'bg-primary text-white hover:bg-green-900'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                确认支付
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
