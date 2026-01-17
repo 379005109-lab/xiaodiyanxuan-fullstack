@@ -1505,7 +1505,7 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '只有厂家用户可以申请厂家授权' })
     }
 
-    const { manufacturerId, notes, scope, categories, products, validUntil } = req.body
+    const { manufacturerId, notes, scope, categories, products, validUntil, authorizationPeriod, cancellationPolicy, noticePeriodDays, agreementSigned } = req.body
     if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
       return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
     }
@@ -1603,6 +1603,10 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
       },
       status: 'pending',
       ...(parsedValidUntil ? { validUntil: parsedValidUntil } : {}),
+      authorizationPeriod: authorizationPeriod || 12,
+      cancellationPolicy: cancellationPolicy || 'mutual',
+      noticePeriodDays: noticePeriodDays || 30,
+      agreementSigned: agreementSigned || false,
       notes,
       createdBy: req.userId
     })

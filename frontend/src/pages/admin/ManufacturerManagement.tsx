@@ -1906,19 +1906,27 @@ export default function ManufacturerManagement() {
                               <div className="text-xs text-gray-500">已授权SKU</div>
                               <div className="text-lg font-bold text-gray-900">{productCount}</div>
                             </div>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                               {/* 允许转授权开关 */}
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-500">允许转授权</span>
                                 <button
                                   onClick={async () => {
+                                    const newValue = auth.allowSubAuthorization === false
+                                    // 立即更新本地状态
+                                    setGrantedAuths(prev => prev.map(a => 
+                                      a._id === auth._id ? { ...a, allowSubAuthorization: newValue } : a
+                                    ))
                                     try {
                                       await apiClient.put(`/authorizations/${auth._id}/settings`, {
-                                        allowSubAuthorization: !auth.allowSubAuthorization
+                                        allowSubAuthorization: newValue
                                       })
-                                      fetchData()
-                                      toast.success(auth.allowSubAuthorization ? '已关闭转授权' : '已开启转授权')
+                                      toast.success(newValue ? '已开启转授权' : '已关闭转授权')
                                     } catch (e) {
+                                      // 失败时恢复原值
+                                      setGrantedAuths(prev => prev.map(a => 
+                                        a._id === auth._id ? { ...a, allowSubAuthorization: !newValue } : a
+                                      ))
                                       toast.error('操作失败')
                                     }
                                   }}
@@ -1933,7 +1941,7 @@ export default function ManufacturerManagement() {
                               </div>
                               <button 
                                 onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing`)}
-                                className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+                                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50"
                               >
                                 专属价格池
                               </button>
@@ -1942,9 +1950,24 @@ export default function ManufacturerManagement() {
                                   const rt = encodeURIComponent(`/admin/manufacturer-management`)
                                   navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${myManufacturerId}&returnTo=${rt}`)
                                 }}
-                                className="px-4 py-2 text-sm bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
+                                className="px-3 py-1.5 text-xs bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
                               >
                                 分成体系
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (confirm('确定要取消对该渠道的授权吗？')) {
+                                    apiClient.delete(`/authorizations/${auth._id}`)
+                                      .then(() => {
+                                        toast.success('已取消授权')
+                                        fetchData()
+                                      })
+                                      .catch(() => toast.error('取消授权失败'))
+                                  }
+                                }}
+                                className="px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+                              >
+                                取消授权
                               </button>
                             </div>
                           </div>

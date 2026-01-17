@@ -52,7 +52,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
     { name: '账号管理', path: '/admin/users', icon: Users },
     { name: '材质管理', path: '/admin/materials', icon: Palette },
     { name: '厂家管理', path: '/admin/manufacturers', icon: Factory },
-    { name: '授权管理', path: '/admin/authorizations', icon: Shield },
+    // { name: '授权管理', path: '/admin/authorizations', icon: Shield }, // 已移到厂家管理-渠道管理中
     // { name: '分层管理', path: '/admin/tier-system', icon: Layers }, // 隐藏
     {
       name: '商品管理',
@@ -99,12 +99,12 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
 
   const menuItems = role === 'designer'
     ? allMenuItems.filter(item =>
-        ['首页', '厂家管理', '授权管理', '商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
+        ['首页', '厂家管理', '商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
       )
     : isManufacturerSubAccount
       ? allMenuItems
           .filter(item =>
-            ['厂家管理', '授权管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理'].includes(item.name)
+            ['厂家管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理'].includes(item.name)
           )
           .map(item => {
             if (item.name === '砍价管理') {
