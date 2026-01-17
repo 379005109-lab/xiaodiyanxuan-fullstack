@@ -1,7 +1,7 @@
 // Build cache bust: 20260110-v1
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package, Clock } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -252,6 +252,7 @@ export default function ManufacturerManagement() {
   const [factoryTab, setFactoryTab] = useState<FactoryTabType>('home')
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
+  const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [showMarketplace, setShowMarketplace] = useState(false) // 是否显示合作市场
   const [marketplaceFilter, setMarketplaceFilter] = useState('') // 合作市场筛选标签
   const [showEditSectionModal, setShowEditSectionModal] = useState(false) // 资料编辑弹窗
@@ -331,12 +332,18 @@ export default function ManufacturerManagement() {
 
         // 获取合作商家（其他商家授权给本厂家）和渠道管理（本厂家授权给其他商家）
         try {
-          const [receivedRes, grantedRes] = await Promise.all([
+          const [receivedRes, grantedRes, pendingDesignerRes, pendingManufacturerRes] = await Promise.all([
             apiClient.get('/authorizations/received').catch(() => ({ data: { data: [] } })),
-            apiClient.get('/authorizations/my-grants').catch(() => ({ data: { data: [] } }))
+            apiClient.get('/authorizations/my-grants').catch(() => ({ data: { data: [] } })),
+            apiClient.get('/authorizations/designer-requests/pending').catch(() => ({ data: { data: [] } })),
+            apiClient.get('/authorizations/manufacturer-requests/pending').catch(() => ({ data: { data: [] } }))
           ])
           setReceivedAuths(receivedRes.data?.data || [])
           setGrantedAuths((grantedRes.data?.data || []).filter((a: any) => a?.status === 'active'))
+          // 合并待审批请求
+          const pendingDesigner = pendingDesignerRes.data?.data || []
+          const pendingManufacturer = pendingManufacturerRes.data?.data || []
+          setPendingRequests([...pendingDesigner, ...pendingManufacturer])
         } catch (e) {
           console.log('[ManufacturerManagement] 获取授权列表失败', e)
         }
@@ -368,6 +375,56 @@ export default function ManufacturerManagement() {
       fetchData()
     } catch (error: any) {
       toast.error(error.response?.data?.message || '更新失败')
+    }
+  }
+
+  // 快速审批通过
+  const handleQuickApprove = async (request: any) => {
+    try {
+      const endpoint = request.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${request._id}/approve`
+        : `/authorizations/designer-requests/${request._id}/approve`
+      
+      const response = await apiClient.put(endpoint, {
+        discountRate: 85,
+        commissionRate: 5,
+        tierType: 'new_company',
+        tierCompanyName: request.toDesigner?.nickname || request.toManufacturer?.name || '新合作商',
+        allowSubAuthorization: true
+      })
+      
+      if (response.data?.success) {
+        toast.success('审批通过')
+        fetchData()
+      } else {
+        toast.error(response.data?.message || '审批失败')
+      }
+    } catch (error) {
+      console.error('审批失败:', error)
+      toast.error('审批失败')
+    }
+  }
+
+  // 拒绝申请
+  const handleRejectRequest = async (request: any) => {
+    if (!confirm('确定要拒绝此申请吗？')) return
+    
+    try {
+      const endpoint = request.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${request._id}/reject`
+        : `/authorizations/designer-requests/${request._id}/reject`
+      
+      const response = await apiClient.put(endpoint, {})
+      
+      if (response.data?.success) {
+        toast.success('已拒绝')
+        fetchData()
+      } else {
+        toast.error(response.data?.message || '拒绝失败')
+      }
+    } catch (error) {
+      console.error('拒绝失败:', error)
+      toast.error('拒绝失败')
     }
   }
 
@@ -1667,6 +1724,103 @@ export default function ManufacturerManagement() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* 待审批的合作申请 */}
+              {pendingRequests.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                    <h3 className="text-lg font-bold text-gray-900">待审批的合作申请</h3>
+                    <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">{pendingRequests.length}个</span>
+                  </div>
+                  <div className="space-y-3">
+                    {pendingRequests.map((req: any) => {
+                      const applicantName = req.authorizationType === 'manufacturer'
+                        ? (req.toManufacturer?.name || req.toManufacturer?.fullName || '未知商家')
+                        : (req.toDesigner?.nickname || req.toDesigner?.username || '未知设计师')
+                      const applicantAvatar = req.authorizationType === 'manufacturer'
+                        ? req.toManufacturer?.logo
+                        : req.toDesigner?.avatar
+                      const scopeLabel = req.scope === 'all' 
+                        ? '全部商品' 
+                        : req.scope === 'category' 
+                          ? `分类授权 (${req.categories?.length || 0}个)` 
+                          : `指定商品 (${req.products?.length || 0}个)`
+                      const requestedDiscount = req.priceSettings?.globalDiscount || req.minDiscountRate || '--'
+                      
+                      return (
+                        <div key={req._id} className="border-2 border-orange-200 bg-orange-50 rounded-xl p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="relative">
+                                <div className="w-12 h-12 rounded-full bg-white border-2 border-orange-300 overflow-hidden">
+                                  {applicantAvatar ? (
+                                    <img src={getFileUrl(applicantAvatar)} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-orange-400">
+                                      {req.authorizationType === 'manufacturer' ? <Factory className="w-6 h-6" /> : <Users className="w-6 h-6" />}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                                  <Clock className="w-3 h-3 text-white" />
+                                </div>
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-gray-900">{applicantName}</span>
+                                  <span className={`px-2 py-0.5 text-xs rounded ${
+                                    req.authorizationType === 'manufacturer' 
+                                      ? 'bg-blue-100 text-blue-700' 
+                                      : 'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {req.authorizationType === 'manufacturer' ? '厂家' : '设计师'}
+                                  </span>
+                                  <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs rounded">待审批</span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  申请时间: {new Date(req.createdAt || req.validFrom).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-6">
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">申请折扣</div>
+                                <div className="text-lg font-bold text-orange-600">{requestedDiscount}%</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">授权范围</div>
+                                <div className="text-sm font-medium text-gray-700">{scopeLabel}</div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={() => handleQuickApprove(req)}
+                                  className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                >
+                                  通过
+                                </button>
+                                <button 
+                                  onClick={() => handleRejectRequest(req)}
+                                  className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                                >
+                                  拒绝
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 已合作渠道 */}
+              <div className="flex items-center gap-2 mb-4">
+                <h3 className="text-lg font-bold text-gray-900">已合作渠道</h3>
+                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{grantedAuths.length}个</span>
               </div>
 
               {grantedAuths.length === 0 ? (
