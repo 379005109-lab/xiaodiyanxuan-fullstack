@@ -267,6 +267,7 @@ router.post('/:id/manufacturer-confirm', async (req, res) => {
 
 // POST /api/orders/:id/settlement-mode - 选择结算模式
 router.post('/:id/settlement-mode', async (req, res) => {
+  console.log('📍 [settlement-mode] 收到请求:', req.params.id, req.body)
   try {
     const { id } = req.params
     const { settlementMode, minDiscountRate, commissionRate, paymentRatio } = req.body
