@@ -563,6 +563,97 @@ export default function ManufacturerBusinessPanel() {
                   </button>
                 </div>
 
+                {/* 待审批的合作申请 */}
+                {pendingRequests.length > 0 && (
+                  <div className="mb-8">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                      <h4 className="text-base font-bold text-gray-900">待审批的合作申请</h4>
+                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">{pendingRequests.length}个</span>
+                    </div>
+                    <div className="space-y-3">
+                      {pendingRequests.map((req: any) => {
+                        const applicantName = req.authorizationType === 'manufacturer'
+                          ? (req.toManufacturer?.name || req.toManufacturer?.fullName || '未知商家')
+                          : (req.toDesigner?.nickname || req.toDesigner?.username || '未知设计师')
+                        const applicantAvatar = req.authorizationType === 'manufacturer'
+                          ? req.toManufacturer?.logo
+                          : req.toDesigner?.avatar
+                        const scopeLabel = req.scope === 'all' 
+                          ? '全部商品' 
+                          : req.scope === 'category' 
+                            ? `分类授权 (${req.categories?.length || 0}个)` 
+                            : `指定商品 (${req.products?.length || 0}个)`
+                        const requestedDiscount = req.priceSettings?.globalDiscount || req.minDiscountRate || '--'
+                        
+                        return (
+                          <div key={req._id} className="border-2 border-orange-200 bg-orange-50 rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="relative">
+                                  <div className="w-12 h-12 rounded-full bg-white border-2 border-orange-300 overflow-hidden">
+                                    {applicantAvatar ? (
+                                      <img src={applicantAvatar.startsWith('http') ? applicantAvatar : `/api/files/${applicantAvatar}`} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-orange-400">
+                                        {req.authorizationType === 'manufacturer' ? <Package className="w-6 h-6" /> : <Users className="w-6 h-6" />}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                                    <Clock className="w-3 h-3 text-white" />
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-gray-900">{applicantName}</span>
+                                    <span className={`px-2 py-0.5 text-xs rounded ${
+                                      req.authorizationType === 'manufacturer' 
+                                        ? 'bg-blue-100 text-blue-700' 
+                                        : 'bg-purple-100 text-purple-700'
+                                    }`}>
+                                      {req.authorizationType === 'manufacturer' ? '厂家' : '设计师'}
+                                    </span>
+                                    <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs rounded">待审批</span>
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    申请时间: {new Date(req.createdAt || req.validFrom).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-6">
+                                <div className="text-center">
+                                  <div className="text-xs text-gray-500">申请折扣</div>
+                                  <div className="text-lg font-bold text-orange-600">{requestedDiscount}%</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-xs text-gray-500">授权范围</div>
+                                  <div className="text-sm font-medium text-gray-700">{scopeLabel}</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => handleQuickApprove(req)}
+                                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                  >
+                                    通过
+                                  </button>
+                                  <button 
+                                    onClick={() => handleRejectRequest(req)}
+                                    className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                                  >
+                                    拒绝
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Channel Filters */}
                 <div className="flex items-center gap-2 mb-6">
                   {[
@@ -582,6 +673,12 @@ export default function ManufacturerBusinessPanel() {
                       {filter.label}
                     </button>
                   ))}
+                </div>
+
+                {/* 已合作渠道列表 */}
+                <div className="flex items-center gap-2 mb-4">
+                  <h4 className="text-base font-bold text-gray-900">已合作渠道</h4>
+                  <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{channels.filter(c => channelFilter === 'all' || c.type === channelFilter).length}个</span>
                 </div>
 
                 {channels.filter(c => channelFilter === 'all' || c.type === channelFilter).length === 0 ? (
