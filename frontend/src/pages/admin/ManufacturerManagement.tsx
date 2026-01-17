@@ -343,6 +343,7 @@ export default function ManufacturerManagement() {
           // 合并待审批请求
           const pendingDesigner = pendingDesignerRes.data?.data || []
           const pendingManufacturer = pendingManufacturerRes.data?.data || []
+          console.log('[ManufacturerManagement] pendingDesigner:', pendingDesigner.length, 'pendingManufacturer:', pendingManufacturer.length)
           setPendingRequests([...pendingDesigner, ...pendingManufacturer])
         } catch (e) {
           console.log('[ManufacturerManagement] 获取授权列表失败', e)
