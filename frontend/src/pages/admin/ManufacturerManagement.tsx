@@ -1906,7 +1906,31 @@ export default function ManufacturerManagement() {
                               <div className="text-xs text-gray-500">已授权SKU</div>
                               <div className="text-lg font-bold text-gray-900">{productCount}</div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-4">
+                              {/* 允许转授权开关 */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">允许转授权</span>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await apiClient.put(`/authorizations/${auth._id}/settings`, {
+                                        allowSubAuthorization: !auth.allowSubAuthorization
+                                      })
+                                      fetchData()
+                                      toast.success(auth.allowSubAuthorization ? '已关闭转授权' : '已开启转授权')
+                                    } catch (e) {
+                                      toast.error('操作失败')
+                                    }
+                                  }}
+                                  className={`relative w-10 h-5 rounded-full transition-colors ${
+                                    auth.allowSubAuthorization !== false ? 'bg-green-500' : 'bg-gray-300'
+                                  }`}
+                                >
+                                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                                    auth.allowSubAuthorization !== false ? 'left-5' : 'left-0.5'
+                                  }`} />
+                                </button>
+                              </div>
                               <button 
                                 onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing`)}
                                 className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"

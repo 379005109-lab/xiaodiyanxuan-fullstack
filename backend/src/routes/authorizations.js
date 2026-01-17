@@ -1997,6 +1997,37 @@ router.put('/:id/designer-product-discount/:productId', auth, async (req, res) =
   }
 })
 
+// PUT /api/authorizations/:id/settings - 更新授权设置
+router.put('/:id([0-9a-fA-F]{24})/settings', auth, async (req, res) => {
+  try {
+    const authorization = await Authorization.findById(req.params.id)
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+
+    const user = await User.findById(req.userId)
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin'].includes(user?.role)
+    const isOwner = authorization.fromManufacturer.toString() === user.manufacturerId?.toString()
+    
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ success: false, message: '只有授权方可以修改授权设置' })
+    }
+
+    const { allowSubAuthorization } = req.body
+    if (typeof allowSubAuthorization === 'boolean') {
+      authorization.allowSubAuthorization = allowSubAuthorization
+    }
+
+    authorization.updatedAt = new Date()
+    await authorization.save()
+
+    res.json({ success: true, data: authorization, message: '授权设置已更新' })
+  } catch (error) {
+    console.error('更新授权设置失败:', error)
+    res.status(500).json({ success: false, message: '更新授权设置失败' })
+  }
+})
+
 // DELETE /api/authorizations/:id - 撤销/删除授权
 router.delete('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
   try {
