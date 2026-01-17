@@ -253,6 +253,12 @@ export default function ManufacturerManagement() {
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
+  const [showApproveModal, setShowApproveModal] = useState(false)
+  const [approveTarget, setApproveTarget] = useState<any>(null)
+  const [approveForm, setApproveForm] = useState({ minDiscountRate: 60, commissionRate: 10 })
+  const [approveSaving, setApproveSaving] = useState(false)
+  const [showScopeModal, setShowScopeModal] = useState(false)
+  const [scopeTarget, setScopeTarget] = useState<any>(null)
   const [showMarketplace, setShowMarketplace] = useState(false) // 是否显示合作市场
   const [marketplaceFilter, setMarketplaceFilter] = useState('') // 合作市场筛选标签
   const [showEditSectionModal, setShowEditSectionModal] = useState(false) // 资料编辑弹窗
@@ -379,30 +385,49 @@ export default function ManufacturerManagement() {
     }
   }
 
-  // 快速审批通过
-  const handleQuickApprove = async (request: any) => {
+  // 打开审批弹窗
+  const openApproveModal = (request: any) => {
+    setApproveTarget(request)
+    setApproveForm({ minDiscountRate: 60, commissionRate: 10 })
+    setShowApproveModal(true)
+  }
+
+  // 打开授权范围弹窗
+  const openScopeModal = (request: any) => {
+    setScopeTarget(request)
+    setShowScopeModal(true)
+  }
+
+  // 提交审批
+  const handleApproveSubmit = async () => {
+    if (!approveTarget) return
+    setApproveSaving(true)
     try {
-      const endpoint = request.authorizationType === 'manufacturer'
-        ? `/authorizations/manufacturer-requests/${request._id}/approve`
-        : `/authorizations/designer-requests/${request._id}/approve`
+      const endpoint = approveTarget.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${approveTarget._id}/approve`
+        : `/authorizations/designer-requests/${approveTarget._id}/approve`
       
       const response = await apiClient.put(endpoint, {
-        discountRate: 85,
-        commissionRate: 5,
+        discountRate: approveForm.minDiscountRate,
+        commissionRate: approveForm.commissionRate,
         tierType: 'new_company',
-        tierCompanyName: request.toDesigner?.nickname || request.toManufacturer?.name || '新合作商',
+        tierCompanyName: approveTarget.toDesigner?.nickname || approveTarget.toManufacturer?.name || '新合作商',
         allowSubAuthorization: true
       })
       
       if (response.data?.success) {
         toast.success('审批通过')
+        setShowApproveModal(false)
+        setApproveTarget(null)
         fetchData()
       } else {
         toast.error(response.data?.message || '审批失败')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('审批失败:', error)
-      toast.error('审批失败')
+      toast.error(error.response?.data?.message || '审批失败')
+    } finally {
+      setApproveSaving(false)
     }
   }
 
@@ -1786,18 +1811,17 @@ export default function ManufacturerManagement() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-6">
-                              <div className="text-center">
-                                <div className="text-xs text-gray-500">申请折扣</div>
-                                <div className="text-lg font-bold text-orange-600">{requestedDiscount}%</div>
-                              </div>
-                              <div className="text-center">
+                            <div className="flex items-center gap-4">
+                              <button 
+                                onClick={() => openScopeModal(req)}
+                                className="text-center cursor-pointer hover:bg-orange-100 px-3 py-1 rounded-lg transition-colors"
+                              >
                                 <div className="text-xs text-gray-500">授权范围</div>
-                                <div className="text-sm font-medium text-gray-700">{scopeLabel}</div>
-                              </div>
+                                <div className="text-sm font-medium text-blue-600 underline">{scopeLabel}</div>
+                              </button>
                               <div className="flex items-center gap-2">
                                 <button 
-                                  onClick={() => handleQuickApprove(req)}
+                                  onClick={() => openApproveModal(req)}
                                   className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
                                 >
                                   通过
@@ -3937,6 +3961,114 @@ export default function ManufacturerManagement() {
                   >
                     编辑图片
                   </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 审批配置弹窗 */}
+      {showApproveModal && approveTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">审批合作申请</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                配置 {approveTarget.toDesigner?.nickname || approveTarget.toManufacturer?.name || '申请人'} 的授权参数
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">最低折扣 (%)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={approveForm.minDiscountRate}
+                  onChange={(e) => setApproveForm({...approveForm, minDiscountRate: Number(e.target.value)})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                <p className="text-xs text-gray-500 mt-1">渠道商销售时的最低折扣限制</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">返佣比例 (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={approveForm.commissionRate}
+                  onChange={(e) => setApproveForm({...approveForm, commissionRate: Number(e.target.value)})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                <p className="text-xs text-gray-500 mt-1">渠道商销售时的返佣比例</p>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => { setShowApproveModal(false); setApproveTarget(null) }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleApproveSubmit}
+                disabled={approveSaving}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {approveSaving ? '处理中...' : '确认通过'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 授权范围查看弹窗 */}
+      {showScopeModal && scopeTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">授权范围详情</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {scopeTarget.toDesigner?.nickname || scopeTarget.toManufacturer?.name || '申请人'} 申请的授权范围
+                </p>
+              </div>
+              <button onClick={() => { setShowScopeModal(false); setScopeTarget(null) }} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {scopeTarget.scope === 'all' ? (
+                <div className="text-center py-8">
+                  <Package className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                  <p className="text-lg font-medium text-gray-900">全部商品</p>
+                  <p className="text-sm text-gray-500 mt-1">申请授权您的所有商品</p>
+                </div>
+              ) : scopeTarget.scope === 'category' ? (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">申请的分类 ({scopeTarget.categories?.length || 0}个):</p>
+                  <div className="space-y-2">
+                    {(scopeTarget.categories || []).map((cat: any, idx: number) => (
+                      <div key={idx} className="px-4 py-2 bg-gray-50 rounded-lg text-sm">
+                        {cat?.name || cat || `分类 ${idx + 1}`}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">申请的商品 ({scopeTarget.products?.length || 0}个):</p>
+                  <div className="space-y-2">
+                    {(scopeTarget.products || []).map((prod: any, idx: number) => (
+                      <div key={idx} className="px-4 py-2 bg-gray-50 rounded-lg text-sm flex items-center gap-3">
+                        {prod?.mainImage && (
+                          <img src={getFileUrl(prod.mainImage)} alt="" className="w-10 h-10 object-cover rounded" />
+                        )}
+                        <span>{prod?.name || prod || `商品 ${idx + 1}`}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
