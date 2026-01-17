@@ -368,13 +368,22 @@ router.get('/:id/payment-info', async (req, res) => {
       }
     }
     
+    // 将文件ID转换为完整的API URL
+    const toFileUrl = (fileId) => {
+      if (!fileId) return null
+      // 如果已经是完整URL或data:URI，直接返回
+      if (fileId.startsWith('http') || fileId.startsWith('data:')) return fileId
+      // 否则转换为API文件访问URL
+      return `/api/files/${fileId}`
+    }
+    
     if (manufacturerId) {
       const manufacturer = await Manufacturer.findById(manufacturerId)
       console.log('📍 [payment-info] 厂家:', manufacturer?.fullName, '设置:', JSON.stringify(manufacturer?.settings))
       if (manufacturer?.settings) {
         paymentInfo = {
-          wechatQrCode: manufacturer.settings.wechatQrCode,
-          alipayQrCode: manufacturer.settings.alipayQrCode,
+          wechatQrCode: toFileUrl(manufacturer.settings.wechatQrCode),
+          alipayQrCode: toFileUrl(manufacturer.settings.alipayQrCode),
           bankInfo: manufacturer.settings.bankInfo,
           paymentAccounts: manufacturer.settings.paymentAccounts || []
         }
@@ -392,8 +401,8 @@ router.get('/:id/payment-info', async (req, res) => {
       if (defaultManufacturer?.settings) {
         console.log('📍 [payment-info] 使用默认厂家:', defaultManufacturer.fullName)
         paymentInfo = {
-          wechatQrCode: defaultManufacturer.settings.wechatQrCode,
-          alipayQrCode: defaultManufacturer.settings.alipayQrCode,
+          wechatQrCode: toFileUrl(defaultManufacturer.settings.wechatQrCode),
+          alipayQrCode: toFileUrl(defaultManufacturer.settings.alipayQrCode),
           bankInfo: defaultManufacturer.settings.bankInfo,
           paymentAccounts: defaultManufacturer.settings.paymentAccounts || []
         }
