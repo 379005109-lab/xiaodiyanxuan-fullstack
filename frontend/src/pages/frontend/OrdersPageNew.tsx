@@ -796,14 +796,20 @@ export default function OrdersPageNew() {
               </button>
               <button
                 onClick={handlePaymentSubmit}
-                disabled={!selectedPaymentMethod}
+                disabled={!selectedPaymentMethod || !paymentInfo || loadingPaymentInfo || 
+                  (selectedPaymentMethod === 'wechat' && !paymentInfo?.wechatQrCode) ||
+                  (selectedPaymentMethod === 'alipay' && !paymentInfo?.alipayQrCode) ||
+                  (selectedPaymentMethod === 'bank' && !paymentInfo?.bankInfo?.accountNumber)}
                 className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors ${
-                  selectedPaymentMethod
+                  selectedPaymentMethod && paymentInfo && !loadingPaymentInfo &&
+                  ((selectedPaymentMethod === 'wechat' && paymentInfo?.wechatQrCode) ||
+                   (selectedPaymentMethod === 'alipay' && paymentInfo?.alipayQrCode) ||
+                   (selectedPaymentMethod === 'bank' && paymentInfo?.bankInfo?.accountNumber))
                     ? 'bg-primary text-white hover:bg-green-900'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                确认支付
+                我已完成付款
               </button>
             </div>
           </div>
