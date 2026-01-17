@@ -1301,10 +1301,25 @@ router.get('/designer-requests/pending', auth, async (req, res) => {
     const list = await Authorization.find(query)
       .populate('toDesigner', 'username nickname phone email avatar')
       .populate('fromManufacturer', 'fullName shortName name')
-      .populate('categories', 'name')
-      .populate('products', 'name mainImage')
       .sort({ createdAt: -1 })
       .lean()
+
+    // 手动查询分类和产品名称（因为存储的是字符串ID）
+    const Category = require('../models/Category')
+    const Product = require('../models/Product')
+    
+    for (const auth of list) {
+      if (auth.categories && auth.categories.length > 0) {
+        const categoryIds = auth.categories.map(id => id.toString())
+        const cats = await Category.find({ _id: { $in: categoryIds } }).select('name').lean()
+        auth.categories = cats.map(c => ({ _id: c._id, name: c.name }))
+      }
+      if (auth.products && auth.products.length > 0) {
+        const productIds = auth.products.map(id => id.toString())
+        const prods = await Product.find({ _id: { $in: productIds } }).select('name mainImage').lean()
+        auth.products = prods.map(p => ({ _id: p._id, name: p.name, mainImage: p.mainImage }))
+      }
+    }
 
     res.json({ success: true, data: list })
   } catch (error) {
@@ -1644,10 +1659,25 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
     const list = await Authorization.find(query)
       .populate('toManufacturer', 'name fullName shortName code contactPerson logo businessLicense businessCategories annualRevenue')
       .populate('fromManufacturer', 'fullName shortName name')
-      .populate('categories', 'name')
-      .populate('products', 'name mainImage')
       .sort({ createdAt: -1 })
       .lean()
+
+    // 手动查询分类和产品名称（因为存储的是字符串ID）
+    const Category = require('../models/Category')
+    const Product = require('../models/Product')
+    
+    for (const auth of list) {
+      if (auth.categories && auth.categories.length > 0) {
+        const categoryIds = auth.categories.map(id => id.toString())
+        const cats = await Category.find({ _id: { $in: categoryIds } }).select('name').lean()
+        auth.categories = cats.map(c => ({ _id: c._id, name: c.name }))
+      }
+      if (auth.products && auth.products.length > 0) {
+        const productIds = auth.products.map(id => id.toString())
+        const prods = await Product.find({ _id: { $in: productIds } }).select('name mainImage').lean()
+        auth.products = prods.map(p => ({ _id: p._id, name: p.name, mainImage: p.mainImage }))
+      }
+    }
 
     res.json({ success: true, data: list })
   } catch (error) {
