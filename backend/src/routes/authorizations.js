@@ -1666,9 +1666,9 @@ router.get('/manufacturer-requests/my', auth, async (req, res) => {
 router.get('/manufacturer-requests/pending', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin' || currentUser?.role === 'enterprise_admin'
+    const isPlatformAdmin = ['admin', 'super_admin', 'platform_admin'].includes(currentUser?.role)
 
-    if (!isAdmin && !currentUser?.manufacturerId) {
+    if (!isPlatformAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户或管理员可以查看授权申请' })
     }
 
@@ -1677,8 +1677,8 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
       status: 'pending'
     }
 
-    // 管理员可以看到所有待审批请求，厂家用户只能看到自己厂家的
-    if (!isAdmin && currentUser?.manufacturerId) {
+    // 平台管理员可以看到所有待审批请求，厂家用户只能看到别人申请自己的（自己是fromManufacturer）
+    if (!isPlatformAdmin && currentUser?.manufacturerId) {
       query.fromManufacturer = currentUser.manufacturerId
     }
 
@@ -1715,9 +1715,10 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
 router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'enterprise_admin'].includes(currentUser?.role)
+    const isPlatformAdmin = ['admin', 'super_admin', 'platform_admin'].includes(currentUser?.role)
+    const isEnterpriseAdmin = currentUser?.role === 'enterprise_admin'
 
-    if (!isAdmin && !currentUser?.manufacturerId) {
+    if (!isPlatformAdmin && !isEnterpriseAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
     }
 
@@ -1735,7 +1736,7 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '只能审核厂家授权申请' })
     }
 
-    if (!isAdmin && authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId.toString()) {
+    if (!isPlatformAdmin && authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId?.toString()) {
       return res.status(403).json({ success: false, message: '无权限审核此申请' })
     }
 
