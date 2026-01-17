@@ -1525,10 +1525,32 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
       toManufacturer: requesterManufacturerId,
       authorizationType: 'manufacturer',
       status: { $in: ['pending', 'active'] }
-    }).select('_id status')
+    }).select('_id status scope products categories')
 
-    if (existing) {
-      return res.status(400).json({ success: false, message: '已存在申请记录或已授权' })
+    // 如果已存在活跃授权，允许追加商品
+    if (existing && existing.status === 'active') {
+      // 追加商品到现有授权
+      if (Array.isArray(products) && products.length > 0) {
+        const newProducts = products.filter(p => 
+          !existing.products?.some(ep => String(ep) === String(p))
+        )
+        if (newProducts.length > 0) {
+          existing.products = [...(existing.products || []), ...newProducts]
+          existing.scope = 'mixed' // 更新为混合模式
+          await existing.save()
+          return res.json({ 
+            success: true, 
+            data: existing, 
+            message: `已追加 ${newProducts.length} 个商品到现有授权` 
+          })
+        }
+      }
+      return res.status(400).json({ success: false, message: '所选商品已在授权范围内' })
+    }
+    
+    // 如果存在pending状态的申请，不允许重复申请
+    if (existing && existing.status === 'pending') {
+      return res.status(400).json({ success: false, message: '已有待审批的申请' })
     }
 
     const normalizedScope = ['all', 'category', 'specific', 'mixed'].includes(scope) ? scope : 'all'
