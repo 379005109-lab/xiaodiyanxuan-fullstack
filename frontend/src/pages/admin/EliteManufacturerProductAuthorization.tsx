@@ -214,7 +214,11 @@ export default function EliteManufacturerProductAuthorization() {
   const isProductAuthorized = (productId: string) => {
     return existingAuthorizations.some(auth => {
       if (auth.scope === 'all') return true
-      if ((auth.scope === 'specific' || auth.scope === 'mixed') && auth.products?.includes(productId)) return true
+      // Handle both string IDs and populated objects
+      if ((auth.scope === 'specific' || auth.scope === 'mixed') && auth.products?.some((p: any) => {
+        const pId = typeof p === 'string' ? p : (p?._id || p)
+        return String(pId) === String(productId)
+      })) return true
       const product = productById.get(productId)
       if ((auth.scope === 'category' || auth.scope === 'mixed') && product?.category && auth.categories?.some((catId: string) => {
         const prodCatId = getProductCategoryId(product)
