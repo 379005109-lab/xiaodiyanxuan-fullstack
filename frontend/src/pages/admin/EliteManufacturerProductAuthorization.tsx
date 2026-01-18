@@ -142,13 +142,15 @@ export default function EliteManufacturerProductAuthorization() {
 
       existingAuthorizations.forEach(auth => {
         console.log('[EliteAuth] Processing auth:', { scope: auth.scope, products: auth.products?.length, categories: auth.categories?.length })
-        if (auth.scope === 'specific' && auth.products) {
-          // Handle both ObjectId objects and string IDs
+        // Handle products for specific and mixed scopes
+        if ((auth.scope === 'specific' || auth.scope === 'mixed') && auth.products) {
           auth.products.forEach((p: any) => {
             const id = typeof p === 'object' ? (p._id || p.id || String(p)) : String(p)
             authorizedProductIds.push(id)
           })
-        } else if (auth.scope === 'category' && auth.categories) {
+        }
+        // Handle categories for category and mixed scopes
+        if ((auth.scope === 'category' || auth.scope === 'mixed') && auth.categories) {
           auth.categories.forEach((c: any) => {
             const id = typeof c === 'object' ? (c._id || c.id || String(c)) : String(c)
             authorizedCategoryIds.push(id)
