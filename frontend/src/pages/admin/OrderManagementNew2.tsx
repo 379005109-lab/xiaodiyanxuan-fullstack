@@ -217,13 +217,13 @@ export default function OrderManagementNew2() {
   const handleMarkPaid = async (orderId: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/status`, {
-        method: 'PATCH',
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: 'paid' })
+        body: JSON.stringify({ paymentMethod: 'wechat' })
       })
       
       if (response.ok) {
@@ -436,7 +436,7 @@ export default function OrderManagementNew2() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ 
-          status: 6, // 6 = 已取消
+          status: 5, // 5 = 已取消
           cancelReason: reason
         })
       })
@@ -482,16 +482,13 @@ export default function OrderManagementNew2() {
   const handleMarkPaidWithChannel = async (orderId: string, paymentMethod: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/status`, {
-        method: 'PATCH',
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
-          status: 2, // 2 = 已付款
-          paymentMethod: paymentMethod
-        })
+        body: JSON.stringify({ paymentMethod })
       })
       
       if (response.ok) {
@@ -502,7 +499,8 @@ export default function OrderManagementNew2() {
         addOrderLog(orderId, 'payment', `订单已付款，支付渠道：${methodLabels[paymentMethod] || paymentMethod}`)
         loadOrders()
       } else {
-        toast.error('操作失败')
+        const data = await response.json().catch(() => ({}))
+        toast.error(data.message || '操作失败')
       }
     } catch (error) {
       toast.error('操作失败')
@@ -524,7 +522,7 @@ export default function OrderManagementNew2() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ 
-          status: 4, // 4 = 已发货
+          status: 3, // 3 = 待收货（已发货）
           shippingCompany: shippingInfo.company,
           trackingNumber: shippingInfo.trackingNo
         })
@@ -690,7 +688,7 @@ export default function OrderManagementNew2() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: 5 }) // 5 = 已完成
+        body: JSON.stringify({ status: 4 }) // 4 = 已完成
       })
       
       if (response.ok) {
@@ -1165,11 +1163,11 @@ export default function OrderManagementNew2() {
 
         <div className="max-w-4xl mx-auto p-6 space-y-6">
           {/* 订单状态头部 */}
-          <div className={`bg-white rounded-2xl p-6 shadow-sm ${selectedOrder.status === 6 || selectedOrder.status === 'cancelled' ? 'opacity-60' : ''}`}>
+          <div className={`bg-white rounded-2xl p-6 shadow-sm ${selectedOrder.status === 5 || selectedOrder.status === 'cancelled' ? 'opacity-60' : ''}`}>
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
                 <span className={`w-3 h-3 rounded-full ${status.bgColor}`}></span>
-                <h1 className={`text-2xl font-bold ${selectedOrder.status === 6 || selectedOrder.status === 'cancelled' ? 'line-through text-gray-400' : ''}`}>
+                <h1 className={`text-2xl font-bold ${selectedOrder.status === 5 || selectedOrder.status === 'cancelled' ? 'line-through text-gray-400' : ''}`}>
                   {status.label}
                 </h1>
                 <button 
@@ -1241,7 +1239,7 @@ export default function OrderManagementNew2() {
                   </button>
                 )}
                 {/* 已付款 -> 发货 */}
-                {(selectedOrder.status === 2 || selectedOrder.status === 3 || selectedOrder.status === 'paid' || selectedOrder.status === 'processing') && (
+                {(selectedOrder.status === 2 || selectedOrder.status === 'paid' || selectedOrder.status === 'processing') && (
                   <button 
                     onClick={() => setShowShippingModal(true)}
                     className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
@@ -1250,7 +1248,7 @@ export default function OrderManagementNew2() {
                   </button>
                 )}
                 {/* 已发货 -> 完成 */}
-                {(selectedOrder.status === 4 || selectedOrder.status === 'shipped') && (
+                {(selectedOrder.status === 3 || selectedOrder.status === 'shipped') && (
                   <button 
                     onClick={() => handleCompleteOrder(selectedOrder._id)}
                     className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm"
@@ -1317,7 +1315,7 @@ export default function OrderManagementNew2() {
                   </>
                 )}
                 {/* 取消按钮（非已取消/已完成状态可用） */}
-                {!selectedOrder.cancelRequest && selectedOrder.status !== 6 && selectedOrder.status !== 'cancelled' && selectedOrder.status !== 5 && selectedOrder.status !== 'completed' && (
+                {!selectedOrder.cancelRequest && selectedOrder.status !== 5 && selectedOrder.status !== 'cancelled' && selectedOrder.status !== 4 && selectedOrder.status !== 'completed' && (
                   <button 
                     onClick={() => setShowCancelModal(true)}
                     className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-1"
@@ -1385,11 +1383,10 @@ export default function OrderManagementNew2() {
                 <div className="flex flex-wrap gap-2">
                   {[
                     { value: 1, label: '待付款' },
-                    { value: 2, label: '已付款' },
-                    { value: 3, label: '待发货' },
-                    { value: 4, label: '已发货' },
-                    { value: 5, label: '已完成' },
-                    { value: 6, label: '已取消' },
+                    { value: 2, label: '待发货' },
+                    { value: 3, label: '待收货' },
+                    { value: 4, label: '已完成' },
+                    { value: 5, label: '已取消' },
                   ].map(s => (
                     <button
                       key={s.value}

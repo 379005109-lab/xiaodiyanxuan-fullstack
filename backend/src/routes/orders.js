@@ -954,19 +954,41 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(404).json({ success: false, message: '订单不存在' })
     }
     
+    const normalizeStatus = (raw) => {
+      if (typeof raw === 'number') return raw
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim()
+        if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10)
+        const map = {
+          pending: ORDER_STATUS.PENDING_PAYMENT,
+          paid: ORDER_STATUS.PENDING_SHIPMENT,
+          processing: ORDER_STATUS.PENDING_RECEIPT,
+          shipped: ORDER_STATUS.PENDING_RECEIPT,
+          completed: ORDER_STATUS.COMPLETED,
+          cancelled: ORDER_STATUS.CANCELLED,
+          refunding: ORDER_STATUS.REFUNDING,
+          refunded: ORDER_STATUS.REFUNDED,
+          exchanging: ORDER_STATUS.EXCHANGING
+        }
+        return map[trimmed]
+      }
+      return undefined
+    }
+
+    const normalizedStatus = normalizeStatus(status)
     const validStatuses = Object.values(ORDER_STATUS)
-    if (!validStatuses.includes(status)) {
+    if (!validStatuses.includes(normalizedStatus)) {
       return res.status(400).json({ success: false, message: '无效的订单状态' })
     }
     
     const oldStatus = order.status
-    order.status = status
+    order.status = normalizedStatus
     
     // 根据状态更新时间字段和其他信息
-    if (status === ORDER_STATUS.PENDING_SHIPMENT || status === 2) {
+    if (normalizedStatus === ORDER_STATUS.PENDING_SHIPMENT) {
       order.paidAt = new Date()
       if (paymentMethod) order.paymentMethod = paymentMethod
-    } else if (status === ORDER_STATUS.PENDING_RECEIPT || status === 3) {
+    } else if (normalizedStatus === ORDER_STATUS.PENDING_RECEIPT) {
       order.shippedAt = new Date()
       if (shippingCompany) order.shippingCompany = shippingCompany
       if (trackingNumber) order.trackingNumber = trackingNumber
@@ -977,19 +999,9 @@ router.patch('/:id/status', async (req, res) => {
         console.log('💰 订单发货，需支付尾款:', order.orderNo, '尾款金额:', order.remainingPaymentAmount)
         // TODO: 可以在这里添加短信/邮件提醒逻辑
       }
-    } else if (status === 4) {
-      order.shippedAt = new Date()
-      if (shippingCompany) order.shippingCompany = shippingCompany
-      if (trackingNumber) order.trackingNumber = trackingNumber
-      
-      // 发货后检查是否有尾款需要支付
-      if (order.paymentRatioEnabled && order.remainingPaymentAmount > 0 && order.remainingPaymentStatus === 'pending') {
-        order.remainingPaymentRemindedAt = new Date()
-        console.log('💰 订单发货，需支付尾款:', order.orderNo, '尾款金额:', order.remainingPaymentAmount)
-      }
-    } else if (status === ORDER_STATUS.COMPLETED || status === 5) {
+    } else if (normalizedStatus === ORDER_STATUS.COMPLETED) {
       order.completedAt = new Date()
-    } else if (status === ORDER_STATUS.CANCELLED || status === 6) {
+    } else if (normalizedStatus === ORDER_STATUS.CANCELLED) {
       order.cancelledAt = new Date()
       order.cancelRequest = false
     }
@@ -997,7 +1009,7 @@ router.patch('/:id/status', async (req, res) => {
     order.updatedAt = new Date()
     await order.save()
     
-    console.log('📝 更新订单状态:', id, oldStatus, '->', status)
+    console.log('📝 更新订单状态:', id, oldStatus, '->', normalizedStatus)
     res.json({ success: true, message: '状态更新成功', data: order })
   } catch (error) {
     console.error('更新订单状态失败:', error)

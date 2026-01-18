@@ -15,18 +15,26 @@ interface OrderDetailPanelProps {
 
 // 订单状态配置
 const statusConfig: Record<number | string, { label: string; color: string; bgColor: string }> = {
+  0: { label: '待确认', color: 'text-amber-600', bgColor: 'bg-amber-100' },
   1: { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
-  'pending': { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
-  2: { label: '已付款', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  'paid': { label: '已付款', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  3: { label: '待发货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  'processing': { label: '处理中', color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  4: { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-100' },
-  'shipped': { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-100' },
-  5: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
-  'completed': { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
-  6: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
-  'cancelled': { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
+  2: { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  3: { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  4: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
+  5: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
+  6: { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
+  7: { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-100' },
+  8: { label: '换货中', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+  9: { label: '待确认收款', color: 'text-amber-600', bgColor: 'bg-amber-100' },
+  10: { label: '定金已付', color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
+  11: { label: '生产中', color: 'text-teal-600', bgColor: 'bg-teal-100' },
+  12: { label: '待付尾款', color: 'text-pink-600', bgColor: 'bg-pink-100' },
+  13: { label: '尾款已付', color: 'text-rose-600', bgColor: 'bg-rose-100' },
+  pending: { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
+  paid: { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  processing: { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  shipped: { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  completed: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
+  cancelled: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
 }
 
 // 隐藏手机号中间4位
@@ -199,7 +207,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
   // 处理发货
   const handleShip = () => {
     if (onStatusChange) {
-      onStatusChange(order._id, 4) // 4 = 已发货
+      onStatusChange(order._id, 3) // 3 = 待收货（已发货）
       toast.success('订单已发货')
     }
   }
@@ -213,7 +221,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
           <span className={`font-medium ${status.color}`}>{status.label}</span>
         </div>
         <div className="flex items-center gap-2">
-          {(order.status === 2 || order.status === 3 || order.status === 'paid' || order.status === 'processing') && (
+          {(order.status === 2 || order.status === 'paid') && (
             <button
               onClick={handleShip}
               className="px-4 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
