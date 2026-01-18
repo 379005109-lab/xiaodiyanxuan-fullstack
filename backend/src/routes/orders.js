@@ -1508,6 +1508,13 @@ router.get('/commission-stats', async (req, res) => {
     
     console.log('📊 [commission-stats] userId:', req.userId, 'role:', user?.role, 'isAdmin:', isAdmin, 'manufacturerId:', manufacturerId)
     
+    // 先查询所有返佣订单（调试用）
+    const allCommissionOrders = await Order.find({
+      settlementMode: 'commission_mode',
+      isDeleted: { $ne: true }
+    }).select('orderNo commissionStatus commissionAmount').lean()
+    console.log('📊 [commission-stats] 所有返佣模式订单:', allCommissionOrders.length, allCommissionOrders.map(o => `${o.orderNo}:${o.commissionStatus}`))
+    
     // 非管理员需要限制厂家
     if (!isAdmin && manufacturerId) {
       query.$or = [
