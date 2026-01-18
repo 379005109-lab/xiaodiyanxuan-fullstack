@@ -2374,6 +2374,34 @@ export default function OrderManagementNew2() {
                 </div>
               )}
               
+              {/* 后端活动日志 activityLogs */}
+              {((selectedOrder as any).activityLogs || []).map((log: any, idx: number) => (
+                <div key={`activity-${idx}`} className={`text-sm flex items-start gap-2 pb-3 border-b border-gray-100 ${
+                  log.action === 'settlement_mode_set' ? 'bg-purple-50 rounded p-2' :
+                  log.action === 'deposit_paid' ? 'bg-cyan-50 rounded p-2' :
+                  log.action === 'deposit_verified' ? 'bg-green-50 rounded p-2' :
+                  log.action === 'final_payment_requested' ? 'bg-orange-50 rounded p-2' :
+                  log.action === 'final_payment_paid' ? 'bg-pink-50 rounded p-2' :
+                  log.action === 'final_payment_verified' ? 'bg-teal-50 rounded p-2' :
+                  ''
+                }`}>
+                  <CheckCircle2 className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                    log.action === 'settlement_mode_set' ? 'text-purple-500' :
+                    log.action === 'deposit_paid' ? 'text-cyan-500' :
+                    log.action === 'deposit_verified' ? 'text-green-500' :
+                    log.action === 'final_payment_requested' ? 'text-orange-500' :
+                    log.action === 'final_payment_paid' ? 'text-pink-500' :
+                    log.action === 'final_payment_verified' ? 'text-teal-500' :
+                    'text-gray-500'
+                  }`} />
+                  <div>
+                    <span className="text-gray-400 text-xs">{new Date(log.timestamp).toLocaleString('zh-CN')}</span>
+                    <p className="text-gray-700 font-medium">{log.details}</p>
+                    {log.operator && <span className="text-xs text-gray-400">操作人: {log.operator}</span>}
+                  </div>
+                </div>
+              ))}
+              
               {/* 订单日志记录 */}
               {orderLogs
                 .filter(log => log.orderId === selectedOrder._id)
