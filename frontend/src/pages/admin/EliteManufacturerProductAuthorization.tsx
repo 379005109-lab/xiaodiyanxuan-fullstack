@@ -276,16 +276,21 @@ export default function EliteManufacturerProductAuthorization() {
   }
 
   const toggleCategorySelection = (catId: string) => {
+    console.log('[toggleCategorySelection] catId:', catId)
     const descIds = getDescendantCategoryIds(String(catId))
+    console.log('[toggleCategorySelection] descIds:', descIds)
     setSelectedCategoryIds(prev => {
       const set = new Set(prev)
       const isSelected = set.has(String(catId))
+      console.log('[toggleCategorySelection] isSelected:', isSelected, 'prev:', prev)
       if (isSelected) {
         descIds.forEach(id => set.delete(String(id)))
       } else {
         descIds.forEach(id => set.add(String(id)))
       }
-      return Array.from(set)
+      const result = Array.from(set)
+      console.log('[toggleCategorySelection] new selectedCategoryIds:', result)
+      return result
     })
   }
 
