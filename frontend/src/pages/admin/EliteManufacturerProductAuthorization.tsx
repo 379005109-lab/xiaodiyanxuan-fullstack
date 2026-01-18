@@ -399,17 +399,23 @@ export default function EliteManufacturerProductAuthorization() {
           ? 'category'
           : 'specific'
 
+      console.log('[Submit] selectedCategoryIds:', selectedCategoryIds)
+      console.log('[Submit] selectedProductIds:', selectedProductIds)
+      console.log('[Submit] scope:', scope)
+
       const endpoint = (isDesigner || isPlatformAdmin)
         ? '/authorizations/designer-requests'
         : '/authorizations/manufacturer-requests'
-      await apiClient.post(endpoint, {
+      const payload = {
         manufacturerId,
         scope,
         categories: selectedCategoryIds,
         products: selectedProductIds,
         validUntil: validUntil || undefined,
         notes: buildNotes()
-      })
+      }
+      console.log('[Submit] Sending payload:', payload)
+      await apiClient.post(endpoint, payload)
       toast.success('申请已提交')
       navigate('/admin/manufacturers')
     } catch (e: any) {
