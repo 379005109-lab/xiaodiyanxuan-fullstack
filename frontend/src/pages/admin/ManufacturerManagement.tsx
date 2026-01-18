@@ -1930,121 +1930,163 @@ export default function ManufacturerManagement() {
                   <p className="text-sm text-gray-400 mt-2">您授权给其他商家时，会显示在这里</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {grantedAuths.map((auth: any) => {
-                    const targetName = auth.toDesigner?.nickname || auth.toDesigner?.username || 
-                                      auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知渠道'
-                    const targetAvatar = auth.toDesigner?.avatar || auth.toManufacturer?.logo
+                    const target = auth.toManufacturer || auth.toDesigner || {}
+                    const targetName = target.name || target.fullName || target.nickname || target.username || '未知渠道'
+                    const targetCode = target.code || ''
+                    const targetImage = target.galleryImages?.[0] || target.logo || target.avatar
                     const targetType = auth.authorizationType === 'manufacturer' ? '厂家' : '设计师'
-                    const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
+                    const discount = auth.minDiscountRate ?? target.defaultDiscount ?? 60
+                    const commission = auth.commissionRate ?? target.defaultCommission ?? 40
+                    const priceMin = target.priceRangeMin || 0
+                    const priceMax = target.priceRangeMax || 0
+                    const styleTags = target.styleTags || []
+                    const categoryTags = target.categoryTags || []
                     
                     return (
-                      <div key={auth._id} className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
-                              {targetAvatar ? (
-                                <img src={getFileUrl(targetAvatar)} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                  <Factory className="w-6 h-6" />
-                                </div>
-                              )}
+                      <div key={auth._id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow">
+                        {/* 顶部状态栏 */}
+                        <div className="relative">
+                          <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+                            <button
+                              onClick={async () => {
+                                const newValue = auth.allowSubAuthorization === false
+                                setGrantedAuths(prev => prev.map(a => 
+                                  a._id === auth._id ? { ...a, allowSubAuthorization: newValue } : a
+                                ))
+                                try {
+                                  await apiClient.put(`/authorizations/${auth._id}/settings`, {
+                                    allowSubAuthorization: newValue
+                                  })
+                                  toast.success(newValue ? '已开启转授权' : '已关闭转授权')
+                                } catch (e) {
+                                  setGrantedAuths(prev => prev.map(a => 
+                                    a._id === auth._id ? { ...a, allowSubAuthorization: !newValue } : a
+                                  ))
+                                  toast.error('操作失败')
+                                }
+                              }}
+                              className={`relative w-12 h-6 rounded-full transition-colors ${
+                                auth.allowSubAuthorization !== false ? 'bg-green-500' : 'bg-gray-300'
+                              }`}
+                            >
+                              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                                auth.allowSubAuthorization !== false ? 'left-7' : 'left-1'
+                              }`} />
+                            </button>
+                            <span className={`px-2 py-1 text-xs font-medium rounded ${
+                              auth.allowSubAuthorization !== false 
+                                ? 'bg-green-500 text-white' 
+                                : 'bg-gray-200 text-gray-600'
+                            }`}>
+                              {auth.allowSubAuthorization !== false ? '启用中' : '已禁用'}
+                            </span>
+                          </div>
+                          
+                          {/* 产品图片 */}
+                          <div className="h-48 bg-gray-100">
+                            {targetImage ? (
+                              <img src={getFileUrl(targetImage)} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                <Factory className="w-16 h-16" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* 内容区 */}
+                        <div className="p-4">
+                          {/* 类型和名称 */}
+                          <div className="text-xs text-gray-400 mb-1">{targetType}</div>
+                          <h3 className="text-xl font-bold text-gray-900 mb-1">{targetName}</h3>
+                          {targetCode && (
+                            <div className="text-xs text-orange-500 mb-4">{targetCode}</div>
+                          )}
+                          
+                          {/* 折扣和返佣 */}
+                          <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div className="border border-gray-200 rounded-xl p-3 text-center">
+                              <div className="text-xs text-gray-500 mb-1">经销折扣(%)</div>
+                              <div className="text-2xl font-bold text-gray-900">{discount}</div>
                             </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-gray-900">{targetName}</span>
-                                <span className={`px-2 py-0.5 text-xs rounded ${
-                                  auth.authorizationType === 'manufacturer' 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'bg-purple-100 text-purple-700'
-                                }`}>
-                                  {targetType}
-                                </span>
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                合约期至: {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久有效'}
-                              </div>
+                            <div className="border border-gray-200 rounded-xl p-3 text-center">
+                              <div className="text-xs text-gray-500 mb-1">返佣比例(%)</div>
+                              <div className="text-2xl font-bold text-gray-900">{commission}</div>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-6">
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500">最低折扣</div>
-                              <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500">返佣比例</div>
-                              <div className="text-lg font-bold text-blue-600">{auth.commissionRate ?? '--'}%</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500">已授权SKU</div>
-                              <div className="text-lg font-bold text-gray-900">{productCount}</div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              {/* 允许转授权开关 */}
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">允许转授权</span>
-                                <button
-                                  onClick={async () => {
-                                    const newValue = auth.allowSubAuthorization === false
-                                    // 立即更新本地状态
-                                    setGrantedAuths(prev => prev.map(a => 
-                                      a._id === auth._id ? { ...a, allowSubAuthorization: newValue } : a
-                                    ))
-                                    try {
-                                      await apiClient.put(`/authorizations/${auth._id}/settings`, {
-                                        allowSubAuthorization: newValue
-                                      })
-                                      toast.success(newValue ? '已开启转授权' : '已关闭转授权')
-                                    } catch (e) {
-                                      // 失败时恢复原值
-                                      setGrantedAuths(prev => prev.map(a => 
-                                        a._id === auth._id ? { ...a, allowSubAuthorization: !newValue } : a
-                                      ))
-                                      toast.error('操作失败')
-                                    }
-                                  }}
-                                  className={`relative w-10 h-5 rounded-full transition-colors ${
-                                    auth.allowSubAuthorization !== false ? 'bg-green-500' : 'bg-gray-300'
-                                  }`}
-                                >
-                                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                                    auth.allowSubAuthorization !== false ? 'left-5' : 'left-0.5'
-                                  }`} />
-                                </button>
+                          
+                          {/* 价格范围 */}
+                          {(priceMin > 0 || priceMax > 0) && (
+                            <div className="mb-4">
+                              <div className="text-xs text-gray-500 mb-1">产品价格范围</div>
+                              <div className="text-lg font-semibold text-gray-900">
+                                ¥{priceMin.toLocaleString()} - ¥{priceMax.toLocaleString()}
                               </div>
-                              <button 
-                                onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing`)}
-                                className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50"
-                              >
-                                专属价格池
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  const rt = encodeURIComponent(`/admin/manufacturer-management`)
-                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${myManufacturerId}&returnTo=${rt}`)
-                                }}
-                                className="px-3 py-1.5 text-xs bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
-                              >
-                                分成体系
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  if (confirm('确定要取消对该渠道的授权吗？')) {
-                                    apiClient.delete(`/authorizations/${auth._id}`)
-                                      .then(() => {
-                                        toast.success('已取消授权')
-                                        fetchData()
-                                      })
-                                      .catch(() => toast.error('取消授权失败'))
-                                  }
-                                }}
-                                className="px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
-                              >
-                                取消授权
-                              </button>
                             </div>
+                          )}
+                          
+                          {/* 风格标签 */}
+                          {styleTags.length > 0 && (
+                            <div className="mb-3">
+                              <div className="text-xs text-gray-500 mb-1">风格</div>
+                              <div className="flex flex-wrap gap-1">
+                                {styleTags.slice(0, 4).map((tag: string, i: number) => (
+                                  <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* 品类标签 */}
+                          {categoryTags.length > 0 && (
+                            <div className="mb-4">
+                              <div className="text-xs text-gray-500 mb-1">品类</div>
+                              <div className="flex flex-wrap gap-1">
+                                {categoryTags.slice(0, 4).map((tag: string, i: number) => (
+                                  <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* 操作按钮 */}
+                          <button 
+                            onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing`)}
+                            className="w-full py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-[#1a4d42] mb-2"
+                          >
+                            经营授权
+                          </button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button 
+                              onClick={() => {
+                                const rt = encodeURIComponent(`/admin/manufacturer-management`)
+                                navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${myManufacturerId}&returnTo=${rt}`)
+                              }}
+                              className="py-2 border border-gray-200 text-gray-700 rounded-xl text-sm hover:bg-gray-50"
+                            >
+                              分成体系
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if (confirm('确定要取消对该渠道的授权吗？')) {
+                                  apiClient.delete(`/authorizations/${auth._id}`)
+                                    .then(() => {
+                                      toast.success('已取消授权')
+                                      fetchData()
+                                    })
+                                    .catch(() => toast.error('取消授权失败'))
+                                }
+                              }}
+                              className="py-2 border border-red-200 text-red-600 rounded-xl text-sm hover:bg-red-50"
+                            >
+                              下架停运
+                            </button>
                           </div>
                         </div>
                       </div>

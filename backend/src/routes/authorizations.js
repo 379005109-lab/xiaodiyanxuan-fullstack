@@ -479,7 +479,7 @@ router.get('/my-grants', auth, async (req, res) => {
     const authorizations = await Authorization.find({
       fromManufacturer: user.manufacturerId
     })
-      .populate('toManufacturer', 'name fullName logo contactPerson')
+      .populate('toManufacturer', 'name fullName logo contactPerson code styleTags categoryTags priceRangeMin priceRangeMax galleryImages defaultDiscount defaultCommission')
       .populate('toDesigner', 'username nickname avatar email')
       .populate('products', '_id')
       .sort({ createdAt: -1 })
