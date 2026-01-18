@@ -377,6 +377,21 @@ router.get('/summary', auth, async (req, res) => {
         })
         console.log('[Authorization Summary] Scope CATEGORY - productCount:', productCount, 'for categories:', auth.categories.length)
         summary.productCount += productCount
+      } else if (auth.scope === 'mixed') {
+        // 混合模式：分类 + 指定商品
+        let categoryCount = 0
+        if (auth.categories && Array.isArray(auth.categories) && auth.categories.length > 0) {
+          categoryCount = await Product.countDocuments({ 
+            manufacturerId: auth.fromManufacturer._id || auth.fromManufacturer,
+            category: { $in: auth.categories }
+          })
+        }
+        const specificCount = (auth.products && Array.isArray(auth.products)) ? auth.products.length : 0
+        console.log('[Authorization Summary] Scope MIXED - categoryCount:', categoryCount, 'specificCount:', specificCount)
+        summary.productCount += categoryCount + specificCount
+        if (auth.products && Array.isArray(auth.products)) {
+          summary.products.push(...auth.products)
+        }
       }
     }
     
