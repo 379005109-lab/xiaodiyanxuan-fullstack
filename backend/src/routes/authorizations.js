@@ -365,8 +365,13 @@ router.get('/summary', auth, async (req, res) => {
       // 累加商品数量
       if (auth.scope === 'all') {
         // 如果是全部授权，查询实际商品数量（包括所有状态）
-        const productCount = await Product.countDocuments({ 
-          manufacturerId: auth.fromManufacturer._id || auth.fromManufacturer
+        const mfId = auth.fromManufacturer._id || auth.fromManufacturer
+        const productCount = await Product.countDocuments({
+          status: 'active',
+          $or: [
+            { manufacturerId: mfId },
+            { 'skus.manufacturerId': mfId }
+          ]
         })
         console.log('[Authorization Summary] Scope ALL - productCount:', productCount, 'for manufacturer:', auth.fromManufacturer._id)
         summary.productCount = Math.max(summary.productCount, productCount)
@@ -377,19 +382,57 @@ router.get('/summary', auth, async (req, res) => {
         summary.products.push(...auth.products)
       } else if (auth.scope === 'category' && auth.categories && Array.isArray(auth.categories)) {
         // 如果是分类授权，查询该分类下的商品数量（包括所有状态）
-        const productCount = await Product.countDocuments({ 
-          manufacturerId: auth.fromManufacturer._id || auth.fromManufacturer,
-          category: { $in: auth.categories }
+        const mfId = auth.fromManufacturer._id || auth.fromManufacturer
+        const catIds = (auth.categories || []).map((c) => String(c))
+        const catOids = catIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id))
+        // 兼容 category 字段为字符串或对象
+        const categoryMatch = {
+          $or: [
+            { category: { $in: [...catIds, ...catOids] } },
+            { 'category._id': { $in: catOids } },
+            { 'category.id': { $in: catIds } },
+            { 'category.slug': { $in: catIds } }
+          ]
+        }
+        const productCountFinal = await Product.countDocuments({
+          status: 'active',
+          $and: [
+            {
+              $or: [
+                { manufacturerId: mfId },
+                { 'skus.manufacturerId': mfId }
+              ]
+            },
+            categoryMatch
+          ]
         })
-        console.log('[Authorization Summary] Scope CATEGORY - productCount:', productCount, 'for categories:', auth.categories.length)
-        summary.productCount += productCount
+        console.log('[Authorization Summary] Scope CATEGORY - productCount:', productCountFinal, 'for categories:', auth.categories.length)
+        summary.productCount += productCountFinal
       } else if (auth.scope === 'mixed') {
         // 混合模式：分类 + 指定商品
         let categoryCount = 0
         if (auth.categories && Array.isArray(auth.categories) && auth.categories.length > 0) {
-          categoryCount = await Product.countDocuments({ 
-            manufacturerId: auth.fromManufacturer._id || auth.fromManufacturer,
-            category: { $in: auth.categories }
+          const mfId = auth.fromManufacturer._id || auth.fromManufacturer
+          const catIds = (auth.categories || []).map((c) => String(c))
+          const catOids = catIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id))
+          categoryCount = await Product.countDocuments({
+            status: 'active',
+            $and: [
+              {
+                $or: [
+                  { manufacturerId: mfId },
+                  { 'skus.manufacturerId': mfId }
+                ]
+              },
+              {
+                $or: [
+                  { category: { $in: [...catIds, ...catOids] } },
+                  { 'category._id': { $in: catOids } },
+                  { 'category.id': { $in: catIds } },
+                  { 'category.slug': { $in: catIds } }
+                ]
+              }
+            ]
           })
         }
         const specificCount = (auth.products && Array.isArray(auth.products)) ? auth.products.length : 0
@@ -1156,21 +1199,61 @@ router.get('/received', auth, async (req, res) => {
       console.log('[received] Auth:', a._id, 'fromMf:', mfId?.toString?.() || mfId, 'scope:', a.scope, 'categories:', a.categories?.length, 'products:', a.products?.length)
       
       if (a.scope === 'all') {
-        actualProductCount = await Product.countDocuments({ manufacturerId: mfId })
+        actualProductCount = await Product.countDocuments({
+          status: 'active',
+          $or: [
+            { manufacturerId: mfId },
+            { 'skus.manufacturerId': mfId }
+          ]
+        })
         console.log('[received] scope=all, count:', actualProductCount)
       } else if (a.scope === 'category' && a.categories && Array.isArray(a.categories) && a.categories.length > 0) {
-        actualProductCount = await Product.countDocuments({ 
-          manufacturerId: mfId,
-          category: { $in: a.categories }
+        const catIds = (a.categories || []).map((c) => String(c))
+        const catOids = catIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id))
+        actualProductCount = await Product.countDocuments({
+          status: 'active',
+          $and: [
+            {
+              $or: [
+                { manufacturerId: mfId },
+                { 'skus.manufacturerId': mfId }
+              ]
+            },
+            {
+              $or: [
+                { category: { $in: [...catIds, ...catOids] } },
+                { 'category._id': { $in: catOids } },
+                { 'category.id': { $in: catIds } },
+                { 'category.slug': { $in: catIds } }
+              ]
+            }
+          ]
         })
         console.log('[received] scope=category, count:', actualProductCount)
       } else if (a.scope === 'mixed') {
         // mixed scope: 分类+指定商品
         let categoryCount = 0
         if (a.categories && Array.isArray(a.categories) && a.categories.length > 0) {
-          categoryCount = await Product.countDocuments({ 
-            manufacturerId: mfId,
-            category: { $in: a.categories }
+          const catIds = (a.categories || []).map((c) => String(c))
+          const catOids = catIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id))
+          categoryCount = await Product.countDocuments({
+            status: 'active',
+            $and: [
+              {
+                $or: [
+                  { manufacturerId: mfId },
+                  { 'skus.manufacturerId': mfId }
+                ]
+              },
+              {
+                $or: [
+                  { category: { $in: [...catIds, ...catOids] } },
+                  { 'category._id': { $in: catOids } },
+                  { 'category.id': { $in: catIds } },
+                  { 'category.slug': { $in: catIds } }
+                ]
+              }
+            ]
           })
         }
         const productCount = (a.products && Array.isArray(a.products)) ? a.products.length : 0
