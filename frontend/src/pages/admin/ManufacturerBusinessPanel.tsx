@@ -197,11 +197,16 @@ export default function ManufacturerBusinessPanel() {
       
       // Fetch real GMV data for each authorization
       let gmvData: Record<string, number> = {}
+      let growthData = { monthlyGrowth: 0 }
       try {
-        const gmvRes = await apiClient.get(`/authorizations/gmv-stats`, { params: { manufacturerId } })
+        const [gmvRes, growthRes] = await Promise.all([
+          apiClient.get(`/authorizations/gmv-stats`, { params: { manufacturerId } }),
+          apiClient.get(`/authorizations/growth-stats`, { params: { manufacturerId } })
+        ])
         gmvData = gmvRes.data?.data || {}
+        growthData = growthRes.data?.data || { monthlyGrowth: 0 }
       } catch {
-        // Use 0 if GMV API fails
+        // Use defaults if API fails
       }
       
       const channelList: ChannelItem[] = authorizations.map((auth: any) => {
@@ -239,7 +244,7 @@ export default function ManufacturerBusinessPanel() {
       const activeChannels = channelList.filter(c => c.status === 'active')
       setStats({
         totalGmv: activeChannels.reduce((sum, c) => sum + c.gmv, 0),
-        monthlyGrowth: 12.5, // TODO: Calculate real growth
+        monthlyGrowth: growthData.monthlyGrowth || 0,
         channelCount: activeChannels.length,
         productCount: productList.length
       })

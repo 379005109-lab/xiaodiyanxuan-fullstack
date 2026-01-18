@@ -2670,6 +2670,58 @@ router.get('/gmv-stats', auth, async (req, res) => {
   }
 })
 
+// GET /api/authorizations/growth-stats - 获取月增长率统计
+router.get('/growth-stats', auth, async (req, res) => {
+  try {
+    const { manufacturerId } = req.query
+    const user = await User.findById(req.userId).select('manufacturerId manufacturerIds').lean()
+    const mfId = manufacturerId || user?.manufacturerId || user?.manufacturerIds?.[0]
+    
+    if (!mfId) {
+      return res.json({ success: true, data: { monthlyGrowth: 0, thisMonthChannels: 0, lastMonthChannels: 0 } })
+    }
+
+    const now = new Date()
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+
+    // 本月新增渠道数
+    const thisMonthChannels = await Authorization.countDocuments({
+      fromManufacturer: mfId,
+      status: 'active',
+      createdAt: { $gte: thisMonthStart }
+    })
+
+    // 上月新增渠道数
+    const lastMonthChannels = await Authorization.countDocuments({
+      fromManufacturer: mfId,
+      status: 'active',
+      createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
+    })
+
+    // 计算增长率
+    let monthlyGrowth = 0
+    if (lastMonthChannels > 0) {
+      monthlyGrowth = ((thisMonthChannels - lastMonthChannels) / lastMonthChannels * 100).toFixed(1)
+    } else if (thisMonthChannels > 0) {
+      monthlyGrowth = 100
+    }
+
+    res.json({ 
+      success: true, 
+      data: { 
+        monthlyGrowth: Number(monthlyGrowth),
+        thisMonthChannels,
+        lastMonthChannels
+      } 
+    })
+  } catch (error) {
+    console.error('获取增长率统计失败:', error)
+    res.status(500).json({ success: false, message: '获取增长率统计失败' })
+  }
+})
+
 // PUT /api/authorizations/:id/toggle-status - 切换授权状态（暂停/恢复合作）
 router.put('/:id/toggle-status', auth, async (req, res) => {
   try {

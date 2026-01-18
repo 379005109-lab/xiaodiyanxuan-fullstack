@@ -252,6 +252,8 @@ export default function ManufacturerManagement() {
   const [factoryTab, setFactoryTab] = useState<FactoryTabType>('home')
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
+  const [monthlyGrowth, setMonthlyGrowth] = useState<number>(0)
+  const [commissionStats, setCommissionStats] = useState<{ pending: number; settled: number; total: number; pendingOrders: any[] }>({ pending: 0, settled: 0, total: 0, pendingOrders: [] })
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [approveTarget, setApproveTarget] = useState<any>(null)
@@ -338,14 +340,18 @@ export default function ManufacturerManagement() {
 
         // 获取合作商家（其他商家授权给本厂家）和渠道管理（本厂家授权给其他商家）
         try {
-          const [receivedRes, grantedRes, pendingDesignerRes, pendingManufacturerRes] = await Promise.all([
+          const [receivedRes, grantedRes, pendingDesignerRes, pendingManufacturerRes, growthRes, commissionRes] = await Promise.all([
             apiClient.get('/authorizations/received').catch(() => ({ data: { data: [] } })),
             apiClient.get('/authorizations/my-grants').catch(() => ({ data: { data: [] } })),
             apiClient.get('/authorizations/designer-requests/pending').catch(() => ({ data: { data: [] } })),
-            apiClient.get('/authorizations/manufacturer-requests/pending').catch(() => ({ data: { data: [] } }))
+            apiClient.get('/authorizations/manufacturer-requests/pending').catch(() => ({ data: { data: [] } })),
+            apiClient.get('/authorizations/growth-stats').catch(() => ({ data: { data: { monthlyGrowth: 0 } } })),
+            apiClient.get('/orders/commission-stats').catch(() => ({ data: { data: { pending: 0, settled: 0, total: 0, pendingOrders: [] } } }))
           ])
           setReceivedAuths(receivedRes.data?.data || [])
           setGrantedAuths((grantedRes.data?.data || []).filter((a: any) => a?.status === 'active'))
+          setMonthlyGrowth(growthRes.data?.data?.monthlyGrowth || 0)
+          setCommissionStats(commissionRes.data?.data || { pending: 0, settled: 0, total: 0, pendingOrders: [] })
           // 合并待审批请求
           const pendingDesigner = pendingDesignerRes.data?.data || []
           const pendingManufacturer = pendingManufacturerRes.data?.data || []
@@ -1751,7 +1757,7 @@ export default function ManufacturerManagement() {
                     </div>
                     <div>
                       <div className="text-xs text-gray-500">本月增长率</div>
-                      <div className="text-xl font-bold text-blue-600">+12.5%</div>
+                      <div className="text-xl font-bold text-blue-600">{monthlyGrowth >= 0 ? '+' : ''}{monthlyGrowth}%</div>
                     </div>
                   </div>
                 </div>
@@ -1820,8 +1826,8 @@ export default function ManufacturerManagement() {
                                       <span className="ml-1 text-gray-900">{req.toManufacturer.businessCategories || '--'}</span>
                                     </div>
                                     <div>
-                                      <span className="text-gray-500">年营业额:</span>
-                                      <span className="ml-1 text-gray-900">{req.toManufacturer.annualRevenue || '--'}</span>
+                                      <span className="text-gray-500">产品范围:</span>
+                                      <span className="ml-1 text-gray-900">{scopeLabel}</span>
                                     </div>
                                     <div>
                                       <span className="text-gray-500">申请时间:</span>
@@ -2062,25 +2068,65 @@ export default function ManufacturerManagement() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
                   <div className="text-sm text-gray-500 mb-2">待结算返佣</div>
-                  <div className="text-3xl font-bold text-orange-600">¥0.00</div>
+                  <div className="text-3xl font-bold text-orange-600">¥{commissionStats.pending.toLocaleString()}</div>
                 </div>
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
                   <div className="text-sm text-gray-500 mb-2">已结算返佣</div>
-                  <div className="text-3xl font-bold text-green-600">¥0.00</div>
+                  <div className="text-3xl font-bold text-green-600">¥{commissionStats.settled.toLocaleString()}</div>
                 </div>
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
                   <div className="text-sm text-gray-500 mb-2">累计返佣</div>
-                  <div className="text-3xl font-bold text-gray-900">¥0.00</div>
+                  <div className="text-3xl font-bold text-gray-900">¥{commissionStats.total.toLocaleString()}</div>
                 </div>
               </div>
               
               <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">返佣记录</h3>
-                <div className="text-center py-12 text-gray-500">
-                  <div className="text-4xl mb-4">📊</div>
-                  <p>暂无返佣记录</p>
-                  <p className="text-sm mt-2">当您的渠道商产生销售订单后，返佣记录将显示在这里</p>
-                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">待申请返佣订单</h3>
+                {commissionStats.pendingOrders.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <div className="text-4xl mb-4">📊</div>
+                    <p>暂无待申请返佣的订单</p>
+                    <p className="text-sm mt-2">当您的渠道商产生已完成的销售订单后，可在此申请返佣</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {commissionStats.pendingOrders.map((order: any) => (
+                      <div key={order._id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-gray-900">订单号: {order.orderNo}</span>
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">已完成</span>
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            完成时间: {order.completedAt ? new Date(order.completedAt).toLocaleDateString() : '--'}
+                          </div>
+                        </div>
+                        <div className="text-right mr-4">
+                          <div className="text-sm text-gray-500">订单金额</div>
+                          <div className="font-medium text-gray-900">¥{(order.totalAmount || 0).toLocaleString()}</div>
+                        </div>
+                        <div className="text-right mr-4">
+                          <div className="text-sm text-gray-500">返佣金额</div>
+                          <div className="font-bold text-orange-600">¥{(order.commissionAmount || 0).toFixed(2)}</div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await apiClient.post(`/orders/${order._id}/apply-commission`)
+                              toast.success('返佣申请已提交')
+                              fetchData()
+                            } catch (e: any) {
+                              toast.error(e.response?.data?.message || '申请失败')
+                            }
+                          }}
+                          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm"
+                        >
+                          申请返佣
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4145,8 +4191,16 @@ export default function ManufacturerManagement() {
                       <span className="ml-2 text-gray-900">{approveTarget.toManufacturer.businessCategories || '--'}</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">年营业额:</span>
-                      <span className="ml-2 text-gray-900">{approveTarget.toManufacturer.annualRevenue || '--'}</span>
+                      <span className="text-gray-500">产品范围:</span>
+                      <span className="ml-2 text-gray-900">
+                        {approveTarget.scope === 'all' 
+                          ? '全部商品' 
+                          : approveTarget.scope === 'category' 
+                            ? `分类授权 (${approveTarget.categories?.length || 0}个)` 
+                            : approveTarget.scope === 'mixed'
+                              ? `混合授权 (${approveTarget.categories?.length || 0}个分类, ${approveTarget.products?.length || 0}个商品)`
+                              : `指定商品 (${approveTarget.products?.length || 0}个)`}
+                      </span>
                     </div>
                   </div>
                   {approveTarget.toManufacturer.businessLicense ? (

@@ -1393,4 +1393,107 @@ router.delete('/:id/permanent', async (req, res) => {
   }
 })
 
+// ========== 返佣管理路由 ==========
+// GET /api/orders/commission-stats - 获取返佣统计数据
+router.get('/commission-stats', async (req, res) => {
+  try {
+    const Order = require('../models/Order')
+    const User = require('../models/User')
+    const { ORDER_STATUS } = require('../config/constants')
+    
+    const user = await User.findById(req.userId).select('manufacturerId manufacturerIds role').lean()
+    const manufacturerId = user?.manufacturerId || user?.manufacturerIds?.[0]
+    
+    if (!manufacturerId) {
+      return res.json({ 
+        success: true, 
+        data: { pending: 0, settled: 0, total: 0, pendingOrders: [] } 
+      })
+    }
+
+    // 查询该厂家商品的订单中的返佣
+    const completedOrders = await Order.find({
+      'items.manufacturerId': manufacturerId,
+      status: { $in: [ORDER_STATUS.COMPLETED, 5] }, // 已完成订单
+      isDeleted: { $ne: true }
+    }).select('orderNo items commissionAmount commissionStatus completedAt totalAmount').lean()
+
+    let pendingAmount = 0
+    let settledAmount = 0
+    const pendingOrders = []
+
+    for (const order of completedOrders) {
+      // 计算该厂家商品的返佣金额
+      let orderCommission = 0
+      for (const item of (order.items || [])) {
+        if (String(item.manufacturerId) === String(manufacturerId)) {
+          // 使用订单的返佣率或默认10%
+          const commissionRate = 0.1
+          orderCommission += (item.subtotal || item.price * item.quantity) * commissionRate
+        }
+      }
+
+      if (order.commissionStatus === 'paid') {
+        settledAmount += orderCommission
+      } else {
+        pendingAmount += orderCommission
+        if (order.commissionStatus !== 'applied' && order.commissionStatus !== 'approved') {
+          pendingOrders.push({
+            _id: order._id,
+            orderNo: order.orderNo,
+            completedAt: order.completedAt,
+            totalAmount: order.totalAmount,
+            commissionAmount: orderCommission,
+            commissionStatus: order.commissionStatus || 'pending'
+          })
+        }
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      data: { 
+        pending: Math.round(pendingAmount * 100) / 100,
+        settled: Math.round(settledAmount * 100) / 100,
+        total: Math.round((pendingAmount + settledAmount) * 100) / 100,
+        pendingOrders
+      } 
+    })
+  } catch (error) {
+    console.error('获取返佣统计失败:', error)
+    res.status(500).json({ success: false, message: '获取返佣统计失败' })
+  }
+})
+
+// POST /api/orders/:id/apply-commission - 申请返佣
+router.post('/:id/apply-commission', async (req, res) => {
+  try {
+    const Order = require('../models/Order')
+    const { id } = req.params
+    const { ORDER_STATUS } = require('../config/constants')
+
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+
+    if (order.status !== ORDER_STATUS.COMPLETED && order.status !== 5) {
+      return res.status(400).json({ success: false, message: '只有已完成的订单才能申请返佣' })
+    }
+
+    if (order.commissionStatus === 'applied' || order.commissionStatus === 'approved' || order.commissionStatus === 'paid') {
+      return res.status(400).json({ success: false, message: '该订单已申请过返佣' })
+    }
+
+    order.commissionStatus = 'applied'
+    order.commissionAppliedAt = new Date()
+    await order.save()
+
+    res.json({ success: true, message: '返佣申请已提交', data: order })
+  } catch (error) {
+    console.error('申请返佣失败:', error)
+    res.status(500).json({ success: false, message: '申请返佣失败' })
+  }
+})
+
 module.exports = router
