@@ -1528,6 +1528,8 @@ router.get('/commission-stats', async (req, res) => {
     const commissionOrders = await Order.find(query)
       .select('orderNo items commissionAmount commissionStatus commissionAppliedAt commissionApprovedAt commissionPaidAt commissionInvoiceUrl commissionPaymentProofUrl commissionPaymentRemark completedAt totalAmount status')
       .lean()
+    
+    console.log('📊 [commission-stats] found', commissionOrders.length, 'orders')
 
     let appliedAmount = 0   // 待核销金额
     let pendingAmount = 0   // 待打款金额（已核销）
