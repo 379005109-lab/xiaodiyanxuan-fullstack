@@ -1129,18 +1129,32 @@ router.get('/received', auth, async (req, res) => {
     // 计算每个授权的实际商品数量
     const withProductCount = await Promise.all((authorizations || []).map(async (a) => {
       let actualProductCount = 0
+      const mfId = a.fromManufacturer?._id || a.fromManufacturer
+      
       if (a.scope === 'all') {
+        actualProductCount = await Product.countDocuments({ manufacturerId: mfId })
+      } else if (a.scope === 'category' && a.categories && Array.isArray(a.categories) && a.categories.length > 0) {
         actualProductCount = await Product.countDocuments({ 
-          manufacturerId: a.fromManufacturer?._id || a.fromManufacturer 
-        })
-      } else if (a.scope === 'category' && a.categories && Array.isArray(a.categories)) {
-        actualProductCount = await Product.countDocuments({ 
-          manufacturerId: a.fromManufacturer?._id || a.fromManufacturer,
+          manufacturerId: mfId,
           category: { $in: a.categories }
         })
+      } else if (a.scope === 'mixed') {
+        // mixed scope: 分类+指定商品
+        let categoryCount = 0
+        if (a.categories && Array.isArray(a.categories) && a.categories.length > 0) {
+          categoryCount = await Product.countDocuments({ 
+            manufacturerId: mfId,
+            category: { $in: a.categories }
+          })
+        }
+        const productCount = (a.products && Array.isArray(a.products)) ? a.products.length : 0
+        actualProductCount = categoryCount + productCount
+      } else if (a.scope === 'specific' && a.products && Array.isArray(a.products)) {
+        actualProductCount = a.products.length
       } else if (a.products && Array.isArray(a.products)) {
         actualProductCount = a.products.length
       }
+      
       return {
         ...a,
         tierCompanyId: resolveCompanyId(a),
