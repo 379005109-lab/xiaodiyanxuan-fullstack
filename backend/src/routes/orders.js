@@ -1497,23 +1497,32 @@ router.get('/commission-stats', async (req, res) => {
     
     const user = await User.findById(req.userId).select('manufacturerId manufacturerIds role').lean()
     const manufacturerId = user?.manufacturerId || user?.manufacturerIds?.[0]
+    const isAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin'].includes(user?.role)
     
-    if (!manufacturerId) {
+    // 构建查询条件
+    let query = {
+      settlementMode: 'commission_mode',
+      commissionStatus: { $in: ['applied', 'approved', 'paid'] },  // 只查询有返佣状态的订单
+      isDeleted: { $ne: true }
+    }
+    
+    // 非管理员需要限制厂家
+    if (!isAdmin && manufacturerId) {
+      query.$or = [
+        { ownerManufacturerId: manufacturerId },
+        { 'items.manufacturerId': manufacturerId }
+      ]
+    } else if (!isAdmin && !manufacturerId) {
       return res.json({ 
         success: true, 
         data: { pending: 0, applied: 0, settled: 0, total: 0, pendingOrders: [], appliedOrders: [], approvedOrders: [], paidOrders: [] } 
       })
     }
 
-    // 查询返佣模式订单（已完成或有返佣状态的）
-    const commissionOrders = await Order.find({
-      $or: [
-        { ownerManufacturerId: manufacturerId },
-        { 'items.manufacturerId': manufacturerId }
-      ],
-      settlementMode: 'commission_mode',
-      isDeleted: { $ne: true }
-    }).select('orderNo items commissionAmount commissionStatus commissionAppliedAt commissionApprovedAt commissionPaidAt commissionInvoiceUrl commissionPaymentProofUrl commissionPaymentRemark completedAt totalAmount status').lean()
+    // 查询返佣模式订单
+    const commissionOrders = await Order.find(query)
+      .select('orderNo items commissionAmount commissionStatus commissionAppliedAt commissionApprovedAt commissionPaidAt commissionInvoiceUrl commissionPaymentProofUrl commissionPaymentRemark completedAt totalAmount status')
+      .lean()
 
     let appliedAmount = 0   // 待核销金额
     let pendingAmount = 0   // 待打款金额（已核销）
