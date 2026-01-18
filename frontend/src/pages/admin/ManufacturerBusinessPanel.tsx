@@ -926,12 +926,29 @@ export default function ManufacturerBusinessPanel() {
                             已授权 {productCount} 件商品
                           </div>
                           
-                          <button
-                            onClick={() => navigate(`/admin/manufacturers/${manufacturerId}/authorized-products?partnerId=${partnerId}`)}
-                            className="w-full py-2.5 bg-[#153e35] text-white rounded-lg text-sm hover:bg-[#1a4d42]"
-                          >
-                            查看授权商品
-                          </button>
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => navigate(`/admin/manufacturers/${manufacturerId}/authorized-products?partnerId=${partnerId}`)}
+                              className="w-full py-2.5 bg-[#153e35] text-white rounded-lg text-sm hover:bg-[#1a4d42]"
+                            >
+                              查看授权商品
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm('确定要取消与该厂家的合作吗？取消后将无法继续销售其授权商品。')) {
+                                  apiClient.delete(`/authorizations/${auth._id}`)
+                                    .then(() => {
+                                      toast.success('已取消合作')
+                                      loadData()
+                                    })
+                                    .catch(() => toast.error('取消合作失败'))
+                                }
+                              }}
+                              className="w-full py-2 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50"
+                            >
+                              取消合作
+                            </button>
+                          </div>
                         </div>
                       )
                     })}

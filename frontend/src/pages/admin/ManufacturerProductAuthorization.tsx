@@ -65,6 +65,13 @@ export default function ManufacturerProductAuthorization() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set())
   const [tierSystemConfig, setTierSystemConfig] = useState<any>(null)
+  
+  // 协议相关状态
+  const [authorizationPeriod, setAuthorizationPeriod] = useState(12) // 授权期限（月）
+  const [cancellationPolicy, setCancellationPolicy] = useState<'mutual' | 'notice'>('mutual')
+  const [noticePeriodDays, setNoticePeriodDays] = useState(30)
+  const [agreementSigned, setAgreementSigned] = useState(false)
+  const [showAgreementModal, setShowAgreementModal] = useState(false)
 
   useEffect(() => {
     const run = async () => {
@@ -366,6 +373,12 @@ export default function ManufacturerProductAuthorization() {
       toast.error('请选择至少一个分类或商品')
       return
     }
+    
+    // 厂家用户需要先签署协议
+    if (isManufacturerUser && !agreementSigned) {
+      setShowAgreementModal(true)
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -384,7 +397,11 @@ export default function ManufacturerProductAuthorization() {
         categories: selectedCategoryIds,
         products: selectedProductIds,
         validUntil: validUntil || undefined,
-        notes: buildNotes()
+        notes: buildNotes(),
+        authorizationPeriod,
+        cancellationPolicy,
+        noticePeriodDays: cancellationPolicy === 'notice' ? noticePeriodDays : undefined,
+        agreementSigned
       })
       toast.success('申请已提交')
       navigate('/admin/manufacturers')
@@ -393,6 +410,13 @@ export default function ManufacturerProductAuthorization() {
     } finally {
       setSubmitting(false)
     }
+  }
+  
+  const handleConfirmAgreement = () => {
+    setAgreementSigned(true)
+    setShowAgreementModal(false)
+    // 自动触发提交
+    setTimeout(() => handleSubmit(), 100)
   }
 
   return (
@@ -689,6 +713,110 @@ export default function ManufacturerProductAuthorization() {
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="text-sm text-gray-700">期望有效期</div>
               <div className="text-sm text-gray-900 mt-1">{validUntil ? validUntil : '永久有效'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 协议签署弹窗 */}
+      {showAgreementModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">授权合作协议</h3>
+              <p className="text-sm text-gray-500 mt-1">请确认以下协议条款后提交申请</p>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* 授权期限 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">授权期限</label>
+                <select
+                  value={authorizationPeriod}
+                  onChange={e => setAuthorizationPeriod(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value={6}>6个月</option>
+                  <option value={12}>12个月（1年）</option>
+                  <option value={24}>24个月（2年）</option>
+                  <option value={36}>36个月（3年）</option>
+                </select>
+              </div>
+              
+              {/* 取消政策 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">提前终止方式</label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      checked={cancellationPolicy === 'mutual'}
+                      onChange={() => setCancellationPolicy('mutual')}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">双方协商同意</div>
+                      <div className="text-sm text-gray-500">授权期限内如需提前终止，须经双方书面同意</div>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      checked={cancellationPolicy === 'notice'}
+                      onChange={() => setCancellationPolicy('notice')}
+                      className="mt-1"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">提前通知</div>
+                      <div className="text-sm text-gray-500">任一方可提前通知终止授权</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              
+              {/* 提前通知天数 */}
+              {cancellationPolicy === 'notice' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">提前通知天数</label>
+                  <select
+                    value={noticePeriodDays}
+                    onChange={e => setNoticePeriodDays(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value={7}>7天</option>
+                    <option value={15}>15天</option>
+                    <option value={30}>30天</option>
+                    <option value={60}>60天</option>
+                  </select>
+                </div>
+              )}
+              
+              {/* 协议条款 */}
+              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600 space-y-2">
+                <div className="font-medium text-gray-900">协议条款</div>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>双方同意在授权期限内保持合作关系</li>
+                  <li>被授权方应遵守授权方的价格政策和销售规范</li>
+                  <li>授权期满前30天，双方可协商续期事宜</li>
+                  <li>如一方违约，另一方有权立即终止授权</li>
+                  <li>授权终止后，被授权方应停止销售授权商品</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAgreementModal(false)}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmAgreement}
+                className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                同意协议并提交申请
+              </button>
             </div>
           </div>
         </div>

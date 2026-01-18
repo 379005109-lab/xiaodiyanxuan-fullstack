@@ -248,7 +248,7 @@ export default function ManufacturerManagement() {
   }>>({})
 
   // 厂家管理TAB
-  type FactoryTabType = 'home' | 'partners' | 'channels'
+  type FactoryTabType = 'home' | 'partners' | 'channels' | 'commission'
   const [factoryTab, setFactoryTab] = useState<FactoryTabType>('home')
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
@@ -935,6 +935,16 @@ export default function ManufacturerManagement() {
               }`}
             >
               渠道管理 {grantedAuths.length > 0 && `(${grantedAuths.length})`}
+            </button>
+            <button
+              onClick={() => setFactoryTab('commission')}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                factoryTab === 'commission'
+                  ? 'border-[#153e35] text-[#153e35]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              返佣管理
             </button>
           </div>
 
@@ -2019,6 +2029,42 @@ export default function ManufacturerManagement() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+          
+          {/* 返佣管理TAB */}
+          {factoryTab === 'commission' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">返佣管理</h2>
+                  <p className="text-sm text-gray-500 mt-1">查看和管理销售返佣记录</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-sm text-gray-500 mb-2">待结算返佣</div>
+                  <div className="text-3xl font-bold text-orange-600">¥0.00</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-sm text-gray-500 mb-2">已结算返佣</div>
+                  <div className="text-3xl font-bold text-green-600">¥0.00</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-sm text-gray-500 mb-2">累计返佣</div>
+                  <div className="text-3xl font-bold text-gray-900">¥0.00</div>
+                </div>
+              </div>
+              
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">返佣记录</h3>
+                <div className="text-center py-12 text-gray-500">
+                  <div className="text-4xl mb-4">📊</div>
+                  <p>暂无返佣记录</p>
+                  <p className="text-sm mt-2">当您的渠道商产生销售订单后，返佣记录将显示在这里</p>
+                </div>
+              </div>
             </div>
           )}
         </>
