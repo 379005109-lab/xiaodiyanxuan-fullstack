@@ -1519,6 +1519,23 @@ export default function ManufacturerManagement() {
                                 下架停运
                               </button>
                             )}
+                            <button
+                              onClick={() => {
+                                const authId = authInfo?.authorizationId
+                                if (!authId) return
+                                if (confirm('确定要取消与该厂家的合作吗？取消后将无法继续销售其授权商品。')) {
+                                  apiClient.delete(`/authorizations/${authId}`)
+                                    .then(() => {
+                                      toast.success('已取消合作')
+                                      fetchData()
+                                    })
+                                    .catch(() => toast.error('取消合作失败'))
+                                }
+                              }}
+                              className="px-4 py-3 rounded-2xl bg-white border border-red-200 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              取消合作
+                            </button>
                           </div>
                         </div>
                       )
