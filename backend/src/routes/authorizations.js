@@ -1591,63 +1591,70 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
 
     // 如果已存在活跃授权，允许追加商品或分类
     if (existing && existing.status === 'active') {
-      console.log('[manufacturer-requests] Existing auth:', {
-        id: existing._id,
-        scope: existing.scope,
-        existingCategories: existing.categories,
-        existingProducts: existing.products?.length,
-        newCategories: categories,
-        newProducts: products?.length
-      })
+      console.log('[manufacturer-requests] Existing auth found:', existing._id)
+      console.log('[manufacturer-requests] Existing scope:', existing.scope)
+      console.log('[manufacturer-requests] Existing categories:', JSON.stringify(existing.categories))
+      console.log('[manufacturer-requests] Existing products count:', existing.products?.length)
+      console.log('[manufacturer-requests] New categories from request:', JSON.stringify(categories))
+      console.log('[manufacturer-requests] New products from request:', products?.length)
       
-      let updated = false
+      const updateData = {}
       const messages = []
       
       // 追加分类到现有授权
       if (Array.isArray(categories) && categories.length > 0) {
+        const existingCats = existing.categories || []
         const newCategories = categories.filter(c => 
-          !existing.categories?.some(ec => String(ec) === String(c))
+          !existingCats.some(ec => String(ec) === String(c))
         )
-        console.log('[manufacturer-requests] New categories to add:', newCategories.length)
+        console.log('[manufacturer-requests] Filtered new categories:', newCategories.length, newCategories)
         if (newCategories.length > 0) {
-          existing.categories = [...(existing.categories || []), ...newCategories]
-          updated = true
+          updateData.categories = [...existingCats, ...newCategories]
           messages.push(`追加 ${newCategories.length} 个分类`)
         }
       }
       
       // 追加商品到现有授权
       if (Array.isArray(products) && products.length > 0) {
+        const existingProds = existing.products || []
         const newProducts = products.filter(p => 
-          !existing.products?.some(ep => String(ep) === String(p))
+          !existingProds.some(ep => String(ep) === String(p))
         )
+        console.log('[manufacturer-requests] Filtered new products:', newProducts.length)
         if (newProducts.length > 0) {
-          existing.products = [...(existing.products || []), ...newProducts]
-          updated = true
+          updateData.products = [...existingProds, ...newProducts]
           messages.push(`追加 ${newProducts.length} 个商品`)
         }
       }
       
-      if (updated) {
+      console.log('[manufacturer-requests] Update data:', JSON.stringify(updateData))
+      
+      if (Object.keys(updateData).length > 0) {
         // 更新scope
-        const hasCategories = existing.categories && existing.categories.length > 0
-        const hasProducts = existing.products && existing.products.length > 0
-        if (hasCategories && hasProducts) {
-          existing.scope = 'mixed'
-        } else if (hasCategories) {
-          existing.scope = 'category'
-        } else if (hasProducts) {
-          existing.scope = 'specific'
+        const finalCategories = updateData.categories || existing.categories || []
+        const finalProducts = updateData.products || existing.products || []
+        if (finalCategories.length > 0 && finalProducts.length > 0) {
+          updateData.scope = 'mixed'
+        } else if (finalCategories.length > 0) {
+          updateData.scope = 'category'
+        } else if (finalProducts.length > 0) {
+          updateData.scope = 'specific'
         }
         
-        await existing.save()
+        const updated = await Authorization.findByIdAndUpdate(
+          existing._id,
+          { $set: updateData },
+          { new: true }
+        )
+        console.log('[manufacturer-requests] Updated authorization:', updated?._id)
         return res.json({ 
           success: true, 
-          data: existing, 
+          data: updated, 
           message: `已${messages.join('、')}到现有授权` 
         })
       }
       
+      console.log('[manufacturer-requests] No updates to make')
       return res.status(400).json({ success: false, message: '所选内容已在授权范围内' })
     }
     
