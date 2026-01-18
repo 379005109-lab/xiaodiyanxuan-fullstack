@@ -1503,7 +1503,7 @@ export default function ManufacturerManagement() {
                           {/* 内容区 */}
                           <div className="p-4">
                             {/* 类型和名称 */}
-                            <div className="text-xs text-gray-400 mb-1">厂家</div>
+                            <div className="text-xs text-gray-400 mb-1">厂家商家</div>
                             <h3 className="text-xl font-bold text-gray-900 mb-1">{item.shortName || item.fullName || item.name}</h3>
                             {item.code && (
                               <div className="text-xs text-orange-500 mb-4">{item.code}</div>
@@ -1566,16 +1566,7 @@ export default function ManufacturerManagement() {
                             >
                               经营授权
                             </button>
-                            <div className="grid grid-cols-3 gap-2">
-                              <button 
-                                onClick={() => {
-                                  const rt = encodeURIComponent(`/admin/manufacturer-management`)
-                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${item._id}&returnTo=${rt}`)
-                                }}
-                                className="py-2 border border-gray-200 text-gray-700 rounded-xl text-sm hover:bg-gray-50"
-                              >
-                                分成体系
-                              </button>
+                            <div className="grid grid-cols-2 gap-2">
                               <button 
                                 onClick={async () => {
                                   const authId = authInfo?.authorizationId
@@ -2086,6 +2077,18 @@ export default function ManufacturerManagement() {
                                 className="px-3 py-1.5 text-xs bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
                               >
                                 授权货盘
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  const target = auth.toManufacturer || auth.toDesigner
+                                  const targetId = target?._id
+                                  if (!targetId) return
+                                  const rt = encodeURIComponent(`/admin/manufacturer-management`)
+                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${targetId}&returnTo=${rt}`)
+                                }}
+                                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                              >
+                                分成体系
                               </button>
                               <button 
                                 onClick={() => {
