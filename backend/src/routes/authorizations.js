@@ -1589,8 +1589,23 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
       status: { $in: ['pending', 'active'] }
     }).select('_id status scope products categories')
 
-    // 如果已存在活跃授权，允许追加商品
+    // 如果已存在活跃授权，允许追加商品或分类
     if (existing && existing.status === 'active') {
+      let updated = false
+      const messages = []
+      
+      // 追加分类到现有授权
+      if (Array.isArray(categories) && categories.length > 0) {
+        const newCategories = categories.filter(c => 
+          !existing.categories?.some(ec => String(ec) === String(c))
+        )
+        if (newCategories.length > 0) {
+          existing.categories = [...(existing.categories || []), ...newCategories]
+          updated = true
+          messages.push(`追加 ${newCategories.length} 个分类`)
+        }
+      }
+      
       // 追加商品到现有授权
       if (Array.isArray(products) && products.length > 0) {
         const newProducts = products.filter(p => 
@@ -1598,16 +1613,32 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
         )
         if (newProducts.length > 0) {
           existing.products = [...(existing.products || []), ...newProducts]
-          existing.scope = 'mixed' // 更新为混合模式
-          await existing.save()
-          return res.json({ 
-            success: true, 
-            data: existing, 
-            message: `已追加 ${newProducts.length} 个商品到现有授权` 
-          })
+          updated = true
+          messages.push(`追加 ${newProducts.length} 个商品`)
         }
       }
-      return res.status(400).json({ success: false, message: '所选商品已在授权范围内' })
+      
+      if (updated) {
+        // 更新scope
+        const hasCategories = existing.categories && existing.categories.length > 0
+        const hasProducts = existing.products && existing.products.length > 0
+        if (hasCategories && hasProducts) {
+          existing.scope = 'mixed'
+        } else if (hasCategories) {
+          existing.scope = 'category'
+        } else if (hasProducts) {
+          existing.scope = 'specific'
+        }
+        
+        await existing.save()
+        return res.json({ 
+          success: true, 
+          data: existing, 
+          message: `已${messages.join('、')}到现有授权` 
+        })
+      }
+      
+      return res.status(400).json({ success: false, message: '所选内容已在授权范围内' })
     }
     
     // 如果存在pending状态的申请，不允许重复申请
