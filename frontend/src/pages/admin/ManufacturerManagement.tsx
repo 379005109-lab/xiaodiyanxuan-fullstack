@@ -1566,7 +1566,16 @@ export default function ManufacturerManagement() {
                             >
                               经营授权
                             </button>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
+                              <button 
+                                onClick={() => {
+                                  const rt = encodeURIComponent(`/admin/manufacturer-management`)
+                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${item._id}&returnTo=${rt}`)
+                                }}
+                                className="py-2 border border-gray-200 text-gray-700 rounded-xl text-sm hover:bg-gray-50"
+                              >
+                                分成体系
+                              </button>
                               <button 
                                 onClick={async () => {
                                   const authId = authInfo?.authorizationId
@@ -2076,7 +2085,7 @@ export default function ManufacturerManagement() {
                                 onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing`)}
                                 className="px-3 py-1.5 text-xs bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
                               >
-                                分组体系
+                                授权货盘
                               </button>
                               <button 
                                 onClick={() => {
