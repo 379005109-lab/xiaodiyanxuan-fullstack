@@ -1126,12 +1126,29 @@ router.get('/received', auth, async (req, res) => {
       return String(p.tierCompanyId || p._id)
     }
 
-    const withCompanyId = (authorizations || []).map((a) => ({
-      ...a,
-      tierCompanyId: resolveCompanyId(a)
+    // 计算每个授权的实际商品数量
+    const withProductCount = await Promise.all((authorizations || []).map(async (a) => {
+      let actualProductCount = 0
+      if (a.scope === 'all') {
+        actualProductCount = await Product.countDocuments({ 
+          manufacturerId: a.fromManufacturer?._id || a.fromManufacturer 
+        })
+      } else if (a.scope === 'category' && a.categories && Array.isArray(a.categories)) {
+        actualProductCount = await Product.countDocuments({ 
+          manufacturerId: a.fromManufacturer?._id || a.fromManufacturer,
+          category: { $in: a.categories }
+        })
+      } else if (a.products && Array.isArray(a.products)) {
+        actualProductCount = a.products.length
+      }
+      return {
+        ...a,
+        tierCompanyId: resolveCompanyId(a),
+        actualProductCount
+      }
     }))
 
-    res.json({ success: true, data: withCompanyId })
+    res.json({ success: true, data: withProductCount })
   } catch (error) {
     console.error('获取授权列表失败:', error)
     res.status(500).json({ success: false, message: '获取授权列表失败' })
