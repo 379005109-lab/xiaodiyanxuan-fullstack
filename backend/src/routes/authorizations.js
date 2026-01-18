@@ -259,6 +259,10 @@ router.get('/', auth, async (req, res) => {
       if (user?.manufacturerId) {
         query.toManufacturer = new mongoose.Types.ObjectId(String(user.manufacturerId))
       }
+      // 设计师用户：查询授权给该设计师的
+      if (user?.role === 'designer') {
+        query.toDesigner = user._id
+      }
     }
     
     // 状态筛选
@@ -266,6 +270,7 @@ router.get('/', auth, async (req, res) => {
       query.status = status
     }
     
+    console.log('[GET /authorizations] User:', user?._id, 'manufacturerId:', user?.manufacturerId, 'role:', user?.role)
     console.log('[GET /authorizations] Query:', JSON.stringify(query))
     
     const authorizations = await Authorization.find(query)
@@ -273,7 +278,8 @@ router.get('/', auth, async (req, res) => {
       .populate('products', '_id name')
       .lean()
     
-    console.log('[GET /authorizations] Found:', authorizations.length)
+    console.log('[GET /authorizations] Found:', authorizations.length, 'for mf:', manufacturerId)
+    authorizations.forEach(a => console.log('[GET /authorizations]   Auth:', a._id, 'scope:', a.scope, 'products:', a.products?.length))
     
     res.json({ success: true, data: authorizations })
   } catch (error) {
