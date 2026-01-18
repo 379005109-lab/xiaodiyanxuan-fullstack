@@ -271,6 +271,10 @@ export default function ManufacturerManagement() {
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   const [galleryTarget, setGalleryTarget] = useState<Manufacturer | null>(null)
   
+  // 合作商家详情弹窗
+  const [showPartnerDetailModal, setShowPartnerDetailModal] = useState(false)
+  const [partnerDetailTarget, setPartnerDetailTarget] = useState<any>(null)
+  
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
   const [smsLoading, setSmsLoading] = useState(false)
@@ -1478,8 +1482,14 @@ export default function ManufacturerManagement() {
                               </span>
                             </div>
                             
-                            {/* 产品图片 */}
-                            <div className="h-48 bg-gray-100">
+                            {/* 产品图片 - 点击查看详情 */}
+                            <div 
+                              className="h-48 bg-gray-100 cursor-pointer"
+                              onClick={() => {
+                                setPartnerDetailTarget(item)
+                                setShowPartnerDetailModal(true)
+                              }}
+                            >
                               {productImage ? (
                                 <img src={getFileUrl(productImage)} alt="" className="w-full h-full object-cover" />
                               ) : (
@@ -1558,13 +1568,22 @@ export default function ManufacturerManagement() {
                             </button>
                             <div className="grid grid-cols-2 gap-2">
                               <button 
-                                onClick={() => {
-                                  const rt = encodeURIComponent(`/admin/manufacturer-management`)
-                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${item._id}&returnTo=${rt}`)
+                                onClick={async () => {
+                                  const authId = authInfo?.authorizationId
+                                  if (!authId) return
+                                  const newEnabled = authInfo?.isEnabled === false
+                                  try {
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: newEnabled } }))
+                                    await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: newEnabled })
+                                    toast.success(newEnabled ? '已恢复合作' : '已暂停合作')
+                                  } catch (e: any) {
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: !newEnabled } }))
+                                    toast.error(e.response?.data?.message || '操作失败')
+                                  }
                                 }}
-                                className="py-2 border border-gray-200 text-gray-700 rounded-xl text-sm hover:bg-gray-50"
+                                className={`py-2 border rounded-xl text-sm ${authInfo?.isEnabled === false ? 'border-green-200 text-green-600 hover:bg-green-50' : 'border-orange-200 text-orange-600 hover:bg-orange-50'}`}
                               >
-                                分成体系
+                                {authInfo?.isEnabled === false ? '恢复合作' : '暂停合作'}
                               </button>
                               <button 
                                 onClick={() => {
@@ -1581,7 +1600,7 @@ export default function ManufacturerManagement() {
                                 }}
                                 className="py-2 border border-red-200 text-red-600 rounded-xl text-sm hover:bg-red-50"
                               >
-                                下架停运
+                                取消合作
                               </button>
                             </div>
                           </div>
@@ -4288,6 +4307,125 @@ export default function ManufacturerManagement() {
                 className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 {approveSaving ? '处理中...' : '确认通过'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 合作商家详情弹窗 */}
+      {showPartnerDetailModal && partnerDetailTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-3xl mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {partnerDetailTarget.shortName || partnerDetailTarget.fullName || partnerDetailTarget.name}
+                </h3>
+                {partnerDetailTarget.code && (
+                  <p className="text-sm text-orange-500">{partnerDetailTarget.code}</p>
+                )}
+              </div>
+              <button onClick={() => { setShowPartnerDetailModal(false); setPartnerDetailTarget(null) }} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* 图册 */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">产品图册</h4>
+                {partnerDetailTarget.galleryImages?.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    {partnerDetailTarget.galleryImages.map((img: string, idx: number) => (
+                      <img 
+                        key={idx} 
+                        src={getFileUrl(img)} 
+                        alt={`图片${idx + 1}`} 
+                        className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-80"
+                        onClick={() => window.open(getFileUrl(img), '_blank')}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <Factory className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">暂无图册</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* 联系信息 */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">联系信息</h4>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20">联系人:</span>
+                    <span className="text-gray-900">{partnerDetailTarget.contactName || '未填写'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20">联系电话:</span>
+                    <span className="text-gray-900">{partnerDetailTarget.contactPhone || '未填写'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20">邮箱:</span>
+                    <span className="text-gray-900">{partnerDetailTarget.contactEmail || '未填写'}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 地址 */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">地址</h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-gray-900">{partnerDetailTarget.address || '未填写'}</p>
+                </div>
+              </div>
+              
+              {/* 其他信息 */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">其他信息</h4>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  {partnerDetailTarget.description && (
+                    <div>
+                      <span className="text-gray-500 text-sm">简介:</span>
+                      <p className="text-gray-900 mt-1">{partnerDetailTarget.description}</p>
+                    </div>
+                  )}
+                  {(partnerDetailTarget.priceRangeMin > 0 || partnerDetailTarget.priceRangeMax > 0) && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-500 text-sm">价格范围:</span>
+                      <span className="text-gray-900">¥{partnerDetailTarget.priceRangeMin?.toLocaleString() || 0} - ¥{partnerDetailTarget.priceRangeMax?.toLocaleString() || 0}</span>
+                    </div>
+                  )}
+                  {partnerDetailTarget.styleTags?.length > 0 && (
+                    <div>
+                      <span className="text-gray-500 text-sm">风格:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {partnerDetailTarget.styleTags.map((tag: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 bg-white text-gray-600 text-xs rounded border">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {partnerDetailTarget.categoryTags?.length > 0 && (
+                    <div>
+                      <span className="text-gray-500 text-sm">品类:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {partnerDetailTarget.categoryTags.map((tag: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 bg-white text-gray-600 text-xs rounded border">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => { setShowPartnerDetailModal(false); setPartnerDetailTarget(null) }}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                关闭
               </button>
             </div>
           </div>
