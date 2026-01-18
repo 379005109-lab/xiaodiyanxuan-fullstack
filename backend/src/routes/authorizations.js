@@ -1413,7 +1413,7 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '只能审核设计师授权申请' })
     }
     
-    if (!isAdmin && authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId.toString()) {
+    if (!isAdmin && authDoc.fromManufacturer?.toString() !== myManufacturerId?.toString()) {
       return res.status(403).json({ success: false, message: '无权限审核此申请' })
     }
 
@@ -1563,7 +1563,8 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
   try {
     console.log('[manufacturer-requests] Request body:', JSON.stringify(req.body))
     const currentUser = await User.findById(req.userId)
-    if (!currentUser?.manufacturerId) {
+    const requesterManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
+    if (!requesterManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以申请厂家授权' })
     }
 
@@ -1572,7 +1573,6 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
     }
 
-    const requesterManufacturerId = currentUser.manufacturerId
     if (String(requesterManufacturerId) === String(manufacturerId)) {
       return res.status(400).json({ success: false, message: '不能向自己申请授权' })
     }
@@ -1753,13 +1753,14 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
 router.get('/manufacturer-requests/my', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    if (!currentUser?.manufacturerId) {
+    const myManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
+    if (!myManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以查看申请记录' })
     }
 
     const list = await Authorization.find({
       authorizationType: 'manufacturer',
-      toManufacturer: currentUser.manufacturerId
+      toManufacturer: myManufacturerId
     })
       .populate('fromManufacturer', 'name fullName shortName code')
       .populate('toManufacturer', 'name fullName shortName code')
@@ -1777,8 +1778,9 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
     const isPlatformAdmin = ['admin', 'super_admin', 'platform_admin'].includes(currentUser?.role)
+    const myManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
 
-    if (!isPlatformAdmin && !currentUser?.manufacturerId) {
+    if (!isPlatformAdmin && !myManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户或管理员可以查看授权申请' })
     }
 
@@ -1788,8 +1790,8 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
     }
 
     // 平台管理员可以看到所有待审批请求，厂家用户只能看到别人申请自己的（自己是fromManufacturer）
-    if (!isPlatformAdmin && currentUser?.manufacturerId) {
-      query.fromManufacturer = currentUser.manufacturerId
+    if (!isPlatformAdmin && myManufacturerId) {
+      query.fromManufacturer = myManufacturerId
     }
 
     const list = await Authorization.find(query)
@@ -1827,8 +1829,9 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
     const currentUser = await User.findById(req.userId)
     const isPlatformAdmin = ['admin', 'super_admin', 'platform_admin'].includes(currentUser?.role)
     const isEnterpriseAdmin = currentUser?.role === 'enterprise_admin'
+    const myManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
 
-    if (!isPlatformAdmin && !isEnterpriseAdmin && !currentUser?.manufacturerId) {
+    if (!isPlatformAdmin && !isEnterpriseAdmin && !myManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
     }
 
@@ -1846,7 +1849,7 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '只能审核厂家授权申请' })
     }
 
-    if (!isPlatformAdmin && authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId?.toString()) {
+    if (!isPlatformAdmin && authDoc.fromManufacturer?.toString() !== myManufacturerId?.toString()) {
       return res.status(403).json({ success: false, message: '无权限审核此申请' })
     }
 
@@ -1928,8 +1931,9 @@ router.put('/manufacturer-requests/:id/reject', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
     const isAdmin = ['admin', 'super_admin', 'platform_admin', 'enterprise_admin'].includes(currentUser?.role)
+    const myManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
 
-    if (!isAdmin && !currentUser?.manufacturerId) {
+    if (!isAdmin && !myManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
     }
 
