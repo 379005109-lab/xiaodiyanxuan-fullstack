@@ -19,6 +19,38 @@ export default function OrdersPageNew() {
   const [paymentInfo, setPaymentInfo] = useState<any>(null)
   const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false)
 
+  const normalizeStagedPaymentAmounts = (order: any) => {
+    const totalAmount = Number(order?.totalAmount || 0)
+    const prEnabledRaw = (order as any)?.paymentRatioEnabled
+    const paymentRatioEnabled =
+      prEnabledRaw === true ||
+      prEnabledRaw === 1 ||
+      prEnabledRaw === 'true' ||
+      prEnabledRaw === '1' ||
+      (Boolean(prEnabledRaw) && prEnabledRaw !== 'false' && prEnabledRaw !== '0')
+    const ratioRaw = Number(order?.paymentRatio || 0)
+    const ratio = ratioRaw > 0 && ratioRaw < 100 ? ratioRaw : 50
+    const depositAmount = Number(order?.depositAmount || 0)
+    const finalPaymentAmount = Number(order?.finalPaymentAmount || 0)
+
+    if (!paymentRatioEnabled || !Number.isFinite(totalAmount) || totalAmount <= 0) return order
+    if (!Number.isFinite(ratio) || ratio <= 0 || ratio >= 100) return order
+
+    if (depositAmount > 0 && finalPaymentAmount > 0) return order
+
+    const computedDeposit = Math.round(totalAmount * ratio / 100)
+    const computedFinal = Math.round(totalAmount - computedDeposit)
+    if (computedDeposit <= 0 || computedFinal <= 0) return order
+
+    return {
+      ...order,
+      depositAmount: depositAmount > 0 ? depositAmount : computedDeposit,
+      finalPaymentAmount: finalPaymentAmount > 0 ? finalPaymentAmount : computedFinal,
+      paymentRatio: Number.isFinite(ratio) ? ratio : 50,
+      paymentRatioEnabled: true,
+    }
+  }
+
   // 检查登录状态
   useEffect(() => {
     if (!user || !token) {
@@ -82,7 +114,7 @@ export default function OrdersPageNew() {
       }
       
       console.log('🔍 [Orders] Total orders count:', allOrders.length)
-      setOrders(allOrders)
+      setOrders(allOrders.map(normalizeStagedPaymentAmounts))
     } catch (error) {
       console.error('❌ [Orders] 加载订单失败:', error)
       toast.error('加载订单失败')
@@ -165,15 +197,16 @@ export default function OrdersPageNew() {
       if (!window.confirm(confirmMsg)) return
     }
     
-    // 打开支付方式选择弹窗
-    setPaymentModalOrder(order)
+    // 打开支付方式选择弹窗（先做分期金额兜底，避免显示/支付金额为0）
+    const normalizedOrder = normalizeStagedPaymentAmounts(order)
+    setPaymentModalOrder(normalizedOrder)
     setSelectedPaymentMethod('')
     setPaymentInfo(null)
     
     // 获取支付信息
     try {
       setLoadingPaymentInfo(true)
-      const orderId = order._id || order.id
+      const orderId = normalizedOrder._id || normalizedOrder.id
       const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/payment-info`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -195,7 +228,7 @@ export default function OrdersPageNew() {
     }
     
     const orderId = paymentModalOrder._id || paymentModalOrder.id
-    const isStagedPayment = paymentModalOrder.paymentRatioEnabled
+    const isStagedPayment = Boolean(paymentModalOrder.paymentRatioEnabled) && paymentModalOrder.paymentRatioEnabled !== 'false' && paymentModalOrder.paymentRatioEnabled !== '0'
     const isPayingDeposit = paymentModalOrder.status === 1 && isStagedPayment
     const isPayingFinal = paymentModalOrder.status === 12
     
@@ -333,6 +366,7 @@ export default function OrdersPageNew() {
         ) : (
           <div className="space-y-6">
             {filteredOrders.map((order) => {
+              const stagedOrder = normalizeStagedPaymentAmounts(order)
               const isCancelled = order.status === 5 || order.status === 'cancelled'
               const hasCancelRequest = order.cancelRequest === true
               return (
@@ -384,7 +418,7 @@ export default function OrdersPageNew() {
                 )}
 
                 {/* 预付定制订单信息 */}
-                {order.paymentRatioEnabled && (
+                {Boolean(stagedOrder.paymentRatioEnabled) && stagedOrder.paymentRatioEnabled !== 'false' && stagedOrder.paymentRatioEnabled !== '0' && (
                   <div className="px-6 py-3 bg-gradient-to-r from-cyan-50 to-pink-50 border-b border-cyan-100">
                     <div>
                       <div className="flex items-center justify-between">
@@ -395,23 +429,65 @@ export default function OrdersPageNew() {
                           </span>
                         )}
                       </div>
-                      <div className="text-xs mt-2 grid grid-cols-2 gap-2">
-                        <div className="bg-white/60 rounded p-2">
-                          <span className="text-gray-500">定金(50%):</span>
-                          <span className={`ml-1 font-bold ${order.depositVerified ? 'text-green-600' : 'text-cyan-700'}`}>
-                            ¥{order.depositAmount?.toLocaleString() || 0}
-                          </span>
-                          {order.depositVerified && <span className="ml-1 text-green-600">✓已核销</span>}
-                          {order.depositPaidAt && !order.depositVerified && <span className="ml-1 text-amber-600">待核销</span>}
-                        </div>
-                        <div className="bg-white/60 rounded p-2">
-                          <span className="text-gray-500">尾款(50%):</span>
-                          <span className={`ml-1 font-bold ${order.finalPaymentVerified ? 'text-green-600' : 'text-pink-700'}`}>
-                            ¥{order.finalPaymentAmount?.toLocaleString() || 0}
-                          </span>
-                          {order.finalPaymentVerified && <span className="ml-1 text-green-600">✓已核销</span>}
+                      
+                      {/* 两段式支付状态 */}
+                      <div className="mt-2 p-2 bg-white/80 rounded-lg">
+                        <div className="text-xs text-gray-500 mb-1.5 font-medium">💳 支付状态</div>
+                        <div className="flex items-center gap-2">
+                          {/* 定金状态 */}
+                          <div className={`flex-1 p-2 rounded text-center ${
+                            order.depositVerified ? 'bg-green-100 border border-green-300' :
+                            order.depositPaidAt ? 'bg-amber-100 border border-amber-300' :
+                            'bg-gray-100 border border-gray-200'
+                          }`}>
+                            <div className="text-xs text-gray-500">定金({stagedOrder.paymentRatio || 50}%)</div>
+                            <div className={`font-bold text-sm ${
+                              order.depositVerified ? 'text-green-700' :
+                              order.depositPaidAt ? 'text-amber-700' :
+                              'text-gray-700'
+                            }`}>¥{(stagedOrder.depositAmount || 0).toLocaleString()}</div>
+                            <div className={`text-xs ${
+                              order.depositVerified ? 'text-green-600' :
+                              order.depositPaidAt ? 'text-amber-600' :
+                              'text-gray-500'
+                            }`}>
+                              {order.depositVerified ? '✓已核销' :
+                               order.depositPaidAt ? '⏳待核销' :
+                               '○待支付'}
+                            </div>
+                          </div>
+
+                          <div className="text-gray-400 text-sm">→</div>
+
+                          {/* 尾款状态 */}
+                          <div className={`flex-1 p-2 rounded text-center ${
+                            order.finalPaymentVerified ? 'bg-green-100 border border-green-300' :
+                            order.finalPaymentPaidAt ? 'bg-amber-100 border border-amber-300' :
+                            order.finalPaymentRequested ? 'bg-pink-100 border border-pink-300' :
+                            'bg-gray-100 border border-gray-200'
+                          }`}>
+                            <div className="text-xs text-gray-500">尾款({100 - (stagedOrder.paymentRatio || 50)}%)</div>
+                            <div className={`font-bold text-sm ${
+                              order.finalPaymentVerified ? 'text-green-700' :
+                              order.finalPaymentPaidAt ? 'text-amber-700' :
+                              order.finalPaymentRequested ? 'text-pink-700' :
+                              'text-gray-700'
+                            }`}>¥{(stagedOrder.finalPaymentAmount || 0).toLocaleString()}</div>
+                            <div className={`text-xs ${
+                              order.finalPaymentVerified ? 'text-green-600' :
+                              order.finalPaymentPaidAt ? 'text-amber-600' :
+                              order.finalPaymentRequested ? 'text-pink-600' :
+                              'text-gray-500'
+                            }`}>
+                              {order.finalPaymentVerified ? '✓已核销' :
+                               order.finalPaymentPaidAt ? '⏳待核销' :
+                               order.finalPaymentRequested ? '📢已请求' :
+                               '○待请求'}
+                            </div>
+                          </div>
                         </div>
                       </div>
+                      
                       {/* 返佣信息 */}
                       {order.commissionAmount && (
                         <div className="text-xs mt-2 p-2 bg-white/60 rounded">
@@ -715,8 +791,8 @@ export default function OrdersPageNew() {
                             : 'bg-primary text-white hover:bg-green-900'
                         }`}
                       >
-                        {order.paymentRatioEnabled 
-                          ? `支付定金 ¥${order.depositAmount?.toLocaleString() || 0}` 
+                        {Boolean(stagedOrder.paymentRatioEnabled) && stagedOrder.paymentRatioEnabled !== 'false' && stagedOrder.paymentRatioEnabled !== '0'
+                          ? `支付定金 ¥${(stagedOrder.depositAmount || 0).toLocaleString()}` 
                           : order.priceModified 
                             ? '确认改价并付款' 
                             : '立即付款'}
@@ -728,7 +804,7 @@ export default function OrdersPageNew() {
                         onClick={() => handleConfirmPayment(order)}
                         className="px-6 py-2 text-sm bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
                       >
-                        支付尾款 ¥{order.finalPaymentAmount?.toLocaleString() || 0}
+                        支付尾款 ¥{(stagedOrder.finalPaymentAmount || 0).toLocaleString()}
                       </button>
                     )}
                   </div>

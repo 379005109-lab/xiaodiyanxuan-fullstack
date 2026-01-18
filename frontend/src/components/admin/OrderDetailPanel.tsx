@@ -48,7 +48,29 @@ const maskAddress = (address: string) => {
 export default function OrderDetailPanel({ order, onClose, onStatusChange, onRefresh, showFollowUp = true }: OrderDetailPanelProps) {
   const status = statusConfig[order.status] || statusConfig[1]
   const [followUpNote, setFollowUpNote] = useState('')
-  
+
+  const prEnabledRaw = (order as any).paymentRatioEnabled
+  const paymentRatioEnabled =
+    prEnabledRaw === true ||
+    prEnabledRaw === 1 ||
+    prEnabledRaw === 'true' ||
+    prEnabledRaw === '1' ||
+    (Boolean(prEnabledRaw) && prEnabledRaw !== 'false' && prEnabledRaw !== '0')
+
+  const paymentRatioRaw = Number((order as any).paymentRatio || 0)
+  const paymentRatio = paymentRatioRaw > 0 && paymentRatioRaw < 100 ? paymentRatioRaw : 50
+  const totalAmountNumber = Number((order as any).totalAmount || 0)
+  const depositAmountNumber = Number((order as any).depositAmount || 0)
+  const finalPaymentAmountNumber = Number((order as any).finalPaymentAmount || 0)
+  const computedDepositAmount = paymentRatioEnabled && totalAmountNumber > 0 && paymentRatio > 0 && paymentRatio < 100
+    ? Math.round(totalAmountNumber * paymentRatio / 100)
+    : 0
+  const computedFinalPaymentAmount = paymentRatioEnabled && totalAmountNumber > 0 && paymentRatio > 0 && paymentRatio < 100
+    ? Math.round(totalAmountNumber - computedDepositAmount)
+    : 0
+  const displayDepositAmount = depositAmountNumber > 0 ? depositAmountNumber : computedDepositAmount
+  const displayFinalPaymentAmount = finalPaymentAmountNumber > 0 ? finalPaymentAmountNumber : computedFinalPaymentAmount
+
   // 处理删除订单
   const handleDelete = async () => {
     if (!window.confirm('确定要删除此订单吗？订单将移至回收站。')) return
@@ -246,7 +268,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
                     const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/settlement-mode`, {
                       method: 'POST',
                       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50 })
+                      body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50, estimatedProductionDays: 30 })
                     })
                     if (response.ok) {
                       toast.success('已选择返佣模式')
@@ -417,26 +439,84 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
           <div className="bg-gradient-to-r from-cyan-50 to-pink-50 rounded-xl p-4 border border-cyan-100">
             <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
               📦 预付定制订单
+              {(order as any).estimatedProductionDays > 0 && (
+                <span className="ml-auto text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">
+                  🏭 制作周期: {(order as any).estimatedProductionDays} 天
+                </span>
+              )}
             </h3>
+            
+            {/* 两段式支付状态 */}
+            <div className="mb-3 p-3 bg-white/80 rounded-lg">
+              <div className="text-xs text-gray-500 mb-2 font-medium">💳 支付状态</div>
+              <div className="flex items-center gap-2">
+                {/* 定金状态 */}
+                <div className={`flex-1 p-2 rounded-lg text-center ${
+                  (order as any).depositVerified ? 'bg-green-100 border border-green-300' :
+                  (order as any).depositPaidAt ? 'bg-amber-100 border border-amber-300' :
+                  'bg-gray-100 border border-gray-300'
+                }`}>
+                  <div className="text-xs text-gray-500">定金({(order as any).paymentRatio || 50}%)</div>
+                  <div className={`font-bold ${
+                    (order as any).depositVerified ? 'text-green-700' :
+                    (order as any).depositPaidAt ? 'text-amber-700' :
+                    'text-gray-700'
+                  }`}>¥{(displayDepositAmount || 0).toLocaleString()}</div>
+                  <div className={`text-xs mt-1 ${
+                    (order as any).depositVerified ? 'text-green-600' :
+                    (order as any).depositPaidAt ? 'text-amber-600' :
+                    'text-gray-500'
+                  }`}>
+                    {(order as any).depositVerified ? '✓ 已核销' :
+                     (order as any).depositPaidAt ? '⏳ 待核销' :
+                     '○ 待支付'}
+                  </div>
+                </div>
+                
+                {/* 箭头 */}
+                <div className="text-gray-400">→</div>
+                
+                {/* 尾款状态 */}
+                <div className={`flex-1 p-2 rounded-lg text-center ${
+                  (order as any).finalPaymentVerified ? 'bg-green-100 border border-green-300' :
+                  (order as any).finalPaymentPaidAt ? 'bg-amber-100 border border-amber-300' :
+                  (order as any).finalPaymentRequested ? 'bg-pink-100 border border-pink-300' :
+                  'bg-gray-100 border border-gray-300'
+                }`}>
+                  <div className="text-xs text-gray-500">尾款({100 - ((order as any).paymentRatio || 50)}%)</div>
+                  <div className={`font-bold ${
+                    (order as any).finalPaymentVerified ? 'text-green-700' :
+                    (order as any).finalPaymentPaidAt ? 'text-amber-700' :
+                    (order as any).finalPaymentRequested ? 'text-pink-700' :
+                    'text-gray-700'
+                  }`}>¥{(displayFinalPaymentAmount || 0).toLocaleString()}</div>
+                  <div className={`text-xs mt-1 ${
+                    (order as any).finalPaymentVerified ? 'text-green-600' :
+                    (order as any).finalPaymentPaidAt ? 'text-amber-600' :
+                    (order as any).finalPaymentRequested ? 'text-pink-600' :
+                    'text-gray-500'
+                  }`}>
+                    {(order as any).finalPaymentVerified ? '✓ 已核销' :
+                     (order as any).finalPaymentPaidAt ? '⏳ 待核销' :
+                     (order as any).finalPaymentRequested ? '📢 已请求' :
+                     '○ 待请求'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="bg-white/60 rounded-lg p-2">
-                <div className="text-gray-500 text-xs">定金(50%)</div>
-                <div className="font-bold text-cyan-700">¥{((order as any).depositAmount || 0).toLocaleString()}</div>
-                {(order as any).depositVerified && <span className="text-xs text-green-600">✓已核销</span>}
-                {(order as any).depositPaidAt && !(order as any).depositVerified && <span className="text-xs text-amber-600">待核销</span>}
-              </div>
-              <div className="bg-white/60 rounded-lg p-2">
-                <div className="text-gray-500 text-xs">尾款(50%)</div>
-                <div className="font-bold text-pink-700">¥{((order as any).finalPaymentAmount || 0).toLocaleString()}</div>
-                {(order as any).finalPaymentVerified && <span className="text-xs text-green-600">✓已核销</span>}
-              </div>
               <div className="bg-white/60 rounded-lg p-2">
                 <div className="text-gray-500 text-xs">返佣金额</div>
                 <div className="font-bold text-purple-700">¥{((order as any).commissionAmount || 0).toLocaleString()}</div>
+                <div className="text-xs text-gray-400">(订单完成后可申请)</div>
               </div>
               <div className="bg-white/60 rounded-lg p-2">
-                <div className="text-gray-500 text-xs">生产周期</div>
-                <div className="font-bold text-teal-700">{(order as any).estimatedProductionDays || 0} 天</div>
+                <div className="text-gray-500 text-xs">原价 → 折扣价</div>
+                <div className="font-bold">
+                  <span className="text-gray-400 line-through text-sm">¥{((order as any).originalPrice || 0).toLocaleString()}</span>
+                  <span className="text-green-700 ml-1">¥{((order as any).minDiscountPrice || order.totalAmount || 0).toLocaleString()}</span>
+                </div>
               </div>
             </div>
             
