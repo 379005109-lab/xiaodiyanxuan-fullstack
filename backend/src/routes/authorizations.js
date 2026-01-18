@@ -1561,7 +1561,7 @@ router.put('/designer-requests/:id/reject', auth, async (req, res) => {
 
 router.post('/manufacturer-requests', auth, async (req, res) => {
   try {
-    console.log('收到厂家授权申请:', req.body)
+    console.log('[manufacturer-requests] Request body:', JSON.stringify(req.body))
     const currentUser = await User.findById(req.userId)
     if (!currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以申请厂家授权' })
