@@ -1506,6 +1506,8 @@ router.get('/commission-stats', async (req, res) => {
       isDeleted: { $ne: true }
     }
     
+    console.log('📊 [commission-stats] userId:', req.userId, 'role:', user?.role, 'isAdmin:', isAdmin, 'manufacturerId:', manufacturerId)
+    
     // 非管理员需要限制厂家
     if (!isAdmin && manufacturerId) {
       query.$or = [
@@ -1513,12 +1515,15 @@ router.get('/commission-stats', async (req, res) => {
         { 'items.manufacturerId': manufacturerId }
       ]
     } else if (!isAdmin && !manufacturerId) {
+      console.log('📊 [commission-stats] 非管理员且无厂家ID，返回空数据')
       return res.json({ 
         success: true, 
         data: { pending: 0, applied: 0, settled: 0, total: 0, pendingOrders: [], appliedOrders: [], approvedOrders: [], paidOrders: [] } 
       })
     }
 
+    console.log('📊 [commission-stats] query:', JSON.stringify(query))
+    
     // 查询返佣模式订单
     const commissionOrders = await Order.find(query)
       .select('orderNo items commissionAmount commissionStatus commissionAppliedAt commissionApprovedAt commissionPaidAt commissionInvoiceUrl commissionPaymentProofUrl commissionPaymentRemark completedAt totalAmount status')
