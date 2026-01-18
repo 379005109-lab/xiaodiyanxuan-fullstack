@@ -1131,13 +1131,18 @@ router.get('/received', auth, async (req, res) => {
       let actualProductCount = 0
       const mfId = a.fromManufacturer?._id || a.fromManufacturer
       
+      // Debug logging
+      console.log('[received] Auth:', a._id, 'fromMf:', mfId?.toString?.() || mfId, 'scope:', a.scope, 'categories:', a.categories?.length, 'products:', a.products?.length)
+      
       if (a.scope === 'all') {
         actualProductCount = await Product.countDocuments({ manufacturerId: mfId })
+        console.log('[received] scope=all, count:', actualProductCount)
       } else if (a.scope === 'category' && a.categories && Array.isArray(a.categories) && a.categories.length > 0) {
         actualProductCount = await Product.countDocuments({ 
           manufacturerId: mfId,
           category: { $in: a.categories }
         })
+        console.log('[received] scope=category, count:', actualProductCount)
       } else if (a.scope === 'mixed') {
         // mixed scope: 分类+指定商品
         let categoryCount = 0
@@ -1149,10 +1154,15 @@ router.get('/received', auth, async (req, res) => {
         }
         const productCount = (a.products && Array.isArray(a.products)) ? a.products.length : 0
         actualProductCount = categoryCount + productCount
+        console.log('[received] scope=mixed, categoryCount:', categoryCount, 'productCount:', productCount, 'total:', actualProductCount)
       } else if (a.scope === 'specific' && a.products && Array.isArray(a.products)) {
         actualProductCount = a.products.length
+        console.log('[received] scope=specific, count:', actualProductCount)
       } else if (a.products && Array.isArray(a.products)) {
         actualProductCount = a.products.length
+        console.log('[received] fallback products, count:', actualProductCount)
+      } else {
+        console.log('[received] no match, actualProductCount remains 0')
       }
       
       return {
