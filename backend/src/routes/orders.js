@@ -563,29 +563,26 @@ router.post('/:id/settlement-mode', async (req, res) => {
       order.totalAmount = minDiscountPrice
       order.commissionStatus = 'pending'  // 返佣待申请
       
-      // 检查是否启用分期付款
-      if (paymentRatio && paymentRatio < 100) {
-        order.paymentRatioEnabled = true
-        order.paymentRatio = paymentRatio
-        
-        // 计算定金和尾款金额
-        const depositAmt = Math.round(minDiscountPrice * paymentRatio / 100)
-        const finalAmt = minDiscountPrice - depositAmt
-        
-        // 设置新字段
-        order.depositAmount = depositAmt
-        order.finalPaymentAmount = finalAmt
-        
-        // 兼容旧字段
-        order.firstPaymentAmount = depositAmt
-        order.remainingPaymentAmount = finalAmt
-        order.remainingPaymentStatus = 'pending'
-        
-        // 保存预计生产周期
-        if (estimatedProductionDays) {
-          order.estimatedProductionDays = estimatedProductionDays
-        }
-      }
+      // 返佣模式默认启用50%分期付款
+      const ratio = paymentRatio || 50
+      order.paymentRatioEnabled = true
+      order.paymentRatio = ratio
+      
+      // 计算定金和尾款金额
+      const depositAmt = Math.round(minDiscountPrice * ratio / 100)
+      const finalAmt = Math.round(minDiscountPrice - depositAmt)
+      
+      // 设置新字段
+      order.depositAmount = depositAmt
+      order.finalPaymentAmount = finalAmt
+      
+      // 兼容旧字段
+      order.firstPaymentAmount = depositAmt
+      order.remainingPaymentAmount = finalAmt
+      order.remainingPaymentStatus = 'pending'
+      
+      // 保存预计生产周期（默认30天）
+      order.estimatedProductionDays = estimatedProductionDays || 30
     }
     
     // 添加订单活动日志
