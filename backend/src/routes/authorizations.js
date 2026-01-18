@@ -1591,6 +1591,15 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
 
     // 如果已存在活跃授权，允许追加商品或分类
     if (existing && existing.status === 'active') {
+      console.log('[manufacturer-requests] Existing auth:', {
+        id: existing._id,
+        scope: existing.scope,
+        existingCategories: existing.categories,
+        existingProducts: existing.products?.length,
+        newCategories: categories,
+        newProducts: products?.length
+      })
+      
       let updated = false
       const messages = []
       
@@ -1599,6 +1608,7 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
         const newCategories = categories.filter(c => 
           !existing.categories?.some(ec => String(ec) === String(c))
         )
+        console.log('[manufacturer-requests] New categories to add:', newCategories.length)
         if (newCategories.length > 0) {
           existing.categories = [...(existing.categories || []), ...newCategories]
           updated = true
