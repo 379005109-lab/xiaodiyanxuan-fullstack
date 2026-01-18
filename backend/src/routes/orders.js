@@ -526,14 +526,49 @@ router.post('/:id/settlement-mode', async (req, res) => {
     const { id } = req.params
     const { settlementMode, minDiscountRate, commissionRate, paymentRatio, estimatedProductionDays } = req.body
     const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
     
     const order = await Order.findById(id)
     if (!order) {
       return res.status(404).json({ success: false, message: '订单不存在' })
     }
-    
+
+    // 兼容旧订单：status 可能是字符串/NaN，导致 Number enum 校验失败从而 save() 报错
+    const normalizeExistingStatus = () => {
+      const raw = order.status
+      const valid = Object.values(ORDER_STATUS)
+
+      if (typeof raw === 'number' && Number.isFinite(raw) && valid.includes(raw)) return raw
+
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim()
+        if (/^\d+$/.test(trimmed)) {
+          const parsed = parseInt(trimmed, 10)
+          if (valid.includes(parsed)) return parsed
+        }
+        const map = {
+          pending: ORDER_STATUS.PENDING_PAYMENT,
+          paid: ORDER_STATUS.PENDING_SHIPMENT,
+          processing: ORDER_STATUS.PENDING_RECEIPT,
+          shipped: ORDER_STATUS.PENDING_RECEIPT,
+          completed: ORDER_STATUS.COMPLETED,
+          cancelled: ORDER_STATUS.CANCELLED,
+          refunding: ORDER_STATUS.REFUNDING,
+          refunded: ORDER_STATUS.REFUNDED,
+          exchanging: ORDER_STATUS.EXCHANGING
+        }
+        if (map[trimmed] !== undefined) return map[trimmed]
+      }
+
+      return ORDER_STATUS.PENDING_PAYMENT
+    }
+
+    order.status = normalizeExistingStatus()
+
     // 获取原价（商城标价）
-    const originalPrice = order.totalAmount || 0
+    const originalPrice = (Number(order.originalPrice || 0) > 0)
+      ? Number(order.originalPrice)
+      : (Number(order.totalAmount || 0) || 0)
     
     // 使用传入的折扣率和返佣率，或使用默认值
     const discountRate = minDiscountRate || 0.6
@@ -607,7 +642,7 @@ router.post('/:id/settlement-mode', async (req, res) => {
     })
   } catch (error) {
     console.error('设置结算模式失败:', error)
-    res.status(500).json({ success: false, message: '设置结算模式失败' })
+    res.status(500).json({ success: false, message: error?.message || '设置结算模式失败' })
   }
 })
 

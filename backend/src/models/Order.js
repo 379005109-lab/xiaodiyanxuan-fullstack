@@ -61,6 +61,12 @@ const orderSchema = new mongoose.Schema({
     modifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     modifiedAt: { type: Date, default: Date.now }
   }],
+  activityLogs: [{
+    action: String,
+    timestamp: Date,
+    details: String,
+    operator: String
+  }],
   recipient: { name: String, phone: String, address: String },
   status: { type: Number, enum: Object.values(ORDER_STATUS), default: ORDER_STATUS.PENDING_PAYMENT },
   couponCode: String,

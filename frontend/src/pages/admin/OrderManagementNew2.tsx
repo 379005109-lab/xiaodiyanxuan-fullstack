@@ -1548,9 +1548,16 @@ export default function OrderManagementNew2() {
                           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
                           body: JSON.stringify({ settlementMode: 'supplier_transfer', minDiscountRate: 0.6, commissionRate: 0.4 })
                         })
-                        if (response.ok) { toast.success('已选择供应商调货模式'); loadOrders() }
-                        else { toast.error('设置失败') }
-                      } catch (error) { toast.error('设置失败') }
+                        if (response.ok) {
+                          toast.success('已选择供应商调货模式')
+                          loadOrders()
+                        } else {
+                          const data = await response.json().catch(() => ({}))
+                          toast.error(data.message || '设置失败')
+                        }
+                      } catch (error: any) {
+                        toast.error(error?.message || '设置失败')
+                      }
                     }}
                     className="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-900 transition-colors"
                   >
@@ -2052,10 +2059,11 @@ export default function OrderManagementNew2() {
                           setShowCommissionModeModal(false)
                           loadOrders() 
                         } else { 
-                          toast.error('设置失败') 
+                          const data = await response.json().catch(() => ({}))
+                          toast.error(data.message || '设置失败') 
                         }
-                      } catch (error) { 
-                        toast.error('设置失败') 
+                      } catch (error: any) { 
+                        toast.error(error?.message || '设置失败') 
                       }
                     }}
                     disabled={!commissionProductionDays || parseInt(commissionProductionDays) <= 0}
