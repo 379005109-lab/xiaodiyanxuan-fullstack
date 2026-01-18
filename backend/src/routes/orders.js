@@ -810,7 +810,9 @@ router.post('/:id/pay-remaining', async (req, res) => {
 router.post('/:id/apply-commission', async (req, res) => {
   try {
     const { id } = req.params
+    const { invoiceUrl } = req.body  // 发票URL（可选）
     const Order = require('../models/Order')
+    const { ORDER_STATUS } = require('../config/constants')
     
     const order = await Order.findById(id)
     if (!order) {
@@ -821,12 +823,30 @@ router.post('/:id/apply-commission', async (req, res) => {
       return res.status(400).json({ success: false, message: '该订单不是返佣模式' })
     }
     
+    // 检查订单状态：必须是已完成状态才能申请返佣
+    if (order.status !== ORDER_STATUS.COMPLETED) {
+      return res.status(400).json({ success: false, message: '订单必须是已完成状态才能申请返佣' })
+    }
+    
     if (order.commissionStatus !== 'pending') {
       return res.status(400).json({ success: false, message: '返佣状态不允许申请' })
     }
     
     order.commissionStatus = 'applied'
     order.commissionAppliedAt = new Date()
+    if (invoiceUrl) {
+      order.commissionInvoiceUrl = invoiceUrl  // 保存发票URL（可选）
+    }
+    
+    // 添加活动日志
+    if (!order.activityLogs) order.activityLogs = []
+    order.activityLogs.push({
+      action: 'commission_applied',
+      timestamp: new Date(),
+      details: `申请返佣 ¥${order.commissionAmount.toFixed(2)}${invoiceUrl ? '，已上传发票' : ''}`,
+      operator: 'customer'
+    })
+    
     await order.save()
     
     console.log(`✅ 订单 ${order.orderNo} 返佣申请已提交，金额: ¥${order.commissionAmount}`)
@@ -858,6 +878,16 @@ router.post('/:id/approve-commission', async (req, res) => {
     
     order.commissionStatus = 'approved'
     order.commissionApprovedAt = new Date()
+    
+    // 添加活动日志
+    if (!order.activityLogs) order.activityLogs = []
+    order.activityLogs.push({
+      action: 'commission_approved',
+      timestamp: new Date(),
+      details: `返佣申请已核销 ¥${order.commissionAmount.toFixed(2)}`,
+      operator: 'manufacturer'
+    })
+    
     await order.save()
     
     console.log(`✅ 订单 ${order.orderNo} 返佣已核销`)
@@ -868,10 +898,11 @@ router.post('/:id/approve-commission', async (req, res) => {
   }
 })
 
-// POST /api/orders/:id/pay-commission - 厂家发放返佣
+// POST /api/orders/:id/pay-commission - 厂家发放返佣（并上传打款凭证）
 router.post('/:id/pay-commission', async (req, res) => {
   try {
     const { id } = req.params
+    const { paymentProofUrl, remark } = req.body  // 打款凭证URL和备注
     const Order = require('../models/Order')
     
     const order = await Order.findById(id)
@@ -885,6 +916,22 @@ router.post('/:id/pay-commission', async (req, res) => {
     
     order.commissionStatus = 'paid'
     order.commissionPaidAt = new Date()
+    if (paymentProofUrl) {
+      order.commissionPaymentProofUrl = paymentProofUrl  // 保存打款凭证URL
+    }
+    if (remark) {
+      order.commissionPaymentRemark = remark  // 保存打款备注
+    }
+    
+    // 添加活动日志
+    if (!order.activityLogs) order.activityLogs = []
+    order.activityLogs.push({
+      action: 'commission_paid',
+      timestamp: new Date(),
+      details: `返佣已打款 ¥${order.commissionAmount.toFixed(2)}${paymentProofUrl ? '，已上传打款凭证' : ''}${remark ? '，备注: ' + remark : ''}`,
+      operator: 'manufacturer'
+    })
+    
     await order.save()
     
     console.log(`✅ 订单 ${order.orderNo} 返佣已发放，金额: ¥${order.commissionAmount}`)
@@ -1454,56 +1501,80 @@ router.get('/commission-stats', async (req, res) => {
     if (!manufacturerId) {
       return res.json({ 
         success: true, 
-        data: { pending: 0, settled: 0, total: 0, pendingOrders: [] } 
+        data: { pending: 0, applied: 0, settled: 0, total: 0, pendingOrders: [], appliedOrders: [], approvedOrders: [], paidOrders: [] } 
       })
     }
 
-    // 查询该厂家商品的订单中的返佣
-    const completedOrders = await Order.find({
-      'items.manufacturerId': manufacturerId,
-      status: { $in: [ORDER_STATUS.COMPLETED, 5] }, // 已完成订单
+    // 查询返佣模式订单（已完成或有返佣状态的）
+    const commissionOrders = await Order.find({
+      $or: [
+        { ownerManufacturerId: manufacturerId },
+        { 'items.manufacturerId': manufacturerId }
+      ],
+      settlementMode: 'commission_mode',
       isDeleted: { $ne: true }
-    }).select('orderNo items commissionAmount commissionStatus completedAt totalAmount').lean()
+    }).select('orderNo items commissionAmount commissionStatus commissionAppliedAt commissionApprovedAt commissionPaidAt commissionInvoiceUrl commissionPaymentProofUrl commissionPaymentRemark completedAt totalAmount status').lean()
 
-    let pendingAmount = 0
-    let settledAmount = 0
-    const pendingOrders = []
+    let appliedAmount = 0   // 待核销金额
+    let pendingAmount = 0   // 待打款金额（已核销）
+    let settledAmount = 0   // 已结算金额
+    const appliedOrders = []  // 待核销订单
+    const approvedOrders = [] // 待打款订单
+    const paidOrders = []     // 已完成订单
 
-    for (const order of completedOrders) {
-      // 计算该厂家商品的返佣金额
-      let orderCommission = 0
-      for (const item of (order.items || [])) {
-        if (String(item.manufacturerId) === String(manufacturerId)) {
-          // 使用订单的返佣率或默认10%
-          const commissionRate = 0.1
-          orderCommission += (item.subtotal || item.price * item.quantity) * commissionRate
-        }
-      }
+    for (const order of commissionOrders) {
+      const commission = order.commissionAmount || 0
 
-      if (order.commissionStatus === 'paid') {
-        settledAmount += orderCommission
-      } else {
-        pendingAmount += orderCommission
-        if (order.commissionStatus !== 'applied' && order.commissionStatus !== 'approved') {
-          pendingOrders.push({
-            _id: order._id,
-            orderNo: order.orderNo,
-            completedAt: order.completedAt,
-            totalAmount: order.totalAmount,
-            commissionAmount: orderCommission,
-            commissionStatus: order.commissionStatus || 'pending'
-          })
-        }
+      if (order.commissionStatus === 'applied') {
+        // 已申请待核销
+        appliedAmount += commission
+        appliedOrders.push({
+          _id: order._id,
+          orderNo: order.orderNo,
+          commissionAppliedAt: order.commissionAppliedAt,
+          commissionInvoiceUrl: order.commissionInvoiceUrl,
+          totalAmount: order.totalAmount,
+          commissionAmount: commission,
+          commissionStatus: 'applied'
+        })
+      } else if (order.commissionStatus === 'approved') {
+        // 已核销待打款
+        pendingAmount += commission
+        approvedOrders.push({
+          _id: order._id,
+          orderNo: order.orderNo,
+          commissionApprovedAt: order.commissionApprovedAt,
+          totalAmount: order.totalAmount,
+          commissionAmount: commission,
+          commissionStatus: 'approved'
+        })
+      } else if (order.commissionStatus === 'paid') {
+        // 已打款完成
+        settledAmount += commission
+        paidOrders.push({
+          _id: order._id,
+          orderNo: order.orderNo,
+          commissionPaidAt: order.commissionPaidAt,
+          commissionPaymentProofUrl: order.commissionPaymentProofUrl,
+          commissionPaymentRemark: order.commissionPaymentRemark,
+          totalAmount: order.totalAmount,
+          commissionAmount: commission,
+          commissionStatus: 'paid'
+        })
       }
     }
 
     res.json({ 
       success: true, 
       data: { 
+        applied: Math.round(appliedAmount * 100) / 100,
         pending: Math.round(pendingAmount * 100) / 100,
         settled: Math.round(settledAmount * 100) / 100,
-        total: Math.round((pendingAmount + settledAmount) * 100) / 100,
-        pendingOrders
+        total: Math.round((appliedAmount + pendingAmount + settledAmount) * 100) / 100,
+        appliedOrders,
+        approvedOrders,
+        paidOrders,
+        pendingOrders: []  // 兼容旧字段
       } 
     })
   } catch (error) {

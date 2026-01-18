@@ -18,6 +18,8 @@ export default function OrdersPageNew() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('')
   const [paymentInfo, setPaymentInfo] = useState<any>(null)
   const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false)
+  const [commissionModal, setCommissionModal] = useState<any>(null)  // 返佣申请弹窗
+  const [invoiceUrl, setInvoiceUrl] = useState('')  // 发票URL
 
   const normalizeStagedPaymentAmounts = (order: any) => {
     const totalAmount = Number(order?.totalAmount || 0)
@@ -558,28 +560,23 @@ export default function OrdersPageNew() {
                             </button>
                           )}
                           
-                          {/* 申请返佣按钮 */}
-                          {order.commissionStatus === 'pending' && order.status >= 2 && (
+                          {/* 申请返佣按钮 - 必须订单已完成(status=4) */}
+                          {order.commissionStatus === 'pending' && order.status === 4 && (
                             <button
-                              onClick={async () => {
-                                if (!window.confirm(`确认申请返佣 ¥${order.commissionAmount?.toLocaleString()}？`)) return
-                                try {
-                                  const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/apply-commission`, {
-                                    method: 'POST',
-                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-                                  })
-                                  if (response.ok) {
-                                    toast.success('返佣申请已提交')
-                                    window.location.reload()
-                                  } else {
-                                    toast.error('申请失败')
-                                  }
-                                } catch (error) { toast.error('申请失败') }
+                              onClick={() => {
+                                setCommissionModal(order)
+                                setInvoiceUrl('')
                               }}
                               className="px-3 py-1.5 bg-purple-500 text-white text-xs rounded hover:bg-purple-600"
                             >
                               申请返佣
                             </button>
+                          )}
+                          {/* 订单未完成时的提示 */}
+                          {order.commissionStatus === 'pending' && order.status !== 4 && order.status !== 5 && (
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                              待订单完成
+                            </span>
                           )}
                           
                           {/* 返佣状态显示 */}
@@ -1040,6 +1037,82 @@ export default function OrdersPageNew() {
                 }`}
               >
                 我已完成付款
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 返佣申请弹窗 */}
+      {commissionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-900">申请返佣</h3>
+                <button onClick={() => setCommissionModal(null)} className="p-1 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="bg-purple-50 rounded-xl p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">订单号</span>
+                  <span className="font-medium text-gray-900">{commissionModal.orderNo}</span>
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-gray-600">返佣金额</span>
+                  <span className="text-xl font-bold text-purple-600">¥{commissionModal.commissionAmount?.toLocaleString()}</span>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  发票图片 <span className="text-gray-400 font-normal">(可选)</span>
+                </label>
+                <input
+                  type="text"
+                  value={invoiceUrl}
+                  onChange={(e) => setInvoiceUrl(e.target.value)}
+                  placeholder="请输入发票图片URL（可选）"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">如需上传发票，请输入发票图片的URL地址</p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => setCommissionModal(null)}
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              >
+                取消
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${commissionModal._id}/apply-commission`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ invoiceUrl: invoiceUrl || undefined })
+                    })
+                    const data = await response.json()
+                    if (response.ok) {
+                      toast.success('返佣申请已提交')
+                      setCommissionModal(null)
+                      loadOrders()
+                    } else {
+                      toast.error(data.message || '申请失败')
+                    }
+                  } catch (error) { 
+                    toast.error('申请失败') 
+                  }
+                }}
+                className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium"
+              >
+                提交申请
               </button>
             </div>
           </div>

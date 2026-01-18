@@ -2114,9 +2114,13 @@ export default function ManufacturerManagement() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
-                  <div className="text-sm text-gray-500 mb-2">待结算返佣</div>
+                  <div className="text-sm text-gray-500 mb-2">待核销返佣</div>
+                  <div className="text-3xl font-bold text-yellow-600">¥{commissionStats.applied?.toLocaleString() || 0}</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-sm text-gray-500 mb-2">待打款返佣</div>
                   <div className="text-3xl font-bold text-orange-600">¥{commissionStats.pending.toLocaleString()}</div>
                 </div>
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
@@ -2129,30 +2133,73 @@ export default function ManufacturerManagement() {
                 </div>
               </div>
               
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">待申请返佣订单</h3>
-                {commissionStats.pendingOrders.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <div className="text-4xl mb-4">📊</div>
-                    <p>暂无待申请返佣的订单</p>
-                    <p className="text-sm mt-2">当您的渠道商产生已完成的销售订单后，可在此申请返佣</p>
+              {/* 待核销返佣订单 - commissionStatus='applied' */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">📋 待核销返佣订单</h3>
+                {(commissionStats.appliedOrders || []).length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>暂无待核销的返佣申请</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {commissionStats.pendingOrders.map((order: any) => (
-                      <div key={order._id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50">
+                    {(commissionStats.appliedOrders || []).map((order: any) => (
+                      <div key={order._id} className="flex items-center justify-between p-4 border border-yellow-200 bg-yellow-50 rounded-xl">
                         <div className="flex-1">
                           <div className="flex items-center gap-3">
                             <span className="font-medium text-gray-900">订单号: {order.orderNo}</span>
-                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">已完成</span>
+                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">待核销</span>
+                            {order.commissionInvoiceUrl && (
+                              <a href={order.commissionInvoiceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">查看发票</a>
+                            )}
                           </div>
                           <div className="text-sm text-gray-500 mt-1">
-                            完成时间: {order.completedAt ? new Date(order.completedAt).toLocaleDateString() : '--'}
+                            申请时间: {order.commissionAppliedAt ? new Date(order.commissionAppliedAt).toLocaleString() : '--'}
                           </div>
                         </div>
                         <div className="text-right mr-4">
-                          <div className="text-sm text-gray-500">订单金额</div>
-                          <div className="font-medium text-gray-900">¥{(order.totalAmount || 0).toLocaleString()}</div>
+                          <div className="text-sm text-gray-500">返佣金额</div>
+                          <div className="font-bold text-yellow-600">¥{(order.commissionAmount || 0).toFixed(2)}</div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`确认核销订单 ${order.orderNo} 的返佣申请？金额: ¥${order.commissionAmount?.toFixed(2)}`)) return
+                            try {
+                              await apiClient.post(`/orders/${order._id}/approve-commission`)
+                              toast.success('返佣已核销')
+                              fetchData()
+                            } catch (e: any) {
+                              toast.error(e.response?.data?.message || '核销失败')
+                            }
+                          }}
+                          className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm"
+                        >
+                          核销返佣
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 待打款返佣订单 - commissionStatus='approved' */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">💰 待打款返佣订单</h3>
+                {(commissionStats.approvedOrders || []).length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>暂无待打款的返佣订单</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {(commissionStats.approvedOrders || []).map((order: any) => (
+                      <div key={order._id} className="flex items-center justify-between p-4 border border-orange-200 bg-orange-50 rounded-xl">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-gray-900">订单号: {order.orderNo}</span>
+                            <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded">待打款</span>
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            核销时间: {order.commissionApprovedAt ? new Date(order.commissionApprovedAt).toLocaleString() : '--'}
+                          </div>
                         </div>
                         <div className="text-right mr-4">
                           <div className="text-sm text-gray-500">返佣金额</div>
@@ -2160,18 +2207,58 @@ export default function ManufacturerManagement() {
                         </div>
                         <button
                           onClick={async () => {
+                            const proofUrl = window.prompt('请输入打款凭证图片URL（可选）:')
+                            const remark = window.prompt('请输入打款备注（可选）:')
+                            if (!window.confirm(`确认完成打款？订单: ${order.orderNo}，金额: ¥${order.commissionAmount?.toFixed(2)}`)) return
                             try {
-                              await apiClient.post(`/orders/${order._id}/apply-commission`)
-                              toast.success('返佣申请已提交')
+                              await apiClient.post(`/orders/${order._id}/pay-commission`, {
+                                paymentProofUrl: proofUrl || undefined,
+                                remark: remark || undefined
+                              })
+                              toast.success('返佣已打款')
                               fetchData()
                             } catch (e: any) {
-                              toast.error(e.response?.data?.message || '申请失败')
+                              toast.error(e.response?.data?.message || '打款失败')
                             }
                           }}
-                          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm"
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm"
                         >
-                          申请返佣
+                          确认打款
                         </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 已完成返佣订单 - commissionStatus='paid' */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">✅ 已完成返佣订单</h3>
+                {(commissionStats.paidOrders || []).length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>暂无已完成的返佣订单</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {(commissionStats.paidOrders || []).map((order: any) => (
+                      <div key={order._id} className="flex items-center justify-between p-4 border border-green-200 bg-green-50 rounded-xl">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-gray-900">订单号: {order.orderNo}</span>
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">已打款</span>
+                            {order.commissionPaymentProofUrl && (
+                              <a href={order.commissionPaymentProofUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">查看凭证</a>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            打款时间: {order.commissionPaidAt ? new Date(order.commissionPaidAt).toLocaleString() : '--'}
+                            {order.commissionPaymentRemark && <span className="ml-2">备注: {order.commissionPaymentRemark}</span>}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">返佣金额</div>
+                          <div className="font-bold text-green-600">¥{(order.commissionAmount || 0).toFixed(2)}</div>
+                        </div>
                       </div>
                     ))}
                   </div>

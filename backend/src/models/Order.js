@@ -88,8 +88,11 @@ const orderSchema = new mongoose.Schema({
   // 返佣申请状态（返佣模式下使用）
   commissionStatus: { type: String, enum: ['pending', 'applied', 'approved', 'paid', null], default: null },
   commissionAppliedAt: Date,     // 返佣申请时间
+  commissionInvoiceUrl: String,  // 返佣发票URL（可选）
   commissionApprovedAt: Date,    // 返佣审批时间
   commissionPaidAt: Date,        // 返佣发放时间
+  commissionPaymentProofUrl: String,  // 返佣打款凭证URL
+  commissionPaymentRemark: String,    // 返佣打款备注
   
   // 付款比例功能（分期付款）
   paymentRatioEnabled: { type: Boolean, default: false },  // 是否启用分期付款
