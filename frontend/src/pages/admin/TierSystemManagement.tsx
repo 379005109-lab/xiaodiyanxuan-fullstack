@@ -1600,6 +1600,7 @@ function HierarchyTab({
   const [editingRule, setEditingRule] = useState<CommissionRule | null>(null)
   const [showRuleEditor, setShowRuleEditor] = useState(false)
   const [localCommissionRules, setLocalCommissionRules] = useState<CommissionRule[]>(commissionRules || [])
+  const [showCommissionRules, setShowCommissionRules] = useState(false)
   
   // 绑定人员状态
   const [showBindModal, setShowBindModal] = useState(false)
@@ -3262,85 +3263,100 @@ function HierarchyTab({
                   </div>
                 )}
 
-                {/* 层级返佣规则选择 */}
+                {/* 层级返佣规则选择 - 可收缩 */}
                 <div className="bg-emerald-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h4 className="text-sm font-medium text-emerald-900">层级返佣规则</h4>
-                      <p className="text-xs text-emerald-700">选择适用的分佣规则（最多40%）</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowCommissionRules(!showCommissionRules)}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      {showCommissionRules ? <ChevronDown className="w-4 h-4 text-emerald-600" /> : <ChevronRight className="w-4 h-4 text-emerald-600" />}
+                      <div className="text-left">
+                        <h4 className="text-sm font-medium text-emerald-900">层级返佣规则</h4>
+                        <p className="text-xs text-emerald-700">选择适用的分佣规则（最多40%）</p>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleCreateRule}
-                      className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700"
-                    >
-                      + 新建规则
-                    </button>
-                  </div>
+                    {!showCommissionRules && (
+                      <span className="text-xs text-emerald-600">点击展开配置</span>
+                    )}
+                  </button>
                   
-                  <div className="space-y-2">
-                    {(localCommissionRules || []).map((rule: CommissionRule) => {
-                      const isSelected = selectedStaff.commissionRuleId === rule._id
-                      const total = rule.selfRate + (rule.subordinateRates || []).reduce((a, b) => a + b, 0)
-                      return (
-                        <div
-                          key={rule._id}
-                          className={`p-3 rounded-lg border-2 transition-all ${
-                            isSelected 
-                              ? 'border-emerald-500 bg-emerald-100' 
-                              : 'border-gray-200 bg-white hover:border-emerald-300'
-                          }`}
+                  {showCommissionRules && (
+                    <div className="mt-3">
+                      <div className="flex justify-end mb-3">
+                        <button
+                          type="button"
+                          onClick={handleCreateRule}
+                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700"
                         >
-                          <div className="flex items-center justify-between mb-1">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedStaff({ ...selectedStaff, commissionRuleId: rule._id })}
-                              className="font-medium text-sm text-gray-900 text-left flex-1"
+                          + 新建规则
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {(localCommissionRules || []).map((rule: CommissionRule) => {
+                          const isSelected = selectedStaff.commissionRuleId === rule._id
+                          const total = rule.selfRate + (rule.subordinateRates || []).reduce((a, b) => a + b, 0)
+                          return (
+                            <div
+                              key={rule._id}
+                              className={`p-3 rounded-lg border-2 transition-all ${
+                                isSelected 
+                                  ? 'border-emerald-500 bg-emerald-100' 
+                                  : 'border-gray-200 bg-white hover:border-emerald-300'
+                              }`}
                             >
-                              {rule.name}
-                            </button>
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs font-bold ${total > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
-                                {total}%
-                              </span>
+                              <div className="flex items-center justify-between mb-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedStaff({ ...selectedStaff, commissionRuleId: rule._id })}
+                                  className="font-medium text-sm text-gray-900 text-left flex-1"
+                                >
+                                  {rule.name}
+                                </button>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs font-bold ${total > 40 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                    {total}%
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setEditingRule(rule)
+                                      setShowRuleEditor(true)
+                                    }}
+                                    className="p-1 text-gray-400 hover:text-emerald-600"
+                                    title="编辑规则"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
                               <button
                                 type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setEditingRule(rule)
-                                  setShowRuleEditor(true)
-                                }}
-                                className="p-1 text-gray-400 hover:text-emerald-600"
-                                title="编辑规则"
+                                onClick={() => setSelectedStaff({ ...selectedStaff, commissionRuleId: rule._id })}
+                                className="w-full text-left"
                               >
-                                <Edit2 className="w-3.5 h-3.5" />
+                                <p className="text-xs text-gray-500 mb-2">{rule.description}</p>
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  <span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded">
+                                    自己 {rule.selfRate}%
+                                  </span>
+                                  {(rule.subordinateRates || []).map((rate, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded">
+                                      {idx + 1}级下级 {rate}%
+                                    </span>
+                                  ))}
+                                </div>
                               </button>
                             </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedStaff({ ...selectedStaff, commissionRuleId: rule._id })}
-                            className="w-full text-left"
-                          >
-                            <p className="text-xs text-gray-500 mb-2">{rule.description}</p>
-                            <div className="flex flex-wrap gap-2 text-xs">
-                              <span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded">
-                                自己 {rule.selfRate}%
-                              </span>
-                              {(rule.subordinateRates || []).map((rate, idx) => (
-                                <span key={idx} className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded">
-                                  {idx + 1}级下级 {rate}%
-                                </span>
-                              ))}
-                            </div>
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  
-                  {(!localCommissionRules || localCommissionRules.length === 0) && (
-                    <p className="text-xs text-gray-500 italic">暂无返佣规则，点击"新建规则"创建</p>
+                          )
+                        })}
+                      </div>
+                      {(!localCommissionRules || localCommissionRules.length === 0) && (
+                        <p className="text-xs text-gray-500 italic">暂无返佣规则，点击"新建规则"创建</p>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -3437,78 +3453,6 @@ function HierarchyTab({
                                       {i+1}级下级 {rate}%
                                     </span>
                                   ))}
-                                </div>
-                              )}
-
-                              {Array.isArray((entity as any).depthBasedCommissionRules) && (
-                                <div className="mt-2 pt-2 border-t border-blue-100">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs text-gray-600">多层级返佣(按层级深度)</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newBindings = [...(selectedStaff.boundEntities || [])]
-                                        const prevRules = Array.isArray((newBindings[idx] as any).depthBasedCommissionRules)
-                                          ? (newBindings[idx] as any).depthBasedCommissionRules
-                                          : []
-                                        const used = new Set(prevRules.map((r: any) => Number(r?.depth)))
-                                        let d = 0
-                                        while (used.has(d)) d++
-                                        const nextRules = [...prevRules, { depth: d, commissionRate: 0 }]
-                                        newBindings[idx] = { ...newBindings[idx], depthBasedCommissionRules: nextRules }
-                                        setSelectedStaff({ ...selectedStaff, boundEntities: newBindings })
-                                      }}
-                                      className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                                    >
-                                      + 添加层级
-                                    </button>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {((entity as any).depthBasedCommissionRules || []).map((r: any, ri: number) => {
-                                      const pct = Math.round(Number(r?.commissionRate || 0) * 100)
-                                      return (
-                                        <div key={ri} className="flex items-center gap-2">
-                                          <span className="text-xs text-gray-600 w-14">层级 {Number(r?.depth || 0)}</span>
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            value={pct}
-                                            onChange={(e) => {
-                                              const newBindings = [...(selectedStaff.boundEntities || [])]
-                                              const prevRules = Array.isArray((newBindings[idx] as any).depthBasedCommissionRules)
-                                                ? (newBindings[idx] as any).depthBasedCommissionRules
-                                                : []
-                                              const nextRules = [...prevRules]
-                                              nextRules[ri] = {
-                                                ...nextRules[ri],
-                                                commissionRate: Math.max(0, Math.min(1, (Number(e.target.value) || 0) / 100))
-                                              }
-                                              newBindings[idx] = { ...newBindings[idx], depthBasedCommissionRules: nextRules }
-                                              setSelectedStaff({ ...selectedStaff, boundEntities: newBindings })
-                                            }}
-                                            className="w-20 text-xs p-1.5 border border-gray-200 rounded bg-white text-center"
-                                          />
-                                          <span className="text-xs text-gray-500">%</span>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const newBindings = [...(selectedStaff.boundEntities || [])]
-                                              const prevRules = Array.isArray((newBindings[idx] as any).depthBasedCommissionRules)
-                                                ? (newBindings[idx] as any).depthBasedCommissionRules
-                                                : []
-                                              const nextRules = prevRules.filter((_: any, i: number) => i !== ri)
-                                              newBindings[idx] = { ...newBindings[idx], depthBasedCommissionRules: nextRules }
-                                              setSelectedStaff({ ...selectedStaff, boundEntities: newBindings })
-                                            }}
-                                            className="p-1 text-red-500 hover:text-red-700"
-                                          >
-                                            <X className="w-4 h-4" />
-                                          </button>
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
                                 </div>
                               )}
                             </div>
