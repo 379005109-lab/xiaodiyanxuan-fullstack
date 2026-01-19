@@ -142,13 +142,15 @@ export default function EliteManufacturerProductAuthorization() {
 
       existingAuthorizations.forEach(auth => {
         console.log('[EliteAuth] Processing auth:', { scope: auth.scope, products: auth.products?.length, categories: auth.categories?.length })
-        if (auth.scope === 'specific' && auth.products) {
-          // Handle both ObjectId objects and string IDs
+        // Handle products for specific and mixed scopes
+        if ((auth.scope === 'specific' || auth.scope === 'mixed') && auth.products) {
           auth.products.forEach((p: any) => {
             const id = typeof p === 'object' ? (p._id || p.id || String(p)) : String(p)
             authorizedProductIds.push(id)
           })
-        } else if (auth.scope === 'category' && auth.categories) {
+        }
+        // Handle categories for category and mixed scopes
+        if ((auth.scope === 'category' || auth.scope === 'mixed') && auth.categories) {
           auth.categories.forEach((c: any) => {
             const id = typeof c === 'object' ? (c._id || c.id || String(c)) : String(c)
             authorizedCategoryIds.push(id)
@@ -214,7 +216,11 @@ export default function EliteManufacturerProductAuthorization() {
   const isProductAuthorized = (productId: string) => {
     return existingAuthorizations.some(auth => {
       if (auth.scope === 'all') return true
-      if ((auth.scope === 'specific' || auth.scope === 'mixed') && auth.products?.includes(productId)) return true
+      // Handle both string IDs and populated objects
+      if ((auth.scope === 'specific' || auth.scope === 'mixed') && auth.products?.some((p: any) => {
+        const pId = typeof p === 'string' ? p : (p?._id || p)
+        return String(pId) === String(productId)
+      })) return true
       const product = productById.get(productId)
       if ((auth.scope === 'category' || auth.scope === 'mixed') && product?.category && auth.categories?.some((catId: string) => {
         const prodCatId = getProductCategoryId(product)
@@ -270,16 +276,21 @@ export default function EliteManufacturerProductAuthorization() {
   }
 
   const toggleCategorySelection = (catId: string) => {
+    console.log('[toggleCategorySelection] catId:', catId)
     const descIds = getDescendantCategoryIds(String(catId))
+    console.log('[toggleCategorySelection] descIds:', descIds)
     setSelectedCategoryIds(prev => {
       const set = new Set(prev)
       const isSelected = set.has(String(catId))
+      console.log('[toggleCategorySelection] isSelected:', isSelected, 'prev:', prev)
       if (isSelected) {
         descIds.forEach(id => set.delete(String(id)))
       } else {
         descIds.forEach(id => set.add(String(id)))
       }
-      return Array.from(set)
+      const result = Array.from(set)
+      console.log('[toggleCategorySelection] new selectedCategoryIds:', result)
+      return result
     })
   }
 
@@ -393,17 +404,23 @@ export default function EliteManufacturerProductAuthorization() {
           ? 'category'
           : 'specific'
 
+      console.log('[Submit] selectedCategoryIds:', selectedCategoryIds)
+      console.log('[Submit] selectedProductIds:', selectedProductIds)
+      console.log('[Submit] scope:', scope)
+
       const endpoint = (isDesigner || isPlatformAdmin)
         ? '/authorizations/designer-requests'
         : '/authorizations/manufacturer-requests'
-      await apiClient.post(endpoint, {
+      const payload = {
         manufacturerId,
         scope,
         categories: selectedCategoryIds,
         products: selectedProductIds,
         validUntil: validUntil || undefined,
         notes: buildNotes()
-      })
+      }
+      console.log('[Submit] Sending payload:', payload)
+      await apiClient.post(endpoint, payload)
       toast.success('申请已提交')
       navigate('/admin/manufacturers')
     } catch (e: any) {

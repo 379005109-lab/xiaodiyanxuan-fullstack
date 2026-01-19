@@ -186,6 +186,57 @@ const authorizationSchema = new mongoose.Schema({
   allowSubAuthorization: {
     type: Boolean,
     default: true
+  },
+  
+  // === 协议相关字段 ===
+  // 协议是否已签署
+  agreementSigned: {
+    type: Boolean,
+    default: false
+  },
+  
+  // 协议签署时间
+  agreementSignedAt: Date,
+  
+  // 授权期限（月数）
+  authorizationPeriod: {
+    type: Number,
+    min: 1,
+    default: 12
+  },
+  
+  // 取消方式：mutual（双方同意）、notice（提前通知）
+  cancellationPolicy: {
+    type: String,
+    enum: ['mutual', 'notice'],
+    default: 'mutual'
+  },
+  
+  // 提前通知天数（当cancellationPolicy为notice时）
+  noticePeriodDays: {
+    type: Number,
+    min: 1,
+    default: 30
+  },
+  
+  // 取消申请记录
+  cancellationRequest: {
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    requestedAt: Date,
+    reason: String,
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    approvedAt: Date,
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    }
   }
 })
 

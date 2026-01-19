@@ -259,6 +259,10 @@ router.get('/', auth, async (req, res) => {
       if (user?.manufacturerId) {
         query.toManufacturer = new mongoose.Types.ObjectId(String(user.manufacturerId))
       }
+      // 设计师用户：查询授权给该设计师的
+      if (user?.role === 'designer') {
+        query.toDesigner = user._id
+      }
     }
     
     // 状态筛选
@@ -266,6 +270,7 @@ router.get('/', auth, async (req, res) => {
       query.status = status
     }
     
+    console.log('[GET /authorizations] User:', user?._id, 'manufacturerId:', user?.manufacturerId, 'role:', user?.role)
     console.log('[GET /authorizations] Query:', JSON.stringify(query))
     
     const authorizations = await Authorization.find(query)
@@ -273,7 +278,8 @@ router.get('/', auth, async (req, res) => {
       .populate('products', '_id name')
       .lean()
     
-    console.log('[GET /authorizations] Found:', authorizations.length)
+    console.log('[GET /authorizations] Found:', authorizations.length, 'for mf:', manufacturerId)
+    authorizations.forEach(a => console.log('[GET /authorizations]   Auth:', a._id, 'scope:', a.scope, 'products:', a.products?.length))
     
     res.json({ success: true, data: authorizations })
   } catch (error) {
@@ -359,8 +365,13 @@ router.get('/summary', auth, async (req, res) => {
       // 累加商品数量
       if (auth.scope === 'all') {
         // 如果是全部授权，查询实际商品数量（包括所有状态）
-        const productCount = await Product.countDocuments({ 
-          manufacturerId: auth.fromManufacturer._id || auth.fromManufacturer
+        const mfId = auth.fromManufacturer._id || auth.fromManufacturer
+        const productCount = await Product.countDocuments({
+          status: 'active',
+          $or: [
+            { manufacturerId: mfId },
+            { 'skus.manufacturerId': mfId }
+          ]
         })
         console.log('[Authorization Summary] Scope ALL - productCount:', productCount, 'for manufacturer:', auth.fromManufacturer._id)
         summary.productCount = Math.max(summary.productCount, productCount)
@@ -371,12 +382,65 @@ router.get('/summary', auth, async (req, res) => {
         summary.products.push(...auth.products)
       } else if (auth.scope === 'category' && auth.categories && Array.isArray(auth.categories)) {
         // 如果是分类授权，查询该分类下的商品数量（包括所有状态）
-        const productCount = await Product.countDocuments({ 
-          manufacturerId: auth.fromManufacturer._id || auth.fromManufacturer,
-          category: { $in: auth.categories }
+        const mfId = auth.fromManufacturer._id || auth.fromManufacturer
+        const catIds = (auth.categories || []).map((c) => String(c))
+        const catOids = catIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id))
+        // 兼容 category 字段为字符串或对象
+        const categoryMatch = {
+          $or: [
+            { category: { $in: [...catIds, ...catOids] } },
+            { 'category._id': { $in: catOids } },
+            { 'category.id': { $in: catIds } },
+            { 'category.slug': { $in: catIds } }
+          ]
+        }
+        const productCountFinal = await Product.countDocuments({
+          status: 'active',
+          $and: [
+            {
+              $or: [
+                { manufacturerId: mfId },
+                { 'skus.manufacturerId': mfId }
+              ]
+            },
+            categoryMatch
+          ]
         })
-        console.log('[Authorization Summary] Scope CATEGORY - productCount:', productCount, 'for categories:', auth.categories.length)
-        summary.productCount += productCount
+        console.log('[Authorization Summary] Scope CATEGORY - productCount:', productCountFinal, 'for categories:', auth.categories.length)
+        summary.productCount += productCountFinal
+      } else if (auth.scope === 'mixed') {
+        // 混合模式：分类 + 指定商品
+        let categoryCount = 0
+        if (auth.categories && Array.isArray(auth.categories) && auth.categories.length > 0) {
+          const mfId = auth.fromManufacturer._id || auth.fromManufacturer
+          const catIds = (auth.categories || []).map((c) => String(c))
+          const catOids = catIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id))
+          categoryCount = await Product.countDocuments({
+            status: 'active',
+            $and: [
+              {
+                $or: [
+                  { manufacturerId: mfId },
+                  { 'skus.manufacturerId': mfId }
+                ]
+              },
+              {
+                $or: [
+                  { category: { $in: [...catIds, ...catOids] } },
+                  { 'category._id': { $in: catOids } },
+                  { 'category.id': { $in: catIds } },
+                  { 'category.slug': { $in: catIds } }
+                ]
+              }
+            ]
+          })
+        }
+        const specificCount = (auth.products && Array.isArray(auth.products)) ? auth.products.length : 0
+        console.log('[Authorization Summary] Scope MIXED - categoryCount:', categoryCount, 'specificCount:', specificCount)
+        summary.productCount += categoryCount + specificCount
+        if (auth.products && Array.isArray(auth.products)) {
+          summary.products.push(...auth.products)
+        }
       }
     }
     
@@ -415,7 +479,7 @@ router.get('/my-grants', auth, async (req, res) => {
     const authorizations = await Authorization.find({
       fromManufacturer: user.manufacturerId
     })
-      .populate('toManufacturer', 'name fullName logo contactPerson')
+      .populate('toManufacturer', 'name fullName logo contactPerson code styleTags categoryTags priceRangeMin priceRangeMax galleryImages defaultDiscount defaultCommission')
       .populate('toDesigner', 'username nickname avatar email')
       .populate('products', '_id')
       .sort({ createdAt: -1 })
@@ -1126,12 +1190,93 @@ router.get('/received', auth, async (req, res) => {
       return String(p.tierCompanyId || p._id)
     }
 
-    const withCompanyId = (authorizations || []).map((a) => ({
-      ...a,
-      tierCompanyId: resolveCompanyId(a)
+    // 计算每个授权的实际商品数量
+    const withProductCount = await Promise.all((authorizations || []).map(async (a) => {
+      let actualProductCount = 0
+      const mfId = a.fromManufacturer?._id || a.fromManufacturer
+      
+      // Debug logging
+      console.log('[received] Auth:', a._id, 'fromMf:', mfId?.toString?.() || mfId, 'scope:', a.scope, 'categories:', a.categories?.length, 'products:', a.products?.length)
+      
+      if (a.scope === 'all') {
+        actualProductCount = await Product.countDocuments({
+          status: 'active',
+          $or: [
+            { manufacturerId: mfId },
+            { 'skus.manufacturerId': mfId }
+          ]
+        })
+        console.log('[received] scope=all, count:', actualProductCount)
+      } else if (a.scope === 'category' && a.categories && Array.isArray(a.categories) && a.categories.length > 0) {
+        const catIds = (a.categories || []).map((c) => String(c))
+        const catOids = catIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id))
+        actualProductCount = await Product.countDocuments({
+          status: 'active',
+          $and: [
+            {
+              $or: [
+                { manufacturerId: mfId },
+                { 'skus.manufacturerId': mfId }
+              ]
+            },
+            {
+              $or: [
+                { category: { $in: [...catIds, ...catOids] } },
+                { 'category._id': { $in: catOids } },
+                { 'category.id': { $in: catIds } },
+                { 'category.slug': { $in: catIds } }
+              ]
+            }
+          ]
+        })
+        console.log('[received] scope=category, count:', actualProductCount)
+      } else if (a.scope === 'mixed') {
+        // mixed scope: 分类+指定商品
+        let categoryCount = 0
+        if (a.categories && Array.isArray(a.categories) && a.categories.length > 0) {
+          const catIds = (a.categories || []).map((c) => String(c))
+          const catOids = catIds.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id))
+          categoryCount = await Product.countDocuments({
+            status: 'active',
+            $and: [
+              {
+                $or: [
+                  { manufacturerId: mfId },
+                  { 'skus.manufacturerId': mfId }
+                ]
+              },
+              {
+                $or: [
+                  { category: { $in: [...catIds, ...catOids] } },
+                  { 'category._id': { $in: catOids } },
+                  { 'category.id': { $in: catIds } },
+                  { 'category.slug': { $in: catIds } }
+                ]
+              }
+            ]
+          })
+        }
+        const productCount = (a.products && Array.isArray(a.products)) ? a.products.length : 0
+        actualProductCount = categoryCount + productCount
+        console.log('[received] scope=mixed, categoryCount:', categoryCount, 'productCount:', productCount, 'total:', actualProductCount)
+      } else if (a.scope === 'specific' && a.products && Array.isArray(a.products)) {
+        actualProductCount = a.products.length
+        console.log('[received] scope=specific, count:', actualProductCount)
+      } else if (a.products && Array.isArray(a.products)) {
+        actualProductCount = a.products.length
+        console.log('[received] fallback products, count:', actualProductCount)
+      } else {
+        console.log('[received] no match, actualProductCount remains 0')
+      }
+      
+      return {
+        ...a,
+        tierCompanyId: resolveCompanyId(a),
+        actualProductCount
+      }
     }))
 
-    res.json({ success: true, data: withCompanyId })
+    res.json({ success: true, data: withProductCount })
   } catch (error) {
     console.error('获取授权列表失败:', error)
     res.status(500).json({ success: false, message: '获取授权列表失败' })
@@ -1282,7 +1427,7 @@ router.get('/designer-requests/my', auth, async (req, res) => {
 router.get('/designer-requests/pending', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin' || currentUser?.role === 'enterprise_admin'
     
     if (!isAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户或管理员可以查看授权申请' })
@@ -1293,15 +1438,33 @@ router.get('/designer-requests/pending', auth, async (req, res) => {
       status: 'pending'
     }
     
-    if (!isAdmin) {
+    // 管理员可以看到所有待审批请求，厂家用户只能看到自己厂家的
+    if (!isAdmin && currentUser?.manufacturerId) {
       query.fromManufacturer = currentUser.manufacturerId
     }
 
     const list = await Authorization.find(query)
-      .populate('toDesigner', 'username nickname phone email')
+      .populate('toDesigner', 'username nickname phone email avatar')
       .populate('fromManufacturer', 'fullName shortName name')
       .sort({ createdAt: -1 })
       .lean()
+
+    // 手动查询分类和产品名称（因为存储的是字符串ID）
+    const Category = require('../models/Category')
+    const Product = require('../models/Product')
+    
+    for (const auth of list) {
+      if (auth.categories && auth.categories.length > 0) {
+        const categoryIds = auth.categories.map(id => id.toString())
+        const cats = await Category.find({ _id: { $in: categoryIds } }).select('name').lean()
+        auth.categories = cats.map(c => ({ _id: c._id, name: c.name }))
+      }
+      if (auth.products && auth.products.length > 0) {
+        const productIds = auth.products.map(id => id.toString())
+        const prods = await Product.find({ _id: { $in: productIds } }).select('name mainImage').lean()
+        auth.products = prods.map(p => ({ _id: p._id, name: p.name, mainImage: p.mainImage }))
+      }
+    }
 
     res.json({ success: true, data: list })
   } catch (error) {
@@ -1313,7 +1476,7 @@ router.get('/designer-requests/pending', auth, async (req, res) => {
 router.put('/designer-requests/:id/approve', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'enterprise_admin'].includes(currentUser?.role)
     
     if (!isAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
@@ -1333,7 +1496,7 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '只能审核设计师授权申请' })
     }
     
-    if (!isAdmin && authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId.toString()) {
+    if (!isAdmin && authDoc.fromManufacturer?.toString() !== myManufacturerId?.toString()) {
       return res.status(403).json({ success: false, message: '无权限审核此申请' })
     }
 
@@ -1438,7 +1601,7 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
 router.put('/designer-requests/:id/reject', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'enterprise_admin'].includes(currentUser?.role)
     
     if (!isAdmin && !currentUser?.manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
@@ -1481,18 +1644,18 @@ router.put('/designer-requests/:id/reject', auth, async (req, res) => {
 
 router.post('/manufacturer-requests', auth, async (req, res) => {
   try {
-    console.log('收到厂家授权申请:', req.body)
+    console.log('[manufacturer-requests] Request body:', JSON.stringify(req.body))
     const currentUser = await User.findById(req.userId)
-    if (!currentUser?.manufacturerId) {
+    const requesterManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
+    if (!requesterManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以申请厂家授权' })
     }
 
-    const { manufacturerId, notes, scope, categories, products, validUntil } = req.body
+    const { manufacturerId, notes, scope, categories, products, validUntil, authorizationPeriod, cancellationPolicy, noticePeriodDays, agreementSigned } = req.body
     if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
       return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
     }
 
-    const requesterManufacturerId = currentUser.manufacturerId
     if (String(requesterManufacturerId) === String(manufacturerId)) {
       return res.status(400).json({ success: false, message: '不能向自己申请授权' })
     }
@@ -1507,10 +1670,80 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
       toManufacturer: requesterManufacturerId,
       authorizationType: 'manufacturer',
       status: { $in: ['pending', 'active'] }
-    }).select('_id status')
+    }).select('_id status scope products categories')
 
-    if (existing) {
-      return res.status(400).json({ success: false, message: '已存在申请记录或已授权' })
+    // 如果已存在活跃授权，允许追加商品或分类
+    if (existing && existing.status === 'active') {
+      console.log('[manufacturer-requests] Existing auth found:', existing._id)
+      console.log('[manufacturer-requests] Existing scope:', existing.scope)
+      console.log('[manufacturer-requests] Existing categories:', JSON.stringify(existing.categories))
+      console.log('[manufacturer-requests] Existing products count:', existing.products?.length)
+      console.log('[manufacturer-requests] New categories from request:', JSON.stringify(categories))
+      console.log('[manufacturer-requests] New products from request:', products?.length)
+      
+      const updateData = {}
+      const messages = []
+      
+      // 追加分类到现有授权
+      if (Array.isArray(categories) && categories.length > 0) {
+        const existingCats = existing.categories || []
+        const newCategories = categories.filter(c => 
+          !existingCats.some(ec => String(ec) === String(c))
+        )
+        console.log('[manufacturer-requests] Filtered new categories:', newCategories.length, newCategories)
+        if (newCategories.length > 0) {
+          updateData.categories = [...existingCats, ...newCategories]
+          messages.push(`追加 ${newCategories.length} 个分类`)
+        }
+      }
+      
+      // 追加商品到现有授权
+      if (Array.isArray(products) && products.length > 0) {
+        const existingProds = existing.products || []
+        const newProducts = products.filter(p => 
+          !existingProds.some(ep => String(ep) === String(p))
+        )
+        console.log('[manufacturer-requests] Filtered new products:', newProducts.length)
+        if (newProducts.length > 0) {
+          updateData.products = [...existingProds, ...newProducts]
+          messages.push(`追加 ${newProducts.length} 个商品`)
+        }
+      }
+      
+      console.log('[manufacturer-requests] Update data:', JSON.stringify(updateData))
+      
+      if (Object.keys(updateData).length > 0) {
+        // 更新scope
+        const finalCategories = updateData.categories || existing.categories || []
+        const finalProducts = updateData.products || existing.products || []
+        if (finalCategories.length > 0 && finalProducts.length > 0) {
+          updateData.scope = 'mixed'
+        } else if (finalCategories.length > 0) {
+          updateData.scope = 'category'
+        } else if (finalProducts.length > 0) {
+          updateData.scope = 'specific'
+        }
+        
+        const updated = await Authorization.findByIdAndUpdate(
+          existing._id,
+          { $set: updateData },
+          { new: true }
+        )
+        console.log('[manufacturer-requests] Updated authorization:', updated?._id)
+        return res.json({ 
+          success: true, 
+          data: updated, 
+          message: `已${messages.join('、')}到现有授权` 
+        })
+      }
+      
+      console.log('[manufacturer-requests] No updates to make')
+      return res.status(400).json({ success: false, message: '所选内容已在授权范围内' })
+    }
+    
+    // 如果存在pending状态的申请，不允许重复申请
+    if (existing && existing.status === 'pending') {
+      return res.status(400).json({ success: false, message: '已有待审批的申请' })
     }
 
     const normalizedScope = ['all', 'category', 'specific', 'mixed'].includes(scope) ? scope : 'all'
@@ -1585,6 +1818,10 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
       },
       status: 'pending',
       ...(parsedValidUntil ? { validUntil: parsedValidUntil } : {}),
+      authorizationPeriod: authorizationPeriod || 12,
+      cancellationPolicy: cancellationPolicy || 'mutual',
+      noticePeriodDays: noticePeriodDays || 30,
+      agreementSigned: agreementSigned || false,
       notes,
       createdBy: req.userId
     })
@@ -1599,13 +1836,14 @@ router.post('/manufacturer-requests', auth, async (req, res) => {
 router.get('/manufacturer-requests/my', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    if (!currentUser?.manufacturerId) {
+    const myManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
+    if (!myManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以查看申请记录' })
     }
 
     const list = await Authorization.find({
       authorizationType: 'manufacturer',
-      toManufacturer: currentUser.manufacturerId
+      toManufacturer: myManufacturerId
     })
       .populate('fromManufacturer', 'name fullName shortName code')
       .populate('toManufacturer', 'name fullName shortName code')
@@ -1622,9 +1860,10 @@ router.get('/manufacturer-requests/my', auth, async (req, res) => {
 router.get('/manufacturer-requests/pending', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isPlatformAdmin = ['admin', 'super_admin', 'platform_admin'].includes(currentUser?.role)
+    const myManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
 
-    if (!isAdmin && !currentUser?.manufacturerId) {
+    if (!isPlatformAdmin && !myManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户或管理员可以查看授权申请' })
     }
 
@@ -1633,15 +1872,33 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
       status: 'pending'
     }
 
-    if (!isAdmin) {
-      query.fromManufacturer = currentUser.manufacturerId
+    // 平台管理员可以看到所有待审批请求，厂家用户只能看到别人申请自己的（自己是fromManufacturer）
+    if (!isPlatformAdmin && myManufacturerId) {
+      query.fromManufacturer = myManufacturerId
     }
 
     const list = await Authorization.find(query)
-      .populate('toManufacturer', 'name fullName shortName code contactPerson')
+      .populate('toManufacturer', 'name fullName shortName code contactPerson logo businessLicense businessCategories annualRevenue')
       .populate('fromManufacturer', 'fullName shortName name')
       .sort({ createdAt: -1 })
       .lean()
+
+    // 手动查询分类和产品名称（因为存储的是字符串ID）
+    const Category = require('../models/Category')
+    const Product = require('../models/Product')
+    
+    for (const auth of list) {
+      if (auth.categories && auth.categories.length > 0) {
+        const categoryIds = auth.categories.map(id => id.toString())
+        const cats = await Category.find({ _id: { $in: categoryIds } }).select('name').lean()
+        auth.categories = cats.map(c => ({ _id: c._id, name: c.name }))
+      }
+      if (auth.products && auth.products.length > 0) {
+        const productIds = auth.products.map(id => id.toString())
+        const prods = await Product.find({ _id: { $in: productIds } }).select('name mainImage').lean()
+        auth.products = prods.map(p => ({ _id: p._id, name: p.name, mainImage: p.mainImage }))
+      }
+    }
 
     res.json({ success: true, data: list })
   } catch (error) {
@@ -1653,9 +1910,11 @@ router.get('/manufacturer-requests/pending', auth, async (req, res) => {
 router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isPlatformAdmin = ['admin', 'super_admin', 'platform_admin'].includes(currentUser?.role)
+    const isEnterpriseAdmin = currentUser?.role === 'enterprise_admin'
+    const myManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
 
-    if (!isAdmin && !currentUser?.manufacturerId) {
+    if (!isPlatformAdmin && !isEnterpriseAdmin && !myManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
     }
 
@@ -1673,7 +1932,7 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '只能审核厂家授权申请' })
     }
 
-    if (!isAdmin && authDoc.fromManufacturer?.toString() !== currentUser.manufacturerId.toString()) {
+    if (!isPlatformAdmin && authDoc.fromManufacturer?.toString() !== myManufacturerId?.toString()) {
       return res.status(403).json({ success: false, message: '无权限审核此申请' })
     }
 
@@ -1754,9 +2013,10 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
 router.put('/manufacturer-requests/:id/reject', auth, async (req, res) => {
   try {
     const currentUser = await User.findById(req.userId)
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin' || currentUser?.role === 'platform_admin'
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'enterprise_admin'].includes(currentUser?.role)
+    const myManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
 
-    if (!isAdmin && !currentUser?.manufacturerId) {
+    if (!isAdmin && !myManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以审核授权申请' })
     }
 
@@ -1958,6 +2218,37 @@ router.put('/:id/designer-product-discount/:productId', auth, async (req, res) =
   } catch (error) {
     console.error('更新单品折扣失败:', error)
     res.status(500).json({ success: false, message: '更新单品折扣失败' })
+  }
+})
+
+// PUT /api/authorizations/:id/settings - 更新授权设置
+router.put('/:id([0-9a-fA-F]{24})/settings', auth, async (req, res) => {
+  try {
+    const authorization = await Authorization.findById(req.params.id)
+    if (!authorization) {
+      return res.status(404).json({ success: false, message: '授权不存在' })
+    }
+
+    const user = await User.findById(req.userId)
+    const isAdmin = ['admin', 'super_admin', 'platform_admin', 'platform_staff', 'enterprise_admin'].includes(user?.role)
+    const isOwner = authorization.fromManufacturer.toString() === user.manufacturerId?.toString()
+    
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ success: false, message: '只有授权方可以修改授权设置' })
+    }
+
+    const { allowSubAuthorization } = req.body
+    if (typeof allowSubAuthorization === 'boolean') {
+      authorization.allowSubAuthorization = allowSubAuthorization
+    }
+
+    authorization.updatedAt = new Date()
+    await authorization.save()
+
+    res.json({ success: true, data: authorization, message: '授权设置已更新' })
+  } catch (error) {
+    console.error('更新授权设置失败:', error)
+    res.status(500).json({ success: false, message: '更新授权设置失败' })
   }
 })
 
@@ -2376,6 +2667,58 @@ router.get('/gmv-stats', auth, async (req, res) => {
   } catch (error) {
     console.error('获取GMV统计失败:', error)
     res.status(500).json({ success: false, message: '获取GMV统计失败' })
+  }
+})
+
+// GET /api/authorizations/growth-stats - 获取月增长率统计
+router.get('/growth-stats', auth, async (req, res) => {
+  try {
+    const { manufacturerId } = req.query
+    const user = await User.findById(req.userId).select('manufacturerId manufacturerIds').lean()
+    const mfId = manufacturerId || user?.manufacturerId || user?.manufacturerIds?.[0]
+    
+    if (!mfId) {
+      return res.json({ success: true, data: { monthlyGrowth: 0, thisMonthChannels: 0, lastMonthChannels: 0 } })
+    }
+
+    const now = new Date()
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+
+    // 本月新增渠道数
+    const thisMonthChannels = await Authorization.countDocuments({
+      fromManufacturer: mfId,
+      status: 'active',
+      createdAt: { $gte: thisMonthStart }
+    })
+
+    // 上月新增渠道数
+    const lastMonthChannels = await Authorization.countDocuments({
+      fromManufacturer: mfId,
+      status: 'active',
+      createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd }
+    })
+
+    // 计算增长率
+    let monthlyGrowth = 0
+    if (lastMonthChannels > 0) {
+      monthlyGrowth = ((thisMonthChannels - lastMonthChannels) / lastMonthChannels * 100).toFixed(1)
+    } else if (thisMonthChannels > 0) {
+      monthlyGrowth = 100
+    }
+
+    res.json({ 
+      success: true, 
+      data: { 
+        monthlyGrowth: Number(monthlyGrowth),
+        thisMonthChannels,
+        lastMonthChannels
+      } 
+    })
+  } catch (error) {
+    console.error('获取增长率统计失败:', error)
+    res.status(500).json({ success: false, message: '获取增长率统计失败' })
   }
 })
 

@@ -15,18 +15,26 @@ interface OrderDetailPanelProps {
 
 // 订单状态配置
 const statusConfig: Record<number | string, { label: string; color: string; bgColor: string }> = {
+  0: { label: '待确认', color: 'text-amber-600', bgColor: 'bg-amber-100' },
   1: { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
-  'pending': { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
-  2: { label: '已付款', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  'paid': { label: '已付款', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  3: { label: '待发货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  'processing': { label: '处理中', color: 'text-purple-600', bgColor: 'bg-purple-100' },
-  4: { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-100' },
-  'shipped': { label: '已发货', color: 'text-green-600', bgColor: 'bg-green-100' },
-  5: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
-  'completed': { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
-  6: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
-  'cancelled': { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
+  2: { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  3: { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  4: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
+  5: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
+  6: { label: '退款中', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
+  7: { label: '已退款', color: 'text-red-600', bgColor: 'bg-red-100' },
+  8: { label: '换货中', color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+  9: { label: '待确认收款', color: 'text-amber-600', bgColor: 'bg-amber-100' },
+  10: { label: '定金已付', color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
+  11: { label: '生产中', color: 'text-teal-600', bgColor: 'bg-teal-100' },
+  12: { label: '待付尾款', color: 'text-pink-600', bgColor: 'bg-pink-100' },
+  13: { label: '尾款已付', color: 'text-rose-600', bgColor: 'bg-rose-100' },
+  pending: { label: '待付款', color: 'text-orange-600', bgColor: 'bg-orange-100' },
+  paid: { label: '待发货', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  processing: { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  shipped: { label: '待收货', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  completed: { label: '已完成', color: 'text-gray-600', bgColor: 'bg-gray-100' },
+  cancelled: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
 }
 
 // 隐藏手机号中间4位
@@ -48,7 +56,29 @@ const maskAddress = (address: string) => {
 export default function OrderDetailPanel({ order, onClose, onStatusChange, onRefresh, showFollowUp = true }: OrderDetailPanelProps) {
   const status = statusConfig[order.status] || statusConfig[1]
   const [followUpNote, setFollowUpNote] = useState('')
-  
+
+  const prEnabledRaw = (order as any).paymentRatioEnabled
+  const paymentRatioEnabled =
+    prEnabledRaw === true ||
+    prEnabledRaw === 1 ||
+    prEnabledRaw === 'true' ||
+    prEnabledRaw === '1' ||
+    (Boolean(prEnabledRaw) && prEnabledRaw !== 'false' && prEnabledRaw !== '0')
+
+  const paymentRatioRaw = Number((order as any).paymentRatio || 0)
+  const paymentRatio = paymentRatioRaw > 0 && paymentRatioRaw < 100 ? paymentRatioRaw : 50
+  const totalAmountNumber = Number((order as any).totalAmount || 0)
+  const depositAmountNumber = Number((order as any).depositAmount || 0)
+  const finalPaymentAmountNumber = Number((order as any).finalPaymentAmount || 0)
+  const computedDepositAmount = paymentRatioEnabled && totalAmountNumber > 0 && paymentRatio > 0 && paymentRatio < 100
+    ? Math.round(totalAmountNumber * paymentRatio / 100)
+    : 0
+  const computedFinalPaymentAmount = paymentRatioEnabled && totalAmountNumber > 0 && paymentRatio > 0 && paymentRatio < 100
+    ? Math.round(totalAmountNumber - computedDepositAmount)
+    : 0
+  const displayDepositAmount = depositAmountNumber > 0 ? depositAmountNumber : computedDepositAmount
+  const displayFinalPaymentAmount = finalPaymentAmountNumber > 0 ? finalPaymentAmountNumber : computedFinalPaymentAmount
+
   // 处理删除订单
   const handleDelete = async () => {
     if (!window.confirm('确定要删除此订单吗？订单将移至回收站。')) return
@@ -177,7 +207,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
   // 处理发货
   const handleShip = () => {
     if (onStatusChange) {
-      onStatusChange(order._id, 4) // 4 = 已发货
+      onStatusChange(order._id, 3) // 3 = 待收货（已发货）
       toast.success('订单已发货')
     }
   }
@@ -191,7 +221,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
           <span className={`font-medium ${status.color}`}>{status.label}</span>
         </div>
         <div className="flex items-center gap-2">
-          {(order.status === 2 || order.status === 3 || order.status === 'paid' || order.status === 'processing') && (
+          {(order.status === 2 || order.status === 'paid') && (
             <button
               onClick={handleShip}
               className="px-4 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
@@ -246,7 +276,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
                     const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/settlement-mode`, {
                       method: 'POST',
                       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50 })
+                      body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50, estimatedProductionDays: 30 })
                     })
                     if (response.ok) {
                       toast.success('已选择返佣模式')
@@ -412,18 +442,200 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
           </div>
         </div>
 
+        {/* 预付定制订单信息 */}
+        {(order as any).paymentRatioEnabled && (
+          <div className="bg-gradient-to-r from-cyan-50 to-pink-50 rounded-xl p-4 border border-cyan-100">
+            <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+              📦 预付定制订单
+              {(order as any).estimatedProductionDays > 0 && (
+                <span className="ml-auto text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">
+                  🏭 制作周期: {(order as any).estimatedProductionDays} 天
+                </span>
+              )}
+            </h3>
+            
+            {/* 两段式支付状态 */}
+            <div className="mb-3 p-3 bg-white/80 rounded-lg">
+              <div className="text-xs text-gray-500 mb-2 font-medium">💳 支付状态</div>
+              <div className="flex items-center gap-2">
+                {/* 定金状态 */}
+                <div className={`flex-1 p-2 rounded-lg text-center ${
+                  (order as any).depositVerified ? 'bg-green-100 border border-green-300' :
+                  (order as any).depositPaidAt ? 'bg-amber-100 border border-amber-300' :
+                  'bg-gray-100 border border-gray-300'
+                }`}>
+                  <div className="text-xs text-gray-500">定金({(order as any).paymentRatio || 50}%)</div>
+                  <div className={`font-bold ${
+                    (order as any).depositVerified ? 'text-green-700' :
+                    (order as any).depositPaidAt ? 'text-amber-700' :
+                    'text-gray-700'
+                  }`}>¥{(displayDepositAmount || 0).toLocaleString()}</div>
+                  <div className={`text-xs mt-1 ${
+                    (order as any).depositVerified ? 'text-green-600' :
+                    (order as any).depositPaidAt ? 'text-amber-600' :
+                    'text-gray-500'
+                  }`}>
+                    {(order as any).depositVerified ? '✓ 已核销' :
+                     (order as any).depositPaidAt ? '⏳ 待核销' :
+                     '○ 待支付'}
+                  </div>
+                </div>
+                
+                {/* 箭头 */}
+                <div className="text-gray-400">→</div>
+                
+                {/* 尾款状态 */}
+                <div className={`flex-1 p-2 rounded-lg text-center ${
+                  (order as any).finalPaymentVerified ? 'bg-green-100 border border-green-300' :
+                  (order as any).finalPaymentPaidAt ? 'bg-amber-100 border border-amber-300' :
+                  (order as any).finalPaymentRequested ? 'bg-pink-100 border border-pink-300' :
+                  'bg-gray-100 border border-gray-300'
+                }`}>
+                  <div className="text-xs text-gray-500">尾款({100 - ((order as any).paymentRatio || 50)}%)</div>
+                  <div className={`font-bold ${
+                    (order as any).finalPaymentVerified ? 'text-green-700' :
+                    (order as any).finalPaymentPaidAt ? 'text-amber-700' :
+                    (order as any).finalPaymentRequested ? 'text-pink-700' :
+                    'text-gray-700'
+                  }`}>¥{(displayFinalPaymentAmount || 0).toLocaleString()}</div>
+                  <div className={`text-xs mt-1 ${
+                    (order as any).finalPaymentVerified ? 'text-green-600' :
+                    (order as any).finalPaymentPaidAt ? 'text-amber-600' :
+                    (order as any).finalPaymentRequested ? 'text-pink-600' :
+                    'text-gray-500'
+                  }`}>
+                    {(order as any).finalPaymentVerified ? '✓ 已核销' :
+                     (order as any).finalPaymentPaidAt ? '⏳ 待核销' :
+                     (order as any).finalPaymentRequested ? '📢 已请求' :
+                     '○ 待请求'}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-white/60 rounded-lg p-2">
+                <div className="text-gray-500 text-xs">返佣金额</div>
+                <div className="font-bold text-purple-700">¥{((order as any).commissionAmount || 0).toLocaleString()}</div>
+                <div className="text-xs text-gray-400">(订单完成后可申请)</div>
+              </div>
+              <div className="bg-white/60 rounded-lg p-2">
+                <div className="text-gray-500 text-xs">原价 → 折扣价</div>
+                <div className="font-bold">
+                  <span className="text-gray-400 line-through text-sm">¥{((order as any).originalPrice || 0).toLocaleString()}</span>
+                  <span className="text-green-700 ml-1">¥{((order as any).minDiscountPrice || order.totalAmount || 0).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* 生产进度和剩余天数 */}
+            {(order as any).depositPaidAt && (
+              <div className="mt-3 p-2 bg-white/60 rounded-lg">
+                <div className="text-xs text-gray-500 mb-1">生产进度</div>
+                {(() => {
+                  const startDate = new Date((order as any).depositPaidAt)
+                  const days = (order as any).estimatedProductionDays || 30
+                  const deadline = new Date(startDate.getTime() + days * 24 * 60 * 60 * 1000)
+                  const remaining = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+                  const progress = Math.min(100, Math.max(0, ((days - remaining) / days) * 100))
+                  return (
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span>开始: {startDate.toLocaleDateString('zh-CN')}</span>
+                        <span className={remaining > 0 ? 'text-teal-600' : 'text-red-600'}>
+                          {remaining > 0 ? `剩余 ${remaining} 天` : '已到期'}
+                        </span>
+                        <span>截止: {deadline.toLocaleDateString('zh-CN')}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className={`h-2 rounded-full ${remaining > 0 ? 'bg-teal-500' : 'bg-red-500'}`} style={{width: `${progress}%`}}></div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+            
+            {/* 提前交付按钮 */}
+            {(order as any).depositVerified && order.status === 11 && (
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/request-final-payment`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' }
+                    })
+                    if (response.ok) {
+                      toast.success('已发起尾款请求，等待客户支付')
+                      onRefresh?.()
+                    } else {
+                      toast.error('操作失败')
+                    }
+                  } catch (error) {
+                    toast.error('操作失败')
+                  }
+                }}
+                className="mt-3 w-full px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 text-sm"
+              >
+                🚀 提前交付 - 发起尾款请求
+              </button>
+            )}
+          </div>
+        )}
+
         {/* 订单动态 & 跟进 - 仅管理员显示 */}
         {showFollowUp && (
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-1">
               <FileText className="w-4 h-4" />
-              订单动态 & 跟进
+              订单动态
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-60 overflow-y-auto">
               <div className="text-xs text-gray-400 flex items-center gap-2">
                 <Clock className="w-3 h-3" />
                 {new Date(order.createdAt).toLocaleString('zh-CN')} 订单创建
               </div>
+              
+              {/* 显示后端返回的活动日志 */}
+              {(order as any).activityLogs?.map((log: any, idx: number) => (
+                <div key={idx} className={`text-xs flex items-start gap-2 p-2 rounded ${
+                  log.action === 'settlement_mode_set' ? 'bg-purple-50 text-purple-700' :
+                  log.action === 'deposit_paid' ? 'bg-cyan-50 text-cyan-700' :
+                  log.action === 'final_payment_paid' ? 'bg-pink-50 text-pink-700' :
+                  log.action === 'deposit_verified' ? 'bg-green-50 text-green-700' :
+                  log.action === 'production_started' ? 'bg-teal-50 text-teal-700' :
+                  'bg-gray-50 text-gray-600'
+                }`}>
+                  <CheckCircle2 className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div>{new Date(log.timestamp).toLocaleString('zh-CN')}</div>
+                    <div className="font-medium">{log.details}</div>
+                    {log.operator && <div className="text-xs opacity-70">操作人: {log.operator}</div>}
+                  </div>
+                </div>
+              ))}
+              
+              {/* 预付定制订单生产周期显示 */}
+              {(order as any).paymentRatioEnabled && (order as any).estimatedProductionDays && (
+                <div className="text-xs p-2 bg-teal-50 text-teal-700 rounded">
+                  <div className="font-medium">📦 预付定制订单</div>
+                  <div>生产周期: {(order as any).estimatedProductionDays} 天</div>
+                  {(order as any).productionDeadline && (
+                    <div>预计完成: {new Date((order as any).productionDeadline).toLocaleDateString('zh-CN')}</div>
+                  )}
+                  {(order as any).depositPaidAt && !((order as any).productionDeadline) && (
+                    <div>
+                      预计完成: {new Date(new Date((order as any).depositPaidAt).getTime() + (order as any).estimatedProductionDays * 24 * 60 * 60 * 1000).toLocaleDateString('zh-CN')}
+                      {(() => {
+                        const deadline = new Date(new Date((order as any).depositPaidAt).getTime() + (order as any).estimatedProductionDays * 24 * 60 * 60 * 1000)
+                        const remaining = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+                        return remaining > 0 ? ` (剩余 ${remaining} 天)` : ' (已到期)'
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {order.paidAt && (
                 <div className="text-xs text-gray-400 flex items-center gap-2">
                   <CheckCircle2 className="w-3 h-3" />

@@ -313,7 +313,7 @@ export interface CartItem {
 }
 
 // 订单类型
-export type OrderStatus = 'pending' | 'processing' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunding' | 'refunded'
+export type OrderStatus = 'pending' | 'processing' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunding' | 'refunded' | 'exchanging'
 
 export interface OrderItem {
   product: Product | string

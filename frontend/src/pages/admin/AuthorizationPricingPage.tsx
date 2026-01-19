@@ -49,6 +49,8 @@ export default function AuthorizationPricingPage() {
   
   const [minDiscountRate, setMinDiscountRate] = useState(60)
   const [commissionRate, setCommissionRate] = useState(40)
+  const [partnerMinDiscountRate, setPartnerMinDiscountRate] = useState(60)
+  const [partnerCommissionRate, setPartnerCommissionRate] = useState(40)
   const [productTab, setProductTab] = useState<'own' | 'partner'>('own')
   const [partnerSearchTerm, setPartnerSearchTerm] = useState('')
   const [expandedManufacturers, setExpandedManufacturers] = useState<Set<string>>(new Set())
@@ -166,6 +168,8 @@ export default function AuthorizationPricingPage() {
       if (authData?.priceSettings) {
         setMinDiscountRate((authData.priceSettings.minDiscountRate || 0.6) * 100)
         setCommissionRate((authData.priceSettings.commissionRate || 0.4) * 100)
+        setPartnerMinDiscountRate((authData.priceSettings.partnerMinDiscountRate || authData.priceSettings.minDiscountRate || 0.6) * 100)
+        setPartnerCommissionRate((authData.priceSettings.partnerCommissionRate || authData.priceSettings.commissionRate || 0.4) * 100)
       }
       
       // Load authorized products
@@ -197,7 +201,9 @@ export default function AuthorizationPricingPage() {
       await apiClient.put(`/authorizations/${authorizationId}/pricing`, {
         priceSettings: {
           minDiscountRate: minDiscountRate / 100,
-          commissionRate: commissionRate / 100
+          commissionRate: commissionRate / 100,
+          partnerMinDiscountRate: partnerMinDiscountRate / 100,
+          partnerCommissionRate: partnerCommissionRate / 100
         }
       })
       toast.success('价格设置已保存')
@@ -294,61 +300,86 @@ export default function AuthorizationPricingPage() {
         {/* Price Settings */}
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4">价格策略设置</h2>
-          <p className="text-sm text-gray-500 mb-6">设置该渠道的最低折扣率和返佣比例，这些设置将应用于所有授权商品</p>
           
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-orange-50 rounded-xl p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <Percent className="w-5 h-5 text-orange-600" />
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-900">最低折扣率</div>
-                  <div className="text-xs text-gray-500">渠道可售卖的最低价格比例</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  value={minDiscountRate}
-                  onChange={(e) => !isReadOnly && setMinDiscountRate(Number(e.target.value))}
-                  min={0}
-                  max={100}
-                  disabled={isReadOnly}
-                  className={`w-24 px-4 py-2 border border-gray-200 rounded-lg text-xl font-bold text-center focus:outline-none focus:border-orange-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                />
-                <span className="text-xl font-bold text-orange-600">%</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-3">
-                例: 设置60%表示商品最低可打6折出售
-              </p>
+          {/* 自有产品设置 */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Building2 className="w-5 h-5 text-blue-600" />
+              <h3 className="font-semibold text-gray-900">自有产品</h3>
+              <span className="text-xs text-gray-500">({ownProducts.length}个)</span>
             </div>
-            
-            <div className="bg-green-50 rounded-xl p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <Percent className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <div className="font-semibold text-gray-900">渠道返佣比例</div>
-                  <div className="text-xs text-gray-500">渠道从销售额中获得的佣金</div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-orange-50 rounded-xl p-4">
+                <div className="text-sm font-medium text-gray-700 mb-2">最低折扣率</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={minDiscountRate}
+                    onChange={(e) => !isReadOnly && setMinDiscountRate(Number(e.target.value))}
+                    min={0}
+                    max={100}
+                    disabled={isReadOnly}
+                    className={`w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center focus:outline-none focus:border-orange-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  />
+                  <span className="text-lg font-bold text-orange-600">%</span>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  value={commissionRate}
-                  onChange={(e) => !isReadOnly && setCommissionRate(Number(e.target.value))}
-                  min={0}
-                  max={100}
-                  disabled={isReadOnly}
-                  className={`w-24 px-4 py-2 border border-gray-200 rounded-lg text-xl font-bold text-center focus:outline-none focus:border-green-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                />
-                <span className="text-xl font-bold text-green-600">%</span>
+              <div className="bg-green-50 rounded-xl p-4">
+                <div className="text-sm font-medium text-gray-700 mb-2">返佣比例</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={commissionRate}
+                    onChange={(e) => !isReadOnly && setCommissionRate(Number(e.target.value))}
+                    min={0}
+                    max={100}
+                    disabled={isReadOnly}
+                    className={`w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center focus:outline-none focus:border-green-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  />
+                  <span className="text-lg font-bold text-green-600">%</span>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mt-3">
-                例: 设置40%表示渠道获得销售额的40%作为佣金
-              </p>
+            </div>
+          </div>
+
+          {/* 合作商产品设置 */}
+          <div className="border-t pt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="w-5 h-5 text-purple-600" />
+              <h3 className="font-semibold text-gray-900">合作商产品</h3>
+              <span className="text-xs text-gray-500">({partnerProducts.length}个)</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-purple-50 rounded-xl p-4">
+                <div className="text-sm font-medium text-gray-700 mb-2">最低折扣率</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={partnerMinDiscountRate}
+                    onChange={(e) => !isReadOnly && setPartnerMinDiscountRate(Number(e.target.value))}
+                    min={0}
+                    max={100}
+                    disabled={isReadOnly}
+                    className={`w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center focus:outline-none focus:border-purple-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  />
+                  <span className="text-lg font-bold text-purple-600">%</span>
+                </div>
+              </div>
+              <div className="bg-indigo-50 rounded-xl p-4">
+                <div className="text-sm font-medium text-gray-700 mb-2">返佣比例</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={partnerCommissionRate}
+                    onChange={(e) => !isReadOnly && setPartnerCommissionRate(Number(e.target.value))}
+                    min={0}
+                    max={100}
+                    disabled={isReadOnly}
+                    className={`w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center focus:outline-none focus:border-indigo-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  />
+                  <span className="text-lg font-bold text-indigo-600">%</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

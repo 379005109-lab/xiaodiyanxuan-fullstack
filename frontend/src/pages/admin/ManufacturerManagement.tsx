@@ -1,7 +1,7 @@
 // Build cache bust: 20260110-v1
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package, Clock } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -248,10 +248,19 @@ export default function ManufacturerManagement() {
   }>>({})
 
   // 厂家管理TAB
-  type FactoryTabType = 'home' | 'partners' | 'channels'
+  type FactoryTabType = 'home' | 'partners' | 'channels' | 'commission'
   const [factoryTab, setFactoryTab] = useState<FactoryTabType>('home')
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
+  const [monthlyGrowth, setMonthlyGrowth] = useState<number>(0)
+  const [commissionStats, setCommissionStats] = useState<{ pending: number; settled: number; total: number; pendingOrders: any[] }>({ pending: 0, settled: 0, total: 0, pendingOrders: [] })
+  const [pendingRequests, setPendingRequests] = useState<any[]>([])
+  const [showApproveModal, setShowApproveModal] = useState(false)
+  const [approveTarget, setApproveTarget] = useState<any>(null)
+  const [approveForm, setApproveForm] = useState({ minDiscountRate: 60, commissionRate: 10 })
+  const [approveSaving, setApproveSaving] = useState(false)
+  const [showScopeModal, setShowScopeModal] = useState(false)
+  const [scopeTarget, setScopeTarget] = useState<any>(null)
   const [showMarketplace, setShowMarketplace] = useState(false) // 是否显示合作市场
   const [marketplaceFilter, setMarketplaceFilter] = useState('') // 合作市场筛选标签
   const [showEditSectionModal, setShowEditSectionModal] = useState(false) // 资料编辑弹窗
@@ -261,6 +270,10 @@ export default function ManufacturerManagement() {
   
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   const [galleryTarget, setGalleryTarget] = useState<Manufacturer | null>(null)
+  
+  // 合作商家详情弹窗
+  const [showPartnerDetailModal, setShowPartnerDetailModal] = useState(false)
+  const [partnerDetailTarget, setPartnerDetailTarget] = useState<any>(null)
   
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
@@ -290,8 +303,8 @@ export default function ManufacturerManagement() {
       
       console.log('[ManufacturerManagement] isFactoryPortal:', isFactoryPortal, 'myManufacturerId:', myManufacturerId, 'isAdmin:', isAdmin)
       
-      // 如果是厂家门户，获取授权状态
-      if (isFactoryPortal && myManufacturerId) {
+      // 如果是厂家门户或管理员，获取授权状态
+      if (isFactoryPortal || isAdmin || myManufacturerId) {
         try {
           console.log('[ManufacturerManagement] Fetching authorization summary for:', myManufacturerId)
           const authRes = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
@@ -331,12 +344,23 @@ export default function ManufacturerManagement() {
 
         // 获取合作商家（其他商家授权给本厂家）和渠道管理（本厂家授权给其他商家）
         try {
-          const [receivedRes, grantedRes] = await Promise.all([
+          const [receivedRes, grantedRes, pendingDesignerRes, pendingManufacturerRes, growthRes, commissionRes] = await Promise.all([
             apiClient.get('/authorizations/received').catch(() => ({ data: { data: [] } })),
-            apiClient.get('/authorizations/my-grants').catch(() => ({ data: { data: [] } }))
+            apiClient.get('/authorizations/my-grants').catch(() => ({ data: { data: [] } })),
+            apiClient.get('/authorizations/designer-requests/pending').catch(() => ({ data: { data: [] } })),
+            apiClient.get('/authorizations/manufacturer-requests/pending').catch(() => ({ data: { data: [] } })),
+            apiClient.get('/authorizations/growth-stats').catch(() => ({ data: { data: { monthlyGrowth: 0 } } })),
+            apiClient.get('/orders/commission-stats').catch(() => ({ data: { data: { pending: 0, settled: 0, total: 0, pendingOrders: [] } } }))
           ])
           setReceivedAuths(receivedRes.data?.data || [])
           setGrantedAuths((grantedRes.data?.data || []).filter((a: any) => a?.status === 'active'))
+          setMonthlyGrowth(growthRes.data?.data?.monthlyGrowth || 0)
+          setCommissionStats(commissionRes.data?.data || { pending: 0, settled: 0, total: 0, pendingOrders: [] })
+          // 合并待审批请求
+          const pendingDesigner = pendingDesignerRes.data?.data || []
+          const pendingManufacturer = pendingManufacturerRes.data?.data || []
+          console.log('[ManufacturerManagement] pendingDesigner:', pendingDesigner.length, 'pendingManufacturer:', pendingManufacturer.length)
+          setPendingRequests([...pendingDesigner, ...pendingManufacturer])
         } catch (e) {
           console.log('[ManufacturerManagement] 获取授权列表失败', e)
         }
@@ -368,6 +392,75 @@ export default function ManufacturerManagement() {
       fetchData()
     } catch (error: any) {
       toast.error(error.response?.data?.message || '更新失败')
+    }
+  }
+
+  // 打开审批弹窗
+  const openApproveModal = (request: any) => {
+    setApproveTarget(request)
+    setApproveForm({ minDiscountRate: 60, commissionRate: 10 })
+    setShowApproveModal(true)
+  }
+
+  // 打开授权范围弹窗
+  const openScopeModal = (request: any) => {
+    setScopeTarget(request)
+    setShowScopeModal(true)
+  }
+
+  // 提交审批
+  const handleApproveSubmit = async () => {
+    if (!approveTarget) return
+    setApproveSaving(true)
+    try {
+      const endpoint = approveTarget.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${approveTarget._id}/approve`
+        : `/authorizations/designer-requests/${approveTarget._id}/approve`
+      
+      const response = await apiClient.put(endpoint, {
+        discountRate: approveForm.minDiscountRate,
+        commissionRate: approveForm.commissionRate,
+        tierType: 'new_company',
+        tierCompanyName: approveTarget.toDesigner?.nickname || approveTarget.toManufacturer?.name || '新合作商',
+        allowSubAuthorization: true
+      })
+      
+      if (response.data?.success) {
+        toast.success('审批通过')
+        setShowApproveModal(false)
+        setApproveTarget(null)
+        fetchData()
+      } else {
+        toast.error(response.data?.message || '审批失败')
+      }
+    } catch (error: any) {
+      console.error('审批失败:', error)
+      toast.error(error.response?.data?.message || '审批失败')
+    } finally {
+      setApproveSaving(false)
+    }
+  }
+
+  // 拒绝申请
+  const handleRejectRequest = async (request: any) => {
+    if (!confirm('确定要拒绝此申请吗？')) return
+    
+    try {
+      const endpoint = request.authorizationType === 'manufacturer'
+        ? `/authorizations/manufacturer-requests/${request._id}/reject`
+        : `/authorizations/designer-requests/${request._id}/reject`
+      
+      const response = await apiClient.put(endpoint, {})
+      
+      if (response.data?.success) {
+        toast.success('已拒绝')
+        fetchData()
+      } else {
+        toast.error(response.data?.message || '拒绝失败')
+      }
+    } catch (error) {
+      console.error('拒绝失败:', error)
+      toast.error('拒绝失败')
     }
   }
 
@@ -853,6 +946,16 @@ export default function ManufacturerManagement() {
             >
               渠道管理 {grantedAuths.length > 0 && `(${grantedAuths.length})`}
             </button>
+            <button
+              onClick={() => setFactoryTab('commission')}
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                factoryTab === 'commission'
+                  ? 'border-[#153e35] text-[#153e35]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              返佣管理
+            </button>
           </div>
 
           {factoryTab === 'home' && (
@@ -1331,101 +1434,175 @@ export default function ManufacturerManagement() {
                     <p className="text-sm text-gray-400 mt-2">点击下方"合作市场"寻找合作伙伴</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
                     {cooperatingManufacturers.map((item) => {
                       const authInfo = authorizationMap[item._id]
+                      const productImage = item.galleryImages?.[0] || item.logo
+                      const priceMin = item.priceRangeMin || 0
+                      const priceMax = item.priceRangeMax || 0
+                      const styleTags = item.styleTags || []
+                      const categoryTags = item.categoryTags || []
+                      
                       return (
                         <div
                           key={item._id}
-                          className="bg-white rounded-[2.5rem] border border-emerald-200 ring-2 ring-emerald-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all"
+                          className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow"
                         >
-                          <div className="flex items-start justify-between">
-                            <div className="flex flex-col gap-1">
-                              {authInfo?.isEnabled !== false ? (
-                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
-                                  ✓ 已合作 · {authInfo?.productCount || 0}件商品
-                                </span>
+                          {/* 顶部状态栏 */}
+                          <div className="relative">
+                            <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+                              <button
+                                onClick={async () => {
+                                  const authId = authInfo?.authorizationId
+                                  if (!authId) return
+                                  const newEnabled = authInfo?.isEnabled === false
+                                  try {
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: newEnabled } }))
+                                    await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: newEnabled })
+                                    toast.success(newEnabled ? '已开启' : '已关闭')
+                                  } catch (e: any) {
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: !newEnabled } }))
+                                    toast.error(e.response?.data?.message || '操作失败')
+                                  }
+                                }}
+                                className={`relative w-12 h-6 rounded-full transition-colors ${
+                                  authInfo?.isEnabled !== false ? 'bg-green-500' : 'bg-gray-300'
+                                }`}
+                              >
+                                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                                  authInfo?.isEnabled !== false ? 'left-7' : 'left-1'
+                                }`} />
+                              </button>
+                              <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                authInfo?.isEnabled !== false 
+                                  ? 'bg-green-500 text-white' 
+                                  : 'bg-gray-200 text-gray-600'
+                              }`}>
+                                {authInfo?.isEnabled !== false ? '启用中' : '已禁用'}
+                              </span>
+                            </div>
+                            
+                            {/* 产品图片 - 点击查看详情 */}
+                            <div 
+                              className="h-48 bg-gray-100 cursor-pointer"
+                              onClick={() => {
+                                setPartnerDetailTarget(item)
+                                setShowPartnerDetailModal(true)
+                              }}
+                            >
+                              {productImage ? (
+                                <img src={getFileUrl(productImage)} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
-                                  ⏸ 已关闭 · {authInfo?.productCount || 0}件商品
-                                </span>
+                                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                  <Factory className="w-16 h-16" />
+                                </div>
                               )}
                             </div>
-                            <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
-                              <img
-                                src={getFileUrl(item.logo || '')}
-                                alt={item.fullName || item.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
                           </div>
-                          <div className="mt-5">
-                            <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
-                              {item.shortName || item.fullName || item.name}
-                            </div>
-                            <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
-                              {item.code || ''}
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 mt-6">
-                            <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
-                              <div className="text-xs font-semibold text-emerald-700">授权折扣(%)</div>
-                              <div className="text-3xl font-black text-[#153e35] mt-2">
-                                {authInfo?.minDiscountRate || 0}
-                              </div>
-                            </div>
-                            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
-                              <div className="text-xs font-semibold text-blue-700">授权返佣(%)</div>
-                              <div className="text-3xl font-black text-blue-700 mt-2">
-                                {authInfo?.commissionRate || 0}
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleOpenProductAuthorization(item)}
-                            className="mt-6 w-full px-6 py-3 rounded-2xl bg-[#123a32] text-white font-bold hover:bg-[#0f2f29] transition-colors"
-                          >
-                            查看授权商品
-                          </button>
-                          <div className="grid grid-cols-2 gap-3 mt-4">
-                            {authInfo?.isEnabled === false ? (
-                              <button
-                                onClick={async () => {
-                                  const authId = authInfo?.authorizationId
-                                  if (!authId) return
-                                  try {
-                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: true } }))
-                                    const response = await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: true })
-                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: response.data.isEnabled } }))
-                                    toast.success('已开启该厂家商品显示')
-                                  } catch (e: any) {
-                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: false } }))
-                                    toast.error(e.response?.data?.message || '操作失败')
-                                  }
-                                }}
-                                className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors"
-                              >
-                                恢复启用
-                              </button>
-                            ) : (
-                              <button
-                                onClick={async () => {
-                                  const authId = authInfo?.authorizationId
-                                  if (!authId) return
-                                  try {
-                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: false } }))
-                                    await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: false })
-                                    toast.success('已关闭该厂家商品显示')
-                                  } catch (e: any) {
-                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: true } }))
-                                    toast.error(e.response?.data?.message || '操作失败')
-                                  }
-                                }}
-                                className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors"
-                              >
-                                下架停运
-                              </button>
+                          
+                          {/* 内容区 */}
+                          <div className="p-4">
+                            {/* 类型和名称 */}
+                            <div className="text-xs text-gray-400 mb-1">厂家商家</div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1">{item.shortName || item.fullName || item.name}</h3>
+                            {item.code && (
+                              <div className="text-xs text-orange-500 mb-4">{item.code}</div>
                             )}
+                            
+                            {/* 折扣和返佣 */}
+                            <div className="grid grid-cols-2 gap-3 mb-4">
+                              <div className="border border-gray-200 rounded-xl p-3 text-center">
+                                <div className="text-xs text-gray-500 mb-1">经销折扣(%)</div>
+                                <div className="text-2xl font-bold text-gray-900">{authInfo?.minDiscountRate || item.defaultDiscount || 60}</div>
+                              </div>
+                              <div className="border border-gray-200 rounded-xl p-3 text-center">
+                                <div className="text-xs text-gray-500 mb-1">返佣比例(%)</div>
+                                <div className="text-2xl font-bold text-gray-900">{authInfo?.commissionRate || item.defaultCommission || 40}</div>
+                              </div>
+                            </div>
+                            
+                            {/* 价格范围 */}
+                            {(priceMin > 0 || priceMax > 0) && (
+                              <div className="mb-4">
+                                <div className="text-xs text-gray-500 mb-1">产品价格范围</div>
+                                <div className="text-lg font-semibold text-gray-900">
+                                  ¥{priceMin.toLocaleString()} - ¥{priceMax.toLocaleString()}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* 风格标签 */}
+                            {styleTags.length > 0 && (
+                              <div className="mb-3">
+                                <div className="text-xs text-gray-500 mb-1">风格</div>
+                                <div className="flex flex-wrap gap-1">
+                                  {styleTags.slice(0, 4).map((tag: string, i: number) => (
+                                    <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* 品类标签 */}
+                            {categoryTags.length > 0 && (
+                              <div className="mb-4">
+                                <div className="text-xs text-gray-500 mb-1">品类</div>
+                                <div className="flex flex-wrap gap-1">
+                                  {categoryTags.slice(0, 4).map((tag: string, i: number) => (
+                                    <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* 操作按钮 */}
+                            <button 
+                              onClick={() => handleOpenProductAuthorization(item)}
+                              className="w-full py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-[#1a4d42] mb-2"
+                            >
+                              经营授权
+                            </button>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button 
+                                onClick={async () => {
+                                  const authId = authInfo?.authorizationId
+                                  if (!authId) return
+                                  const newEnabled = authInfo?.isEnabled === false
+                                  try {
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: newEnabled } }))
+                                    await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: newEnabled })
+                                    toast.success(newEnabled ? '已恢复合作' : '已暂停合作')
+                                  } catch (e: any) {
+                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: !newEnabled } }))
+                                    toast.error(e.response?.data?.message || '操作失败')
+                                  }
+                                }}
+                                className={`py-2 border rounded-xl text-sm ${authInfo?.isEnabled === false ? 'border-green-200 text-green-600 hover:bg-green-50' : 'border-orange-200 text-orange-600 hover:bg-orange-50'}`}
+                              >
+                                {authInfo?.isEnabled === false ? '恢复合作' : '暂停合作'}
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  const authId = authInfo?.authorizationId
+                                  if (!authId) return
+                                  if (confirm('确定要取消与该厂家的合作吗？')) {
+                                    apiClient.delete(`/authorizations/${authId}`)
+                                      .then(() => {
+                                        toast.success('已取消合作')
+                                        fetchData()
+                                      })
+                                      .catch(() => toast.error('取消合作失败'))
+                                  }
+                                }}
+                                className="py-2 border border-red-200 text-red-600 rounded-xl text-sm hover:bg-red-50"
+                              >
+                                取消合作
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )
@@ -1641,7 +1818,7 @@ export default function ManufacturerManagement() {
                     </div>
                     <div>
                       <div className="text-xs text-gray-500">本月增长率</div>
-                      <div className="text-xl font-bold text-blue-600">+12.5%</div>
+                      <div className="text-xl font-bold text-blue-600">{monthlyGrowth >= 0 ? '+' : ''}{monthlyGrowth}%</div>
                     </div>
                   </div>
                 </div>
@@ -1667,6 +1844,144 @@ export default function ManufacturerManagement() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* 待审批的合作申请 */}
+              {pendingRequests.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                    <h3 className="text-lg font-bold text-gray-900">待审批的合作申请</h3>
+                    <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">{pendingRequests.length}个</span>
+                  </div>
+                  <div className="space-y-3">
+                    {pendingRequests.map((req: any) => {
+                      const applicantName = req.authorizationType === 'manufacturer'
+                        ? (req.toManufacturer?.name || req.toManufacturer?.fullName || '未知商家')
+                        : (req.toDesigner?.nickname || req.toDesigner?.username || '未知设计师')
+                      const applicantAvatar = req.authorizationType === 'manufacturer'
+                        ? req.toManufacturer?.logo
+                        : req.toDesigner?.avatar
+                      const scopeLabel = req.scope === 'all' 
+                        ? '全部商品' 
+                        : req.scope === 'category' 
+                          ? `分类授权 (${req.categories?.length || 0}个)` 
+                          : `指定商品 (${req.products?.length || 0}个)`
+                      const requestedDiscount = req.priceSettings?.globalDiscount || req.minDiscountRate || '--'
+                      
+                      return (
+                        <div key={req._id} className="border-2 border-orange-200 bg-orange-50 rounded-xl p-4">
+                          {/* 申请方身份信息 - 直接显示在卡片中 */}
+                          {req.authorizationType === 'manufacturer' && req.toManufacturer && (
+                            <div className="mb-4 bg-white rounded-lg p-3 border border-orange-200">
+                              <div className="flex items-start gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="font-semibold text-gray-900">{req.toManufacturer.fullName || req.toManufacturer.name || '未知商家'}</span>
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">厂家</span>
+                                    <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs rounded">待审批</span>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-3 text-sm">
+                                    <div>
+                                      <span className="text-gray-500">经营品类:</span>
+                                      <span className="ml-1 text-gray-900">{req.toManufacturer.businessCategories || '--'}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">产品范围:</span>
+                                      <span className="ml-1 text-gray-900">{scopeLabel}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">申请时间:</span>
+                                      <span className="ml-1 text-gray-900">{new Date(req.createdAt || req.validFrom).toLocaleDateString()}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                {req.toManufacturer.businessLicense ? (
+                                  <div className="flex-shrink-0">
+                                    <img 
+                                      src={getFileUrl(req.toManufacturer.businessLicense)} 
+                                      alt="营业执照" 
+                                      className="w-24 h-16 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-80"
+                                      onClick={() => window.open(getFileUrl(req.toManufacturer.businessLicense), '_blank')}
+                                    />
+                                    <div className="text-xs text-gray-500 text-center mt-1">营业执照</div>
+                                  </div>
+                                ) : (
+                                  <div className="flex-shrink-0 w-24 h-16 bg-gray-100 rounded border border-dashed border-gray-300 flex items-center justify-center">
+                                    <span className="text-xs text-gray-400">未上传执照</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              {req.authorizationType !== 'manufacturer' && (
+                                <>
+                                  <div className="relative">
+                                    <div className="w-12 h-12 rounded-full bg-white border-2 border-orange-300 overflow-hidden">
+                                      {applicantAvatar ? (
+                                        <img src={getFileUrl(applicantAvatar)} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-orange-400">
+                                          <Users className="w-6 h-6" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                                      <Clock className="w-3 h-3 text-white" />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-gray-900">{applicantName}</span>
+                                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">设计师</span>
+                                      <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs rounded">待审批</span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      申请时间: {new Date(req.createdAt || req.validFrom).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                              <button 
+                                onClick={() => openScopeModal(req)}
+                                className="text-center cursor-pointer hover:bg-orange-100 px-3 py-1 rounded-lg transition-colors"
+                              >
+                                <div className="text-xs text-gray-500">授权范围</div>
+                                <div className="text-sm font-medium text-blue-600 underline">{scopeLabel}</div>
+                              </button>
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={() => openApproveModal(req)}
+                                  className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+                                >
+                                  通过
+                                </button>
+                                <button 
+                                  onClick={() => handleRejectRequest(req)}
+                                  className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                                >
+                                  拒绝
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 已合作渠道 */}
+              <div className="flex items-center gap-2 mb-4">
+                <h3 className="text-lg font-bold text-gray-900">已合作渠道</h3>
+                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{grantedAuths.length}个</span>
               </div>
 
               {grantedAuths.length === 0 ? (
@@ -1716,32 +2031,79 @@ export default function ManufacturerManagement() {
 
                           <div className="flex items-center gap-6">
                             <div className="text-center">
-                              <div className="text-xs text-gray-500">最低折扣</div>
+                              <div className="text-xs text-gray-500">经销折扣</div>
                               <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-xs text-gray-500">返佣比例</div>
+                              <div className="text-xs text-gray-500">返佣分成</div>
                               <div className="text-lg font-bold text-blue-600">{auth.commissionRate ?? '--'}%</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-xs text-gray-500">已授权SKU</div>
+                              <div className="text-xs text-gray-500">门店销SKU</div>
                               <div className="text-lg font-bold text-gray-900">{productCount}</div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">允许转授权</span>
+                                <button
+                                  onClick={async () => {
+                                    const newValue = auth.allowSubAuthorization === false
+                                    setGrantedAuths(prev => prev.map(a => 
+                                      a._id === auth._id ? { ...a, allowSubAuthorization: newValue } : a
+                                    ))
+                                    try {
+                                      await apiClient.put(`/authorizations/${auth._id}/settings`, {
+                                        allowSubAuthorization: newValue
+                                      })
+                                      toast.success(newValue ? '已开启转授权' : '已关闭转授权')
+                                    } catch (e) {
+                                      setGrantedAuths(prev => prev.map(a => 
+                                        a._id === auth._id ? { ...a, allowSubAuthorization: !newValue } : a
+                                      ))
+                                      toast.error('操作失败')
+                                    }
+                                  }}
+                                  className={`relative w-10 h-5 rounded-full transition-colors ${
+                                    auth.allowSubAuthorization !== false ? 'bg-green-500' : 'bg-gray-300'
+                                  }`}
+                                >
+                                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                                    auth.allowSubAuthorization !== false ? 'left-5' : 'left-0.5'
+                                  }`} />
+                                </button>
+                              </div>
                               <button 
                                 onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing`)}
-                                className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
+                                className="px-3 py-1.5 text-xs bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
                               >
-                                专属价格池
+                                授权货盘
                               </button>
                               <button 
                                 onClick={() => {
+                                  const target = auth.toManufacturer || auth.toDesigner
+                                  const targetId = target?._id
+                                  if (!targetId) return
                                   const rt = encodeURIComponent(`/admin/manufacturer-management`)
-                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${myManufacturerId}&returnTo=${rt}`)
+                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${targetId}&returnTo=${rt}`)
                                 }}
-                                className="px-4 py-2 text-sm bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
+                                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                               >
                                 分成体系
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (confirm('确定要取消对该渠道的授权吗？')) {
+                                    apiClient.delete(`/authorizations/${auth._id}`)
+                                      .then(() => {
+                                        toast.success('已取消授权')
+                                        fetchData()
+                                      })
+                                      .catch(() => toast.error('取消授权失败'))
+                                  }
+                                }}
+                                className="px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+                              >
+                                取消授权
                               </button>
                             </div>
                           </div>
@@ -1751,6 +2113,169 @@ export default function ManufacturerManagement() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+          
+          {/* 返佣管理TAB */}
+          {factoryTab === 'commission' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">返佣管理</h2>
+                  <p className="text-sm text-gray-500 mt-1">查看和管理销售返佣记录</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-sm text-gray-500 mb-2">待核销返佣</div>
+                  <div className="text-3xl font-bold text-yellow-600">¥{commissionStats.applied?.toLocaleString() || 0}</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-sm text-gray-500 mb-2">待打款返佣</div>
+                  <div className="text-3xl font-bold text-orange-600">¥{commissionStats.pending.toLocaleString()}</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-sm text-gray-500 mb-2">已结算返佣</div>
+                  <div className="text-3xl font-bold text-green-600">¥{commissionStats.settled.toLocaleString()}</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-sm text-gray-500 mb-2">累计返佣</div>
+                  <div className="text-3xl font-bold text-gray-900">¥{commissionStats.total.toLocaleString()}</div>
+                </div>
+              </div>
+              
+              {/* 待核销返佣订单 - commissionStatus='applied' */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">📋 待核销返佣订单</h3>
+                {(commissionStats.appliedOrders || []).length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>暂无待核销的返佣申请</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {(commissionStats.appliedOrders || []).map((order: any) => (
+                      <div key={order._id} className="flex items-center justify-between p-4 border border-yellow-200 bg-yellow-50 rounded-xl">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-gray-900">订单号: {order.orderNo}</span>
+                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">待核销</span>
+                            {order.commissionInvoiceUrl && (
+                              <a href={order.commissionInvoiceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">查看发票</a>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            申请时间: {order.commissionAppliedAt ? new Date(order.commissionAppliedAt).toLocaleString() : '--'}
+                          </div>
+                        </div>
+                        <div className="text-right mr-4">
+                          <div className="text-sm text-gray-500">返佣金额</div>
+                          <div className="font-bold text-yellow-600">¥{(order.commissionAmount || 0).toFixed(2)}</div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`确认核销订单 ${order.orderNo} 的返佣申请？金额: ¥${order.commissionAmount?.toFixed(2)}`)) return
+                            try {
+                              await apiClient.post(`/orders/${order._id}/approve-commission`)
+                              toast.success('返佣已核销')
+                              fetchData()
+                            } catch (e: any) {
+                              toast.error(e.response?.data?.message || '核销失败')
+                            }
+                          }}
+                          className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm"
+                        >
+                          核销返佣
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 待打款返佣订单 - commissionStatus='approved' */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">💰 待打款返佣订单</h3>
+                {(commissionStats.approvedOrders || []).length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>暂无待打款的返佣订单</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {(commissionStats.approvedOrders || []).map((order: any) => (
+                      <div key={order._id} className="flex items-center justify-between p-4 border border-orange-200 bg-orange-50 rounded-xl">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-gray-900">订单号: {order.orderNo}</span>
+                            <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded">待打款</span>
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            核销时间: {order.commissionApprovedAt ? new Date(order.commissionApprovedAt).toLocaleString() : '--'}
+                          </div>
+                        </div>
+                        <div className="text-right mr-4">
+                          <div className="text-sm text-gray-500">返佣金额</div>
+                          <div className="font-bold text-orange-600">¥{(order.commissionAmount || 0).toFixed(2)}</div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const proofUrl = window.prompt('请输入打款凭证图片URL（可选）:')
+                            const remark = window.prompt('请输入打款备注（可选）:')
+                            if (!window.confirm(`确认完成打款？订单: ${order.orderNo}，金额: ¥${order.commissionAmount?.toFixed(2)}`)) return
+                            try {
+                              await apiClient.post(`/orders/${order._id}/pay-commission`, {
+                                paymentProofUrl: proofUrl || undefined,
+                                remark: remark || undefined
+                              })
+                              toast.success('返佣已打款')
+                              fetchData()
+                            } catch (e: any) {
+                              toast.error(e.response?.data?.message || '打款失败')
+                            }
+                          }}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm"
+                        >
+                          确认打款
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 已完成返佣订单 - commissionStatus='paid' */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">✅ 已完成返佣订单</h3>
+                {(commissionStats.paidOrders || []).length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>暂无已完成的返佣订单</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {(commissionStats.paidOrders || []).map((order: any) => (
+                      <div key={order._id} className="flex items-center justify-between p-4 border border-green-200 bg-green-50 rounded-xl">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-gray-900">订单号: {order.orderNo}</span>
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">已打款</span>
+                            {order.commissionPaymentProofUrl && (
+                              <a href={order.commissionPaymentProofUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">查看凭证</a>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            打款时间: {order.commissionPaidAt ? new Date(order.commissionPaidAt).toLocaleString() : '--'}
+                            {order.commissionPaymentRemark && <span className="ml-2">备注: {order.commissionPaymentRemark}</span>}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">返佣金额</div>
+                          <div className="font-bold text-green-600">¥{(order.commissionAmount || 0).toFixed(2)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </>
@@ -3782,6 +4307,276 @@ export default function ManufacturerManagement() {
                   >
                     编辑图片
                   </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 审批配置弹窗 */}
+      {showApproveModal && approveTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">审批合作申请</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                配置 {approveTarget.toDesigner?.nickname || approveTarget.toManufacturer?.name || '申请人'} 的授权参数
+              </p>
+            </div>
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* 申请方信息 */}
+              {approveTarget.toManufacturer && (
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700">申请方信息</h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-500">公司名称:</span>
+                      <span className="ml-2 text-gray-900">{approveTarget.toManufacturer.fullName || approveTarget.toManufacturer.name || '--'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">经营品类:</span>
+                      <span className="ml-2 text-gray-900">{approveTarget.toManufacturer.businessCategories || '--'}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">产品范围:</span>
+                      <span className="ml-2 text-gray-900">
+                        {approveTarget.scope === 'all' 
+                          ? '全部商品' 
+                          : approveTarget.scope === 'category' 
+                            ? `分类授权 (${approveTarget.categories?.length || 0}个)` 
+                            : approveTarget.scope === 'mixed'
+                              ? `混合授权 (${approveTarget.categories?.length || 0}个分类, ${approveTarget.products?.length || 0}个商品)`
+                              : `指定商品 (${approveTarget.products?.length || 0}个)`}
+                      </span>
+                    </div>
+                  </div>
+                  {approveTarget.toManufacturer.businessLicense ? (
+                    <div>
+                      <span className="text-gray-500 text-sm">营业执照:</span>
+                      <img 
+                        src={getFileUrl(approveTarget.toManufacturer.businessLicense)} 
+                        alt="营业执照" 
+                        className="mt-2 w-full max-h-48 object-contain rounded-lg border border-gray-200 cursor-pointer hover:opacity-80"
+                        onClick={() => window.open(getFileUrl(approveTarget.toManufacturer.businessLicense), '_blank')}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-sm text-orange-600 bg-orange-50 px-3 py-2 rounded-lg">
+                      ⚠️ 申请方未上传营业执照
+                    </div>
+                  )}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">最低折扣 (%)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={approveForm.minDiscountRate}
+                  onChange={(e) => setApproveForm({...approveForm, minDiscountRate: Number(e.target.value)})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                <p className="text-xs text-gray-500 mt-1">渠道商销售时的最低折扣限制</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">返佣比例 (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={approveForm.commissionRate}
+                  onChange={(e) => setApproveForm({...approveForm, commissionRate: Number(e.target.value)})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                <p className="text-xs text-gray-500 mt-1">渠道商销售时的返佣比例</p>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => { setShowApproveModal(false); setApproveTarget(null) }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleApproveSubmit}
+                disabled={approveSaving}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {approveSaving ? '处理中...' : '确认通过'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 合作商家详情弹窗 */}
+      {showPartnerDetailModal && partnerDetailTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-3xl mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {partnerDetailTarget.shortName || partnerDetailTarget.fullName || partnerDetailTarget.name}
+                </h3>
+                {partnerDetailTarget.code && (
+                  <p className="text-sm text-orange-500">{partnerDetailTarget.code}</p>
+                )}
+              </div>
+              <button onClick={() => { setShowPartnerDetailModal(false); setPartnerDetailTarget(null) }} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* 图册 */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">产品图册</h4>
+                {partnerDetailTarget.galleryImages?.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    {partnerDetailTarget.galleryImages.map((img: string, idx: number) => (
+                      <img 
+                        key={idx} 
+                        src={getFileUrl(img)} 
+                        alt={`图片${idx + 1}`} 
+                        className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-80"
+                        onClick={() => window.open(getFileUrl(img), '_blank')}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <Factory className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">暂无图册</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* 联系信息 */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">联系信息</h4>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20">联系人:</span>
+                    <span className="text-gray-900">{partnerDetailTarget.contactName || '未填写'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20">联系电话:</span>
+                    <span className="text-gray-900">{partnerDetailTarget.contactPhone || '未填写'}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-500 text-sm w-20">邮箱:</span>
+                    <span className="text-gray-900">{partnerDetailTarget.contactEmail || '未填写'}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 地址 */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">地址</h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-gray-900">{partnerDetailTarget.address || '未填写'}</p>
+                </div>
+              </div>
+              
+              {/* 其他信息 */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3">其他信息</h4>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  {partnerDetailTarget.description && (
+                    <div>
+                      <span className="text-gray-500 text-sm">简介:</span>
+                      <p className="text-gray-900 mt-1">{partnerDetailTarget.description}</p>
+                    </div>
+                  )}
+                  {(partnerDetailTarget.priceRangeMin > 0 || partnerDetailTarget.priceRangeMax > 0) && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-500 text-sm">价格范围:</span>
+                      <span className="text-gray-900">¥{partnerDetailTarget.priceRangeMin?.toLocaleString() || 0} - ¥{partnerDetailTarget.priceRangeMax?.toLocaleString() || 0}</span>
+                    </div>
+                  )}
+                  {partnerDetailTarget.styleTags?.length > 0 && (
+                    <div>
+                      <span className="text-gray-500 text-sm">风格:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {partnerDetailTarget.styleTags.map((tag: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 bg-white text-gray-600 text-xs rounded border">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {partnerDetailTarget.categoryTags?.length > 0 && (
+                    <div>
+                      <span className="text-gray-500 text-sm">品类:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {partnerDetailTarget.categoryTags.map((tag: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 bg-white text-gray-600 text-xs rounded border">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => { setShowPartnerDetailModal(false); setPartnerDetailTarget(null) }}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 授权范围查看弹窗 */}
+      {showScopeModal && scopeTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">授权范围详情</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {scopeTarget.toDesigner?.nickname || scopeTarget.toManufacturer?.name || '申请人'} 申请的授权范围
+                </p>
+              </div>
+              <button onClick={() => { setShowScopeModal(false); setScopeTarget(null) }} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {scopeTarget.scope === 'all' ? (
+                <div className="text-center py-8">
+                  <Package className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                  <p className="text-lg font-medium text-gray-900">全部商品</p>
+                  <p className="text-sm text-gray-500 mt-1">申请授权您的所有商品</p>
+                </div>
+              ) : scopeTarget.scope === 'category' ? (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">申请的分类 ({scopeTarget.categories?.length || 0}个):</p>
+                  <div className="space-y-2">
+                    {(scopeTarget.categories || []).map((cat: any, idx: number) => (
+                      <div key={idx} className="px-4 py-2 bg-gray-50 rounded-lg text-sm">
+                        {cat?.name || cat || `分类 ${idx + 1}`}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">申请的商品 ({scopeTarget.products?.length || 0}个):</p>
+                  <div className="space-y-2">
+                    {(scopeTarget.products || []).map((prod: any, idx: number) => (
+                      <div key={idx} className="px-4 py-2 bg-gray-50 rounded-lg text-sm flex items-center gap-3">
+                        {prod?.mainImage && (
+                          <img src={getFileUrl(prod.mainImage)} alt="" className="w-10 h-10 object-cover rounded" />
+                        )}
+                        <span>{prod?.name || prod || `商品 ${idx + 1}`}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
