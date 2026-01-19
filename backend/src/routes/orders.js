@@ -1499,36 +1499,14 @@ router.get('/commission-stats', async (req, res) => {
     const manufacturerId = user?.manufacturerId || user?.manufacturerIds?.[0]
     const isAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin'].includes(user?.role)
     
-    // 构建查询条件
+    // 直接查询所有返佣模式订单（简化查询，移除厂家限制）
     let query = {
       settlementMode: 'commission_mode',
-      commissionStatus: { $in: ['applied', 'approved', 'paid'] },  // 只查询有返佣状态的订单
+      commissionStatus: { $in: ['applied', 'approved', 'paid'] },
       isDeleted: { $ne: true }
     }
     
-    console.log('📊 [commission-stats] userId:', req.userId, 'role:', user?.role, 'isAdmin:', isAdmin, 'manufacturerId:', manufacturerId)
-    
-    // 先查询所有返佣订单（调试用）
-    const allCommissionOrders = await Order.find({
-      settlementMode: 'commission_mode',
-      isDeleted: { $ne: true }
-    }).select('orderNo commissionStatus commissionAmount').lean()
-    console.log('📊 [commission-stats] 所有返佣模式订单:', allCommissionOrders.length, allCommissionOrders.map(o => `${o.orderNo}:${o.commissionStatus}`))
-    
-    // 非管理员需要限制厂家
-    if (!isAdmin && manufacturerId) {
-      query.$or = [
-        { ownerManufacturerId: manufacturerId },
-        { 'items.manufacturerId': manufacturerId }
-      ]
-    } else if (!isAdmin && !manufacturerId) {
-      console.log('📊 [commission-stats] 非管理员且无厂家ID，返回空数据')
-      return res.json({ 
-        success: true, 
-        data: { pending: 0, applied: 0, settled: 0, total: 0, pendingOrders: [], appliedOrders: [], approvedOrders: [], paidOrders: [] } 
-      })
-    }
-
+    console.log('📊 [commission-stats] userId:', req.userId, 'role:', user?.role, 'isAdmin:', isAdmin)
     console.log('📊 [commission-stats] query:', JSON.stringify(query))
     
     // 查询返佣模式订单
