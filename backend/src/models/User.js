@@ -139,17 +139,17 @@ userSchema.pre('save', function(next) {
         canViewCostPrice: false,
         canDownloadMaterial: true,
         canManageUsers: true,
-        canManageProducts: false,
+        canManageProducts: true,  // 厂家管理员可以管理商品
         canManageOrders: true,
         canViewReports: true,
       },
       enterprise_staff: {
-        canAccessAdmin: false,
+        canAccessAdmin: true,
         canViewCostPrice: false,
-        canDownloadMaterial: false,
+        canDownloadMaterial: true,
         canManageUsers: false,
-        canManageProducts: false,
-        canManageOrders: false,
+        canManageProducts: true,  // 厂家员工可以管理商品
+        canManageOrders: true,
         canViewReports: false,
       },
       designer: {
