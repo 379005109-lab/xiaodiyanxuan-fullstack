@@ -26,6 +26,65 @@ const ensureProfileCompleted = async (user) => {
   return user
 }
 
+// 根据角色更新用户权限（登录时调用）
+const updatePermissionsByRole = (user) => {
+  if (!user || !user.role) return user
+  
+  const rolePermissions = {
+    super_admin: {
+      canAccessAdmin: true,
+      canViewCostPrice: true,
+      canDownloadMaterial: true,
+      canManageUsers: true,
+      canManageProducts: true,
+      canManageOrders: true,
+      canViewReports: true,
+    },
+    platform_admin: {
+      canAccessAdmin: true,
+      canViewCostPrice: false,
+      canDownloadMaterial: true,
+      canManageUsers: true,
+      canManageProducts: true,
+      canManageOrders: true,
+      canViewReports: true,
+    },
+    platform_staff: {
+      canAccessAdmin: true,
+      canViewCostPrice: false,
+      canDownloadMaterial: true,
+      canManageUsers: false,
+      canManageProducts: true,
+      canManageOrders: true,
+      canViewReports: true,
+    },
+    enterprise_admin: {
+      canAccessAdmin: true,
+      canViewCostPrice: false,
+      canDownloadMaterial: true,
+      canManageUsers: true,
+      canManageProducts: true,
+      canManageOrders: true,
+      canViewReports: true,
+    },
+    enterprise_staff: {
+      canAccessAdmin: true,
+      canViewCostPrice: false,
+      canDownloadMaterial: true,
+      canManageUsers: false,
+      canManageProducts: true,
+      canManageOrders: true,
+      canViewReports: false,
+    },
+  }
+  
+  if (rolePermissions[user.role]) {
+    user.permissions = { ...user.permissions, ...rolePermissions[user.role] }
+  }
+  
+  return user
+}
+
 const wxLogin = async (code) => {
   // In production, verify code with WeChat API
   // For now, we'll use a mock implementation
@@ -137,6 +196,8 @@ const usernamePasswordLogin = async (username, password) => {
   // 更新最后登录时间
   user.lastLoginAt = new Date()
   await ensureProfileCompleted(user)
+  // 根据角色更新权限
+  updatePermissionsByRole(user)
   await user.save()
   
   // 生成 token
@@ -184,6 +245,8 @@ const adminLogin = async (username, password) => {
   // 更新最后登录时间
   user.lastLoginAt = new Date()
   await ensureProfileCompleted(user)
+  // 根据角色更新权限
+  updatePermissionsByRole(user)
   await user.save()
   
   // 生成 token
