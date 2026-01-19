@@ -1725,18 +1725,58 @@ function HierarchyTab({
       }
       try {
         console.log('[TierSystem] Loading categories and products for manufacturerId:', manufacturerId)
-        const [catResp, prodResp] = await Promise.all([
+        
+        // 同时获取自有产品和被授权的产品
+        const [catResp, prodResp, authResp] = await Promise.all([
           apiClient.get('/categories', { params: { manufacturerId, _ts: Date.now() } }),
-          apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'all', limit: 10000 } })
+          apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'all', limit: 10000 } }),
+          apiClient.get('/authorizations/received', { params: { status: 'active' } }).catch(() => ({ data: [] }))
         ])
 
         const catList = catResp.data?.data || catResp.data || []
         console.log('[TierSystem] Categories loaded:', catList.length, 'items')
         setManufacturerCategoryTree(Array.isArray(catList) ? catList : [])
 
-        const prodList = prodResp.data?.data || prodResp.data || []
-        console.log('[TierSystem] Products loaded:', prodList.length, 'items')
-        setManufacturerProducts(Array.isArray(prodList) ? prodList : [])
+        // 自有产品
+        const ownProducts = prodResp.data?.data || prodResp.data || []
+        console.log('[TierSystem] Own products loaded:', ownProducts.length, 'items')
+        
+        // 被授权产品 - 从授权关系中获取
+        const authorizations = authResp.data?.data || authResp.data || []
+        const authorizedProducts: any[] = []
+        
+        for (const auth of authorizations) {
+          if (auth.status !== 'active') continue
+          const fromMfr = auth.fromManufacturer
+          if (!fromMfr?._id) continue
+          
+          try {
+            // 获取授权厂家的产品
+            const authProdResp = await apiClient.get(`/manufacturers/${fromMfr._id}/products`, { 
+              params: { status: 'all', limit: 10000 } 
+            })
+            const authProds = authProdResp.data?.data || authProdResp.data || []
+            
+            // 标记产品来源
+            const markedProds = authProds.map((p: any) => ({
+              ...p,
+              _authorizedFrom: fromMfr.shortName || fromMfr.fullName || '授权厂家',
+              _authorizationId: auth._id
+            }))
+            authorizedProducts.push(...markedProds)
+          } catch (e) {
+            console.error('[TierSystem] 加载授权厂家产品失败:', fromMfr._id, e)
+          }
+        }
+        
+        console.log('[TierSystem] Authorized products loaded:', authorizedProducts.length, 'items')
+        
+        // 合并产品列表，自有产品在前
+        const allProducts = [
+          ...ownProducts.map((p: any) => ({ ...p, _authorizedFrom: null })),
+          ...authorizedProducts
+        ]
+        setManufacturerProducts(Array.isArray(allProducts) ? allProducts : [])
       } catch (e) {
         console.error('[TierSystem] 加载厂家分类/商品失败:', e)
         setManufacturerCategoryTree([])
@@ -4395,7 +4435,14 @@ function ProductProfitModal({
               {imgUrl ? <img src={imgUrl} alt={name} className="w-full h-full object-cover" /> : null}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-lg font-bold text-gray-900 mb-2 leading-tight">{name}</div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="text-lg font-bold text-gray-900 leading-tight">{name}</div>
+                {p._authorizedFrom && (
+                  <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                    来自: {p._authorizedFrom}
+                  </span>
+                )}
+              </div>
               <div className="text-sm text-gray-500 mb-2">
                 标价 ¥{Number(base || 0).toLocaleString()}
               </div>
