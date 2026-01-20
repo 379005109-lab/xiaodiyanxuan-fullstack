@@ -623,14 +623,18 @@ router.post('/:id/settlement-mode', async (req, res) => {
     order.commissionAmount = commissionAmount
     order.supplierPrice = supplierPrice
     
+    // 获取开票加价金额
+    const invoiceMarkup = order.invoiceMarkupAmount || 0
+    
     if (settlementMode === 'supplier_transfer') {
-      // 供应商调货模式：直接使用供应商价格
-      order.totalAmount = supplierPrice
+      // 供应商调货模式：供应商价格 + 开票加价
+      order.totalAmount = supplierPrice + invoiceMarkup
       order.paymentRatioEnabled = false
       order.commissionStatus = null  // 返佣已包含在价格中
     } else if (settlementMode === 'commission_mode') {
-      // 返佣模式：使用最低折扣价，返佣单独申请
-      order.totalAmount = minDiscountPrice
+      // 返佣模式：最低折扣价 + 开票加价，返佣单独申请
+      const totalWithInvoice = minDiscountPrice + invoiceMarkup
+      order.totalAmount = totalWithInvoice
       order.commissionStatus = 'pending'  // 返佣待申请
       
       // 返佣模式默认启用50%分期付款
@@ -638,9 +642,9 @@ router.post('/:id/settlement-mode', async (req, res) => {
       order.paymentRatioEnabled = true
       order.paymentRatio = ratio
       
-      // 计算定金和尾款金额
-      const depositAmt = Math.round(minDiscountPrice * ratio / 100)
-      const finalAmt = Math.round(minDiscountPrice - depositAmt)
+      // 计算定金和尾款金额（基于包含开票加价的总金额）
+      const depositAmt = Math.round(totalWithInvoice * ratio / 100)
+      const finalAmt = Math.round(totalWithInvoice - depositAmt)
       
       // 设置新字段
       order.depositAmount = depositAmt

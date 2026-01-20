@@ -1353,18 +1353,6 @@ export default function CheckoutPage() {
                     <span>合计</span>
                     <span>{formatPrice(getFinalTotalPrice())}</span>
                   </div>
-                  {manufacturerSettings.paymentRatioEnabled && selectedPaymentRatio < 100 && (
-                    <div className="mt-2 p-2 bg-emerald-50 rounded-lg">
-                      <div className="flex justify-between text-sm text-emerald-700">
-                        <span>首付 ({selectedPaymentRatio}%)</span>
-                        <span className="font-bold">{formatPrice(getDepositAmount())}</span>
-                      </div>
-                      <div className="flex justify-between text-xs text-emerald-600 mt-1">
-                        <span>尾款</span>
-                        <span>{formatPrice(getFinalTotalPrice() - getDepositAmount())}</span>
-                      </div>
-                    </div>
-                  )}
                   <p className="text-xs text-gray-400 mt-1">价格包含所有材质升级与当前优惠</p>
                 </div>
 
