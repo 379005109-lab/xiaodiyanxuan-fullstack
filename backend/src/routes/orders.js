@@ -600,10 +600,15 @@ router.post('/:id/settlement-mode', async (req, res) => {
 
     order.status = normalizeExistingStatus()
 
-    // 获取原价（商城标价）
-    const originalPrice = (Number(order.originalPrice || 0) > 0)
-      ? Number(order.originalPrice)
-      : (Number(order.totalAmount || 0) || 0)
+    // 获取开票加价金额（在计算原价前获取）
+    const invoiceMarkup = order.invoiceMarkupAmount || 0
+    
+    // 获取原价（商城标价）- 需要排除开票加价
+    let originalPrice = Number(order.originalPrice || 0)
+    if (originalPrice <= 0) {
+      // 如果没有保存原价，使用 subtotal 或 totalAmount 减去开票加价
+      originalPrice = Number(order.subtotal || 0) || (Number(order.totalAmount || 0) - invoiceMarkup)
+    }
     
     // 使用传入的折扣率和返佣率，或使用默认值
     const discountRate = minDiscountRate || 0.6
@@ -622,9 +627,6 @@ router.post('/:id/settlement-mode', async (req, res) => {
     order.minDiscountPrice = minDiscountPrice
     order.commissionAmount = commissionAmount
     order.supplierPrice = supplierPrice
-    
-    // 获取开票加价金额
-    const invoiceMarkup = order.invoiceMarkupAmount || 0
     
     if (settlementMode === 'supplier_transfer') {
       // 供应商调货模式：供应商价格 + 开票加价
