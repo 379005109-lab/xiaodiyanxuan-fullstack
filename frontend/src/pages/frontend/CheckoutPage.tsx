@@ -215,7 +215,7 @@ export default function CheckoutPage() {
   
   // 计算开票加价金额
   const getInvoiceMarkupAmount = () => {
-    if (!needInvoice || !manufacturerSettings.invoiceEnabled) return 0
+    if (!needInvoice) return 0
     return Math.round(getTotalPrice() * (manufacturerSettings.invoiceMarkupPercent || 0) / 100)
   }
   
@@ -1353,7 +1353,7 @@ export default function CheckoutPage() {
                     <span>合计</span>
                     <span>{formatPrice(getFinalTotalPrice())}</span>
                   </div>
-                  {selectedPaymentRatio < 100 && (
+                  {manufacturerSettings.paymentRatioEnabled && selectedPaymentRatio < 100 && (
                     <div className="mt-2 p-2 bg-emerald-50 rounded-lg">
                       <div className="flex justify-between text-sm text-emerald-700">
                         <span>首付 ({selectedPaymentRatio}%)</span>
@@ -1427,7 +1427,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">订单金额</span>
-                  <span className="text-2xl font-bold text-red-600">{formatPrice(getTotalPrice())}</span>
+                  <span className="text-2xl font-bold text-red-600">{formatPrice(getFinalTotalPrice())}</span>
                 </div>
               </div>
               
