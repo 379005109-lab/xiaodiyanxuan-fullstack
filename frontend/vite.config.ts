@@ -86,8 +86,15 @@ export default defineConfig({
       'wangzhan.ns-cxxiwxce',
     ],
     proxy: {
+      // Java 后台接口 - 登录、授权、租户管理、组织架构、职位管理、角色管理、应用管理、菜单管理、应用套餐
+      '/baseapi': {
+        target: 'http://10.1.32.21:30001',
+        changeOrigin: true,
+        secure: false
+      },
+      // Node.js 后台接口 - 其他接口
       '/api': {
-        target: 'https://pkochbpmcgaa.sealoshzh.site',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
       },

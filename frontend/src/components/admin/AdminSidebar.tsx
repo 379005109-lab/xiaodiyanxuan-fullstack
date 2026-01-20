@@ -18,9 +18,15 @@ import {
   Factory,
   Shield,
   Layers,
+  Building,
+  Users as UsersIcon,
+  Briefcase,
+  Key,
+  Menu,
+  Box,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAuthStore } from '@/store/authStore'
 
 interface AdminSidebarProps {
@@ -35,103 +41,216 @@ interface MenuItem {
   children?: { name: string; path: string }[]
 }
 
+// 菜单图标映射
+const iconMap: Record<string, any> = {
+  'home': Home,
+  'dashboard': TrendingUp,
+  'users': Users,
+  'materials': Palette,
+  'manufacturers': Factory,
+  'tenant': Building,
+  'org': UsersIcon,
+  'products': Package,
+  'packages': Package,
+  'bargain': Scissors,
+  'orders': ShoppingCart,
+  'customization': Pencil,
+}
+
+// 从权限标识获取图标
+const getIconFromPermission = (permission: string) => {
+  const permissionKey = permission ? permission.split('.')[0] : 'home'
+  return iconMap[permissionKey] || Home
+}
+
 export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
   const location = useLocation()
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['订单管理'])
-  const { user } = useAuthStore()
+  const { user, menuList } = useAuthStore()
   const role = user?.role
 
   const isManufacturerSubAccount = role === 'enterprise_admin' || role === 'enterprise_staff'
 
-  const allMenuItems: MenuItem[] = [
-    { name: '首页', path: '/admin', icon: Home },
-    { name: '数据看板', path: '/admin/dashboard', icon: TrendingUp },
-    // { name: '用户活跃度', path: '/admin/activity', icon: Activity }, // 隐藏
-    // { name: '网站图片管理', path: '/admin/images', icon: Image }, // 移到设置菜单
-    // { name: '设计管理', path: '/admin/designs', icon: Pencil }, // 隐藏
-    { name: '账号管理', path: '/admin/users', icon: Users },
-    { name: '材质管理', path: '/admin/materials', icon: Palette },
-    { name: '厂家管理', path: '/admin/manufacturers', icon: Factory },
-    // { name: '授权管理', path: '/admin/authorizations', icon: Shield }, // 已移到厂家管理-渠道管理中
-    // { name: '分层管理', path: '/admin/tier-system', icon: Layers }, // 隐藏
-    {
-      name: '商品管理',
-      path: '/admin/products',
-      icon: Package,
-      children: [
-        { name: '商品列表', path: '/admin/products' },
-        { name: '商品分类', path: '/admin/categories' },
+  // 根据menuList生成菜单
+  const generateMenuItems = useMemo(() => {
+    if (!menuList || menuList.length === 0) {
+      // 默认菜单，当menuList为空时使用
+      // 参照 Vue 项目的菜单结构
+      return [
+        { name: '数据看板', path: '/admin/dashboard', icon: TrendingUp },
+        
+        // 系统权限 - 对应 Vue 项目的 sys-permission
+        {
+          name: '系统权限',
+          path: '/admin/sys-permission',
+          icon: Shield,
+          children: [
+            { name: '应用管理', path: '/admin/org/applications' },
+            { name: '应用菜单管理', path: '/admin/org/menus' },
+            { name: '应用套餐', path: '/admin/org/packages' },
+          ]
+        },
+        
+        // 业务中心 - 对应 Vue 项目的 business-center
+        {
+          name: '业务中心',
+          path: '/admin/business-center',
+          icon: UsersIcon,
+          children: [
+            { name: '组织架构', path: '/admin/org/structure' },
+            { name: '职位管理', path: '/admin/org/positions' },
+            { name: '角色管理', path: '/admin/org/roles' },
+          ]
+        },
+        
+        // 租户管理
+        {
+          name: '租户管理',
+          path: '/admin/tenant',
+          icon: Building,
+          children: [
+            { name: '租户列表', path: '/admin/tenant/list' },
+          ]
+        },
+        
+        { name: '账号管理', path: '/admin/users', icon: Users },
+        { name: '材质管理', path: '/admin/materials', icon: Palette },
+        { name: '厂家管理', path: '/admin/manufacturers', icon: Factory },
+        
+        {
+          name: '商品管理',
+          path: '/admin/products',
+          icon: Package,
+          children: [
+            { name: '商品列表', path: '/admin/products' },
+            { name: '商品分类', path: '/admin/categories' },
+          ]
+        },
+        { name: '套餐管理', path: '/admin/packages', icon: Package },
+        {
+          name: '砍价管理',
+          path: '/admin/bargain',
+          icon: Scissors,
+          children: role === 'designer' 
+            ? [{ name: '砍价列表', path: '/admin/bargain' }]
+            : [
+                { name: '砍价列表', path: '/admin/bargain' },
+                { name: '数据看板', path: '/admin/bargain-dashboard' },
+              ]
+        },
+        { 
+          name: '订单管理', 
+          path: '/admin/orders', 
+          icon: ShoppingCart,
+          children: role === 'designer'
+            ? [
+                { name: '我的订单', path: '/admin/designer-orders' },
+                { name: '推荐客户订单', path: '/admin/designer-referred-orders' },
+              ]
+            : [
+                { name: '订单列表', path: '/admin/orders' },
+                { name: '订单回收站', path: '/admin/orders/trash' },
+                { name: '数据看板', path: '/admin/order-dashboard' },
+                { name: '退换货列表', path: '/admin/refunds' },
+                { name: '订单分析', path: '/admin/order-analysis' },
+                { name: '陪买预约', path: '/admin/buying-service-requests' },
+                { name: '优惠券管理', path: '/admin/coupons' },
+              ]
+        },
+        { name: '定制需求', path: '/admin/customization', icon: Pencil },
       ]
-    },
-    { name: '套餐管理', path: '/admin/packages', icon: Package },
-    {
-      name: '砍价管理',
-      path: '/admin/bargain',
-      icon: Scissors,
-      children: role === 'designer' 
-        ? [{ name: '砍价列表', path: '/admin/bargain' }]
-        : [
-            { name: '砍价列表', path: '/admin/bargain' },
-            { name: '数据看板', path: '/admin/bargain-dashboard' },
-          ]
-    },
-    { 
-      name: '订单管理', 
-      path: '/admin/orders', 
-      icon: ShoppingCart,
-      children: role === 'designer'
-        ? [
-            { name: '我的订单', path: '/admin/designer-orders' },
-            { name: '推荐客户订单', path: '/admin/designer-referred-orders' },
-          ]
-        : [
-            { name: '订单列表', path: '/admin/orders' },
-            { name: '订单回收站', path: '/admin/orders/trash' },
-            { name: '数据看板', path: '/admin/order-dashboard' },
-            { name: '退换货列表', path: '/admin/refunds' },
-            { name: '订单分析', path: '/admin/order-analysis' },
-            { name: '陪买预约', path: '/admin/buying-service-requests' },
-            { name: '优惠券管理', path: '/admin/coupons' },
-          ]
-    },
-    { name: '定制需求', path: '/admin/customization', icon: Pencil },
-  ]
+    }
 
-  const menuItems = role === 'designer'
-    ? allMenuItems.filter(item =>
+    // Vue 项目路径到 React 路由的映射
+    const pathMapping: Record<string, string> = {
+      // 系统权限模块
+      '/sys-permission/apply-manage': '/admin/org/applications',
+      '/sys-permission/apply-menu-manage': '/admin/org/menus',
+      '/sys-permission/apply-package': '/admin/org/packages',
+      // 业务中心模块
+      '/business-center/org-structure': '/admin/org/structure',
+      '/business-center/position': '/admin/org/positions',
+      '/business-center/permission': '/admin/org/roles',
+      // 租户管理
+      '/tenant/list': '/admin/tenant/list',
+      '/tenant/form': '/admin/tenant/form',
+    }
+
+    // 根据menuList生成菜单，与Vue项目保持一致
+    const processMenu = (menuItems: any[]): MenuItem[] => {
+      return menuItems.map(item => {
+        const icon = getIconFromPermission(item.permission)
+        
+        // 构建完整的路径
+        let path = ''
+        if (item.type === '0') {
+          // 目录类型，使用permission作为路径前缀
+          path = `/admin/${item.permission}`
+        } else if (item.type === '1') {
+          // 菜单类型，先检查映射表，再使用原始path
+          const vuePath = '/' + item.path
+          path = pathMapping[vuePath] || `/admin/${item.path}`
+        }
+        
+        if (item.hasChildren && item.children && item.children.length > 0) {
+          return {
+            name: item.name,
+            path,
+            icon,
+            children: processMenu(item.children)
+          }
+        }
+        
+        return {
+          name: item.name,
+          path,
+          icon,
+        }
+      })
+    }
+
+    return processMenu(menuList)
+  }, [menuList, role])
+
+  // 根据用户角色过滤菜单
+  const filteredMenuItems = useMemo(() => {
+    if (role === 'designer') {
+      return generateMenuItems.filter(item =>
         ['首页', '厂家管理', '商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
       )
-    : isManufacturerSubAccount
-      ? allMenuItems
-          .filter(item =>
-            ['厂家管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理'].includes(item.name)
-          )
-          .map(item => {
-            if (item.name === '砍价管理') {
-              return {
-                ...item,
-                children: [{ name: '砍价列表', path: '/admin/bargain' }],
-              }
+    } else if (isManufacturerSubAccount) {
+      return generateMenuItems
+        .filter(item =>
+          ['厂家管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理'].includes(item.name)
+        )
+        .map(item => {
+          if (item.name === '砍价管理') {
+            return {
+              ...item,
+              children: [{ name: '砍价列表', path: '/admin/bargain' }],
             }
-            if (item.name === '订单管理') {
-              return {
-                ...item,
-                children: [{ name: '订单列表', path: '/admin/orders' }],
-              }
+          }
+          if (item.name === '订单管理') {
+            return {
+              ...item,
+              children: [{ name: '订单列表', path: '/admin/orders' }],
             }
-            if (item.name === '账号管理') {
-              return {
-                ...item,
-                path: '/admin/enterprise-users',
-                children: undefined,
-              }
+          }
+          if (item.name === '账号管理') {
+            return {
+              ...item,
+              path: '/admin/enterprise-users',
+              children: undefined,
             }
-            if (item.name === '商品管理') {
-              return item // Keep children for product management (商品列表 and 商品分类)
-            }
-            return { ...item, children: undefined }
-          })
-      : allMenuItems
+          }
+          if (item.name === '商品管理') {
+            return item // Keep children for product management
+          }
+          return { ...item, children: undefined }
+        })
+    }
+    return generateMenuItems
+  }, [generateMenuItems, role, isManufacturerSubAccount])
 
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev =>
@@ -176,7 +295,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
 
         {/* 菜单 */}
         <nav className="p-4 space-y-1">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const Icon = item.icon
             const isExpanded = expandedMenus.includes(item.name)
             const isActive = location.pathname === item.path

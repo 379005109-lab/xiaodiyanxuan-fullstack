@@ -66,26 +66,56 @@ const getApiUrl = () => {
 };
 
 const API_URL = getApiUrl();
+const BASE_URL = `${API_URL}/api`;
 
-console.log(`🔗 API 基础 URL: ${API_URL}`);
+console.log(`🔗 API 基础 URL: ${BASE_URL}`);
 console.log(`📍 当前页面: ${typeof window !== 'undefined' ? window.location.href : 'N/A'}`);
 console.log(`🌍 环境: ${import.meta.env.MODE}`);
 
 const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: BASE_URL,
   timeout: 30000,
   withCredentials: false, // 不发送凭证，避免 CORS 问题
 });
 
 apiClient.interceptors.request.use(
   (config) => {
-    // 直接从Zustand store获取状态
-    const token = useAuthStore.getState().token;
+    // 统一使用 Java 后台的认证方式：从 localStorage 获取 access_token
+    // 优先使用 access_token（Java后台登录返回），其次使用 token（兼容旧版）
+    const accessToken = localStorage.getItem('access_token');
+    const token = localStorage.getItem('token');
+    const finalToken = accessToken || token;
+    
     config.headers = (config.headers || {}) as any;
     const existingAuth = (config.headers as any)?.Authorization || (config.headers as any)?.authorization;
-    if (token && !existingAuth) {
-      (config.headers as any)['Authorization'] = `Bearer ${token}`;
+    if (finalToken && !existingAuth) {
+      // 如果 token 已经包含 Bearer 前缀，直接使用
+      (config.headers as any)['Authorization'] = finalToken.startsWith('Bearer ') ? finalToken : `Bearer ${finalToken}`;
     }
+    
+    // 添加数据权限信息（从 Zustand store 获取用户信息）
+    const { user } = useAuthStore.getState();
+    if (user) {
+      // 在请求头中添加用户信息
+      (config.headers as any)['X-User-Id'] = user._id || user.id;
+      (config.headers as any)['X-User-Role'] = user.role;
+      
+      // 如果是GET请求，在params中添加权限信息
+      if (config.method === 'get' && config.params) {
+        config.params.userId = user._id || user.id;
+        config.params.userRole = user.role;
+      }
+      
+      // 如果是POST/PUT/DELETE请求，在data中添加权限信息
+      if (['post', 'put', 'delete'].includes(config.method || '') && config.data) {
+        config.data = {
+          ...config.data,
+          userId: user._id || user.id,
+          userRole: user.role
+        };
+      }
+    }
+    
     return config;
   },
   (error) => {

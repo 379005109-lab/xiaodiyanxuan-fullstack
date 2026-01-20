@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { X, User, Lock, Phone, ArrowRight, Loader2 } from 'lucide-react'
+import { X, User, Lock, Phone, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
-import { loginUser, sendVerificationCode, registerWithPhone } from '@/services/authService'
+import { useNavigate } from 'react-router-dom'
+import { loginAPI, loginPhoneAPI, sendVerificationCodeAPI, getCurrentUserAPI } from '@/services/authService'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -15,7 +16,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
   const [loginMethod, setLoginMethod] = useState<'password' | 'code'>('password') // 登录方式
   const [loading, setLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
-  const { login } = useAuthStore()
+  const [showPassword, setShowPassword] = useState(false) // 控制密码显示/隐藏
+  const { login, setLoginLoading, getUserInfo } = useAuthStore()
+  const navigate = useNavigate()
   
   // 登录表单
   const [loginForm, setLoginForm] = useState({
@@ -55,14 +58,12 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     
     try {
       setLoading(true)
-      const result = await sendVerificationCode(phone)
-      if (result.success) {
-        toast.success('验证码已发送')
-        setCountdown(60)
-        // 开发环境显示验证码
-        if (result.code) {
-          toast.info(`验证码: ${result.code}`)
-        }
+      const result = await sendVerificationCodeAPI({ phone })
+      toast.success('验证码已发送')
+      setCountdown(60)
+      // 开发环境显示验证码
+      if (result.data?.code) {
+        toast.info(`验证码: ${result.data.code}`)
       }
     } catch (error: any) {
       toast.error(error?.message || '发送验证码失败')
@@ -92,30 +93,41 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     
     try {
       setLoading(true)
+      setLoginLoading(true)
       
-      let response;
+      let loginResponse;
       if (loginMethod === 'code') {
-        // 验证码登录：使用 register 接口（支持已有用户直接登录）
-        response = await registerWithPhone(loginForm.phone, loginForm.verifyCode)
+        // 验证码登录
+        loginResponse = await loginPhoneAPI({
+          phone: loginForm.phone,
+          code: loginForm.verifyCode
+        })
       } else {
         // 密码登录
-        response = await loginUser({
+        loginResponse = await loginAPI({
           username: loginForm.phone,
-          password: loginForm.password,
+          password: loginForm.password
         })
       }
       
-      if (response.success && response.data) {
-        login(response.data.user, response.data.token)
-        toast.success('登录成功！')
-        onClose()
-      } else {
-        toast.error(response.message || '登录失败')
-      }
+      // 构建完整token
+      const token = `${loginResponse.data.token_type} ${loginResponse.data.access_token}`
+      
+      // 先登录设置token
+      login({}, token)
+      
+      // 调用getUserInfo获取权限数据和用户信息
+      await getUserInfo(token)
+      
+      toast.success('登录成功！')
+      onClose()
+      // 重定向到首页，与Vue项目保持一致
+      navigate('/frontend')
     } catch (error: any) {
       toast.error(error?.message || '登录失败')
     } finally {
       setLoading(false)
+      setLoginLoading(false)
     }
   }
 
@@ -130,18 +142,32 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
     
     try {
       setLoading(true)
-      const result = await registerWithPhone(registerForm.phone, registerForm.verifyCode)
-      if (result.success && result.data) {
-        toast.success('登录成功！')
-        login(result.data.user, result.data.token)
-        onClose()
-      } else {
-        toast.error(result.message || '登录失败')
-      }
+      setLoginLoading(true)
+      
+      // 调用手机号登录API（注册和登录使用相同接口）
+      const loginResponse = await loginPhoneAPI({
+        phone: registerForm.phone,
+        code: registerForm.verifyCode
+      })
+      
+      // 构建完整token
+      const token = `${loginResponse.data.token_type} ${loginResponse.data.access_token}`
+      
+      // 先登录设置token
+      login({}, token)
+      
+      // 调用getUserInfo获取权限数据和用户信息
+      await getUserInfo(token)
+      
+      toast.success('注册成功！')
+      onClose()
+      // 重定向到首页，与Vue项目保持一致
+      navigate('/frontend')
     } catch (error: any) {
-      toast.error(error?.message || '登录失败')
+      toast.error(error?.message || '注册失败')
     } finally {
       setLoading(false)
+      setLoginLoading(false)
     }
   }
 
@@ -191,13 +217,22 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
                   /* 密码登录 */
                   <div>
                     <label className="text-xs text-stone-600 block mb-1.5">密码</label>
-                    <input
-                      type="password"
-                      placeholder="请输入密码"
-                      value={loginForm.password}
-                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                      className="w-full bg-stone-50 border-0 rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="请输入密码"
+                        value={loginForm.password}
+                        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                        className="w-full bg-stone-50 border-0 rounded-lg px-4 py-3 pr-10 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   /* 验证码登录 */

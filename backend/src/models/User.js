@@ -15,6 +15,21 @@ const userSchema = new mongoose.Schema({
   phone: String,
   email: String,
   
+  // === Java 后台用户关联（统一认证授权）===
+  javaUserId: { type: String, index: true },           // Java 后台用户 ID
+  javaUserName: String,                                 // Java 后台用户姓名
+  javaEmpNo: String,                                    // Java 后台员工编号
+  javaTenantId: String,                                 // Java 后台租户 ID
+  javaOrganizeId: String,                               // Java 后台部门 ID
+  javaOrganizeName: String,                             // Java 后台部门名称
+  javaPositionId: String,                               // Java 后台职位 ID
+  javaPositionName: String,                             // Java 后台职位名称
+  javaRoleType: { type: Number },                       // Java 后台角色类型 (0=超管, 1=管理员, 2=普通)
+  javaSystemFlag: { type: String, default: '0' },       // Java 后台系统标识 ('0'=普通, '1'=系统)
+  javaStatus: { type: String, default: '1' },           // Java 后台在职状态 ('0'=离职, '1'=在职)
+  javaEnabled: { type: String, default: '1' },          // Java 后台启用状态 ('0'=禁用, '1'=启用)
+  lastSyncAt: Date,                                     // 最后同步时间
+  
   // === 角色与权限 ===
   role: { 
     type: String, 
