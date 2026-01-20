@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, X, CreditCard, Smartphone, Building2, Copy, CheckCircle } from 'lucide-react'
+import { ArrowLeft, MapPin, X, CreditCard, Smartphone, Building2, Copy, CheckCircle, FileText, Plus, Edit2, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
@@ -28,6 +28,30 @@ interface MerchantPaymentInfo {
     accountName: string
     accountNumber: string
   }>
+}
+
+// 开票信息类型
+interface InvoiceInfo {
+  _id?: string
+  invoiceType: 'personal' | 'company'
+  title: string
+  taxNumber?: string
+  bankName?: string
+  bankAccount?: string
+  companyAddress?: string
+  companyPhone?: string
+  email?: string
+  phone?: string
+  mailingAddress?: string
+  isDefault?: boolean
+}
+
+// 厂家业务设置类型
+interface ManufacturerSettings {
+  invoiceEnabled?: boolean
+  invoiceMarkupPercent?: number
+  paymentRatioEnabled?: boolean
+  paymentRatios?: number[]
 }
 
 export default function CheckoutPage() {
@@ -74,6 +98,38 @@ export default function CheckoutPage() {
   // 判断是否为厂家或设计师用户
   const isManufacturerOrDesigner = (user as any)?.role === 'manufacturer' || (user as any)?.role === 'designer' || (user as any)?.manufacturerId
   
+  // 开票相关状态
+  const [needInvoice, setNeedInvoice] = useState(false)
+  const [invoiceInfoList, setInvoiceInfoList] = useState<InvoiceInfo[]>([])
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('')
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false)
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null)
+  const [invoiceForm, setInvoiceForm] = useState<InvoiceInfo>({
+    invoiceType: 'company',
+    title: '',
+    taxNumber: '',
+    bankName: '',
+    bankAccount: '',
+    companyAddress: '',
+    companyPhone: '',
+    email: '',
+    phone: '',
+    mailingAddress: '',
+    isDefault: false
+  })
+  const [savingInvoice, setSavingInvoice] = useState(false)
+  
+  // 付款比例相关状态
+  const [selectedPaymentRatio, setSelectedPaymentRatio] = useState<number>(100)
+  
+  // 厂家业务设置
+  const [manufacturerSettings, setManufacturerSettings] = useState<ManufacturerSettings>({
+    invoiceEnabled: false,
+    invoiceMarkupPercent: 0,
+    paymentRatioEnabled: false,
+    paymentRatios: [100]
+  })
+  
   // 加载用户地址
   useEffect(() => {
     const loadAddresses = async () => {
@@ -102,6 +158,136 @@ export default function CheckoutPage() {
     
     loadAddresses()
   }, [isAuthenticated])
+  
+  // 加载用户开票信息
+  useEffect(() => {
+    const loadInvoiceInfo = async () => {
+      if (!isAuthenticated) return
+      try {
+        const response = await axios.get('/invoice-info')
+        const list = response.data?.data || []
+        setInvoiceInfoList(list)
+        // 自动选择默认开票信息
+        const defaultInvoice = list.find((inv: InvoiceInfo) => inv.isDefault)
+        if (defaultInvoice) {
+          setSelectedInvoiceId(defaultInvoice._id || '')
+        }
+      } catch (error) {
+        console.error('加载开票信息失败:', error)
+      }
+    }
+    loadInvoiceInfo()
+  }, [isAuthenticated])
+  
+  // 加载厂家业务设置（开票加价、付款比例）
+  useEffect(() => {
+    const loadManufacturerSettings = async () => {
+      if (items.length === 0) return
+      try {
+        // 获取第一个商品的厂家ID
+        const firstProduct = items[0].product as any
+        let manufacturerId = firstProduct.manufacturerId || firstProduct.manufacturer?._id || firstProduct.manufacturer
+        if (!manufacturerId && firstProduct._id) {
+          const productRes = await axios.get(`/products/${firstProduct._id}`)
+          const productData = productRes.data?.data || productRes.data
+          manufacturerId = productData?.manufacturerId || productData?.manufacturer?._id
+        }
+        if (manufacturerId) {
+          const res = await axios.get(`/manufacturers/${manufacturerId}`)
+          const mfr = res.data?.data || res.data
+          setManufacturerSettings({
+            invoiceEnabled: mfr.invoiceEnabled || false,
+            invoiceMarkupPercent: mfr.invoiceMarkupPercent || 0,
+            paymentRatioEnabled: mfr.paymentRatioEnabled || false,
+            paymentRatios: mfr.paymentRatios || [100]
+          })
+          // 默认选择最高付款比例
+          if (mfr.paymentRatioEnabled && mfr.paymentRatios?.length > 0) {
+            setSelectedPaymentRatio(Math.max(...mfr.paymentRatios))
+          }
+        }
+      } catch (error) {
+        console.error('加载厂家设置失败:', error)
+      }
+    }
+    loadManufacturerSettings()
+  }, [items])
+  
+  // 计算开票加价金额
+  const getInvoiceMarkupAmount = () => {
+    if (!needInvoice || !manufacturerSettings.invoiceEnabled) return 0
+    return Math.round(getTotalPrice() * (manufacturerSettings.invoiceMarkupPercent || 0) / 100)
+  }
+  
+  // 计算最终总价（含开票加价）
+  const getFinalTotalPrice = () => {
+    return getTotalPrice() + getInvoiceMarkupAmount()
+  }
+  
+  // 计算首付金额
+  const getDepositAmount = () => {
+    return Math.round(getFinalTotalPrice() * selectedPaymentRatio / 100)
+  }
+  
+  // 保存开票信息
+  const handleSaveInvoiceInfo = async () => {
+    if (!invoiceForm.title) {
+      toast.error('请填写发票抬头')
+      return
+    }
+    if (invoiceForm.invoiceType === 'company' && !invoiceForm.taxNumber) {
+      toast.error('企业发票必须填写税号')
+      return
+    }
+    setSavingInvoice(true)
+    try {
+      if (editingInvoiceId) {
+        await axios.put(`/invoice-info/${editingInvoiceId}`, invoiceForm)
+        toast.success('开票信息更新成功')
+      } else {
+        const res = await axios.post('/invoice-info', invoiceForm)
+        const newInvoice = res.data?.data
+        if (newInvoice?._id) {
+          setSelectedInvoiceId(newInvoice._id)
+        }
+        toast.success('开票信息添加成功')
+      }
+      // 重新加载列表
+      const response = await axios.get('/invoice-info')
+      setInvoiceInfoList(response.data?.data || [])
+      setShowInvoiceForm(false)
+      setEditingInvoiceId(null)
+      setInvoiceForm({
+        invoiceType: 'company', title: '', taxNumber: '', bankName: '', bankAccount: '',
+        companyAddress: '', companyPhone: '', email: '', phone: '', mailingAddress: '', isDefault: false
+      })
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || '保存失败')
+    } finally {
+      setSavingInvoice(false)
+    }
+  }
+  
+  // 编辑开票信息
+  const handleEditInvoice = (inv: InvoiceInfo) => {
+    setInvoiceForm(inv)
+    setEditingInvoiceId(inv._id || null)
+    setShowInvoiceForm(true)
+  }
+  
+  // 删除开票信息
+  const handleDeleteInvoice = async (id: string) => {
+    if (!confirm('确定删除这条开票信息吗？')) return
+    try {
+      await axios.delete(`/invoice-info/${id}`)
+      toast.success('已删除')
+      const response = await axios.get('/invoice-info')
+      setInvoiceInfoList(response.data?.data || [])
+      if (selectedInvoiceId === id) setSelectedInvoiceId('')
+    } catch (error) {
+      toast.error('删除失败')
+    }
+  }
   
   // 选择地址
   const handleSelectAddress = (address: any) => {
@@ -180,6 +366,16 @@ export default function CheckoutPage() {
 
     setSubmitting(true)
 
+    // 验证开票信息
+    if (needInvoice && invoiceInfoList.length > 0 && !selectedInvoiceId) {
+      toast.error('请选择开票信息')
+      setSubmitting(false)
+      return
+    }
+    
+    // 获取选中的开票信息
+    const selectedInvoice = needInvoice ? invoiceInfoList.find(inv => inv._id === selectedInvoiceId) : null
+    
     // 构建订单数据（在try外面定义，确保catch中可以访问）
     const orderData = {
         items: items.map(item => ({
@@ -220,14 +416,36 @@ export default function CheckoutPage() {
             ? item.sku.discountPrice
             : item.sku.price)
         })),
-        totalAmount: getTotalPrice(),
+        totalAmount: getFinalTotalPrice(),  // 使用包含开票加价的最终价格
+        subtotal: getTotalPrice(),  // 商品小计
         recipient: {
           name: formData.name,
           phone: formData.phone,
           address: formData.address
         },
         paymentMethod: 'alipay', // 默认支付宝
-        notes: formData.notes
+        notes: formData.notes,
+        // 开票信息
+        needInvoice,
+        invoiceInfo: selectedInvoice ? {
+          invoiceType: selectedInvoice.invoiceType,
+          title: selectedInvoice.title,
+          taxNumber: selectedInvoice.taxNumber,
+          bankName: selectedInvoice.bankName,
+          bankAccount: selectedInvoice.bankAccount,
+          companyAddress: selectedInvoice.companyAddress,
+          companyPhone: selectedInvoice.companyPhone,
+          email: selectedInvoice.email,
+          phone: selectedInvoice.phone,
+          mailingAddress: selectedInvoice.mailingAddress
+        } : undefined,
+        invoiceMarkupPercent: needInvoice ? manufacturerSettings.invoiceMarkupPercent : 0,
+        invoiceMarkupAmount: getInvoiceMarkupAmount(),
+        // 付款比例
+        paymentRatioEnabled: manufacturerSettings.paymentRatioEnabled && selectedPaymentRatio < 100,
+        paymentRatio: selectedPaymentRatio,
+        depositAmount: getDepositAmount(),
+        finalPaymentAmount: getFinalTotalPrice() - getDepositAmount()
       }
 
     // 生成订单号
@@ -675,6 +893,313 @@ export default function CheckoutPage() {
               </form>
             </div>
 
+            {/* 开票信息卡片 - 始终显示 */}
+            <div className="bg-white rounded-[28px] shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-amber-600" />
+                  <h2 className="text-xl font-semibold text-gray-900">开票信息</h2>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={needInvoice}
+                    onChange={(e) => setNeedInvoice(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                    <span className="ml-2 text-sm text-gray-600">{needInvoice ? '需要开票' : '不开票'}</span>
+                  </label>
+                </div>
+                
+                {needInvoice && (
+                  <div className="space-y-4">
+                    {manufacturerSettings.invoiceMarkupPercent > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                        <p className="text-sm text-amber-800">
+                          <span className="font-medium">开票加价提示：</span>
+                          需开票的订单将加收 <span className="font-bold text-amber-600">{manufacturerSettings.invoiceMarkupPercent}%</span> 的开票费用
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* 已保存的开票信息列表 */}
+                    {invoiceInfoList.length > 0 && !showInvoiceForm && (
+                      <div className="space-y-3">
+                        <label className="block text-sm font-medium text-gray-700">选择开票信息</label>
+                        <div className="grid grid-cols-1 gap-3">
+                          {invoiceInfoList.map((inv) => (
+                            <div
+                              key={inv._id}
+                              onClick={() => setSelectedInvoiceId(inv._id || '')}
+                              className={`relative cursor-pointer border-2 rounded-xl p-4 transition-all ${
+                                selectedInvoiceId === inv._id
+                                  ? 'border-amber-500 bg-amber-50'
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              {inv.isDefault && (
+                                <span className="absolute top-2 right-2 text-xs bg-amber-500 text-white px-2 py-0.5 rounded">
+                                  默认
+                                </span>
+                              )}
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                      {inv.invoiceType === 'company' ? '企业' : '个人'}
+                                    </span>
+                                    <span className="font-medium text-gray-900">{inv.title}</span>
+                                  </div>
+                                  {inv.taxNumber && (
+                                    <p className="text-sm text-gray-500">税号：{inv.taxNumber}</p>
+                                  )}
+                                  {inv.email && (
+                                    <p className="text-sm text-gray-500">邮箱：{inv.email}</p>
+                                  )}
+                                </div>
+                                <div className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleEditInvoice(inv); }}
+                                    className="p-1.5 hover:bg-gray-100 rounded-lg"
+                                  >
+                                    <Edit2 className="w-4 h-4 text-gray-500" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteInvoice(inv._id!); }}
+                                    className="p-1.5 hover:bg-red-50 rounded-lg"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowInvoiceForm(true)
+                            setEditingInvoiceId(null)
+                            setInvoiceForm({
+                              invoiceType: 'company', title: '', taxNumber: '', bankName: '', bankAccount: '',
+                              companyAddress: '', companyPhone: '', email: '', phone: '', mailingAddress: '', isDefault: false
+                            })
+                          }}
+                          className="flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700"
+                        >
+                          <Plus className="w-4 h-4" /> 添加新开票信息
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* 开票信息表单 */}
+                    {(showInvoiceForm || invoiceInfoList.length === 0) && (
+                      <div className="space-y-4 border border-gray-200 rounded-xl p-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-gray-900">
+                            {editingInvoiceId ? '编辑开票信息' : '新增开票信息'}
+                          </h3>
+                          {invoiceInfoList.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowInvoiceForm(false)}
+                              className="text-sm text-gray-500 hover:text-gray-700"
+                            >
+                              取消
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="invoiceType"
+                              checked={invoiceForm.invoiceType === 'company'}
+                              onChange={() => setInvoiceForm({...invoiceForm, invoiceType: 'company'})}
+                              className="text-amber-600"
+                            />
+                            <span className="text-sm">企业发票</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="invoiceType"
+                              checked={invoiceForm.invoiceType === 'personal'}
+                              onChange={() => setInvoiceForm({...invoiceForm, invoiceType: 'personal'})}
+                              className="text-amber-600"
+                            />
+                            <span className="text-sm">个人发票</span>
+                          </label>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              发票抬头 <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={invoiceForm.title}
+                              onChange={(e) => setInvoiceForm({...invoiceForm, title: e.target.value})}
+                              className="input w-full"
+                              placeholder={invoiceForm.invoiceType === 'company' ? '企业全称' : '个人姓名'}
+                            />
+                          </div>
+                          {invoiceForm.invoiceType === 'company' && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                税号 <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={invoiceForm.taxNumber || ''}
+                                onChange={(e) => setInvoiceForm({...invoiceForm, taxNumber: e.target.value})}
+                                className="input w-full"
+                                placeholder="纳税人识别号"
+                              />
+                            </div>
+                          )}
+                        </div>
+                        
+                        {invoiceForm.invoiceType === 'company' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">开户银行</label>
+                              <input
+                                type="text"
+                                value={invoiceForm.bankName || ''}
+                                onChange={(e) => setInvoiceForm({...invoiceForm, bankName: e.target.value})}
+                                className="input w-full"
+                                placeholder="开户银行名称"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">银行账号</label>
+                              <input
+                                type="text"
+                                value={invoiceForm.bankAccount || ''}
+                                onChange={(e) => setInvoiceForm({...invoiceForm, bankAccount: e.target.value})}
+                                className="input w-full"
+                                placeholder="银行账号"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">企业地址</label>
+                              <input
+                                type="text"
+                                value={invoiceForm.companyAddress || ''}
+                                onChange={(e) => setInvoiceForm({...invoiceForm, companyAddress: e.target.value})}
+                                className="input w-full"
+                                placeholder="企业注册地址"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">企业电话</label>
+                              <input
+                                type="text"
+                                value={invoiceForm.companyPhone || ''}
+                                onChange={(e) => setInvoiceForm({...invoiceForm, companyPhone: e.target.value})}
+                                className="input w-full"
+                                placeholder="企业电话"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">收票邮箱</label>
+                            <input
+                              type="email"
+                              value={invoiceForm.email || ''}
+                              onChange={(e) => setInvoiceForm({...invoiceForm, email: e.target.value})}
+                              className="input w-full"
+                              placeholder="接收电子发票的邮箱"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">收票手机</label>
+                            <input
+                              type="tel"
+                              value={invoiceForm.phone || ''}
+                              onChange={(e) => setInvoiceForm({...invoiceForm, phone: e.target.value})}
+                              className="input w-full"
+                              placeholder="接收发票通知的手机"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="invoiceDefault"
+                            checked={invoiceForm.isDefault || false}
+                            onChange={(e) => setInvoiceForm({...invoiceForm, isDefault: e.target.checked})}
+                            className="rounded text-amber-600"
+                          />
+                          <label htmlFor="invoiceDefault" className="text-sm text-gray-600">设为默认开票信息</label>
+                        </div>
+                        
+                        <button
+                          type="button"
+                          onClick={handleSaveInvoiceInfo}
+                          disabled={savingInvoice}
+                          className="w-full py-2.5 bg-amber-500 text-white font-medium rounded-xl hover:bg-amber-600 disabled:opacity-50"
+                        >
+                          {savingInvoice ? '保存中...' : '保存开票信息'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+            {/* 付款比例卡片 */}
+            {manufacturerSettings.paymentRatioEnabled && manufacturerSettings.paymentRatios && manufacturerSettings.paymentRatios.length > 1 && (
+              <div className="bg-white rounded-[28px] shadow-lg p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <CreditCard className="w-5 h-5 text-emerald-600" />
+                  <h2 className="text-xl font-semibold text-gray-900">付款比例</h2>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">选择您希望的首付比例，剩余金额可在后续支付</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {manufacturerSettings.paymentRatios.sort((a, b) => b - a).map((ratio) => (
+                    <button
+                      key={ratio}
+                      type="button"
+                      onClick={() => setSelectedPaymentRatio(ratio)}
+                      className={`py-3 px-4 rounded-xl text-center transition-all ${
+                        selectedPaymentRatio === ratio
+                          ? 'bg-emerald-600 text-white shadow-lg'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <div className="text-lg font-bold">{ratio}%</div>
+                      <div className="text-xs opacity-80">
+                        {ratio === 100 ? '全款' : `首付 ${formatPrice(Math.round(getFinalTotalPrice() * ratio / 100))}`}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {selectedPaymentRatio < 100 && (
+                  <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-emerald-700">首付金额</span>
+                      <span className="font-bold text-emerald-700">{formatPrice(getDepositAmount())}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-emerald-700">尾款金额</span>
+                      <span className="font-bold text-emerald-700">{formatPrice(getFinalTotalPrice() - getDepositAmount())}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="bg-white rounded-[28px] shadow-lg p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">商品清单</h2>
@@ -807,6 +1332,12 @@ export default function CheckoutPage() {
                     <span>商品总计</span>
                     <span className="font-semibold">{formatPrice(getTotalPrice())}</span>
                   </div>
+                  {needInvoice && getInvoiceMarkupAmount() > 0 && (
+                    <div className="flex justify-between text-amber-600">
+                      <span>开票加价 ({manufacturerSettings.invoiceMarkupPercent}%)</span>
+                      <span className="font-semibold">+{formatPrice(getInvoiceMarkupAmount())}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span>运费</span>
                     <span className="text-green-600 font-semibold">免费</span>
@@ -820,8 +1351,20 @@ export default function CheckoutPage() {
                 <div className="border-t pt-4">
                   <div className="flex items-center justify-between text-2xl font-bold text-primary-600">
                     <span>合计</span>
-                    <span>{formatPrice(getTotalPrice())}</span>
+                    <span>{formatPrice(getFinalTotalPrice())}</span>
                   </div>
+                  {selectedPaymentRatio < 100 && (
+                    <div className="mt-2 p-2 bg-emerald-50 rounded-lg">
+                      <div className="flex justify-between text-sm text-emerald-700">
+                        <span>首付 ({selectedPaymentRatio}%)</span>
+                        <span className="font-bold">{formatPrice(getDepositAmount())}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-emerald-600 mt-1">
+                        <span>尾款</span>
+                        <span>{formatPrice(getFinalTotalPrice() - getDepositAmount())}</span>
+                      </div>
+                    </div>
+                  )}
                   <p className="text-xs text-gray-400 mt-1">价格包含所有材质升级与当前优惠</p>
                 </div>
 

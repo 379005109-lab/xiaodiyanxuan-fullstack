@@ -248,7 +248,22 @@ const dispatchOrderToManufacturers = async (order) => {
   return createdOrders
 }
 
-const createOrder = async (userId, { items, recipient, couponCode, ownerManufacturerId, paymentRatio }) => {
+const createOrder = async (userId, { 
+  items, 
+  recipient, 
+  couponCode, 
+  ownerManufacturerId, 
+  needInvoice,
+  invoiceInfo,
+  invoiceMarkupPercent,
+  invoiceMarkupAmount,
+  paymentRatioEnabled: inputPaymentRatioEnabled,
+  paymentRatio,
+  depositAmount: inputDepositAmount,
+  finalPaymentAmount: inputFinalPaymentAmount,
+  totalAmount: inputTotalAmount,
+  subtotal: inputSubtotal
+}) => {
   console.log('🛒 [OrderService] createOrder called');
   console.log('🛒 [OrderService] userId:', userId);
   console.log('🛒 [OrderService] userId type:', typeof userId);
@@ -256,16 +271,21 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
   console.log('🛒 [OrderService] recipient:', recipient);
   console.log('🛒 [OrderService] ownerManufacturerId:', ownerManufacturerId);
   console.log('🛒 [OrderService] paymentRatio:', paymentRatio);
+  console.log('🛒 [OrderService] needInvoice:', needInvoice);
+  console.log('🛒 [OrderService] invoiceMarkupPercent:', invoiceMarkupPercent);
+  console.log('🛒 [OrderService] invoiceMarkupAmount:', invoiceMarkupAmount);
   
   if (!items || items.length === 0) {
     throw new ValidationError('Order must contain at least one item')
   }
   
-  // Calculate totals
-  let subtotal = 0
-  items.forEach(item => {
-    subtotal += item.subtotal || (item.price * item.quantity) || 0
-  })
+  // Calculate totals - 使用前端传入的值或重新计算
+  let subtotal = inputSubtotal || 0
+  if (!subtotal) {
+    items.forEach(item => {
+      subtotal += item.subtotal || (item.price * item.quantity) || 0
+    })
+  }
   console.log('🛒 [OrderService] subtotal:', subtotal);
   
   let discountAmount = 0
@@ -296,7 +316,8 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
     }
   }
   
-  const totalAmount = subtotal - discountAmount
+  // 计算总金额：如果前端传了包含开票加价的 totalAmount，优先使用；否则用 subtotal - discountAmount + invoiceMarkupAmount
+  let totalAmount = inputTotalAmount || (subtotal - discountAmount + (invoiceMarkupAmount || 0))
   
   const orderNo = generateOrderNo();
   console.log('🛒 [OrderService] Generated orderNo:', orderNo);
@@ -339,17 +360,22 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
   }
   
   // 计算付款比例相关金额
-  let paymentRatioEnabled = false
+  let paymentRatioEnabled = inputPaymentRatioEnabled || false
   let firstPaymentAmount = totalAmount
   let remainingPaymentAmount = 0
   let remainingPaymentStatus = null
+  let depositAmount = inputDepositAmount || 0
+  let finalPaymentAmount = inputFinalPaymentAmount || 0
   
   if (paymentRatio && paymentRatio < 100) {
     paymentRatioEnabled = true
-    firstPaymentAmount = Math.round(totalAmount * paymentRatio / 100 * 100) / 100  // 保留2位小数
-    remainingPaymentAmount = Math.round((totalAmount - firstPaymentAmount) * 100) / 100
+    // 使用前端传入的值，或重新计算
+    depositAmount = inputDepositAmount || Math.round(totalAmount * paymentRatio / 100)
+    finalPaymentAmount = inputFinalPaymentAmount || (totalAmount - depositAmount)
+    firstPaymentAmount = depositAmount
+    remainingPaymentAmount = finalPaymentAmount
     remainingPaymentStatus = 'pending'
-    console.log('💰 [OrderService] Payment ratio enabled:', paymentRatio, '%, first:', firstPaymentAmount, ', remaining:', remainingPaymentAmount)
+    console.log('💰 [OrderService] Payment ratio enabled:', paymentRatio, '%, deposit:', depositAmount, ', final:', finalPaymentAmount)
   }
   
   const order = await Order.create({
@@ -364,8 +390,16 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
     status: ORDER_STATUS.PENDING_PAYMENT,
     couponCode,
     commissions,
+    // 开票信息
+    needInvoice: needInvoice || false,
+    invoiceInfo: invoiceInfo || undefined,
+    invoiceMarkupPercent: invoiceMarkupPercent || 0,
+    invoiceMarkupAmount: invoiceMarkupAmount || 0,
+    // 付款比例
     paymentRatioEnabled,
     paymentRatio: paymentRatio || 100,
+    depositAmount,
+    finalPaymentAmount,
     firstPaymentAmount,
     remainingPaymentAmount,
     remainingPaymentStatus

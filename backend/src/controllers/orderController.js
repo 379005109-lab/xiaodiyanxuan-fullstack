@@ -8,7 +8,7 @@ const create = async (req, res) => {
     console.log('📝 [Order] userId:', req.userId);
     console.log('📝 [Order] body:', JSON.stringify(req.body, null, 2));
     
-    let { items, recipient, couponCode } = req.body
+    let { items, recipient, couponCode, needInvoice, invoiceInfo, invoiceMarkupPercent, invoiceMarkupAmount, paymentRatioEnabled, paymentRatio, depositAmount, finalPaymentAmount, totalAmount, subtotal } = req.body
     
     // 兼容旧格式：如果没有recipient但有address/phone/contactName，自动构建recipient
     if (!recipient && (req.body.address || req.body.phone || req.body.contactName)) {
@@ -26,12 +26,29 @@ const create = async (req, res) => {
     }
     
     console.log('📝 [Order] recipient:', JSON.stringify(recipient));
+    console.log('📝 [Order] 开票信息:', { needInvoice, invoiceMarkupPercent, invoiceMarkupAmount });
+    console.log('📝 [Order] 付款比例:', { paymentRatioEnabled, paymentRatio, depositAmount, finalPaymentAmount });
     
     // 获取下单用户的厂家ID（授权商品订单归属）
     const ownerManufacturerId = req.user?.manufacturerId || req.user?.manufacturerIds?.[0] || null
     console.log('📝 [Order] ownerManufacturerId:', ownerManufacturerId);
     console.log('📝 [Order] 开始创建订单...');
-    const order = await createOrder(req.userId, { items, recipient, couponCode, ownerManufacturerId })
+    const order = await createOrder(req.userId, { 
+      items, 
+      recipient, 
+      couponCode, 
+      ownerManufacturerId,
+      needInvoice,
+      invoiceInfo,
+      invoiceMarkupPercent,
+      invoiceMarkupAmount,
+      paymentRatioEnabled,
+      paymentRatio,
+      depositAmount,
+      finalPaymentAmount,
+      totalAmount,
+      subtotal
+    })
     console.log('✅ [Order] 订单创建成功:', order._id);
     
     // 异步发送邮件通知（不阻塞响应）
