@@ -1,20 +1,21 @@
 import { useState, useEffect, type MouseEvent } from 'react'
-import { Bell, Menu, User, LogOut, Settings, ExternalLink, X, Lock, Phone, Camera, Image, Factory } from 'lucide-react'
+import { Bell, Menu, User, LogOut, Settings, ExternalLink, X, Lock, Phone, Camera, Image, Factory, Building } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import cloudServices from '@/services/cloudServices'
-import apiClient from '@/lib/apiClient'
+import { authorizationService } from '@/services/authorizationService'
 
 interface AdminHeaderProps {
   toggleSidebar: () => void
 }
 
 export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
-  const { user, logout } = useAuthStore()
+  const { user, logout, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
   const [showNotifications, setShowNotifications] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showTenantSwitcher, setShowTenantSwitcher] = useState(false)
   const [settingsTab, setSettingsTab] = useState<'password' | 'phone' | 'avatar'>('password')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -23,19 +24,32 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
   const [authTodoCount, setAuthTodoCount] = useState(0)
   const [notifications, setNotifications] = useState<any[]>([])
   const [pendingAuths, setPendingAuths] = useState<any[]>([])
+  
+  // 租户列表数据（模拟）
+  const [tenants] = useState([
+    { id: 1, name: '聚合数据平台', isCurrent: true },
+    { id: 2, name: '测试租户', isCurrent: false },
+    { id: 3, name: '开发租户', isCurrent: false },
+  ])
 
   // 加载通知数据
   useEffect(() => {
     // 延迟加载通知，避免阻塞页面渲染
     const timer = setTimeout(() => {
       loadNotifications()
-      loadAuthorizationSummary()
+      // 只有当用户已经认证时才加载授权摘要
+      if (isAuthenticated) {
+        loadAuthorizationSummary()
+      }
     }, 500)
     
     // 监听通知更新事件
     const handleNotificationUpdate = () => {
       loadNotifications()
-      loadAuthorizationSummary()
+      // 只有当用户已经认证时才加载授权摘要
+      if (isAuthenticated) {
+        loadAuthorizationSummary()
+      }
     }
     
     window.addEventListener('notificationUpdated', handleNotificationUpdate)
@@ -43,13 +57,12 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
       clearTimeout(timer)
       window.removeEventListener('notificationUpdated', handleNotificationUpdate)
     }
-  }, [])
+  }, [isAuthenticated])
 
   const loadAuthorizationSummary = async () => {
     try {
       // 加载待审批的授权申请
-      const response = await apiClient.get('/authorizations/pending-requests')
-      const data = response.data
+      const data = await authorizationService.getPendingRequests()
       if (data?.success && Array.isArray(data.data)) {
         setPendingAuths(data.data)
         setAuthTodoCount(data.data.length)
@@ -214,6 +227,51 @@ export default function AdminHeader({ toggleSidebar }: AdminHeaderProps) {
         >
           <ExternalLink className="h-4 w-4" /> 返回前台首页
         </button>
+
+        {/* 租户切换 */}
+        <div className="relative">
+          <button
+            onClick={() => setShowTenantSwitcher(!showTenantSwitcher)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <Building className="h-5 w-5 text-gray-700" />
+          </button>
+
+          {/* 租户切换下拉菜单 */}
+          {showTenantSwitcher && (
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-100 z-50">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">租户切换</h3>
+                <button
+                  onClick={() => setShowTenantSwitcher(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {tenants.map((tenant) => (
+                  <div key={tenant.id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{tenant.name}</p>
+                      </div>
+                      {tenant.isCurrent ? (
+                        <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
+                          当前
+                        </span>
+                      ) : (
+                        <button className="text-xs text-primary-600 hover:text-primary-700 font-medium">
+                          切换
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 通知 */}
         <div className="relative">

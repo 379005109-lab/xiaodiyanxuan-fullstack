@@ -93,6 +93,16 @@ const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManageme
 const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
 const AuthorizationPricingPage = lazy(() => import('./pages/admin/AuthorizationPricingPage'))
 
+// 新功能页面 - 懒加载
+const TenantListPage = lazy(() => import('./pages/admin/tenant/list/page'))
+const TenantFormPage = lazy(() => import('./pages/admin/tenant/form/page'))
+const OrgStructurePage = lazy(() => import('./pages/admin/org/structure/page'))
+const OrgPositionsPage = lazy(() => import('./pages/admin/org/positions/page'))
+const OrgRolesPage = lazy(() => import('./pages/admin/org/roles/page'))
+const OrgMenusPage = lazy(() => import('./pages/admin/org/menus/page'))
+const OrgPackagesPage = lazy(() => import('./pages/admin/org/packages/page'))
+const OrgApplicationsPage = lazy(() => import('./pages/admin/org/applications/page'))
+
 // 厂家端页面
 const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
 const ManufacturerOrders = lazy(() => import('./pages/manufacturer/ManufacturerOrders'))
@@ -130,89 +140,29 @@ const ProtectedRoute = ({
   disallowedRoles,
   fallbackPath = '/',
 }: ProtectedRouteProps) => {
-  const { user, isAuthenticated, token, logout } = useAuthStore()
-  const [isReady, setIsReady] = useState(false)
-  const [authRecoveryTimedOut, setAuthRecoveryTimedOut] = useState(false)
-  const [userRecoveryTimedOut, setUserRecoveryTimedOut] = useState(false)
+  const { user, isAuthenticated, token, permissionList } = useAuthStore()
+  const { openLogin } = useAuthModalStore()
 
   const isAdminUser = Boolean((user as any)?.permissions?.canAccessAdmin) ||
     (user ? ADMIN_ACCESS_ROLES.includes(user.role as UserRole) : false)
   
-  // 等待 Zustand persist 中间件恢复状态
-  useEffect(() => {
-    // 延迟一个 tick，确保 Zustand 已经恢复状态
-    const timer = setTimeout(() => {
-      setIsReady(true)
-    }, 0)
-    return () => clearTimeout(timer)
-  }, [])
-
-  // 避免 token 存在但认证状态无法恢复导致永久卡死
-  useEffect(() => {
-    if (!isReady) return
-    if (token && !isAuthenticated) {
-      const timer = setTimeout(() => {
-        setAuthRecoveryTimedOut(true)
-      }, 1500)
-      return () => clearTimeout(timer)
-    }
-    setAuthRecoveryTimedOut(false)
-  }, [isReady, token, isAuthenticated])
-
-  useEffect(() => {
-    if (!isReady) return
-    if (token && isAuthenticated && !user) {
-      const timer = setTimeout(() => {
-        setUserRecoveryTimedOut(true)
-      }, 1500)
-      return () => clearTimeout(timer)
-    }
-    setUserRecoveryTimedOut(false)
-  }, [isReady, token, isAuthenticated, user])
-
-  useEffect(() => {
-    if (!authRecoveryTimedOut) return
-    try {
-      localStorage.removeItem('auth-storage')
-      localStorage.removeItem('token')
-    } finally {
-      logout()
-    }
-  }, [authRecoveryTimedOut, logout])
-
-  useEffect(() => {
-    if (!userRecoveryTimedOut) return
-    try {
-      localStorage.removeItem('auth-storage')
-      localStorage.removeItem('token')
-    } finally {
-      logout()
-    }
-  }, [userRecoveryTimedOut, logout])
+  // 直接检查 localStorage 中的 token，这是最可靠的方式
+  const localToken = localStorage.getItem('token')
+  const hasToken = token || localToken
   
-  // 在初始化完成前显示加载状态
-  if (!isReady) {
-    return <div className="flex items-center justify-center h-screen bg-gray-50">加载中...</div>
+  // 如果没有 token，打开登录弹窗并重定向到首页
+  if (!hasToken) {
+    console.log('[ProtectedRoute] 无 token，打开登录弹窗')
+    setTimeout(() => openLogin(), 0)
+    return <Navigate to="/" replace />
   }
   
-  // 如果有 token 但 isAuthenticated 为 false，等待状态恢复
-  if (token && !isAuthenticated) {
-    if (authRecoveryTimedOut) {
-      return <Navigate to="/login" replace />
-    }
-    return <div className="flex items-center justify-center h-screen bg-gray-50">恢复认证状态中...</div>
-  }
-
-  if (token && isAuthenticated && !user) {
-    if (userRecoveryTimedOut) {
-      return <Navigate to="/login" replace />
-    }
-    return <div className="flex items-center justify-center h-screen bg-gray-50">恢复用户信息中...</div>
-  }
-  
-  if (!isAuthenticated) {
-    console.log('[ProtectedRoute] 未认证，重定向到登录页')
-    return <Navigate to="/login" replace />
+  // 如果有 token 但 Zustand 状态还未恢复，显示加载状态
+  // 但不要无限等待，给一个合理的超时
+  if (!isAuthenticated || !user) {
+    // 如果 localStorage 有 token，说明用户已登录，只是状态未恢复
+    // 直接渲染子组件，让页面自己处理数据加载
+    console.log('[ProtectedRoute] 有 token 但状态未完全恢复，继续渲染', { isAuthenticated, hasUser: !!user })
   }
 
   if (requireAdminPortal) {
@@ -226,23 +176,19 @@ const ProtectedRoute = ({
       user?.role === 'designer' ||
       (user as any)?.permissions?.canAccessAdmin === true
     if (!hasPortalAccess) {
-      console.log('[ProtectedRoute] 无管理后台访问权限，重定向到', fallbackPath)
       return <Navigate to={fallbackPath} replace />
     }
   }
   
   if (requireAdmin && !isAdminUser) {
-    console.log('[ProtectedRoute] 权限不足，重定向到', fallbackPath)
     return <Navigate to={fallbackPath} replace />
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    console.log('[ProtectedRoute] 角色不匹配，重定向到', fallbackPath)
     return <Navigate to={fallbackPath} replace />
   }
 
   if (disallowedRoles && user && disallowedRoles.includes(user.role)) {
-    console.log('[ProtectedRoute] 角色被限制，重定向到', fallbackPath)
     return <Navigate to={fallbackPath} replace />
   }
 
@@ -250,9 +196,9 @@ const ProtectedRoute = ({
     const hasPerm =
       user?.role === 'super_admin' ||
       user?.role === 'admin' ||
-      (user as any)?.permissions?.[requirePermission] === true
+      (user as any)?.permissions?.[requirePermission] === true ||
+      permissionList.includes(requirePermission)
     if (!hasPerm) {
-      console.log('[ProtectedRoute] 权限不足，重定向到', fallbackPath)
       return <Navigate to={fallbackPath} replace />
     }
   }
@@ -260,28 +206,7 @@ const ProtectedRoute = ({
   return <>{children}</>
 }
 
-const AdminIndexRedirect = () => {
-  const { user } = useAuthStore()
-  const hasManufacturerId = Boolean((user as any)?.manufacturerId)
-  const canManageProducts = (user as any)?.permissions?.canManageProducts === true
-
-  if (hasManufacturerId) {
-    return <Navigate to="/admin/manufacturers" replace />
-  }
-
-  if (user?.role === 'enterprise_admin') {
-    if (canManageProducts) {
-      return <Navigate to="/admin/products" replace />
-    }
-    return <Navigate to="/admin/authorized-products" replace />
-  }
-
-  if (user?.role === 'designer') {
-    return <Navigate to="/admin/products" replace />
-  }
-
-  return <Navigate to="/admin/activity" replace />
-}
+// AdminIndexRedirect 组件已移除，直接使用 Navigate 组件进行重定向
 
 const ProductManagementRoute = () => {
   const { user } = useAuthStore()
@@ -331,6 +256,8 @@ function App() {
   useEffect(() => {
     if (isAuthenticated && user) {
       const userId = (user as any)._id || (user as any).id
+      if (!userId) return // 确保有用户ID
+      
       const profileCompletedKey = `profile_completed_${userId}`
       
       // 检查是否已经完善过信息
@@ -354,10 +281,14 @@ function App() {
       }
       
       // 如果缺少必要信息且未完善过，显示完善弹窗
-      const timer = setTimeout(() => {
-        setShowProfileModal(true)
-      }, 500)
-      return () => clearTimeout(timer)
+      // 但仅在非后台页面显示，避免在后台管理时弹窗
+      const currentPath = window.location.pathname
+      if (!currentPath.startsWith('/admin')) {
+        const timer = setTimeout(() => {
+          setShowProfileModal(true)
+        }, 500)
+        return () => clearTimeout(timer)
+      }
     }
   }, [isAuthenticated, user])
   
@@ -426,6 +357,7 @@ function App() {
           {/* 前台路由 */}
           <Route path="/" element={<FrontendLayout />}>
             <Route index element={<HomePage />} />
+            <Route path="frontend" element={<HomePage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/:id" element={<ProductDetailPage />} />
             <Route path="categories" element={<CategoriesPage />} />
@@ -462,11 +394,11 @@ function App() {
 
           {/* 后台路由 */}
           <Route path="/admin" element={
-            <ProtectedRoute requireAdminPortal>
+            <ProtectedRoute fallbackPath="/">
               <AdminLayout />
             </ProtectedRoute>
           }>
-            <Route index element={<AdminIndexRedirect />} />
+            <Route index element={<Navigate to="/admin/tenant/list" replace />} />
             <Route path="products" element={<ProductManagementRoute />} />
             <Route path="authorized-products" element={<AuthorizedProductPricing />} />
             <Route path="products/new" element={
@@ -539,6 +471,18 @@ function App() {
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
             <Route path="tier-system" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
+            
+            {/* 租户管理 */}
+            <Route path="tenant/list" element={<TenantListPage />} />
+            <Route path="tenant/form" element={<TenantFormPage />} />
+            
+            {/* 组织管理 */}
+            <Route path="org/structure" element={<OrgStructurePage />} />
+            <Route path="org/positions" element={<OrgPositionsPage />} />
+            <Route path="org/roles" element={<OrgRolesPage />} />
+            <Route path="org/menus" element={<OrgMenusPage />} />
+            <Route path="org/packages" element={<OrgPackagesPage />} />
+            <Route path="org/applications" element={<OrgApplicationsPage />} />
           </Route>
  
           {/* 厂家端路由 */}

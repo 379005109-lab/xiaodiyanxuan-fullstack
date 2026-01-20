@@ -429,17 +429,16 @@ export default function Header() {
                     我的地址
                   </Link>
                   
-                  {/* 管理后台入口 - 仅管理员可见 */}
-                  {canEnterAdminPanel && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setUserMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                    >
-                      <LayoutDashboard className="w-4 h-4" />
-                      管理后台
-                    </Link>
-                  )}
+                  {/* 后台管理入口 - 参照Vue项目逻辑，所有登录用户都能看到 */}
+                  <Link
+                    to="/admin/tenant/list"
+                    replace
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-stone-600 hover:bg-stone-50 hover:text-primary transition-colors"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    后台管理
+                  </Link>
                   
                   <button
                     onClick={() => {

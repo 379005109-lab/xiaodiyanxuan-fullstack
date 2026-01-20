@@ -2,6 +2,7 @@ const mongoose = require('mongoose')
 
 // 尝试不同的连接字符串
 const uris = [
+  'mongodb://root:g7d6ckdq@dbconn.sealoshzh.site:34450/?directConnection=true',
   'mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan',
   'mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan?authSource=admin',
   'mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/?authSource=admin'

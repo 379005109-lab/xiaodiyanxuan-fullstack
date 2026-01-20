@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Plus, Users, Eye, Edit2, Trash2, AlertCircle, CheckCircle, XCircle, Copy, X } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import FolderSelectionModal from '@/components/FolderSelectionModal'
-import apiClient from '@/lib/apiClient'
+import { authorizationService } from '@/services/authorizationService'
 
 interface Authorization {
   _id: string
@@ -42,7 +42,7 @@ interface Authorization {
 export default function AuthorizationManagement() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { token, user } = useAuthStore()
+  const { token, user, isAuthenticated } = useAuthStore()
   const isDesigner = user?.role === 'designer'
   const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin'
   const isManufacturerUser = !!(
@@ -133,21 +133,24 @@ export default function AuthorizationManagement() {
   }, [])
 
   const loadAuthorizations = async () => {
+    // 确保用户已经认证
+    if (!user || !isAuthenticated) {
+      setLoading(false)
+      return
+    }
+    
     setLoading(true)
     try {
       if (activeTab === 'granted') {
-        const response = await apiClient.get('/authorizations/my-grants')
-        const data = response.data
+        const data = await authorizationService.getMyGrants()
         if (data?.success) setGrantedAuths(data.data || [])
         else toast.error(data?.message || '加载失败')
       } else if (activeTab === 'received') {
-        const response = await apiClient.get('/authorizations/received')
-        const data = response.data
+        const data = await authorizationService.getReceivedAuthorizations()
         if (data?.success) setReceivedAuths(data.data || [])
         else toast.error(data?.message || '加载失败')
       } else if (activeTab === 'tier_hierarchy') {
-        const response = await apiClient.get('/authorizations/tier-hierarchy')
-        const data = response.data
+        const data = await authorizationService.getTierHierarchy()
         if (data?.success) {
           setTierHierarchy(data.data?.visible || [])
           setMyAuthIds(data.data?.myAuthorizations || [])
@@ -157,28 +160,25 @@ export default function AuthorizationManagement() {
       } else if (activeTab === 'pending_requests') {
         if (isManufacturerUser && !isDesigner) {
           const [designerResp, manufacturerResp] = await Promise.all([
-            apiClient.get('/authorizations/designer-requests/pending').catch(() => null as any),
-            apiClient.get('/authorizations/manufacturer-requests/pending').catch(() => null as any),
+            authorizationService.getDesignerPendingRequests().catch(() => null as any),
+            authorizationService.getManufacturerPendingRequests().catch(() => null as any),
           ])
 
-          const designerList = designerResp?.data?.success ? (designerResp.data.data || []) : []
-          const manufacturerList = manufacturerResp?.data?.success ? (manufacturerResp.data.data || []) : []
+          const designerList = designerResp?.success ? (designerResp.data || []) : []
+          const manufacturerList = manufacturerResp?.success ? (manufacturerResp.data || []) : []
           setPendingRequests([...(designerList || []), ...(manufacturerList || [])])
         } else {
-          const response = await apiClient.get('/authorizations/designer-requests/pending')
-          const data = response.data
+          const data = await authorizationService.getDesignerPendingRequests()
           if (data?.success) setPendingRequests(data.data || [])
           else toast.error(data?.message || '加载失败')
         }
       } else {
         if (isDesigner || isPlatformAdmin) {
-          const response = await apiClient.get('/authorizations/designer-requests/my')
-          const data = response.data
+          const data = await authorizationService.getMyDesignerRequests()
           if (data?.success) setMyRequests(data.data || [])
           else toast.error(data?.message || '加载失败')
         } else if (isManufacturerUser) {
-          const response = await apiClient.get('/authorizations/manufacturer-requests/my')
-          const data = response.data
+          const data = await authorizationService.getMyManufacturerRequests()
           if (data?.success) setMyRequests(data.data || [])
           else toast.error(data?.message || '加载失败')
         } else {

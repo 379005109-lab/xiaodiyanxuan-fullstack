@@ -1,6 +1,6 @@
 const mongoose = require('mongoose')
 
-const MONGODB_URI = 'mongodb://root:g7d6ckdq@jianron-mongodb.ns-cxxiwxce.svc:27017/xiaodiyanxuan'
+const MONGODB_URI = 'mongodb://root:g7d6ckdq@dbconn.sealoshzh.site:34450/?directConnection=true'
 
 console.log('Testing MongoDB connection...')
 console.log('URI: ' + MONGODB_URI)
@@ -17,7 +17,7 @@ mongoose.connect(MONGODB_URI, {
     console.log('Database: ' + mongoose.connection.db.databaseName)
     console.log('Host: ' + mongoose.connection.host)
     console.log('Port: ' + mongoose.connection.port)
-    
+
     mongoose.connection.db.listCollections().toArray((err, collections) => {
       if (err) {
         console.error('Error listing collections: ' + err.message)
