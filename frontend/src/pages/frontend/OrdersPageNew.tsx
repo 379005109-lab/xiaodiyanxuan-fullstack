@@ -513,6 +513,25 @@ export default function OrdersPageNew() {
                   </div>
                 )}
 
+                {/* 开票信息 */}
+                {order.needInvoice && (
+                  <div className="px-6 py-3 bg-amber-50 border-b border-amber-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🧾</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-amber-800">需要开票</p>
+                        <div className="text-xs text-amber-700 mt-1">
+                          <span>抬头: {order.invoiceInfo?.title || '-'}</span>
+                          {order.invoiceInfo?.taxNumber && <span className="ml-3">税号: {order.invoiceInfo.taxNumber}</span>}
+                          {order.invoiceMarkupAmount > 0 && (
+                            <span className="ml-3 font-bold text-amber-600">开票加价: +¥{order.invoiceMarkupAmount?.toLocaleString()}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* 结算模式信息 */}
                 {order.settlementMode && (
                   <div className={`px-6 py-3 border-b ${order.settlementMode === 'supplier_transfer' ? 'bg-indigo-50 border-indigo-100' : 'bg-purple-50 border-purple-100'}`}>
@@ -528,6 +547,9 @@ export default function OrdersPageNew() {
                             <span className="font-bold text-indigo-700">实付: ¥{order.supplierPrice?.toLocaleString() || 0}</span>
                           ) : (
                             <span className="text-purple-700">返佣: ¥{order.commissionAmount?.toLocaleString() || 0}</span>
+                          )}
+                          {order.invoiceMarkupAmount > 0 && (
+                            <span className="text-amber-600">(含开票加价 ¥{order.invoiceMarkupAmount?.toLocaleString()})</span>
                           )}
                         </div>
                       </div>

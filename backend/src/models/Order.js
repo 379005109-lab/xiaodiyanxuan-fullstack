@@ -85,6 +85,8 @@ const orderSchema = new mongoose.Schema({
   },
   invoiceMarkupPercent: { type: Number, default: 0 },  // 开票加价比例
   invoiceMarkupAmount: { type: Number, default: 0 },   // 开票加价金额
+  invoiceStatus: { type: String, enum: ['pending', 'processing', 'issued', 'sent'], default: 'pending' },  // 开票状态
+  invoiceIssuedAt: Date,  // 开票时间
   
   status: { type: Number, enum: Object.values(ORDER_STATUS), default: ORDER_STATUS.PENDING_PAYMENT },
   couponCode: String,

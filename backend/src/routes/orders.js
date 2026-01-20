@@ -206,6 +206,41 @@ router.put('/:id/cancel', cancel)  // 支持PUT方法
 // POST /api/orders/:id/confirm - 确认收货
 router.post('/:id/confirm', confirm)
 
+// PUT /api/orders/:id/invoice-status - 更新开票状态
+router.put('/:id/invoice-status', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { invoiceStatus } = req.body
+    const Order = require('../models/Order')
+    
+    if (!['pending', 'processing', 'issued', 'sent'].includes(invoiceStatus)) {
+      return res.status(400).json({ success: false, message: '无效的开票状态' })
+    }
+    
+    const order = await Order.findById(id)
+    if (!order) {
+      return res.status(404).json({ success: false, message: '订单不存在' })
+    }
+    
+    if (!order.needInvoice) {
+      return res.status(400).json({ success: false, message: '该订单不需要开票' })
+    }
+    
+    order.invoiceStatus = invoiceStatus
+    if (invoiceStatus === 'issued') {
+      order.invoiceIssuedAt = new Date()
+    }
+    
+    await order.save()
+    console.log(`📄 订单 ${order.orderNo} 开票状态更新为: ${invoiceStatus}`)
+    
+    res.json({ success: true, message: '开票状态已更新', data: order })
+  } catch (error) {
+    console.error('更新开票状态失败:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
+
 // POST /api/orders/:id/pay - 确认付款（支持全款和分期付款）
 router.post('/:id/pay', async (req, res) => {
   try {
