@@ -499,9 +499,6 @@ const ProductDetailPage = () => {
   // 全部图片弹窗
   const [showAllImagesModal, setShowAllImagesModal] = useState(false);
   const [selectedAllImages, setSelectedAllImages] = useState<string[]>([]);
-  const [currentPlayingVideo, setCurrentPlayingVideo] = useState<string | null>(null);
-  const [autoPlayVideos, setAutoPlayVideos] = useState(true);
-  const [activeImageCategory, setActiveImageCategory] = useState<'exterior' | 'detail' | 'material'>('exterior');
 
   // 获取选中的材质配置
   const selectedMaterialConfig = useMemo(() => {
@@ -1750,6 +1747,104 @@ const ProductDetailPage = () => {
                 )}
               </div>
 
+              {/* Material Selection - 选择材质 */}
+              {materialConfigs.length > 0 && (
+                <div className="border border-gray-200 rounded-2xl bg-white mt-4">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-900">选择材质</p>
+                    <p className="text-xs text-gray-400 mt-0.5">点击图块切换整组图片</p>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {(() => {
+                      // 按材质类别分组
+                      const groupedMaterials = materialConfigs.reduce((acc, config) => {
+                        // 提取类别前缀（如"B类油蜡皮" 或 "B类头层真皮"）
+                        const categoryMatch = config.fabricName.match(/^([AB]类[^-–—]+)/);
+                        const category = categoryMatch ? categoryMatch[1] : config.fabricName.split(/[-–—]/)[0]?.trim() || '其他';
+                        if (!acc[category]) acc[category] = [];
+                        acc[category].push(config);
+                        return acc;
+                      }, {} as Record<string, typeof materialConfigs>);
+                      
+                      return Object.entries(groupedMaterials).map(([category, configs]) => (
+                        <div key={category}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="text-xs text-gray-500">{category}</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedMaterialCategory(category);
+                                setSelectedCategoryConfigs(configs);
+                                setShowMaterialDetailModal(true);
+                              }}
+                              className="text-gray-400 hover:text-gray-600"
+                              title="查看材质详情"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {configs.map((config) => {
+                        const isSelected = selectedMaterialConfigId === config.id || (!selectedMaterialConfigId && materialConfigs[0]?.id === config.id);
+                        return (
+                          <button
+                            key={config.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedMaterialConfigId(config.id);
+                              // 切换到对应材质的SKU
+                              const targetSku = filteredSkus.find(sku => sku.fabricMaterialId === config.id);
+                              if (targetSku) {
+                                handleSkuChange(targetSku);
+                              }
+                            }}
+                            className={cn(
+                              'relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all',
+                              isSelected
+                                ? 'border-primary-500 ring-2 ring-primary-200'
+                                : 'border-gray-200 hover:border-gray-300'
+                            )}
+                            title={config.fabricName}
+                          >
+                            {config.images?.[0] ? (
+                              <img 
+                                src={getFileUrl(config.images[0])} 
+                                alt={config.fabricName}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                <span className="text-xs text-gray-500">{config.fabricName?.charAt(0) || '?'}</span>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                    {/* 显示选中材质的名称和加价 */}
+                    {selectedMaterialConfig && (
+                      <div className="mt-3 flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-900">{selectedMaterialConfig.fabricName}</span>
+                        {selectedMaterialConfig.price > 0 && (
+                          <span className="text-sm text-red-500 font-medium">+¥{selectedMaterialConfig.price}</span>
+                        )}
+                      </div>
+                    )}
+                    {/* 其他材质文字显示在选择材质下面 */}
+                    {otherMaterialsText && (
+                      <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        <p className="text-xs text-gray-600">
+                          {otherMaterialsText}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Quantity */}
               <div className="mt-6">
                 <h3 className="text-sm font-medium text-gray-800 mb-2">数量</h3>
@@ -2107,247 +2202,74 @@ const ProductDetailPage = () => {
         </div>
       )}
 
-      {/* All Images Modal - 视频库 + 图片分类 */}
+      {/* All Images Modal */}
       {showAllImagesModal && (
-        <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col" onClick={() => setShowAllImagesModal(false)}>
-          <div className="flex-1 flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            {/* 视频库区域 */}
-            {(() => {
-              const videos = videoList.length > 0 ? videoList : [];
-              const currentVideo = currentPlayingVideo || (videos.length > 0 ? videos[0] : null);
-              
-              if (videos.length === 0) return null;
-              
-              return (
-                <div className="bg-gray-900 flex-shrink-0">
-                  {/* 顶部标题栏 */}
-                  <div className="flex items-center justify-between px-6 py-3 border-b border-gray-800">
-                    <div className="flex items-center gap-3">
-                      <span className="px-2 py-0.5 bg-green-600 text-white text-xs font-bold rounded">LIVE</span>
-                      <span className="text-white text-sm">佛山甄选供应链直供 · 核心材质解构视频</span>
-                    </div>
-                    <button 
-                      onClick={() => setShowAllImagesModal(false)}
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      <X className="h-6 w-6" />
-                    </button>
-                  </div>
-                  
-                  <div className="flex">
-                    {/* 左侧视频播放器 */}
-                    <div className="flex-1 aspect-video bg-black relative max-h-[60vh]">
-                      {currentVideo && (
-                        isVideoFile(currentVideo) ? (
-                          <video 
-                            src={getFileUrl(currentVideo)} 
-                            controls 
-                            autoPlay={autoPlayVideos}
-                            className="w-full h-full object-contain"
-                            onEnded={() => {
-                              if (autoPlayVideos && videos.length > 1) {
-                                const currentIndex = videos.indexOf(currentVideo);
-                                const nextIndex = (currentIndex + 1) % videos.length;
-                                setCurrentPlayingVideo(videos[nextIndex]);
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <a 
-                              href={currentVideo} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-white text-center"
-                            >
-                              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M8 5v14l11-7z"/>
-                                </svg>
-                              </div>
-                              <p className="text-lg font-medium">点击播放视频</p>
-                            </a>
-                          </div>
-                        )
-                      )}
-                      {/* 视频标题覆盖层 */}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                        <p className="text-white text-xl font-medium">
-                          {(product as any).videoTitles?.[videos.indexOf(currentVideo || '')] || '全景展示'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* 右侧视频列表 */}
-                    <div className="w-72 bg-gray-900 border-l border-gray-800 flex flex-col max-h-[60vh]">
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-                        <span className="text-white text-sm font-medium">视频库 ({videos.length})</span>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <span className="text-gray-400 text-xs">自动播放</span>
-                          <div 
-                            className={`w-10 h-5 rounded-full transition-colors ${autoPlayVideos ? 'bg-green-600' : 'bg-gray-600'}`}
-                            onClick={() => setAutoPlayVideos(!autoPlayVideos)}
-                          >
-                            <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${autoPlayVideos ? 'ml-5' : 'ml-0.5'}`} />
-                          </div>
-                        </label>
-                      </div>
-                      <div className="flex-1 overflow-y-auto">
-                        {videos.map((video, index) => {
-                          const isActive = video === currentVideo;
-                          const videoTitle = (product as any).videoTitles?.[index] || `视频${index + 1}`;
-                          return (
-                            <button
-                              key={index}
-                              onClick={() => setCurrentPlayingVideo(video)}
-                              className={`w-full flex items-start gap-3 p-3 hover:bg-gray-800 transition-colors ${isActive ? 'bg-gray-800' : ''}`}
-                            >
-                              <div className="relative w-28 aspect-video bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isActive ? 'bg-white' : 'bg-white/50'}`}>
-                                    <svg className={`w-4 h-4 ml-0.5 ${isActive ? 'text-gray-900' : 'text-white'}`} fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M8 5v14l11-7z"/>
-                                    </svg>
-                                  </div>
-                                </div>
-                                <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded">
-                                  {`0${index + 1}:${String(15 + index * 30).padStart(2, '0')}`}
-                                </span>
-                                {isActive && <div className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full" />}
-                              </div>
-                              <div className="flex-1 text-left min-w-0">
-                                <p className={`text-sm font-medium truncate ${isActive ? 'text-green-500' : 'text-white'}`}>
-                                  {videoTitle}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">智能焕新版系列</p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAllImagesModal(false)}>
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-900">全部图片</h3>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
+                      const allImages = allSkus.flatMap(sku => sku.images || []);
+                      const uniqueImages = Array.from(new Set(allImages));
+                      selectedAllImages.forEach(imageId => {
+                        const link = document.createElement('a');
+                        link.href = getFileUrl(imageId);
+                        link.download = `image-${imageId}.jpg`;
+                        link.click();
+                      });
+                      toast.success(`已下载 ${selectedAllImages.length} 张图片`);
+                    }}
+                    disabled={selectedAllImages.length === 0}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    下载选中 ({selectedAllImages.length})
+                  </button>
+                  <button onClick={() => setShowAllImagesModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-6 w-6" />
+                  </button>
                 </div>
-              );
-            })()}
-            
-            {/* 图片分类区域 */}
-            <div className="flex-1 bg-white overflow-y-auto">
-              {(() => {
-                const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
-                const allImages = allSkus.flatMap(sku => sku.images || []).filter(img => !isVideoFile(img));
-                const uniqueImages = Array.from(new Set(allImages));
-                
-                // 模拟图片分类（实际应从商品数据中获取）
-                const exteriorImages = uniqueImages.slice(0, Math.ceil(uniqueImages.length * 0.4));
-                const detailImages = uniqueImages.slice(Math.ceil(uniqueImages.length * 0.4), Math.ceil(uniqueImages.length * 0.7));
-                const materialImages = uniqueImages.slice(Math.ceil(uniqueImages.length * 0.7));
-                
-                const categoryImages = {
-                  exterior: exteriorImages,
-                  detail: detailImages,
-                  material: materialImages
-                };
-                
-                const categoryLabels = {
-                  exterior: '外观',
-                  detail: '细节',
-                  material: '材质'
-                };
-                
-                const currentImages = categoryImages[activeImageCategory];
-                
-                return (
-                  <div className="p-6">
-                    {/* 分类标签 */}
-                    <div className="flex items-center gap-8 mb-6 border-b border-gray-200">
-                      {(Object.keys(categoryImages) as Array<keyof typeof categoryImages>).map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setActiveImageCategory(cat)}
-                          className={`pb-3 text-base font-medium transition-colors relative ${
-                            activeImageCategory === cat 
-                              ? 'text-gray-900' 
-                              : 'text-gray-400 hover:text-gray-600'
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {(() => {
+                  const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
+                  const allImages = allSkus.flatMap(sku => sku.images || []);
+                  const uniqueImages = Array.from(new Set(allImages));
+                  return uniqueImages.map((imageId, index) => {
+                    const isSelected = selectedAllImages.includes(imageId);
+                    return (
+                      <div 
+                        key={index}
+                        className="relative cursor-pointer"
+                        onClick={() => {
+                          setSelectedAllImages(prev => 
+                            prev.includes(imageId) 
+                              ? prev.filter(id => id !== imageId)
+                              : [...prev, imageId]
+                          );
+                        }}
+                      >
+                        <img 
+                          src={getFileUrl(imageId)} 
+                          alt={`SKU图片 ${index + 1}`}
+                          className={`w-full aspect-square rounded-lg object-cover transition-all ${
+                            isSelected ? 'ring-4 ring-primary-500' : 'hover:opacity-80'
                           }`}
-                        >
-                          {categoryLabels[cat]} ({categoryImages[cat].length})
-                          {activeImageCategory === cat && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                    
-                    {/* 图片网格 */}
-                    <div className="grid grid-cols-4 gap-4">
-                      {currentImages.map((imageId, index) => {
-                        const isSelected = selectedAllImages.includes(imageId);
-                        const isLastInView = index === 7 && currentImages.length > 8;
-                        return (
-                          <div 
-                            key={index}
-                            className="relative aspect-square cursor-pointer group"
-                            onClick={() => {
-                              setSelectedAllImages(prev => 
-                                prev.includes(imageId) 
-                                  ? prev.filter(id => id !== imageId)
-                                  : [...prev, imageId]
-                              );
-                            }}
-                          >
-                            <img 
-                              src={getFileUrl(imageId)} 
-                              alt={`${categoryLabels[activeImageCategory]} ${index + 1}`}
-                              className={`w-full h-full object-cover rounded-lg transition-all ${
-                                isSelected ? 'ring-4 ring-green-500' : 'group-hover:opacity-90'
-                              }`}
-                            />
-                            {isSelected && (
-                              <div className="absolute top-2 right-2 bg-green-600 text-white rounded-full p-1.5 shadow-lg">
-                                <Check className="h-4 w-4" />
-                              </div>
-                            )}
-                            {isLastInView && (
-                              <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-                                <span className="text-white text-sm font-medium">查看更多图集</span>
-                              </div>
-                            )}
+                        />
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 bg-green-600 text-white rounded-full p-1.5 shadow-lg">
+                            <Check className="h-5 w-5" />
                           </div>
-                        );
-                      })}
-                    </div>
-                    
-                    {/* 底部下载按钮 */}
-                    {selectedAllImages.length > 0 && (
-                      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white rounded-full shadow-2xl px-6 py-3 border">
-                        <span className="text-sm text-gray-600">已选 {selectedAllImages.length} 张</span>
-                        <button
-                          onClick={() => {
-                            selectedAllImages.forEach(imageId => {
-                              const link = document.createElement('a');
-                              link.href = getFileUrl(imageId);
-                              link.download = `image-${imageId}.jpg`;
-                              link.click();
-                            });
-                            toast.success(`已下载 ${selectedAllImages.length} 张图片`);
-                          }}
-                          className="px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 flex items-center gap-2 font-medium"
-                        >
-                          <Download className="h-4 w-4" />
-                          下载所选
-                        </button>
-                        <button
-                          onClick={() => setSelectedAllImages([])}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          <X className="h-5 w-5" />
-                        </button>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })()}
+                    );
+                  });
+                })()}
+              </div>
             </div>
           </div>
         </div>
