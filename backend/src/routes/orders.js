@@ -554,7 +554,6 @@ router.post('/:id/manufacturer-confirm', async (req, res) => {
   }
 })
 
-// POST /api/orders/:id/settlement-mode - 选择结算模式
 router.post('/:id/settlement-mode', async (req, res) => {
   console.log('📍 [settlement-mode] 收到请求:', req.params.id, req.body)
   try {
@@ -600,14 +599,14 @@ router.post('/:id/settlement-mode', async (req, res) => {
 
     order.status = normalizeExistingStatus()
 
-    // 获取开票加价金额（在计算原价前获取）
-    const invoiceMarkup = order.invoiceMarkupAmount || 0
+    // 开票加价在选择模式后计算（下单阶段不计算具体金额）
+    const invoicePercent = Number(order.invoiceMarkupPercent || 0)
     
-    // 获取原价（商城标价）- 需要排除开票加价
+    // 获取原价（商城标价）
     let originalPrice = Number(order.originalPrice || 0)
     if (originalPrice <= 0) {
-      // 如果没有保存原价，使用 subtotal 或 totalAmount 减去开票加价
-      originalPrice = Number(order.subtotal || 0) || (Number(order.totalAmount || 0) - invoiceMarkup)
+      // 如果没有保存原价，使用 subtotal 或 totalAmount
+      originalPrice = Number(order.subtotal || 0) || Number(order.totalAmount || 0)
     }
     
     // 使用传入的折扣率和返佣率，或使用默认值
@@ -627,11 +626,25 @@ router.post('/:id/settlement-mode', async (req, res) => {
     order.minDiscountPrice = minDiscountPrice
     order.commissionAmount = commissionAmount
     order.supplierPrice = supplierPrice
+
+    // 根据结算模式计算开票加价：以“模式确定后的金额”为基准
+    let invoiceMarkup = 0
+    if (order.needInvoice && invoicePercent > 0) {
+      const baseAmount = settlementMode === 'supplier_transfer' ? supplierPrice : minDiscountPrice
+      invoiceMarkup = Math.round(Number(baseAmount || 0) * invoicePercent / 100)
+    }
+    order.invoiceMarkupAmount = invoiceMarkup
     
     if (settlementMode === 'supplier_transfer') {
       // 供应商调货模式：供应商价格 + 开票加价
       order.totalAmount = supplierPrice + invoiceMarkup
       order.paymentRatioEnabled = false
+      order.paymentRatio = 100
+      order.depositAmount = 0
+      order.finalPaymentAmount = 0
+      order.firstPaymentAmount = order.totalAmount
+      order.remainingPaymentAmount = 0
+      order.remainingPaymentStatus = null
       order.commissionStatus = null  // 返佣已包含在价格中
     } else if (settlementMode === 'commission_mode') {
       // 返佣模式：最低折扣价 + 开票加价，返佣单独申请
@@ -663,11 +676,21 @@ router.post('/:id/settlement-mode', async (req, res) => {
     
     // 添加订单活动日志
     if (!order.activityLogs) order.activityLogs = []
+    if (order.needInvoice) {
+      order.activityLogs.push({
+        action: 'invoice_fee_calculated',
+        timestamp: new Date(),
+        details: invoiceMarkup > 0
+          ? `已按结算模式计算开票费用：${invoicePercent}% = ¥${invoiceMarkup}`
+          : '已选择需要发票，开票费用为 ¥0',
+        operator: 'system'
+      })
+    }
     const logEntry = {
       action: 'settlement_mode_set',
       timestamp: new Date(),
       details: settlementMode === 'supplier_transfer' 
-        ? `设置为供应商调货模式，实付金额 ¥${supplierPrice.toFixed(2)}`
+        ? `设置为供应商调货模式，实付金额 ¥${(supplierPrice + invoiceMarkup).toFixed(2)}`
         : `设置为返佣模式，定金 ¥${order.depositAmount || 0}，尾款 ¥${order.finalPaymentAmount || 0}，生产周期 ${estimatedProductionDays || 0} 天，返佣 ¥${commissionAmount.toFixed(2)}`,
       operator: 'manufacturer'
     }

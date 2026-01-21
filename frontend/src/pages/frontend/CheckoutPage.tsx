@@ -215,13 +215,12 @@ export default function CheckoutPage() {
   
   // 计算开票加价金额
   const getInvoiceMarkupAmount = () => {
-    if (!needInvoice) return 0
-    return Math.round(getTotalPrice() * (manufacturerSettings.invoiceMarkupPercent || 0) / 100)
+    return 0
   }
   
-  // 计算最终总价（含开票加价）
+  // 计算最终总价（开票费用在选择结算模式后计算）
   const getFinalTotalPrice = () => {
-    return getTotalPrice() + getInvoiceMarkupAmount()
+    return getTotalPrice()
   }
   
   // 计算首付金额
@@ -416,7 +415,7 @@ export default function CheckoutPage() {
             ? item.sku.discountPrice
             : item.sku.price)
         })),
-        totalAmount: getFinalTotalPrice(),  // 使用包含开票加价的最终价格
+        totalAmount: getTotalPrice(),  // 下单阶段不包含开票费用（选择结算模式后计算）
         subtotal: getTotalPrice(),  // 商品小计
         recipient: {
           name: formData.name,
@@ -440,12 +439,12 @@ export default function CheckoutPage() {
           mailingAddress: selectedInvoice.mailingAddress
         } : undefined,
         invoiceMarkupPercent: needInvoice ? manufacturerSettings.invoiceMarkupPercent : 0,
-        invoiceMarkupAmount: getInvoiceMarkupAmount(),
-        // 付款比例
-        paymentRatioEnabled: manufacturerSettings.paymentRatioEnabled && selectedPaymentRatio < 100,
-        paymentRatio: selectedPaymentRatio,
-        depositAmount: getDepositAmount(),
-        finalPaymentAmount: getFinalTotalPrice() - getDepositAmount()
+        invoiceMarkupAmount: 0,
+        // 付款比例：选择结算模式后再确定，这里不启用分期
+        paymentRatioEnabled: false,
+        paymentRatio: 100,
+        depositAmount: 0,
+        finalPaymentAmount: 0
       }
 
     // 生成订单号
@@ -478,6 +477,10 @@ export default function CheckoutPage() {
       recipient: orderData.recipient,
       paymentMethod: orderData.paymentMethod,
       notes: orderData.notes || '',
+      needInvoice: orderData.needInvoice,
+      invoiceInfo: orderData.invoiceInfo,
+      invoiceMarkupPercent: orderData.invoiceMarkupPercent,
+      invoiceMarkupAmount: orderData.invoiceMarkupAmount,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -908,7 +911,7 @@ export default function CheckoutPage() {
                     onChange={(e) => setNeedInvoice(e.target.checked)}
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
-                    <span className="ml-2 text-sm text-gray-600">{needInvoice ? '需要开票' : '不开票'}</span>
+                    <span className="ml-2 text-sm text-gray-600">{needInvoice ? '需要发票' : '不需要发票'}</span>
                   </label>
                 </div>
                 
@@ -917,8 +920,8 @@ export default function CheckoutPage() {
                     {manufacturerSettings.invoiceMarkupPercent > 0 && (
                       <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                         <p className="text-sm text-amber-800">
-                          <span className="font-medium">开票加价提示：</span>
-                          需开票的订单将加收 <span className="font-bold text-amber-600">{manufacturerSettings.invoiceMarkupPercent}%</span> 的开票费用
+                          <span className="font-medium">开票费用提示：</span>
+                          需要发票的订单将加收 <span className="font-bold text-amber-600">{manufacturerSettings.invoiceMarkupPercent}%</span> 的开票费用（结算模式确定后计算）
                         </p>
                       </div>
                     )}

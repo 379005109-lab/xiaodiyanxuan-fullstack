@@ -382,7 +382,7 @@ export default function OrdersPageNew() {
                 )}
 
                 {/* 预付定制订单信息 */}
-                {Boolean(stagedOrder.paymentRatioEnabled) && stagedOrder.paymentRatioEnabled !== 'false' && stagedOrder.paymentRatioEnabled !== '0' && (
+                {order.settlementMode === 'commission_mode' && Boolean(stagedOrder.paymentRatioEnabled) && stagedOrder.paymentRatioEnabled !== 'false' && stagedOrder.paymentRatioEnabled !== '0' && (
                   <div className="px-6 py-3 bg-gradient-to-r from-cyan-50 to-pink-50 border-b border-cyan-100">
                     <div>
                       <div className="flex items-center justify-between">
@@ -481,7 +481,7 @@ export default function OrdersPageNew() {
                     <div className="flex items-center gap-2">
                       <span className="text-lg">🧾</span>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-amber-800">需要开票</p>
+                        <p className="text-sm font-medium text-amber-800">需要发票</p>
                         <div className="text-xs text-amber-700 mt-1">
                           <span>抬头: {order.invoiceInfo?.title || '-'}</span>
                           {order.invoiceInfo?.taxNumber && <span className="ml-3">税号: {order.invoiceInfo.taxNumber}</span>}

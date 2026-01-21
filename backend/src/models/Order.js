@@ -18,11 +18,14 @@ const orderSchema = new mongoose.Schema({
     manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
     manufacturerName: String,
     image: String,  // 商品图片
+    skuId: String,
     price: Number,
     quantity: Number,
-    specifications: { size: String, material: String, color: String, fill: String, frame: String, leg: String },
-    selectedMaterials: { fabric: String, filling: String, frame: String, leg: String },  // 用户选择的材质
+    specifications: { size: String, dimensions: String, material: String, color: String, fill: String, frame: String, leg: String },
+    skuDimensions: { length: Number, width: Number, height: Number },
+    selectedMaterials: mongoose.Schema.Types.Mixed,  // 用户选择的材质
     materialUpgradePrices: mongoose.Schema.Types.Mixed,  // 材质升级价格 { '半青皮-蓝色': 500 }
+    materialSnapshots: [{ categoryKey: String, name: String, image: String, description: String }],
     subtotal: Number
   }],
   
