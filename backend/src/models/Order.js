@@ -18,11 +18,14 @@ const orderSchema = new mongoose.Schema({
     manufacturerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Manufacturer' },
     manufacturerName: String,
     image: String,  // 商品图片
+    skuId: String,
     price: Number,
     quantity: Number,
-    specifications: { size: String, material: String, color: String, fill: String, frame: String, leg: String },
-    selectedMaterials: { fabric: String, filling: String, frame: String, leg: String },  // 用户选择的材质
+    specifications: { size: String, dimensions: String, material: String, color: String, fill: String, frame: String, leg: String },
+    skuDimensions: { length: Number, width: Number, height: Number },
+    selectedMaterials: mongoose.Schema.Types.Mixed,  // 用户选择的材质
     materialUpgradePrices: mongoose.Schema.Types.Mixed,  // 材质升级价格 { '半青皮-蓝色': 500 }
+    materialSnapshots: [{ categoryKey: String, name: String, image: String, description: String }],
     subtotal: Number
   }],
   
@@ -68,6 +71,26 @@ const orderSchema = new mongoose.Schema({
     operator: String
   }],
   recipient: { name: String, phone: String, address: String },
+  
+  // 开票信息
+  needInvoice: { type: Boolean, default: false },  // 是否需要开票
+  invoiceInfo: {
+    invoiceType: { type: String, enum: ['personal', 'company'] },  // 个人/企业
+    title: String,           // 发票抬头
+    taxNumber: String,       // 税号
+    bankName: String,        // 开户银行
+    bankAccount: String,     // 银行账号
+    companyAddress: String,  // 企业地址
+    companyPhone: String,    // 企业电话
+    email: String,           // 收票邮箱
+    phone: String,           // 收票手机
+    mailingAddress: String   // 邮寄地址
+  },
+  invoiceMarkupPercent: { type: Number, default: 0 },  // 开票加价比例
+  invoiceMarkupAmount: { type: Number, default: 0 },   // 开票加价金额
+  invoiceStatus: { type: String, enum: ['pending', 'processing', 'issued', 'sent'], default: 'pending' },  // 开票状态
+  invoiceIssuedAt: Date,  // 开票时间
+  
   status: { type: Number, enum: Object.values(ORDER_STATUS), default: ORDER_STATUS.PENDING_PAYMENT },
   couponCode: String,
   notes: String,

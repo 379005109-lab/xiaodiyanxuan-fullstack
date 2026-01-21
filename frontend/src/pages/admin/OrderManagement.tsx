@@ -1300,6 +1300,22 @@ export default function OrderManagement() {
                         </div>
                       )}
 
+                      {/* 开票信息 */}
+                      {order.needInvoice && (
+                        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 mb-3">
+                          <p className="text-sm font-medium mb-2 text-amber-800">🧾 需要开票</p>
+                          <div className="text-xs space-y-1 text-amber-700">
+                            <p>发票类型: {order.invoiceInfo?.invoiceType === 'company' ? '企业发票' : '个人发票'}</p>
+                            <p>发票抬头: {order.invoiceInfo?.title || '-'}</p>
+                            {order.invoiceInfo?.taxNumber && <p>税号: {order.invoiceInfo.taxNumber}</p>}
+                            {order.invoiceInfo?.email && <p>收票邮箱: {order.invoiceInfo.email}</p>}
+                            {order.invoiceMarkupAmount > 0 && (
+                              <p className="font-bold text-amber-600">开票加价: +¥{order.invoiceMarkupAmount?.toLocaleString()} ({order.invoiceMarkupPercent}%)</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* 已选择结算模式时显示信息 */}
                       {order.settlementMode && (
                         <div className={`p-3 rounded-lg ${order.settlementMode === 'supplier_transfer' ? 'bg-indigo-50 border border-indigo-100' : 'bg-purple-50 border border-purple-100'}`}>
@@ -1309,6 +1325,9 @@ export default function OrderManagement() {
                           <div className="text-xs space-y-1">
                             <p>原价: ¥{order.originalPrice?.toLocaleString() || 0}</p>
                             <p>最低折扣价: ¥{order.minDiscountPrice?.toLocaleString() || 0}</p>
+                            {order.invoiceMarkupAmount > 0 && (
+                              <p className="text-amber-600">开票加价: +¥{order.invoiceMarkupAmount?.toLocaleString()}</p>
+                            )}
                             {order.settlementMode === 'supplier_transfer' ? (
                               <p className="font-bold text-indigo-700">实付: ¥{order.supplierPrice?.toLocaleString() || 0}</p>
                             ) : (

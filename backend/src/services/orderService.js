@@ -4,6 +4,7 @@ const User = require('../models/User')
 const Coupon = require('../models/Coupon')
 const Product = require('../models/Product')
 const Manufacturer = require('../models/Manufacturer')
+const Material = require('../models/Material')
 const ManufacturerOrder = require('../models/ManufacturerOrder')
 const Authorization = require('../models/Authorization')
 const { sendNewOrderNotification } = require('./smsService')
@@ -248,7 +249,22 @@ const dispatchOrderToManufacturers = async (order) => {
   return createdOrders
 }
 
-const createOrder = async (userId, { items, recipient, couponCode, ownerManufacturerId, paymentRatio }) => {
+const createOrder = async (userId, { 
+  items, 
+  recipient, 
+  couponCode, 
+  ownerManufacturerId, 
+  needInvoice,
+  invoiceInfo,
+  invoiceMarkupPercent,
+  invoiceMarkupAmount,
+  paymentRatioEnabled: inputPaymentRatioEnabled,
+  paymentRatio,
+  depositAmount: inputDepositAmount,
+  finalPaymentAmount: inputFinalPaymentAmount,
+  totalAmount: inputTotalAmount,
+  subtotal: inputSubtotal
+}) => {
   console.log('🛒 [OrderService] createOrder called');
   console.log('🛒 [OrderService] userId:', userId);
   console.log('🛒 [OrderService] userId type:', typeof userId);
@@ -256,16 +272,21 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
   console.log('🛒 [OrderService] recipient:', recipient);
   console.log('🛒 [OrderService] ownerManufacturerId:', ownerManufacturerId);
   console.log('🛒 [OrderService] paymentRatio:', paymentRatio);
+  console.log('🛒 [OrderService] needInvoice:', needInvoice);
+  console.log('🛒 [OrderService] invoiceMarkupPercent:', invoiceMarkupPercent);
+  console.log('🛒 [OrderService] invoiceMarkupAmount:', invoiceMarkupAmount);
   
   if (!items || items.length === 0) {
     throw new ValidationError('Order must contain at least one item')
   }
   
-  // Calculate totals
-  let subtotal = 0
-  items.forEach(item => {
-    subtotal += item.subtotal || (item.price * item.quantity) || 0
-  })
+  // Calculate totals - 使用前端传入的值或重新计算
+  let subtotal = inputSubtotal || 0
+  if (!subtotal) {
+    items.forEach(item => {
+      subtotal += item.subtotal || (item.price * item.quantity) || 0
+    })
+  }
   console.log('🛒 [OrderService] subtotal:', subtotal);
   
   let discountAmount = 0
@@ -295,13 +316,92 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
       await coupon.save()
     }
   }
-  
-  const totalAmount = subtotal - discountAmount
-  
-  const orderNo = generateOrderNo();
-  console.log('🛒 [OrderService] Generated orderNo:', orderNo);
 
   const enrichedItems = await enrichItemsWithManufacturer(items)
+
+  // 持久化材质图片与描述（用于订单详情/导出）
+  try {
+    const nameSet = new Set()
+    for (const item of (enrichedItems || [])) {
+      const selected = item?.selectedMaterials || {}
+      for (const v of Object.values(selected)) {
+        if (!v) continue
+        if (typeof v === 'string') nameSet.add(v)
+        else if (Array.isArray(v)) v.filter(Boolean).forEach(n => nameSet.add(n))
+      }
+    }
+
+    const names = Array.from(nameSet)
+    const materials = names.length
+      ? await Material.find({ name: { $in: names } }).select('name image description').lean()
+      : []
+    const materialMap = new Map(materials.map(m => [String(m.name), m]))
+
+    for (const item of (enrichedItems || [])) {
+      const selected = item?.selectedMaterials || {}
+      const snapshots = []
+      for (const [categoryKey, raw] of Object.entries(selected)) {
+        if (!raw) continue
+        const values = Array.isArray(raw) ? raw : [raw]
+        for (const name of values) {
+          if (!name) continue
+          const m = materialMap.get(String(name))
+          snapshots.push({
+            categoryKey,
+            name: String(name),
+            image: m?.image || '',
+            description: m?.description || ''
+          })
+        }
+      }
+      item.materialSnapshots = snapshots
+    }
+  } catch (e) {
+    console.error('🛒 [OrderService] Failed to build materialSnapshots:', e)
+  }
+
+  // 服务端兜底：确保开票加价与总金额计算正确（避免前端因厂家字段缺失导致 invoiceMarkup 变为 0）
+  const needInvoiceBool = !!needInvoice
+  let effectiveInvoiceMarkupPercent = 0
+  let effectiveInvoiceMarkupAmount = 0
+  if (needInvoiceBool) {
+    const inputPercent = Number(invoiceMarkupPercent)
+    const inputAmount = Number(invoiceMarkupAmount)
+
+    let mfrPercent = 0
+    try {
+      const mid = enrichedItems?.[0]?.manufacturerId
+      if (mid) {
+        const mfr = await Manufacturer.findById(mid).select('invoiceMarkupPercent').lean()
+        if (typeof mfr?.invoiceMarkupPercent === 'number') {
+          mfrPercent = mfr.invoiceMarkupPercent
+        }
+      }
+    } catch (e) {
+      console.error('🛒 [OrderService] Failed to load manufacturer invoiceMarkupPercent:', e)
+    }
+
+    effectiveInvoiceMarkupPercent = Number.isFinite(inputPercent) && inputPercent > 0
+      ? inputPercent
+      : (mfrPercent > 0 ? mfrPercent : 0)
+
+    effectiveInvoiceMarkupAmount = 0
+  }
+
+  // 计算总金额：服务端统一以 subtotal - discount + invoiceMarkup 为准（确保持久化正确）
+  let totalAmount = subtotal - discountAmount
+  if (inputTotalAmount && Number(inputTotalAmount) > 0 && Number(inputTotalAmount) !== totalAmount) {
+    console.log('🛒 [OrderService] totalAmount differs from inputTotalAmount:', { inputTotalAmount, totalAmount })
+  }
+
+  console.log('🛒 [OrderService] effective invoice:', {
+    needInvoice: needInvoiceBool,
+    invoiceMarkupPercent: effectiveInvoiceMarkupPercent,
+    invoiceMarkupAmount: effectiveInvoiceMarkupAmount
+  })
+
+  const orderNo = generateOrderNo();
+  console.log('🛒 [OrderService] Generated orderNo:', orderNo);
   
   // 计算分层返佣
   let commissions = []
@@ -343,13 +443,19 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
   let firstPaymentAmount = totalAmount
   let remainingPaymentAmount = 0
   let remainingPaymentStatus = null
-  
-  if (paymentRatio && paymentRatio < 100) {
-    paymentRatioEnabled = true
-    firstPaymentAmount = Math.round(totalAmount * paymentRatio / 100 * 100) / 100  // 保留2位小数
-    remainingPaymentAmount = Math.round((totalAmount - firstPaymentAmount) * 100) / 100
-    remainingPaymentStatus = 'pending'
-    console.log('💰 [OrderService] Payment ratio enabled:', paymentRatio, '%, first:', firstPaymentAmount, ', remaining:', remainingPaymentAmount)
+  let depositAmount = 0
+  let finalPaymentAmount = 0
+
+  const activityLogs = []
+  if (needInvoiceBool) {
+    const title = invoiceInfo?.title || ''
+    const taxNumber = invoiceInfo?.taxNumber || ''
+    activityLogs.push({
+      action: 'invoice_requested',
+      timestamp: new Date(),
+      details: `用户选择需要发票${title ? `，抬头：${title}` : ''}${taxNumber ? `，税号：${taxNumber}` : ''}`,
+      operator: 'user'
+    })
   }
   
   const order = await Order.create({
@@ -364,8 +470,17 @@ const createOrder = async (userId, { items, recipient, couponCode, ownerManufact
     status: ORDER_STATUS.PENDING_PAYMENT,
     couponCode,
     commissions,
+    activityLogs,
+    // 开票信息
+    needInvoice: needInvoiceBool,
+    invoiceInfo: needInvoiceBool ? (invoiceInfo || undefined) : undefined,
+    invoiceMarkupPercent: needInvoiceBool ? effectiveInvoiceMarkupPercent : 0,
+    invoiceMarkupAmount: 0,
+    // 付款比例
     paymentRatioEnabled,
-    paymentRatio: paymentRatio || 100,
+    paymentRatio: 100,
+    depositAmount,
+    finalPaymentAmount,
     firstPaymentAmount,
     remainingPaymentAmount,
     remainingPaymentStatus

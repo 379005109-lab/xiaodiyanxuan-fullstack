@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { MapPin, Plus, Edit2, Trash2, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
+import axios from '@/lib/axios'
 
 interface Address {
   _id: string
@@ -33,13 +34,8 @@ export default function AddressesPage() {
 
   const loadAddresses = async () => {
     try {
-      const res = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/addresses', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setAddresses(data.data || [])
-      }
+      const data: any = await axios.get('/addresses')
+      setAddresses(data?.data || [])
     } catch (e) {
       console.error('加载地址失败', e)
     } finally {
@@ -54,28 +50,17 @@ export default function AddressesPage() {
     }
     setSaving(true)
     try {
-      const url = editingId 
-        ? `https://pkochbpmcgaa.sealoshzh.site/api/addresses/${editingId}`
-        : 'https://pkochbpmcgaa.sealoshzh.site/api/addresses'
-      
-      const res = await fetch(url, {
-        method: editingId ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(form)
-      })
-      
-      if (res.ok) {
-        toast.success(editingId ? '地址更新成功' : '地址添加成功')
-        setShowForm(false)
-        setEditingId(null)
-        setForm({ name: '', phone: '', address: '', isDefault: false })
-        loadAddresses()
+      if (editingId) {
+        await axios.put(`/addresses/${editingId}`, form)
       } else {
-        throw new Error('操作失败')
+        await axios.post('/addresses', form)
       }
+
+      toast.success(editingId ? '地址更新成功' : '地址添加成功')
+      setShowForm(false)
+      setEditingId(null)
+      setForm({ name: '', phone: '', address: '', isDefault: false })
+      loadAddresses()
     } catch (e) {
       toast.error('操作失败，请重试')
     } finally {
@@ -97,14 +82,9 @@ export default function AddressesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('确定删除这个地址吗？')) return
     try {
-      const res = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/addresses/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (res.ok) {
-        toast.success('地址已删除')
-        loadAddresses()
-      }
+      await axios.delete(`/addresses/${id}`)
+      toast.success('地址已删除')
+      loadAddresses()
     } catch (e) {
       toast.error('删除失败')
     }
@@ -112,14 +92,9 @@ export default function AddressesPage() {
 
   const setDefault = async (id: string) => {
     try {
-      const res = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/addresses/${id}/default`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (res.ok) {
-        toast.success('已设为默认地址')
-        loadAddresses()
-      }
+      await axios.put(`/addresses/${id}/default`, {})
+      toast.success('已设为默认地址')
+      loadAddresses()
     } catch (e) {
       toast.error('操作失败')
     }
