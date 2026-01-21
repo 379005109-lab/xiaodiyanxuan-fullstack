@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { X, ShoppingCart, AlertCircle } from 'lucide-react'
+import { X, ShoppingCart, AlertCircle, Plus, Minus, RotateCcw } from 'lucide-react'
 import { Product, ProductSKU } from '@/types'
 import { formatPrice } from '@/lib/utils'
 import { getProductById as getMockProductById } from '@/services/productService.mock'
@@ -24,8 +24,75 @@ export default function ComparePage() {
   const [compareStats, setCompareStats] = useState<any>(null)
   const [materials, setMaterials] = useState<any[]>([])
   const [materialsLoaded, setMaterialsLoaded] = useState(false)
+  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
+  const [previewZoom, setPreviewZoom] = useState(1)
+  const previewViewportRef = useRef<HTMLDivElement | null>(null)
+  const isPanningRef = useRef(false)
+  const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
   const { compareItems: rawCompareItems, removeFromCompare, loadCompareItems } = useCompareStore()
   const { addItem } = useCartStore()
+
+  const closePreview = () => {
+    setPreviewImage(null)
+    setPreviewZoom(1)
+    isPanningRef.current = false
+  }
+
+  const getFabricFallback = (item: CompareItemDetail): { label: string; image?: string } => {
+    if (item.selectedMaterials?.fabric) {
+      const selected = item.selectedMaterials.fabric
+      const materialInfo = materials.find((m) =>
+        m.name === selected || m.name?.includes(selected) || selected?.includes(m.name)
+      )
+      const img =
+        materialInfo?.image ||
+        materialInfo?.thumbnail ||
+        (item.sku as any).materialImages?.[selected]
+      return { label: selected, image: img }
+    }
+
+    const material = item.sku.material
+    const fabricFromMaterial =
+      material && typeof material === 'object' && (material as any).fabric
+        ? Array.isArray((material as any).fabric)
+          ? (material as any).fabric[0]
+          : (material as any).fabric
+        : undefined
+
+    if (fabricFromMaterial && typeof fabricFromMaterial === 'string') {
+      const materialInfo = materials.find((m) =>
+        m.name === fabricFromMaterial || m.name?.includes(fabricFromMaterial) || fabricFromMaterial?.includes(m.name)
+      )
+      const img =
+        materialInfo?.image ||
+        materialInfo?.thumbnail ||
+        (item.sku as any).materialImages?.[fabricFromMaterial]
+      return { label: fabricFromMaterial, image: img }
+    }
+
+    if (item.sku.color) {
+      const color = item.sku.color
+
+      const materialInfo = materials.find((m) =>
+        typeof m?.name === 'string' && (m.name.includes(color) || color.includes(m.name))
+      )
+      const materialImg = materialInfo?.image || materialInfo?.thumbnail
+
+      let skuMaterialImg: string | undefined
+      const skuMaterialImages = (item.sku as any).materialImages as Record<string, string> | undefined
+      if (skuMaterialImages) {
+        const key = Object.keys(skuMaterialImages).find((k) => k.includes(color) || color.includes(k))
+        if (key) skuMaterialImg = skuMaterialImages[key]
+      }
+
+      return {
+        label: color,
+        image: materialImg || skuMaterialImg || item.sku.images?.[1] || item.sku.images?.[0],
+      }
+    }
+
+    return { label: '-', image: item.sku.images?.[1] || item.sku.images?.[0] }
+  }
 
   useEffect(() => {
     loadCompareItems()
@@ -218,20 +285,33 @@ export default function ComparePage() {
                 <th className="py-4 px-4 text-left text-sm font-semibold bg-gray-50 w-32">
                   对比项
                 </th>
-                {compareItems.map((item) => (
-                  <th key={item.compareItemId} className="py-4 px-4 text-center relative min-w-[240px]">
+                {compareItems.map((item) => {
+                  const mainImageSrc = getFileUrl(
+                    item.sku.images?.[0] || item.product.images?.[0] || '/placeholder.png'
+                  )
+
+                  return (
+                  <th key={item.compareItemId} className="py-4 px-4 text-center relative min-w-[260px]">
                     <button
                       onClick={() => handleRemove(item)}
                       className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg transition-all hover:scale-110 z-20"
                     >
                       <X className="h-5 w-5" />
                     </button>
-                    <Link to={`/products/${item.product._id}`}>
+                    <div className="w-full h-56 bg-gray-50 rounded-lg mb-3 overflow-hidden flex items-center justify-center">
                       <img
-                        src={getFileUrl(item.sku.images?.[0] || item.product.images?.[0] || '/placeholder.png')}
+                        src={mainImageSrc}
                         alt={item.product.name}
-                        className="w-full h-48 object-cover rounded-lg mb-3"
+                        className="w-full h-full object-contain cursor-zoom-in"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setPreviewZoom(1)
+                          setPreviewImage({ src: mainImageSrc, alt: item.product.name })
+                        }}
                       />
+                    </div>
+                    <Link to={`/products/${item.product._id}`}>
                       <h3 className="font-semibold text-sm hover:text-primary-600">
                         {item.product.name}
                       </h3>
@@ -242,7 +322,8 @@ export default function ComparePage() {
                       )}
                     </Link>
                   </th>
-                ))}
+                  )
+                })}
               </tr>
             </thead>
             <tbody>
@@ -312,6 +393,35 @@ export default function ComparePage() {
                 ))}
               </tr>
 
+              <tr className="border-b border-gray-200">
+                <td className="py-4 px-4 text-sm font-medium bg-gray-50">面料/颜色</td>
+                {compareItems.map((item) => {
+                  const fabric = getFabricFallback(item)
+                  const imgSrc = fabric.image ? getFileUrl(fabric.image) : undefined
+
+                  return (
+                    <td key={item.compareItemId} className="py-4 px-4 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        {imgSrc && (
+                          <img
+                            src={imgSrc}
+                            alt={fabric.label}
+                            className="w-20 h-20 object-contain rounded border border-gray-200 bg-white cursor-zoom-in"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setPreviewZoom(1)
+                              setPreviewImage({ src: imgSrc, alt: fabric.label })
+                            }}
+                          />
+                        )}
+                        <div className="text-sm text-gray-700">{fabric.label}</div>
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
+
               {/* 材质 - 分别显示面料、填充、框架、脚架 */}
               {compareItems.some(item => {
                 const material = item.sku.material
@@ -375,7 +485,13 @@ export default function ComparePage() {
                               <img
                                 src={getFileUrl(fabricImage)}
                                 alt={fabricDisplay}
-                                className="w-16 h-16 object-cover rounded border border-gray-200"
+                                className="w-20 h-20 object-contain rounded border border-gray-200 bg-white cursor-zoom-in"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  setPreviewZoom(1)
+                                  setPreviewImage({ src: getFileUrl(fabricImage), alt: fabricDisplay })
+                                }}
                               />
                             )}
                             <div className={`text-sm ${fabricDisplay === '未选面料' ? 'text-orange-500 font-medium' : 'text-gray-700'}`}>
@@ -642,6 +758,96 @@ export default function ComparePage() {
           </Link>
         </div>
       </div>
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4"
+          onClick={closePreview}
+        >
+          <div
+            className="relative max-w-[92vw] max-h-[92vh]"
+            onClick={(e) => {
+              e.stopPropagation()
+            }}
+          >
+            <button
+              type="button"
+              className="absolute -top-3 -right-3 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
+              onClick={closePreview}
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="absolute -top-3 right-10 flex items-center gap-2">
+              <button
+                type="button"
+                className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
+                onClick={() => setPreviewZoom((z) => Math.max(1, Number((z - 0.5).toFixed(2))))}
+                title="缩小"
+              >
+                <Minus className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
+                onClick={() => setPreviewZoom((z) => Math.min(4, Number((z + 0.5).toFixed(2))))}
+                title="放大"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                className="p-2 bg-white rounded-full shadow-lg hover:bg-gray-100"
+                onClick={() => setPreviewZoom(1)}
+                title="还原"
+              >
+                <RotateCcw className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div
+              ref={previewViewportRef}
+              className="max-w-[92vw] max-h-[92vh] overflow-auto rounded-lg bg-white cursor-grab active:cursor-grabbing"
+              onMouseDown={(e) => {
+                const el = previewViewportRef.current
+                if (!el) return
+                isPanningRef.current = true
+                panStartRef.current = {
+                  x: e.clientX,
+                  y: e.clientY,
+                  scrollLeft: el.scrollLeft,
+                  scrollTop: el.scrollTop,
+                }
+              }}
+              onMouseMove={(e) => {
+                const el = previewViewportRef.current
+                if (!el || !isPanningRef.current) return
+                const dx = e.clientX - panStartRef.current.x
+                const dy = e.clientY - panStartRef.current.y
+                el.scrollLeft = panStartRef.current.scrollLeft - dx
+                el.scrollTop = panStartRef.current.scrollTop - dy
+              }}
+              onMouseUp={() => {
+                isPanningRef.current = false
+              }}
+              onMouseLeave={() => {
+                isPanningRef.current = false
+              }}
+            >
+              <div
+                className="inline-block"
+                style={{ transform: `scale(${previewZoom})`, transformOrigin: '0 0' }}
+              >
+                <img
+                  src={previewImage.src}
+                  alt={previewImage.alt}
+                  className="block max-w-none max-h-none"
+                  draggable={false}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
