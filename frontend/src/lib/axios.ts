@@ -22,7 +22,15 @@ const API_URLS = [
 
 // 从localStorage获取上次成功的API地址
 const getLastSuccessfulAPI = (): string => {
-  return localStorage.getItem('api_base_url') || API_URLS[0]
+  const DEFAULT_API = '/api'
+  try {
+    const stored = localStorage.getItem('api_base_url')
+    if (!stored) return DEFAULT_API
+    if (typeof window !== 'undefined' && /^https?:\/\//i.test(stored)) return DEFAULT_API
+    return stored
+  } catch {
+    return DEFAULT_API
+  }
 }
 
 // 保存成功的API地址

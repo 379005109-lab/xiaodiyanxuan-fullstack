@@ -6,6 +6,7 @@ import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
+import axios from '@/lib/axios'
 
 export default function OrdersPageNew() {
   const navigate = useNavigate()
@@ -74,19 +75,9 @@ export default function OrdersPageNew() {
       
       // 1. 尝试从API加载订单
       try {
-        const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-        
-        console.log('🔍 [Orders] Response status:', response.status)
-        
-        if (response.ok) {
-          const data = await response.json()
-          console.log('🔍 [Orders] API orders count:', data.data?.length || 0)
-          apiOrders = data.data || []
-        }
+        const data: any = await axios.get('/orders')
+        console.log('🔍 [Orders] API orders count:', data?.data?.length || 0)
+        apiOrders = data?.data || []
       } catch (apiError) {
         console.warn('⚠️ [Orders] API加载失败，将读取本地订单:', apiError)
       }
@@ -135,34 +126,22 @@ export default function OrdersPageNew() {
       console.log('🔄 提交取消申请:', orderId)
       
       // 通过API提交取消申请
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      await axios.post(`/orders/${orderId}/cancel`, {})
+      console.log('✅ 取消申请已提交')
       
-      if (response.ok) {
-        console.log('✅ 取消申请已提交')
-        
-        // 更新UI状态 - 显示取消申请中
-        setOrders(prev => prev.map((o: any) => {
-          if ((o._id || o.id) === orderId) {
-            return {
-              ...o,
-              cancelRequest: true,
-              cancelRequestedAt: new Date().toISOString()
-            }
+      // 更新UI状态 - 显示取消申请中
+      setOrders(prev => prev.map((o: any) => {
+        if ((o._id || o.id) === orderId) {
+          return {
+            ...o,
+            cancelRequest: true,
+            cancelRequestedAt: new Date().toISOString()
           }
-          return o
-        }))
-        
-        toast.success('取消申请已提交，请等待管理员审核')
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        toast.error(errorData.message || '提交取消申请失败')
-      }
+        }
+        return o
+      }))
+      
+      toast.success('取消申请已提交，请等待管理员审核')
       
     } catch (error) {
       console.error('❌ 提交取消申请失败:', error)
@@ -209,13 +188,8 @@ export default function OrdersPageNew() {
     try {
       setLoadingPaymentInfo(true)
       const orderId = normalizedOrder._id || normalizedOrder.id
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/payment-info`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (response.ok) {
-        const result = await response.json()
-        setPaymentInfo(result.data)
-      }
+      const result: any = await axios.get(`/orders/${orderId}/payment-info`)
+      setPaymentInfo(result?.data)
     } catch (error) {
       console.error('获取支付信息失败:', error)
     } finally {
@@ -247,24 +221,12 @@ export default function OrdersPageNew() {
     
     try {
       // 统一使用/pay API，后端会根据订单状态自动判断是定金、尾款还是全款
-      const apiUrl = `https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentMethod: selectedPaymentMethod })
-      })
-      
-      if (response.ok) {
-        const newStatus = isPayingDeposit ? 10 : isPayingFinal ? 13 : 9
-        toast.success(`${paymentType}支付成功！`)
-        setOrders(prev => prev.map((o: any) => (o._id || o.id) === orderId ? { ...o, status: newStatus } : o))
-        setPaymentModalOrder(null)
-        loadOrders() // 刷新订单列表
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        toast.error(errorData.message || '付款失败，请重试')
-      }
+      await axios.post(`/orders/${orderId}/pay`, { paymentMethod: selectedPaymentMethod })
+      const newStatus = isPayingDeposit ? 10 : isPayingFinal ? 13 : 9
+      toast.success(`${paymentType}支付成功！`)
+      setOrders(prev => prev.map((o: any) => (o._id || o.id) === orderId ? { ...o, status: newStatus } : o))
+      setPaymentModalOrder(null)
+      loadOrders() // 刷新订单列表
     } catch (error) {
       console.error('付款失败:', error)
       toast.error('付款失败，请重试')
@@ -565,18 +527,12 @@ export default function OrdersPageNew() {
                               onClick={async () => {
                                 if (!window.confirm(`确认支付尾款 ¥${order.remainingPaymentAmount?.toLocaleString()}？`)) return
                                 try {
-                                  const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/pay-remaining`, {
-                                    method: 'POST',
-                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ paymentMethod: 'wechat' })
-                                  })
-                                  if (response.ok) {
-                                    toast.success('尾款支付成功')
-                                    window.location.reload()
-                                  } else {
-                                    toast.error('支付失败')
-                                  }
-                                } catch (error) { toast.error('支付失败') }
+                                  await axios.post(`/orders/${order._id}/pay-remaining`, { paymentMethod: 'wechat' })
+                                  toast.success('尾款支付成功')
+                                  loadOrders()
+                                } catch (error) {
+                                  toast.error('支付失败')
+                                }
                               }}
                               className="px-3 py-1.5 bg-orange-500 text-white text-xs rounded hover:bg-orange-600"
                             >
@@ -770,7 +726,7 @@ export default function OrdersPageNew() {
                   
                   {/* 收货信息 */}
                   <div className="mt-6 pt-4 border-t border-stone-100">
-                    <p className="text-sm text-stone-500 mb-1">ORD{order.orderNo || order.orderNumber}</p>
+                    <p className="text-sm text-stone-500 mb-1">{order.orderNo || order.orderNumber}</p>
                     <p className="text-sm text-stone-800">
                       <span className="text-stone-600">收货人：</span>{order.recipient?.name || '未填写'}
                     </p>
@@ -1117,19 +1073,10 @@ export default function OrdersPageNew() {
               <button
                 onClick={async () => {
                   try {
-                    const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${commissionModal._id}/apply-commission`, {
-                      method: 'POST',
-                      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ invoiceUrl: invoiceUrl || undefined })
-                    })
-                    const data = await response.json()
-                    if (response.ok) {
-                      toast.success('返佣申请已提交')
-                      setCommissionModal(null)
-                      loadOrders()
-                    } else {
-                      toast.error(data.message || '申请失败')
-                    }
+                    await axios.post(`/orders/${commissionModal._id}/apply-commission`, { invoiceUrl: invoiceUrl || undefined })
+                    toast.success('返佣申请已提交')
+                    setCommissionModal(null)
+                    loadOrders()
                   } catch (error) { 
                     toast.error('申请失败') 
                   }
