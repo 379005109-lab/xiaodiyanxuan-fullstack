@@ -77,7 +77,18 @@ const setupInterceptors = (instance: AxiosInstance) => {
   // 请求拦截器
   instance.interceptors.request.use(
     (config) => {
-      const token = localStorage.getItem('token')
+      let token = localStorage.getItem('token')
+      if (!token) {
+        try {
+          const stored = localStorage.getItem('auth-storage')
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            token = parsed?.state?.token || null
+          }
+        } catch {
+          token = null
+        }
+      }
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
       }
