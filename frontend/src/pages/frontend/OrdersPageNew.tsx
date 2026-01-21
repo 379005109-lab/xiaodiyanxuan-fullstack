@@ -523,8 +523,10 @@ export default function OrdersPageNew() {
                         <div className="text-xs text-amber-700 mt-1">
                           <span>抬头: {order.invoiceInfo?.title || '-'}</span>
                           {order.invoiceInfo?.taxNumber && <span className="ml-3">税号: {order.invoiceInfo.taxNumber}</span>}
-                          {order.invoiceMarkupAmount > 0 && (
+                          {order.invoiceMarkupAmount > 0 ? (
                             <span className="ml-3 font-bold text-amber-600">开票加价: +¥{order.invoiceMarkupAmount?.toLocaleString()}</span>
+                          ) : (
+                            <span className="ml-3 text-amber-600">（无加价）</span>
                           )}
                         </div>
                       </div>
