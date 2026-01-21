@@ -315,14 +315,53 @@ const createOrder = async (userId, {
       await coupon.save()
     }
   }
-  
-  // 计算总金额：如果前端传了包含开票加价的 totalAmount，优先使用；否则用 subtotal - discountAmount + invoiceMarkupAmount
-  let totalAmount = inputTotalAmount || (subtotal - discountAmount + (invoiceMarkupAmount || 0))
-  
-  const orderNo = generateOrderNo();
-  console.log('🛒 [OrderService] Generated orderNo:', orderNo);
 
   const enrichedItems = await enrichItemsWithManufacturer(items)
+
+  // 服务端兜底：确保开票加价与总金额计算正确（避免前端因厂家字段缺失导致 invoiceMarkup 变为 0）
+  const needInvoiceBool = !!needInvoice
+  let effectiveInvoiceMarkupPercent = 0
+  let effectiveInvoiceMarkupAmount = 0
+  if (needInvoiceBool) {
+    const inputPercent = Number(invoiceMarkupPercent)
+    const inputAmount = Number(invoiceMarkupAmount)
+
+    let mfrPercent = 0
+    try {
+      const mid = enrichedItems?.[0]?.manufacturerId
+      if (mid) {
+        const mfr = await Manufacturer.findById(mid).select('invoiceMarkupPercent').lean()
+        if (typeof mfr?.invoiceMarkupPercent === 'number') {
+          mfrPercent = mfr.invoiceMarkupPercent
+        }
+      }
+    } catch (e) {
+      console.error('🛒 [OrderService] Failed to load manufacturer invoiceMarkupPercent:', e)
+    }
+
+    effectiveInvoiceMarkupPercent = Number.isFinite(inputPercent) && inputPercent > 0
+      ? inputPercent
+      : (mfrPercent > 0 ? mfrPercent : 0)
+
+    effectiveInvoiceMarkupAmount = Number.isFinite(inputAmount) && inputAmount > 0
+      ? inputAmount
+      : Math.round(subtotal * effectiveInvoiceMarkupPercent / 100)
+  }
+
+  // 计算总金额：服务端统一以 subtotal - discount + invoiceMarkup 为准（确保持久化正确）
+  let totalAmount = subtotal - discountAmount + (needInvoiceBool ? effectiveInvoiceMarkupAmount : 0)
+  if (inputTotalAmount && Number(inputTotalAmount) > 0 && Number(inputTotalAmount) !== totalAmount) {
+    console.log('🛒 [OrderService] totalAmount differs from inputTotalAmount:', { inputTotalAmount, totalAmount })
+  }
+
+  console.log('🛒 [OrderService] effective invoice:', {
+    needInvoice: needInvoiceBool,
+    invoiceMarkupPercent: effectiveInvoiceMarkupPercent,
+    invoiceMarkupAmount: effectiveInvoiceMarkupAmount
+  })
+
+  const orderNo = generateOrderNo();
+  console.log('🛒 [OrderService] Generated orderNo:', orderNo);
   
   // 计算分层返佣
   let commissions = []
@@ -391,10 +430,10 @@ const createOrder = async (userId, {
     couponCode,
     commissions,
     // 开票信息
-    needInvoice: needInvoice || false,
-    invoiceInfo: invoiceInfo || undefined,
-    invoiceMarkupPercent: invoiceMarkupPercent || 0,
-    invoiceMarkupAmount: invoiceMarkupAmount || 0,
+    needInvoice: needInvoiceBool,
+    invoiceInfo: needInvoiceBool ? (invoiceInfo || undefined) : undefined,
+    invoiceMarkupPercent: needInvoiceBool ? effectiveInvoiceMarkupPercent : 0,
+    invoiceMarkupAmount: needInvoiceBool ? effectiveInvoiceMarkupAmount : 0,
     // 付款比例
     paymentRatioEnabled,
     paymentRatio: paymentRatio || 100,
