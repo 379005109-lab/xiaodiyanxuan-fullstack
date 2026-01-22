@@ -249,6 +249,36 @@ export default function OrderManagementNew2() {
     sent: { label: '已寄出', color: 'bg-purple-100 text-purple-700' }
   }
 
+  const normalizeMaterialRecord = (raw: any): Record<string, any> => {
+    if (!raw) return {}
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object') return parsed
+      } catch {
+        return { fabric: raw, '面料': raw }
+      }
+      return {}
+    }
+    if (typeof raw !== 'object') return {}
+    return raw
+  }
+
+  const normalizeMaterialValue = (v: any): string => {
+    if (v === undefined || v === null) return ''
+    if (typeof v === 'string') return v.trim()
+    if (typeof v === 'number') return String(v)
+    if (Array.isArray(v)) {
+      return v.map(normalizeMaterialValue).filter(Boolean).join('、')
+    }
+    if (typeof v === 'object') {
+      return normalizeMaterialValue(
+        (v as any).name ?? (v as any).label ?? (v as any).value ?? (v as any).text ?? (v as any).title
+      )
+    }
+    return String(v)
+  }
+
   const inferSelectedMaterialsFromSku = (skuMaterial: any) => {
     const result: Record<string, any> = {}
 
@@ -281,8 +311,10 @@ export default function OrderManagementNew2() {
   }
 
   const getEffectiveSelectedMaterials = (item: any) => {
-    const current = item?.selectedMaterials
-    if (current && typeof current === 'object' && Object.keys(current).length > 0) return current
+    const current = normalizeMaterialRecord(item?.selectedMaterials)
+    if (Object.keys(current).length > 0) return current
+    const fromMaterials = normalizeMaterialRecord(item?.materials)
+    if (Object.keys(fromMaterials).length > 0) return fromMaterials
     return inferSelectedMaterialsFromSku(item?.sku?.material)
   }
 
@@ -333,10 +365,10 @@ export default function OrderManagementNew2() {
             manufacturerName: product.manufacturerName,
             materials: materials,
             selectedMaterials: {
-              fabric: materials.fabric || materials['面料'] || '',
-              filling: materials.filling || materials['填充'] || '',
-              frame: materials.frame || materials['框架'] || '',
-              leg: materials.leg || materials['脚架'] || ''
+              fabric: normalizeMaterialValue(materials.fabric ?? materials['面料']),
+              filling: normalizeMaterialValue(materials.filling ?? materials['填充']),
+              frame: normalizeMaterialValue(materials.frame ?? materials['框架']),
+              leg: normalizeMaterialValue(materials.leg ?? materials['脚架'])
             },
             materialUpgradePrices: {
               fabric: upgradePrices.fabric || upgradePrices['面料'] || 0,
@@ -364,10 +396,10 @@ export default function OrderManagementNew2() {
           const base = getEffectiveSelectedMaterials(item)
           return {
             ...(base || {}),
-            fabric: (base?.fabric || base?.['面料'] || item.specifications?.material || ''),
-            filling: (base?.filling || base?.['填充'] || item.specifications?.fill || ''),
-            frame: (base?.frame || base?.['框架'] || item.specifications?.frame || ''),
-            leg: (base?.leg || base?.['脚架'] || item.specifications?.leg || '')
+            fabric: normalizeMaterialValue(base?.fabric ?? base?.['面料'] ?? item.specifications?.material),
+            filling: normalizeMaterialValue(base?.filling ?? base?.['填充'] ?? item.specifications?.fill),
+            frame: normalizeMaterialValue(base?.frame ?? base?.['框架'] ?? item.specifications?.frame),
+            leg: normalizeMaterialValue(base?.leg ?? base?.['脚架'] ?? item.specifications?.leg)
           }
         })(),
         skuDimensions: item.skuDimensions,
@@ -986,13 +1018,37 @@ export default function OrderManagementNew2() {
       }
 
       const lines = Object.entries(merged)
-        .filter(([, v]) => v !== undefined && v !== null && v !== '')
         .map(([k, v]) => {
+          const text = normalizeMaterialValue(v)
+          return [k, text] as const
+        })
+        .filter(([, text]) => text !== '')
+        .map(([k, text]) => {
           const displayKey = keyMap[String(k).toLowerCase()] || k
-          return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${v}</div>`
+          return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
 
-      return lines.length > 0 ? lines.join('') : (p.spec ? `<div>${p.spec}</div>` : '<div>-</div>')
+      const snaps = (p.materialSnapshots || []) as any[]
+      const snapHtml = snaps.length
+        ? (() => {
+            const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
+              const key = String(s?.categoryKey || '材质')
+              if (!acc[key]) acc[key] = []
+              acc[key].push(s)
+              return acc
+            }, {})
+            return Object.entries(groups)
+              .map(([categoryKey, list]) => {
+                const names = (list as any[]).map(s => s?.name).filter(Boolean).join('、')
+                const desc = (list as any[]).find(s => s?.description)?.description
+                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>${desc ? `<div style=\"margin-top: 4px; color: #6b7280;\">说明：${desc}</div>` : ''}`
+              })
+              .join('')
+          })()
+        : ''
+
+      const base = lines.length > 0 ? lines.join('') : (p.spec ? `<div>${p.spec}</div>` : '<div>-</div>')
+      return `${base}${snapHtml}`
     }
 
     const buildContainerHtml = (group: { manufacturerName: string; products: any[] }) => {
@@ -1138,13 +1194,37 @@ export default function OrderManagementNew2() {
       }
 
       const lines = Object.entries(merged)
-        .filter(([, v]) => v !== undefined && v !== null && v !== '')
         .map(([k, v]) => {
+          const text = normalizeMaterialValue(v)
+          return [k, text] as const
+        })
+        .filter(([, text]) => text !== '')
+        .map(([k, text]) => {
           const displayKey = keyMap[String(k).toLowerCase()] || k
-          return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${v}</div>`
+          return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
 
-      return lines.length > 0 ? lines.join('') : (p.spec ? `<div>${p.spec}</div>` : '<div>-</div>')
+      const snaps = (p.materialSnapshots || []) as any[]
+      const snapHtml = snaps.length
+        ? (() => {
+            const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
+              const key = String(s?.categoryKey || '材质')
+              if (!acc[key]) acc[key] = []
+              acc[key].push(s)
+              return acc
+            }, {})
+            return Object.entries(groups)
+              .map(([categoryKey, list]) => {
+                const names = (list as any[]).map(s => s?.name).filter(Boolean).join('、')
+                const desc = (list as any[]).find(s => s?.description)?.description
+                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>${desc ? `<div style=\"margin-top: 4px; color: #6b7280;\">说明：${desc}</div>` : ''}`
+              })
+              .join('')
+          })()
+        : ''
+
+      const base = lines.length > 0 ? lines.join('') : (p.spec ? `<div>${p.spec}</div>` : '<div>-</div>')
+      return `${base}${snapHtml}`
     }
 
     const buildWholeOrderHtml = () => {
@@ -2392,7 +2472,7 @@ export default function OrderManagementNew2() {
               {products.map((product, index) => {
                 // 收集所有材质信息
                 const materials: string[] = []
-                const fabricValue = product.selectedMaterials?.fabric || product.selectedMaterials?.['面料'] || product.specifications?.material
+                const fabricValue = normalizeMaterialValue(product.selectedMaterials?.fabric ?? product.selectedMaterials?.['面料'] ?? product.specifications?.material)
                 const dims = product.skuDimensions || {}
                 if (fabricValue) materials.push(`面料:${fabricValue}`)
                 if (product.selectedMaterials?.filling || product.specifications?.fill) {
@@ -2404,7 +2484,12 @@ export default function OrderManagementNew2() {
                 if (product.selectedMaterials?.leg || product.specifications?.leg) {
                   materials.push(product.selectedMaterials?.leg || product.specifications?.leg)
                 }
-                if (!fabricValue) {
+                const existingSnapshots = (product.materialSnapshots || []) as any[]
+                const hasFabricFromSnapshots = existingSnapshots.some(s => {
+                  const key = String(s?.categoryKey || '').toLowerCase()
+                  return (key === 'fabric' || key === '面料') && !!s?.name
+                })
+                if (!fabricValue && !hasFabricFromSnapshots) {
                   materials.push('面料:未选择')
                 }
 
@@ -2415,7 +2500,6 @@ export default function OrderManagementNew2() {
                   leg: '脚架'
                 }
 
-                const existingSnapshots = (product.materialSnapshots || []) as any[]
                 const snapshots = existingSnapshots.length > 0
                   ? existingSnapshots
                   : Object.entries(product.selectedMaterials || {}).flatMap(([rawKey, rawValue]) => {
