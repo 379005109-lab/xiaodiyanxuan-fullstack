@@ -627,14 +627,14 @@ router.post('/:id/settlement-mode', async (req, res) => {
     order.commissionAmount = commissionAmount
     order.supplierPrice = supplierPrice
 
-    // 根据结算模式计算开票加价：按“实付金额 × 系数”
-    // 因为实付金额本身包含开票费，所以用反推：
-    // total = base + fee 且 fee = total * p/100  => fee = base * p / (100 - p)
+    // 根据结算模式计算开票加价：按“模式实付基数(base) × 系数”
+    // supplier_transfer: base = supplierPrice
+    // commission_mode: base = minDiscountPrice
     let invoiceMarkup = 0
-    if (order.needInvoice && invoicePercent > 0 && invoicePercent < 100) {
+    if (order.needInvoice && invoicePercent > 0) {
       const baseAmount = settlementMode === 'supplier_transfer' ? supplierPrice : minDiscountPrice
       const base = Number(baseAmount || 0)
-      invoiceMarkup = base > 0 ? Math.round(base * invoicePercent / (100 - invoicePercent)) : 0
+      invoiceMarkup = base > 0 ? Math.round(base * invoicePercent / 100) : 0
     }
     order.invoiceMarkupAmount = invoiceMarkup
     
