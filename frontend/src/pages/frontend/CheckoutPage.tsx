@@ -374,10 +374,49 @@ export default function CheckoutPage() {
     
     // 获取选中的开票信息
     const selectedInvoice = needInvoice ? invoiceInfoList.find(inv => inv._id === selectedInvoiceId) : null
+
+    const inferSelectedMaterialsFromSku = (skuMaterial: any) => {
+      const result: Record<string, any> = {}
+
+      if (!skuMaterial) return result
+
+      if (typeof skuMaterial === 'string') {
+        try {
+          const parsed = JSON.parse(skuMaterial)
+          return inferSelectedMaterialsFromSku(parsed)
+        } catch {
+          result.fabric = skuMaterial
+          result['面料'] = skuMaterial
+          return result
+        }
+      }
+
+      if (typeof skuMaterial !== 'object') return result
+
+      for (const [k, v] of Object.entries(skuMaterial)) {
+        if (!v) continue
+        if (Array.isArray(v)) {
+          const first = v.find(Boolean)
+          if (first) result[k] = first
+        } else if (typeof v === 'string') {
+          result[k] = v
+        }
+      }
+
+      return result
+    }
+
+    const getEffectiveSelectedMaterials = (item: any) => {
+      const current = item?.selectedMaterials
+      if (current && typeof current === 'object' && Object.keys(current).length > 0) return current
+      return inferSelectedMaterialsFromSku(item?.sku?.material)
+    }
     
     // 构建订单数据（在try外面定义，确保catch中可以访问）
     const orderData = {
-        items: items.map(item => ({
+        items: items.map(item => {
+          const effectiveSelectedMaterials = getEffectiveSelectedMaterials(item)
+          return ({
           product: item.product._id,
           productId: item.product._id,
           productName: item.product.name,
@@ -397,10 +436,10 @@ export default function CheckoutPage() {
               ? `${item.sku.length || '-'}×${item.sku.width || '-'}×${item.sku.height || '-'}` 
               : '',
             // 材质信息（兼容中英文）
-            material: item.selectedMaterials?.['面料'] || item.selectedMaterials?.fabric || '',
-            fill: item.selectedMaterials?.['填充'] || item.selectedMaterials?.filling || '',
-            frame: item.selectedMaterials?.['框架'] || item.selectedMaterials?.frame || '',
-            leg: item.selectedMaterials?.['脚架'] || item.selectedMaterials?.leg || ''
+            material: effectiveSelectedMaterials?.['面料'] || effectiveSelectedMaterials?.fabric || '',
+            fill: effectiveSelectedMaterials?.['填充'] || effectiveSelectedMaterials?.filling || '',
+            frame: effectiveSelectedMaterials?.['框架'] || effectiveSelectedMaterials?.frame || '',
+            leg: effectiveSelectedMaterials?.['脚架'] || effectiveSelectedMaterials?.leg || ''
           },
           // 保存 SKU 尺寸原始数据
           skuDimensions: {
@@ -408,13 +447,14 @@ export default function CheckoutPage() {
             width: item.sku.width,
             height: item.sku.height
           },
-          selectedMaterials: item.selectedMaterials,  // 保存材质选择
+          selectedMaterials: effectiveSelectedMaterials,  // 保存材质选择
           materialUpgradePrices: item.materialUpgradePrices || {},  // 保存升级价格
           quantity: item.quantity,
           price: item.price !== undefined ? item.price : (item.sku.discountPrice && item.sku.discountPrice < item.sku.price
             ? item.sku.discountPrice
             : item.sku.price)
-        })),
+        })
+        }),
         totalAmount: getTotalPrice(),  // 下单阶段不包含开票费用（选择结算模式后计算）
         subtotal: getTotalPrice(),  // 商品小计
         recipient: {

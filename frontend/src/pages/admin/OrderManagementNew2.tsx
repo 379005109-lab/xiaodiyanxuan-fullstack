@@ -249,6 +249,43 @@ export default function OrderManagementNew2() {
     sent: { label: '已寄出', color: 'bg-purple-100 text-purple-700' }
   }
 
+  const inferSelectedMaterialsFromSku = (skuMaterial: any) => {
+    const result: Record<string, any> = {}
+
+    if (!skuMaterial) return result
+
+    if (typeof skuMaterial === 'string') {
+      try {
+        const parsed = JSON.parse(skuMaterial)
+        return inferSelectedMaterialsFromSku(parsed)
+      } catch {
+        result.fabric = skuMaterial
+        result['面料'] = skuMaterial
+        return result
+      }
+    }
+
+    if (typeof skuMaterial !== 'object') return result
+
+    for (const [k, v] of Object.entries(skuMaterial)) {
+      if (!v) continue
+      if (Array.isArray(v)) {
+        const first = v.find(Boolean)
+        if (first) result[k] = first
+      } else if (typeof v === 'string') {
+        result[k] = v
+      }
+    }
+
+    return result
+  }
+
+  const getEffectiveSelectedMaterials = (item: any) => {
+    const current = item?.selectedMaterials
+    if (current && typeof current === 'object' && Object.keys(current).length > 0) return current
+    return inferSelectedMaterialsFromSku(item?.sku?.material)
+  }
+
   const handleInvoiceStatusChange = async (orderId: string, invoiceStatus: string) => {
     try {
       const token = localStorage.getItem('token')
@@ -316,19 +353,23 @@ export default function OrderManagementNew2() {
       return products
     } else if (order.items) {
       return order.items.map((item: any) => ({
+        sku: item.sku,
         name: item.productName,
         quantity: item.quantity,
         manufacturerId: item.manufacturerId,
         manufacturerName: item.manufacturerName,
         materials: item.materials,
         specifications: item.specifications,
-        selectedMaterials: {
-          ...(item.selectedMaterials || {}),
-          fabric: (item.selectedMaterials?.fabric || item.selectedMaterials?.['面料'] || item.specifications?.material || ''),
-          filling: (item.selectedMaterials?.filling || item.selectedMaterials?.['填充'] || item.specifications?.fill || ''),
-          frame: (item.selectedMaterials?.frame || item.selectedMaterials?.['框架'] || item.specifications?.frame || ''),
-          leg: (item.selectedMaterials?.leg || item.selectedMaterials?.['脚架'] || item.specifications?.leg || '')
-        },
+        selectedMaterials: (() => {
+          const base = getEffectiveSelectedMaterials(item)
+          return {
+            ...(base || {}),
+            fabric: (base?.fabric || base?.['面料'] || item.specifications?.material || ''),
+            filling: (base?.filling || base?.['填充'] || item.specifications?.fill || ''),
+            frame: (base?.frame || base?.['框架'] || item.specifications?.frame || ''),
+            leg: (base?.leg || base?.['脚架'] || item.specifications?.leg || '')
+          }
+        })(),
         skuDimensions: item.skuDimensions,
         materialUpgradePrices: item.materialUpgradePrices,
         materialSnapshots: item.materialSnapshots,
@@ -2362,6 +2403,9 @@ export default function OrderManagementNew2() {
                 }
                 if (product.selectedMaterials?.leg || product.specifications?.leg) {
                   materials.push(product.selectedMaterials?.leg || product.specifications?.leg)
+                }
+                if (!fabricValue) {
+                  materials.push('面料:未选择')
                 }
 
                 const normalizedCategoryLabels: Record<string, string> = {
