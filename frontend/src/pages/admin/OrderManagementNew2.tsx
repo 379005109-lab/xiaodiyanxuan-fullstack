@@ -239,6 +239,43 @@ export default function OrderManagementNew2() {
 
   const selectedOrder = orders.find(o => o._id === selectedOrderId)
 
+  const invoiceStatusConfig: Record<string, { label: string; color: string }> = {
+    pending: { label: '待开票', color: 'bg-amber-100 text-amber-700' },
+    processing: { label: '开票中', color: 'bg-blue-100 text-blue-700' },
+    issued: { label: '已开票', color: 'bg-green-100 text-green-700' },
+    sent: { label: '已寄出', color: 'bg-purple-100 text-purple-700' }
+  }
+
+  const handleInvoiceStatusChange = async (orderId: string, invoiceStatus: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        toast.error('请先登录')
+        return
+      }
+
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/invoice-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ invoiceStatus })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({} as any))
+        toast.error(data.message || '开票状态更新失败')
+        return
+      }
+
+      setOrders(prev => prev.map(o => o._id === orderId ? ({ ...o, invoiceStatus } as any) : o))
+      toast.success('开票状态已更新')
+    } catch (error) {
+      toast.error('开票状态更新失败')
+    }
+  }
+
   // 获取商品列表 - 支持套餐订单和普通订单
   const getProducts = (order: Order) => {
     if (order.orderType === 'package' && order.packageInfo) {
@@ -282,7 +319,14 @@ export default function OrderManagementNew2() {
         manufacturerName: item.manufacturerName,
         materials: item.materials,
         specifications: item.specifications,
-        selectedMaterials: item.selectedMaterials,
+        selectedMaterials: {
+          ...(item.selectedMaterials || {}),
+          fabric: (item.selectedMaterials?.fabric || item.selectedMaterials?.['面料'] || item.specifications?.material || ''),
+          filling: (item.selectedMaterials?.filling || item.selectedMaterials?.['填充'] || item.specifications?.fill || ''),
+          frame: (item.selectedMaterials?.frame || item.selectedMaterials?.['框架'] || item.specifications?.frame || ''),
+          leg: (item.selectedMaterials?.leg || item.selectedMaterials?.['脚架'] || item.specifications?.leg || '')
+        },
+        skuDimensions: item.skuDimensions,
         materialUpgradePrices: item.materialUpgradePrices,
         image: item.image || item.productImage
       }))
@@ -2170,6 +2214,77 @@ export default function OrderManagementNew2() {
             </div>
           )}
 
+          {/* 开票信息 */}
+          {(selectedOrder as any).needInvoice && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-amber-600" />
+                  <h2 className="font-semibold text-gray-800">开票信息</h2>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${(invoiceStatusConfig as any)[(selectedOrder as any).invoiceStatus || 'pending']?.color || 'bg-amber-100 text-amber-700'}`}>
+                  {(invoiceStatusConfig as any)[(selectedOrder as any).invoiceStatus || 'pending']?.label || '待开票'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">发票类型</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.invoiceType === 'company' ? '企业' : '个人'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">抬头</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.title || '-'}</span>
+                </div>
+
+                {(selectedOrder as any).invoiceInfo?.taxNumber && (
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">税号</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.taxNumber}</span>
+                  </div>
+                )}
+                {(selectedOrder as any).invoiceInfo?.email && (
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">收票邮箱</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.email}</span>
+                  </div>
+                )}
+                {(selectedOrder as any).invoiceInfo?.phone && (
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">收票手机</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.phone}</span>
+                  </div>
+                )}
+                {(selectedOrder as any).invoiceInfo?.mailingAddress && (
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">邮寄地址</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.mailingAddress}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 flex items-center gap-3">
+                <span className="text-sm text-gray-600">发票状态</span>
+                <select
+                  value={(selectedOrder as any).invoiceStatus || 'pending'}
+                  onChange={(e) => handleInvoiceStatusChange(selectedOrder._id, e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                >
+                  <option value="pending">待开票</option>
+                  <option value="processing">开票中</option>
+                  <option value="issued">已开票</option>
+                  <option value="sent">已寄出</option>
+                </select>
+              </div>
+
+              {(selectedOrder as any).invoiceMarkupAmount > 0 && (
+                <div className="mt-3 text-sm text-amber-700">
+                  开票加价：<span className="font-bold text-amber-800">+¥{formatPrice((selectedOrder as any).invoiceMarkupAmount)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 商品清单 */}
           <div className="bg-white rounded-2xl shadow-sm">
             <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
@@ -2193,9 +2308,9 @@ export default function OrderManagementNew2() {
               {products.map((product, index) => {
                 // 收集所有材质信息
                 const materials: string[] = []
-                if (product.selectedMaterials?.fabric || product.specifications?.material) {
-                  materials.push(product.selectedMaterials?.fabric || product.specifications?.material)
-                }
+                const fabricValue = product.selectedMaterials?.fabric || product.selectedMaterials?.['面料'] || product.specifications?.material
+                const dims = product.skuDimensions || {}
+                if (fabricValue) materials.push(`面料:${fabricValue}`)
                 if (product.selectedMaterials?.filling || product.specifications?.fill) {
                   materials.push(product.selectedMaterials?.filling || product.specifications?.fill)
                 }
@@ -2254,6 +2369,12 @@ export default function OrderManagementNew2() {
                         {product.specifications?.size && (
                           <span className="px-2.5 py-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md">
                             {product.specifications.size}
+                          </span>
+                        )}
+
+                        {(dims.length || dims.width || dims.height) && (
+                          <span className="px-2.5 py-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md">
+                            尺寸:{dims.length || '-'}×{dims.width || '-'}×{dims.height || '-'}CM
                           </span>
                         )}
                         
