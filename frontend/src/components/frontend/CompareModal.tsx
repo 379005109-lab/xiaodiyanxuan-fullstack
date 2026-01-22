@@ -53,12 +53,29 @@ export default function CompareModal() {
     }
 
     const material = item.sku.material
-    const fabricFromMaterial =
-      material && typeof material === 'object' && (material as any).fabric
-        ? Array.isArray((material as any).fabric)
-          ? (material as any).fabric[0]
-          : (material as any).fabric
-        : undefined
+    if (typeof material === 'string' && material.trim()) {
+      const name = material.trim()
+      const materialInfo = materials.find((m) =>
+        m.name === name || m.name?.includes(name) || name?.includes(m.name)
+      )
+      const img =
+        materialInfo?.image ||
+        materialInfo?.thumbnail ||
+        (item.sku as any).materialImages?.[name]
+      return { label: name, image: img }
+    }
+
+    const getFromSelection = (selection: any): string | undefined => {
+      const candidates = [selection?.fabric, selection?.['面料'], selection?.['面料/颜色'], selection?.['面料颜色']]
+      for (const c of candidates) {
+        if (!c) continue
+        if (Array.isArray(c)) return typeof c[0] === 'string' ? c[0] : undefined
+        if (typeof c === 'string') return c
+      }
+      return undefined
+    }
+
+    const fabricFromMaterial = material && typeof material === 'object' ? getFromSelection(material) : undefined
 
     if (fabricFromMaterial && typeof fabricFromMaterial === 'string') {
       const materialInfo = materials.find((m) =>
@@ -88,11 +105,11 @@ export default function CompareModal() {
 
       return {
         label: color,
-        image: materialImg || skuMaterialImg || item.sku.images?.[1] || item.sku.images?.[0],
+        image: materialImg || skuMaterialImg,
       }
     }
 
-    return { label: '-', image: item.sku.images?.[1] || item.sku.images?.[0] }
+    return { label: '未选择面料' }
   }
 
   useEffect(() => {
@@ -308,16 +325,22 @@ export default function CompareModal() {
         {/* 内容区域 */}
         <div className="flex-1 overflow-auto p-6">
           {compareItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <Scale className="h-16 w-16 text-gray-300 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">对比列表为空</h3>
-              <p className="text-gray-500 mb-6">还没有添加任何商品到对比列表</p>
-              <button
-                onClick={closeModal}
-                className="btn-primary"
-              >
-                去选购
-              </button>
+            <div className="relative">
+              <div className="flex flex-col items-center justify-center py-16">
+                <Scale className="h-16 w-16 text-gray-300 mb-4" />
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">对比列表为空</h3>
+                <p className="text-gray-500 mb-6">还没有添加任何商品到对比列表</p>
+                <button
+                  onClick={closeModal}
+                  className="btn-primary"
+                >
+                  去选购
+                </button>
+              </div>
+
+              <div className="absolute top-3 left-3 px-3 py-1.5 bg-black/60 text-white text-xs rounded-lg">
+                拖拽图片可移动查看细节
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -569,6 +592,7 @@ export default function CompareModal() {
             <div
               ref={previewViewportRef}
               className="max-w-[92vw] max-h-[92vh] overflow-auto rounded-lg bg-white cursor-grab active:cursor-grabbing"
+              style={{ touchAction: 'none' }}
               onMouseDown={(e) => {
                 const el = previewViewportRef.current
                 if (!el) return
@@ -592,6 +616,35 @@ export default function CompareModal() {
                 isPanningRef.current = false
               }}
               onMouseLeave={() => {
+                isPanningRef.current = false
+              }}
+              onTouchStart={(e) => {
+                const el = previewViewportRef.current
+                if (!el) return
+                const t = e.touches[0]
+                if (!t) return
+                isPanningRef.current = true
+                panStartRef.current = {
+                  x: t.clientX,
+                  y: t.clientY,
+                  scrollLeft: el.scrollLeft,
+                  scrollTop: el.scrollTop,
+                }
+              }}
+              onTouchMove={(e) => {
+                const el = previewViewportRef.current
+                if (!el || !isPanningRef.current) return
+                const t = e.touches[0]
+                if (!t) return
+                const dx = t.clientX - panStartRef.current.x
+                const dy = t.clientY - panStartRef.current.y
+                el.scrollLeft = panStartRef.current.scrollLeft - dx
+                el.scrollTop = panStartRef.current.scrollTop - dy
+              }}
+              onTouchEnd={() => {
+                isPanningRef.current = false
+              }}
+              onTouchCancel={() => {
                 isPanningRef.current = false
               }}
             >
