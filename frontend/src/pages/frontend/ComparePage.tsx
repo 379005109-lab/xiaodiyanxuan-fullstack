@@ -5,7 +5,7 @@ import { Product, ProductSKU } from '@/types'
 import { formatPrice } from '@/lib/utils'
 import { getProductById as getMockProductById } from '@/services/productService.mock'
 import { getProductById as getApiProductById } from '@/services/productService'
-import { getAllMaterials } from '@/services/materialService'
+import { getAllMaterials, getMaterialImagesByNames } from '@/services/materialService'
 import { useCompareStore } from '@/store/compareStore'
 import { useCartStore } from '@/store/cartStore'
 import { toast } from 'sonner'
@@ -21,9 +21,11 @@ interface CompareItemDetail {
 
 export default function ComparePage() {
   const [compareItems, setCompareItems] = useState<CompareItemDetail[]>([])
-  const [compareStats, setCompareStats] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [materials, setMaterials] = useState<any[]>([])
   const [materialsLoaded, setMaterialsLoaded] = useState(false)
+  const [materialImagesByName, setMaterialImagesByName] = useState<Record<string, string>>({})
+  const [compareStats, setCompareStats] = useState<any>(null)
   const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const previewViewportRef = useRef<HTMLDivElement | null>(null)
@@ -38,6 +40,39 @@ export default function ComparePage() {
     isPanningRef.current = false
   }
 
+  const extractMaterialNames = (value: any): string[] => {
+    if (!value) return []
+    if (typeof value === 'string') {
+      const v = value.trim()
+      return v ? [v] : []
+    }
+    if (Array.isArray(value)) {
+      return value
+        .filter((v) => typeof v === 'string')
+        .map((v) => (v as string).trim())
+        .filter(Boolean)
+    }
+    if (typeof value === 'object') {
+      const res: string[] = []
+      for (const v of Object.values(value)) {
+        if (!v) continue
+        if (typeof v === 'string') {
+          const s = v.trim()
+          if (s) res.push(s)
+        } else if (Array.isArray(v)) {
+          for (const a of v) {
+            if (typeof a === 'string') {
+              const s = a.trim()
+              if (s) res.push(s)
+            }
+          }
+        }
+      }
+      return res
+    }
+    return []
+  }
+
   const getFabricFallback = (item: CompareItemDetail): { label: string; image?: string } => {
     if (item.selectedMaterials?.fabric) {
       const selected = item.selectedMaterials.fabric
@@ -47,6 +82,7 @@ export default function ComparePage() {
       const img =
         materialInfo?.image ||
         materialInfo?.thumbnail ||
+        materialImagesByName[selected] ||
         (item.sku as any).materialImages?.[selected]
       return { label: selected, image: img }
     }
@@ -60,6 +96,7 @@ export default function ComparePage() {
       const img =
         materialInfo?.image ||
         materialInfo?.thumbnail ||
+        materialImagesByName[name] ||
         (item.sku as any).materialImages?.[name]
       return { label: name, image: img }
     }
@@ -83,6 +120,7 @@ export default function ComparePage() {
       const img =
         materialInfo?.image ||
         materialInfo?.thumbnail ||
+        materialImagesByName[fabricFromMaterial] ||
         (item.sku as any).materialImages?.[fabricFromMaterial]
       return { label: fabricFromMaterial, image: img }
     }
@@ -95,6 +133,12 @@ export default function ComparePage() {
       )
       const materialImg = materialInfo?.image || materialInfo?.thumbnail
 
+      let byNameImg: string | undefined = materialImagesByName[color]
+      if (!byNameImg) {
+        const key = Object.keys(materialImagesByName).find((k) => k.includes(color) || color.includes(k))
+        if (key) byNameImg = materialImagesByName[key]
+      }
+
       let skuMaterialImg: string | undefined
       const skuMaterialImages = (item.sku as any).materialImages as Record<string, string> | undefined
       if (skuMaterialImages) {
@@ -104,7 +148,7 @@ export default function ComparePage() {
 
       return {
         label: color,
-        image: materialImg || skuMaterialImg,
+        image: materialImg || byNameImg || skuMaterialImg,
       }
     }
 
