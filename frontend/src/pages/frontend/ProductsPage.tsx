@@ -560,10 +560,11 @@ export default function ProductsPage() {
 
   // 获取商品预览图（优先使用商品主图，其次使用SKU图片）
   const getProductPreviewImages = (product: Product) => {
-    const firstSku = (product.skus || [])[0]
-    const skuFirstImage = firstSku?.images?.[0]
-    if (skuFirstImage) {
-      return [skuFirstImage]
+    const skuImages = (product.skus || [])
+      .map(sku => sku.images && sku.images[0])
+      .filter(Boolean)
+    if (skuImages.length > 0) {
+      return skuImages
     }
 
     const mainFirstImage = (product.images || []).filter(Boolean)[0]
