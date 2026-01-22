@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { Order, OrderStatus } from '@/types'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
+import { getAllMaterials } from '@/services/materialService'
 import * as XLSX from 'xlsx'
 import html2canvas from 'html2canvas'
 
@@ -104,6 +105,8 @@ export default function OrderManagementNew2() {
   const [finalVerifyMethod, setFinalVerifyMethod] = useState<string>('') // 尾款核销收款方式
   const [showCommissionModeModal, setShowCommissionModeModal] = useState(false) // 返佣模式设置弹窗
   const [commissionProductionDays, setCommissionProductionDays] = useState<string>('30') // 返佣模式生产周期
+
+  const [materialMetaMap, setMaterialMetaMap] = useState<Record<string, { image?: string; description?: string }>>({})
   
   // 统计数据
   const [stats, setStats] = useState({
@@ -328,11 +331,51 @@ export default function OrderManagementNew2() {
         },
         skuDimensions: item.skuDimensions,
         materialUpgradePrices: item.materialUpgradePrices,
+        materialSnapshots: item.materialSnapshots,
         image: item.image || item.productImage
       }))
     }
     return []
   }
+
+  useEffect(() => {
+    const loadMaterialMetaIfNeeded = async () => {
+      if (!selectedOrderId) return
+      if (!selectedOrder) return
+
+      const products = getProducts(selectedOrder)
+      const nameSet = new Set<string>()
+
+      for (const p of products) {
+        const snapshots = (p as any)?.materialSnapshots
+        const hasSnapshots = Array.isArray(snapshots) && snapshots.length > 0
+        if (hasSnapshots) continue
+
+        const selected = (p as any)?.selectedMaterials || {}
+        for (const v of Object.values(selected)) {
+          if (!v) continue
+          if (typeof v === 'string') nameSet.add(v)
+          else if (Array.isArray(v)) v.filter(Boolean).forEach(n => nameSet.add(String(n)))
+        }
+      }
+
+      const missing = Array.from(nameSet).filter(n => !materialMetaMap[n])
+      if (missing.length === 0) return
+
+      const all = await getAllMaterials()
+      const next: Record<string, { image?: string; description?: string }> = {}
+      for (const n of missing) {
+        const m = all.find(x => x.name === n)
+        if (!m) continue
+        next[n] = { image: m.image, description: m.description }
+      }
+      if (Object.keys(next).length > 0) {
+        setMaterialMetaMap(prev => ({ ...prev, ...next }))
+      }
+    }
+
+    loadMaterialMetaIfNeeded().catch(() => {})
+  }, [selectedOrderId, selectedOrder, materialMetaMap])
 
   // 打开改价弹窗
   const openPriceModal = (orderId: string) => {
@@ -2320,6 +2363,41 @@ export default function OrderManagementNew2() {
                 if (product.selectedMaterials?.leg || product.specifications?.leg) {
                   materials.push(product.selectedMaterials?.leg || product.specifications?.leg)
                 }
+
+                const normalizedCategoryLabels: Record<string, string> = {
+                  fabric: '面料',
+                  filling: '填充',
+                  frame: '框架',
+                  leg: '脚架'
+                }
+
+                const existingSnapshots = (product.materialSnapshots || []) as any[]
+                const snapshots = existingSnapshots.length > 0
+                  ? existingSnapshots
+                  : Object.entries(product.selectedMaterials || {}).flatMap(([rawKey, rawValue]) => {
+                      if (!rawValue) return []
+                      const values = Array.isArray(rawValue) ? rawValue : [rawValue]
+                      const labelKey = normalizedCategoryLabels[rawKey] || rawKey
+
+                      return values
+                        .filter(Boolean)
+                        .map((name: any) => {
+                          const meta = materialMetaMap[String(name)] || {}
+                          return {
+                            categoryKey: labelKey,
+                            rawCategoryKey: rawKey,
+                            name: String(name),
+                            image: meta.image || '',
+                            description: meta.description || ''
+                          }
+                        })
+                    })
+                const snapshotGroups = snapshots.reduce((acc: Record<string, any[]>, s: any) => {
+                  const key = String(s?.categoryKey || '材质')
+                  if (!acc[key]) acc[key] = []
+                  acc[key].push(s)
+                  return acc
+                }, {})
                 
                 // 收集加价信息
                 const upgrades: { name: string; price: number }[] = []
@@ -2397,6 +2475,56 @@ export default function OrderManagementNew2() {
                           {product.upgradePrice > 0 && upgrades.length === 0 && (
                             <span className="text-xs text-red-600">加价 +¥{product.upgradePrice}</span>
                           )}
+                        </div>
+                      )}
+
+                      {Object.keys(snapshotGroups).length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {Object.entries(snapshotGroups).map(([categoryKey, list]) => {
+                            const snaps = (list as any[]) || []
+                            const names = snaps.map(s => s?.name).filter(Boolean)
+                            const desc = snaps.find(s => s?.description)?.description
+                            const upgradePrice =
+                              (product.materialUpgradePrices?.[categoryKey] ??
+                                product.materialUpgradePrices?.[(snaps[0] as any)?.rawCategoryKey] ??
+                                (names.length === 1 ? product.materialUpgradePrices?.[names[0]] : undefined) ??
+                                0) as number
+
+                            return (
+                              <div key={categoryKey} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-medium text-gray-700">{categoryKey}</span>
+                                  {upgradePrice > 0 && (
+                                    <span className="text-xs text-red-600 font-semibold">+¥{upgradePrice}</span>
+                                  )}
+                                </div>
+
+                                <div className="mt-2 flex items-center gap-2">
+                                  {snaps.slice(0, 6).map((s, i) => (
+                                    s?.image ? (
+                                      <img
+                                        key={`${categoryKey}-${i}`}
+                                        src={getFileUrl(s.image)}
+                                        alt={s?.name || '材质'}
+                                        className="w-10 h-10 rounded-md border border-gray-200 object-cover"
+                                      />
+                                    ) : (
+                                      <div key={`${categoryKey}-${i}`} className="w-10 h-10 rounded-md border border-gray-200 bg-white" />
+                                    )
+                                  ))}
+                                  <div className="text-xs text-gray-700 truncate">
+                                    {names.length ? `${categoryKey}-${names.join('、')}` : categoryKey}
+                                  </div>
+                                </div>
+
+                                {desc && (
+                                  <div className="mt-2 text-xs text-gray-600 bg-white border border-gray-200 rounded-md px-3 py-2">
+                                    {desc}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
