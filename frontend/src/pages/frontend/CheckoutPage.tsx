@@ -369,7 +369,7 @@ export default function CheckoutPage() {
     // - 已有保存记录：必须选择
     // - 未选择记录但正在填写表单：允许直接把表单信息写入订单
     let selectedInvoice: InvoiceInfo | null = needInvoice ? invoiceInfoList.find(inv => inv._id === selectedInvoiceId) : null
-    const inlineInvoice = needInvoice && showInvoiceForm ? invoiceForm : null
+    const inlineInvoice = needInvoice && (showInvoiceForm || invoiceInfoList.length === 0) ? invoiceForm : null
 
     if (needInvoice && !selectedInvoice && invoiceInfoList.length > 0 && !showInvoiceForm) {
       toast.error('请选择开票信息')
@@ -377,7 +377,7 @@ export default function CheckoutPage() {
       return
     }
 
-    if (needInvoice && !selectedInvoice && showInvoiceForm) {
+    if (needInvoice && !selectedInvoice && (showInvoiceForm || invoiceInfoList.length === 0)) {
       if (!invoiceForm.title) {
         toast.error('请填写发票抬头')
         setSubmitting(false)
