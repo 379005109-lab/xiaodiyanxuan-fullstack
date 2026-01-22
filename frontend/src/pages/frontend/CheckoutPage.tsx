@@ -366,14 +366,35 @@ export default function CheckoutPage() {
     setSubmitting(true)
 
     // 验证开票信息
-    if (needInvoice && invoiceInfoList.length > 0 && !selectedInvoiceId) {
+    // - 已有保存记录：必须选择
+    // - 未选择记录但正在填写表单：允许直接把表单信息写入订单
+    let selectedInvoice: InvoiceInfo | null = needInvoice ? invoiceInfoList.find(inv => inv._id === selectedInvoiceId) : null
+    const inlineInvoice = needInvoice && showInvoiceForm ? invoiceForm : null
+
+    if (needInvoice && !selectedInvoice && invoiceInfoList.length > 0 && !showInvoiceForm) {
       toast.error('请选择开票信息')
       setSubmitting(false)
       return
     }
-    
-    // 获取选中的开票信息
-    const selectedInvoice = needInvoice ? invoiceInfoList.find(inv => inv._id === selectedInvoiceId) : null
+
+    if (needInvoice && !selectedInvoice && showInvoiceForm) {
+      if (!invoiceForm.title) {
+        toast.error('请填写发票抬头')
+        setSubmitting(false)
+        return
+      }
+      if (invoiceForm.invoiceType === 'company' && !invoiceForm.taxNumber) {
+        toast.error('企业发票必须填写税号')
+        setSubmitting(false)
+        return
+      }
+    }
+
+    if (needInvoice && !selectedInvoice && !inlineInvoice) {
+      toast.error('请填写或选择开票信息')
+      setSubmitting(false)
+      return
+    }
 
     const inferSelectedMaterialsFromSku = (skuMaterial: any) => {
       const result: Record<string, any> = {}
@@ -406,6 +427,33 @@ export default function CheckoutPage() {
       return result
     }
 
+    const normalizeMaterialValue = (v: any): string => {
+      if (v === undefined || v === null) return ''
+      if (typeof v === 'string') return v.trim()
+      if (typeof v === 'number') return String(v)
+      if (Array.isArray(v)) return v.map(normalizeMaterialValue).filter(Boolean).join('、')
+      if (typeof v === 'object') {
+        return normalizeMaterialValue((v as any).name ?? (v as any).label ?? (v as any).value ?? (v as any).text ?? (v as any).title)
+      }
+      return String(v)
+    }
+
+    const normalizeSelectedMaterials = (raw: any): Record<string, any> => {
+      if (!raw || typeof raw !== 'object') return {}
+      const out: Record<string, any> = {}
+      for (const [k, v] of Object.entries(raw)) {
+        if (v === undefined || v === null || v === '') continue
+        if (Array.isArray(v)) {
+          const arr = v.map(normalizeMaterialValue).filter(Boolean)
+          if (arr.length) out[k] = arr
+          continue
+        }
+        const text = normalizeMaterialValue(v)
+        if (text) out[k] = text
+      }
+      return out
+    }
+
     const getEffectiveSelectedMaterials = (item: any) => {
       const current = item?.selectedMaterials
       if (current && typeof current === 'object' && Object.keys(current).length > 0) return current
@@ -415,7 +463,7 @@ export default function CheckoutPage() {
     // 构建订单数据（在try外面定义，确保catch中可以访问）
     const orderData = {
         items: items.map(item => {
-          const effectiveSelectedMaterials = getEffectiveSelectedMaterials(item)
+          const effectiveSelectedMaterials = normalizeSelectedMaterials(getEffectiveSelectedMaterials(item))
           return ({
           product: item.product._id,
           productId: item.product._id,
@@ -436,10 +484,10 @@ export default function CheckoutPage() {
               ? `${item.sku.length || '-'}×${item.sku.width || '-'}×${item.sku.height || '-'}` 
               : '',
             // 材质信息（兼容中英文）
-            material: effectiveSelectedMaterials?.['面料'] || effectiveSelectedMaterials?.fabric || '',
-            fill: effectiveSelectedMaterials?.['填充'] || effectiveSelectedMaterials?.filling || '',
-            frame: effectiveSelectedMaterials?.['框架'] || effectiveSelectedMaterials?.frame || '',
-            leg: effectiveSelectedMaterials?.['脚架'] || effectiveSelectedMaterials?.leg || ''
+            material: normalizeMaterialValue(effectiveSelectedMaterials?.['面料'] || effectiveSelectedMaterials?.fabric || ''),
+            fill: normalizeMaterialValue(effectiveSelectedMaterials?.['填充'] || effectiveSelectedMaterials?.filling || ''),
+            frame: normalizeMaterialValue(effectiveSelectedMaterials?.['框架'] || effectiveSelectedMaterials?.frame || ''),
+            leg: normalizeMaterialValue(effectiveSelectedMaterials?.['脚架'] || effectiveSelectedMaterials?.leg || '')
           },
           // 保存 SKU 尺寸原始数据
           skuDimensions: {
@@ -466,17 +514,17 @@ export default function CheckoutPage() {
         notes: formData.notes,
         // 开票信息
         needInvoice,
-        invoiceInfo: selectedInvoice ? {
-          invoiceType: selectedInvoice.invoiceType,
-          title: selectedInvoice.title,
-          taxNumber: selectedInvoice.taxNumber,
-          bankName: selectedInvoice.bankName,
-          bankAccount: selectedInvoice.bankAccount,
-          companyAddress: selectedInvoice.companyAddress,
-          companyPhone: selectedInvoice.companyPhone,
-          email: selectedInvoice.email,
-          phone: selectedInvoice.phone,
-          mailingAddress: selectedInvoice.mailingAddress
+        invoiceInfo: (selectedInvoice || inlineInvoice) ? {
+          invoiceType: (selectedInvoice || inlineInvoice)!.invoiceType,
+          title: (selectedInvoice || inlineInvoice)!.title,
+          taxNumber: (selectedInvoice || inlineInvoice)!.taxNumber,
+          bankName: (selectedInvoice || inlineInvoice)!.bankName,
+          bankAccount: (selectedInvoice || inlineInvoice)!.bankAccount,
+          companyAddress: (selectedInvoice || inlineInvoice)!.companyAddress,
+          companyPhone: (selectedInvoice || inlineInvoice)!.companyPhone,
+          email: (selectedInvoice || inlineInvoice)!.email,
+          phone: (selectedInvoice || inlineInvoice)!.phone,
+          mailingAddress: (selectedInvoice || inlineInvoice)!.mailingAddress
         } : undefined,
         invoiceMarkupPercent: needInvoice ? manufacturerSettings.invoiceMarkupPercent : 0,
         invoiceMarkupAmount: 0,

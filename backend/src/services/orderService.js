@@ -319,6 +319,47 @@ const createOrder = async (userId, {
 
   const enrichedItems = await enrichItemsWithManufacturer(items)
 
+  const normalizeMaterialValue = (v) => {
+    if (v === undefined || v === null) return ''
+    if (typeof v === 'string') return v.trim()
+    if (typeof v === 'number') return String(v)
+    if (Array.isArray(v)) return v.map(normalizeMaterialValue).filter(Boolean)
+    if (typeof v === 'object') {
+      return normalizeMaterialValue(v.name ?? v.label ?? v.value ?? v.text ?? v.title)
+    }
+    return String(v)
+  }
+
+  const normalizeSelectedMaterials = (raw) => {
+    if (!raw || typeof raw !== 'object') return {}
+    const out = {}
+    for (const [k, v] of Object.entries(raw)) {
+      if (v === undefined || v === null || v === '') continue
+      if (Array.isArray(v)) {
+        const arr = v.map(normalizeMaterialValue).flat().filter(Boolean)
+        if (arr.length === 1) out[k] = arr[0]
+        else if (arr.length > 1) out[k] = arr
+        continue
+      }
+      const text = normalizeMaterialValue(v)
+      if (Array.isArray(text)) {
+        const arr = text.flat().filter(Boolean)
+        if (arr.length === 1) out[k] = arr[0]
+        else if (arr.length > 1) out[k] = arr
+      } else if (text) {
+        out[k] = text
+      }
+    }
+    return out
+  }
+
+  for (const item of (enrichedItems || [])) {
+    const selected = item?.selectedMaterials || item?.materials
+    if (selected && typeof selected === 'object') {
+      item.selectedMaterials = normalizeSelectedMaterials(selected)
+    }
+  }
+
   // 持久化材质图片与描述（用于订单详情/导出）
   try {
     const nameSet = new Set()
