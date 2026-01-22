@@ -315,14 +315,47 @@ export interface CartItem {
 // 订单类型
 export type OrderStatus = 'pending' | 'processing' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunding' | 'refunded' | 'exchanging'
 
+export type InvoiceStatus = 'pending' | 'processing' | 'issued' | 'sent'
+
+export interface InvoiceInfo {
+  invoiceType?: 'personal' | 'company'
+  title?: string
+  taxNumber?: string
+  bankName?: string
+  bankAccount?: string
+  companyAddress?: string
+  companyPhone?: string
+  email?: string
+  phone?: string
+  mailingAddress?: string
+}
+
 export interface OrderItem {
   product: Product | string
   productName?: string
   productImage?: string
+  image?: string
+  productId?: string
   sku: {
     color?: string
     material?: string
   }
+  specifications?: {
+    size?: string
+    dimensions?: string
+    material?: string
+    color?: string
+    fill?: string
+    frame?: string
+    leg?: string
+  }
+  skuDimensions?: {
+    length?: number
+    width?: number
+    height?: number
+  }
+  selectedMaterials?: SelectedMaterials
+  materialUpgradePrices?: Record<string, number>
   quantity: number
   price: number
 }
@@ -337,6 +370,38 @@ export interface Order {
   subtotal?: number
   discountAmount?: number
   status: OrderStatus | number
+  // 开票信息
+  needInvoice?: boolean
+  invoiceInfo?: InvoiceInfo
+  invoiceMarkupPercent?: number
+  invoiceMarkupAmount?: number
+  invoiceStatus?: InvoiceStatus
+  invoiceIssuedAt?: string
+  // 结算模式/分期/返佣
+  settlementMode?: 'supplier_transfer' | 'commission_mode' | null
+  originalPrice?: number
+  minDiscountRate?: number
+  commissionRate?: number
+  minDiscountPrice?: number
+  commissionAmount?: number
+  supplierPrice?: number
+  commissionStatus?: 'pending' | 'applied' | 'approved' | 'paid' | null
+  paymentRatioEnabled?: boolean
+  paymentRatio?: number
+  firstPaymentAmount?: number
+  remainingPaymentAmount?: number
+  remainingPaymentStatus?: 'pending' | 'paid' | null
+  remainingPaymentRemindedAt?: string
+  depositAmount?: number
+  depositPaidAt?: string
+  depositVerified?: boolean
+  depositVerifiedAt?: string
+  finalPaymentAmount?: number
+  finalPaymentRequested?: boolean
+  finalPaymentRequestedAt?: string
+  finalPaymentPaidAt?: string
+  finalPaymentVerified?: boolean
+  finalPaymentVerifiedAt?: string
   // 收货人信息（新格式）
   recipient?: {
     name: string
