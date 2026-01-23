@@ -1024,9 +1024,14 @@ export default function OrderManagementNew2() {
         'spec': '规格', '规格': '规格',
       }
 
+      // 规范化材质值，去除前缀如 "面料-", "fabric-" 等
+      const normalizeValueForDedup = (val: string) => {
+        return val.replace(/^(面料|fabric|材质|material|填充|filling|框架|frame|脚架|leg)[-:：]*/i, '').trim()
+      }
+
       // 去重：合并英文和中文键，只保留一个值
       const deduped: Record<string, string> = {}
-      const seenValues = new Set<string>() // 按值去重
+      const seenValues = new Set<string>() // 按规范化后的值去重
       
       for (const [k, v] of Object.entries(merged)) {
         if (v === undefined || v === null || v === '') continue
@@ -1038,13 +1043,16 @@ export default function OrderManagementNew2() {
         const valueStr = normalizeMaterialValue(v)
         if (!valueStr) continue
         
-        // 跳过已经出现过的值（按值去重）
-        if (seenValues.has(valueStr)) continue
+        // 规范化值用于去重比较
+        const normalizedValue = normalizeValueForDedup(valueStr)
         
-        // 如果该规范化键名还没有值，则使用当前值
+        // 跳过已经出现过的值（按规范化后的值去重）
+        if (seenValues.has(normalizedValue)) continue
+        
+        // 如果该规范化键名还没有值，则使用规范化后的值显示
         if (!deduped[normalizedKey]) {
-          deduped[normalizedKey] = valueStr
-          seenValues.add(valueStr)
+          deduped[normalizedKey] = normalizedValue || valueStr
+          seenValues.add(normalizedValue)
         }
       }
 
@@ -1071,9 +1079,19 @@ export default function OrderManagementNew2() {
             }, {})
             return Object.entries(groups)
               .map(([categoryKey, list]) => {
-                // 对每个分组内的材质名称去重
-                const namesSet = new Set((list as any[]).map(s => s?.name).filter(Boolean))
-                const names = Array.from(namesSet).join('、')
+                // 对每个分组内的材质名称去重（去除前缀后比较）
+                const seenNormalizedNames = new Set<string>()
+                const uniqueNames: string[] = []
+                for (const s of (list as any[])) {
+                  const rawName = String(s?.name || '')
+                  if (!rawName) continue
+                  const normalizedName = normalizeValueForDedup(rawName)
+                  if (!seenNormalizedNames.has(normalizedName)) {
+                    seenNormalizedNames.add(normalizedName)
+                    uniqueNames.push(normalizedName || rawName)
+                  }
+                }
+                const names = uniqueNames.join('、')
                 return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>`
               })
               .join('')
@@ -1233,9 +1251,14 @@ export default function OrderManagementNew2() {
         'spec': '规格', '规格': '规格',
       }
 
+      // 规范化材质值，去除前缀如 "面料-", "fabric-" 等
+      const normalizeValueForDedup = (val: string) => {
+        return val.replace(/^(面料|fabric|材质|material|填充|filling|框架|frame|脚架|leg)[-:：]*/i, '').trim()
+      }
+
       // 去重：合并英文和中文键，只保留一个值
       const deduped: Record<string, string> = {}
-      const seenValues = new Set<string>() // 按值去重
+      const seenValues = new Set<string>() // 按规范化后的值去重
       
       for (const [k, v] of Object.entries(merged)) {
         if (v === undefined || v === null || v === '') continue
@@ -1247,13 +1270,16 @@ export default function OrderManagementNew2() {
         const valueStr = normalizeMaterialValue(v)
         if (!valueStr) continue
         
-        // 跳过已经出现过的值（按值去重）
-        if (seenValues.has(valueStr)) continue
+        // 规范化值用于去重比较
+        const normalizedValue = normalizeValueForDedup(valueStr)
         
-        // 如果该规范化键名还没有值，则使用当前值
+        // 跳过已经出现过的值（按规范化后的值去重）
+        if (seenValues.has(normalizedValue)) continue
+        
+        // 如果该规范化键名还没有值，则使用规范化后的值显示
         if (!deduped[normalizedKey]) {
-          deduped[normalizedKey] = valueStr
-          seenValues.add(valueStr)
+          deduped[normalizedKey] = normalizedValue || valueStr
+          seenValues.add(normalizedValue)
         }
       }
 
@@ -1274,9 +1300,19 @@ export default function OrderManagementNew2() {
             }, {})
             return Object.entries(groups)
               .map(([categoryKey, list]) => {
-                // 对每个分组内的材质名称去重
-                const namesSet = new Set((list as any[]).map(s => s?.name).filter(Boolean))
-                const names = Array.from(namesSet).join('、')
+                // 对每个分组内的材质名称去重（去除前缀后比较）
+                const seenNormalizedNames = new Set<string>()
+                const uniqueNames: string[] = []
+                for (const s of (list as any[])) {
+                  const rawName = String(s?.name || '')
+                  if (!rawName) continue
+                  const normalizedName = normalizeValueForDedup(rawName)
+                  if (!seenNormalizedNames.has(normalizedName)) {
+                    seenNormalizedNames.add(normalizedName)
+                    uniqueNames.push(normalizedName || rawName)
+                  }
+                }
+                const names = uniqueNames.join('、')
                 return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>`
               })
               .join('')
@@ -2461,24 +2497,34 @@ export default function OrderManagementNew2() {
                   <span className="font-medium">{(selectedOrder as any).invoiceInfo?.title || '-'}</span>
                 </div>
 
-                {(selectedOrder as any).invoiceInfo?.taxNumber && (
-                  <div className="col-span-2 flex items-center justify-between">
-                    <span className="text-gray-500">税号</span>
-                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.taxNumber}</span>
-                  </div>
-                )}
-                {(selectedOrder as any).invoiceInfo?.email && (
-                  <div className="col-span-2 flex items-center justify-between">
-                    <span className="text-gray-500">收票邮箱</span>
-                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.email}</span>
-                  </div>
-                )}
-                {(selectedOrder as any).invoiceInfo?.phone && (
-                  <div className="col-span-2 flex items-center justify-between">
-                    <span className="text-gray-500">收票手机</span>
-                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.phone}</span>
-                  </div>
-                )}
+                <div className="col-span-2 flex items-center justify-between">
+                  <span className="text-gray-500">税号</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.taxNumber || '-'}</span>
+                </div>
+                <div className="col-span-2 flex items-center justify-between">
+                  <span className="text-gray-500">开户银行</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.bankName || '-'}</span>
+                </div>
+                <div className="col-span-2 flex items-center justify-between">
+                  <span className="text-gray-500">银行账号</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.bankAccount || '-'}</span>
+                </div>
+                <div className="col-span-2 flex items-center justify-between">
+                  <span className="text-gray-500">企业地址</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.address || '-'}</span>
+                </div>
+                <div className="col-span-2 flex items-center justify-between">
+                  <span className="text-gray-500">企业电话</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.companyPhone || (selectedOrder as any).invoiceInfo?.phone || '-'}</span>
+                </div>
+                <div className="col-span-2 flex items-center justify-between">
+                  <span className="text-gray-500">收票邮箱</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.email || '-'}</span>
+                </div>
+                <div className="col-span-2 flex items-center justify-between">
+                  <span className="text-gray-500">收票手机</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.phone || '-'}</span>
+                </div>
                 {(selectedOrder as any).invoiceInfo?.mailingAddress && (
                   <div className="col-span-2 flex items-center justify-between">
                     <span className="text-gray-500">邮寄地址</span>
@@ -2587,7 +2633,20 @@ export default function OrderManagementNew2() {
                   'frame': '框架', '框架': '框架',
                   'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
                 }
-                const snapshotGroups = snapshots.reduce((acc: Record<string, any[]>, s: any) => {
+                // 先按 name 去重，相同 name 的只保留一个（去除前缀如 "面料-", "fabric-" 等）
+                const seenNames = new Set<string>()
+                const normalizeName = (name: string) => {
+                  // 去除常见前缀
+                  return name.replace(/^(面料|fabric|材质|material|填充|filling|框架|frame|脚架|leg)[-:：]*/i, '').trim()
+                }
+                const dedupedSnapshots = snapshots.filter((s: any) => {
+                  const rawName = String(s?.name || '')
+                  const normalizedName = normalizeName(rawName)
+                  if (!normalizedName || seenNames.has(normalizedName)) return false
+                  seenNames.add(normalizedName)
+                  return true
+                })
+                const snapshotGroups = dedupedSnapshots.reduce((acc: Record<string, any[]>, s: any) => {
                   const rawKey = String(s?.categoryKey || '材质')
                   const key = categoryKeyAliases[rawKey.toLowerCase()] || categoryKeyAliases[rawKey] || rawKey
                   if (!acc[key]) acc[key] = []
