@@ -86,6 +86,8 @@ export default function ProductForm() {
     category: '', // 主分类（兼容旧数据）
     categories: [] as string[], // 多选分类数组
     basePrice: 0,
+    series: '', // 系列名称
+    seriesImage: '', // 系列图片
     styles: [] as string[], // 风格标签
     mainImages: [] as string[],
     videos: [] as string[], // 视频URL数组
@@ -228,6 +230,8 @@ export default function ProductForm() {
             : (product.category as any)?._id || '',
           categories: ((product as any).categories || []) as string[], // 多选分类
           basePrice: product.basePrice,
+          series: ((product as any).series || '') as string, // 系列名称
+          seriesImage: ((product as any).seriesImage || '') as string, // 系列图片
           mainImages: (product.images || []).filter((img: string) => {
             // 过滤掉Base64数据，只保留fileId
             if (img.startsWith('data:')) {
@@ -1573,6 +1577,64 @@ export default function ProductForm() {
                 placeholder="请输入商品价格"
                 className="input"
               />
+            </div>
+          </div>
+
+          {/* 系列 */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium mb-2">系列</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <input
+                  type="text"
+                  value={formData.series}
+                  onChange={(e) => setFormData({ ...formData, series: e.target.value })}
+                  placeholder="请输入系列名称（如：北欧简约系列）"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">系列图片（可选）</label>
+                <div className="flex items-center gap-3">
+                  {formData.seriesImage ? (
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
+                      <img
+                        src={getFileUrl(formData.seriesImage)}
+                        alt="系列图片"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, seriesImage: '' })}
+                        className="absolute top-0 right-0 bg-red-500 text-white rounded-bl p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center justify-center w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            try {
+                              const result = await uploadFile(file)
+                              setFormData({ ...formData, seriesImage: result.url })
+                              toast.success('系列图片上传成功')
+                            } catch (error) {
+                              toast.error('上传失败')
+                            }
+                          }
+                        }}
+                      />
+                      <Upload className="w-5 h-5 text-gray-400" />
+                    </label>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           

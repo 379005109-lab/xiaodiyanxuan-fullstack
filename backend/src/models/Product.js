@@ -90,6 +90,9 @@ const productSchema = new mongoose.Schema({
   otherMaterialsImage: String, // 其他材质图片
   materialImages: mongoose.Schema.Types.Mixed, // 材质图片 { categoryName: [{name, url}] }
   materialCategories: [String], // 材质类目列表
+  // 系列信息
+  series: String, // 系列名称
+  seriesImage: String, // 系列图片
   tags: [String],
   isCombo: { type: Boolean, default: false },
   comboItems: [String],

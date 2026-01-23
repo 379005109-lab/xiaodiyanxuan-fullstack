@@ -786,13 +786,36 @@ export default function ProductsPage() {
                 <option value="price-desc">价格从高到低</option>
               </select>
 
-              <button
-                type="button"
-                onClick={() => navigate('/products')}
-                className="px-4 py-2 rounded-full bg-stone-100 text-sm text-stone-700 hover:bg-stone-200"
+              <select
+                value={filters.priceRange}
+                onChange={(e) => {
+                  setFilters({ ...filters, priceRange: e.target.value })
+                  setSearchParams({ ...Object.fromEntries(searchParams), priceRange: e.target.value })
+                }}
+                className="px-4 py-2 rounded-full bg-stone-100 text-sm text-stone-700"
               >
-                系列
-              </button>
+                <option value="">价格</option>
+                <option value="0-3000">0-3000</option>
+                <option value="3000-6000">3000-6000</option>
+                <option value="6000-10000">6000-10000</option>
+                <option value="10000-20000">10000-20000</option>
+                <option value="20000-">20000+</option>
+              </select>
+
+              <select
+                value={filters.style}
+                onChange={(e) => {
+                  setFilters({ ...filters, style: e.target.value })
+                  setSearchParams({ ...Object.fromEntries(searchParams), style: e.target.value })
+                }}
+                className="px-4 py-2 rounded-full bg-stone-100 text-sm text-stone-700"
+              >
+                {styleOptions.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label || '风格'}
+                  </option>
+                ))}
+              </select>
 
               <button
                 type="button"
@@ -823,7 +846,119 @@ export default function ProductsPage() {
 
           {filterOpen && (
             <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-stone-100">
-              <div className="grid grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">设计风格 STYLE</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {styleOptions.map((style) => (
+                      <button
+                        key={style.value}
+                        type="button"
+                        onClick={() => {
+                          setFilters({ ...filters, style: style.value })
+                          setSearchParams({ ...Object.fromEntries(searchParams), style: style.value })
+                        }}
+                        className={`px-3 py-2 rounded-full text-sm transition-colors ${
+                          filters.style === style.value
+                            ? 'bg-primary text-white font-medium'
+                            : 'bg-stone-50 hover:bg-stone-100 text-stone-600'
+                        }`}
+                      >
+                        {style.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">价格区间</h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">最低价</label>
+                        <input
+                          type="number"
+                          value={priceRangeInput[0]}
+                          onChange={(e) => {
+                            const value = Math.max(actualPriceRange[0], Math.min(Number(e.target.value), priceRangeInput[1] - 1))
+                            setPriceRangeInput([value, priceRangeInput[1]])
+                            setPriceRange([value, priceRangeInput[1]])
+                            setFilters({ ...filters, priceRange: `${value}-${priceRangeInput[1]}` })
+                          }}
+                          className="input text-sm w-full"
+                          min={actualPriceRange[0]}
+                          max={priceRangeInput[1] - 1}
+                          placeholder={`最低${actualPriceRange[0]}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">最高价</label>
+                        <input
+                          type="number"
+                          value={priceRangeInput[1]}
+                          onChange={(e) => {
+                            const value = Math.max(priceRangeInput[0] + 1, Math.min(Number(e.target.value), actualPriceRange[1]))
+                            setPriceRangeInput([priceRangeInput[0], value])
+                            setPriceRange([priceRangeInput[0], value])
+                            setFilters({ ...filters, priceRange: `${priceRangeInput[0]}-${value}` })
+                          }}
+                          className="input text-sm w-full"
+                          min={priceRangeInput[0] + 1}
+                          max={actualPriceRange[1]}
+                          placeholder={`最高${actualPriceRange[1]}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative h-2">
+                      <div className="absolute w-full h-2 bg-gray-200 rounded-lg"></div>
+                      <div
+                        className="absolute h-2 bg-primary-600 rounded-lg"
+                        style={{
+                          left: `${((priceRange[0] - actualPriceRange[0]) / (actualPriceRange[1] - actualPriceRange[0])) * 100}%`,
+                          width: `${((priceRange[1] - priceRange[0]) / (actualPriceRange[1] - actualPriceRange[0])) * 100}%`,
+                        }}
+                      ></div>
+                      <input
+                        type="range"
+                        min={actualPriceRange[0]}
+                        max={actualPriceRange[1]}
+                        step="1000"
+                        value={priceRange[0]}
+                        onChange={(e) => {
+                          const min = Number(e.target.value)
+                          const max = Math.max(min, priceRange[1])
+                          setPriceRange([min, max])
+                          setPriceRangeInput([min, max])
+                          setFilters({ ...filters, priceRange: `${min}-${max}` })
+                        }}
+                        className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider"
+                        style={{ zIndex: 2 }}
+                      />
+                      <input
+                        type="range"
+                        min={actualPriceRange[0]}
+                        max={actualPriceRange[1]}
+                        step="1000"
+                        value={priceRange[1]}
+                        onChange={(e) => {
+                          const max = Number(e.target.value)
+                          const min = Math.min(max, priceRange[0])
+                          setPriceRange([min, max])
+                          setPriceRangeInput([min, max])
+                          setFilters({ ...filters, priceRange: `${min}-${max}` })
+                        }}
+                        className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider"
+                        style={{ zIndex: 2 }}
+                      />
+                    </div>
+
+                    <div className="text-center text-sm text-gray-600">
+                      {formatPriceSimplified(priceRange[0])} - {formatPriceSimplified(priceRange[1])}
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">系列 SERIES</h4>
                   <div className="flex flex-wrap gap-2">
