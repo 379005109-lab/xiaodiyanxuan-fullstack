@@ -437,7 +437,8 @@ export default function Header() {
                   <div className="w-40 border-r border-stone-100 py-3 flex-shrink-0">
                     {(() => {
                       const parentCat = categories.find(c => c._id === hoveredCategoryId)
-                      const childCats = categories.filter(c => c.parentId === hoveredCategoryId)
+                      // 使用嵌套的children数组而不是过滤parentId
+                      const childCats = parentCat?.children || []
                       
                       if (!hoveredCategoryId) {
                         return (
@@ -464,8 +465,8 @@ export default function Header() {
                           >
                             <span>全部{parentCat?.name}</span>
                           </div>
-                          {childCats.map((child) => {
-                            const hasGrandchildren = categories.some(c => c.parentId === child._id)
+                          {childCats.map((child: any) => {
+                            const hasGrandchildren = child.children && child.children.length > 0
                             return (
                               <div
                                 key={child._id}
@@ -493,10 +494,11 @@ export default function Header() {
                   {/* 右侧：三级分类网格 */}
                   <div className="flex-1 p-4 min-h-[300px]">
                     {(() => {
-                      const subCat = categories.find(c => c._id === hoveredSubCategoryId)
-                      const grandchildCats = categories.filter(c => c.parentId === hoveredSubCategoryId)
                       const parentCat = categories.find(c => c._id === hoveredCategoryId)
-                      const childCats = categories.filter(c => c.parentId === hoveredCategoryId)
+                      const childCats = parentCat?.children || []
+                      // 从二级分类的children中找三级分类
+                      const subCat = childCats.find((c: any) => c._id === hoveredSubCategoryId)
+                      const grandchildCats = subCat?.children || []
                       
                       if (!hoveredCategoryId) {
                         return (
@@ -512,7 +514,7 @@ export default function Header() {
                           <div>
                             <div className="text-lg font-bold text-primary mb-4">{subCat?.name}</div>
                             <div className="grid grid-cols-4 gap-3">
-                              {grandchildCats.map((grandchild) => (
+                              {grandchildCats.map((grandchild: any) => (
                                 <div
                                   key={grandchild._id}
                                   onClick={() => {
@@ -556,7 +558,7 @@ export default function Header() {
                             {hoveredSubCategoryId ? subCat?.name : parentCat?.name}
                           </div>
                           <div className="grid grid-cols-4 gap-3">
-                            {(hoveredSubCategoryId ? grandchildCats : childCats).map((cat) => (
+                            {(hoveredSubCategoryId ? grandchildCats : childCats).map((cat: any) => (
                               <div
                                 key={cat._id}
                                 onClick={() => {
