@@ -693,37 +693,37 @@ export default function ProductsPage() {
             <h1 className="text-4xl font-semibold text-stone-900">{pageTitle}</h1>
           </div>
 
-          {/* 子分类快捷标签 */}
+          {/* 子分类图片卡片 */}
           {subcategoryTabs.length > 0 && (
-            <div className="mt-6 flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => {
-                  const params = new URLSearchParams(searchParams.toString())
-                  params.delete('sub')
-                  setSearchParams(params)
-                  setFilters({ ...filters, sub: '' })
-                }}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  !filters.sub ? 'bg-primary text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                }`}
-              >
-                全部
-              </button>
+            <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {subcategoryTabs.map((tab) => (
-                <button
+                <div
                   key={tab.id}
                   onClick={() => {
                     setSearchParams({ ...Object.fromEntries(searchParams), category: tab.slug })
                     setFilters({ ...filters, category: tab.slug })
                   }}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  className={`cursor-pointer group ${
                     filters.category === tab.slug || filters.category === tab.id
-                      ? 'bg-primary text-white'
-                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      ? 'ring-2 ring-primary rounded-lg'
+                      : ''
                   }`}
                 >
-                  {tab.name}
-                </button>
+                  <div className="aspect-[4/3] bg-stone-100 rounded-lg overflow-hidden mb-2">
+                    {tab.image ? (
+                      <img
+                        src={getFileUrl(tab.image)}
+                        alt={tab.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Grid className="w-8 h-8 text-stone-300" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-stone-700 group-hover:text-primary transition-colors">{tab.name}</p>
+                </div>
               ))}
             </div>
           )}
