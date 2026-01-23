@@ -385,7 +385,7 @@ export default function Header() {
             onMouseLeave={handleCategoryMouseLeave}
           >
             <span 
-              onClick={() => requireAuthNavigate('/products')}
+              onClick={() => navigate('/products')}
               className={`${getLinkClass('/products')} cursor-pointer flex items-center gap-1`}
             >
               所有商品

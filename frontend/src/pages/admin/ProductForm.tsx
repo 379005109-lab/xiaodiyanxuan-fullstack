@@ -122,6 +122,9 @@ export default function ProductForm() {
         length: 200,
         width: 90,
         height: 85,
+        // 包装信息
+        packageVolume: '', // 包装体积
+        packageCount: 1, // 包装件数
         // 面料选择（单选，关联materialsGroups中的材质）
         fabricMaterialId: '' as string, // 关联的材质分组ID
         fabricName: '' as string, // 面料名称（如：纳帕皮A+黑色）
@@ -317,6 +320,9 @@ export default function ProductForm() {
               length: (sku as any).length || 0,
               width: (sku as any).width || 0,
               height: (sku as any).height || 0,
+              // 包装信息
+              packageVolume: (sku as any).packageVolume || '',
+              packageCount: (sku as any).packageCount || 1,
               // 面料选择
               fabricMaterialId: (sku as any).fabricMaterialId || '',
               fabricName: (sku as any).fabricName || '',
@@ -812,6 +818,8 @@ export default function ProductForm() {
           length: 0,
           width: 0,
           height: 0,
+          packageVolume: '',
+          packageCount: 1,
           fabricMaterialId: '',
           fabricName: '',
           otherMaterials: '',
@@ -920,6 +928,8 @@ export default function ProductForm() {
             length: spec.length,
             width: spec.width,
             height: spec.height,
+            packageVolume: '',
+            packageCount: 1,
             fabricMaterialId: matConfig.fabricId,
             fabricName: matConfig.fabricName,
             otherMaterials: formData.otherMaterialsText, // 使用统一的其他材质
@@ -957,6 +967,8 @@ export default function ProductForm() {
           length: spec.length,
           width: spec.width,
           height: spec.height,
+          packageVolume: '',
+          packageCount: 1,
           fabricMaterialId: '',
           fabricName: '',
           otherMaterials: formData.otherMaterialsText,
@@ -1053,10 +1065,10 @@ export default function ProductForm() {
 
         // 跳过表头，从第二行开始读取数据
         const skuData = dataRows.map((row: any[], index) => {
-          // Excel格式v4.0（无图片列，有厂家列）：
+          // Excel格式v5.0（简化版）：
           // A(0):商品名称 B(1):型号 C(2):类别 D(3):规格 E(4):长宽高
-          // F(5):面料 G(6):填充 H(7):框架 I(8):脚架
-          // J(9):标价 K(10):折扣价 L(11):库存 M(12):销量 N(13):PRO O(14):PRO特性 P(15):厂家
+          // F(5):材质面料 G(6):材质描述 H(7):标价 I(8):折扣价
+          // J(9):库存天数 K(10):制作天数 L(11):包装体积 M(12):包装件数 N(13):厂家
           //
           // Excel格式v3.0（兼容旧格式）：
           // A(0):商品名称 B(1):型号 C(2):类别 D(3):规格 E(4):长宽高 F(5):材质 G(6):标价 H(7):折扣价 I(8):库存 J(9):销量 K(10):PRO L(11):PRO特性
@@ -1112,35 +1124,35 @@ export default function ProductForm() {
           // 构建动态材质对象
           const buildMaterial = (): MaterialSelection => {
             const result: MaterialSelection = {}
-            if (isNewFormat) {
-              // 新格式：F(5):面料 G(6):填充 H(7):框架 I(8):脚架
-              const fabric = parseMaterialString(row[5]?.toString() || '')
-              const filling = parseMaterialString(row[6]?.toString() || '')
-              const frame = parseMaterialString(row[7]?.toString() || '')
-              const leg = parseMaterialString(row[8]?.toString() || '')
-              if (fabric.length > 0) result.fabric = fabric
-              if (filling.length > 0) result.filling = filling
-              if (frame.length > 0) result.frame = frame
-              if (leg.length > 0) result.leg = leg
-            } else {
-              // 旧格式：F(5):材质（作为面料）
-              const fabric = parseMaterialString(row[5]?.toString() || '')
-              if (fabric.length > 0) result.fabric = fabric
-            }
+            // 新格式v5.0：F(5):材质面料
+            const fabric = parseMaterialString(row[5]?.toString() || '')
+            if (fabric.length > 0) result.fabric = fabric
             return result
           }
+          
+          // 获取材质描述
+          const materialDescription = isNewFormat ? (row[6]?.toString() || '') : ''
           
           material = buildMaterial()
           // 从材质数据中提取已配置的类目列表
           const materialCategories = Object.keys(material).filter(key => material[key]?.length > 0)
           
+          // 新格式v5.0字段解析
+          let deliveryDays = 7
+          let productionDays = 30
+          let packageVolume = ''
+          let packageCount = 1
+          
           if (isNewFormat) {
-            price = parseFloat((row[9]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // J列：标价
-            discountPrice = parseFloat((row[10]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // K列：折扣价
-            stock = parseInt(row[11]) || 0 // L列：库存
-            sales = parseInt(row[12]) || 0 // M列：销量
-            isPro = row[13] === '是' || row[13] === 'PRO' || false // N列：PRO
-            proFeature = (row[14]?.toString() || '').trim() // O列：PRO特性
+            price = parseFloat((row[7]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // H列：标价
+            discountPrice = parseFloat((row[8]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // I列：折扣价
+            deliveryDays = parseInt(row[9]) || 7 // J列：库存天数
+            productionDays = parseInt(row[10]) || 30 // K列：制作天数
+            packageVolume = (row[11]?.toString() || '').trim() // L列：包装体积
+            packageCount = parseInt(row[12]) || 1 // M列：包装件数
+            sales = 0
+            isPro = false
+            proFeature = ''
           } else {
             price = parseFloat((row[6]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // G列：标价
             discountPrice = parseFloat((row[7]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // H列：折扣价
@@ -1151,15 +1163,13 @@ export default function ProductForm() {
           }
           
           console.log('材质字段映射:', {
-            格式: isNewFormat ? '新格式（4个材质字段）' : '旧格式（单个材质字段）',
+            格式: isNewFormat ? '新格式v5.0' : '旧格式',
             行长度: row.length,
             已配置类目: materialCategories,
             material: material,
             'F列[5]-面料': row[5],
-            'G列[6]-填充': row[6],
-            'H列[7]-框架': row[7],
-            'I列[8]-脚架': row[8],
-            'P列[15]-厂家': row[15],
+            'G列[6]-材质描述': row[6],
+            'N列[13]-厂家': row[13],
           })
           
           return {
@@ -1170,9 +1180,11 @@ export default function ProductForm() {
             length: length,
             width: width,
             height: height,
+            packageVolume: packageVolume,
+            packageCount: packageCount,
             fabricMaterialId: '',
             fabricName: '',
-            otherMaterials: '',
+            otherMaterials: materialDescription,
             otherMaterialsImage: '',
             material: material,
             materialCategories: materialCategories,
@@ -1181,8 +1193,8 @@ export default function ProductForm() {
             discountPrice: discountPrice,
             stockMode: false, // 默认定制模式
             stock: 0,
-            deliveryDays: 7,
-            productionDays: 30,
+            deliveryDays: deliveryDays,
+            productionDays: productionDays,
             deliveryNote: '',
             arrivalDate: null,
             files: [],
@@ -1191,7 +1203,7 @@ export default function ProductForm() {
             proFeature: proFeature,
             status: true,
             manufacturerId: '',
-            manufacturerName: row[15]?.toString() || '',
+            manufacturerName: isNewFormat ? (row[13]?.toString() || '') : (row[15]?.toString() || ''),
           }
         })
 
@@ -1903,6 +1915,7 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">折扣价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[140px]">库存/发货</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[120px]">包装</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">文件</th>
                   <th className="text-right py-3 px-4 text-sm font-medium">操作</th>
                 </tr>
@@ -2169,6 +2182,39 @@ export default function ProductForm() {
                             <p className="text-[10px] text-orange-400">下单后开始制作</p>
                           </div>
                         )}
+                      </div>
+                    </td>
+                    {/* 包装信息 */}
+                    <td className="py-3 px-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-500">体积:</span>
+                          <input
+                            type="text"
+                            value={sku.packageVolume || ''}
+                            onChange={(e) => {
+                              const newSkus = [...formData.skus]
+                              newSkus[index].packageVolume = e.target.value
+                              setFormData({ ...formData, skus: newSkus })
+                            }}
+                            className="w-16 px-1 py-0.5 border border-gray-300 rounded text-center text-sm"
+                            placeholder="0.5m³"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-500">件数:</span>
+                          <input
+                            type="number"
+                            value={sku.packageCount || 1}
+                            onChange={(e) => {
+                              const newSkus = [...formData.skus]
+                              newSkus[index].packageCount = parseInt(e.target.value) || 1
+                              setFormData({ ...formData, skus: newSkus })
+                            }}
+                            className="w-12 px-1 py-0.5 border border-gray-300 rounded text-center text-sm"
+                            min="1"
+                          />
+                        </div>
                       </div>
                     </td>
                     {/* SKU文件上传 */}

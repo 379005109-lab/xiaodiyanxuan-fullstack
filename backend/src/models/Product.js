@@ -38,6 +38,9 @@ const skuSchema = new mongoose.Schema({
   length: Number,
   width: Number,
   height: Number,
+  // 包装信息
+  packageVolume: String, // 包装体积（如：0.5m³）
+  packageCount: { type: Number, default: 1 }, // 包装件数
   isPro: { type: Boolean, default: false },
   proFeature: String,
   status: { type: Boolean, default: true },
