@@ -2876,7 +2876,7 @@ export default function OrderManagementNew2() {
                                     )
                                   ))}
                                   <div className="text-xs text-gray-700 truncate">
-                                    {names.length ? `${categoryKey}-${names.join('、')}` : categoryKey}
+                                    {names.length ? names.join('、') : categoryKey}
                                   </div>
                                 </div>
 
