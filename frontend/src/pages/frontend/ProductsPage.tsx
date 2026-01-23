@@ -402,7 +402,14 @@ export default function ProductsPage() {
         : String(rawCategory ?? '')
       const productCategoryName = (product as any).categoryName || rawCategory?.name || rawCategory?.title || ''
       
-      if (!allCategoryIds.has(productCategory) && !allCategoryIds.has(productCategoryName)) {
+      // 也检查分类名称是否包含筛选关键词（模糊匹配）
+      const filterCatName = categories.find((c: any) => 
+        c._id === filters.category || c.slug === filters.category || c.name === filters.category
+      )?.name || filters.category
+      
+      const nameMatch = productCategoryName.includes(filterCatName) || filterCatName.includes(productCategoryName)
+      
+      if (!allCategoryIds.has(productCategory) && !allCategoryIds.has(productCategoryName) && !nameMatch) {
         return false
       }
     }
