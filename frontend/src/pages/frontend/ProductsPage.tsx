@@ -263,7 +263,6 @@ export default function ProductsPage() {
   // 获取分类及其所有子分类的ID和名称
   const getCategoryAndChildIds = (categoryId: string): Set<string> => {
     const result = new Set<string>()
-    result.add(categoryId)
     
     // 递归查找子分类
     const findChildren = (cats: any[], parentId: string) => {
@@ -444,6 +443,19 @@ export default function ProductsPage() {
   // 调试日志
   useEffect(() => {
     console.log(`🔍 商品筛选结果: 总商品=${products.length}, 筛选后=${filteredProducts.length}, 筛选条件=`, filters)
+    if (filters.category) {
+      const validIds = getCategoryAndChildIds(filters.category)
+      console.log(`📋 有效分类ID列表:`, Array.from(validIds))
+      // 显示前5个商品的分类信息
+      products.slice(0, 5).forEach((product, index) => {
+        const rawCategory = (product as any).category
+        const categoryId = typeof rawCategory === 'object'
+          ? String(rawCategory?._id || rawCategory?.id || '')
+          : String(rawCategory ?? '')
+        const categoryName = String((product as any).categoryName || rawCategory?.name || '')
+        console.log(`📦 商品${index + 1}: ID=${categoryId}, Name=${categoryName}`)
+      })
+    }
   }, [products.length, filteredProducts.length, filters])
 
   // 获取系列选项（从商品数据中动态获取）
