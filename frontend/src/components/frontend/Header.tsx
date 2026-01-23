@@ -385,8 +385,8 @@ export default function Header() {
             onMouseLeave={handleCategoryMouseLeave}
           >
             <span 
-              onClick={() => requireAuthNavigate('/all-products')}
-              className={`${getLinkClass('/all-products')} cursor-pointer flex items-center gap-1`}
+              onClick={() => requireAuthNavigate('/products')}
+              className={`${getLinkClass('/products')} cursor-pointer flex items-center gap-1`}
             >
               所有商品
               <ChevronDown className={`w-3 h-3 transition-transform ${categoryMenuOpen ? 'rotate-180' : ''}`} />
