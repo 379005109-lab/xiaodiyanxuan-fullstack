@@ -689,7 +689,30 @@ const ProductDetailPage = () => {
   }, [product]);
 
   const videoList = useMemo(() => normalizeVideoUrls(product?.videos || (product as any)?.videoUrls), [product]);
-  const fileList = useMemo(() => normalizeFileList(product?.files || (product as any)?.fileList), [product]);
+  const fileList = useMemo(() => {
+    // 合并商品级文件和SKU级文件
+    const productFiles = normalizeFileList(product?.files || (product as any)?.fileList);
+    const skuFiles: ProductFile[] = [];
+    
+    // 从所有SKU中收集文件
+    if (product?.skus) {
+      product.skus.forEach((sku: any) => {
+        if (sku.files && Array.isArray(sku.files)) {
+          sku.files.forEach((file: any) => {
+            skuFiles.push({
+              name: file.name || '设计文件',
+              url: file.url || file.fileId,
+              format: file.type || file.format || file.name?.split('.').pop() || 'unknown',
+              size: file.size || 0,
+              uploadTime: file.uploadTime
+            });
+          });
+        }
+      });
+    }
+    
+    return [...productFiles, ...skuFiles];
+  }, [product]);
 
   useEffect(() => {
     const fetchProduct = async () => {

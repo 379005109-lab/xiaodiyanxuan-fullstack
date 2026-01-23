@@ -1830,185 +1830,37 @@ export default function ProductForm() {
           </div>
         </div>
 
-        {/* 材质配置 */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold">材质配置</h2>
-            <button
-              type="button"
-              onClick={() => {
-                // 打开材质库选择弹窗添加新材质
-                setSelectingMaterialForSkuIndex(-2) // 使用-2表示添加到materialConfigs
-                setSelectingMaterialType('fabric')
-                setShowMaterialSelectModal(true)
-              }}
-              className="text-primary-600 hover:text-primary-700 text-sm flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              添加颜色/材质
-            </button>
-          </div>
-          
-          {/* 面料/颜色列表 */}
-          <div className="space-y-3">
-            {formData.materialConfigs.length === 0 ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectingMaterialForSkuIndex(-2)
-                  setSelectingMaterialType('fabric')
-                  setShowMaterialSelectModal(true)
-                }}
-                className="w-full text-center py-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors cursor-pointer"
-              >
-                <Plus className="h-8 w-8 mx-auto text-gray-400" />
-                <p className="text-gray-500 text-sm mt-2">点击添加颜色/材质</p>
-                <p className="text-gray-400 text-xs mt-1">从材质库选择面料</p>
-              </button>
-            ) : (
-              formData.materialConfigs.map((config, index) => {
-                console.log('🔥 [ProductForm] 渲染材质配置:', {
-                  id: config.id,
-                  fabricName: config.fabricName,
-                  images: config.images,
-                  firstImage: config.images?.[0],
-                  imagesCount: config.images?.length || 0
-                })
-                return (
-                <div key={config.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex-shrink-0">
-                    {config.images?.[0] ? (
-                      <img 
-                        src={getThumbnailUrl(config.images[0], 64)} 
-                        alt={config.fabricName}
-                        className="w-12 h-12 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400">
-                        <Upload className="h-5 w-5" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">{config.fabricName}</div>
-                    <div className="text-xs text-gray-500">面料 · {config.images?.length || 0}张图片</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div>
-                      <label className="text-xs text-gray-500">加价</label>
-                      <input
-                        type="number"
-                        value={config.price || 0}
-                        onChange={(e) => {
-                          const newConfigs = [...formData.materialConfigs]
-                          newConfigs[index].price = parseFloat(e.target.value) || 0
-                          setFormData({ ...formData, materialConfigs: newConfigs })
-                        }}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setManagingSkuIndex(-100 - index) // 使用负数标记管理materialConfigs的图片
-                        setShowImageManager(true)
-                      }}
-                      className="px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50 rounded"
-                    >
-                      管理图片
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newConfigs = formData.materialConfigs.filter((_, i) => i !== index)
-                        setFormData({ ...formData, materialConfigs: newConfigs })
-                      }}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )
-              })
-            )}
-          </div>
-
-          {/* 其他材质（文字+图片） */}
-          <div className="mt-4">
-            <label className="block text-sm font-medium mb-2">其他材质</label>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={formData.otherMaterialsText}
-                  onChange={(e) => setFormData({ ...formData, otherMaterialsText: e.target.value })}
-                  placeholder="如：蛇形弹簧+45D海绵+不锈钢支撑脚"
-                  className="input w-full"
-                />
-              </div>
-              <div className="flex-shrink-0">
-                {formData.otherMaterialsImage ? (
-                  <div className="relative">
-                    <img 
-                      src={getThumbnailUrl(formData.otherMaterialsImage, 64)} 
-                      alt="其他材质"
-                      className="w-12 h-12 rounded-lg object-cover border border-gray-200"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, otherMaterialsImage: '' })}
-                      className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ) : (
-                  <label className="w-12 h-12 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-primary-400 hover:bg-primary-50">
-                    <Upload className="h-5 w-5 text-gray-400" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0]
-                        if (!file) return
-                        try {
-                          const result = await uploadFile(file)
-                          if (result.success) {
-                            setFormData({ ...formData, otherMaterialsImage: result.data.fileId })
-                            toast.success('图片上传成功')
-                          }
-                        } catch (err) {
-                          toast.error('图片上传失败')
-                        }
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">SKU显示格式：面料：[选择的面料]，其他材质：[此处内容]</p>
-          </div>
-          
-          {/* 生成提示 */}
-          {formData.specifications.length > 0 && formData.materialConfigs.length > 0 && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-700">
-                <strong>{formData.specifications.length}</strong> 个规格 × <strong>{formData.materialConfigs.length}</strong> 个材质 = 
-                <strong className="text-blue-900"> {formData.specifications.length * formData.materialConfigs.length}</strong> 个SKU
-              </p>
-              <p className="text-xs text-blue-600 mt-1">点击下方"生成列表"按钮自动生成SKU</p>
-            </div>
-          )}
-        </div>
-
         {/* SKU列表 */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold">SKU列表</h2>
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-semibold">SKU列表</h2>
+              {/* 统一厂家选择 - 同步到所有SKU */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">统一厂家:</span>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const manufacturerId = e.target.value
+                    if (!manufacturerId) return
+                    const selectedManufacturer = manufacturers.find(m => m._id === manufacturerId)
+                    const newSkus = formData.skus.map(sku => ({
+                      ...sku,
+                      manufacturerId,
+                      manufacturerName: selectedManufacturer?.name || ''
+                    }))
+                    setFormData({ ...formData, skus: newSkus })
+                    toast.success(`已将所有SKU的厂家设置为: ${selectedManufacturer?.name}`)
+                  }}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
+                >
+                  <option value="">选择厂家批量设置</option>
+                  {manufacturers.map((m) => (
+                    <option key={m._id} value={m._id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={generateSKUsFromSpecifications}
@@ -2048,13 +1900,10 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">型号</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">尺寸(长×宽×高)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[180px]">面料(材质库)</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[220px]">其他材质</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">折扣价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[140px]">库存/发货</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">文件</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">PRO</th>
                   <th className="text-right py-3 px-4 text-sm font-medium">操作</th>
                 </tr>
               </thead>
@@ -2197,60 +2046,6 @@ export default function ProductForm() {
                           className="w-14 px-1 py-1 border border-gray-300 rounded text-center text-sm"
                           placeholder="高"
                         />
-                      </div>
-                    </td>
-                    {/* 面料（材质库） - 图块选择 */}
-                    <td className="py-3 px-4">
-                      {formData.materialConfigs.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {formData.materialConfigs.map((config) => (
-                            <button
-                              key={config.id}
-                              type="button"
-                              onClick={() => {
-                                const newSkus = [...formData.skus]
-                                newSkus[index].fabricMaterialId = config.id
-                                newSkus[index].fabricName = config.fabricName
-                                // 注意：材质图片只用于面料列显示，不同步到SKU图片管理器
-                                setFormData({ ...formData, skus: newSkus })
-                              }}
-                              className={`relative w-10 h-10 rounded border-2 overflow-hidden transition-all ${
-                                sku.fabricMaterialId === config.id
-                                  ? 'border-primary-500 ring-2 ring-primary-200'
-                                  : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                              title={`${config.fabricName}${config.price > 0 ? ` (+¥${config.price})` : ''}`}
-                            >
-                              {config.images?.[0] ? (
-                                <img
-                                  src={getThumbnailUrl(config.images[0], 64)}
-                                  alt={config.fabricName}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                                  {config.fabricName?.charAt(0) || '?'}
-                                </div>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">请先添加材质配置</span>
-                      )}
-                    </td>
-                    {/* 其他材质（显示格式：面料：XX，其他材质：XX） */}
-                    <td className="py-3 px-4">
-                      <div className="text-xs text-gray-600 leading-relaxed">
-                        {sku.fabricName && (
-                          <div><span className="font-medium">面料：</span>{sku.fabricName}</div>
-                        )}
-                        {formData.otherMaterialsText && (
-                          <div><span className="font-medium">其他材质：</span>{formData.otherMaterialsText}</div>
-                        )}
-                        {!sku.fabricName && !formData.otherMaterialsText && (
-                          <span className="text-gray-400">-</span>
-                        )}
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -2434,39 +2229,6 @@ export default function ProductForm() {
                         </label>
                       </div>
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="flex flex-col gap-2">
-                        {sku.isPro ? (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
-                                ⭐ PRO版
-                              </span>
-                            </div>
-                            <input
-                              type="text"
-                              value={sku.proFeature}
-                              onChange={(e) => {
-                                const newSkus = [...formData.skus]
-                                newSkus[index].proFeature = e.target.value
-                                setFormData({ ...formData, skus: newSkus })
-                              }}
-                              placeholder="PRO特性"
-                              className="w-48 px-2 py-1 text-sm border border-amber-300 rounded"
-                            />
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => duplicateSkuAsPro(index)}
-                            className="px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
-                            title="复制并创建PRO版本"
-                          >
-                            <Plus className="h-3 w-3" />
-                            创建PRO版
-                          </button>
-                        )}
-                      </div>
-                    </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -2553,18 +2315,51 @@ export default function ProductForm() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">视频URL</label>
-                      <input
-                        type="text"
-                        placeholder="输入视频URL (支持 YouTube, Vimeo, 优酷等)"
-                        value={video}
-                        onChange={(e) => {
-                          const newVideos = [...formData.videos]
-                          newVideos[index] = e.target.value
-                          setFormData({ ...formData, videos: newVideos })
-                        }}
-                        className="input w-full text-sm"
-                      />
+                      <label className="block text-xs text-gray-500 mb-1">视频（上传文件或输入URL）</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="输入视频URL 或上传视频文件"
+                          value={video}
+                          onChange={(e) => {
+                            const newVideos = [...formData.videos]
+                            newVideos[index] = e.target.value
+                            setFormData({ ...formData, videos: newVideos })
+                          }}
+                          className="input flex-1 text-sm"
+                        />
+                        <label className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 cursor-pointer text-sm">
+                          <Upload className="h-4 w-4" />
+                          上传
+                          <input
+                            type="file"
+                            accept="video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo,video/x-flv,.mp4,.webm,.ogg,.mov,.avi,.flv"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              toast.info(`正在上传视频: ${file.name}...`)
+                              try {
+                                const result = await uploadFile(file, (progress) => {
+                                  console.log(`视频上传进度: ${progress}%`)
+                                })
+                                if (result.success) {
+                                  const newVideos = [...formData.videos]
+                                  newVideos[index] = result.data.fileId
+                                  setFormData({ ...formData, videos: newVideos })
+                                  toast.success('视频上传成功')
+                                } else {
+                                  toast.error('视频上传失败')
+                                }
+                              } catch (err) {
+                                toast.error('视频上传失败')
+                              }
+                              e.target.value = ''
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">支持 MP4, WebM, OGG, MOV, AVI, FLV 格式</p>
                     </div>
                   </div>
                 </div>
