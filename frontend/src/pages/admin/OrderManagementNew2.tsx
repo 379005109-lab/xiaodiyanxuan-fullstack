@@ -2737,7 +2737,11 @@ export default function OrderManagementNew2() {
                         <div className="mt-3 space-y-2">
                           {Object.entries(snapshotGroups).map(([categoryKey, list]) => {
                             const snaps = (list as any[]) || []
-                            const names = snaps.map(s => s?.name).filter(Boolean)
+                            // 规范化名称显示，去除前缀
+                            const names = snaps.map(s => {
+                              const rawName = String(s?.name || '')
+                              return normalizeName(rawName) || rawName
+                            }).filter(Boolean)
                             const desc = snaps.find(s => s?.description)?.description
                             const upgradePrice =
                               (product.materialUpgradePrices?.[categoryKey] ??
