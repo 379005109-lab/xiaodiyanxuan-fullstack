@@ -1061,6 +1061,11 @@ export default function OrderManagementNew2() {
           return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
 
+      // 已经在 deduped 中显示过的类别，不再从 snapshots 重复显示
+      const displayedCategories = new Set(Object.keys(deduped))
+      // 已经在 deduped 中显示过的值，不再从 snapshots 重复显示
+      const displayedValues = new Set(Object.values(deduped))
+
       const snaps = (p.materialSnapshots || []) as any[]
       const keyAliasesSnap: Record<string, string> = {
         'fabric': '面料', '面料': '面料', 'material': '面料', '材质': '面料',
@@ -1073,6 +1078,8 @@ export default function OrderManagementNew2() {
             // 对 snapshots 也进行去重，按 categoryKey 分组只显示一次
             const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
               const key = keyAliasesSnap[String(s?.categoryKey || '').toLowerCase()] || keyAliasesSnap[s?.categoryKey] || String(s?.categoryKey || '材质')
+              // 如果该类别已经在 deduped 中显示过，跳过
+              if (displayedCategories.has(key)) return acc
               if (!acc[key]) acc[key] = []
               acc[key].push(s)
               return acc
@@ -1086,11 +1093,14 @@ export default function OrderManagementNew2() {
                   const rawName = String(s?.name || '')
                   if (!rawName) continue
                   const normalizedName = normalizeValueForDedup(rawName)
+                  // 如果该值已经在 deduped 中显示过，跳过
+                  if (displayedValues.has(normalizedName)) continue
                   if (!seenNormalizedNames.has(normalizedName)) {
                     seenNormalizedNames.add(normalizedName)
                     uniqueNames.push(normalizedName || rawName)
                   }
                 }
+                if (uniqueNames.length === 0) return ''
                 const names = uniqueNames.join('、')
                 return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>`
               })
@@ -1288,12 +1298,19 @@ export default function OrderManagementNew2() {
           return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
 
+      // 已经在 deduped 中显示过的类别，不再从 snapshots 重复显示
+      const displayedCategories = new Set(Object.keys(deduped))
+      // 已经在 deduped 中显示过的值，不再从 snapshots 重复显示
+      const displayedValues = new Set(Object.values(deduped))
+
       const snaps = (p.materialSnapshots || []) as any[]
       const snapHtml = snaps.length
         ? (() => {
             // 对 snapshots 也进行去重，按 categoryKey 分组只显示一次
             const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
               const key = keyAliases[String(s?.categoryKey || '').toLowerCase()] || keyAliases[s?.categoryKey] || String(s?.categoryKey || '材质')
+              // 如果该类别已经在 deduped 中显示过，跳过
+              if (displayedCategories.has(key)) return acc
               if (!acc[key]) acc[key] = []
               acc[key].push(s)
               return acc
@@ -1307,11 +1324,14 @@ export default function OrderManagementNew2() {
                   const rawName = String(s?.name || '')
                   if (!rawName) continue
                   const normalizedName = normalizeValueForDedup(rawName)
+                  // 如果该值已经在 deduped 中显示过，跳过
+                  if (displayedValues.has(normalizedName)) continue
                   if (!seenNormalizedNames.has(normalizedName)) {
                     seenNormalizedNames.add(normalizedName)
                     uniqueNames.push(normalizedName || rawName)
                   }
                 }
+                if (uniqueNames.length === 0) return ''
                 const names = uniqueNames.join('、')
                 return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>`
               })
