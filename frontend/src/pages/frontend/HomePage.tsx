@@ -4,6 +4,8 @@ import { ArrowRight, MapPin, ShoppingBag, Sofa, Layers, Palette } from 'lucide-r
 import { getProducts } from '@/services/productService'
 import { getFileUrl } from '@/services/uploadService'
 import { formatPrice } from '@/lib/utils'
+import { useAuthStore } from '@/store/authStore'
+import { useAuthModalStore } from '@/store/authModalStore'
 
 interface Product {
   _id: string
@@ -16,10 +18,25 @@ interface Product {
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuthStore()
+  const { openLogin } = useAuthModalStore()
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
+  const requireAuthNavigate = (to: string) => {
+    if (!isAuthenticated) {
+      sessionStorage.setItem('post_login_redirect', to)
+      openLogin()
+    }
+    navigate(to)
+  }
+
   useEffect(() => {
+    if (!isAuthenticated) {
+      setFeaturedProducts([])
+      setLoading(false)
+      return
+    }
     const loadProducts = async () => {
       try {
         // 按热度（views）降序获取商品
@@ -33,7 +50,7 @@ export default function HomePage() {
       }
     }
     loadProducts()
-  }, [])
+  }, [isAuthenticated])
 
   return (
     <div className="font-sans">
@@ -49,7 +66,7 @@ export default function HomePage() {
               200+ 佛山优质工厂直供，砍掉中间商，为您严选最好的设计与工艺
             </p>
             <button 
-              onClick={() => navigate('/products')}
+              onClick={() => requireAuthNavigate('/products')}
               className="bg-[#14452F] text-white px-10 py-4 rounded-full font-medium hover:bg-green-900 transition-colors inline-flex items-center gap-2 text-lg shadow-lg hover:shadow-xl"
             >
               进入选品中心 <ArrowRight className="w-5 h-5" />
@@ -71,7 +88,7 @@ export default function HomePage() {
                 <div 
                   key={product._id} 
                   className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all cursor-pointer group"
-                  onClick={() => navigate(`/products/${product._id}`)}
+                  onClick={() => requireAuthNavigate(`/products/${product._id}`)}
                 >
                   <div className="aspect-square bg-gray-100 relative overflow-hidden">
                     {product.images && product.images.length > 0 ? (
@@ -207,7 +224,7 @@ export default function HomePage() {
               <p className="text-stone-500 uppercase tracking-widest text-xs font-bold">Featured Products</p>
             </div>
             <button 
-              onClick={() => navigate('/products')} 
+              onClick={() => requireAuthNavigate('/products')} 
               className="group text-[#14452F] hover:text-[#C9A227] transition-colors flex items-center gap-2 text-sm font-bold"
             >
               查看全部商品 
@@ -233,7 +250,7 @@ export default function HomePage() {
                 <div 
                   key={product._id} 
                   className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all cursor-pointer group"
-                  onClick={() => navigate(`/products/${product._id}`)}
+                  onClick={() => requireAuthNavigate(`/products/${product._id}`)}
                 >
                   <div className="aspect-square bg-gray-100 relative overflow-hidden">
                     {product.images && product.images.length > 0 ? (

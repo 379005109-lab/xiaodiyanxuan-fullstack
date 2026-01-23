@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { useAuthStore } from './store/authStore'
 import { useAuthModalStore } from './store/authModalStore'
@@ -261,6 +261,54 @@ const ProtectedRoute = ({
   return <>{children}</>
 }
 
+interface FrontendProtectedRouteProps {
+  children: React.ReactNode
+}
+
+const FrontendProtectedRoute = ({ children }: FrontendProtectedRouteProps) => {
+  const { isAuthenticated } = useAuthStore()
+  const { openLogin } = useAuthModalStore()
+  const location = useLocation()
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#F2F4F3]">
+        <div className="text-center px-6">
+          <div className="text-stone-700 font-medium">请先登录后查看商品</div>
+          <button
+            onClick={() => {
+              sessionStorage.setItem('post_login_redirect', `${location.pathname}${location.search}${location.hash}`)
+              openLogin()
+            }}
+            className="mt-4 bg-primary text-white px-6 py-3 rounded-xl font-bold hover:bg-green-900 transition-colors"
+          >
+            登录
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
+
+const PostLoginRedirector = () => {
+  const { isAuthenticated } = useAuthStore()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const redirect = sessionStorage.getItem('post_login_redirect')
+    if (!redirect) return
+
+    sessionStorage.removeItem('post_login_redirect')
+    navigate(redirect, { replace: true })
+  }, [isAuthenticated, navigate])
+
+  return null
+}
+
 const AdminIndexRedirect = () => {
   const { user } = useAuthStore()
   const hasManufacturerId = Boolean((user as any)?.manufacturerId)
@@ -411,6 +459,7 @@ function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <VersionChecker />
         <Toaster position="bottom-right" richColors />
+        <PostLoginRedirector />
         {/* 全局登录弹窗 */}
         <AuthModal 
           isOpen={authModalOpen} 
@@ -427,11 +476,11 @@ function App() {
           {/* 前台路由 */}
           <Route path="/" element={<FrontendLayout />}>
             <Route index element={<HomePage />} />
-            <Route path="products" element={<ProductsPage />} />
-            <Route path="products/:id" element={<ProductDetailPage />} />
-            <Route path="categories" element={<CategoriesPage />} />
-            <Route path="packages" element={<PackagesPage />} />
-            <Route path="packages/:id" element={<PackageDetailPage />} />
+            <Route path="products" element={<FrontendProtectedRoute><ProductsPage /></FrontendProtectedRoute>} />
+            <Route path="products/:id" element={<FrontendProtectedRoute><ProductDetailPage /></FrontendProtectedRoute>} />
+            <Route path="categories" element={<FrontendProtectedRoute><CategoriesPage /></FrontendProtectedRoute>} />
+            <Route path="packages" element={<FrontendProtectedRoute><PackagesPage /></FrontendProtectedRoute>} />
+            <Route path="packages/:id" element={<FrontendProtectedRoute><PackageDetailPage /></FrontendProtectedRoute>} />
             <Route path="share/product/:id" element={<ProductSharePage />} />
             <Route path="cart" element={<CartPage />} />
             <Route path="checkout" element={<CheckoutPage />} />

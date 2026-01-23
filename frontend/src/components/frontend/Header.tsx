@@ -122,9 +122,9 @@ export default function Header() {
   const handleCategoryClick = (categorySlug?: string) => {
     setCategoryMenuOpen(false)
     if (categorySlug) {
-      navigate(`/products?category=${categorySlug}`)
+      requireAuthNavigate(`/products?category=${categorySlug}`)
     } else {
-      navigate('/categories')
+      requireAuthNavigate('/categories')
     }
   }
   
@@ -138,8 +138,16 @@ export default function Header() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`)
+      requireAuthNavigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`)
     }
+  }
+
+  const requireAuthNavigate = (to: string) => {
+    if (!isAuthenticated) {
+      sessionStorage.setItem('post_login_redirect', to)
+      openLogin()
+    }
+    navigate(to)
   }
 
   const getLinkClass = (path: string) => {
@@ -162,11 +170,7 @@ export default function Header() {
           </Link>
           <span 
             onClick={() => {
-              if (!isAuthenticated) {
-                openLogin()
-                return
-              }
-              navigate('/products')
+              requireAuthNavigate('/products')
             }}
             className={`${getLinkClass('/products')} cursor-pointer`}
           >
@@ -260,7 +264,7 @@ export default function Header() {
                       </span>
                     </p>
                     <button
-                      onClick={() => navigate('/products')}
+                      onClick={() => requireAuthNavigate('/products')}
                       className="text-xs text-stone-400 hover:text-red-500"
                     >
                       清除筛选
@@ -270,9 +274,12 @@ export default function Header() {
               </div>
             )}
           </div>
-          <Link to="/packages" className={getLinkClass('/packages')}>
+          <span
+            onClick={() => requireAuthNavigate('/packages')}
+            className={`${getLinkClass('/packages')} cursor-pointer`}
+          >
             套餐专区
-          </Link>
+          </span>
           <Link to="/buying-service" className={getLinkClass('/buying-service')}>
             陪买服务
           </Link>

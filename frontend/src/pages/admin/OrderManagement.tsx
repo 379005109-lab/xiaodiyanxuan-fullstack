@@ -178,6 +178,44 @@ export default function OrderManagement() {
 
   const filteredOrders = orders
 
+  const invoiceStatusConfig: Record<string, { label: string; color: string }> = {
+    pending: { label: '待开票', color: 'bg-amber-100 text-amber-700' },
+    processing: { label: '开票中', color: 'bg-blue-100 text-blue-700' },
+    issued: { label: '已开票', color: 'bg-green-100 text-green-700' },
+    sent: { label: '已寄出', color: 'bg-purple-100 text-purple-700' }
+  }
+
+  const handleInvoiceStatusChange = async (orderId: string, invoiceStatus: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        toast.error('请先登录')
+        return
+      }
+
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/invoice-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ invoiceStatus })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({} as any))
+        toast.error(data.message || '开票状态更新失败')
+        return
+      }
+
+      setOrders(prev => prev.map(o => o._id === orderId ? ({ ...o, invoiceStatus } as any) : o))
+      toast.success('开票状态已更新')
+    } catch (error) {
+      console.error('更新开票状态失败:', error)
+      toast.error('开票状态更新失败')
+    }
+  }
+
   // 获取商品列表 - 支持套餐订单和普通订单
   const getProducts = (order: Order) => {
     if ((order as any).orderType === 'package' && (order as any).packageInfo) {
@@ -652,6 +690,13 @@ export default function OrderManagement() {
                         ⚠️ 取消申请中
                       </span>
                     )}
+
+                    {/* 开票状态标记 */}
+                    {(order as any).needInvoice && (
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${(invoiceStatusConfig as any)[(order as any).invoiceStatus || 'pending']?.color || 'bg-amber-100 text-amber-700'}`}>
+                        🧾 {(invoiceStatusConfig as any)[(order as any).invoiceStatus || 'pending']?.label || '待开票'}
+                      </span>
+                    )}
                     
                     {/* 调试按钮 - 显示订单状态 */}
                     <button
@@ -675,7 +720,14 @@ export default function OrderManagement() {
                             method: 'POST',
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
                             body: JSON.stringify({ settlementMode: 'supplier_transfer', minDiscountRate: 0.6, commissionRate: 0.4 })
-                          }).then(r => r.ok ? (toast.success('已选择供应商调货模式'), loadOrders()) : toast.error('设置失败'))
+                          }).then((r) => {
+                            if (r.ok) {
+                              toast.success('已选择供应商调货模式')
+                              loadOrders()
+                            } else {
+                              toast.error('设置失败')
+                            }
+                          })
                         }}
                         className="px-3 py-1 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 whitespace-nowrap"
                         title="供应商调货"
@@ -693,7 +745,14 @@ export default function OrderManagement() {
                             method: 'POST',
                             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
                             body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50 })
-                          }).then(r => r.ok ? (toast.success('已选择返佣模式'), loadOrders()) : toast.error('设置失败'))
+                          }).then((r) => {
+                            if (r.ok) {
+                              toast.success('已选择返佣模式')
+                              loadOrders()
+                            } else {
+                              toast.error('设置失败')
+                            }
+                          })
                         }}
                         className="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 whitespace-nowrap"
                         title="返佣模式"
@@ -900,6 +959,8 @@ export default function OrderManagement() {
                               const itemSpecs = (item as any).specifications || {}
                               const itemMaterials = (item as any).selectedMaterials || {}
                               const itemUpgradePrices = (item as any).materialUpgradePrices || {}
+                              const dims = (item as any).skuDimensions || {}
+                              const fabricValue = itemSpecs.material || itemMaterials.fabric || itemMaterials['面料']
                               
                               return (
                                 <div key={itemIndex} className="bg-white rounded-lg p-3 border border-gray-100">
@@ -930,14 +991,22 @@ export default function OrderManagement() {
                                         {(itemSpecs.size || (item as any).spec) && (
                                           <p><span className="text-gray-500 font-medium">规格:</span> {itemSpecs.size || (item as any).spec}</p>
                                         )}
+
+                                        {/* 尺寸（长×宽×高） */}
+                                        {(dims.length || dims.width || dims.height || itemSpecs.dimensions) && (
+                                          <p>
+                                            <span className="text-gray-500 font-medium">尺寸:</span>{' '}
+                                            {itemSpecs.dimensions || `${dims.length || '-'}×${dims.width || '-'}×${dims.height || '-'}`} CM
+                                          </p>
+                                        )}
                                         
                                         {/* 材质信息 - 优先从订单项的 selectedMaterials 和 specifications 获取 */}
-                                        {(itemSpecs.material || itemMaterials.fabric) && (
+                                        {fabricValue && (
                                           <p>
                                             <span className="text-gray-500 font-medium">面料:</span>{' '}
-                                            <span className={itemUpgradePrices[itemSpecs.material || itemMaterials.fabric] > 0 ? 'text-red-600 font-bold' : ''}>
-                                              {itemSpecs.material || itemMaterials.fabric}
-                                              {itemUpgradePrices[itemSpecs.material || itemMaterials.fabric] > 0 && ` +¥${itemUpgradePrices[itemSpecs.material || itemMaterials.fabric]}`}
+                                            <span className={itemUpgradePrices[fabricValue] > 0 ? 'text-red-600 font-bold' : ''}>
+                                              {fabricValue}
+                                              {itemUpgradePrices[fabricValue] > 0 && ` +¥${itemUpgradePrices[fabricValue]}`}
                                             </span>
                                           </p>
                                         )}
@@ -1239,7 +1308,7 @@ export default function OrderManagement() {
                             }}
                             className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center justify-center gap-2"
                           >
-                            <CheckCircle className="h-4 w-4" />
+                            <CheckCircle2 className="h-4 w-4" />
                             确认订单
                           </button>
                         </div>
@@ -1308,10 +1377,32 @@ export default function OrderManagement() {
                             <p>发票类型: {order.invoiceInfo?.invoiceType === 'company' ? '企业发票' : '个人发票'}</p>
                             <p>发票抬头: {order.invoiceInfo?.title || '-'}</p>
                             {order.invoiceInfo?.taxNumber && <p>税号: {order.invoiceInfo.taxNumber}</p>}
+                            {order.invoiceInfo?.bankName && <p>开户银行: {order.invoiceInfo.bankName}</p>}
+                            {order.invoiceInfo?.bankAccount && <p>银行账号: {order.invoiceInfo.bankAccount}</p>}
+                            {order.invoiceInfo?.companyAddress && <p>企业地址: {order.invoiceInfo.companyAddress}</p>}
+                            {order.invoiceInfo?.companyPhone && <p>企业电话: {order.invoiceInfo.companyPhone}</p>}
                             {order.invoiceInfo?.email && <p>收票邮箱: {order.invoiceInfo.email}</p>}
+                            {order.invoiceInfo?.phone && <p>收票手机: {order.invoiceInfo.phone}</p>}
+                            {order.invoiceInfo?.mailingAddress && <p>邮寄地址: {order.invoiceInfo.mailingAddress}</p>}
                             {order.invoiceMarkupAmount > 0 && (
                               <p className="font-bold text-amber-600">开票加价: +¥{order.invoiceMarkupAmount?.toLocaleString()} ({order.invoiceMarkupPercent}%)</p>
                             )}
+                          </div>
+
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="text-xs text-amber-800 font-medium">开票状态</span>
+                            <select
+                              value={(order as any).invoiceStatus || 'pending'}
+                              onChange={(e) => {
+                                handleInvoiceStatusChange(order._id, e.target.value)
+                              }}
+                              className="text-xs px-2 py-1 rounded border border-amber-200 bg-white text-amber-800"
+                            >
+                              <option value="pending">待开票</option>
+                              <option value="processing">开票中</option>
+                              <option value="issued">已开票</option>
+                              <option value="sent">已寄出</option>
+                            </select>
                           </div>
                         </div>
                       )}

@@ -485,6 +485,16 @@ export default function OrdersPageNew() {
                         <div className="text-xs text-amber-700 mt-1">
                           <span>抬头: {order.invoiceInfo?.title || '-'}</span>
                           {order.invoiceInfo?.taxNumber && <span className="ml-3">税号: {order.invoiceInfo.taxNumber}</span>}
+                          <span className="ml-3">
+                            状态:{' '}
+                            {order.invoiceStatus === 'issued'
+                              ? '已开票'
+                              : order.invoiceStatus === 'sent'
+                                ? '已寄出'
+                                : order.invoiceStatus === 'processing'
+                                  ? '开票中'
+                                  : '待开票'}
+                          </span>
                           {order.invoiceMarkupAmount > 0 ? (
                             <span className="ml-3 font-bold text-amber-600">开票加价: +¥{order.invoiceMarkupAmount?.toLocaleString()}</span>
                           ) : (

@@ -991,12 +991,20 @@ const ProductDetailPage = () => {
       return;
     }
 
+    const buildMaterialConfigsSelectedMaterials = () => {
+      if (!selectedMaterialConfig?.fabricName) return {}
+      return {
+        fabric: selectedMaterialConfig.fabricName,
+        '面料': selectedMaterialConfig.fabricName,
+      } as any
+    }
+
     if (multiSpecMode && selectedSkus.length > 0) {
       for (const sku of selectedSkus) {
         // 如果使用新的材质配置系统
         if (materialConfigs.length > 0) {
           const finalPrice = getFinalPrice(sku) + (selectedMaterialConfig?.price || 0);
-          addItem(product, sku, quantity, {}, finalPrice);
+          addItem(product, sku, quantity, buildMaterialConfigsSelectedMaterials(), finalPrice);
         } else {
           const chosenMaterials = resolveSelectedMaterialsForSku(sku);
           // Material selection is optional - proceed with empty object if not selected
@@ -1010,7 +1018,7 @@ const ProductDetailPage = () => {
     // 如果使用新的材质配置系统
     if (materialConfigs.length > 0) {
       const finalPrice = displayPrice;
-      addItem(product, selectedSku, quantity, {}, finalPrice);
+      addItem(product, selectedSku, quantity, buildMaterialConfigsSelectedMaterials(), finalPrice);
       toast.success('已添加到购物车');
       return;
     }
@@ -1071,7 +1079,10 @@ const ProductDetailPage = () => {
     if (materialConfigs.length > 0) {
       const finalPrice = displayPrice;
       try {
-        addItem(product, selectedSku, quantity, {}, finalPrice);
+        const selectedMaterials = selectedMaterialConfig?.fabricName
+          ? ({ fabric: selectedMaterialConfig.fabricName, '面料': selectedMaterialConfig.fabricName } as any)
+          : ({} as any)
+        addItem(product, selectedSku, quantity, selectedMaterials, finalPrice);
         navigate('/checkout');
       } catch (error) {
         console.error('Add to cart error:', error);

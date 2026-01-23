@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { Order, OrderStatus } from '@/types'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
+import { getAllMaterials } from '@/services/materialService'
 import * as XLSX from 'xlsx'
 import html2canvas from 'html2canvas'
 
@@ -104,6 +105,8 @@ export default function OrderManagementNew2() {
   const [finalVerifyMethod, setFinalVerifyMethod] = useState<string>('') // 尾款核销收款方式
   const [showCommissionModeModal, setShowCommissionModeModal] = useState(false) // 返佣模式设置弹窗
   const [commissionProductionDays, setCommissionProductionDays] = useState<string>('30') // 返佣模式生产周期
+
+  const [materialMetaMap, setMaterialMetaMap] = useState<Record<string, { image?: string; description?: string }>>({})
   
   // 统计数据
   const [stats, setStats] = useState({
@@ -239,6 +242,112 @@ export default function OrderManagementNew2() {
 
   const selectedOrder = orders.find(o => o._id === selectedOrderId)
 
+  const invoiceStatusConfig: Record<string, { label: string; color: string }> = {
+    pending: { label: '待开票', color: 'bg-amber-100 text-amber-700' },
+    processing: { label: '开票中', color: 'bg-blue-100 text-blue-700' },
+    issued: { label: '已开票', color: 'bg-green-100 text-green-700' },
+    sent: { label: '已寄出', color: 'bg-purple-100 text-purple-700' }
+  }
+
+  const normalizeMaterialRecord = (raw: any): Record<string, any> => {
+    if (!raw) return {}
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object') return parsed
+      } catch {
+        return { fabric: raw, '面料': raw }
+      }
+      return {}
+    }
+    if (typeof raw !== 'object') return {}
+    return raw
+  }
+
+  const normalizeMaterialValue = (v: any): string => {
+    if (v === undefined || v === null) return ''
+    if (typeof v === 'string') return v.trim()
+    if (typeof v === 'number') return String(v)
+    if (Array.isArray(v)) {
+      return v.map(normalizeMaterialValue).filter(Boolean).join('、')
+    }
+    if (typeof v === 'object') {
+      return normalizeMaterialValue(
+        (v as any).name ?? (v as any).label ?? (v as any).value ?? (v as any).text ?? (v as any).title
+      )
+    }
+    return String(v)
+  }
+
+  const inferSelectedMaterialsFromSku = (skuMaterial: any) => {
+    const result: Record<string, any> = {}
+
+    if (!skuMaterial) return result
+
+    if (typeof skuMaterial === 'string') {
+      try {
+        const parsed = JSON.parse(skuMaterial)
+        return inferSelectedMaterialsFromSku(parsed)
+      } catch {
+        result.fabric = skuMaterial
+        result['面料'] = skuMaterial
+        return result
+      }
+    }
+
+    if (typeof skuMaterial !== 'object') return result
+
+    for (const [k, v] of Object.entries(skuMaterial)) {
+      if (!v) continue
+      if (Array.isArray(v)) {
+        const first = v.find(Boolean)
+        if (first) result[k] = first
+      } else if (typeof v === 'string') {
+        result[k] = v
+      }
+    }
+
+    return result
+  }
+
+  const getEffectiveSelectedMaterials = (item: any) => {
+    const current = normalizeMaterialRecord(item?.selectedMaterials)
+    if (Object.keys(current).length > 0) return current
+    const fromMaterials = normalizeMaterialRecord(item?.materials)
+    if (Object.keys(fromMaterials).length > 0) return fromMaterials
+    return inferSelectedMaterialsFromSku(item?.sku?.material)
+  }
+
+  const handleInvoiceStatusChange = async (orderId: string, invoiceStatus: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        toast.error('请先登录')
+        return
+      }
+
+      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/invoice-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ invoiceStatus })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({} as any))
+        toast.error(data.message || '开票状态更新失败')
+        return
+      }
+
+      setOrders(prev => prev.map(o => o._id === orderId ? ({ ...o, invoiceStatus } as any) : o))
+      toast.success('开票状态已更新')
+    } catch (error) {
+      toast.error('开票状态更新失败')
+    }
+  }
+
   // 获取商品列表 - 支持套餐订单和普通订单
   const getProducts = (order: Order) => {
     if (order.orderType === 'package' && order.packageInfo) {
@@ -256,10 +365,10 @@ export default function OrderManagementNew2() {
             manufacturerName: product.manufacturerName,
             materials: materials,
             selectedMaterials: {
-              fabric: materials.fabric || materials['面料'] || '',
-              filling: materials.filling || materials['填充'] || '',
-              frame: materials.frame || materials['框架'] || '',
-              leg: materials.leg || materials['脚架'] || ''
+              fabric: normalizeMaterialValue(materials.fabric ?? materials['面料']),
+              filling: normalizeMaterialValue(materials.filling ?? materials['填充']),
+              frame: normalizeMaterialValue(materials.frame ?? materials['框架']),
+              leg: normalizeMaterialValue(materials.leg ?? materials['脚架'])
             },
             materialUpgradePrices: {
               fabric: upgradePrices.fabric || upgradePrices['面料'] || 0,
@@ -276,19 +385,70 @@ export default function OrderManagementNew2() {
       return products
     } else if (order.items) {
       return order.items.map((item: any) => ({
+        sku: item.sku,
         name: item.productName,
         quantity: item.quantity,
         manufacturerId: item.manufacturerId,
         manufacturerName: item.manufacturerName,
         materials: item.materials,
         specifications: item.specifications,
-        selectedMaterials: item.selectedMaterials,
+        selectedMaterials: (() => {
+          const base = getEffectiveSelectedMaterials(item)
+          return {
+            ...(base || {}),
+            fabric: normalizeMaterialValue(base?.fabric ?? base?.['面料'] ?? item.specifications?.material),
+            filling: normalizeMaterialValue(base?.filling ?? base?.['填充'] ?? item.specifications?.fill),
+            frame: normalizeMaterialValue(base?.frame ?? base?.['框架'] ?? item.specifications?.frame),
+            leg: normalizeMaterialValue(base?.leg ?? base?.['脚架'] ?? item.specifications?.leg)
+          }
+        })(),
+        skuDimensions: item.skuDimensions,
         materialUpgradePrices: item.materialUpgradePrices,
+        materialSnapshots: item.materialSnapshots,
         image: item.image || item.productImage
       }))
     }
     return []
   }
+
+  useEffect(() => {
+    const loadMaterialMetaIfNeeded = async () => {
+      if (!selectedOrderId) return
+      if (!selectedOrder) return
+
+      const products = getProducts(selectedOrder)
+      const nameSet = new Set<string>()
+
+      for (const p of products) {
+        const snapshots = (p as any)?.materialSnapshots
+        const hasSnapshots = Array.isArray(snapshots) && snapshots.length > 0
+        if (hasSnapshots) continue
+
+        const selected = (p as any)?.selectedMaterials || {}
+        for (const v of Object.values(selected)) {
+          if (!v) continue
+          if (typeof v === 'string') nameSet.add(v)
+          else if (Array.isArray(v)) v.filter(Boolean).forEach(n => nameSet.add(String(n)))
+        }
+      }
+
+      const missing = Array.from(nameSet).filter(n => !materialMetaMap[n])
+      if (missing.length === 0) return
+
+      const all = await getAllMaterials()
+      const next: Record<string, { image?: string; description?: string }> = {}
+      for (const n of missing) {
+        const m = all.find(x => x.name === n)
+        if (!m) continue
+        next[n] = { image: m.image, description: m.description }
+      }
+      if (Object.keys(next).length > 0) {
+        setMaterialMetaMap(prev => ({ ...prev, ...next }))
+      }
+    }
+
+    loadMaterialMetaIfNeeded().catch(() => {})
+  }, [selectedOrderId, selectedOrder, materialMetaMap])
 
   // 打开改价弹窗
   const openPriceModal = (orderId: string) => {
@@ -858,13 +1018,37 @@ export default function OrderManagementNew2() {
       }
 
       const lines = Object.entries(merged)
-        .filter(([, v]) => v !== undefined && v !== null && v !== '')
         .map(([k, v]) => {
+          const text = normalizeMaterialValue(v)
+          return [k, text] as const
+        })
+        .filter(([, text]) => text !== '')
+        .map(([k, text]) => {
           const displayKey = keyMap[String(k).toLowerCase()] || k
-          return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${v}</div>`
+          return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
 
-      return lines.length > 0 ? lines.join('') : (p.spec ? `<div>${p.spec}</div>` : '<div>-</div>')
+      const snaps = (p.materialSnapshots || []) as any[]
+      const snapHtml = snaps.length
+        ? (() => {
+            const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
+              const key = String(s?.categoryKey || '材质')
+              if (!acc[key]) acc[key] = []
+              acc[key].push(s)
+              return acc
+            }, {})
+            return Object.entries(groups)
+              .map(([categoryKey, list]) => {
+                const names = (list as any[]).map(s => s?.name).filter(Boolean).join('、')
+                const desc = (list as any[]).find(s => s?.description)?.description
+                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>${desc ? `<div style=\"margin-top: 4px; color: #6b7280;\">说明：${desc}</div>` : ''}`
+              })
+              .join('')
+          })()
+        : ''
+
+      const base = lines.length > 0 ? lines.join('') : (p.spec ? `<div>${p.spec}</div>` : '<div>-</div>')
+      return `${base}${snapHtml}`
     }
 
     const buildContainerHtml = (group: { manufacturerName: string; products: any[] }) => {
@@ -1010,13 +1194,37 @@ export default function OrderManagementNew2() {
       }
 
       const lines = Object.entries(merged)
-        .filter(([, v]) => v !== undefined && v !== null && v !== '')
         .map(([k, v]) => {
+          const text = normalizeMaterialValue(v)
+          return [k, text] as const
+        })
+        .filter(([, text]) => text !== '')
+        .map(([k, text]) => {
           const displayKey = keyMap[String(k).toLowerCase()] || k
-          return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${v}</div>`
+          return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
 
-      return lines.length > 0 ? lines.join('') : (p.spec ? `<div>${p.spec}</div>` : '<div>-</div>')
+      const snaps = (p.materialSnapshots || []) as any[]
+      const snapHtml = snaps.length
+        ? (() => {
+            const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
+              const key = String(s?.categoryKey || '材质')
+              if (!acc[key]) acc[key] = []
+              acc[key].push(s)
+              return acc
+            }, {})
+            return Object.entries(groups)
+              .map(([categoryKey, list]) => {
+                const names = (list as any[]).map(s => s?.name).filter(Boolean).join('、')
+                const desc = (list as any[]).find(s => s?.description)?.description
+                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>${desc ? `<div style=\"margin-top: 4px; color: #6b7280;\">说明：${desc}</div>` : ''}`
+              })
+              .join('')
+          })()
+        : ''
+
+      const base = lines.length > 0 ? lines.join('') : (p.spec ? `<div>${p.spec}</div>` : '<div>-</div>')
+      return `${base}${snapHtml}`
     }
 
     const buildWholeOrderHtml = () => {
@@ -2170,6 +2378,77 @@ export default function OrderManagementNew2() {
             </div>
           )}
 
+          {/* 开票信息 */}
+          {(selectedOrder as any).needInvoice && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-amber-600" />
+                  <h2 className="font-semibold text-gray-800">开票信息</h2>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${(invoiceStatusConfig as any)[(selectedOrder as any).invoiceStatus || 'pending']?.color || 'bg-amber-100 text-amber-700'}`}>
+                  {(invoiceStatusConfig as any)[(selectedOrder as any).invoiceStatus || 'pending']?.label || '待开票'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">发票类型</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.invoiceType === 'company' ? '企业' : '个人'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">抬头</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.title || '-'}</span>
+                </div>
+
+                {(selectedOrder as any).invoiceInfo?.taxNumber && (
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">税号</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.taxNumber}</span>
+                  </div>
+                )}
+                {(selectedOrder as any).invoiceInfo?.email && (
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">收票邮箱</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.email}</span>
+                  </div>
+                )}
+                {(selectedOrder as any).invoiceInfo?.phone && (
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">收票手机</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.phone}</span>
+                  </div>
+                )}
+                {(selectedOrder as any).invoiceInfo?.mailingAddress && (
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">邮寄地址</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.mailingAddress}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 flex items-center gap-3">
+                <span className="text-sm text-gray-600">发票状态</span>
+                <select
+                  value={(selectedOrder as any).invoiceStatus || 'pending'}
+                  onChange={(e) => handleInvoiceStatusChange(selectedOrder._id, e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                >
+                  <option value="pending">待开票</option>
+                  <option value="processing">开票中</option>
+                  <option value="issued">已开票</option>
+                  <option value="sent">已寄出</option>
+                </select>
+              </div>
+
+              {(selectedOrder as any).invoiceMarkupAmount > 0 && (
+                <div className="mt-3 text-sm text-amber-700">
+                  开票加价：<span className="font-bold text-amber-800">+¥{formatPrice((selectedOrder as any).invoiceMarkupAmount)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 商品清单 */}
           <div className="bg-white rounded-2xl shadow-sm">
             <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
@@ -2193,9 +2472,9 @@ export default function OrderManagementNew2() {
               {products.map((product, index) => {
                 // 收集所有材质信息
                 const materials: string[] = []
-                if (product.selectedMaterials?.fabric || product.specifications?.material) {
-                  materials.push(product.selectedMaterials?.fabric || product.specifications?.material)
-                }
+                const fabricValue = normalizeMaterialValue(product.selectedMaterials?.fabric ?? product.selectedMaterials?.['面料'] ?? product.specifications?.material)
+                const dims = product.skuDimensions || {}
+                if (fabricValue) materials.push(`面料:${fabricValue}`)
                 if (product.selectedMaterials?.filling || product.specifications?.fill) {
                   materials.push(product.selectedMaterials?.filling || product.specifications?.fill)
                 }
@@ -2205,6 +2484,48 @@ export default function OrderManagementNew2() {
                 if (product.selectedMaterials?.leg || product.specifications?.leg) {
                   materials.push(product.selectedMaterials?.leg || product.specifications?.leg)
                 }
+                const existingSnapshots = (product.materialSnapshots || []) as any[]
+                const hasFabricFromSnapshots = existingSnapshots.some(s => {
+                  const key = String(s?.categoryKey || '').toLowerCase()
+                  return (key === 'fabric' || key === '面料') && !!s?.name
+                })
+                if (!fabricValue && !hasFabricFromSnapshots) {
+                  materials.push('面料:未选择')
+                }
+
+                const normalizedCategoryLabels: Record<string, string> = {
+                  fabric: '面料',
+                  filling: '填充',
+                  frame: '框架',
+                  leg: '脚架'
+                }
+
+                const snapshots = existingSnapshots.length > 0
+                  ? existingSnapshots
+                  : Object.entries(product.selectedMaterials || {}).flatMap(([rawKey, rawValue]) => {
+                      if (!rawValue) return []
+                      const values = Array.isArray(rawValue) ? rawValue : [rawValue]
+                      const labelKey = normalizedCategoryLabels[rawKey] || rawKey
+
+                      return values
+                        .filter(Boolean)
+                        .map((name: any) => {
+                          const meta = materialMetaMap[String(name)] || {}
+                          return {
+                            categoryKey: labelKey,
+                            rawCategoryKey: rawKey,
+                            name: String(name),
+                            image: meta.image || '',
+                            description: meta.description || ''
+                          }
+                        })
+                    })
+                const snapshotGroups = snapshots.reduce((acc: Record<string, any[]>, s: any) => {
+                  const key = String(s?.categoryKey || '材质')
+                  if (!acc[key]) acc[key] = []
+                  acc[key].push(s)
+                  return acc
+                }, {})
                 
                 // 收集加价信息
                 const upgrades: { name: string; price: number }[] = []
@@ -2256,6 +2577,12 @@ export default function OrderManagementNew2() {
                             {product.specifications.size}
                           </span>
                         )}
+
+                        {(dims.length || dims.width || dims.height) && (
+                          <span className="px-2.5 py-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-md">
+                            尺寸:{dims.length || '-'}×{dims.width || '-'}×{dims.height || '-'}CM
+                          </span>
+                        )}
                         
                         {/* 材质标签 */}
                         {materials.map((mat, i) => (
@@ -2276,6 +2603,56 @@ export default function OrderManagementNew2() {
                           {product.upgradePrice > 0 && upgrades.length === 0 && (
                             <span className="text-xs text-red-600">加价 +¥{product.upgradePrice}</span>
                           )}
+                        </div>
+                      )}
+
+                      {Object.keys(snapshotGroups).length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {Object.entries(snapshotGroups).map(([categoryKey, list]) => {
+                            const snaps = (list as any[]) || []
+                            const names = snaps.map(s => s?.name).filter(Boolean)
+                            const desc = snaps.find(s => s?.description)?.description
+                            const upgradePrice =
+                              (product.materialUpgradePrices?.[categoryKey] ??
+                                product.materialUpgradePrices?.[(snaps[0] as any)?.rawCategoryKey] ??
+                                (names.length === 1 ? product.materialUpgradePrices?.[names[0]] : undefined) ??
+                                0) as number
+
+                            return (
+                              <div key={categoryKey} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-medium text-gray-700">{categoryKey}</span>
+                                  {upgradePrice > 0 && (
+                                    <span className="text-xs text-red-600 font-semibold">+¥{upgradePrice}</span>
+                                  )}
+                                </div>
+
+                                <div className="mt-2 flex items-center gap-2">
+                                  {snaps.slice(0, 6).map((s, i) => (
+                                    s?.image ? (
+                                      <img
+                                        key={`${categoryKey}-${i}`}
+                                        src={getFileUrl(s.image)}
+                                        alt={s?.name || '材质'}
+                                        className="w-10 h-10 rounded-md border border-gray-200 object-cover"
+                                      />
+                                    ) : (
+                                      <div key={`${categoryKey}-${i}`} className="w-10 h-10 rounded-md border border-gray-200 bg-white" />
+                                    )
+                                  ))}
+                                  <div className="text-xs text-gray-700 truncate">
+                                    {names.length ? `${categoryKey}-${names.join('、')}` : categoryKey}
+                                  </div>
+                                </div>
+
+                                {desc && (
+                                  <div className="mt-2 text-xs text-gray-600 bg-white border border-gray-200 rounded-md px-3 py-2">
+                                    {desc}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
