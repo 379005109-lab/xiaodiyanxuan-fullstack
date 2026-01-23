@@ -1010,61 +1010,71 @@ export default function OrderManagementNew2() {
       const selectedMaterials = p.selectedMaterials || p.materials || {}
       const merged: Record<string, any> = { ...specs, ...selectedMaterials }
 
-      const keyMap: Record<string, string> = {
-        'size': '尺寸',
-        'spec': '规格',
-        'material': '材质',
-        'fabric': '面料',
-        'filling': '填充',
-        'fill': '填充',
-        'frame': '框架',
-        'color': '颜色',
-        'style': '风格',
-        'leg': '脚架',
-        'legs': '脚架',
-        'armrest': '扶手',
-        'cushion': '坐垫',
-        'back': '靠背',
-        'width': '宽度',
-        'height': '高度',
-        'depth': '深度',
-        'length': '长度',
-        'seat': '座位',
-        'base': '底座',
-        'cover': '套面',
-        'inner': '内胆',
-        'support': '支撑',
-        'spring': '弹簧',
-        'foam': '海绵',
-        'wood': '木材',
-        'metal': '金属',
+      // 需要排除的键名（说明、描述等长文本）
+      const excludeKeys = new Set(['说明', 'description', 'desc', 'note', 'notes', '备注', 'remark', 'remarks'])
+
+      // 定义英文-中文键名映射，用于去重
+      const keyAliases: Record<string, string> = {
+        'fabric': '面料', '面料': '面料', 'material': '面料', '材质': '面料',
+        'filling': '填充', 'fill': '填充', '填充': '填充',
+        'frame': '框架', '框架': '框架',
+        'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
+        'color': '颜色', '颜色': '颜色',
+        'size': '尺寸', '尺寸': '尺寸', 'dimensions': '尺寸',
+        'spec': '规格', '规格': '规格',
       }
 
-      const lines = Object.entries(merged)
-        .map(([k, v]) => {
-          const text = normalizeMaterialValue(v)
-          return [k, text] as const
-        })
-        .filter(([, text]) => text !== '')
-        .map(([k, text]) => {
-          const displayKey = keyMap[String(k).toLowerCase()] || k
+      // 去重：合并英文和中文键，只保留一个值
+      const deduped: Record<string, string> = {}
+      const seenValues = new Set<string>() // 按值去重
+      
+      for (const [k, v] of Object.entries(merged)) {
+        if (v === undefined || v === null || v === '') continue
+        const lowerKey = String(k).toLowerCase()
+        // 排除说明/描述等长文本
+        if (excludeKeys.has(lowerKey) || excludeKeys.has(k)) continue
+        
+        const normalizedKey = keyAliases[lowerKey] || keyAliases[k] || k
+        const valueStr = normalizeMaterialValue(v)
+        if (!valueStr) continue
+        
+        // 跳过已经出现过的值（按值去重）
+        if (seenValues.has(valueStr)) continue
+        
+        // 如果该规范化键名还没有值，则使用当前值
+        if (!deduped[normalizedKey]) {
+          deduped[normalizedKey] = valueStr
+          seenValues.add(valueStr)
+        }
+      }
+
+      const lines = Object.entries(deduped)
+        .map(([displayKey, text]) => {
           return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
 
       const snaps = (p.materialSnapshots || []) as any[]
+      const keyAliasesSnap: Record<string, string> = {
+        'fabric': '面料', '面料': '面料', 'material': '面料', '材质': '面料',
+        'filling': '填充', 'fill': '填充', '填充': '填充',
+        'frame': '框架', '框架': '框架',
+        'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
+      }
       const snapHtml = snaps.length
         ? (() => {
+            // 对 snapshots 也进行去重，按 categoryKey 分组只显示一次
             const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
-              const key = String(s?.categoryKey || '材质')
+              const key = keyAliasesSnap[String(s?.categoryKey || '').toLowerCase()] || keyAliasesSnap[s?.categoryKey] || String(s?.categoryKey || '材质')
               if (!acc[key]) acc[key] = []
               acc[key].push(s)
               return acc
             }, {})
             return Object.entries(groups)
               .map(([categoryKey, list]) => {
-                const names = (list as any[]).map(s => s?.name).filter(Boolean).join('、')
-                const desc = (list as any[]).find(s => s?.description)?.description
-                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>${desc ? `<div style=\"margin-top: 4px; color: #6b7280;\">说明：${desc}</div>` : ''}`
+                // 对每个分组内的材质名称去重
+                const namesSet = new Set((list as any[]).map(s => s?.name).filter(Boolean))
+                const names = Array.from(namesSet).join('、')
+                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>`
               })
               .join('')
           })()
@@ -1209,38 +1219,65 @@ export default function OrderManagementNew2() {
       const selectedMaterials = p.selectedMaterials || p.materials || {}
       const merged: Record<string, any> = { ...specs, ...selectedMaterials }
 
-      const keyMap: Record<string, string> = {
-        'size': '尺寸', 'spec': '规格', 'material': '材质', 'fabric': '面料',
-        'filling': '填充', 'fill': '填充', 'frame': '框架', 'color': '颜色',
-        'style': '风格', 'leg': '脚架', 'legs': '脚架', 'armrest': '扶手',
-        'cushion': '坐垫', 'back': '靠背',
+      // 需要排除的键名（说明、描述等长文本）
+      const excludeKeys = new Set(['说明', 'description', 'desc', 'note', 'notes', '备注', 'remark', 'remarks'])
+
+      // 定义英文-中文键名映射，用于去重
+      const keyAliases: Record<string, string> = {
+        'fabric': '面料', '面料': '面料', 'material': '面料', '材质': '面料',
+        'filling': '填充', 'fill': '填充', '填充': '填充',
+        'frame': '框架', '框架': '框架',
+        'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
+        'color': '颜色', '颜色': '颜色',
+        'size': '尺寸', '尺寸': '尺寸', 'dimensions': '尺寸',
+        'spec': '规格', '规格': '规格',
       }
 
-      const lines = Object.entries(merged)
-        .map(([k, v]) => {
-          const text = normalizeMaterialValue(v)
-          return [k, text] as const
-        })
-        .filter(([, text]) => text !== '')
-        .map(([k, text]) => {
-          const displayKey = keyMap[String(k).toLowerCase()] || k
+      // 去重：合并英文和中文键，只保留一个值
+      const deduped: Record<string, string> = {}
+      const seenValues = new Set<string>() // 按值去重
+      
+      for (const [k, v] of Object.entries(merged)) {
+        if (v === undefined || v === null || v === '') continue
+        const lowerKey = String(k).toLowerCase()
+        // 排除说明/描述等长文本
+        if (excludeKeys.has(lowerKey) || excludeKeys.has(k)) continue
+        
+        const normalizedKey = keyAliases[lowerKey] || keyAliases[k] || k
+        const valueStr = normalizeMaterialValue(v)
+        if (!valueStr) continue
+        
+        // 跳过已经出现过的值（按值去重）
+        if (seenValues.has(valueStr)) continue
+        
+        // 如果该规范化键名还没有值，则使用当前值
+        if (!deduped[normalizedKey]) {
+          deduped[normalizedKey] = valueStr
+          seenValues.add(valueStr)
+        }
+      }
+
+      const lines = Object.entries(deduped)
+        .map(([displayKey, text]) => {
           return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
 
       const snaps = (p.materialSnapshots || []) as any[]
       const snapHtml = snaps.length
         ? (() => {
+            // 对 snapshots 也进行去重，按 categoryKey 分组只显示一次
             const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
-              const key = String(s?.categoryKey || '材质')
+              const key = keyAliases[String(s?.categoryKey || '').toLowerCase()] || keyAliases[s?.categoryKey] || String(s?.categoryKey || '材质')
               if (!acc[key]) acc[key] = []
               acc[key].push(s)
               return acc
             }, {})
             return Object.entries(groups)
               .map(([categoryKey, list]) => {
-                const names = (list as any[]).map(s => s?.name).filter(Boolean).join('、')
-                const desc = (list as any[]).find(s => s?.description)?.description
-                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>${desc ? `<div style=\"margin-top: 4px; color: #6b7280;\">说明：${desc}</div>` : ''}`
+                // 对每个分组内的材质名称去重
+                const namesSet = new Set((list as any[]).map(s => s?.name).filter(Boolean))
+                const names = Array.from(namesSet).join('、')
+                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>`
               })
               .join('')
           })()
