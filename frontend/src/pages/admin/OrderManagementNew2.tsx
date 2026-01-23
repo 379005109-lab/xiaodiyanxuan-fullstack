@@ -2757,11 +2757,17 @@ export default function OrderManagementNew2() {
                         <div className="mt-3 space-y-2">
                           {Object.entries(snapshotGroups).map(([categoryKey, list]) => {
                             const snaps = (list as any[]) || []
-                            // 规范化名称显示，去除前缀
-                            const names = snaps.map(s => {
+                            // 规范化名称显示，去除前缀，并去重
+                            const seenDisplayNames = new Set<string>()
+                            const names: string[] = []
+                            for (const s of snaps) {
                               const rawName = String(s?.name || '')
-                              return normalizeName(rawName) || rawName
-                            }).filter(Boolean)
+                              const normalized = normalizeName(rawName) || rawName
+                              if (normalized && !seenDisplayNames.has(normalized)) {
+                                seenDisplayNames.add(normalized)
+                                names.push(normalized)
+                              }
+                            }
                             const desc = snaps.find(s => s?.description)?.description
                             const upgradePrice =
                               (product.materialUpgradePrices?.[categoryKey] ??
