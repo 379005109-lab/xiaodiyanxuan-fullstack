@@ -76,6 +76,7 @@ export default function ProductsPage() {
     style: searchParams.get('style') || '',
     priceRange: searchParams.get('priceRange') || '',
     sort: searchParams.get('sort') || 'recommend',
+    series: searchParams.get('series') || '',
   })
   
   // 分页状态
@@ -200,12 +201,14 @@ export default function ProductsPage() {
     const priceRange = searchParams.get('priceRange') || ''
     const sort = searchParams.get('sort') || 'recommend'
     
+    const series = searchParams.get('series') || ''
     setFilters({
       category,
       sub,
       style,
       priceRange,
       sort,
+      series,
     })
     
     // 同步价格区间
@@ -313,6 +316,39 @@ export default function ProductsPage() {
     return String(cat?.name || filters.category)
   }, [categories, filters.category])
 
+  // 获取当前分类的子分类（用于顶部快捷标签）
+  const subcategoryTabs = useMemo(() => {
+    if (!filters.category) return []
+    // 找到当前分类
+    const currentCat = categories.find((c: any) => 
+      c?._id === filters.category || c?.slug === filters.category || c?.name === filters.category
+    )
+    if (!currentCat) return []
+    
+    // 如果是父分类，返回其子分类
+    if (currentCat.children && currentCat.children.length > 0) {
+      return currentCat.children.map((child: any) => ({
+        id: child._id,
+        name: child.name,
+        slug: child.slug || child._id,
+        image: child.image
+      }))
+    }
+    
+    // 如果是子分类，找到父分类的所有子分类
+    const parentCat = categories.find((c: any) => c?._id === currentCat.parentId)
+    if (parentCat && parentCat.children) {
+      return parentCat.children.map((child: any) => ({
+        id: child._id,
+        name: child.name,
+        slug: child.slug || child._id,
+        image: child.image
+      }))
+    }
+    
+    return []
+  }, [categories, filters.category])
+
   const pageTitle = useMemo(() => {
     if (searchKeyword) return `搜索 "${searchKeyword}"`
     if (subLabel) return subLabel
@@ -415,8 +451,28 @@ export default function ProductsPage() {
       }
     }
     
+    // 系列筛选
+    if (filters.series) {
+      const productSeries = (product as any).series || (product as any).productSeries || ''
+      if (productSeries !== filters.series) {
+        return false
+      }
+    }
+    
     return true
   })
+
+  // 获取系列选项（从商品数据中动态获取）
+  const seriesOptions = useMemo(() => {
+    const seriesSet = new Set<string>()
+    filteredProducts.forEach(product => {
+      const series = (product as any).series || (product as any).productSeries
+      if (series && typeof series === 'string') {
+        seriesSet.add(series)
+      }
+    })
+    return Array.from(seriesSet).sort()
+  }, [filteredProducts])
 
   // 动态计算价格区间
   const actualPriceRange = useMemo(() => {
@@ -654,6 +710,67 @@ export default function ProductsPage() {
             <h1 className="text-4xl font-semibold text-stone-900">{pageTitle}</h1>
           </div>
 
+          {/* 子分类快捷标签 */}
+          {subcategoryTabs.length > 0 && (
+            <div className="mt-6 flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString())
+                  params.delete('sub')
+                  setSearchParams(params)
+                  setFilters({ ...filters, sub: '' })
+                }}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  !filters.sub ? 'bg-primary text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+              >
+                全部
+              </button>
+              {subcategoryTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setSearchParams({ ...Object.fromEntries(searchParams), category: tab.slug })
+                    setFilters({ ...filters, category: tab.slug })
+                  }}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    filters.category === tab.slug || filters.category === tab.id
+                      ? 'bg-primary text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  {tab.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 系列筛选 */}
+          {seriesOptions.length > 0 && (
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-sm text-stone-500">系列:</span>
+              <select
+                value={filters.series}
+                onChange={(e) => {
+                  setFilters({ ...filters, series: e.target.value })
+                  if (e.target.value) {
+                    setSearchParams({ ...Object.fromEntries(searchParams), series: e.target.value })
+                  } else {
+                    const params = new URLSearchParams(searchParams.toString())
+                    params.delete('series')
+                    setSearchParams(params)
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg bg-stone-100 text-sm text-stone-700 border-none"
+              >
+                <option value="">全部系列</option>
+                {seriesOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="mt-6 pb-4 border-b border-stone-200 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
               <select
@@ -859,7 +976,7 @@ export default function ProductsPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setFilters({ category: filters.category, sub: filters.sub, style: '', priceRange: '', sort: 'recommend' })
+                    setFilters({ category: filters.category, sub: filters.sub, style: '', priceRange: '', sort: 'recommend', series: '' })
                     setPriceRange(actualPriceRange as [number, number])
                     setPriceRangeInput(actualPriceRange as [number, number])
                     const params = new URLSearchParams(searchParams.toString())
@@ -1016,7 +1133,7 @@ export default function ProductsPage() {
               {/* 重置筛选 */}
               <button
                 onClick={() => {
-                  setFilters({ category: '', sub: '', style: '', priceRange: '', sort: 'recommend' })
+                  setFilters({ category: '', sub: '', style: '', priceRange: '', sort: 'recommend', series: '' })
                   setPriceRange(actualPriceRange as [number, number])
                   setPriceRangeInput(actualPriceRange as [number, number])
                 }}
