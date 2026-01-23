@@ -46,6 +46,7 @@ export default function Header() {
   const categoryMenuRef = useRef<HTMLDivElement>(null)
   const categoryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [hoveredCategoryId, setHoveredCategoryId] = useState<string | null>(null)
+  const [hoveredSubCategoryId, setHoveredSubCategoryId] = useState<string | null>(null)
   const [language, setLanguage] = useState<'CN' | 'EN'>(() => {
     return (localStorage.getItem('language') as 'CN' | 'EN') || 'CN'
   })
@@ -401,7 +402,10 @@ export default function Header() {
                     {categories.filter(c => !c.parentId).map((cat) => (
                       <div
                         key={cat._id}
-                        onMouseEnter={() => setHoveredCategoryId(cat._id)}
+                        onMouseEnter={() => {
+                          setHoveredCategoryId(cat._id)
+                          setHoveredSubCategoryId(null)
+                        }}
                         onClick={() => {
                           setCategoryMenuOpen(false)
                           requireAuthNavigate(`/products?category=${cat.slug || cat._id}`)
@@ -429,9 +433,68 @@ export default function Header() {
                     </div>
                   </div>
                   
-                  {/* 右侧：子分类网格 */}
+                  {/* 中间：二级分类列表 */}
+                  <div className="w-40 border-r border-stone-100 py-3 flex-shrink-0">
+                    {(() => {
+                      const parentCat = categories.find(c => c._id === hoveredCategoryId)
+                      const childCats = categories.filter(c => c.parentId === hoveredCategoryId)
+                      
+                      if (!hoveredCategoryId) {
+                        return (
+                          <div className="px-4 py-8 text-stone-400 text-xs text-center">
+                            请将鼠标移到左侧分类
+                          </div>
+                        )
+                      }
+                      
+                      return (
+                        <>
+                          <div className="px-4 py-2 text-xs font-bold text-stone-400 uppercase tracking-wider">{parentCat?.name}</div>
+                          <div
+                            onMouseEnter={() => setHoveredSubCategoryId(null)}
+                            onClick={() => {
+                              setCategoryMenuOpen(false)
+                              requireAuthNavigate(`/products?category=${parentCat?.slug || parentCat?._id}`)
+                            }}
+                            className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between transition-colors ${
+                              !hoveredSubCategoryId
+                                ? 'bg-primary/5 text-primary font-medium'
+                                : 'text-stone-600 hover:bg-stone-50'
+                            }`}
+                          >
+                            <span>全部{parentCat?.name}</span>
+                          </div>
+                          {childCats.map((child) => {
+                            const hasGrandchildren = categories.some(c => c.parentId === child._id)
+                            return (
+                              <div
+                                key={child._id}
+                                onMouseEnter={() => setHoveredSubCategoryId(child._id)}
+                                onClick={() => {
+                                  setCategoryMenuOpen(false)
+                                  requireAuthNavigate(`/products?category=${child.slug || child._id}`)
+                                }}
+                                className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between transition-colors ${
+                                  hoveredSubCategoryId === child._id
+                                    ? 'bg-primary/5 text-primary font-medium'
+                                    : 'text-stone-600 hover:bg-stone-50'
+                                }`}
+                              >
+                                <span>{child.name}</span>
+                                {hasGrandchildren && <ChevronRight className="w-3 h-3 text-stone-300" />}
+                              </div>
+                            )
+                          })}
+                        </>
+                      )
+                    })()}
+                  </div>
+                  
+                  {/* 右侧：三级分类网格 */}
                   <div className="flex-1 p-4 min-h-[300px]">
                     {(() => {
+                      const subCat = categories.find(c => c._id === hoveredSubCategoryId)
+                      const grandchildCats = categories.filter(c => c.parentId === hoveredSubCategoryId)
                       const parentCat = categories.find(c => c._id === hoveredCategoryId)
                       const childCats = categories.filter(c => c.parentId === hoveredCategoryId)
                       
@@ -443,45 +506,72 @@ export default function Header() {
                         )
                       }
                       
+                      // 如果选中了二级分类且有三级分类
+                      if (hoveredSubCategoryId && grandchildCats.length > 0) {
+                        return (
+                          <div>
+                            <div className="text-lg font-bold text-primary mb-4">{subCat?.name}</div>
+                            <div className="grid grid-cols-4 gap-3">
+                              {grandchildCats.map((grandchild) => (
+                                <div
+                                  key={grandchild._id}
+                                  onClick={() => {
+                                    setCategoryMenuOpen(false)
+                                    requireAuthNavigate(`/products?category=${grandchild.slug || grandchild._id}`)
+                                  }}
+                                  className="flex flex-col items-center p-3 rounded-lg hover:bg-stone-50 cursor-pointer transition-colors border border-transparent hover:border-primary/20 group"
+                                >
+                                  {grandchild.image ? (
+                                    <img
+                                      src={getFileUrl(grandchild.image)}
+                                      alt={grandchild.name}
+                                      className="w-16 h-16 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform"
+                                    />
+                                  ) : (
+                                    <div className="w-16 h-16 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
+                                      <Grid className="w-6 h-6 text-stone-400" />
+                                    </div>
+                                  )}
+                                  <span className="text-xs text-stone-600 text-center group-hover:text-primary transition-colors">{grandchild.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      }
+                      
+                      // 没有选中二级分类，显示所有二级分类的图标
                       if (childCats.length === 0) {
                         return (
                           <div className="h-full">
                             <div className="text-lg font-bold text-primary mb-4">{parentCat?.name}</div>
-                            <div className="grid grid-cols-3 gap-3">
-                              <div
-                                onClick={() => {
-                                  setCategoryMenuOpen(false)
-                                  requireAuthNavigate(`/products?category=${parentCat?.slug || parentCat?._id}`)
-                                }}
-                                className="flex flex-col items-center p-4 rounded-lg hover:bg-stone-50 cursor-pointer transition-colors border border-transparent hover:border-primary/20"
-                              >
-                                <div className="w-16 h-16 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
-                                  <Grid className="w-8 h-8 text-stone-400" />
-                                </div>
-                                <span className="text-sm text-stone-600">全部{parentCat?.name}</span>
-                              </div>
-                            </div>
+                            <div className="text-sm text-stone-500">点击左侧分类查看商品</div>
                           </div>
                         )
                       }
                       
                       return (
                         <div>
-                          <div className="text-lg font-bold text-primary mb-4">{parentCat?.name}</div>
+                          <div className="text-lg font-bold text-primary mb-4">
+                            {hoveredSubCategoryId ? subCat?.name : parentCat?.name}
+                          </div>
                           <div className="grid grid-cols-4 gap-3">
-                            {childCats.map((child) => (
+                            {(hoveredSubCategoryId ? grandchildCats : childCats).map((cat) => (
                               <div
-                                key={child._id}
+                                key={cat._id}
                                 onClick={() => {
                                   setCategoryMenuOpen(false)
-                                  requireAuthNavigate(`/products?category=${child.slug || child._id}&parent=${parentCat?.name}`)
+                                  requireAuthNavigate(`/products?category=${cat.slug || cat._id}`)
+                                }}
+                                onMouseEnter={() => {
+                                  if (!hoveredSubCategoryId) setHoveredSubCategoryId(cat._id)
                                 }}
                                 className="flex flex-col items-center p-3 rounded-lg hover:bg-stone-50 cursor-pointer transition-colors border border-transparent hover:border-primary/20 group"
                               >
-                                {child.image ? (
+                                {cat.image ? (
                                   <img
-                                    src={getFileUrl(child.image)}
-                                    alt={child.name}
+                                    src={getFileUrl(cat.image)}
+                                    alt={cat.name}
                                     className="w-16 h-16 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform"
                                   />
                                 ) : (
@@ -489,7 +579,7 @@ export default function Header() {
                                     <Grid className="w-6 h-6 text-stone-400" />
                                   </div>
                                 )}
-                                <span className="text-xs text-stone-600 text-center group-hover:text-primary transition-colors">{child.name}</span>
+                                <span className="text-xs text-stone-600 text-center group-hover:text-primary transition-colors">{cat.name}</span>
                               </div>
                             ))}
                           </div>

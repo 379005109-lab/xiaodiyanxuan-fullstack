@@ -391,57 +391,51 @@ export default function ProductsPage() {
       }
     }
     
-    // 分类筛选 - 暂时禁用以测试商品加载
-    // TODO: 修复分类筛选逻辑后重新启用
-    /*
+    // 分类筛选
     if (filters.category) {
-      // 获取筛选分类的名称
-      const filterCat = categories.find((c: any) => 
-        c._id === filters.category || c.slug === filters.category || c.name === filters.category
-      )
-      const filterCatName = filterCat?.name || filters.category
-      
-      // 检查商品分类是否匹配
+      // 获取商品的分类ID
       const rawCategory: any = (product as any).category
-      const productCategory = typeof rawCategory === 'object'
-        ? String(rawCategory?._id || rawCategory?.id || rawCategory?.name || '')
+      const productCategoryId = typeof rawCategory === 'object'
+        ? String(rawCategory?._id || rawCategory?.id || '')
         : String(rawCategory ?? '')
-      const productCategoryName = String((product as any).categoryName || rawCategory?.name || rawCategory?.title || '')
       
-      // 构建匹配文本
-      const matchText = `${product.name || ''} ${productCategory} ${productCategoryName}`.toLowerCase()
-      const filterText = filterCatName.toLowerCase()
+      // 获取筛选分类及其所有子分类ID
+      const validCategoryIds = getCategoryAndChildIds(filters.category)
       
-      // 模糊匹配：商品信息中包含分类名
-      if (!matchText.includes(filterText)) {
+      // 检查商品分类是否在有效分类列表中
+      if (!validCategoryIds.has(productCategoryId)) {
+        // 也检查分类名称匹配
+        const productCategoryName = String((product as any).categoryName || rawCategory?.name || '')
+        if (!validCategoryIds.has(productCategoryName)) {
+          return false
+        }
+      }
+    }
+
+    // 风格筛选
+    if (filters.style) {
+      const productStyle = (product as any).style || ''
+      if (productStyle !== filters.style) {
         return false
       }
     }
-    */
 
-    // 细分分类（沙发）筛选 - 暂时禁用
-    /*
-    if (filters.sub) {
-      const hay = `${product.name || ''} ${(product as any).categoryName || ''} ${(product as any).model || ''} ${((product as any).specs || '')} ${Array.isArray((product as any).tags) ? (product as any).tags.join(' ') : ''}`
-      const key = String(filters.sub)
-      const rules: Record<string, string[]> = {
-        electric: ['电动'],
-        double: ['双人', '二人', '2人'],
-        triple: ['三人', '3人'],
-        chaise: ['贵妃'],
-        modular: ['模块', '组合', '拼接'],
-        corner: ['转角', '拐角', 'L型'],
-      }
-      const keywords = rules[key] || []
-      if (keywords.length > 0) {
-        const matched = keywords.some(k => hay.includes(k))
-        if (!matched) return false
+    // 价格筛选
+    if (filters.priceRange) {
+      const [min, max] = filters.priceRange.split('-').map(Number)
+      const price = getDisplayPrice(product as any)
+      if (price < min || price > max) {
+        return false
       }
     }
-    */
-    
-    // 所有筛选暂时禁用以测试商品加载
-    // TODO: 确认商品能加载后重新启用筛选
+
+    // 系列筛选
+    if (filters.series) {
+      const productSeries = (product as any).series || (product as any).productSeries || ''
+      if (productSeries !== filters.series) {
+        return false
+      }
+    }
     
     return true
   })
