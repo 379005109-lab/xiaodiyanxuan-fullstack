@@ -1092,7 +1092,7 @@ export default function ManufacturerManagement() {
 
                 <div className="grid grid-cols-2 gap-4 mt-6">
                   <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 text-center">
-                    <div className="text-xs font-semibold text-emerald-700">经销折扣(%)</div>
+                    <div className="text-xs font-semibold text-emerald-700">最低折扣(%)</div>
                     <div className="text-2xl font-black text-[#153e35] mt-1">{myManufacturer.defaultDiscount || 0}</div>
                   </div>
                   <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 text-center">
@@ -1512,7 +1512,7 @@ export default function ManufacturerManagement() {
                             {/* 折扣和返佣 */}
                             <div className="grid grid-cols-2 gap-3 mb-4">
                               <div className="border border-gray-200 rounded-xl p-3 text-center">
-                                <div className="text-xs text-gray-500 mb-1">经销折扣(%)</div>
+                                <div className="text-xs text-gray-500 mb-1">最低折扣(%)</div>
                                 <div className="text-2xl font-bold text-gray-900">{authInfo?.minDiscountRate || item.defaultDiscount || 60}</div>
                               </div>
                               <div className="border border-gray-200 rounded-xl p-3 text-center">
@@ -1750,7 +1750,7 @@ export default function ManufacturerManagement() {
                           </div>
                           <div className="grid grid-cols-2 gap-4 mt-6">
                             <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
-                              <div className="text-xs font-semibold text-emerald-700">经销折扣(%)</div>
+                              <div className="text-xs font-semibold text-emerald-700">最低折扣(%)</div>
                               <div className="text-3xl font-black text-[#153e35] mt-2">
                                 {item.defaultDiscount || 0}
                               </div>
@@ -2031,7 +2031,7 @@ export default function ManufacturerManagement() {
 
                           <div className="flex items-center gap-6">
                             <div className="text-center">
-                              <div className="text-xs text-gray-500">经销折扣</div>
+                              <div className="text-xs text-gray-500">最低折扣</div>
                               <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
                             </div>
                             <div className="text-center">

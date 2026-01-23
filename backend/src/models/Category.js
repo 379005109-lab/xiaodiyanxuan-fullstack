@@ -11,6 +11,11 @@ const categorySchema = new mongoose.Schema({
   level: { type: Number, default: 1 }, // 层级：1为顶级，2为二级
   order: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+  customFields: [{ 
+    id: String,
+    text: String,
+    image: String
+  }],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 })
