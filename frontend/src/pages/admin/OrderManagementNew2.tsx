@@ -1046,8 +1046,23 @@ export default function OrderManagementNew2() {
       const selectedMaterials = p.selectedMaterials || p.materials || {}
       const merged: Record<string, any> = { ...specs, ...selectedMaterials }
       
-      // 确保尺寸信息被包含 - 从 skuName, skuDimensions 或 specifications.size 获取
-      const sizeValue = p.skuName || p.skuDimensions || specs.size || specs['尺寸'] || specs.dimensions
+      // 确保尺寸信息被包含 - 优先使用实际尺寸数据
+      let sizeValue = ''
+      // 优先从 skuDimensions 获取实际尺寸（长×宽×高）
+      if (p.skuDimensions && (p.skuDimensions.length || p.skuDimensions.width || p.skuDimensions.height)) {
+        const l = p.skuDimensions.length || '-'
+        const w = p.skuDimensions.width || '-'
+        const h = p.skuDimensions.height || '-'
+        sizeValue = `${l}×${w}×${h} CM`
+      } else if (specs.dimensions) {
+        sizeValue = specs.dimensions
+      } else if (specs['尺寸'] && specs['尺寸'] !== '常规') {
+        sizeValue = specs['尺寸']
+      } else if (specs.size && specs.size !== '常规') {
+        sizeValue = specs.size
+      } else if (p.skuName) {
+        sizeValue = p.skuName
+      }
       if (sizeValue && !merged['尺寸'] && !merged['size']) {
         merged['尺寸'] = sizeValue
       }
@@ -1289,8 +1304,23 @@ export default function OrderManagementNew2() {
       const selectedMaterials = p.selectedMaterials || p.materials || {}
       const merged: Record<string, any> = { ...specs, ...selectedMaterials }
       
-      // 确保尺寸信息被包含 - 从 skuName, skuDimensions 或 specifications.size 获取
-      const sizeValue = p.skuName || p.skuDimensions || specs.size || specs['尺寸'] || specs.dimensions
+      // 确保尺寸信息被包含 - 优先使用实际尺寸数据
+      let sizeValue = ''
+      // 优先从 skuDimensions 获取实际尺寸（长×宽×高）
+      if (p.skuDimensions && (p.skuDimensions.length || p.skuDimensions.width || p.skuDimensions.height)) {
+        const l = p.skuDimensions.length || '-'
+        const w = p.skuDimensions.width || '-'
+        const h = p.skuDimensions.height || '-'
+        sizeValue = `${l}×${w}×${h} CM`
+      } else if (specs.dimensions) {
+        sizeValue = specs.dimensions
+      } else if (specs['尺寸'] && specs['尺寸'] !== '常规') {
+        sizeValue = specs['尺寸']
+      } else if (specs.size && specs.size !== '常规') {
+        sizeValue = specs.size
+      } else if (p.skuName) {
+        sizeValue = p.skuName
+      }
       if (sizeValue && !merged['尺寸'] && !merged['size']) {
         merged['尺寸'] = sizeValue
       }
