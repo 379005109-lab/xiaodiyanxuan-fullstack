@@ -46,7 +46,7 @@ function PackagesPage() {
         <div className="grid grid-cols-1 gap-12">
           {packages.map((pkg, idx) => (
             <div key={pkg.id || idx} className={`flex flex-col ${idx % 2 === 1 ? 'md:flex-row-reverse' : 'md:flex-row'} bg-white rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 group`}>
-              <div className="md:w-3/5 relative overflow-hidden h-64 md:h-auto cursor-pointer">
+              <div className="md:w-3/5 relative overflow-hidden h-48 md:h-auto cursor-pointer">
                 <img 
                   src={pkg.banner ? getFileUrl(pkg.banner) : '/placeholder.svg'} 
                   alt={pkg.name || '套餐'} 
