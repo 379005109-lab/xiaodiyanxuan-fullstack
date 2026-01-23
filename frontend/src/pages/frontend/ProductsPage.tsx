@@ -419,7 +419,8 @@ export default function ProductsPage() {
     }
     */
 
-    // 细分分类（沙发）筛选
+    // 细分分类（沙发）筛选 - 暂时禁用
+    /*
     if (filters.sub) {
       const hay = `${product.name || ''} ${(product as any).categoryName || ''} ${(product as any).model || ''} ${((product as any).specs || '')} ${Array.isArray((product as any).tags) ? (product as any).tags.join(' ') : ''}`
       const key = String(filters.sub)
@@ -437,42 +438,18 @@ export default function ProductsPage() {
         if (!matched) return false
       }
     }
+    */
     
-    // 风格筛选 - 从styles数组中匹配
-    if (filters.style) {
-      const productStyles = (product as any).styles || []
-      
-      // 添加调试日志
-      console.log(`🔍 风格筛选: 商品"${product.name}" 的风格:`, productStyles, '| 筛选条件:', filters.style, '| 匹配:', productStyles.includes(filters.style))
-      
-      // 只在有styles字段且筛选条件不匹配时过滤掉
-      // 没有styles字段的商品在没有风格筛选时应该显示
-      if (Array.isArray(productStyles) && productStyles.length > 0 && !productStyles.includes(filters.style)) {
-        return false
-      }
-    }
-    
-    // 价格筛选
-    if (filters.priceRange) {
-      const [min, max] = filters.priceRange.split('-').map(Number)
-      const price = getDisplayPrice(product as any)
-      if (max) {
-        if (price < min || price > max) return false
-      } else {
-        if (price < min) return false
-      }
-    }
-    
-    // 系列筛选
-    if (filters.series) {
-      const productSeries = (product as any).series || (product as any).productSeries || ''
-      if (productSeries !== filters.series) {
-        return false
-      }
-    }
+    // 所有筛选暂时禁用以测试商品加载
+    // TODO: 确认商品能加载后重新启用筛选
     
     return true
   })
+
+  // 调试日志
+  useEffect(() => {
+    console.log(`🔍 商品筛选结果: 总商品=${products.length}, 筛选后=${filteredProducts.length}, 筛选条件=`, filters)
+  }, [products.length, filteredProducts.length, filters])
 
   // 获取系列选项（从商品数据中动态获取）
   const seriesOptions = useMemo(() => {
