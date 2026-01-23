@@ -416,6 +416,19 @@ export default function ProductsPage() {
       const nameMatch = productCategoryName.includes(filterCatName) || filterCatName.includes(productCategoryName)
       const productNameMatch = (product.name || '').includes(filterCatName)
       
+      // 调试日志 - 仅对前3个商品打印
+      if (products.indexOf(product) < 3) {
+        console.log(`🔍 分类筛选调试:`, {
+          商品名: product.name,
+          筛选分类: filters.category,
+          筛选分类名: filterCatName,
+          商品分类ID: productCategory,
+          商品分类名: productCategoryName,
+          原始分类数据: rawCategory,
+          匹配结果: { idMatch, nameMatch, productNameMatch }
+        })
+      }
+      
       if (!idMatch && !nameMatch && !productNameMatch) {
         return false
       }
