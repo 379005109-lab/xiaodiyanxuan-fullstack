@@ -945,38 +945,74 @@ export default function OrderManagementNew2() {
       return
     }
     
-    const exportData = filteredOrders.map(order => {
+    // 创建详细的订单数据，每个商品一行
+    const exportData: any[] = []
+    
+    filteredOrders.forEach(order => {
       const products = getProducts(order)
       const status = statusConfig[order.status] || statusConfig[1]
+      const customerInfo = (order as any).customerInfo || {}
+      const shippingAddress = (order as any).shippingAddress || {}
       
-      return {
-        '订单号': order.orderNo,
-        '创建时间': new Date(order.createdAt).toLocaleString('zh-CN'),
-        '商品信息': products.map((p: any) => `${p.name}x${p.quantity}`).join('; '),
-        '订单状态': status.label,
-        '商家备注': (order as any).adminNote || '',
-        '物流公司': (order as any).shippingCompany || '',
-        '物流单号': (order as any).trackingNumber || '',
-      }
+      products.forEach((p: any, idx: number) => {
+        // 获取材质信息
+        const materials = p.selectedMaterials || p.materials || {}
+        const specs = p.specifications || {}
+        const fabricVal = materials.fabric || materials['面料'] || ''
+        const fillingVal = materials.filling || materials['填充'] || ''
+        const frameVal = materials.frame || materials['框架'] || ''
+        const legVal = materials.leg || materials['脚架'] || ''
+        const sizeVal = p.skuName || p.skuDimensions || specs.size || specs['尺寸'] || ''
+        
+        exportData.push({
+          '订单号': order.orderNo,
+          '创建时间': new Date(order.createdAt).toLocaleString('zh-CN'),
+          '订单状态': status.label,
+          '客户姓名': customerInfo.name || shippingAddress.name || '',
+          '联系电话': customerInfo.phone || shippingAddress.phone || '',
+          '收货地址': [shippingAddress.province, shippingAddress.city, shippingAddress.district, shippingAddress.address].filter(Boolean).join(''),
+          '商品名称': p.name || '',
+          '数量': p.quantity || 1,
+          '尺寸/规格': sizeVal,
+          '面料': fabricVal,
+          '填充': fillingVal,
+          '框架': frameVal,
+          '脚架': legVal,
+          '厂家': p.manufacturerName || '',
+          '商家备注': idx === 0 ? ((order as any).adminNote || '') : '',
+          '物流公司': idx === 0 ? ((order as any).shippingCompany || '') : '',
+          '物流单号': idx === 0 ? ((order as any).trackingNumber || '') : '',
+        })
+      })
     })
     
     const ws = XLSX.utils.json_to_sheet(exportData)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, '订单列表')
+    XLSX.utils.book_append_sheet(wb, ws, '订单明细')
     
     // 设置列宽
     ws['!cols'] = [
-      { wch: 20 }, // 订单号
-      { wch: 20 }, // 创建时间
-      { wch: 40 }, // 商品信息
+      { wch: 22 }, // 订单号
+      { wch: 18 }, // 创建时间
       { wch: 10 }, // 订单状态
-      { wch: 30 }, // 商家备注
-      { wch: 15 }, // 物流公司
-      { wch: 20 }, // 物流单号
+      { wch: 12 }, // 客户姓名
+      { wch: 14 }, // 联系电话
+      { wch: 40 }, // 收货地址
+      { wch: 20 }, // 商品名称
+      { wch: 6 },  // 数量
+      { wch: 18 }, // 尺寸/规格
+      { wch: 25 }, // 面料
+      { wch: 15 }, // 填充
+      { wch: 15 }, // 框架
+      { wch: 15 }, // 脚架
+      { wch: 12 }, // 厂家
+      { wch: 25 }, // 商家备注
+      { wch: 12 }, // 物流公司
+      { wch: 18 }, // 物流单号
     ]
     
-    XLSX.writeFile(wb, `订单导出_${new Date().toLocaleDateString('zh-CN')}.xlsx`)
-    toast.success(`已导出 ${filteredOrders.length} 条订单`)
+    XLSX.writeFile(wb, `订单明细导出_${new Date().toLocaleDateString('zh-CN')}.xlsx`)
+    toast.success(`已导出 ${filteredOrders.length} 条订单，共 ${exportData.length} 条商品记录`)
   }
 
   // 导出订单清单图片（包含商品图片、规格、材质、数量等）
@@ -1009,6 +1045,12 @@ export default function OrderManagementNew2() {
       const specs = p.specifications || p.specs || {}
       const selectedMaterials = p.selectedMaterials || p.materials || {}
       const merged: Record<string, any> = { ...specs, ...selectedMaterials }
+      
+      // 确保尺寸信息被包含 - 从 skuName, skuDimensions 或 specifications.size 获取
+      const sizeValue = p.skuName || p.skuDimensions || specs.size || specs['尺寸'] || specs.dimensions
+      if (sizeValue && !merged['尺寸'] && !merged['size']) {
+        merged['尺寸'] = sizeValue
+      }
 
       // 需要排除的键名（说明、描述等长文本）
       const excludeKeys = new Set(['说明', 'description', 'desc', 'note', 'notes', '备注', 'remark', 'remarks'])
@@ -1246,6 +1288,12 @@ export default function OrderManagementNew2() {
       const specs = p.specifications || p.specs || {}
       const selectedMaterials = p.selectedMaterials || p.materials || {}
       const merged: Record<string, any> = { ...specs, ...selectedMaterials }
+      
+      // 确保尺寸信息被包含 - 从 skuName, skuDimensions 或 specifications.size 获取
+      const sizeValue = p.skuName || p.skuDimensions || specs.size || specs['尺寸'] || specs.dimensions
+      if (sizeValue && !merged['尺寸'] && !merged['size']) {
+        merged['尺寸'] = sizeValue
+      }
 
       // 需要排除的键名（说明、描述等长文本）
       const excludeKeys = new Set(['说明', 'description', 'desc', 'note', 'notes', '备注', 'remark', 'remarks'])
