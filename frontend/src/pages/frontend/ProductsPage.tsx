@@ -981,6 +981,165 @@ export default function ProductsPage() {
               </div>
             </div>
           )}
+
+          {/* 商品列表 - categoryMode布局 */}
+          <div className="mt-8">
+            {sortedProducts.length === 0 ? (
+              <div className="card py-16 text-center">
+                <p className="text-gray-500 text-lg">暂无商品</p>
+              </div>
+            ) : (
+              <>
+                <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-5' : 'space-y-3'}>
+                  {paginatedProducts.map((product, index) => (
+                    <motion.div
+                      key={product._id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className={viewMode === 'grid' ? 'card hover:shadow-lg transition-shadow' : 'bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow border border-stone-100'}
+                    >
+                      {(() => {
+                        const skus = Array.isArray((product as any).skus) ? (product as any).skus : []
+                        const displayPrice = getDisplayPrice(product as any)
+                        const firstSku = skus[0]
+                        return (
+                          <div
+                            onMouseEnter={() => setHoveredProductId(product._id)}
+                            onMouseLeave={() => {
+                              setHoveredProductId(null)
+                              setPreviewImageIndex(prev => {
+                                const newState = { ...prev }
+                                delete newState[product._id]
+                                return newState
+                              })
+                            }}
+                            className={viewMode === 'list' ? 'flex gap-4' : ''}
+                          >
+                            <Link to={`/products/${product._id}`} className={viewMode === 'list' ? 'flex gap-4 w-full' : ''}>
+                              {/* 商品图片 */}
+                              <div className={`relative overflow-hidden rounded-lg bg-gray-100 group ${viewMode === 'grid' ? 'aspect-square mb-4' : 'w-24 h-24 flex-shrink-0'}`}>
+                                <img
+                                  src={getThumbnailUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png', 280)}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                                
+                                {/* SKU预览小方块 */}
+                                {viewMode === 'grid' && getProductPreviewImages(product).length > 1 && (
+                                  <div className="absolute bottom-2 left-2 flex gap-1 z-10" onClick={(e) => e.preventDefault()}>
+                                    {getProductPreviewImages(product).slice(0, 4).map((img, idx) => (
+                                      <div
+                                        key={idx}
+                                        onMouseEnter={(e) => {
+                                          e.stopPropagation()
+                                          setPreviewImageIndex(prev => ({ ...prev, [product._id]: idx }))
+                                        }}
+                                        className={`w-8 h-8 rounded border-2 shadow-sm overflow-hidden bg-white cursor-pointer transition-all hover:scale-110 ${
+                                          previewImageIndex[product._id] === idx ? 'border-primary ring-1 ring-primary' : 'border-white hover:border-gray-300'
+                                        }`}
+                                      >
+                                        <img src={getThumbnailUrl(img, 40)} alt="" className="w-full h-full object-cover pointer-events-none" loading="lazy" decoding="async" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* 操作按钮 */}
+                                <div className={`absolute top-2 right-2 flex flex-col gap-2 transition-opacity duration-200 ${hoveredProductId === product._id ? 'opacity-100' : 'opacity-0'}`}>
+                                  <button
+                                    onClick={(e) => { e.preventDefault(); handleToggleFavorite(e, product) }}
+                                    className={`p-2 rounded-full shadow-md transition-colors ${favoriteStatuses[product._id] ? 'bg-red-500 text-white' : 'bg-white text-gray-600 hover:text-red-500'}`}
+                                  >
+                                    <Heart className={`h-4 w-4 ${favoriteStatuses[product._id] ? 'fill-current' : ''}`} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddToCompare(e, product) }}
+                                    className={`p-2 rounded-full shadow-md transition-colors ${firstSku && isInCompare(product._id, firstSku._id) ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:text-blue-500'}`}
+                                  >
+                                    <Scale className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* 商品信息 */}
+                              <div className={viewMode === 'list' ? 'flex-1 min-w-0 flex items-center justify-between' : ''}>
+                                <div className={viewMode === 'list' ? 'flex-1 min-w-0' : ''}>
+                                  <h3 className={`font-semibold hover:text-primary-600 transition-colors line-clamp-1 ${viewMode === 'grid' ? 'text-lg mb-2' : 'text-sm'}`}>
+                                    {product.name}
+                                  </h3>
+                                  {viewMode === 'grid' && firstSku && ((firstSku as any).length || (firstSku as any).width || (firstSku as any).height) && (
+                                    <div className="text-xs text-gray-500 mb-2">
+                                      尺寸: {(firstSku as any).length || '-'}×{(firstSku as any).width || '-'}×{(firstSku as any).height || '-'} CM
+                                    </div>
+                                  )}
+                                  {viewMode === 'list' && <div className="text-xs text-gray-400">{skus.length} 个规格</div>}
+                                </div>
+                                
+                                <div className={viewMode === 'list' ? 'text-right ml-4' : 'flex items-baseline gap-2 mb-2'}>
+                                  <span className={`font-bold text-red-600 ${viewMode === 'grid' ? 'text-2xl' : 'text-base'}`}>
+                                    {formatPrice(displayPrice)}
+                                  </span>
+                                  {skus.length > 1 && <span className="text-xs text-gray-500">起</span>}
+                                </div>
+                                
+                                {viewMode === 'grid' && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    {product.style && <span className="px-2 py-1 bg-primary-50 text-primary-600 rounded-full font-medium">{product.style}</span>}
+                                    <span className="text-gray-500 ml-auto">{skus.length} 个规格</span>
+                                  </div>
+                                )}
+                              </div>
+                            </Link>
+                          </div>
+                        )
+                      })()}
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* 分页控件 */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-2 mt-8">
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      上一页
+                    </button>
+                    <div className="flex gap-2">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`w-10 h-10 rounded-lg ${currentPage === page ? 'bg-primary-600 text-white' : 'border hover:bg-gray-50'}`}
+                            >
+                              {page}
+                            </button>
+                          )
+                        } else if (page === currentPage - 2 || page === currentPage + 2) {
+                          return <span key={page} className="w-10 h-10 flex items-center justify-center">...</span>
+                        }
+                        return null
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      下一页
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       ) : (
         <>
