@@ -136,13 +136,6 @@ export default function Header() {
     return cat?.name || currentCategory
   }
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      requireAuthNavigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`)
-    }
-  }
-
   const requireAuthNavigate = (to: string) => {
     if (!isAuthenticated) {
       sessionStorage.setItem('post_login_redirect', to)
@@ -161,209 +154,76 @@ export default function Header() {
     return base + "hover:text-primary"
   }
 
-  return (
-    <header className="sticky top-0 z-50 glass border-b border-primary/5">
-      <div className="max-w-[1800px] mx-auto px-4 lg:px-8 h-20 flex items-center justify-between">
-        {/* Left: Nav */}
-        <nav className="hidden md:flex items-center space-x-8 text-stone-500 text-sm tracking-wide font-medium">
-          <Link to="/" className={getLinkClass('/')}>
-            首页
-          </Link>
-          <div 
-            className="relative"
-            ref={categoryMenuRef}
-            onMouseEnter={handleCategoryMouseEnter}
-            onMouseLeave={handleCategoryMouseLeave}
-          >
-            <span 
-              onClick={() => {
-                requireAuthNavigate('/all-products')
-              }}
-              className={`${getLinkClass('/all-products')} cursor-pointer flex items-center gap-1`}
-            >
-              所有商品
-              <ChevronDown className={`w-3 h-3 transition-transform ${categoryMenuOpen ? 'rotate-180' : ''}`} />
-            </span>
-            
-            {/* Mega Menu 下拉面板 */}
-            {categoryMenuOpen && (
-              <div className="absolute left-0 top-full pt-2 z-50">
-                <div className="bg-white rounded-xl shadow-2xl border border-stone-100 flex min-w-[700px] max-w-[900px]">
-                  {/* 左侧：一级分类列表 */}
-                  <div className="w-48 border-r border-stone-100 py-3 flex-shrink-0">
-                    <div className="px-4 py-2 text-xs font-bold text-stone-400 uppercase tracking-wider">商品分类</div>
-                    {categories.filter(c => !c.parentId).map((cat) => (
-                      <div
-                        key={cat._id}
-                        onMouseEnter={() => setHoveredCategoryId(cat._id)}
-                        onClick={() => {
-                          setCategoryMenuOpen(false)
-                          requireAuthNavigate(`/products?category=${cat.slug || cat._id}`)
-                        }}
-                        className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition-colors ${
-                          hoveredCategoryId === cat._id
-                            ? 'bg-primary/5 text-primary font-medium'
-                            : 'text-stone-600 hover:bg-stone-50'
-                        }`}
-                      >
-                        <span>{cat.name}</span>
-                        <ChevronRight className="w-4 h-4 text-stone-300" />
-                      </div>
-                    ))}
-                    <div className="border-t border-stone-100 mt-2 pt-2 px-4">
-                      <button
-                        onClick={() => {
-                          setCategoryMenuOpen(false)
-                          requireAuthNavigate('/all-products')
-                        }}
-                        className="text-xs text-primary hover:underline"
-                      >
-                        查看全部分类 →
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* 右侧：子分类网格 */}
-                  <div className="flex-1 p-4 min-h-[300px]">
-                    {(() => {
-                      const parentCat = categories.find(c => c._id === hoveredCategoryId)
-                      const childCats = categories.filter(c => c.parentId === hoveredCategoryId)
-                      
-                      if (!hoveredCategoryId) {
-                        return (
-                          <div className="flex items-center justify-center h-full text-stone-400 text-sm">
-                            请将鼠标移到左侧分类上查看子分类
-                          </div>
-                        )
-                      }
-                      
-                      if (childCats.length === 0) {
-                        return (
-                          <div className="h-full">
-                            <div className="text-lg font-bold text-primary mb-4">{parentCat?.name}</div>
-                            <div className="grid grid-cols-3 gap-3">
-                              <div
-                                onClick={() => {
-                                  setCategoryMenuOpen(false)
-                                  requireAuthNavigate(`/products?category=${parentCat?.slug || parentCat?._id}`)
-                                }}
-                                className="flex flex-col items-center p-4 rounded-lg hover:bg-stone-50 cursor-pointer transition-colors border border-transparent hover:border-primary/20"
-                              >
-                                <div className="w-16 h-16 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
-                                  <Grid className="w-8 h-8 text-stone-400" />
-                                </div>
-                                <span className="text-sm text-stone-600">全部{parentCat?.name}</span>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      }
-                      
-                      return (
-                        <div>
-                          <div className="text-lg font-bold text-primary mb-4">{parentCat?.name}</div>
-                          <div className="grid grid-cols-4 gap-3">
-                            {childCats.map((child) => (
-                              <div
-                                key={child._id}
-                                onClick={() => {
-                                  setCategoryMenuOpen(false)
-                                  requireAuthNavigate(`/products?category=${child.slug || child._id}&parent=${parentCat?.name}`)
-                                }}
-                                className="flex flex-col items-center p-3 rounded-lg hover:bg-stone-50 cursor-pointer transition-colors border border-transparent hover:border-primary/20 group"
-                              >
-                                {child.image ? (
-                                  <img
-                                    src={getFileUrl(child.image)}
-                                    alt={child.name}
-                                    className="w-16 h-16 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform"
-                                  />
-                                ) : (
-                                  <div className="w-16 h-16 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
-                                    <Grid className="w-6 h-6 text-stone-400" />
-                                  </div>
-                                )}
-                                <span className="text-xs text-stone-600 text-center group-hover:text-primary transition-colors">{child.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )
-                    })()}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          <span
-            onClick={() => requireAuthNavigate('/packages')}
-            className={`${getLinkClass('/packages')} cursor-pointer`}
-          >
-            套餐专区
-          </span>
-          <Link to="/buying-service" className={getLinkClass('/buying-service')}>
-            陪买服务
-          </Link>
-        </nav>
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      requireAuthNavigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`)
+      setSearchQuery('')
+    }
+  }
 
-        {/* Center: Logo */}
-        <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center justify-center cursor-pointer" onClick={() => navigate('/')}>
-          <div className="flex flex-col items-center">
+  return (
+    <header className="sticky top-0 z-50 bg-white border-b border-stone-200">
+      {/* 上层：Logo + 搜索框 + 图标 */}
+      <div className="max-w-[1800px] mx-auto px-4 lg:px-8">
+        <div className="h-16 flex items-center justify-between gap-4">
+          {/* Left: Logo */}
+          <div className="flex-shrink-0 cursor-pointer" onClick={() => navigate('/')}>
             {siteSettings.siteLogo ? (
               <img src={siteSettings.siteLogo} alt={siteSettings.siteName} className="h-10 object-contain" />
             ) : (
-              <>
-                <div className="text-2xl font-serif font-bold tracking-tighter text-primary leading-none">
+              <div className="flex flex-col">
+                <div className="text-xl font-serif font-bold tracking-tighter text-primary leading-none">
                   {siteSettings.siteName}
                 </div>
-                <span className="text-[10px] font-sans font-normal tracking-[0.3em] text-accent uppercase leading-tight mt-1">
+                <span className="text-[9px] font-sans font-normal tracking-[0.2em] text-stone-400 uppercase leading-tight">
                   {siteSettings.siteSubtitle}
                 </span>
-              </>
+              </div>
             )}
           </div>
-        </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center space-x-3 md:space-x-5">
-          
+          {/* Center: 搜索框（内联输入） */}
+          <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-4 hidden md:flex">
+            <div className="relative w-full flex">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                <Search className="w-5 h-5 text-stone-400" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索型号、产品名称..."
+                className="w-full pl-12 pr-20 py-2.5 border border-stone-300 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={() => setShowImageSearchModal(true)}
+                className="absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-stone-400 hover:text-primary transition-colors"
+                title="以图搜索"
+              >
+                <Camera className="w-5 h-5" />
+              </button>
+              <button
+                type="submit"
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-primary text-white text-sm rounded-md hover:bg-primary/90 transition-colors"
+              >
+                搜索
+              </button>
+            </div>
+          </form>
 
-          {/* Search - 点击打开搜索模态框 */}
-          <div className="hidden lg:flex items-center gap-1">
+          {/* Right: Icons */}
+          <div className="flex items-center space-x-4">
+            {/* 移动端搜索 */}
             <button 
               onClick={() => setShowSearchModal(true)}
-              className="flex items-center bg-stone-100/50 rounded-l-full px-4 py-2 hover:bg-stone-100 transition-all border border-transparent hover:border-primary/20 cursor-pointer"
-            >
-              <Search className="text-stone-400 w-4 h-4 mr-2" />
-              <span className="text-sm text-stone-400">搜索型号/产品...</span>
-            </button>
-            <button 
-              onClick={() => setShowImageSearchModal(true)}
-              className="flex items-center bg-stone-100/50 rounded-r-full px-3 py-2 hover:bg-primary/10 transition-all border-l border-stone-200 cursor-pointer group"
-              title="以图搜索"
-            >
-              <Camera className="text-stone-400 w-4 h-4 group-hover:text-primary transition-colors" />
-            </button>
-          </div>
-          
-          {/* 移动端搜索图标 */}
-          <div className="lg:hidden flex items-center gap-1">
-            <button 
-              onClick={() => setShowSearchModal(true)}
-              className="p-2 text-stone-500 hover:text-primary transition-colors"
+              className="md:hidden p-2 text-stone-500 hover:text-primary transition-colors"
             >
               <Search className="w-5 h-5" />
             </button>
-            <button 
-              onClick={() => setShowImageSearchModal(true)}
-              className="p-2 text-stone-500 hover:text-primary transition-colors"
-              title="以图搜索"
-            >
-              <Camera className="w-5 h-5" />
-            </button>
-          </div>
           
-          {/* Favorites */}
+            {/* Favorites */}
           <Link
             to="/favorites"
             className={`relative hover:text-primary transition-colors group ${location.pathname === '/favorites' ? 'text-primary' : 'text-stone-500'}`}
@@ -508,6 +368,149 @@ export default function Header() {
             {language}
           </button>
         </div>
+        </div>
+      </div>
+      
+      {/* 下层：导航链接 */}
+      <div className="max-w-[1800px] mx-auto px-4 lg:px-8 border-t border-stone-100">
+        <nav className="hidden md:flex items-center space-x-8 h-12 text-stone-600 text-sm font-medium">
+          <Link to="/" className={getLinkClass('/')}>
+            首页
+          </Link>
+          <div 
+            className="relative h-full flex items-center"
+            ref={categoryMenuRef}
+            onMouseEnter={handleCategoryMouseEnter}
+            onMouseLeave={handleCategoryMouseLeave}
+          >
+            <span 
+              onClick={() => requireAuthNavigate('/all-products')}
+              className={`${getLinkClass('/all-products')} cursor-pointer flex items-center gap-1`}
+            >
+              所有商品
+              <ChevronDown className={`w-3 h-3 transition-transform ${categoryMenuOpen ? 'rotate-180' : ''}`} />
+            </span>
+            
+            {/* Mega Menu 下拉面板 */}
+            {categoryMenuOpen && (
+              <div className="absolute left-0 top-full pt-2 z-50">
+                <div className="bg-white rounded-xl shadow-2xl border border-stone-200 flex min-w-[700px] max-w-[900px]">
+                  {/* 左侧：一级分类列表 */}
+                  <div className="w-48 border-r border-stone-100 py-3 flex-shrink-0">
+                    <div className="px-4 py-2 text-xs font-bold text-stone-400 uppercase tracking-wider">商品分类</div>
+                    {categories.filter(c => !c.parentId).map((cat) => (
+                      <div
+                        key={cat._id}
+                        onMouseEnter={() => setHoveredCategoryId(cat._id)}
+                        onClick={() => {
+                          setCategoryMenuOpen(false)
+                          requireAuthNavigate(`/products?category=${cat.slug || cat._id}`)
+                        }}
+                        className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition-colors ${
+                          hoveredCategoryId === cat._id
+                            ? 'bg-primary/5 text-primary font-medium'
+                            : 'text-stone-600 hover:bg-stone-50'
+                        }`}
+                      >
+                        <span>{cat.name}</span>
+                        <ChevronRight className="w-4 h-4 text-stone-300" />
+                      </div>
+                    ))}
+                    <div className="border-t border-stone-100 mt-2 pt-2 px-4">
+                      <button
+                        onClick={() => {
+                          setCategoryMenuOpen(false)
+                          requireAuthNavigate('/all-products')
+                        }}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        查看全部分类 →
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* 右侧：子分类网格 */}
+                  <div className="flex-1 p-4 min-h-[300px]">
+                    {(() => {
+                      const parentCat = categories.find(c => c._id === hoveredCategoryId)
+                      const childCats = categories.filter(c => c.parentId === hoveredCategoryId)
+                      
+                      if (!hoveredCategoryId) {
+                        return (
+                          <div className="flex items-center justify-center h-full text-stone-400 text-sm">
+                            请将鼠标移到左侧分类上查看子分类
+                          </div>
+                        )
+                      }
+                      
+                      if (childCats.length === 0) {
+                        return (
+                          <div className="h-full">
+                            <div className="text-lg font-bold text-primary mb-4">{parentCat?.name}</div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div
+                                onClick={() => {
+                                  setCategoryMenuOpen(false)
+                                  requireAuthNavigate(`/products?category=${parentCat?.slug || parentCat?._id}`)
+                                }}
+                                className="flex flex-col items-center p-4 rounded-lg hover:bg-stone-50 cursor-pointer transition-colors border border-transparent hover:border-primary/20"
+                              >
+                                <div className="w-16 h-16 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
+                                  <Grid className="w-8 h-8 text-stone-400" />
+                                </div>
+                                <span className="text-sm text-stone-600">全部{parentCat?.name}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      }
+                      
+                      return (
+                        <div>
+                          <div className="text-lg font-bold text-primary mb-4">{parentCat?.name}</div>
+                          <div className="grid grid-cols-4 gap-3">
+                            {childCats.map((child) => (
+                              <div
+                                key={child._id}
+                                onClick={() => {
+                                  setCategoryMenuOpen(false)
+                                  requireAuthNavigate(`/products?category=${child.slug || child._id}&parent=${parentCat?.name}`)
+                                }}
+                                className="flex flex-col items-center p-3 rounded-lg hover:bg-stone-50 cursor-pointer transition-colors border border-transparent hover:border-primary/20 group"
+                              >
+                                {child.image ? (
+                                  <img
+                                    src={getFileUrl(child.image)}
+                                    alt={child.name}
+                                    className="w-16 h-16 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-16 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
+                                    <Grid className="w-6 h-6 text-stone-400" />
+                                  </div>
+                                )}
+                                <span className="text-xs text-stone-600 text-center group-hover:text-primary transition-colors">{child.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <span
+            onClick={() => requireAuthNavigate('/packages')}
+            className={`${getLinkClass('/packages')} cursor-pointer`}
+          >
+            套餐专区
+          </span>
+          <Link to="/buying-service" className={getLinkClass('/buying-service')}>
+            陪买服务
+          </Link>
+        </nav>
       </div>
       
       {/* 搜索模态框 */}
