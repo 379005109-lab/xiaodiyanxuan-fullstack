@@ -194,12 +194,12 @@ export default function Header() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索型号、产品名称..."
-                className="w-full pl-12 pr-20 py-2.5 border border-stone-300 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                className="w-full pl-12 pr-28 py-2.5 border border-stone-300 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
               <button
                 type="button"
                 onClick={() => setShowImageSearchModal(true)}
-                className="absolute right-12 top-1/2 -translate-y-1/2 p-1.5 text-stone-400 hover:text-primary transition-colors"
+                className="absolute right-[72px] top-1/2 -translate-y-1/2 p-1.5 text-stone-400 hover:text-primary transition-colors"
                 title="以图搜索"
               >
                 <Camera className="w-5 h-5" />
@@ -372,8 +372,8 @@ export default function Header() {
       </div>
       
       {/* 下层：导航链接 */}
-      <div className="max-w-[1800px] mx-auto px-4 lg:px-8 border-t border-stone-100">
-        <nav className="hidden md:flex items-center space-x-8 h-12 text-stone-600 text-sm font-medium">
+      <div className="max-w-[1800px] mx-auto px-4 lg:px-8">
+        <nav className="hidden md:flex items-center space-x-8 h-12 text-stone-700 text-sm font-semibold">
           <Link to="/" className={getLinkClass('/')}>
             首页
           </Link>

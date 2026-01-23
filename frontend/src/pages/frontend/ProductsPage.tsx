@@ -235,6 +235,10 @@ export default function ProductsPage() {
         const activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');
         setProducts(activeProducts);
         console.log(`[商城] 共加载 ${activeProducts.length} 个商品`);
+        // 打印前3个商品的分类信息用于调试
+        activeProducts.slice(0, 3).forEach((p: any, i: number) => {
+          console.log(`[商城] 商品${i+1}:`, p.name, '分类:', p.category, '分类名:', p.categoryName);
+        });
       } else {
         setProducts([]);
       }
@@ -359,8 +363,9 @@ export default function ProductsPage() {
   const breadcrumb = useMemo(() => {
     const parts: string[] = []
     if (parentLabel) parts.push(parentLabel)
-    if (categoryLabel) parts.push(categoryLabel)
-    if (subLabel) parts.push(subLabel)
+    // 避免重复：如果 categoryLabel 和 parentLabel 相同则不添加
+    if (categoryLabel && categoryLabel !== parentLabel) parts.push(categoryLabel)
+    if (subLabel && subLabel !== categoryLabel) parts.push(subLabel)
     return parts
   }, [categoryLabel, parentLabel, subLabel])
 
@@ -416,19 +421,7 @@ export default function ProductsPage() {
       const nameMatch = productCategoryName.includes(filterCatName) || filterCatName.includes(productCategoryName)
       const productNameMatch = (product.name || '').includes(filterCatName)
       
-      // 调试日志 - 仅对前3个商品打印
-      if (products.indexOf(product) < 3) {
-        console.log(`🔍 分类筛选调试:`, {
-          商品名: product.name,
-          筛选分类: filters.category,
-          筛选分类名: filterCatName,
-          商品分类ID: productCategory,
-          商品分类名: productCategoryName,
-          原始分类数据: rawCategory,
-          匹配结果: { idMatch, nameMatch, productNameMatch }
-        })
-      }
-      
+      // 如果所有匹配方式都失败，返回 false
       if (!idMatch && !nameMatch && !productNameMatch) {
         return false
       }
