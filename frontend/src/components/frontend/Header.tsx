@@ -451,21 +451,7 @@ export default function Header() {
                       return (
                         <>
                           <div className="px-4 py-2 text-xs font-bold text-stone-400 uppercase tracking-wider">{parentCat?.name}</div>
-                          <div
-                            onMouseEnter={() => setHoveredSubCategoryId(null)}
-                            onClick={() => {
-                              setCategoryMenuOpen(false)
-                              requireAuthNavigate(`/products?category=${parentCat?.slug || parentCat?._id}`)
-                            }}
-                            className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between transition-colors ${
-                              !hoveredSubCategoryId
-                                ? 'bg-primary/5 text-primary font-medium'
-                                : 'text-stone-600 hover:bg-stone-50'
-                            }`}
-                          >
-                            <span>全部{parentCat?.name}</span>
-                          </div>
-                          {childCats.map((child: any) => {
+                          {childCats.map((child: any, index: number) => {
                             const hasGrandchildren = child.children && child.children.length > 0
                             return (
                               <div
@@ -476,7 +462,7 @@ export default function Header() {
                                   requireAuthNavigate(`/products?category=${child.slug || child._id}`)
                                 }}
                                 className={`px-4 py-2 text-sm cursor-pointer flex items-center justify-between transition-colors ${
-                                  hoveredSubCategoryId === child._id
+                                  hoveredSubCategoryId === child._id || (!hoveredSubCategoryId && index === 0)
                                     ? 'bg-primary/5 text-primary font-medium'
                                     : 'text-stone-600 hover:bg-stone-50'
                                 }`}
@@ -496,8 +482,9 @@ export default function Header() {
                     {(() => {
                       const parentCat = categories.find(c => c._id === hoveredCategoryId)
                       const childCats = parentCat?.children || []
-                      // 从二级分类的children中找三级分类
-                      const subCat = childCats.find((c: any) => c._id === hoveredSubCategoryId)
+                      // 默认选中第一个二级分类
+                      const activeSubCatId = hoveredSubCategoryId || (childCats.length > 0 ? childCats[0]._id : null)
+                      const subCat = childCats.find((c: any) => c._id === activeSubCatId)
                       const grandchildCats = subCat?.children || []
                       
                       if (!hoveredCategoryId) {
@@ -508,11 +495,21 @@ export default function Header() {
                         )
                       }
                       
-                      // 如果选中了二级分类且有三级分类
-                      if (hoveredSubCategoryId && grandchildCats.length > 0) {
+                      // 没有二级分类
+                      if (childCats.length === 0) {
                         return (
-                          <div>
-                            <div className="text-lg font-bold text-primary mb-4">{subCat?.name}</div>
+                          <div className="h-full">
+                            <div className="text-lg font-bold text-primary mb-4">{parentCat?.name}</div>
+                            <div className="text-sm text-stone-500">点击左侧分类查看商品</div>
+                          </div>
+                        )
+                      }
+                      
+                      // 显示当前二级分类的三级分类
+                      return (
+                        <div>
+                          <div className="text-lg font-bold text-primary mb-4">{subCat?.name}</div>
+                          {grandchildCats.length > 0 ? (
                             <div className="grid grid-cols-4 gap-3">
                               {grandchildCats.map((grandchild: any) => (
                                 <div
@@ -538,53 +535,9 @@ export default function Header() {
                                 </div>
                               ))}
                             </div>
-                          </div>
-                        )
-                      }
-                      
-                      // 没有选中二级分类，显示所有二级分类的图标
-                      if (childCats.length === 0) {
-                        return (
-                          <div className="h-full">
-                            <div className="text-lg font-bold text-primary mb-4">{parentCat?.name}</div>
+                          ) : (
                             <div className="text-sm text-stone-500">点击左侧分类查看商品</div>
-                          </div>
-                        )
-                      }
-                      
-                      return (
-                        <div>
-                          <div className="text-lg font-bold text-primary mb-4">
-                            {hoveredSubCategoryId ? subCat?.name : parentCat?.name}
-                          </div>
-                          <div className="grid grid-cols-4 gap-3">
-                            {(hoveredSubCategoryId ? grandchildCats : childCats).map((cat: any) => (
-                              <div
-                                key={cat._id}
-                                onClick={() => {
-                                  setCategoryMenuOpen(false)
-                                  requireAuthNavigate(`/products?category=${cat.slug || cat._id}`)
-                                }}
-                                onMouseEnter={() => {
-                                  if (!hoveredSubCategoryId) setHoveredSubCategoryId(cat._id)
-                                }}
-                                className="flex flex-col items-center p-3 rounded-lg hover:bg-stone-50 cursor-pointer transition-colors border border-transparent hover:border-primary/20 group"
-                              >
-                                {cat.image ? (
-                                  <img
-                                    src={getFileUrl(cat.image)}
-                                    alt={cat.name}
-                                    className="w-16 h-16 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform"
-                                  />
-                                ) : (
-                                  <div className="w-16 h-16 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
-                                    <Grid className="w-6 h-6 text-stone-400" />
-                                  </div>
-                                )}
-                                <span className="text-xs text-stone-600 text-center group-hover:text-primary transition-colors">{cat.name}</span>
-                              </div>
-                            ))}
-                          </div>
+                          )}
                         </div>
                       )
                     })()}
