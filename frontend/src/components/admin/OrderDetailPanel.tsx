@@ -159,19 +159,31 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
       order.packageInfo.selections?.forEach((selection: any) => {
         selection.products?.forEach((product: any) => {
           // 获取材质信息（兼容中英文键名）
-          const materials = product.selectedMaterials || product.materials || {}
+          const rawMaterials = product.selectedMaterials || product.materials || {}
           const upgradePrices = product.materialUpgradePrices || {}
+          
+          // 规范化材质数据，去重英文/中文键
+          const fabricVal = rawMaterials.fabric || rawMaterials['面料'] || rawMaterials.material || rawMaterials['材质'] || ''
+          const fillingVal = rawMaterials.filling || rawMaterials['填充'] || rawMaterials.fill || ''
+          const frameVal = rawMaterials.frame || rawMaterials['框架'] || ''
+          const legVal = rawMaterials.leg || rawMaterials['脚架'] || rawMaterials.legs || ''
+          
+          const normalizedMaterials: Record<string, string> = {}
+          if (fabricVal) normalizedMaterials['面料'] = fabricVal
+          if (fillingVal) normalizedMaterials['填充'] = fillingVal
+          if (frameVal) normalizedMaterials['框架'] = frameVal
+          if (legVal) normalizedMaterials['脚架'] = legVal
           
           products.push({
             name: product.productName,
             quantity: product.quantity,
             skuName: product.skuName,
-            materials: materials,
+            materials: normalizedMaterials,
             selectedMaterials: {
-              fabric: materials.fabric || materials['面料'] || '',
-              filling: materials.filling || materials['填充'] || '',
-              frame: materials.frame || materials['框架'] || '',
-              leg: materials.leg || materials['脚架'] || ''
+              fabric: fabricVal,
+              filling: fillingVal,
+              frame: frameVal,
+              leg: legVal
             },
             materialUpgradePrices: {
               fabric: upgradePrices.fabric || upgradePrices['面料'] || 0,
@@ -187,17 +199,37 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
       })
       return products
     } else if (order.items) {
-      return order.items.map((item: any) => ({
-        name: item.productName,
-        quantity: item.quantity,
-        materials: item.materials,
-        specifications: item.specifications,
-        selectedMaterials: item.selectedMaterials,
-        materialUpgradePrices: item.materialUpgradePrices,
-        skuDimensions: item.skuDimensions,
-        skuName: item.sku?.color || item.skuName,
-        image: item.image || item.productImage
-      }))
+      return order.items.map((item: any) => {
+        // 规范化材质数据，去重英文/中文键
+        const rawMaterials = item.selectedMaterials || item.materials || {}
+        const fabricVal = rawMaterials.fabric || rawMaterials['面料'] || rawMaterials.material || rawMaterials['材质'] || ''
+        const fillingVal = rawMaterials.filling || rawMaterials['填充'] || rawMaterials.fill || ''
+        const frameVal = rawMaterials.frame || rawMaterials['框架'] || ''
+        const legVal = rawMaterials.leg || rawMaterials['脚架'] || rawMaterials.legs || ''
+        
+        const normalizedMaterials: Record<string, string> = {}
+        if (fabricVal) normalizedMaterials['面料'] = fabricVal
+        if (fillingVal) normalizedMaterials['填充'] = fillingVal
+        if (frameVal) normalizedMaterials['框架'] = frameVal
+        if (legVal) normalizedMaterials['脚架'] = legVal
+        
+        return {
+          name: item.productName,
+          quantity: item.quantity,
+          materials: normalizedMaterials,
+          specifications: item.specifications,
+          selectedMaterials: {
+            fabric: fabricVal,
+            filling: fillingVal,
+            frame: frameVal,
+            leg: legVal
+          },
+          materialUpgradePrices: item.materialUpgradePrices,
+          skuDimensions: item.skuDimensions,
+          skuName: item.sku?.color || item.skuName,
+          image: item.image || item.productImage
+        }
+      })
     }
     return []
   }

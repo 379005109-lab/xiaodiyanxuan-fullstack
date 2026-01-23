@@ -354,8 +354,20 @@ export default function OrderManagementNew2() {
       const products: any[] = []
       order.packageInfo.selections?.forEach((selection: any) => {
         selection.products?.forEach((product: any) => {
-          const materials = product.selectedMaterials || product.materials || {}
+          const rawMaterials = product.selectedMaterials || product.materials || {}
           const upgradePrices = product.materialUpgradePrices || {}
+          
+          // 规范化材质数据，去重英文/中文键
+          const fabricVal = normalizeMaterialValue(rawMaterials.fabric ?? rawMaterials['面料'] ?? rawMaterials.material ?? rawMaterials['材质'])
+          const fillingVal = normalizeMaterialValue(rawMaterials.filling ?? rawMaterials['填充'] ?? rawMaterials.fill)
+          const frameVal = normalizeMaterialValue(rawMaterials.frame ?? rawMaterials['框架'])
+          const legVal = normalizeMaterialValue(rawMaterials.leg ?? rawMaterials['脚架'] ?? rawMaterials.legs)
+          
+          const normalizedMaterials: Record<string, string> = {}
+          if (fabricVal) normalizedMaterials['面料'] = fabricVal
+          if (fillingVal) normalizedMaterials['填充'] = fillingVal
+          if (frameVal) normalizedMaterials['框架'] = frameVal
+          if (legVal) normalizedMaterials['脚架'] = legVal
           
           products.push({
             name: product.productName,
@@ -363,12 +375,12 @@ export default function OrderManagementNew2() {
             skuName: product.skuName,
             manufacturerId: product.manufacturerId,
             manufacturerName: product.manufacturerName,
-            materials: materials,
+            materials: normalizedMaterials,
             selectedMaterials: {
-              fabric: normalizeMaterialValue(materials.fabric ?? materials['面料']),
-              filling: normalizeMaterialValue(materials.filling ?? materials['填充']),
-              frame: normalizeMaterialValue(materials.frame ?? materials['框架']),
-              leg: normalizeMaterialValue(materials.leg ?? materials['脚架'])
+              fabric: fabricVal,
+              filling: fillingVal,
+              frame: frameVal,
+              leg: legVal
             },
             materialUpgradePrices: {
               fabric: upgradePrices.fabric || upgradePrices['面料'] || 0,
@@ -384,29 +396,40 @@ export default function OrderManagementNew2() {
       })
       return products
     } else if (order.items) {
-      return order.items.map((item: any) => ({
-        sku: item.sku,
-        name: item.productName,
-        quantity: item.quantity,
-        manufacturerId: item.manufacturerId,
-        manufacturerName: item.manufacturerName,
-        materials: item.materials,
-        specifications: item.specifications,
-        selectedMaterials: (() => {
-          const base = getEffectiveSelectedMaterials(item)
-          return {
-            ...(base || {}),
-            fabric: normalizeMaterialValue(base?.fabric ?? base?.['面料'] ?? item.specifications?.material),
-            filling: normalizeMaterialValue(base?.filling ?? base?.['填充'] ?? item.specifications?.fill),
-            frame: normalizeMaterialValue(base?.frame ?? base?.['框架'] ?? item.specifications?.frame),
-            leg: normalizeMaterialValue(base?.leg ?? base?.['脚架'] ?? item.specifications?.leg)
-          }
-        })(),
-        skuDimensions: item.skuDimensions,
-        materialUpgradePrices: item.materialUpgradePrices,
-        materialSnapshots: item.materialSnapshots,
-        image: item.image || item.productImage
-      }))
+      return order.items.map((item: any) => {
+        // 规范化材质数据，去重英文/中文键
+        const base = getEffectiveSelectedMaterials(item)
+        const fabricVal = normalizeMaterialValue(base?.fabric ?? base?.['面料'] ?? item.specifications?.material ?? item.specifications?.['材质'])
+        const fillingVal = normalizeMaterialValue(base?.filling ?? base?.['填充'] ?? item.specifications?.fill)
+        const frameVal = normalizeMaterialValue(base?.frame ?? base?.['框架'] ?? item.specifications?.frame)
+        const legVal = normalizeMaterialValue(base?.leg ?? base?.['脚架'] ?? item.specifications?.leg ?? item.specifications?.legs)
+        
+        const normalizedMaterials: Record<string, string> = {}
+        if (fabricVal) normalizedMaterials['面料'] = fabricVal
+        if (fillingVal) normalizedMaterials['填充'] = fillingVal
+        if (frameVal) normalizedMaterials['框架'] = frameVal
+        if (legVal) normalizedMaterials['脚架'] = legVal
+        
+        return {
+          sku: item.sku,
+          name: item.productName,
+          quantity: item.quantity,
+          manufacturerId: item.manufacturerId,
+          manufacturerName: item.manufacturerName,
+          materials: normalizedMaterials,
+          specifications: item.specifications,
+          selectedMaterials: {
+            fabric: fabricVal,
+            filling: fillingVal,
+            frame: frameVal,
+            leg: legVal
+          },
+          skuDimensions: item.skuDimensions,
+          materialUpgradePrices: item.materialUpgradePrices,
+          materialSnapshots: item.materialSnapshots,
+          image: item.image || item.productImage
+        }
+      })
     }
     return []
   }
