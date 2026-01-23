@@ -2580,8 +2580,16 @@ export default function OrderManagementNew2() {
                           }
                         })
                     })
+                // 规范化 categoryKey，去重英文/中文键
+                const categoryKeyAliases: Record<string, string> = {
+                  'fabric': '面料', '面料': '面料', 'material': '面料', '材质': '面料',
+                  'filling': '填充', 'fill': '填充', '填充': '填充',
+                  'frame': '框架', '框架': '框架',
+                  'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
+                }
                 const snapshotGroups = snapshots.reduce((acc: Record<string, any[]>, s: any) => {
-                  const key = String(s?.categoryKey || '材质')
+                  const rawKey = String(s?.categoryKey || '材质')
+                  const key = categoryKeyAliases[rawKey.toLowerCase()] || categoryKeyAliases[rawKey] || rawKey
                   if (!acc[key]) acc[key] = []
                   acc[key].push(s)
                   return acc
