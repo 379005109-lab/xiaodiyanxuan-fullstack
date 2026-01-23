@@ -314,35 +314,36 @@ export default function ProductsPage() {
     return map[key] || ''
   }, [filters.sub])
 
+  // 递归查找分类
+  const findCategoryRecursive = (cats: any[], targetId: string): any => {
+    for (const cat of cats) {
+      if (cat._id === targetId || cat.slug === targetId || cat.name === targetId) {
+        return cat
+      }
+      if (cat.children && cat.children.length > 0) {
+        const found = findCategoryRecursive(cat.children, targetId)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
   const categoryLabel = useMemo(() => {
     if (!filters.category) return ''
-    const cat = categories.find((c: any) => c?._id === filters.category || c?.slug === filters.category || c?.name === filters.category)
+    const cat = findCategoryRecursive(categories, filters.category)
     return String(cat?.name || filters.category)
   }, [categories, filters.category])
 
   // 获取当前分类的子分类（用于顶部快捷标签）
   const subcategoryTabs = useMemo(() => {
     if (!filters.category) return []
-    // 找到当前分类
-    const currentCat = categories.find((c: any) => 
-      c?._id === filters.category || c?.slug === filters.category || c?.name === filters.category
-    )
+    // 递归找到当前分类
+    const currentCat = findCategoryRecursive(categories, filters.category)
     if (!currentCat) return []
     
-    // 如果是父分类，返回其子分类
+    // 返回其子分类（如果有）
     if (currentCat.children && currentCat.children.length > 0) {
       return currentCat.children.map((child: any) => ({
-        id: child._id,
-        name: child.name,
-        slug: child.slug || child._id,
-        image: child.image
-      }))
-    }
-    
-    // 如果是子分类，找到父分类的所有子分类
-    const parentCat = categories.find((c: any) => c?._id === currentCat.parentId)
-    if (parentCat && parentCat.children) {
-      return parentCat.children.map((child: any) => ({
         id: child._id,
         name: child.name,
         slug: child.slug || child._id,

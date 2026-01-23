@@ -35,8 +35,6 @@ const BargainListPage = lazy(() => import('./pages/frontend/BargainListPage'))
 const BargainDetailPage = lazy(() => import('./pages/frontend/BargainDetailPage'))
 const AboutPage = lazy(() => import('./pages/frontend/AboutPage'))
 const HomePage = lazy(() => import('./pages/frontend/HomePage'))
-const AllProductsPage = lazy(() => import('./pages/frontend/AllProductsPage'))
-const SofaCategoryPage = lazy(() => import('./pages/frontend/SofaCategoryPage'))
 
 // 后台页面 - 懒加载
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'))
@@ -478,9 +476,7 @@ function App() {
           {/* 前台路由 */}
           <Route path="/" element={<FrontendLayout />}>
             <Route index element={<HomePage />} />
-            <Route path="all-products" element={<FrontendProtectedRoute><AllProductsPage /></FrontendProtectedRoute>} />
-            <Route path="all-products/sofa" element={<FrontendProtectedRoute><SofaCategoryPage /></FrontendProtectedRoute>} />
-            <Route path="products" element={<FrontendProtectedRoute><ProductsPage /></FrontendProtectedRoute>} />
+                        <Route path="products" element={<FrontendProtectedRoute><ProductsPage /></FrontendProtectedRoute>} />
             <Route path="products/:id" element={<FrontendProtectedRoute><ProductDetailPage /></FrontendProtectedRoute>} />
             <Route path="categories" element={<FrontendProtectedRoute><CategoriesPage /></FrontendProtectedRoute>} />
             <Route path="packages" element={<FrontendProtectedRoute><PackagesPage /></FrontendProtectedRoute>} />
