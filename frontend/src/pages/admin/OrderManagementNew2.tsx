@@ -107,6 +107,7 @@ export default function OrderManagementNew2() {
   const [commissionProductionDays, setCommissionProductionDays] = useState<string>('30') // 返佣模式生产周期
 
   const [materialMetaMap, setMaterialMetaMap] = useState<Record<string, { image?: string; description?: string }>>({})
+  const [invoiceExpanded, setInvoiceExpanded] = useState(false) // 开票信息展开状态
   
   // 统计数据
   const [stats, setStats] = useState({
@@ -373,6 +374,8 @@ export default function OrderManagementNew2() {
             name: product.productName,
             quantity: product.quantity,
             skuName: product.skuName,
+            skuDimensions: product.skuDimensions,
+            specifications: product.specifications,
             manufacturerId: product.manufacturerId,
             manufacturerName: product.manufacturerName,
             materials: normalizedMaterials,
@@ -388,6 +391,7 @@ export default function OrderManagementNew2() {
               frame: upgradePrices.frame || upgradePrices['框架'] || 0,
               leg: upgradePrices.leg || upgradePrices['脚架'] || 0
             },
+            materialSnapshots: product.materialSnapshots,
             upgradePrice: product.upgradePrice || product.materialUpgrade || 0,
             image: product.image,
             category: selection.categoryName
@@ -2575,16 +2579,21 @@ export default function OrderManagementNew2() {
           {/* 开票信息 */}
           {(selectedOrder as any).needInvoice && (
             <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
+              <div 
+                className="flex items-center justify-between mb-4 cursor-pointer"
+                onClick={() => setInvoiceExpanded(!invoiceExpanded)}
+              >
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-amber-600" />
                   <h2 className="font-semibold text-gray-800">开票信息</h2>
+                  <span className="text-xs text-gray-500">{invoiceExpanded ? '▲ 收起' : '▼ 展开'}</span>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${(invoiceStatusConfig as any)[(selectedOrder as any).invoiceStatus || 'pending']?.color || 'bg-amber-100 text-amber-700'}`}>
                   {(invoiceStatusConfig as any)[(selectedOrder as any).invoiceStatus || 'pending']?.label || '待开票'}
                 </span>
               </div>
 
+              {/* 基本信息 - 始终显示 */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">发票类型</span>
@@ -2599,37 +2608,43 @@ export default function OrderManagementNew2() {
                   <span className="text-gray-500">税号</span>
                   <span className="font-medium">{(selectedOrder as any).invoiceInfo?.taxNumber || '-'}</span>
                 </div>
-                <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-gray-500">开户银行</span>
-                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.bankName || '-'}</span>
-                </div>
-                <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-gray-500">银行账号</span>
-                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.bankAccount || '-'}</span>
-                </div>
-                <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-gray-500">企业地址</span>
-                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.companyAddress || (selectedOrder as any).invoiceInfo?.address || '-'}</span>
-                </div>
-                <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-gray-500">企业电话</span>
-                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.companyPhone || (selectedOrder as any).invoiceInfo?.phone || '-'}</span>
-                </div>
-                <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-gray-500">收票邮箱</span>
-                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.email || '-'}</span>
-                </div>
-                <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-gray-500">收票手机</span>
-                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.phone || '-'}</span>
-                </div>
-                {(selectedOrder as any).invoiceInfo?.mailingAddress && (
-                  <div className="col-span-2 flex items-center justify-between">
-                    <span className="text-gray-500">邮寄地址</span>
-                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.mailingAddress}</span>
-                  </div>
-                )}
               </div>
+
+              {/* 详细信息 - 展开时显示 */}
+              {invoiceExpanded && (
+                <div className="grid grid-cols-2 gap-4 text-sm mt-4 pt-4 border-t border-gray-100">
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">开户银行</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.bankName || '-'}</span>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">银行账号</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.bankAccount || '-'}</span>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">企业地址</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.companyAddress || (selectedOrder as any).invoiceInfo?.address || '-'}</span>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">企业电话</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.companyPhone || (selectedOrder as any).invoiceInfo?.phone || '-'}</span>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">收票邮箱</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.email || '-'}</span>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">收票手机</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.phone || '-'}</span>
+                  </div>
+                  {(selectedOrder as any).invoiceInfo?.mailingAddress && (
+                    <div className="col-span-2 flex items-center justify-between">
+                      <span className="text-gray-500">邮寄地址</span>
+                      <span className="font-medium">{(selectedOrder as any).invoiceInfo?.mailingAddress}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="mt-4 flex items-center gap-3">
                 <span className="text-sm text-gray-600">发票状态</span>
