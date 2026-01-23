@@ -170,110 +170,12 @@ export default function Header() {
           </Link>
           <span 
             onClick={() => {
-              requireAuthNavigate('/products')
+              requireAuthNavigate('/all-products')
             }}
-            className={`${getLinkClass('/products')} cursor-pointer`}
+            className={`${getLinkClass('/all-products')} cursor-pointer`}
           >
-            商城
+            所有商品
           </span>
-          <div 
-            className="relative"
-            ref={categoryMenuRef}
-            onMouseEnter={handleCategoryMouseEnter}
-            onMouseLeave={handleCategoryMouseLeave}
-          >
-            <span 
-              className={`${getLinkClass('/categories')} cursor-pointer flex items-center gap-1`}
-            >
-              商品分类
-              {getCurrentCategoryName() && (
-                <span className="text-primary font-medium text-xs bg-primary/10 px-2 py-0.5 rounded-full ml-1">
-                  {getCurrentCategoryName()}
-                </span>
-              )}
-              <ChevronDown className={`w-3 h-3 transition-transform ${categoryMenuOpen ? 'rotate-180' : ''}`} />
-            </span>
-            
-            {/* 分类悬浮窗口 */}
-            {categoryMenuOpen && (
-              <div 
-                className="absolute left-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-stone-100 z-50 min-w-[600px] p-6"
-                onMouseEnter={handleCategoryMouseEnter}
-                onMouseLeave={handleCategoryMouseLeave}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-serif font-bold text-lg text-primary">商品分类</h3>
-                  <button
-                    onClick={() => handleCategoryClick()}
-                    className="text-sm text-primary hover:text-primary-700 flex items-center gap-1"
-                  >
-                    查看全部 <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-                
-                {/* 分类网格 - 显示图片 */}
-                <div className="grid grid-cols-4 gap-4">
-                  {categories.filter(c => !c.parentId).slice(0, 8).map((category) => (
-                    <div
-                      key={category._id}
-                      onClick={() => handleCategoryClick(category.slug || category._id)}
-                      className="group cursor-pointer rounded-xl overflow-hidden border border-stone-100 hover:border-primary/30 hover:shadow-lg transition-all"
-                    >
-                      {/* 分类图片 - 放大 */}
-                      <div className="aspect-square bg-stone-50 overflow-hidden">
-                        {category.image ? (
-                          <img
-                            src={getFileUrl(category.image)}
-                            alt={category.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                              target.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-12 h-12 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg></div>'
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Grid className="w-12 h-12 text-stone-300" />
-                          </div>
-                        )}
-                      </div>
-                      {/* 分类信息 */}
-                      <div className="p-3 bg-white">
-                        <h4 className="font-medium text-stone-800 group-hover:text-primary transition-colors text-sm truncate">
-                          {category.name}
-                        </h4>
-                        {/* 显示子分类数量 */}
-                        {category.children && category.children.length > 0 && (
-                          <p className="text-xs text-stone-400 mt-1">
-                            {category.children.length} 个子分类
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* 当前选中提示 */}
-                {currentCategory && (
-                  <div className="mt-4 pt-4 border-t border-stone-100 flex items-center justify-between">
-                    <p className="text-sm text-stone-500">
-                      当前选中：
-                      <span className="text-primary font-medium ml-1">
-                        {getCurrentCategoryName()}
-                      </span>
-                    </p>
-                    <button
-                      onClick={() => requireAuthNavigate('/products')}
-                      className="text-xs text-stone-400 hover:text-red-500"
-                    >
-                      清除筛选
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
           <span
             onClick={() => requireAuthNavigate('/packages')}
             className={`${getLinkClass('/packages')} cursor-pointer`}

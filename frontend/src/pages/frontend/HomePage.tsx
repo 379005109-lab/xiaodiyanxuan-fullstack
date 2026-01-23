@@ -66,7 +66,7 @@ export default function HomePage() {
               200+ 佛山优质工厂直供，砍掉中间商，为您严选最好的设计与工艺
             </p>
             <button 
-              onClick={() => requireAuthNavigate('/products')}
+              onClick={() => requireAuthNavigate('/all-products')}
               className="bg-[#14452F] text-white px-10 py-4 rounded-full font-medium hover:bg-green-900 transition-colors inline-flex items-center gap-2 text-lg shadow-lg hover:shadow-xl"
             >
               进入选品中心 <ArrowRight className="w-5 h-5" />
