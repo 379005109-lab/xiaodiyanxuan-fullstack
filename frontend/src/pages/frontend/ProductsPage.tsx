@@ -402,14 +402,21 @@ export default function ProductsPage() {
         : String(rawCategory ?? '')
       const productCategoryName = (product as any).categoryName || rawCategory?.name || rawCategory?.title || ''
       
-      // 也检查分类名称是否包含筛选关键词（模糊匹配）
-      const filterCatName = categories.find((c: any) => 
+      // 获取筛选分类的名称
+      const filterCat = categories.find((c: any) => 
         c._id === filters.category || c.slug === filters.category || c.name === filters.category
-      )?.name || filters.category
+      )
+      const filterCatName = filterCat?.name || filters.category
       
+      // 多种匹配方式：
+      // 1. ID 精确匹配
+      // 2. 分类名称包含关系
+      // 3. 商品名称包含分类名
+      const idMatch = allCategoryIds.has(productCategory) || allCategoryIds.has(productCategoryName)
       const nameMatch = productCategoryName.includes(filterCatName) || filterCatName.includes(productCategoryName)
+      const productNameMatch = (product.name || '').includes(filterCatName)
       
-      if (!allCategoryIds.has(productCategory) && !allCategoryIds.has(productCategoryName) && !nameMatch) {
+      if (!idMatch && !nameMatch && !productNameMatch) {
         return false
       }
     }

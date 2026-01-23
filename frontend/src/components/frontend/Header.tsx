@@ -163,7 +163,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 glass border-b border-primary/5">
-      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+      <div className="max-w-[1800px] mx-auto px-4 lg:px-8 h-20 flex items-center justify-between">
         {/* Left: Nav */}
         <nav className="hidden md:flex items-center space-x-8 text-stone-500 text-sm tracking-wide font-medium">
           <Link to="/" className={getLinkClass('/')}>
