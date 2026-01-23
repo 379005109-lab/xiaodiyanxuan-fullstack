@@ -369,7 +369,8 @@ export default function ProductsPage() {
     return parts
   }, [categoryLabel, parentLabel, subLabel])
 
-  const categoryMode = Boolean((filters.category || filters.sub) && !searchKeyword)
+  // 始终使用简洁布局（无侧边栏）
+  const categoryMode = true
 
   // 筛选商品
   const filteredProducts = products.filter(product => {
@@ -392,37 +393,25 @@ export default function ProductsPage() {
     
     // 分类筛选 - 支持父子分类层级
     if (filters.category) {
-      const categoryIds = filters.category.split(',').map(id => id.trim())
-      // 获取所有匹配的分类ID（包括子分类）
-      const allCategoryIds = new Set<string>()
-      categoryIds.forEach(catId => {
-        const ids = getCategoryAndChildIds(catId)
-        ids.forEach(id => allCategoryIds.add(id))
-      })
-      
-      // 检查商品分类是否匹配
-      const rawCategory: any = (product as any).category
-      const productCategory = typeof rawCategory === 'object'
-        ? String(rawCategory?._id || rawCategory?.id || '')
-        : String(rawCategory ?? '')
-      const productCategoryName = (product as any).categoryName || rawCategory?.name || rawCategory?.title || ''
-      
       // 获取筛选分类的名称
       const filterCat = categories.find((c: any) => 
         c._id === filters.category || c.slug === filters.category || c.name === filters.category
       )
       const filterCatName = filterCat?.name || filters.category
       
-      // 多种匹配方式：
-      // 1. ID 精确匹配
-      // 2. 分类名称包含关系
-      // 3. 商品名称包含分类名
-      const idMatch = allCategoryIds.has(productCategory) || allCategoryIds.has(productCategoryName)
-      const nameMatch = productCategoryName.includes(filterCatName) || filterCatName.includes(productCategoryName)
-      const productNameMatch = (product.name || '').includes(filterCatName)
+      // 检查商品分类是否匹配
+      const rawCategory: any = (product as any).category
+      const productCategory = typeof rawCategory === 'object'
+        ? String(rawCategory?._id || rawCategory?.id || rawCategory?.name || '')
+        : String(rawCategory ?? '')
+      const productCategoryName = String((product as any).categoryName || rawCategory?.name || rawCategory?.title || '')
       
-      // 如果所有匹配方式都失败，返回 false
-      if (!idMatch && !nameMatch && !productNameMatch) {
+      // 构建匹配文本
+      const matchText = `${product.name || ''} ${productCategory} ${productCategoryName}`.toLowerCase()
+      const filterText = filterCatName.toLowerCase()
+      
+      // 模糊匹配：商品信息中包含分类名
+      if (!matchText.includes(filterText)) {
         return false
       }
     }

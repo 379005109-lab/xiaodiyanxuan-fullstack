@@ -214,7 +214,7 @@ export default function Header() {
           </form>
 
           {/* Right: Icons */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-5">
             {/* 移动端搜索 */}
             <button 
               onClick={() => setShowSearchModal(true)}
