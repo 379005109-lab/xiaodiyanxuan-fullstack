@@ -391,7 +391,9 @@ export default function ProductsPage() {
       }
     }
     
-    // 分类筛选 - 支持父子分类层级
+    // 分类筛选 - 暂时禁用以测试商品加载
+    // TODO: 修复分类筛选逻辑后重新启用
+    /*
     if (filters.category) {
       // 获取筛选分类的名称
       const filterCat = categories.find((c: any) => 
@@ -415,6 +417,7 @@ export default function ProductsPage() {
         return false
       }
     }
+    */
 
     // 细分分类（沙发）筛选
     if (filters.sub) {
