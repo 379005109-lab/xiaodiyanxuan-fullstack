@@ -1052,23 +1052,32 @@ export default function OrderManagementNew2() {
       
       // 确保尺寸信息被包含 - 优先使用实际尺寸数据
       let sizeValue = ''
+      let hasActualDimensions = false
       // 优先从 skuDimensions 获取实际尺寸（长×宽×高）
       if (p.skuDimensions && (p.skuDimensions.length || p.skuDimensions.width || p.skuDimensions.height)) {
         const l = p.skuDimensions.length || '-'
         const w = p.skuDimensions.width || '-'
         const h = p.skuDimensions.height || '-'
         sizeValue = `${l}×${w}×${h} CM`
+        hasActualDimensions = true
       } else if (specs.dimensions) {
         sizeValue = specs.dimensions
+        hasActualDimensions = true
       } else if (specs['尺寸'] && specs['尺寸'] !== '常规') {
         sizeValue = specs['尺寸']
       } else if (specs.size && specs.size !== '常规') {
         sizeValue = specs.size
-      } else if (p.skuName) {
+      } else if (p.skuName && p.skuName !== '常规') {
         sizeValue = p.skuName
       }
-      if (sizeValue && !merged['尺寸'] && !merged['size']) {
-        merged['尺寸'] = sizeValue
+      // 如果有实际尺寸，强制覆盖
+      if (sizeValue) {
+        if (hasActualDimensions) {
+          merged['尺寸'] = sizeValue
+          delete merged['size']
+        } else if (!merged['尺寸'] && !merged['size']) {
+          merged['尺寸'] = sizeValue
+        }
       }
 
       // 需要排除的键名（说明、描述等长文本）
@@ -1310,23 +1319,32 @@ export default function OrderManagementNew2() {
       
       // 确保尺寸信息被包含 - 优先使用实际尺寸数据
       let sizeValue = ''
+      let hasActualDimensions = false
       // 优先从 skuDimensions 获取实际尺寸（长×宽×高）
       if (p.skuDimensions && (p.skuDimensions.length || p.skuDimensions.width || p.skuDimensions.height)) {
         const l = p.skuDimensions.length || '-'
         const w = p.skuDimensions.width || '-'
         const h = p.skuDimensions.height || '-'
         sizeValue = `${l}×${w}×${h} CM`
+        hasActualDimensions = true
       } else if (specs.dimensions) {
         sizeValue = specs.dimensions
+        hasActualDimensions = true
       } else if (specs['尺寸'] && specs['尺寸'] !== '常规') {
         sizeValue = specs['尺寸']
       } else if (specs.size && specs.size !== '常规') {
         sizeValue = specs.size
-      } else if (p.skuName) {
+      } else if (p.skuName && p.skuName !== '常规') {
         sizeValue = p.skuName
       }
-      if (sizeValue && !merged['尺寸'] && !merged['size']) {
-        merged['尺寸'] = sizeValue
+      // 如果有实际尺寸，强制覆盖
+      if (sizeValue) {
+        if (hasActualDimensions) {
+          merged['尺寸'] = sizeValue
+          delete merged['size']
+        } else if (!merged['尺寸'] && !merged['size']) {
+          merged['尺寸'] = sizeValue
+        }
       }
 
       // 需要排除的键名（说明、描述等长文本）
