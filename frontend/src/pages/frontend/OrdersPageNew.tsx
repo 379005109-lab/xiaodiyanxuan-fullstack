@@ -523,7 +523,7 @@ export default function OrdersPageNew() {
                       <div className="mt-2 pt-2 border-t border-amber-200 text-xs text-amber-700 space-y-1">
                         {order.invoiceInfo?.bankName && <p>开户银行: {order.invoiceInfo.bankName}</p>}
                         {order.invoiceInfo?.bankAccount && <p>银行账号: {order.invoiceInfo.bankAccount}</p>}
-                        {order.invoiceInfo?.address && <p>企业地址: {order.invoiceInfo.address}</p>}
+                        {(order.invoiceInfo?.companyAddress || order.invoiceInfo?.address) && <p>企业地址: {order.invoiceInfo.companyAddress || order.invoiceInfo.address}</p>}
                         {(order.invoiceInfo?.companyPhone || order.invoiceInfo?.phone) && <p>企业电话: {order.invoiceInfo.companyPhone || order.invoiceInfo.phone}</p>}
                         {order.invoiceInfo?.email && <p>收票邮箱: {order.invoiceInfo.email}</p>}
                         {order.invoiceInfo?.mailingAddress && <p>邮寄地址: {order.invoiceInfo.mailingAddress}</p>}

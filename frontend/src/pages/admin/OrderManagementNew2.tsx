@@ -2609,7 +2609,7 @@ export default function OrderManagementNew2() {
                 </div>
                 <div className="col-span-2 flex items-center justify-between">
                   <span className="text-gray-500">企业地址</span>
-                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.address || '-'}</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.companyAddress || (selectedOrder as any).invoiceInfo?.address || '-'}</span>
                 </div>
                 <div className="col-span-2 flex items-center justify-between">
                   <span className="text-gray-500">企业电话</span>
