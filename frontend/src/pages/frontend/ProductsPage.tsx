@@ -45,7 +45,7 @@ export default function ProductsPage() {
   
   const { isFavorited, toggleFavorite, loadFavorites, favorites } = useFavoriteStore()
   const { isInCompare, addToCompare: addToCompareStore, loadCompareItems } = useCompareStore()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   
   // 恢复滚动位置
   useEffect(() => {
@@ -69,6 +69,9 @@ export default function ProductsPage() {
     }
   }, [])
 
+  // 厂家账号的分类列表
+  const [manufacturerCategories, setManufacturerCategories] = useState<string[]>([])
+  
   // 筛选条件 - 默认显示沙发类别
   const [filters, setFilters] = useState({
     category: searchParams.get('category') || '',
@@ -160,6 +163,35 @@ export default function ProductsPage() {
     loadCompareItems()
     loadStyleImages()
   }, [isAuthenticated])
+  
+  // 厂家账号：加载厂家对应的分类并设置默认筛选
+  useEffect(() => {
+    if (user?.manufacturerId && categories.length > 0) {
+      // 找出厂家对应的分类
+      const mfgCategories: string[] = []
+      const findManufacturerCategories = (cats: any[]) => {
+        cats.forEach(cat => {
+          const catMfgId = typeof cat.manufacturerId === 'object' 
+            ? cat.manufacturerId?._id 
+            : cat.manufacturerId
+          if (catMfgId === user.manufacturerId) {
+            mfgCategories.push(cat._id)
+          }
+          if (cat.children) {
+            findManufacturerCategories(cat.children)
+          }
+        })
+      }
+      findManufacturerCategories(categories)
+      setManufacturerCategories(mfgCategories)
+      
+      // 如果URL没有指定分类，且找到了厂家分类，默认选中第一个
+      if (!searchParams.get('category') && mfgCategories.length > 0) {
+        setFilters(prev => ({ ...prev, category: mfgCategories[0] }))
+      }
+      console.log('🏭 厂家分类:', mfgCategories)
+    }
+  }, [user?.manufacturerId, categories])
   
   // 当商品或收藏列表变化时，更新收藏状态
   useEffect(() => {
@@ -414,8 +446,9 @@ export default function ProductsPage() {
 
     // 风格筛选
     if (filters.style) {
-      const productStyle = (product as any).style || ''
-      if (productStyle !== filters.style) {
+      const productStyles = (product as any).styles || []
+      // 检查商品的styles数组是否包含筛选的风格
+      if (!Array.isArray(productStyles) || !productStyles.includes(filters.style)) {
         return false
       }
     }
