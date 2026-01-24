@@ -836,6 +836,10 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
       notes,
       discountRate,
       commissionRate,
+      ownProductMinDiscount,
+      ownProductCommission,
+      partnerProductMinDiscount,
+      partnerProductCommission,
       tierType,
       parentAuthorizationId,
       tierCompanyName,
@@ -848,12 +852,32 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
     if (validUntil !== undefined) authDoc.validUntil = validUntil
     if (notes !== undefined) authDoc.notes = notes
 
-    // 设置折扣和返佣
+    // 设置自有产品和合作商产品的折扣和返佣
+    if (ownProductMinDiscount !== undefined && ownProductMinDiscount >= 0 && ownProductMinDiscount <= 100) {
+      authDoc.ownProductMinDiscount = ownProductMinDiscount
+      authDoc.minDiscountRate = ownProductMinDiscount // 兼容旧字段
+    }
+    if (ownProductCommission !== undefined && ownProductCommission >= 0 && ownProductCommission <= 100) {
+      authDoc.ownProductCommission = ownProductCommission
+      authDoc.commissionRate = ownProductCommission // 兼容旧字段
+    }
+    if (partnerProductMinDiscount !== undefined && partnerProductMinDiscount >= 0 && partnerProductMinDiscount <= 100) {
+      authDoc.partnerProductMinDiscount = partnerProductMinDiscount
+    }
+    if (partnerProductCommission !== undefined && partnerProductCommission >= 0 && partnerProductCommission <= 100) {
+      authDoc.partnerProductCommission = partnerProductCommission
+    }
+    
+    // 兼容旧的单一字段
     if (discountRate !== undefined && discountRate >= 0 && discountRate <= 100) {
       authDoc.minDiscountRate = discountRate
+      if (ownProductMinDiscount === undefined) authDoc.ownProductMinDiscount = discountRate
+      if (partnerProductMinDiscount === undefined) authDoc.partnerProductMinDiscount = discountRate
     }
     if (commissionRate !== undefined && commissionRate >= 0 && commissionRate <= 100) {
       authDoc.commissionRate = commissionRate
+      if (ownProductCommission === undefined) authDoc.ownProductCommission = commissionRate
+      if (partnerProductCommission === undefined) authDoc.partnerProductCommission = commissionRate
     }
 
     // 处理分层体系
@@ -912,6 +936,10 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
             authorizationId: authDoc._id.toString(),
             minDiscountRate: authDoc.minDiscountRate || 0,
             commissionRate: authDoc.commissionRate || 0,
+            ownProductMinDiscount: authDoc.ownProductMinDiscount || 60,
+            ownProductCommission: authDoc.ownProductCommission || 10,
+            partnerProductMinDiscount: authDoc.partnerProductMinDiscount || 60,
+            partnerProductCommission: authDoc.partnerProductCommission || 10,
             status: 'active',
             updatedAt: new Date()
           }
@@ -1554,6 +1582,10 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
       notes,
       discountRate,
       commissionRate,
+      ownProductMinDiscount,
+      ownProductCommission,
+      partnerProductMinDiscount,
+      partnerProductCommission,
       tierType,
       parentAuthorizationId,
       tierCompanyName,
@@ -1567,12 +1599,32 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
     if (validUntil !== undefined) authDoc.validUntil = validUntil
     if (notes !== undefined) authDoc.notes = notes
     
-    // 设置折扣和返佣
+    // 设置自有产品和合作商产品的折扣和返佣
+    if (ownProductMinDiscount !== undefined && ownProductMinDiscount >= 0 && ownProductMinDiscount <= 100) {
+      authDoc.ownProductMinDiscount = ownProductMinDiscount
+      authDoc.minDiscountRate = ownProductMinDiscount
+    }
+    if (ownProductCommission !== undefined && ownProductCommission >= 0 && ownProductCommission <= 100) {
+      authDoc.ownProductCommission = ownProductCommission
+      authDoc.commissionRate = ownProductCommission
+    }
+    if (partnerProductMinDiscount !== undefined && partnerProductMinDiscount >= 0 && partnerProductMinDiscount <= 100) {
+      authDoc.partnerProductMinDiscount = partnerProductMinDiscount
+    }
+    if (partnerProductCommission !== undefined && partnerProductCommission >= 0 && partnerProductCommission <= 100) {
+      authDoc.partnerProductCommission = partnerProductCommission
+    }
+    
+    // 兼容旧的单一字段
     if (discountRate !== undefined && discountRate >= 0 && discountRate <= 100) {
       authDoc.minDiscountRate = discountRate
+      if (ownProductMinDiscount === undefined) authDoc.ownProductMinDiscount = discountRate
+      if (partnerProductMinDiscount === undefined) authDoc.partnerProductMinDiscount = discountRate
     }
     if (commissionRate !== undefined && commissionRate >= 0 && commissionRate <= 100) {
       authDoc.commissionRate = commissionRate
+      if (ownProductCommission === undefined) authDoc.ownProductCommission = commissionRate
+      if (partnerProductCommission === undefined) authDoc.partnerProductCommission = commissionRate
     }
     
     // 处理分层体系
@@ -1636,6 +1688,10 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
             authorizationId: authDoc._id.toString(),
             minDiscountRate: authDoc.minDiscountRate || 0,
             commissionRate: authDoc.commissionRate || 0,
+            ownProductMinDiscount: authDoc.ownProductMinDiscount || 60,
+            ownProductCommission: authDoc.ownProductCommission || 10,
+            partnerProductMinDiscount: authDoc.partnerProductMinDiscount || 60,
+            partnerProductCommission: authDoc.partnerProductCommission || 10,
             status: 'active',
             updatedAt: new Date()
           }
@@ -2031,6 +2087,10 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
       notes,
       discountRate,
       commissionRate,
+      ownProductMinDiscount,
+      ownProductCommission,
+      partnerProductMinDiscount,
+      partnerProductCommission,
       tierType,
       parentAuthorizationId,
       tierCompanyName,
@@ -2043,12 +2103,32 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
     if (validUntil !== undefined) authDoc.validUntil = validUntil
     if (notes !== undefined) authDoc.notes = notes
 
-    // 设置折扣和返佣
+    // 设置自有产品和合作商产品的折扣和返佣
+    if (ownProductMinDiscount !== undefined && ownProductMinDiscount >= 0 && ownProductMinDiscount <= 100) {
+      authDoc.ownProductMinDiscount = ownProductMinDiscount
+      authDoc.minDiscountRate = ownProductMinDiscount
+    }
+    if (ownProductCommission !== undefined && ownProductCommission >= 0 && ownProductCommission <= 100) {
+      authDoc.ownProductCommission = ownProductCommission
+      authDoc.commissionRate = ownProductCommission
+    }
+    if (partnerProductMinDiscount !== undefined && partnerProductMinDiscount >= 0 && partnerProductMinDiscount <= 100) {
+      authDoc.partnerProductMinDiscount = partnerProductMinDiscount
+    }
+    if (partnerProductCommission !== undefined && partnerProductCommission >= 0 && partnerProductCommission <= 100) {
+      authDoc.partnerProductCommission = partnerProductCommission
+    }
+    
+    // 兼容旧的单一字段
     if (discountRate !== undefined && discountRate >= 0 && discountRate <= 100) {
       authDoc.minDiscountRate = discountRate
+      if (ownProductMinDiscount === undefined) authDoc.ownProductMinDiscount = discountRate
+      if (partnerProductMinDiscount === undefined) authDoc.partnerProductMinDiscount = discountRate
     }
     if (commissionRate !== undefined && commissionRate >= 0 && commissionRate <= 100) {
       authDoc.commissionRate = commissionRate
+      if (ownProductCommission === undefined) authDoc.ownProductCommission = commissionRate
+      if (partnerProductCommission === undefined) authDoc.partnerProductCommission = commissionRate
     }
 
     // 处理分层体系
@@ -2104,6 +2184,10 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
             authorizationId: authDoc._id.toString(),
             minDiscountRate: authDoc.minDiscountRate || 0,
             commissionRate: authDoc.commissionRate || 0,
+            ownProductMinDiscount: authDoc.ownProductMinDiscount || 60,
+            ownProductCommission: authDoc.ownProductCommission || 10,
+            partnerProductMinDiscount: authDoc.partnerProductMinDiscount || 60,
+            partnerProductCommission: authDoc.partnerProductCommission || 10,
             status: 'active',
             updatedAt: new Date()
           }

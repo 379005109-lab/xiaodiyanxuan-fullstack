@@ -45,7 +45,7 @@ const authorizationSchema = new mongoose.Schema({
     ref: 'Product'
   }],
   
-  // 最低折扣率（百分比，如 85 表示 85%）
+  // 最低折扣率（百分比，如 85 表示 85%）- 兼容旧数据
   minDiscountRate: {
     type: Number,
     min: 0,
@@ -53,12 +53,44 @@ const authorizationSchema = new mongoose.Schema({
     default: 0
   },
   
-  // 返佣比例（百分比，如 10 表示 10%）
+  // 返佣比例（百分比，如 10 表示 10%）- 兼容旧数据
   commissionRate: {
     type: Number,
     min: 0,
     max: 100,
     default: 0
+  },
+  
+  // 自有产品最低折扣率
+  ownProductMinDiscount: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 60
+  },
+  
+  // 自有产品返佣比例
+  ownProductCommission: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 10
+  },
+  
+  // 合作商产品最低折扣率
+  partnerProductMinDiscount: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 60
+  },
+  
+  // 合作商产品返佣比例
+  partnerProductCommission: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 10
   },
   
   // 授权价格设置（基于原价的折扣率）

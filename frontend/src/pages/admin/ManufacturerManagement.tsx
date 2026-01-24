@@ -257,7 +257,12 @@ export default function ManufacturerManagement() {
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [approveTarget, setApproveTarget] = useState<any>(null)
-  const [approveForm, setApproveForm] = useState({ minDiscountRate: 60, commissionRate: 10 })
+  const [approveForm, setApproveForm] = useState({
+    ownProductMinDiscount: 60,
+    ownProductCommission: 10,
+    partnerProductMinDiscount: 60,
+    partnerProductCommission: 10
+  })
   const [approveSaving, setApproveSaving] = useState(false)
   const [showScopeModal, setShowScopeModal] = useState(false)
   const [scopeTarget, setScopeTarget] = useState<any>(null)
@@ -398,7 +403,12 @@ export default function ManufacturerManagement() {
   // 打开审批弹窗
   const openApproveModal = (request: any) => {
     setApproveTarget(request)
-    setApproveForm({ minDiscountRate: 60, commissionRate: 10 })
+    setApproveForm({
+      ownProductMinDiscount: 60,
+      ownProductCommission: 10,
+      partnerProductMinDiscount: 60,
+      partnerProductCommission: 10
+    })
     setShowApproveModal(true)
   }
 
@@ -418,8 +428,10 @@ export default function ManufacturerManagement() {
         : `/authorizations/designer-requests/${approveTarget._id}/approve`
       
       const response = await apiClient.put(endpoint, {
-        discountRate: approveForm.minDiscountRate,
-        commissionRate: approveForm.commissionRate,
+        ownProductMinDiscount: approveForm.ownProductMinDiscount,
+        ownProductCommission: approveForm.ownProductCommission,
+        partnerProductMinDiscount: approveForm.partnerProductMinDiscount,
+        partnerProductCommission: approveForm.partnerProductCommission,
         tierType: 'new_company',
         tierCompanyName: approveTarget.toDesigner?.nickname || approveTarget.toManufacturer?.name || '新合作商',
         allowSubAuthorization: true
@@ -4368,29 +4380,66 @@ export default function ManufacturerManagement() {
                   )}
                 </div>
               )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">最低折扣 (%)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={approveForm.minDiscountRate}
-                  onChange={(e) => setApproveForm({...approveForm, minDiscountRate: Number(e.target.value)})}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-                <p className="text-xs text-gray-500 mt-1">渠道商销售时的最低折扣限制</p>
+              {/* 自有产品设置 */}
+              <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-emerald-700 font-medium">🏭 自有产品</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">最低折扣率 (%)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={approveForm.ownProductMinDiscount}
+                      onChange={(e) => setApproveForm({...approveForm, ownProductMinDiscount: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">返佣比例 (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={approveForm.ownProductCommission}
+                      onChange={(e) => setApproveForm({...approveForm, ownProductCommission: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">返佣比例 (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={approveForm.commissionRate}
-                  onChange={(e) => setApproveForm({...approveForm, commissionRate: Number(e.target.value)})}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-                <p className="text-xs text-gray-500 mt-1">渠道商销售时的返佣比例</p>
+
+              {/* 合作商产品设置 */}
+              <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-blue-700 font-medium">🤝 合作商产品</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">最低折扣率 (%)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={approveForm.partnerProductMinDiscount}
+                      onChange={(e) => setApproveForm({...approveForm, partnerProductMinDiscount: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">返佣比例 (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={approveForm.partnerProductCommission}
+                      onChange={(e) => setApproveForm({...approveForm, partnerProductCommission: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-200 focus:border-blue-400 text-sm"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
