@@ -314,7 +314,7 @@ export default function CategoryManagement() {
             </div>
 
             {/* 分类名称 */}
-            <div className="flex-1 min-w-0">
+            <div className="w-64 min-w-0">
               <div className="flex items-center">
                 {/* 分类图片 */}
                 {category.image && (
@@ -341,8 +341,8 @@ export default function CategoryManagement() {
             </div>
 
             {/* 层级 */}
-            <div className="w-20 text-center text-sm text-gray-600">
-              {category.level}
+            <div className="w-16 text-center text-sm text-gray-600">
+              {category.level}级
             </div>
 
             {/* 商品数量 */}
@@ -351,7 +351,7 @@ export default function CategoryManagement() {
             </div>
 
             {/* 状态开关 */}
-            <div className="w-32 flex justify-center">
+            <div className="w-20 flex justify-center">
               <button
                 onClick={(e) => handleToggleStatus(category._id, e)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -378,24 +378,24 @@ export default function CategoryManagement() {
             </div>
 
             {/* 操作按钮 */}
-            <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center justify-end gap-1 pr-2">
               <button
                 onClick={(e) => handleEdit(category, e)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
                 title="编辑"
               >
                 <Edit className="h-4 w-4" />
               </button>
               <button
                 onClick={(e) => handleAddSubCategory(category, e)}
-                className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
+                className="p-1.5 text-green-600 hover:bg-green-50 rounded"
                 title="添加子分类"
               >
-                <Plus className="h-5 w-5" />
+                <Plus className="h-4 w-4" />
               </button>
               <button
                 onClick={(e) => handleDelete(category, e)}
-                className="p-2 text-red-600 hover:bg-red-50 rounded"
+                className="p-1.5 text-red-600 hover:bg-red-50 rounded"
                 title="删除"
               >
                 <Trash2 className="h-4 w-4" />
@@ -422,7 +422,7 @@ export default function CategoryManagement() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -531,12 +531,12 @@ export default function CategoryManagement() {
         <div className="bg-gray-50 border-b border-gray-200">
           <div className="flex items-center py-3 px-4">
             <div className="w-8"></div>
-            <div className="flex-1 text-sm font-medium text-gray-700">分类</div>
-            <div className="w-20 text-center text-sm font-medium text-gray-700">层级</div>
-            <div className="w-20 text-center text-sm font-medium text-gray-700">商品数量</div>
-            <div className="w-32 text-center text-sm font-medium text-gray-700">状态</div>
+            <div className="w-64 text-sm font-medium text-gray-700">分类</div>
+            <div className="w-16 text-center text-sm font-medium text-gray-700">层级</div>
+            <div className="w-20 text-center text-sm font-medium text-gray-700">商品数</div>
+            <div className="w-20 text-center text-sm font-medium text-gray-700">状态</div>
             <div className="w-40 text-sm font-medium text-gray-700">创建时间</div>
-            <div className="w-40 text-center text-sm font-medium text-gray-700">操作</div>
+            <div className="flex-1 text-right text-sm font-medium text-gray-700 pr-4">操作</div>
           </div>
         </div>
 
