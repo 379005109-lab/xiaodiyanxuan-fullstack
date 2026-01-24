@@ -893,6 +893,47 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
     authDoc.updatedAt = new Date()
     await authDoc.save()
 
+    // 同步到分成体系 TierSystem
+    try {
+      const manufacturerId = authDoc.fromManufacturer
+      const tierSystem = await TierSystem.findOne({ manufacturerId })
+      if (tierSystem) {
+        const accountId = authDoc.toDesigner?.toString() || authDoc.toManufacturer?.toString()
+        const accountType = authDoc.authorizationType
+        
+        if (accountId) {
+          const existingIndex = (tierSystem.authorizedAccounts || []).findIndex(
+            acc => acc.accountId === accountId
+          )
+          
+          const accountData = {
+            accountId,
+            accountType,
+            authorizationId: authDoc._id.toString(),
+            minDiscountRate: authDoc.minDiscountRate || 0,
+            commissionRate: authDoc.commissionRate || 0,
+            status: 'active',
+            updatedAt: new Date()
+          }
+          
+          if (existingIndex >= 0) {
+            tierSystem.authorizedAccounts[existingIndex] = {
+              ...tierSystem.authorizedAccounts[existingIndex],
+              ...accountData
+            }
+          } else {
+            tierSystem.authorizedAccounts = tierSystem.authorizedAccounts || []
+            tierSystem.authorizedAccounts.push(accountData)
+          }
+          
+          await tierSystem.save()
+          console.log(`[TierSystem] 已同步授权账户折扣(${authDoc.minDiscountRate}%)和返佣(${authDoc.commissionRate}%)`)
+        }
+      }
+    } catch (tierErr) {
+      console.error('[TierSystem] 同步失败:', tierErr.message)
+    }
+
     if (authDoc.toDesigner) {
       const designer = await User.findById(authDoc.toDesigner)
       if (designer && designer.role === 'designer') {
@@ -1576,6 +1617,47 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
     authDoc.updatedAt = new Date()
     await authDoc.save()
 
+    // 同步到分成体系 TierSystem
+    try {
+      const manufacturerId = authDoc.fromManufacturer
+      const tierSystem = await TierSystem.findOne({ manufacturerId })
+      if (tierSystem) {
+        const accountId = authDoc.toDesigner?.toString() || authDoc.toManufacturer?.toString()
+        const accountType = authDoc.authorizationType
+        
+        if (accountId) {
+          const existingIndex = (tierSystem.authorizedAccounts || []).findIndex(
+            acc => acc.accountId === accountId
+          )
+          
+          const accountData = {
+            accountId,
+            accountType,
+            authorizationId: authDoc._id.toString(),
+            minDiscountRate: authDoc.minDiscountRate || 0,
+            commissionRate: authDoc.commissionRate || 0,
+            status: 'active',
+            updatedAt: new Date()
+          }
+          
+          if (existingIndex >= 0) {
+            tierSystem.authorizedAccounts[existingIndex] = {
+              ...tierSystem.authorizedAccounts[existingIndex],
+              ...accountData
+            }
+          } else {
+            tierSystem.authorizedAccounts = tierSystem.authorizedAccounts || []
+            tierSystem.authorizedAccounts.push(accountData)
+          }
+          
+          await tierSystem.save()
+          console.log(`[TierSystem] 已同步授权账户折扣(${authDoc.minDiscountRate}%)和返佣(${authDoc.commissionRate}%)`)
+        }
+      }
+    } catch (tierErr) {
+      console.error('[TierSystem] 同步失败:', tierErr.message)
+    }
+
     if (authDoc.toDesigner) {
       const designer = await User.findById(authDoc.toDesigner)
       if (designer && designer.role === 'designer') {
@@ -2002,6 +2084,47 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
     authDoc.status = 'active'
     authDoc.updatedAt = new Date()
     await authDoc.save()
+
+    // 同步到分成体系 TierSystem
+    try {
+      const manufacturerId = authDoc.fromManufacturer
+      const tierSystem = await TierSystem.findOne({ manufacturerId })
+      if (tierSystem) {
+        const accountId = authDoc.toManufacturer?.toString()
+        const accountType = 'manufacturer'
+        
+        if (accountId) {
+          const existingIndex = (tierSystem.authorizedAccounts || []).findIndex(
+            acc => acc.accountId === accountId
+          )
+          
+          const accountData = {
+            accountId,
+            accountType,
+            authorizationId: authDoc._id.toString(),
+            minDiscountRate: authDoc.minDiscountRate || 0,
+            commissionRate: authDoc.commissionRate || 0,
+            status: 'active',
+            updatedAt: new Date()
+          }
+          
+          if (existingIndex >= 0) {
+            tierSystem.authorizedAccounts[existingIndex] = {
+              ...tierSystem.authorizedAccounts[existingIndex],
+              ...accountData
+            }
+          } else {
+            tierSystem.authorizedAccounts = tierSystem.authorizedAccounts || []
+            tierSystem.authorizedAccounts.push(accountData)
+          }
+          
+          await tierSystem.save()
+          console.log(`[TierSystem] 已同步厂家授权折扣(${authDoc.minDiscountRate}%)和返佣(${authDoc.commissionRate}%)`)
+        }
+      }
+    } catch (tierErr) {
+      console.error('[TierSystem] 同步失败:', tierErr.message)
+    }
 
     res.json({ success: true, data: authDoc, message: '已通过' })
   } catch (error) {
