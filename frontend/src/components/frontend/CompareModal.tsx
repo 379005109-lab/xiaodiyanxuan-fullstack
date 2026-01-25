@@ -294,14 +294,11 @@ export default function CompareModal() {
       console.log('📡 [CompareModal] Calling removeFromCompare...')
       await removeFromCompare(item.product._id, item.sku._id, item.selectedMaterials)
       console.log('✅ [CompareModal] removeFromCompare completed')
-      // 重新加载确保同步
-      await loadCompareItems()
+      // 不重新加载，依赖本地状态更新
       toast.success('已移除')
     } catch (error) {
       console.error('❌ [CompareModal] 删除对比项失败:', error)
       toast.error('删除失败，请重试')
-      // 失败时重新加载恢复状态
-      await loadCompareItems()
     }
   }
 
