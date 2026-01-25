@@ -9,7 +9,7 @@ import { useFavoriteStore } from '@/store/favoriteStore';
 import { useAuthStore } from '@/store/authStore';
 import { useAuthModalStore } from '@/store/authModalStore';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, ChevronDown, Share2, Heart, Minus, Plus, FileText, Video, AlertCircle, X, Maximize2, Download, Check, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Share2, Heart, Minus, Plus, FileText, Video, AlertCircle, X, Maximize2, Download, Check, Info, Play } from 'lucide-react';
 import { cn, formatPrice } from '@/lib/utils';
 import { getFileUrl, getThumbnailUrl } from '@/services/uploadService';
 
@@ -532,11 +532,12 @@ const ProductDetailPage = () => {
       return selectedMaterialGroup.images;
     }
     
-    // 否则使用默认图片
+    // 否则使用默认图片（视频优先）
     const baseImages = Array.isArray(product.images) ? product.images : [];
     const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : [];
+    const skuVideos = skus.flatMap((sku: any) => sku.videos || []);
     const skuImages = skus.flatMap((sku: any) => sku.images || []);
-    const merged = [...baseImages, ...skuImages].filter(Boolean);
+    const merged = [...skuVideos, ...baseImages, ...skuImages].filter(Boolean);
     return Array.from(new Set(merged));
   }, [product, selectedMaterialConfig, selectedMaterialGroup]);
 
@@ -597,15 +598,19 @@ const ProductDetailPage = () => {
     }
 
     if (multiSpecMode) {
-      const merged = selectedSkus.flatMap(sku => sku.images || []).filter(Boolean);
+      const videos = selectedSkus.flatMap(sku => (sku as any).videos || []).filter(Boolean);
+      const images = selectedSkus.flatMap(sku => sku.images || []).filter(Boolean);
+      const merged = [...videos, ...images];
       const unique = Array.from(new Set(merged));
       return unique.length ? unique : defaultGalleryImages;
     }
 
-    if (selectedSku?.images?.length) {
-      const skuImages = selectedSku.images.filter(Boolean);
-      if (skuImages.length > 0) {
-        return skuImages;
+    if (selectedSku) {
+      const skuVideos = ((selectedSku as any).videos || []).filter(Boolean);
+      const skuImages = (selectedSku.images || []).filter(Boolean);
+      const combined = [...skuVideos, ...skuImages];
+      if (combined.length > 0) {
+        return combined;
       }
     }
 
@@ -1411,7 +1416,19 @@ const ProductDetailPage = () => {
                   <>
                     {mainImage ? (
                       isVideoFile(mainImage) ? (
-                        <video src={getFileUrl(mainImage)} controls className="absolute inset-0 w-full h-full object-contain bg-black" />
+                        <div className="absolute inset-0 w-full h-full bg-black">
+                          <video 
+                            src={getFileUrl(mainImage)} 
+                            controls 
+                            className="w-full h-full object-contain"
+                            poster=""
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-16 h-16 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm">
+                              <Play className="h-8 w-8 text-white ml-1" />
+                            </div>
+                          </div>
+                        </div>
                       ) : (
                         <TrackedImage src={getThumbnailUrl(mainImage, 800)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" loading="eager" />
                       )
@@ -1485,7 +1502,9 @@ const ProductDetailPage = () => {
                             )}
                           >
                             {isVideoFile(img) ? (
-                              <div className="w-full h-16 flex items-center justify-center bg-black text-white text-xs">视频</div>
+                              <div className="w-full h-16 flex items-center justify-center bg-gray-900 relative">
+                                <Play className="h-6 w-6 text-white" />
+                              </div>
                             ) : (
                               <img
                                 src={getThumbnailUrl(img, 100)}

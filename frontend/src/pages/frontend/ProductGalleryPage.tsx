@@ -164,9 +164,11 @@ export default function ProductGalleryPage() {
     return Object.keys(materialCategories);
   }, [materialCategories]);
 
-  // Get all SKU images combined
+  // Get all SKU images and videos combined
   const allSkuImages = useMemo(() => {
-    return skus.flatMap((sku: any) => sku.images || []).filter(Boolean);
+    const images = skus.flatMap((sku: any) => sku.images || []).filter(Boolean);
+    const videos = skus.flatMap((sku: any) => sku.videos || []).filter(Boolean);
+    return [...videos, ...images]; // Videos first
   }, [skus]);
 
   // Filter images based on selected SKU and active tab
@@ -176,9 +178,11 @@ export default function ProductGalleryPage() {
         // Show all SKU images
         return allSkuImages;
       }
-      // Show images from selected SKU
+      // Show videos and images from selected SKU
       const selectedSku = skus.find((sku: any) => sku.id === selectedSkuId || sku._id === selectedSkuId);
-      return (selectedSku?.images || []).filter(Boolean);
+      const skuVideos = (selectedSku?.videos || []).filter(Boolean);
+      const skuImages = (selectedSku?.images || []).filter(Boolean);
+      return [...skuVideos, ...skuImages]; // Videos first
     } else if (activeTab === 'effect') {
       // Show effect images from SKUs
       return effectImages;
@@ -450,7 +454,7 @@ export default function ProductGalleryPage() {
                   const imageCount = (sku.images || []).length;
                   // Get first image as thumbnail
                   const thumbImage = sku.images?.[0];
-                  const skuName = sku.spec || sku.color || sku.specs?.map((s: any) => s.value).join(' / ') || sku.name || `SKU ${skuId?.slice(-4)}`;
+                  const skuName = sku.fabricName || sku.color || sku.spec || sku.specs?.map((s: any) => s.value).join(' / ') || sku.name || `SKU ${skuId?.slice(-4)}`;
                   
                   return (
                     <button
