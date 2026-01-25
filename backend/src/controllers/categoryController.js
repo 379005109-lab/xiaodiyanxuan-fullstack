@@ -23,80 +23,10 @@ const listCategories = async (req, res) => {
     }
 
     const user = req.user
-    // Check if user has manufacturerId and is not a platform admin
-    const userManufacturerId = user?.manufacturerId
-    const isManufacturerAccount = userManufacturerId && 
-      !['super_admin', 'admin', 'platform_admin', 'platform_staff'].includes(user?.role)
+    // 所有用户都返回完整的分类树，筛选UI需要一致
+    // 商品授权过滤在商品列表API中处理，不在分类API中处理
     
-    console.log('[listCategories] user:', user?.role, 'manufacturerId:', userManufacturerId, 'isManufacturerAccount:', isManufacturerAccount)
-    
-    // For manufacturer accounts, get categories that have their own products or authorized products
-    let categoryIdsWithProducts = null
-    let productCountByCategory = {}
-    
-    if (isManufacturerAccount) {
-      // Get own products' categories
-      const ownProducts = await Product.find({ 
-        manufacturerId: userManufacturerId, 
-        status: 'active' 
-      }).select('category').lean()
-      
-      console.log('[listCategories] ownProducts count:', ownProducts.length)
-      
-      // Get authorized products
-      const authorizations = await Authorization.find({
-        toManufacturer: userManufacturerId,
-        status: 'active'
-      }).lean()
-      
-      console.log('[listCategories] authorizations count:', authorizations.length)
-      
-      let authorizedProductIds = []
-      for (const auth of authorizations) {
-        if (auth.scope === 'all') {
-          const authProds = await Product.find({ 
-            manufacturerId: auth.fromManufacturer, 
-            status: 'active' 
-          }).select('category').lean()
-          authorizedProductIds.push(...authProds.map(p => ({ category: p.category })))
-        } else if (auth.products?.length) {
-          const authProds = await Product.find({ 
-            _id: { $in: auth.products }, 
-            status: 'active' 
-          }).select('category').lean()
-          authorizedProductIds.push(...authProds)
-        }
-      }
-      
-      // Combine and count by category
-      const allProducts = [...ownProducts, ...authorizedProductIds]
-      console.log('[listCategories] allProducts count:', allProducts.length)
-      
-      const categorySet = new Set()
-      allProducts.forEach(p => {
-        if (p.category) {
-          const catId = String(p.category._id || p.category)
-          categorySet.add(catId)
-          productCountByCategory[catId] = (productCountByCategory[catId] || 0) + 1
-        }
-      })
-      categoryIdsWithProducts = Array.from(categorySet)
-      console.log('[listCategories] categoryIdsWithProducts:', categoryIdsWithProducts.length, categoryIdsWithProducts.slice(0, 5))
-    }
-
-    if (isManufacturerAccount) {
-      // Only show categories that have products
-      if (categoryIdsWithProducts && categoryIdsWithProducts.length > 0) {
-        query._id = { $in: categoryIdsWithProducts }
-      } else {
-        // No products, return empty
-        return res.json({
-          success: true,
-          data: [],
-          pagination: { page: 1, limit: 0, total: 0, totalPages: 1 }
-        })
-      }
-    } else if (manufacturerId) {
+    if (manufacturerId) {
       query.manufacturerId = manufacturerId
     }
 
@@ -113,10 +43,6 @@ const listCategories = async (req, res) => {
       // 第一遍：创建映射
       allCategories.forEach(cat => {
         const catObj = cat.toObject()
-        // Add product count for manufacturer accounts
-        if (isManufacturerAccount) {
-          catObj.productCount = productCountByCategory[String(cat._id)] || 0
-        }
         categoryMap[cat._id] = Object.assign({}, catObj, { children: [] })
       })
 
