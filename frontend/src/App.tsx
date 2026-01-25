@@ -16,6 +16,7 @@ import FrontendLayout from './layouts/FrontendLayout'
 // 前台页面 - 懒加载
 const ProductsPage = lazy(() => import('./pages/frontend/ProductsPage'))
 const ProductDetailPage = lazy(() => import('./pages/frontend/ProductDetailPage'))
+const ProductGalleryPage = lazy(() => import('./pages/frontend/ProductGalleryPage'))
 const ProductSharePage = lazy(() => import('./pages/frontend/ProductSharePage'))
 const CartPage = lazy(() => import('./pages/frontend/CartPage'))
 const CheckoutPage = lazy(() => import('./pages/frontend/CheckoutPage'))
@@ -477,6 +478,7 @@ function App() {
             <Route index element={<HomePage />} />
                         <Route path="products" element={<FrontendProtectedRoute><ProductsPage /></FrontendProtectedRoute>} />
             <Route path="products/:id" element={<FrontendProtectedRoute><ProductDetailPage /></FrontendProtectedRoute>} />
+            <Route path="products/:id/gallery" element={<FrontendProtectedRoute><ProductGalleryPage /></FrontendProtectedRoute>} />
             <Route path="categories" element={<FrontendProtectedRoute><CategoriesPage /></FrontendProtectedRoute>} />
             <Route path="packages" element={<FrontendProtectedRoute><PackagesPage /></FrontendProtectedRoute>} />
             <Route path="packages/:id" element={<FrontendProtectedRoute><PackageDetailPage /></FrontendProtectedRoute>} />
