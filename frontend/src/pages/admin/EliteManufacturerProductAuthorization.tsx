@@ -346,7 +346,8 @@ export default function EliteManufacturerProductAuthorization() {
     return {
       priceRange: retailPrice === maxPrice ? `¥${retailPrice}` : `¥${retailPrice} - ¥${maxPrice}`,
       minDiscountPrice: `¥${discountPrice.toFixed(0)}`,
-      commissionPrice: `¥${commission.toFixed(0)}`
+      commissionPrice: `¥${commission.toFixed(0)}`,
+      costPrice: `¥${(discountPrice - commission).toFixed(0)}`
     }
   }
 
@@ -617,18 +618,22 @@ export default function EliteManufacturerProductAuthorization() {
                                     </div>
                                     <p className="text-[10px] text-gray-400 font-bold mt-0.5 uppercase tracking-tighter">编码：{prod.productCode || '无编码'}</p>
 
-                                    <div className="flex flex-wrap items-center gap-x-12 gap-y-2 mt-3">
-                                      <div>
-                                        <p className="text-[10px] text-gray-400 font-medium">价格</p>
-                                        <p className="text-sm font-bold text-gray-900">{pricing.priceRange}</p>
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+                                      <div className="px-2 py-1 bg-gray-50 rounded">
+                                        <p className="text-[10px] text-gray-400 font-medium">零售价</p>
+                                        <p className="text-sm font-medium text-gray-500">{pricing.priceRange}</p>
                                       </div>
-                                      <div>
-                                        <p className="text-[10px] text-orange-400 font-medium">最低折扣价</p>
+                                      <div className="px-2 py-1 bg-orange-50 rounded">
+                                        <p className="text-[10px] text-orange-500 font-medium">最低售价</p>
                                         <p className="text-sm font-bold text-orange-600">{pricing.minDiscountPrice}</p>
                                       </div>
-                                      <div>
-                                        <p className="text-[10px] text-emerald-500 font-medium">返佣价格</p>
+                                      <div className="px-2 py-1 bg-emerald-50 rounded">
+                                        <p className="text-[10px] text-emerald-500 font-medium">返佣金额</p>
                                         <p className="text-sm font-bold text-emerald-600">{pricing.commissionPrice}</p>
+                                      </div>
+                                      <div className="px-2 py-1 bg-blue-50 rounded border border-blue-200">
+                                        <p className="text-[10px] text-blue-500 font-medium">成本价</p>
+                                        <p className="text-sm font-bold text-blue-700">{pricing.costPrice}</p>
                                       </div>
                                     </div>
                                   </div>
@@ -662,22 +667,26 @@ export default function EliteManufacturerProductAuthorization() {
                                                 )}
                                               </div>
 
-                                              <div className="grid grid-cols-4 flex-grow gap-4 items-center">
-                                                <div className="col-span-1 min-w-0">
+                                              <div className="grid grid-cols-5 flex-grow gap-3 items-center">
+                                                <div className="min-w-0">
                                                   <p className="text-[10px] text-gray-400 font-bold mb-0.5 uppercase tracking-tighter">SKU：{sku.code || `SKU-${idx + 1}`}</p>
                                                   <p className="text-xs text-gray-700 font-bold truncate leading-tight" title={sku.spec || ''}>{sku.spec || '-'}</p>
                                                 </div>
                                                 <div className="space-y-0.5">
                                                   <p className="text-[10px] text-gray-400 font-medium">标价</p>
-                                                  <p className="text-sm font-bold text-gray-900 leading-none">¥{skuPricing.listPrice}</p>
+                                                  <p className="text-sm font-medium text-gray-500 leading-none">¥{skuPricing.listPrice}</p>
                                                 </div>
                                                 <div className="space-y-0.5">
-                                                  <p className="text-[10px] text-orange-400 font-medium">{discountLabel}</p>
+                                                  <p className="text-[10px] text-orange-500 font-medium">{discountLabel}</p>
                                                   <p className="text-sm font-bold text-orange-600 leading-none">¥{skuPricing.discountPrice.toFixed(0)}</p>
                                                 </div>
                                                 <div className="space-y-0.5">
-                                                  <p className="text-[10px] text-emerald-500 font-medium">设计师佣金</p>
+                                                  <p className="text-[10px] text-emerald-500 font-medium">返佣金额</p>
                                                   <p className="text-sm font-bold text-emerald-600 leading-none">¥{skuPricing.commission.toFixed(0)}</p>
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                  <p className="text-[10px] text-blue-500 font-medium">成本价</p>
+                                                  <p className="text-sm font-bold text-blue-700 leading-none">¥{(skuPricing.discountPrice - skuPricing.commission).toFixed(0)}</p>
                                                 </div>
                                               </div>
                                             </div>

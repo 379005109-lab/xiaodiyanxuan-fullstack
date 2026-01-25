@@ -576,18 +576,22 @@ export default function ManufacturerProductAuthorization() {
                                   )}
                                 </div>
                                 <div className="text-xs text-gray-500 font-mono mt-1">{p.productCode || '无编码'}</div>
-                                <div className="grid grid-cols-3 gap-2 mt-2">
-                                  <div>
-                                    <div className="text-xs text-gray-500">价格</div>
-                                    <div className="text-sm font-medium text-gray-900">{pricing.priceRange}</div>
+                                <div className="flex items-center gap-3 text-sm">
+                                  <div className="px-2 py-1 bg-gray-50 rounded">
+                                    <div className="text-xs text-gray-400">零售价</div>
+                                    <div className="text-sm font-medium text-gray-500">{pricing.priceRange}</div>
                                   </div>
-                                  <div>
-                                    <div className="text-xs text-gray-500">最低折扣价</div>
+                                  <div className="px-2 py-1 bg-orange-50 rounded">
+                                    <div className="text-xs text-orange-500">最低售价</div>
                                     <div className="text-sm font-medium text-orange-600">{pricing.minDiscountPrice}</div>
                                   </div>
-                                  <div>
-                                    <div className="text-xs text-gray-500">返佣价格</div>
+                                  <div className="px-2 py-1 bg-green-50 rounded">
+                                    <div className="text-xs text-green-500">返佣金额</div>
                                     <div className="text-sm font-medium text-green-600">{pricing.commissionPrice}</div>
+                                  </div>
+                                  <div className="px-2 py-1 bg-blue-50 rounded border border-blue-200">
+                                    <div className="text-xs text-blue-500">成本价</div>
+                                    <div className="text-sm font-bold text-blue-700">{pricing.factoryIncome}</div>
                                   </div>
                                 </div>
                               </div>
@@ -620,8 +624,8 @@ export default function ManufacturerProductAuthorization() {
                                           <div className="font-medium text-green-600">¥{skuPricing.designerCommission.toFixed(0)}</div>
                                         </div>
                                         <div>
-                                          <div className="text-gray-500">工厂收入</div>
-                                          <div className="font-medium text-blue-600">¥{skuPricing.factoryIncome.toFixed(0)}</div>
+                                          <div className="text-gray-500">成本价</div>
+                                          <div className="font-bold text-blue-700">¥{skuPricing.factoryIncome.toFixed(0)}</div>
                                         </div>
                                       </div>
                                     </div>

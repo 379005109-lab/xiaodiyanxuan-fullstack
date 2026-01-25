@@ -451,15 +451,6 @@ const listProducts = async (req, res) => {
                 }
           )
         : {
-            $or: [
-              { manufacturerId: user.manufacturerId },
-              { 'skus.manufacturerId': user.manufacturerId },
-              { _id: { $in: Array.from(authorizedProductIds) } },
-              { manufacturerId: platformManufacturerId },
-              { 'skus.manufacturerId': platformManufacturerId },
-              { manufacturerId: { $exists: false } },
-              { manufacturerId: null }
-            ],
             status: 'active'
           }
 
@@ -499,21 +490,11 @@ const listProducts = async (req, res) => {
             delete accessQuery.$or
           }
         } else {
+          // 厂家账号：显示所有active商品 + 分类过滤
           accessQuery.$and = [
-            {
-              $or: [
-                { manufacturerId: user.manufacturerId },
-                { 'skus.manufacturerId': user.manufacturerId },
-                { _id: { $in: Array.from(authorizedProductIds) } },
-                { manufacturerId: platformManufacturerId },
-                { 'skus.manufacturerId': platformManufacturerId },
-                { manufacturerId: { $exists: false } },
-                { manufacturerId: null }
-              ]
-            },
+            { status: 'active' },
             categoryFilter
           ]
-          delete accessQuery.$or
         }
       }
 
