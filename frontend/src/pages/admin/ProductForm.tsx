@@ -117,6 +117,7 @@ export default function ProductForm() {
       {
         id: 'sku-1',
         images: [] as string[],
+        effectImages: [] as string[],
         code: 'sku-1762',
         spec: '2人位',
         length: 200,
@@ -315,6 +316,7 @@ export default function ProductForm() {
                 }
                 return true;
               }),
+              effectImages: ((sku as any).effectImages || []).filter((img: string) => !img.startsWith('data:')),
               code: (sku as any).code || sku._id,
               spec: (sku as any).spec || sku.color || '',
               length: (sku as any).length || 0,
@@ -675,6 +677,7 @@ export default function ProductForm() {
           arrivalDate: sku.arrivalDate || null,
           price: sku.price,
           images: sku.images || [],
+          effectImages: sku.effectImages || [],
           files: sku.files || [],
           isPro: sku.isPro,
           proFeature: sku.proFeature,
@@ -813,6 +816,7 @@ export default function ProductForm() {
         {
           id: `sku-${Date.now()}`,
           images: [],
+          effectImages: [],
           code: newCode,
           spec: '',
           length: 0,
@@ -923,6 +927,7 @@ export default function ProductForm() {
           newSkus.push({
             id: `sku-${Date.now()}-${skuIndex}`,
             images: [], // 不使用材质配置图片，SKU图片独立管理
+            effectImages: [], // 效果图独立管理
             code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
             spec: spec.name,
             length: spec.length,
@@ -962,6 +967,7 @@ export default function ProductForm() {
         newSkus.push({
           id: `sku-${Date.now()}-${skuIndex}`,
           images: [],
+          effectImages: [],
           code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
           spec: spec.name,
           length: spec.length,
@@ -1175,6 +1181,7 @@ export default function ProductForm() {
           return {
             id: `sku-${Date.now()}-${index}`,
             images: [],
+            effectImages: [],
             code: modelCode || `SKU-${index + 1}`,
             spec: spec,
             length: length,
@@ -1764,6 +1771,7 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">状态</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">厂家</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">图片</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium">效果图</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">型号</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">尺寸(长×宽×高)</th>
@@ -1843,6 +1851,40 @@ export default function ProductForm() {
                           <div className="flex flex-col items-center text-gray-400">
                             <Upload className="h-4 w-4" />
                             <span className="text-[10px]">图片</span>
+                          </div>
+                        )}
+                      </button>
+                    </td>
+                    {/* 效果图 */}
+                    <td className="py-3 px-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManagingSkuIndex(index + 10000) // 使用10000+index来区分效果图
+                          setShowImageManager(true)
+                        }}
+                        className="relative w-12 h-12 border border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-amber-500 transition-colors overflow-hidden group"
+                      >
+                        {sku.effectImages && sku.effectImages.length > 0 ? (
+                          <>
+                            <img 
+                              src={getThumbnailUrl(sku.effectImages[0], 96)} 
+                              alt="效果图" 
+                              className="w-full h-full object-cover"
+                            />
+                            {sku.effectImages.length > 1 && (
+                              <div className="absolute bottom-0 right-0 bg-amber-500/80 text-white text-[10px] px-1 rounded-tl">
+                                +{sku.effectImages.length - 1}
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <span className="text-white text-xs">管理</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center text-amber-400">
+                            <Upload className="h-4 w-4" />
+                            <span className="text-[10px]">效果</span>
                           </div>
                         )}
                       </button>
@@ -2500,7 +2542,7 @@ export default function ProductForm() {
       </div>
 
       {/* 图片管理弹窗 - SKU图片 */}
-      {showImageManager && managingSkuIndex >= 0 && (
+      {showImageManager && managingSkuIndex >= 0 && managingSkuIndex < 10000 && (
         <SkuImageManagerModal
           images={formData.skus[managingSkuIndex]?.images || []}
           onClose={() => {
@@ -2510,6 +2552,23 @@ export default function ProductForm() {
           onSave={(images) => {
             const newSkus = [...formData.skus]
             newSkus[managingSkuIndex].images = images
+            setFormData({ ...formData, skus: newSkus })
+          }}
+        />
+      )}
+
+      {/* 图片管理弹窗 - SKU效果图 */}
+      {showImageManager && managingSkuIndex >= 10000 && (
+        <SkuImageManagerModal
+          images={formData.skus[managingSkuIndex - 10000]?.effectImages || []}
+          onClose={() => {
+            setShowImageManager(false)
+            setManagingSkuIndex(-1)
+          }}
+          onSave={(images) => {
+            const realIndex = managingSkuIndex - 10000
+            const newSkus = [...formData.skus]
+            newSkus[realIndex].effectImages = images
             setFormData({ ...formData, skus: newSkus })
           }}
         />

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Pause, Check, Download, Grid, List, Filter, X } from 'lucide-react';
 import { getProductById } from '@/services/productService';
 import { Product, ProductSKU } from '@/types';
+import apiClient from '@/lib/apiClient';
 import { getFileUrl } from '@/services/uploadService';
 import { toast } from 'sonner';
 
@@ -26,6 +27,17 @@ interface MaterialConfig {
   price: number;
 }
 
+interface ProductReview {
+  _id: string;
+  images: string[];
+  videos?: string[];
+  userName: string;
+  content: string;
+  rating: number;
+  skuSpec?: string;
+  createdAt: string;
+}
+
 export default function ProductGalleryPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -46,6 +58,7 @@ export default function ProductGalleryPage() {
   
   // Image selection for download
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
   
   useEffect(() => {
     const loadProduct = async () => {
@@ -62,6 +75,20 @@ export default function ProductGalleryPage() {
       }
     };
     loadProduct();
+  }, [id]);
+
+  // Load product reviews
+  useEffect(() => {
+    const loadReviews = async () => {
+      if (!id) return;
+      try {
+        const res = await apiClient.get(`/api/products/${id}/reviews`);
+        setReviews(res.data.reviews || []);
+      } catch (error) {
+        console.error('加载评价失败:', error);
+      }
+    };
+    loadReviews();
   }, [id]);
 
   // Get videos from product
@@ -87,13 +114,18 @@ export default function ProductGalleryPage() {
     return ((product as any).materialConfigs || []) as MaterialConfig[];
   }, [product]);
 
-  // Get all images from SKUs
-  const allSkuImages = useMemo(() => {
+  // Get effect images from SKUs
+  const effectImages = useMemo(() => {
     if (!product) return [];
     const skus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
-    const images = skus.flatMap(sku => sku.images || []);
+    const images = skus.flatMap(sku => (sku as any).effectImages || []);
     return Array.from(new Set(images.filter(Boolean)));
   }, [product]);
+
+  // Get review images (实景案例)
+  const reviewImages = useMemo(() => {
+    return reviews.flatMap(r => r.images || []).filter(Boolean);
+  }, [reviews]);
 
   // Get product base images
   const productImages = useMemo(() => {
@@ -130,13 +162,13 @@ export default function ProductGalleryPage() {
         (materialCategories[tag] || []).flatMap(c => c.images || [])
       ).filter(Boolean);
     } else if (activeTab === 'effect') {
-      // Show SKU images (效果图)
-      return allSkuImages;
+      // Show effect images from SKUs
+      return effectImages;
     } else {
-      // Show product base images (实景案例)
-      return productImages;
+      // Show review images (实景案例)
+      return reviewImages;
     }
-  }, [activeTab, selectedTags, materialConfigs, materialCategories, allSkuImages, productImages]);
+  }, [activeTab, selectedTags, materialConfigs, materialCategories, effectImages, reviewImages]);
 
   // Handle video play/pause
   const togglePlay = () => {
@@ -338,7 +370,7 @@ export default function ProductGalleryPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                效果图展览 ({allSkuImages.length})
+                效果图展览 ({effectImages.length})
               </button>
               <button
                 onClick={() => { setActiveTab('real'); setSelectedTags([]); }}
@@ -348,7 +380,7 @@ export default function ProductGalleryPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                实景案例 ({productImages.length})
+                实景案例 ({reviewImages.length})
               </button>
             </div>
             
