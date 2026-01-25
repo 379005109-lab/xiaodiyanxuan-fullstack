@@ -510,7 +510,7 @@ export default function Header() {
                         <div>
                           <div className="text-lg font-bold text-primary mb-4">{subCat?.name}</div>
                           {grandchildCats.length > 0 ? (
-                            <div className="grid grid-cols-4 gap-3">
+                            <div className="grid grid-cols-3 gap-4">
                               {grandchildCats.map((grandchild: any) => (
                                 <div
                                   key={grandchild._id}
@@ -524,11 +524,11 @@ export default function Header() {
                                     <img
                                       src={getFileUrl(grandchild.image)}
                                       alt={grandchild.name}
-                                      className="w-16 h-16 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform"
+                                      className="w-24 h-24 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform"
                                     />
                                   ) : (
-                                    <div className="w-16 h-16 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
-                                      <Grid className="w-6 h-6 text-stone-400" />
+                                    <div className="w-24 h-24 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
+                                      <Grid className="w-8 h-8 text-stone-400" />
                                     </div>
                                   )}
                                   <span className="text-xs text-stone-600 text-center group-hover:text-primary transition-colors">{grandchild.name}</span>
