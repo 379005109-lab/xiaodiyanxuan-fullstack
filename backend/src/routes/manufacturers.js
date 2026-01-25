@@ -267,11 +267,32 @@ router.get('/:manufacturerId/product-categories', async (req, res) => {
 
     const mid = new mongoose.Types.ObjectId(manufacturerId)
     
+    // 获取厂家信息用于名称匹配
+    const manufacturer = await Manufacturer.findById(mid).select('name fullName shortName code').lean()
+    const manufacturerNames = [
+      manufacturer?.name,
+      manufacturer?.fullName,
+      manufacturer?.shortName,
+      manufacturer?.code
+    ].filter(Boolean)
+    
     // 方法1: 通过商品的manufacturerId查询
-    const products = await Product.find({
+    // 方法2: 通过商品的manufacturerName查询（兼容旧数据）
+    const productQuery = {
       status: 'active',
-      $or: [{ manufacturerId: mid }, { 'skus.manufacturerId': mid }]
-    }).select('category').lean()
+      $or: [
+        { manufacturerId: mid },
+        { 'skus.manufacturerId': mid }
+      ]
+    }
+    
+    // 如果有厂家名称，也通过名称匹配
+    if (manufacturerNames.length > 0) {
+      productQuery.$or.push({ manufacturerName: { $in: manufacturerNames } })
+      productQuery.$or.push({ 'skus.manufacturerName': { $in: manufacturerNames } })
+    }
+    
+    const products = await Product.find(productQuery).select('category').lean()
 
     const countByCategoryId = new Map()
     for (const p of products) {
@@ -348,9 +369,29 @@ router.get('/:manufacturerId/products', async (req, res) => {
     const { status = 'active', limit = 2000 } = req.query
 
     const mid = new mongoose.Types.ObjectId(manufacturerId)
+    
+    // 获取厂家信息用于名称匹配
+    const manufacturer = await Manufacturer.findById(mid).select('name fullName shortName code').lean()
+    const manufacturerNames = [
+      manufacturer?.name,
+      manufacturer?.fullName,
+      manufacturer?.shortName,
+      manufacturer?.code
+    ].filter(Boolean)
+    
     const query = {
-      $or: [{ manufacturerId: mid }, { 'skus.manufacturerId': mid }]
+      $or: [
+        { manufacturerId: mid },
+        { 'skus.manufacturerId': mid }
+      ]
     }
+    
+    // 如果有厂家名称，也通过名称匹配
+    if (manufacturerNames.length > 0) {
+      query.$or.push({ manufacturerName: { $in: manufacturerNames } })
+      query.$or.push({ 'skus.manufacturerName': { $in: manufacturerNames } })
+    }
+    
     if (status && status !== 'all') {
       query.status = status
     }
