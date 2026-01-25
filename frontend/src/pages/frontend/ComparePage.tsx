@@ -155,9 +155,9 @@ export default function ComparePage() {
     return { label: '未选择面料' }
   }
 
+  // 初始化加载
   useEffect(() => {
     loadCompareItems()
-    updateCompareStats()
     
     // 加载材质数据
     const loadMaterials = async () => {
@@ -172,59 +172,29 @@ export default function ComparePage() {
       }
     }
     loadMaterials()
-    
-    // 监听对比列表更新事件
-    const handleCompareListUpdate = () => {
-      loadCompareItems()
-      updateCompareStats()
-    }
-    
-    window.addEventListener('compareListUpdated', handleCompareListUpdate)
-    return () => {
-      window.removeEventListener('compareListUpdated', handleCompareListUpdate)
-    }
   }, [])
 
-  const updateCompareStats = async () => {
-    try {
-      const stats = await cloudServices.compareService.getCompareStats()
-      setCompareStats(stats)
-    } catch (error) {
-      console.error('获取对比统计失败:', error)
-    }
-  }
-
-  // 用于防止无限循环的ref
-  const processedItemsRef = useRef<string>('')
-  
+  // 当 rawCompareItems 变化时，加载商品详情
   useEffect(() => {
     const loadCompareDetails = async () => {
-      // 生成当前项目列表的唯一标识，防止重复处理
-      const currentItemsKey = rawCompareItems.map(i => i.productId).sort().join(',')
-      if (currentItemsKey === processedItemsRef.current && compareItems.length > 0) {
-        return // 已经处理过，跳过
+      if (rawCompareItems.length === 0) {
+        setCompareItems([])
+        setIsLoading(false)
+        return
       }
       
       const validItems: CompareItemDetail[] = []
 
-      await Promise.all(
-        rawCompareItems.map(async (item) => {
+      for (const item of rawCompareItems) {
+        try {
           const product = (await getMockProductById(item.productId)) || (await getApiProductById(item.productId))
-          if (!product || !product.skus?.length) {
-            return null // 跳过无效项，不触发删除
-          }
+          if (!product || !product.skus?.length) continue
 
-          let sku: ProductSKU | undefined
-          if (item.skuId) {
-            sku = product.skus.find((s) => s._id === item.skuId)
-          }
-          if (!sku && product.skus.length > 0) {
-            sku = product.skus[0]
-          }
-
-          if (!sku) {
-            return null // 跳过无效项，不触发删除
-          }
+          let sku: ProductSKU | undefined = item.skuId 
+            ? product.skus.find((s) => s._id === item.skuId)
+            : product.skus[0]
+          
+          if (!sku) continue
 
           const materialKey = item.selectedMaterials
             ? `${item.selectedMaterials.fabric || ''}|${item.selectedMaterials.filling || ''}|${item.selectedMaterials.frame || ''}|${item.selectedMaterials.leg || ''}`
@@ -236,42 +206,24 @@ export default function ComparePage() {
             compareItemId: `${item.productId}-${item.skuId || ''}-${materialKey}`,
             selectedMaterials: item.selectedMaterials,
           })
-        })
-      )
+        } catch (error) {
+          console.error('加载商品详情失败:', item.productId, error)
+        }
+      }
 
-      processedItemsRef.current = currentItemsKey
       setCompareItems(validItems)
       setIsLoading(false)
     }
 
-    if (rawCompareItems.length > 0) {
-      loadCompareDetails()
-    } else {
-      setCompareItems([])
-      setIsLoading(false)
-    }
+    loadCompareDetails()
   }, [rawCompareItems])
 
-  const handleRemove = async (item: CompareItemDetail) => {
-    // 立即从本地状态中移除（乐观更新）- 精确匹配 productId + skuId + materials
-    const newItems = compareItems.filter(i => 
-      !(i.product._id === item.product._id && 
-        i.sku._id === item.sku._id && 
-        JSON.stringify(i.selectedMaterials) === JSON.stringify(item.selectedMaterials))
-    )
-    setCompareItems(newItems)
-    
-    // 同时更新 processedItemsRef 防止 useEffect 重新加载
-    processedItemsRef.current = newItems.map(i => i.product._id).sort().join(',')
-    
+  const handleRemove = (item: CompareItemDetail) => {
+    // 立即从本地状态移除
+    setCompareItems(prev => prev.filter(i => i.compareItemId !== item.compareItemId))
     toast.success('已移除')
-    
-    // 然后异步删除服务器数据（不重新加载）
-    try {
-      await removeFromCompare(item.product._id, item.sku._id, item.selectedMaterials)
-    } catch (error) {
-      console.error('删除对比项失败:', error)
-    }
+    // 调用store删除（会更新rawCompareItems，但我们已经更新了本地状态）
+    removeFromCompare(item.product._id, item.sku._id, item.selectedMaterials)
   }
 
   const handleAddToCart = (item: CompareItemDetail) => {

@@ -3,19 +3,17 @@ import {
   getAllCompareItems, 
   addToCompare as addToCompareApi, 
   removeFromCompare as removeFromCompareApi,
-  isInCompare as isInCompareApi,
   clearCompare,
-  getCompareCount,
   CompareItem
 } from '@/services/compareService'
 
 interface CompareStore {
   compareItems: CompareItem[]
   isModalOpen: boolean
+  isLoading: boolean
   loadCompareItems: () => Promise<void>
   addToCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => Promise<{ success: boolean; message: string }>
   removeFromCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => Promise<void>
-  isInCompare: (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => Promise<boolean>
   clearAll: () => Promise<void>
   getCount: () => number
   openModal: () => void
@@ -25,54 +23,56 @@ interface CompareStore {
 export const useCompareStore = create<CompareStore>((set, get) => ({
   compareItems: [],
   isModalOpen: false,
+  isLoading: false,
   
   loadCompareItems: async () => {
+    // 防止重复加载
+    if (get().isLoading) return
+    set({ isLoading: true })
     try {
       const compareItems = await getAllCompareItems()
-      set({ compareItems })
+      set({ compareItems, isLoading: false })
     } catch (error) {
       console.error('加载对比列表失败:', error)
-      set({ compareItems: [] })
+      set({ compareItems: [], isLoading: false })
     }
   },
   
   addToCompare: async (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
     const result = await addToCompareApi(productId, skuId, selectedMaterials)
     if (result.success) {
+      // 添加成功后重新加载
       await get().loadCompareItems()
     }
     return result
   },
   
   removeFromCompare: async (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
-    // 先从本地状态移除 - 需要同时匹配 productId 和 skuId
+    // 立即从本地状态移除（乐观更新）
+    const materialKey = selectedMaterials ? JSON.stringify(selectedMaterials) : ''
     set(state => ({
       compareItems: state.compareItems.filter(item => {
-        // 如果 productId 不匹配，保留
         if (item.productId !== productId) return true
-        // 如果没有指定 skuId，删除所有该产品的对比项
-        if (!skuId) return false
-        // 如果指定了 skuId，只删除匹配的
-        return item.skuId !== skuId
+        if (skuId && item.skuId !== skuId) return true
+        if (materialKey) {
+          const itemMaterialKey = item.selectedMaterials ? JSON.stringify(item.selectedMaterials) : ''
+          if (itemMaterialKey !== materialKey) return true
+        }
+        return false
       })
     }))
-    try {
-      await removeFromCompareApi(productId, skuId, selectedMaterials)
-    } catch (error) {
-      console.error('删除对比项失败:', error)
-    }
-  },
-  
-  isInCompare: async (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
-    return await isInCompareApi(productId, skuId, selectedMaterials)
+    // 后台调用API，不等待也不重新加载
+    removeFromCompareApi(productId, skuId, selectedMaterials).catch(err => {
+      console.error('删除对比项API调用失败:', err)
+    })
   },
   
   clearAll: async () => {
-    await clearCompare()
     set({ compareItems: [] })
+    await clearCompare()
   },
   
-  getCount: () => get().compareItems.length, // return getCompareCount()
+  getCount: () => get().compareItems.length,
   
   openModal: () => set({ isModalOpen: true }),
   closeModal: () => set({ isModalOpen: false })
