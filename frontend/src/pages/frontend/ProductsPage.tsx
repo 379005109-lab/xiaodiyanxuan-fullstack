@@ -406,74 +406,86 @@ export default function ProductsPage() {
   // 始终使用简洁布局（无侧边栏）
   const categoryMode = true
 
-  // 筛选商品
-  const filteredProducts = products.filter(product => {
-    // 搜索过滤 - 模糊匹配名称、分类、型号
-    if (searchKeyword) {
-      const keyword = searchKeyword.toLowerCase()
-      const name = (product.name || '').toLowerCase()
-      const categoryName = ((product as any).categoryName || '').toLowerCase()
-      const model = ((product as any).model || '').toLowerCase()
-      const specs = ((product as any).specs || '').toLowerCase()
-      
-      // 模糊匹配
-      if (!name.includes(keyword) && 
-          !categoryName.includes(keyword) && 
-          !model.includes(keyword) && 
-          !specs.includes(keyword)) {
-        return false
-      }
-    }
-    
-    // 分类筛选
-    if (filters.category) {
-      // 获取商品的分类ID
-      const rawCategory: any = (product as any).category
-      const productCategoryId = typeof rawCategory === 'object'
-        ? String(rawCategory?._id || rawCategory?.id || '')
-        : String(rawCategory ?? '')
-      
-      // 获取筛选分类及其所有子分类ID
-      const validCategoryIds = getCategoryAndChildIds(filters.category)
-      
-      // 检查商品分类是否在有效分类列表中
-      if (!validCategoryIds.has(productCategoryId)) {
-        // 也检查分类名称匹配
-        const productCategoryName = String((product as any).categoryName || rawCategory?.name || '')
-        if (!validCategoryIds.has(productCategoryName)) {
+  // 筛选商品 - 依赖 categories 状态确保分类加载后重新计算
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      // 搜索过滤 - 模糊匹配名称、分类、型号
+      if (searchKeyword) {
+        const keyword = searchKeyword.toLowerCase()
+        const name = (product.name || '').toLowerCase()
+        const categoryName = ((product as any).categoryName || '').toLowerCase()
+        const model = ((product as any).model || '').toLowerCase()
+        const specs = ((product as any).specs || '').toLowerCase()
+        
+        // 模糊匹配
+        if (!name.includes(keyword) && 
+            !categoryName.includes(keyword) && 
+            !model.includes(keyword) && 
+            !specs.includes(keyword)) {
           return false
         }
       }
-    }
-
-    // 风格筛选
-    if (filters.style) {
-      const productStyles = (product as any).styles || []
-      // 检查商品的styles数组是否包含筛选的风格
-      if (!Array.isArray(productStyles) || !productStyles.includes(filters.style)) {
-        return false
+      
+      // 分类筛选
+      if (filters.category) {
+        // 如果分类数据还未加载，暂时显示所有商品
+        if (categories.length === 0) {
+          return true
+        }
+        
+        // 获取商品的分类ID
+        const rawCategory: any = (product as any).category
+        const productCategoryId = typeof rawCategory === 'object'
+          ? String(rawCategory?._id || rawCategory?.id || '')
+          : String(rawCategory ?? '')
+        
+        // 获取筛选分类及其所有子分类ID
+        const validCategoryIds = getCategoryAndChildIds(filters.category)
+        
+        // 如果找不到有效分类（可能分类数据未加载完成），暂时显示所有商品
+        if (validCategoryIds.size === 0) {
+          return true
+        }
+        
+        // 检查商品分类是否在有效分类列表中
+        if (!validCategoryIds.has(productCategoryId)) {
+          // 也检查分类名称匹配
+          const productCategoryName = String((product as any).categoryName || rawCategory?.name || '')
+          if (!validCategoryIds.has(productCategoryName)) {
+            return false
+          }
+        }
       }
-    }
 
-    // 价格筛选
-    if (filters.priceRange) {
-      const [min, max] = filters.priceRange.split('-').map(Number)
-      const price = getDisplayPrice(product as any)
-      if (price < min || price > max) {
-        return false
+      // 风格筛选
+      if (filters.style) {
+        const productStyles = (product as any).styles || []
+        // 检查商品的styles数组是否包含筛选的风格
+        if (!Array.isArray(productStyles) || !productStyles.includes(filters.style)) {
+          return false
+        }
       }
-    }
 
-    // 系列筛选
-    if (filters.series) {
-      const productSeries = (product as any).series || (product as any).productSeries || ''
-      if (productSeries !== filters.series) {
-        return false
+      // 价格筛选
+      if (filters.priceRange) {
+        const [min, max] = filters.priceRange.split('-').map(Number)
+        const price = getDisplayPrice(product as any)
+        if (price < min || price > max) {
+          return false
+        }
       }
-    }
-    
-    return true
-  })
+
+      // 系列筛选
+      if (filters.series) {
+        const productSeries = (product as any).series || (product as any).productSeries || ''
+        if (productSeries !== filters.series) {
+          return false
+        }
+      }
+      
+      return true
+    })
+  }, [products, categories, filters, searchKeyword])
 
   // 调试日志
   useEffect(() => {
