@@ -259,9 +259,17 @@ export default function ComparePage() {
         i.sku._id === item.sku._id && 
         JSON.stringify(i.selectedMaterials) === JSON.stringify(item.selectedMaterials))
     ))
+    // 同时更新 processedItemsRef 防止 useEffect 重新加载
+    const remainingIds = compareItems
+      .filter(i => i.product._id !== item.product._id)
+      .map(i => i.product._id)
+      .sort()
+      .join(',')
+    processedItemsRef.current = remainingIds
+    
     toast.success('已移除')
     
-    // 然后异步删除服务器数据
+    // 然后异步删除服务器数据（不重新加载）
     try {
       await removeFromCompare(item.product._id, item.sku._id, item.selectedMaterials)
     } catch (error) {

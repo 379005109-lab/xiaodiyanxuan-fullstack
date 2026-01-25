@@ -690,29 +690,24 @@ const ProductDetailPage = () => {
 
   const videoList = useMemo(() => normalizeVideoUrls(product?.videos || (product as any)?.videoUrls), [product]);
   const fileList = useMemo(() => {
-    // 合并商品级文件和SKU级文件
-    const productFiles = normalizeFileList(product?.files || (product as any)?.fileList);
+    // 只显示当前选中SKU的文件，不显示所有SKU的文件
     const skuFiles: ProductFile[] = [];
     
-    // 从所有SKU中收集文件
-    if (product?.skus) {
-      product.skus.forEach((sku: any) => {
-        if (sku.files && Array.isArray(sku.files)) {
-          sku.files.forEach((file: any) => {
-            skuFiles.push({
-              name: file.name || '设计文件',
-              url: file.url || file.fileId,
-              format: file.type || file.format || file.name?.split('.').pop() || 'unknown',
-              size: file.size || 0,
-              uploadTime: file.uploadTime
-            });
-          });
-        }
+    // 只从当前选中的SKU中获取文件
+    if (selectedSku && (selectedSku as any).files && Array.isArray((selectedSku as any).files)) {
+      (selectedSku as any).files.forEach((file: any) => {
+        skuFiles.push({
+          name: file.name || '设计文件',
+          url: file.url || file.fileId,
+          format: file.type || file.format || file.name?.split('.').pop() || 'unknown',
+          size: file.size || 0,
+          uploadTime: file.uploadTime
+        });
       });
     }
     
-    return [...productFiles, ...skuFiles];
-  }, [product]);
+    return skuFiles;
+  }, [selectedSku]);
 
   useEffect(() => {
     const fetchProduct = async () => {

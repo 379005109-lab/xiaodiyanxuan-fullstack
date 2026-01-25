@@ -477,8 +477,8 @@ export default function Header() {
                     })()}
                   </div>
                   
-                  {/* 右侧：三级分类网格 */}
-                  <div className="flex-1 p-6 min-h-[400px] max-h-[500px] overflow-y-auto">
+                  {/* 右侧：三级分类列表 */}
+                  <div className="flex-1 p-6 min-h-[300px]">
                     {(() => {
                       const parentCat = categories.find(c => c._id === hoveredCategoryId)
                       const childCats = parentCat?.children || []
@@ -499,42 +499,29 @@ export default function Header() {
                       if (childCats.length === 0) {
                         return (
                           <div className="h-full">
-                            <div className="text-xl font-bold text-primary mb-4">{parentCat?.name}</div>
+                            <div className="text-lg font-bold text-primary mb-4">{parentCat?.name}</div>
                             <div className="text-sm text-stone-500">点击左侧分类查看商品</div>
                           </div>
                         )
                       }
                       
-                      // 显示当前二级分类的三级分类
+                      // 显示当前二级分类的三级分类 - 简洁文字列表
                       return (
                         <div>
-                          <div className="text-xl font-bold text-primary mb-6">{subCat?.name}</div>
+                          <div className="text-lg font-bold text-primary mb-4">{subCat?.name}</div>
                           {grandchildCats.length > 0 ? (
-                            <div className="grid grid-cols-4 gap-6">
+                            <div className="flex flex-wrap gap-3">
                               {grandchildCats.map((grandchild: any) => (
-                                <div
+                                <span
                                   key={grandchild._id}
                                   onClick={() => {
                                     setCategoryMenuOpen(false)
                                     requireAuthNavigate(`/products?category=${grandchild.slug || grandchild._id}`)
                                   }}
-                                  className="flex flex-col items-center p-4 rounded-xl hover:bg-primary/5 cursor-pointer transition-all border border-stone-100 hover:border-primary/30 hover:shadow-md group"
+                                  className="px-4 py-2 bg-stone-50 hover:bg-primary/10 text-stone-600 hover:text-primary rounded-full cursor-pointer transition-all text-sm border border-stone-200 hover:border-primary/30"
                                 >
-                                  <div className="w-28 h-28 rounded-xl overflow-hidden mb-3 bg-stone-50">
-                                    {grandchild.image ? (
-                                      <img
-                                        src={getFileUrl(grandchild.image)}
-                                        alt={grandchild.name}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center">
-                                        <Grid className="w-10 h-10 text-stone-300" />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <span className="text-sm font-medium text-stone-700 text-center group-hover:text-primary transition-colors">{grandchild.name}</span>
-                                </div>
+                                  {grandchild.name}
+                                </span>
                               ))}
                             </div>
                           ) : (
