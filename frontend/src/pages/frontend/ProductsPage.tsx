@@ -296,35 +296,37 @@ export default function ProductsPage() {
   const getCategoryAndChildIds = (categoryId: string): Set<string> => {
     const result = new Set<string>()
     
-    // 递归查找子分类
-    const findChildren = (cats: any[], parentId: string) => {
-      cats.forEach(cat => {
-        // 检查是否匹配（通过ID、slug或name）
-        if (cat._id === parentId || cat.slug === parentId || cat.name === parentId) {
-          result.add(cat._id)
-          result.add(cat.slug || '')
-          result.add(cat.name)
-          // 添加所有子分类
-          if (cat.children && cat.children.length > 0) {
-            cat.children.forEach((child: any) => {
-              result.add(child._id)
-              result.add(child.slug || '')
-              result.add(child.name)
-              // 递归添加更深层的子分类
-              if (child.children) {
-                findChildren([child], child._id)
-              }
-            })
-          }
-        }
-        // 也在子分类中查找
-        if (cat.children && cat.children.length > 0) {
-          findChildren(cat.children, parentId)
-        }
-      })
+    // 递归添加分类及其所有后代
+    const addCategoryAndDescendants = (cat: any) => {
+      result.add(cat._id)
+      if (cat.slug) result.add(cat.slug)
+      result.add(cat.name)
+      // 递归添加所有子分类
+      if (cat.children && cat.children.length > 0) {
+        cat.children.forEach((child: any) => addCategoryAndDescendants(child))
+      }
     }
     
-    findChildren(categories, categoryId)
+    // 在分类树中查找匹配的分类
+    const findCategory = (cats: any[], targetId: string): any => {
+      for (const cat of cats) {
+        if (cat._id === targetId || cat.slug === targetId || cat.name === targetId) {
+          return cat
+        }
+        if (cat.children && cat.children.length > 0) {
+          const found = findCategory(cat.children, targetId)
+          if (found) return found
+        }
+      }
+      return null
+    }
+    
+    const targetCat = findCategory(categories, categoryId)
+    if (targetCat) {
+      addCategoryAndDescendants(targetCat)
+      console.log('🔍 分类筛选:', categoryId, '包含分类IDs:', Array.from(result))
+    }
+    
     return result
   }
 
