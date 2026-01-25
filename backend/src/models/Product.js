@@ -29,12 +29,7 @@ const skuSchema = new mongoose.Schema({
   costPrice: { type: Number, default: 0 },
   discountPrice: Number,
   images: [String],
-  files: [{ // SKU专属文件
-    name: String,
-    url: String,
-    size: Number,
-    type: String // 文件类型：design, manual, certificate等
-  }],
+  files: [mongoose.Schema.Types.Mixed], // SKU专属文件 {name, url, size, type}
   length: Number,
   width: Number,
   height: Number,

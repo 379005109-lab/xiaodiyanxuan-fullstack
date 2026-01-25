@@ -45,8 +45,15 @@ export const useCompareStore = create<CompareStore>((set, get) => ({
   },
   
   removeFromCompare: async (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
-    await removeFromCompareApi(productId, skuId, selectedMaterials)
-    await get().loadCompareItems()
+    // 先从本地状态移除，避免重复请求
+    set(state => ({
+      compareItems: state.compareItems.filter(item => item.productId !== productId)
+    }))
+    try {
+      await removeFromCompareApi(productId, skuId, selectedMaterials)
+    } catch (error) {
+      console.error('删除对比项失败:', error)
+    }
   },
   
   isInCompare: async (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
