@@ -913,6 +913,15 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
       authDoc.allowSubAuthorization = allowSubAuthorization
     }
 
+    // 同步到 priceSettings（前端专属价格池设置页面读取此字段）
+    authDoc.priceSettings = {
+      ...authDoc.priceSettings,
+      minDiscountRate: (authDoc.ownProductMinDiscount || 60) / 100,
+      commissionRate: (authDoc.ownProductCommission || 10) / 100,
+      partnerMinDiscountRate: (authDoc.partnerProductMinDiscount || 60) / 100,
+      partnerCommissionRate: (authDoc.partnerProductCommission || 10) / 100
+    }
+
     authDoc.status = 'active'
     authDoc.updatedAt = new Date()
     await authDoc.save()
@@ -1668,6 +1677,15 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
       authDoc.allowSubAuthorization = allowSubAuthorization
     }
 
+    // 同步到 priceSettings（前端专属价格池设置页面读取此字段）
+    authDoc.priceSettings = {
+      ...authDoc.priceSettings,
+      minDiscountRate: (authDoc.ownProductMinDiscount || 60) / 100,
+      commissionRate: (authDoc.ownProductCommission || 10) / 100,
+      partnerMinDiscountRate: (authDoc.partnerProductMinDiscount || 60) / 100,
+      partnerCommissionRate: (authDoc.partnerProductCommission || 10) / 100
+    }
+
     authDoc.status = 'active'
     authDoc.updatedAt = new Date()
     await authDoc.save()
@@ -2165,6 +2183,15 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
 
     if (allowSubAuthorization !== undefined) {
       authDoc.allowSubAuthorization = allowSubAuthorization
+    }
+
+    // 同步到 priceSettings（前端专属价格池设置页面读取此字段）
+    authDoc.priceSettings = {
+      ...authDoc.priceSettings,
+      minDiscountRate: (authDoc.ownProductMinDiscount || 60) / 100,
+      commissionRate: (authDoc.ownProductCommission || 10) / 100,
+      partnerMinDiscountRate: (authDoc.partnerProductMinDiscount || 60) / 100,
+      partnerCommissionRate: (authDoc.partnerProductCommission || 10) / 100
     }
 
     authDoc.status = 'active'
