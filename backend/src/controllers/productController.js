@@ -1008,7 +1008,7 @@ const updateProduct = async (req, res) => {
     if (productData.skus) {
       console.log('🔥 [更新商品] 接收到的SKU数量:', productData.skus.length)
       productData.skus.forEach((sku, idx) => {
-        console.log(`🔥 [更新商品] SKU${idx + 1}: code="${sku.code}", images数量=${sku.images?.length || 0}`)
+        console.log(`🔥 [更新商品] SKU${idx + 1}: code="${sku.code}", videos数量=${sku.videos?.length || 0}, images数量=${sku.images?.length || 0}`)
       })
     }
 

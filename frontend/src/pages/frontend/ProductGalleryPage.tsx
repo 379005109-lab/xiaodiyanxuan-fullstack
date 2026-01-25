@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, Check, Download, Grid, List, Filter, X } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Check, Download, Grid, List, Filter, X, RotateCw, FlipHorizontal } from 'lucide-react';
 import { getProductById } from '@/services/productService';
 import { Product, ProductSKU } from '@/types';
 import apiClient from '@/lib/apiClient';
@@ -62,6 +62,8 @@ export default function ProductGalleryPage() {
   
   // Image preview modal
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [imageRotation, setImageRotation] = useState(0);
+  const [imageMirror, setImageMirror] = useState(false);
   
   useEffect(() => {
     const loadProduct = async () => {
@@ -434,10 +436,10 @@ export default function ProductGalleryPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={() => setSelectedSkuId(null)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors shadow ${
                     !selectedSkuId
-                      ? 'bg-primary-500 text-white'
-                      : 'bg-white border border-gray-300 text-gray-700 hover:border-primary-500'
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'bg-gray-200 border-2 border-gray-400 text-gray-800 hover:bg-gray-300'
                   }`}
                 >
                   全部 ({allSkuImages.length})
@@ -448,7 +450,7 @@ export default function ProductGalleryPage() {
                   const imageCount = (sku.images || []).length;
                   // Get first image as thumbnail
                   const thumbImage = sku.images?.[0];
-                  const skuName = sku.specs?.map((s: any) => s.value).join(' / ') || sku.name || `SKU ${skuId?.slice(-4)}`;
+                  const skuName = sku.spec || sku.color || sku.specs?.map((s: any) => s.value).join(' / ') || sku.name || `SKU ${skuId?.slice(-4)}`;
                   
                   return (
                     <button
@@ -582,14 +584,49 @@ export default function ProductGalleryPage() {
       {previewImage && (
         <div 
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-          onClick={() => setPreviewImage(null)}
+          onClick={() => { setPreviewImage(null); setImageRotation(0); setImageMirror(false); }}
         >
-          <button
-            className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
-            onClick={() => setPreviewImage(null)}
-          >
-            <X className="h-6 w-6" />
-          </button>
+          {/* Top controls */}
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            {!isVideoFile(previewImage) && (
+              <>
+                <button
+                  className="text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
+                  onClick={(e) => { e.stopPropagation(); setImageRotation((r) => (r + 90) % 360); }}
+                  title="旋转"
+                >
+                  <RotateCw className="h-5 w-5" />
+                </button>
+                <button
+                  className="text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
+                  onClick={(e) => { e.stopPropagation(); setImageMirror((m) => !m); }}
+                  title="镜像"
+                >
+                  <FlipHorizontal className="h-5 w-5" />
+                </button>
+                <button
+                  className="text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const link = document.createElement('a');
+                    link.href = getFileUrl(previewImage);
+                    link.download = `image-${Date.now()}.jpg`;
+                    link.click();
+                    toast.success('图片下载中...');
+                  }}
+                  title="下载"
+                >
+                  <Download className="h-5 w-5" />
+                </button>
+              </>
+            )}
+            <button
+              className="text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
+              onClick={() => { setPreviewImage(null); setImageRotation(0); setImageMirror(false); }}
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
           <div className="max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             {isVideoFile(previewImage) ? (
               <video
@@ -602,7 +639,10 @@ export default function ProductGalleryPage() {
               <img
                 src={getFileUrl(previewImage)}
                 alt="预览"
-                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg transition-transform duration-300"
+                style={{
+                  transform: `rotate(${imageRotation}deg) scaleX(${imageMirror ? -1 : 1})`
+                }}
               />
             )}
           </div>
@@ -614,6 +654,8 @@ export default function ProductGalleryPage() {
               const currentIndex = filteredImages.indexOf(previewImage);
               if (currentIndex > 0) {
                 setPreviewImage(filteredImages[currentIndex - 1]);
+                setImageRotation(0);
+                setImageMirror(false);
               }
             }}
           >
@@ -626,6 +668,8 @@ export default function ProductGalleryPage() {
               const currentIndex = filteredImages.indexOf(previewImage);
               if (currentIndex < filteredImages.length - 1) {
                 setPreviewImage(filteredImages[currentIndex + 1]);
+                setImageRotation(0);
+                setImageMirror(false);
               }
             }}
           >
