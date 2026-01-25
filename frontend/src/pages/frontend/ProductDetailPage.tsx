@@ -363,7 +363,6 @@ const ProductDetailPage = () => {
   const [expandedMaterialCategory, setExpandedMaterialCategory] = useState<string | null>(null);
   const [previewMaterialImage, setPreviewMaterialImage] = useState<string | null>(null);
   const [materialInfoModal, setMaterialInfoModal] = useState<{ open: boolean; section?: string; material?: string }>({ open: false });
-  const [isAllImageModalOpen, setAllImageModalOpen] = useState(false);
   const [thumbPage, setThumbPage] = useState(0);
   const [thumbsPerPage, setThumbsPerPage] = useState(4);
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
@@ -493,9 +492,6 @@ const ProductDetailPage = () => {
   const [selectedMaterialCategory, setSelectedMaterialCategory] = useState<string>('');
   const [selectedCategoryConfigs, setSelectedCategoryConfigs] = useState<typeof materialConfigs>([]);
   
-  // 全部图片弹窗
-  const [showAllImagesModal, setShowAllImagesModal] = useState(false);
-  const [selectedAllImages, setSelectedAllImages] = useState<string[]>([]);
 
   // 获取选中的材质配置
   const selectedMaterialConfig = useMemo(() => {
@@ -2065,75 +2061,6 @@ const ProductDetailPage = () => {
 
       </div>
       <ShareModal isOpen={isShareModalOpen} onClose={() => setShareModalOpen(false)} />
-      {isAllImageModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="p-4 border-b flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">全部图片</h3>
-                <p className="text-xs text-gray-500">可多选下载，需登录账号才可下载</p>
-              </div>
-              <button onClick={() => setAllImageModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-4 overflow-auto grid grid-cols-2 md:grid-cols-3 gap-4">
-              {defaultGalleryImages.map((img, idx) => {
-                const checked = selectedDownloadImages.includes(img);
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => toggleDownloadSelection(img)}
-                    className={cn(
-                      'relative rounded-2xl overflow-hidden border transition-all',
-                      checked ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200'
-                    )}
-                  >
-                    {isVideoFile(img) ? (
-                      <div className="w-full h-40 flex items-center justify-center bg-black text-white text-sm">视频</div>
-                    ) : (
-                      <img src={getFileUrl(img)} alt={`gallery-${idx}`} className="w-full h-40 object-cover" />
-                    )}
-                    <span className="absolute top-2 right-2 h-7 w-7 rounded-full flex items-center justify-center bg-white/90 text-gray-700 border">
-                      {checked ? <Check className="h-4 w-4 text-primary-600" /> : idx + 1}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="p-4 border-t bg-gray-50 flex items-center justify-between sticky bottom-0">
-              <div className="text-sm font-medium text-gray-700">
-                已选 <span className="text-primary-600 font-bold">{selectedDownloadImages.length}</span> 张
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium"
-                  onClick={() => {
-                    setSelectedDownloadImages([]);
-                    setAllImageModalOpen(false);
-                  }}
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  className="px-6 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ 
-                    backgroundColor: selectedDownloadImages.length > 0 ? '#1F64FF' : '#e5e7eb',
-                    color: selectedDownloadImages.length > 0 ? 'white' : '#9ca3af'
-                  }}
-                  onClick={handleDownloadImages}
-                  disabled={selectedDownloadImages.length === 0}
-                >
-                  <Download className="h-4 w-4" /> 下载所选 ({selectedDownloadImages.length})
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {materialInfoModal.open && materialInfoModal.section && materialInfoModal.material && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 relative">
@@ -2210,78 +2137,6 @@ const ProductDetailPage = () => {
         </div>
       )}
 
-      {/* All Images Modal */}
-      {showAllImagesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAllImagesModal(false)}>
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900">全部图片</h3>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
-                      const allImages = allSkus.flatMap(sku => sku.images || []);
-                      const uniqueImages = Array.from(new Set(allImages));
-                      selectedAllImages.forEach(imageId => {
-                        const link = document.createElement('a');
-                        link.href = getFileUrl(imageId);
-                        link.download = `image-${imageId}.jpg`;
-                        link.click();
-                      });
-                      toast.success(`已下载 ${selectedAllImages.length} 张图片`);
-                    }}
-                    disabled={selectedAllImages.length === 0}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    下载选中 ({selectedAllImages.length})
-                  </button>
-                  <button onClick={() => setShowAllImagesModal(false)} className="text-gray-400 hover:text-gray-600">
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                {(() => {
-                  const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
-                  const allImages = allSkus.flatMap(sku => sku.images || []);
-                  const uniqueImages = Array.from(new Set(allImages));
-                  return uniqueImages.map((imageId, index) => {
-                    const isSelected = selectedAllImages.includes(imageId);
-                    return (
-                      <div 
-                        key={index}
-                        className="relative cursor-pointer"
-                        onClick={() => {
-                          setSelectedAllImages(prev => 
-                            prev.includes(imageId) 
-                              ? prev.filter(id => id !== imageId)
-                              : [...prev, imageId]
-                          );
-                        }}
-                      >
-                        <img 
-                          src={getFileUrl(imageId)} 
-                          alt={`SKU图片 ${index + 1}`}
-                          className={`w-full aspect-square rounded-lg object-cover transition-all ${
-                            isSelected ? 'ring-4 ring-primary-500' : 'hover:opacity-80'
-                          }`}
-                        />
-                        {isSelected && (
-                          <div className="absolute top-2 right-2 bg-green-600 text-white rounded-full p-1.5 shadow-lg">
-                            <Check className="h-5 w-5" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
