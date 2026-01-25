@@ -120,7 +120,27 @@ router.get('/:manufacturerId/product-categories', async (req, res) => {
       ? await Category.find({ _id: { $in: categoryIds } }).select('_id name parentId').lean()
       : []
 
+    // 收集所有父分类ID
+    const parentIds = new Set()
+    categories.forEach(c => {
+      if (c.parentId) {
+        parentIds.add(String(c.parentId))
+      }
+    })
+    
+    // 获取父分类信息（不在当前列表中的）
+    const missingParentIds = Array.from(parentIds)
+      .filter(pid => !categoryIds.some(cid => String(cid) === pid))
+      .filter(pid => mongoose.Types.ObjectId.isValid(pid))
+      .map(pid => new mongoose.Types.ObjectId(pid))
+    
+    const parentCategories = missingParentIds.length > 0
+      ? await Category.find({ _id: { $in: missingParentIds } }).select('_id name parentId').lean()
+      : []
+
     const categoryById = new Map(categories.map(c => [String(c._id), c]))
+    
+    // 构建结果数据
     const data = Array.from(countByCategoryId.entries())
       .map(([id, count]) => {
         const cat = categoryById.get(id)
@@ -132,6 +152,22 @@ router.get('/:manufacturerId/product-categories', async (req, res) => {
         }
       })
       .sort((a, b) => b.count - a.count)
+    
+    // 添加父分类（商品数为子分类商品数之和）
+    parentCategories.forEach(pc => {
+      const pcId = String(pc._id)
+      // 计算该父分类下所有子分类的商品总数
+      const childCount = data
+        .filter(d => d.parentId === pcId)
+        .reduce((sum, d) => sum + d.count, 0)
+      
+      data.push({
+        id: pcId,
+        name: pc.name,
+        parentId: pc.parentId ? String(pc.parentId) : null,
+        count: childCount
+      })
+    })
 
     res.json({ success: true, data })
   } catch (error) {
