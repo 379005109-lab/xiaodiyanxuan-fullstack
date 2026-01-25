@@ -45,9 +45,16 @@ export const useCompareStore = create<CompareStore>((set, get) => ({
   },
   
   removeFromCompare: async (productId: string, skuId?: string, selectedMaterials?: { fabric?: string; filling?: string; frame?: string; leg?: string }) => {
-    // 先从本地状态移除，避免重复请求
+    // 先从本地状态移除 - 需要同时匹配 productId 和 skuId
     set(state => ({
-      compareItems: state.compareItems.filter(item => item.productId !== productId)
+      compareItems: state.compareItems.filter(item => {
+        // 如果 productId 不匹配，保留
+        if (item.productId !== productId) return true
+        // 如果没有指定 skuId，删除所有该产品的对比项
+        if (!skuId) return false
+        // 如果指定了 skuId，只删除匹配的
+        return item.skuId !== skuId
+      })
     }))
     try {
       await removeFromCompareApi(productId, skuId, selectedMaterials)

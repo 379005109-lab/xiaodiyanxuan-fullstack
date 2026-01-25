@@ -253,19 +253,16 @@ export default function ComparePage() {
   }, [rawCompareItems])
 
   const handleRemove = async (item: CompareItemDetail) => {
-    // 立即从本地状态中移除（乐观更新）
-    setCompareItems(prev => prev.filter(i => 
+    // 立即从本地状态中移除（乐观更新）- 精确匹配 productId + skuId + materials
+    const newItems = compareItems.filter(i => 
       !(i.product._id === item.product._id && 
         i.sku._id === item.sku._id && 
         JSON.stringify(i.selectedMaterials) === JSON.stringify(item.selectedMaterials))
-    ))
+    )
+    setCompareItems(newItems)
+    
     // 同时更新 processedItemsRef 防止 useEffect 重新加载
-    const remainingIds = compareItems
-      .filter(i => i.product._id !== item.product._id)
-      .map(i => i.product._id)
-      .sort()
-      .join(',')
-    processedItemsRef.current = remainingIds
+    processedItemsRef.current = newItems.map(i => i.product._id).sort().join(',')
     
     toast.success('已移除')
     
