@@ -727,11 +727,27 @@ const ProductDetailPage = () => {
         
         if (fetchedProduct) {
           const fetchedSkus = Array.isArray((fetchedProduct as any).skus) ? ((fetchedProduct as any).skus as ProductSKU[]) : [];
+          const fetchedMaterialConfigs = ((fetchedProduct as any).materialConfigs || []) as Array<{id: string; fabricName: string; fabricId: string; images: string[]; price: number}>;
           const defaultFilter = determineDefaultFilter(fetchedSkus);
           setActiveFilter(defaultFilter);
           const initialSku = getInitialSkuForFilter(fetchedSkus, defaultFilter);
           setSelectedSku(initialSku);
           setSelectedSkuIds([]);
+          
+          // 同步材质配置选择与SKU
+          // 如果有materialConfigs，根据初始SKU的fabricMaterialId选择对应的配置
+          if (fetchedMaterialConfigs.length > 0 && initialSku?.fabricMaterialId) {
+            const matchingConfig = fetchedMaterialConfigs.find(c => c.id === initialSku.fabricMaterialId);
+            if (matchingConfig) {
+              setSelectedMaterialConfigId(matchingConfig.id);
+              // 使用匹配的materialConfig的图片作为主图
+              if (matchingConfig.images?.length > 0) {
+                setMainImage(matchingConfig.images[0]);
+                return;
+              }
+            }
+          }
+          
           // 优先使用视频，然后是图片
           const skuVideos = ((initialSku as any)?.videos || []).filter(Boolean);
           const skuImages = (initialSku?.images || []).filter(Boolean);
