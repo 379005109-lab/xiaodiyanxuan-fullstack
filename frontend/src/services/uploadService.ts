@@ -20,10 +20,15 @@ export const uploadFile = async (file: File, onProgress?: (progress: number) => 
 
     console.log(`🔗 完整请求 URL: ${apiClient.defaults.baseURL}/files/upload`)
     
+    // 视频文件需要更长的超时时间
+    const isVideo = file.type.startsWith('video/')
+    const timeout = isVideo ? 600000 : 120000 // 视频10分钟，其他2分钟
+    
     const response = await apiClient.post('/files/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
+      timeout,
       onUploadProgress: (progressEvent) => {
         if (progressEvent.total) {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)

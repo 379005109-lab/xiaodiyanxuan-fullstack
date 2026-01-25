@@ -114,6 +114,15 @@ export default function ProductGalleryPage() {
     return ((product as any).materialConfigs || []) as MaterialConfig[];
   }, [product]);
 
+  // Get SKUs for material filtering
+  const skus = useMemo(() => {
+    if (!product) return [];
+    return Array.isArray((product as any)?.skus) ? (product as any).skus : [];
+  }, [product]);
+
+  // Selected SKU for filtering
+  const [selectedSkuId, setSelectedSkuId] = useState<string | null>(null);
+
   // Get effect images from SKUs
   const effectImages = useMemo(() => {
     if (!product) return [];
@@ -150,17 +159,21 @@ export default function ProductGalleryPage() {
     return Object.keys(materialCategories);
   }, [materialCategories]);
 
-  // Filter images based on selected tags and active tab
+  // Get all SKU images combined
+  const allSkuImages = useMemo(() => {
+    return skus.flatMap((sku: any) => sku.images || []).filter(Boolean);
+  }, [skus]);
+
+  // Filter images based on selected SKU and active tab
   const filteredImages = useMemo(() => {
     if (activeTab === 'material') {
-      if (selectedTags.length === 0) {
-        // Show all material images
-        return materialConfigs.flatMap(c => c.images || []).filter(Boolean);
+      if (!selectedSkuId) {
+        // Show all SKU images
+        return allSkuImages;
       }
-      // Show images from selected categories
-      return selectedTags.flatMap(tag => 
-        (materialCategories[tag] || []).flatMap(c => c.images || [])
-      ).filter(Boolean);
+      // Show images from selected SKU
+      const selectedSku = skus.find((sku: any) => sku.id === selectedSkuId || sku._id === selectedSkuId);
+      return (selectedSku?.images || []).filter(Boolean);
     } else if (activeTab === 'effect') {
       // Show effect images from SKUs
       return effectImages;
@@ -168,7 +181,7 @@ export default function ProductGalleryPage() {
       // Show review images (实景案例)
       return reviewImages;
     }
-  }, [activeTab, selectedTags, materialConfigs, materialCategories, effectImages, reviewImages]);
+  }, [activeTab, selectedSkuId, skus, allSkuImages, effectImages, reviewImages]);
 
   // Handle video play/pause
   const togglePlay = () => {
@@ -360,7 +373,7 @@ export default function ProductGalleryPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                材质分类 ({materialConfigs.length})
+                材质分类 ({allSkuImages.length})
               </button>
               <button
                 onClick={() => { setActiveTab('effect'); setSelectedTags([]); }}
@@ -400,25 +413,67 @@ export default function ProductGalleryPage() {
             </div>
           </div>
 
-          {/* Filter Tags */}
-          {activeTab === 'material' && categoryTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3 mb-6">
-              {categoryTags.map(tag => (
+          {/* SKU Color Swatches for Material Filtering */}
+          {activeTab === 'material' && skus.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-600">筛选材质面料：</span>
+                {selectedSkuId && (
+                  <button
+                    onClick={() => setSelectedSkuId(null)}
+                    className="text-xs text-primary-600 hover:underline ml-2"
+                  >
+                    清除筛选
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
                 <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
-                    selectedTags.includes(tag)
+                  onClick={() => setSelectedSkuId(null)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    !selectedSkuId
                       ? 'bg-primary-500 text-white'
                       : 'bg-white border border-gray-300 text-gray-700 hover:border-primary-500'
                   }`}
                 >
-                  <span className={`w-2 h-2 rounded-full ${
-                    selectedTags.includes(tag) ? 'bg-white' : 'bg-primary-500'
-                  }`} />
-                  {tag}
+                  全部 ({allSkuImages.length})
                 </button>
-              ))}
+                {skus.map((sku: any) => {
+                  const skuId = sku.id || sku._id;
+                  const isSelected = selectedSkuId === skuId;
+                  const imageCount = (sku.images || []).length;
+                  // Get first image as thumbnail
+                  const thumbImage = sku.images?.[0];
+                  const skuName = sku.specs?.map((s: any) => s.value).join(' / ') || sku.name || `SKU ${skuId?.slice(-4)}`;
+                  
+                  return (
+                    <button
+                      key={skuId}
+                      onClick={() => setSelectedSkuId(isSelected ? null : skuId)}
+                      className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        isSelected
+                          ? 'bg-primary-500 text-white ring-2 ring-primary-300'
+                          : 'bg-white border border-gray-200 text-gray-700 hover:border-primary-500 hover:shadow-md'
+                      }`}
+                    >
+                      {thumbImage && (
+                        <div className="w-8 h-8 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
+                          <img
+                            src={getFileUrl(thumbImage)}
+                            alt={skuName}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <span className="max-w-[120px] truncate">{skuName}</span>
+                      <span className={`text-xs ${
+                        isSelected ? 'text-white/80' : 'text-gray-400'
+                      }`}>({imageCount})</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
