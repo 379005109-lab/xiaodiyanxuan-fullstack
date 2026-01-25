@@ -452,12 +452,15 @@ const listProducts = async (req, res) => {
           )
         : {
             $or: [
-              { $or: [
-                { manufacturerId: user.manufacturerId },
-                { 'skus.manufacturerId': user.manufacturerId },
-              ] },
-              { _id: { $in: Array.from(authorizedProductIds) } }
-            ]
+              { manufacturerId: user.manufacturerId },
+              { 'skus.manufacturerId': user.manufacturerId },
+              { _id: { $in: Array.from(authorizedProductIds) } },
+              { manufacturerId: platformManufacturerId },
+              { 'skus.manufacturerId': platformManufacturerId },
+              { manufacturerId: { $exists: false } },
+              { manufacturerId: null }
+            ],
+            status: 'active'
           }
 
       if (search) {
@@ -501,7 +504,11 @@ const listProducts = async (req, res) => {
               $or: [
                 { manufacturerId: user.manufacturerId },
                 { 'skus.manufacturerId': user.manufacturerId },
-                { _id: { $in: Array.from(authorizedProductIds) } }
+                { _id: { $in: Array.from(authorizedProductIds) } },
+                { manufacturerId: platformManufacturerId },
+                { 'skus.manufacturerId': platformManufacturerId },
+                { manufacturerId: { $exists: false } },
+                { manufacturerId: null }
               ]
             },
             categoryFilter
