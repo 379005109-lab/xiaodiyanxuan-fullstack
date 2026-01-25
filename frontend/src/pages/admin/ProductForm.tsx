@@ -679,6 +679,7 @@ export default function ProductForm() {
           deliveryNote: sku.deliveryNote || '',
           arrivalDate: sku.arrivalDate || null,
           price: sku.price,
+          videos: sku.videos || [],
           images: sku.images || [],
           effectImages: sku.effectImages || [],
           files: sku.files || [],

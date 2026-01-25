@@ -60,6 +60,9 @@ export default function ProductGalleryPage() {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   
+  // Image preview modal
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  
   useEffect(() => {
     const loadProduct = async () => {
       if (!id) return;
@@ -451,14 +454,14 @@ export default function ProductGalleryPage() {
                     <button
                       key={skuId}
                       onClick={() => setSelectedSkuId(isSelected ? null : skuId)}
-                      className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      className={`group relative flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all shadow-sm ${
                         isSelected
-                          ? 'bg-primary-500 text-white ring-2 ring-primary-300'
-                          : 'bg-white border border-gray-200 text-gray-700 hover:border-primary-500 hover:shadow-md'
+                          ? 'bg-primary-500 text-white ring-2 ring-primary-300 shadow-md'
+                          : 'bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400'
                       }`}
                     >
                       {thumbImage && (
-                        <div className="w-8 h-8 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
+                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border-2 border-white shadow-sm">
                           <img
                             src={getFileUrl(thumbImage)}
                             alt={skuName}
@@ -468,7 +471,7 @@ export default function ProductGalleryPage() {
                       )}
                       <span className="max-w-[120px] truncate">{skuName}</span>
                       <span className={`text-xs ${
-                        isSelected ? 'text-white/80' : 'text-gray-400'
+                        isSelected ? 'text-white/80' : 'text-gray-500'
                       }`}>({imageCount})</span>
                     </button>
                   );
@@ -509,7 +512,14 @@ export default function ProductGalleryPage() {
               <div
                 key={`${imageId}-${index}`}
                 className="relative group cursor-pointer"
-                onClick={() => toggleImageSelection(imageId)}
+                onClick={(e) => {
+                  // If clicking on checkbox area, toggle selection; otherwise open preview
+                  if ((e.target as HTMLElement).closest('.select-checkbox')) {
+                    toggleImageSelection(imageId);
+                  } else {
+                    setPreviewImage(imageId);
+                  }
+                }}
               >
                 {isVideoFile(imageId) ? (
                   <div className="aspect-square bg-black rounded-xl overflow-hidden">
@@ -532,12 +542,21 @@ export default function ProductGalleryPage() {
                     />
                   </div>
                 )}
-                {selectedImages.includes(imageId) && (
-                  <div className="absolute top-3 right-3 bg-primary-500 text-white rounded-full p-1.5 shadow-lg">
-                    <Check className="h-4 w-4" />
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl" />
+                {/* Selection checkbox */}
+                <button
+                  className="select-checkbox absolute top-3 left-3 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shadow-sm bg-white/80 hover:bg-white"
+                  style={{
+                    borderColor: selectedImages.includes(imageId) ? '#3b82f6' : '#d1d5db',
+                    backgroundColor: selectedImages.includes(imageId) ? '#3b82f6' : 'rgba(255,255,255,0.8)'
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleImageSelection(imageId);
+                  }}
+                >
+                  {selectedImages.includes(imageId) && <Check className="h-4 w-4 text-white" />}
+                </button>
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl pointer-events-none" />
               </div>
             ))}
           </div>
@@ -558,6 +577,66 @@ export default function ProductGalleryPage() {
           )}
         </section>
       </div>
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
+            onClick={() => setPreviewImage(null)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <div className="max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            {isVideoFile(previewImage) ? (
+              <video
+                src={getFileUrl(previewImage)}
+                controls
+                autoPlay
+                className="max-w-full max-h-[90vh] rounded-lg"
+              />
+            ) : (
+              <img
+                src={getFileUrl(previewImage)}
+                alt="预览"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              />
+            )}
+          </div>
+          {/* Navigation arrows for browsing images */}
+          <button
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white p-3 rounded-full bg-black/50 hover:bg-black/70"
+            onClick={(e) => {
+              e.stopPropagation();
+              const currentIndex = filteredImages.indexOf(previewImage);
+              if (currentIndex > 0) {
+                setPreviewImage(filteredImages[currentIndex - 1]);
+              }
+            }}
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+          <button
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white p-3 rounded-full bg-black/50 hover:bg-black/70 rotate-180"
+            onClick={(e) => {
+              e.stopPropagation();
+              const currentIndex = filteredImages.indexOf(previewImage);
+              if (currentIndex < filteredImages.length - 1) {
+                setPreviewImage(filteredImages[currentIndex + 1]);
+              }
+            }}
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+          {/* Image counter */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm bg-black/50 px-4 py-2 rounded-full">
+            {filteredImages.indexOf(previewImage) + 1} / {filteredImages.length}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
