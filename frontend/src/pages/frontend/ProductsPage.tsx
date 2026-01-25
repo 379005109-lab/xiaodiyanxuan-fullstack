@@ -360,8 +360,10 @@ export default function ProductsPage() {
 
   const categoryLabel = useMemo(() => {
     if (!filters.category) return ''
+    // 等待分类数据加载完成后再显示
+    if (categories.length === 0) return ''
     const cat = findCategoryRecursive(categories, filters.category)
-    return String(cat?.name || filters.category)
+    return cat?.name || ''
   }, [categories, filters.category])
 
   // 获取当前分类的子分类（用于顶部快捷标签）
