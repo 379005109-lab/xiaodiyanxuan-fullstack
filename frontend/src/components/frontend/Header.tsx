@@ -161,7 +161,7 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-stone-200">
+    <header className="sticky top-0 z-50 bg-white border-b border-stone-200 pt-[env(safe-area-inset-top)]">
       {/* 上层：Logo + 搜索框 + 图标 */}
       <div className="max-w-[1800px] mx-auto px-4 lg:px-8">
         <div className="h-16 flex items-center justify-between gap-4">
@@ -407,7 +407,7 @@ export default function Header() {
                       <button
                         onClick={() => {
                           setCategoryMenuOpen(false)
-                          requireAuthNavigate('/all-products')
+                          requireAuthNavigate('/products')
                         }}
                         className="text-xs text-primary hover:underline"
                       >
