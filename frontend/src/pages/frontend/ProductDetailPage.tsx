@@ -1427,9 +1427,9 @@ const ProductDetailPage = () => {
                 <button
                   type="button"
                   onClick={() => navigate(`/products/${id}/gallery`)}
-                  className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-black/70 text-white text-xs px-4 py-2 z-10"
+                  className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-black/70 text-white text-xs px-4 py-2 z-10 hover:bg-black/90"
                 >
-                  <Maximize2 className="h-3.5 w-3.5" />全部图片
+                  <Maximize2 className="h-3.5 w-3.5" />查看全部图片
                 </button>
               </div>
               {galleryImages.length > 1 && (
