@@ -28,6 +28,7 @@ const skuSchema = new mongoose.Schema({
   price: { type: Number, default: 0 },
   costPrice: { type: Number, default: 0 },
   discountPrice: Number,
+  videos: [String], // SKU视频
   images: [String],
   effectImages: [String], // 效果图/渲染图
   files: [mongoose.Schema.Types.Mixed], // SKU专属文件 {name, url, size, type}

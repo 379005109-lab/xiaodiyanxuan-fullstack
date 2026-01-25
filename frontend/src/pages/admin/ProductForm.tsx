@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx'
 import ImageUploader from '@/components/admin/ImageUploader'
 import MaterialSelectModal from '@/components/admin/MaterialSelectModal'
 import SkuImageManagerModal from '@/components/admin/SkuImageManagerModal'
+import SkuMultimediaManagerModal from '@/components/admin/SkuMultimediaManagerModal'
 // 使用真实的后端API服务
 import { getProductById, createProduct, updateProduct } from '@/services/productService'
 import { getAllCategories, Category } from '@/services/categoryService'
@@ -116,6 +117,7 @@ export default function ProductForm() {
     skus: [
       {
         id: 'sku-1',
+        videos: [] as string[],
         images: [] as string[],
         effectImages: [] as string[],
         code: 'sku-1762',
@@ -309,6 +311,7 @@ export default function ProductForm() {
             
             return {
               id: sku._id,
+              videos: ((sku as any).videos || []).filter((v: string) => v && !v.startsWith('data:')),
               images: (sku.images || []).filter((img: string) => {
                 if (img.startsWith('data:')) {
                   console.warn(`SKU ${sku._id} 检测到旧Base64图片数据，已过滤`);
@@ -815,6 +818,7 @@ export default function ProductForm() {
         ...formData.skus,
         {
           id: `sku-${Date.now()}`,
+          videos: [],
           images: [],
           effectImages: [],
           code: newCode,
@@ -926,6 +930,7 @@ export default function ProductForm() {
           skuIndex++
           newSkus.push({
             id: `sku-${Date.now()}-${skuIndex}`,
+            videos: [], // 视频
             images: [], // 不使用材质配置图片，SKU图片独立管理
             effectImages: [], // 效果图独立管理
             code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
@@ -966,6 +971,7 @@ export default function ProductForm() {
         skuIndex++
         newSkus.push({
           id: `sku-${Date.now()}-${skuIndex}`,
+          videos: [],
           images: [],
           effectImages: [],
           code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
@@ -1180,6 +1186,7 @@ export default function ProductForm() {
           
           return {
             id: `sku-${Date.now()}-${index}`,
+            videos: [],
             images: [],
             effectImages: [],
             code: modelCode || `SKU-${index + 1}`,
@@ -1770,8 +1777,7 @@ export default function ProductForm() {
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="text-left py-3 px-4 text-sm font-medium">状态</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">厂家</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">图片</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">效果图</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium">多媒体</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">型号</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">尺寸(长×宽×高)</th>
@@ -1821,7 +1827,7 @@ export default function ProductForm() {
                         ))}
                       </select>
                     </td>
-                    {/* 图片 */}
+                    {/* 多媒体 - 视频+图片+效果图 */}
                     <td className="py-3 px-4">
                       <button
                         type="button"
@@ -1829,62 +1835,33 @@ export default function ProductForm() {
                           setManagingSkuIndex(index)
                           setShowImageManager(true)
                         }}
-                        className="relative w-12 h-12 border border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary-500 transition-colors overflow-hidden group"
+                        className="relative flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg cursor-pointer hover:border-primary-500 transition-colors group"
                       >
-                        {sku.images && sku.images.length > 0 ? (
+                        {/* 显示第一个媒体预览 */}
+                        {(sku.videos?.length > 0 || sku.images?.length > 0 || sku.effectImages?.length > 0) ? (
                           <>
-                            <img 
-                              src={getThumbnailUrl(sku.images[0], 96)} 
-                              alt="SKU图片" 
-                              className="w-full h-full object-cover"
-                            />
-                            {sku.images.length > 1 && (
-                              <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[10px] px-1 rounded-tl">
-                                +{sku.images.length - 1}
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-gray-100">
+                              {sku.videos?.length > 0 ? (
+                                <video src={getFileUrl(sku.videos[0])} className="w-full h-full object-cover" />
+                              ) : sku.images?.length > 0 ? (
+                                <img src={getThumbnailUrl(sku.images[0], 80)} alt="预览" className="w-full h-full object-cover" />
+                              ) : (
+                                <img src={getThumbnailUrl(sku.effectImages[0], 80)} alt="预览" className="w-full h-full object-cover" />
+                              )}
+                            </div>
+                            <div className="flex flex-col text-left text-xs">
+                              {sku.videos?.length > 0 && <span className="text-blue-600">视频 {sku.videos.length}</span>}
+                              {sku.images?.length > 0 && <span className="text-gray-600">图片 {sku.images.length}</span>}
+                              {sku.effectImages?.length > 0 && <span className="text-amber-600">效果 {sku.effectImages.length}</span>}
+                            </div>
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
                               <span className="text-white text-xs">管理</span>
                             </div>
                           </>
                         ) : (
-                          <div className="flex flex-col items-center text-gray-400">
+                          <div className="flex items-center gap-2 text-gray-400 py-1">
                             <Upload className="h-4 w-4" />
-                            <span className="text-[10px]">图片</span>
-                          </div>
-                        )}
-                      </button>
-                    </td>
-                    {/* 效果图 */}
-                    <td className="py-3 px-4">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setManagingSkuIndex(index + 10000) // 使用10000+index来区分效果图
-                          setShowImageManager(true)
-                        }}
-                        className="relative w-12 h-12 border border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-amber-500 transition-colors overflow-hidden group"
-                      >
-                        {sku.effectImages && sku.effectImages.length > 0 ? (
-                          <>
-                            <img 
-                              src={getThumbnailUrl(sku.effectImages[0], 96)} 
-                              alt="效果图" 
-                              className="w-full h-full object-cover"
-                            />
-                            {sku.effectImages.length > 1 && (
-                              <div className="absolute bottom-0 right-0 bg-amber-500/80 text-white text-[10px] px-1 rounded-tl">
-                                +{sku.effectImages.length - 1}
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                              <span className="text-white text-xs">管理</span>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex flex-col items-center text-amber-400">
-                            <Upload className="h-4 w-4" />
-                            <span className="text-[10px]">效果</span>
+                            <span className="text-xs">上传多媒体</span>
                           </div>
                         )}
                       </button>
@@ -2038,10 +2015,18 @@ export default function ProductForm() {
                                   newSkus[index].stock = parseInt(e.target.value) || 0
                                   setFormData({ ...formData, skus: newSkus })
                                 }}
-                                className="w-14 px-1 py-0.5 border border-gray-300 rounded text-center text-sm"
+                                className={`w-14 px-1 py-0.5 border rounded text-center text-sm ${
+                                  sku.stock === 0 ? 'border-red-500 bg-red-50 text-red-600' : 'border-gray-300'
+                                }`}
                                 min="0"
                               />
+                              {sku.stock === 0 && (
+                                <span className="text-xs text-red-500 font-medium">⚠️</span>
+                              )}
                             </div>
+                            {sku.stock === 0 && (
+                              <div className="text-xs text-red-500 font-medium">请补充库存!</div>
+                            )}
                             <div className="flex items-center gap-1">
                               <span className="text-xs text-gray-500">发货:</span>
                               <input
@@ -2541,34 +2526,21 @@ export default function ProductForm() {
         </div>
       </div>
 
-      {/* 图片管理弹窗 - SKU图片 */}
+      {/* 多媒体管理弹窗 - SKU视频+图片+效果图 */}
       {showImageManager && managingSkuIndex >= 0 && managingSkuIndex < 10000 && (
-        <SkuImageManagerModal
+        <SkuMultimediaManagerModal
+          videos={formData.skus[managingSkuIndex]?.videos || []}
           images={formData.skus[managingSkuIndex]?.images || []}
+          effectImages={formData.skus[managingSkuIndex]?.effectImages || []}
           onClose={() => {
             setShowImageManager(false)
             setManagingSkuIndex(-1)
           }}
-          onSave={(images) => {
+          onSave={(data) => {
             const newSkus = [...formData.skus]
-            newSkus[managingSkuIndex].images = images
-            setFormData({ ...formData, skus: newSkus })
-          }}
-        />
-      )}
-
-      {/* 图片管理弹窗 - SKU效果图 */}
-      {showImageManager && managingSkuIndex >= 10000 && (
-        <SkuImageManagerModal
-          images={formData.skus[managingSkuIndex - 10000]?.effectImages || []}
-          onClose={() => {
-            setShowImageManager(false)
-            setManagingSkuIndex(-1)
-          }}
-          onSave={(images) => {
-            const realIndex = managingSkuIndex - 10000
-            const newSkus = [...formData.skus]
-            newSkus[realIndex].effectImages = images
+            newSkus[managingSkuIndex].videos = data.videos
+            newSkus[managingSkuIndex].images = data.images
+            newSkus[managingSkuIndex].effectImages = data.effectImages
             setFormData({ ...formData, skus: newSkus })
           }}
         />

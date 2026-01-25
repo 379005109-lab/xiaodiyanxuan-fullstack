@@ -70,6 +70,15 @@ const orderSchema = new mongoose.Schema({
     details: String,
     operator: String
   }],
+  // 库存警告（下单时库存不足的SKU）
+  stockWarnings: [{
+    productId: String,
+    productName: String,
+    skuId: String,
+    skuCode: String,
+    skuSpec: String,
+    message: String
+  }],
   recipient: { name: String, phone: String, address: String },
   
   // 开票信息
