@@ -465,27 +465,48 @@ const listProducts = async (req, res) => {
       }
 
       if (categoryId) {
+        // 分类过滤条件
+        const categoryFilter = {
+          $or: [
+            { 'category.id': categoryId },
+            { 'category._id': categoryId },
+            { category: categoryId },
+          ]
+        }
+        
         if (isDesigner) {
-          accessQuery.$or = [
-            { _id: { $in: Array.from(authorizedProductIds) }, $or: [
-              { 'category.id': categoryId },
-              { 'category._id': categoryId },
-              { category: categoryId },
-            ] },
-          ]
+          if (onlyAuthorized) {
+            accessQuery.$and = [
+              { _id: { $in: Array.from(authorizedProductIds) } },
+              categoryFilter
+            ]
+          } else {
+            accessQuery.$and = [
+              {
+                $or: [
+                  { _id: { $in: Array.from(authorizedProductIds) } },
+                  { manufacturerId: platformManufacturerId },
+                  { 'skus.manufacturerId': platformManufacturerId },
+                  { manufacturerId: { $exists: false } },
+                  { manufacturerId: null }
+                ]
+              },
+              categoryFilter
+            ]
+            delete accessQuery.$or
+          }
         } else {
-          accessQuery.$or = [
-            { manufacturerId: user.manufacturerId, $or: [
-              { 'category.id': categoryId },
-              { 'category._id': categoryId },
-              { category: categoryId },
-            ] },
-            { _id: { $in: Array.from(authorizedProductIds) }, $or: [
-              { 'category.id': categoryId },
-              { 'category._id': categoryId },
-              { category: categoryId },
-            ] },
+          accessQuery.$and = [
+            {
+              $or: [
+                { manufacturerId: user.manufacturerId },
+                { 'skus.manufacturerId': user.manufacturerId },
+                { _id: { $in: Array.from(authorizedProductIds) } }
+              ]
+            },
+            categoryFilter
           ]
+          delete accessQuery.$or
         }
       }
 
