@@ -454,10 +454,10 @@ export default function ProductGalleryPage() {
                     <button
                       key={skuId}
                       onClick={() => setSelectedSkuId(isSelected ? null : skuId)}
-                      className={`group relative flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all shadow-sm ${
+                      className={`group relative flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all shadow ${
                         isSelected
-                          ? 'bg-primary-500 text-white ring-2 ring-primary-300 shadow-md'
-                          : 'bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400'
+                          ? 'bg-blue-600 text-white ring-2 ring-blue-300 shadow-lg'
+                          : 'bg-gray-200 border-2 border-gray-400 text-gray-800 hover:bg-gray-300 hover:border-gray-500'
                       }`}
                     >
                       {thumbImage && (
