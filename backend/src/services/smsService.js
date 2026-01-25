@@ -10,9 +10,17 @@ const Util = require('@alicloud/tea-util')
 const SMS_CONFIG = {
   accessKeyId: process.env.ALIYUN_SMS_ACCESS_KEY_ID || '',
   accessKeySecret: process.env.ALIYUN_SMS_ACCESS_KEY_SECRET || '',
-  signName: process.env.ALIYUN_SMS_SIGN_NAME || '深圳市乌伯视界网络科技',
+  signName: (process.env.ALIYUN_SMS_SIGN_NAME || '深圳市乌伯视界网络科技').trim(),
   templateCode: process.env.ALIYUN_SMS_TEMPLATE_CODE || 'SMS_498875086' // 登录模板（包含time变量）
 }
+
+console.log('📱 [SMS] 配置加载:', {
+  accessKeyId: SMS_CONFIG.accessKeyId ? SMS_CONFIG.accessKeyId.substring(0, 8) + '...' : 'MISSING',
+  signName: SMS_CONFIG.signName,
+  signNameLength: SMS_CONFIG.signName.length,
+  signNameHex: Buffer.from(SMS_CONFIG.signName).toString('hex'),
+  templateCode: SMS_CONFIG.templateCode
+})
 
 const sendTemplateSms = async (phone, templateCode, templateParam) => {
   if (!/^1[3-9]\d{9}$/.test(phone)) {
