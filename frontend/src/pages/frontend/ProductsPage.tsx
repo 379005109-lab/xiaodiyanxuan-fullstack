@@ -363,6 +363,7 @@ export default function ProductsPage() {
     // 等待分类数据加载完成后再显示
     if (categories.length === 0) return ''
     const cat = findCategoryRecursive(categories, filters.category)
+    // 如果找不到分类，返回空字符串而不是显示"查看全部分类"
     return cat?.name || ''
   }, [categories, filters.category])
 
@@ -717,11 +718,11 @@ export default function ProductsPage() {
                 <div
                   key={tab.id}
                   onClick={() => {
-                    setSearchParams({ ...Object.fromEntries(searchParams), category: tab.slug })
-                    setFilters({ ...filters, category: tab.slug })
+                    setSearchParams({ ...Object.fromEntries(searchParams), category: tab.id })
+                    setFilters({ ...filters, category: tab.id })
                   }}
                   className={`cursor-pointer group ${
-                    filters.category === tab.slug || filters.category === tab.id
+                    filters.category === tab.id
                       ? 'ring-2 ring-primary rounded-lg'
                       : ''
                   }`}
