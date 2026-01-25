@@ -1,10 +1,9 @@
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
-import { Search, ShoppingCart, User, Heart, Scale, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight, Camera } from 'lucide-react'
+import { Search, ShoppingCart, User, Heart, ClipboardList, LogIn, Globe, LayoutDashboard, LogOut, ChevronDown, MapPin, Grid, ChevronRight, Camera } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useCartStore } from '@/store/cartStore'
 import { useFavoriteStore } from '@/store/favoriteStore'
-import { useCompareStore } from '@/store/compareStore'
 import { useState, useEffect, useRef } from 'react'
 import { getAllCategories } from '@/services/categoryService'
 import { getFileUrl } from '@/services/uploadService'
@@ -23,7 +22,6 @@ export default function Header() {
   const { openLogin } = useAuthModalStore()
   const { getTotalItems } = useCartStore()
   const { getFavoriteCount, loadFavorites } = useFavoriteStore()
-  const { getCount: getCompareCount, loadCompareItems, openModal: openCompareModal } = useCompareStore()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -70,7 +68,6 @@ export default function Header() {
   useEffect(() => {
     if (isAuthenticated) {
       loadFavorites()
-      loadCompareItems()
     }
   }, [isAuthenticated])
   
@@ -238,20 +235,6 @@ export default function Header() {
             )}
           </Link>
 
-          {/* Compare */}
-          <button
-            onClick={openCompareModal}
-            className="relative hover:text-primary transition-colors text-stone-500"
-            title="商品对比"
-          >
-            <Scale className="w-5 h-5" />
-            {getCompareCount() > 0 && (
-              <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[9px] w-3.5 h-3.5 flex items-center justify-center rounded-full">
-                {getCompareCount()}
-              </span>
-            )}
-          </button>
-          
           {/* Cart */}
           <Link
             to="/cart"

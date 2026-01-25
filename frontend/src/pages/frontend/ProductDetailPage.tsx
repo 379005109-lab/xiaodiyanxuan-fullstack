@@ -6,7 +6,6 @@ import { recordBrowse } from '@/services/browseHistoryService';
 import { Product, ProductSKU, ProductFile } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoriteStore } from '@/store/favoriteStore';
-import { useCompareStore } from '@/store/compareStore';
 import { useAuthStore } from '@/store/authStore';
 import { useAuthModalStore } from '@/store/authModalStore';
 import { toast } from 'sonner';
@@ -374,7 +373,6 @@ const ProductDetailPage = () => {
 
   const { addItem } = useCartStore();
   const { favorites, toggleFavorite, loadFavorites } = useFavoriteStore();
-  const { compareItems, addToCompare, loadCompareItems } = useCompareStore();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
@@ -387,8 +385,7 @@ const ProductDetailPage = () => {
     if (isAuthenticated) {
       loadFavorites();
     }
-    loadCompareItems();
-  }, [isAuthenticated, loadFavorites, loadCompareItems]);
+  }, [isAuthenticated, loadFavorites]);
 
   // 材质图片加载函数（按需调用）
   const loadMaterialImagesIfNeeded = async () => {
@@ -1046,17 +1043,6 @@ const ProductDetailPage = () => {
     // Proceed with empty object if no materials selected
     addItem(product, selectedSku, quantity, chosenMaterials || {}, getFinalPrice(selectedSku, chosenMaterials || {}));
     toast.success('已添加到购物车');
-  };
-
-  const handleAddToCompare = async () => {
-    if (!product || !selectedSku) {
-      toast.error('请选择商品规格');
-      return;
-    }
-    const chosenMaterials = resolveSelectedMaterials();
-    // Material selection is optional for comparison
-    const result = await addToCompare(product._id, selectedSku._id, chosenMaterials || {});
-    toast[result.success ? 'success' : 'error'](result.message);
   };
 
   const handleBuyNow = () => {
@@ -1900,13 +1886,6 @@ const ProductDetailPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                   加入购物车
-                </button>
-                <button
-                  onClick={handleAddToCompare}
-                  className="py-3 rounded-lg border font-medium transition-all duration-200 text-base"
-                  style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR, backgroundColor: '#f0fdf4' }}
-                >
-                  加入对比
                 </button>
               </div>
               {/* 第二行：立即购买 */}

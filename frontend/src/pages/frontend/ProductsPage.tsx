@@ -1,14 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Grid, List, SlidersHorizontal, Heart, Scale, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
+import { Grid, List, SlidersHorizontal, Heart, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
 import { Product } from '@/types'
 import { formatPrice } from '@/lib/utils'
 // 使用真实API服务
 import { getProducts as getAllProducts } from '@/services/productService'
 import { getAllCategories } from '@/services/categoryService'
 import { useFavoriteStore } from '@/store/favoriteStore'
-import { useCompareStore } from '@/store/compareStore'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
@@ -44,7 +43,6 @@ export default function ProductsPage() {
   const [favoriteStatuses, setFavoriteStatuses] = useState<Record<string, boolean>>({}) // 商品收藏状态
   
   const { isFavorited, toggleFavorite, loadFavorites, favorites } = useFavoriteStore()
-  const { isInCompare, addToCompare: addToCompareStore, loadCompareItems } = useCompareStore()
   const { isAuthenticated, user } = useAuthStore()
   
   // 恢复滚动位置
@@ -160,7 +158,6 @@ export default function ProductsPage() {
     if (isAuthenticated) {
       loadFavorites()
     }
-    loadCompareItems()
     loadStyleImages()
   }, [isAuthenticated])
   
@@ -674,39 +671,6 @@ export default function ProductsPage() {
     }
   }
 
-  // 添加到对比
-  const handleAddToCompare = async (e: React.MouseEvent, product: Product) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    // 检查是否登录
-    if (!isAuthenticated) {
-      toast.error('请先登录后再使用对比功能')
-      useAuthModalStore.getState().openLogin()
-      return
-    }
-    
-    // 添加产品的第一个SKU到对比列表
-    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : []
-    const firstSku = skus[0]
-    if (!firstSku) {
-      toast.error('该商品暂无可选规格')
-      return
-    }
-    
-    try {
-      const result = await addToCompareStore(product._id, firstSku._id)
-      if (result.success) {
-        toast.success(result.message)
-      } else {
-        toast.error(result.message)
-      }
-    } catch (error) {
-      console.error('添加对比失败:', error)
-      toast.error('添加对比失败，请重试')
-    }
-  }
-
   // 获取商品预览图（优先使用商品主图，其次使用SKU图片）
   const getProductPreviewImages = (product: Product) => {
     const skuImages = (product.skus || [])
@@ -1114,12 +1078,6 @@ export default function ProductsPage() {
                                     className={`p-2 rounded-full shadow-md transition-colors ${favoriteStatuses[product._id] ? 'bg-red-500 text-white' : 'bg-white text-gray-600 hover:text-red-500'}`}
                                   >
                                     <Heart className={`h-4 w-4 ${favoriteStatuses[product._id] ? 'fill-current' : ''}`} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddToCompare(e, product) }}
-                                    className={`p-2 rounded-full shadow-md transition-colors ${firstSku && isInCompare(product._id, firstSku._id) ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:text-blue-500'}`}
-                                  >
-                                    <Scale className="h-4 w-4" />
                                   </button>
                                 </div>
                               </div>
@@ -1590,20 +1548,6 @@ export default function ProductsPage() {
                               }`}
                             >
                               <Heart className={`h-4 w-4 ${favoriteStatuses[product._id] ? 'fill-current' : ''}`} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleAddToCompare(e, product)
-                              }}
-                              className={`p-2 rounded-full shadow-md transition-colors ${
-                                firstSku && isInCompare(product._id, firstSku._id)
-                                  ? 'bg-blue-500 text-white'
-                                  : 'bg-white text-gray-600 hover:text-blue-500'
-                              }`}
-                            >
-                              <Scale className="h-4 w-4" />
                             </button>
                           </div>
                         </div>

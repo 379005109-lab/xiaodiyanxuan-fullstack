@@ -19,7 +19,6 @@ const ProductDetailPage = lazy(() => import('./pages/frontend/ProductDetailPage'
 const ProductSharePage = lazy(() => import('./pages/frontend/ProductSharePage'))
 const CartPage = lazy(() => import('./pages/frontend/CartPage'))
 const CheckoutPage = lazy(() => import('./pages/frontend/CheckoutPage'))
-const ComparePage = lazy(() => import('./pages/frontend/ComparePage'))
 const FavoritesPage = lazy(() => import('./pages/frontend/FavoritesPage'))
 const DesignServicePage = lazy(() => import('./pages/frontend/DesignServicePage'))
 const BuyingServicePage = lazy(() => import('./pages/frontend/BuyingServicePage'))
@@ -484,7 +483,6 @@ function App() {
             <Route path="share/product/:id" element={<ProductSharePage />} />
             <Route path="cart" element={<CartPage />} />
             <Route path="checkout" element={<CheckoutPage />} />
-            <Route path="compare" element={<ComparePage />} />
             <Route path="favorites" element={<FavoritesPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="addresses" element={<AddressesPage />} />
