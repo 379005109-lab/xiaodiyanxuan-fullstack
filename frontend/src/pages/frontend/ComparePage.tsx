@@ -194,17 +194,24 @@ export default function ComparePage() {
     }
   }
 
+  // 用于防止无限循环的ref
+  const processedItemsRef = useRef<string>('')
+  
   useEffect(() => {
     const loadCompareDetails = async () => {
+      // 生成当前项目列表的唯一标识，防止重复处理
+      const currentItemsKey = rawCompareItems.map(i => i.productId).sort().join(',')
+      if (currentItemsKey === processedItemsRef.current && compareItems.length > 0) {
+        return // 已经处理过，跳过
+      }
+      
       const validItems: CompareItemDetail[] = []
-      const invalidItems: { productId: string; skuId?: string }[] = []
 
-      const mappedProducts = await Promise.all(
+      await Promise.all(
         rawCompareItems.map(async (item) => {
           const product = (await getMockProductById(item.productId)) || (await getApiProductById(item.productId))
           if (!product || !product.skus?.length) {
-            invalidItems.push({ productId: item.productId, skuId: item.skuId })
-            return null
+            return null // 跳过无效项，不触发删除
           }
 
           let sku: ProductSKU | undefined
@@ -216,8 +223,7 @@ export default function ComparePage() {
           }
 
           if (!sku) {
-            invalidItems.push({ productId: item.productId, skuId: item.skuId })
-            return
+            return null // 跳过无效项，不触发删除
           }
 
           const materialKey = item.selectedMaterials
@@ -233,20 +239,17 @@ export default function ComparePage() {
         })
       )
 
-      if (invalidItems.length > 0) {
-        invalidItems.forEach((invalid) => {
-          const originalItem = rawCompareItems.find(
-            (item) => item.productId === invalid.productId && item.skuId === invalid.skuId
-          )
-          removeFromCompare(invalid.productId, invalid.skuId, originalItem?.selectedMaterials)
-        })
-      }
-
+      processedItemsRef.current = currentItemsKey
       setCompareItems(validItems)
+      setIsLoading(false)
     }
 
-    loadCompareDetails()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (rawCompareItems.length > 0) {
+      loadCompareDetails()
+    } else {
+      setCompareItems([])
+      setIsLoading(false)
+    }
   }, [rawCompareItems])
 
   const handleRemove = async (item: CompareItemDetail) => {

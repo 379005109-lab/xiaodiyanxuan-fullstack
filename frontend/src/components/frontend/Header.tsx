@@ -524,11 +524,11 @@ export default function Header() {
                                     <img
                                       src={getFileUrl(grandchild.image)}
                                       alt={grandchild.name}
-                                      className="w-32 h-32 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform"
+                                      className="w-40 h-40 object-cover rounded-lg mb-2 group-hover:scale-105 transition-transform"
                                     />
                                   ) : (
-                                    <div className="w-32 h-32 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
-                                      <Grid className="w-10 h-10 text-stone-400" />
+                                    <div className="w-40 h-40 bg-stone-100 rounded-lg mb-2 flex items-center justify-center">
+                                      <Grid className="w-12 h-12 text-stone-400" />
                                     </div>
                                   )}
                                   <span className="text-xs text-stone-600 text-center group-hover:text-primary transition-colors">{grandchild.name}</span>
