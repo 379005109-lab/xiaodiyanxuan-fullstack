@@ -358,7 +358,7 @@ export default function ManufacturerManagement() {
             apiClient.get('/orders/commission-stats').catch(() => ({ data: { data: { pending: 0, settled: 0, total: 0, pendingOrders: [] } } }))
           ])
           setReceivedAuths(receivedRes.data?.data || [])
-          setGrantedAuths((grantedRes.data?.data || []).filter((a: any) => a?.status === 'active'))
+          setGrantedAuths(grantedRes.data?.data || [])
           setMonthlyGrowth(growthRes.data?.data?.monthlyGrowth || 0)
           setCommissionStats(commissionRes.data?.data || { pending: 0, settled: 0, total: 0, pendingOrders: [] })
           // 合并待审批请求
@@ -2034,6 +2034,13 @@ export default function ManufacturerManagement() {
                                 }`}>
                                   {targetType}
                                 </span>
+                                {auth.status !== 'active' && (
+                                  <span className={`px-2 py-0.5 text-xs rounded ${
+                                    auth.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                    {auth.status === 'pending' ? '待审批' : auth.status === 'rejected' ? '已拒绝' : auth.status}
+                                  </span>
+                                )}
                               </div>
                               <div className="text-xs text-gray-500">
                                 合约期至: {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久有效'}
