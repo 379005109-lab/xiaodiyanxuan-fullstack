@@ -1,73 +1,61 @@
-// 直接测试 my-grants API 返回的数据
 const mongoose = require('mongoose');
-const Authorization = require('./src/models/Authorization');
-const Manufacturer = require('./src/models/Manufacturer');
-const Product = require('./src/models/Product');
-const User = require('./src/models/User');
+require('./src/models/Manufacturer');
+require('./src/models/Product');
+require('./src/models/Category');
 
-mongoose.connect(process.env.MONGODB_URI).then(async () => {
-  // 模拟柏胜厂家用户的请求
-  const bsManufacturer = await Manufacturer.findOne({ name: '柏胜' }).lean();
-  const manufacturerId = bsManufacturer._id;
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/xiaodiyanxuan').then(async () => {
+  const Manufacturer = mongoose.model('Manufacturer');
+  const Product = mongoose.model('Product');
+  const Category = mongoose.model('Category');
   
-  // 获取当前厂家信息
-  const currentManufacturer = await Manufacturer.findById(manufacturerId)
-    .select('defaultDiscount defaultCommission')
-    .lean();
-
-  const authorizations = await Authorization.find({
-    fromManufacturer: manufacturerId
-  })
-    .populate('toManufacturer', 'name fullName logo contactPerson')
-    .populate('toDesigner', 'username nickname avatar email')
-    .populate('products', '_id')
-    .sort({ createdAt: -1 })
-    .lean();
-
-  const totalProductCount = await Product.countDocuments({
-    manufacturerId: manufacturerId,
-    status: 'active'
-  });
+  const manufacturerId = '695615012b9fa54b2b942e8a';
+  const mid = new mongoose.Types.ObjectId(manufacturerId);
   
-  const mfrDefaultDiscount = currentManufacturer?.defaultDiscount || 0;
-  const mfrDefaultCommission = currentManufacturer?.defaultCommission || 0;
+  const manufacturer = await Manufacturer.findById(mid).select('name fullName shortName code').lean();
+  console.log('Manufacturer:', JSON.stringify(manufacturer));
   
-  console.log('Manufacturer defaults:', { mfrDefaultDiscount, mfrDefaultCommission });
-  console.log('Total products:', totalProductCount);
-  console.log('\nAPI Response simulation:');
+  const manufacturerNames = [manufacturer?.name, manufacturer?.fullName, manufacturer?.shortName, manufacturer?.code].filter(Boolean);
   
-  for (const auth of authorizations) {
-    let skuCount = 0;
-    if (auth.scope === 'all') {
-      skuCount = totalProductCount;
-    } else if (auth.scope === 'category' && Array.isArray(auth.categories) && auth.categories.length > 0) {
-      const categoryIds = auth.categories.map(c => typeof c === 'string' ? c : String(c));
-      const count = await Product.countDocuments({
-        manufacturerId: manufacturerId,
-        status: 'active',
-        $or: [
-          { 'category': { $in: categoryIds } },
-          { 'category._id': { $in: categoryIds } }
-        ]
-      });
-      skuCount = count;
-    } else if (Array.isArray(auth.products)) {
-      skuCount = auth.products.length;
-    }
-    
-    const result = {
-      _id: auth._id,
-      toName: auth.toManufacturer?.name || auth.toDesigner?.nickname || 'Unknown',
-      actualProductCount: skuCount,
-      minDiscountRate: auth.minDiscountRate || mfrDefaultDiscount,
-      commissionRate: auth.commissionRate || mfrDefaultCommission,
-      status: auth.status
-    };
-    
-    if (auth.status === 'active') {
-      console.log(JSON.stringify(result));
-    }
+  const productQuery = {
+    status: 'active',
+    $or: [
+      { manufacturerId: mid },
+      { 'skus.manufacturerId': mid }
+    ]
+  };
+  
+  if (manufacturerNames.length > 0) {
+    productQuery.$or.push({ manufacturerName: { $in: manufacturerNames } });
   }
+  
+  const products = await Product.find(productQuery).select('category').lean();
+  console.log('Products found:', products.length);
+  
+  const countByCategoryId = new Map();
+  for (const p of products) {
+    const c = p?.category;
+    let categoryId = null;
+    if (typeof c === 'string') {
+      categoryId = c;
+    } else if (c && typeof c === 'object') {
+      categoryId = c._id || c.id || c.slug;
+    }
+    if (!categoryId) continue;
+    const key = String(categoryId);
+    countByCategoryId.set(key, (countByCategoryId.get(key) || 0) + 1);
+  }
+  
+  console.log('Categories:', JSON.stringify(Object.fromEntries(countByCategoryId)));
+  
+  const categoryIds = Array.from(countByCategoryId.keys())
+    .filter(id => mongoose.Types.ObjectId.isValid(id))
+    .map(id => new mongoose.Types.ObjectId(id));
+  
+  const categories = categoryIds.length > 0
+    ? await Category.find({ _id: { $in: categoryIds } }).select('_id name parentId').lean()
+    : [];
+  
+  console.log('Category details:', JSON.stringify(categories));
   
   process.exit(0);
 }).catch(e => { console.error(e); process.exit(1); });
