@@ -266,6 +266,8 @@ router.get('/:manufacturerId/product-categories', async (req, res) => {
     }
 
     const mid = new mongoose.Types.ObjectId(manufacturerId)
+    
+    // 方法1: 通过商品的manufacturerId查询
     const products = await Product.find({
       status: 'active',
       $or: [{ manufacturerId: mid }, { 'skus.manufacturerId': mid }]
@@ -283,6 +285,29 @@ router.get('/:manufacturerId/product-categories', async (req, res) => {
       if (!categoryId) continue
       const key = String(categoryId)
       countByCategoryId.set(key, (countByCategoryId.get(key) || 0) + 1)
+    }
+
+    // 方法2: 直接查询厂家关联的分类（作为备选）
+    const manufacturerCategories = await Category.find({ 
+      manufacturerId: mid,
+      status: { $ne: 'inactive' }
+    }).select('_id name parentId').lean()
+    
+    // 合并厂家分类（如果商品查询没有结果）
+    for (const cat of manufacturerCategories) {
+      const catId = String(cat._id)
+      if (!countByCategoryId.has(catId)) {
+        // 计算该分类下的商品数量
+        const catProductCount = await Product.countDocuments({
+          status: 'active',
+          $or: [
+            { category: cat._id },
+            { 'category._id': cat._id },
+            { category: catId }
+          ]
+        })
+        countByCategoryId.set(catId, catProductCount)
+      }
     }
 
     const categoryIds = Array.from(countByCategoryId.keys())
