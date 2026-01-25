@@ -587,69 +587,74 @@ export default function ProductGalleryPage() {
       {/* Image Preview Modal */}
       {previewImage && (
         <div 
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4"
           onClick={() => { setPreviewImage(null); setImageRotation(0); setImageMirror(false); }}
         >
-          {/* Top controls */}
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            {!isVideoFile(previewImage) && (
-              <>
-                <button
-                  className="text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
-                  onClick={(e) => { e.stopPropagation(); setImageRotation((r) => (r + 90) % 360); }}
-                  title="旋转"
-                >
-                  <RotateCw className="h-5 w-5" />
-                </button>
-                <button
-                  className="text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
-                  onClick={(e) => { e.stopPropagation(); setImageMirror((m) => !m); }}
-                  title="镜像"
-                >
-                  <FlipHorizontal className="h-5 w-5" />
-                </button>
-                <button
-                  className="text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const link = document.createElement('a');
-                    link.href = getFileUrl(previewImage);
-                    link.download = `image-${Date.now()}.jpg`;
-                    link.click();
-                    toast.success('图片下载中...');
-                  }}
-                  title="下载"
-                >
-                  <Download className="h-5 w-5" />
-                </button>
-              </>
-            )}
-            <button
-              className="text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
-              onClick={() => { setPreviewImage(null); setImageRotation(0); setImageMirror(false); }}
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-          <div className="max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          {/* Close button */}
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
+            onClick={() => { setPreviewImage(null); setImageRotation(0); setImageMirror(false); }}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          
+          {/* Image/Video container */}
+          <div className="max-w-[90vw] max-h-[70vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             {isVideoFile(previewImage) ? (
               <video
                 src={getFileUrl(previewImage)}
                 controls
                 autoPlay
-                className="max-w-full max-h-[90vh] rounded-lg"
+                className="max-w-full max-h-[70vh] rounded-lg"
               />
             ) : (
               <img
                 src={getFileUrl(previewImage)}
                 alt="预览"
-                className="max-w-full max-h-[90vh] object-contain rounded-lg transition-transform duration-300"
+                className="max-w-full max-h-[70vh] object-contain rounded-lg transition-transform duration-300"
                 style={{
                   transform: `rotate(${imageRotation}deg) scaleX(${imageMirror ? -1 : 1})`
                 }}
               />
             )}
           </div>
+          
+          {/* Controls below image */}
+          {!isVideoFile(previewImage) && (
+            <div className="flex items-center gap-4 mt-6" onClick={(e) => e.stopPropagation()}>
+              <button
+                className="text-white hover:text-white/80 p-3 rounded-full bg-white/20 hover:bg-white/30 flex items-center gap-2"
+                onClick={() => setImageRotation((r) => (r + 90) % 360)}
+                title="旋转"
+              >
+                <RotateCw className="h-5 w-5" />
+                <span className="text-sm">旋转</span>
+              </button>
+              <button
+                className="text-white hover:text-white/80 p-3 rounded-full bg-white/20 hover:bg-white/30 flex items-center gap-2"
+                onClick={() => setImageMirror((m) => !m)}
+                title="镜像"
+              >
+                <FlipHorizontal className="h-5 w-5" />
+                <span className="text-sm">镜像</span>
+              </button>
+              <button
+                className="text-white hover:text-white/80 p-3 rounded-full bg-white/20 hover:bg-white/30 flex items-center gap-2"
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = getFileUrl(previewImage);
+                  link.download = `image-${Date.now()}.jpg`;
+                  link.click();
+                  toast.success('图片下载中...');
+                }}
+                title="下载"
+              >
+                <Download className="h-5 w-5" />
+                <span className="text-sm">下载</span>
+              </button>
+            </div>
+          )}
+          
           {/* Navigation arrows for browsing images */}
           <button
             className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white p-3 rounded-full bg-black/50 hover:bg-black/70"

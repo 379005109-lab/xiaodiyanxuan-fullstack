@@ -732,9 +732,12 @@ const ProductDetailPage = () => {
           const initialSku = getInitialSkuForFilter(fetchedSkus, defaultFilter);
           setSelectedSku(initialSku);
           setSelectedSkuIds([]);
-          const firstSkuImage = initialSku?.images?.find(Boolean);
+          // 优先使用视频，然后是图片
+          const skuVideos = ((initialSku as any)?.videos || []).filter(Boolean);
+          const skuImages = (initialSku?.images || []).filter(Boolean);
+          const firstSkuMedia = skuVideos[0] || skuImages[0];
           const firstProductImage = fetchedProduct.images?.find(Boolean);
-          setMainImage(firstSkuImage || firstProductImage || '');
+          setMainImage(firstSkuMedia || firstProductImage || '');
         } else {
           toast.error('未找到该商品');
         }
