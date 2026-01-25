@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Download, CheckSquare, Square, Check } from 'lucide-react'
+import { X, Download, CheckSquare, Square, Check, RotateCw, FlipHorizontal, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 
@@ -11,6 +11,9 @@ interface ImageGalleryModalProps {
 export default function ImageGalleryModal({ images, onClose }: ImageGalleryModalProps) {
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set())
   const { user } = useAuthStore()
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  const [imageRotation, setImageRotation] = useState(0)
+  const [imageMirror, setImageMirror] = useState(false)
 
   const toggleSelection = (index: number) => {
     const newSelected = new Set(selectedImages)
@@ -106,7 +109,13 @@ export default function ImageGalleryModal({ images, onClose }: ImageGalleryModal
                     ? 'border-primary-600 ring-2 ring-primary-200'
                     : 'border-transparent hover:border-gray-300'
                 }`}
-                onClick={() => toggleSelection(index)}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).tagName === 'INPUT') {
+                    toggleSelection(index);
+                  } else {
+                    setPreviewIndex(index);
+                  }
+                }}
               >
                 <img
                   src={image}
@@ -142,14 +151,14 @@ export default function ImageGalleryModal({ images, onClose }: ImageGalleryModal
           <div className="flex items-center gap-4">
             <button
               onClick={onClose}
-              className="btn-secondary px-6 py-2"
+              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
               关闭
             </button>
             <button
               onClick={handleDownload}
               disabled={selectedImages.size === 0 || !user}
-              className="btn-primary px-6 py-2 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="h-4 w-4" />
               下载选中 ({selectedImages.size})
@@ -157,6 +166,96 @@ export default function ImageGalleryModal({ images, onClose }: ImageGalleryModal
           </div>
         </div>
       </div>
+
+      {/* Image Preview Modal */}
+      {previewIndex !== null && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-[60] flex flex-col items-center justify-center p-4"
+          onClick={() => { setPreviewIndex(null); setImageRotation(0); setImageMirror(false); }}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
+            onClick={() => { setPreviewIndex(null); setImageRotation(0); setImageMirror(false); }}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          
+          <div className="max-w-[90vw] max-h-[70vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={images[previewIndex]}
+              alt="预览"
+              className="max-w-full max-h-[70vh] object-contain rounded-lg transition-transform duration-300"
+              style={{
+                transform: `rotate(${imageRotation}deg) scaleX(${imageMirror ? -1 : 1})`
+              }}
+            />
+          </div>
+          
+          {/* Controls below image */}
+          <div className="flex items-center gap-4 mt-6" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="text-white hover:text-white/80 p-3 rounded-full bg-white/20 hover:bg-white/30 flex items-center gap-2"
+              onClick={() => setImageRotation((r) => (r + 90) % 360)}
+            >
+              <RotateCw className="h-5 w-5" />
+              <span className="text-sm">旋转</span>
+            </button>
+            <button
+              className="text-white hover:text-white/80 p-3 rounded-full bg-white/20 hover:bg-white/30 flex items-center gap-2"
+              onClick={() => setImageMirror((m) => !m)}
+            >
+              <FlipHorizontal className="h-5 w-5" />
+              <span className="text-sm">镜像</span>
+            </button>
+            <button
+              className="text-white hover:text-white/80 p-3 rounded-full bg-white/20 hover:bg-white/30 flex items-center gap-2"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = images[previewIndex];
+                link.download = `image-${previewIndex + 1}.jpg`;
+                link.click();
+                toast.success('图片下载中...');
+              }}
+            >
+              <Download className="h-5 w-5" />
+              <span className="text-sm">下载</span>
+            </button>
+          </div>
+          
+          {/* Navigation arrows */}
+          <button
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white p-3 rounded-full bg-black/50 hover:bg-black/70"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (previewIndex > 0) {
+                setPreviewIndex(previewIndex - 1);
+                setImageRotation(0);
+                setImageMirror(false);
+              }
+            }}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <button
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white p-3 rounded-full bg-black/50 hover:bg-black/70"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (previewIndex < images.length - 1) {
+                setPreviewIndex(previewIndex + 1);
+                setImageRotation(0);
+                setImageMirror(false);
+              }
+            }}
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+          
+          {/* Image counter */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm bg-black/50 px-4 py-2 rounded-full">
+            {previewIndex + 1} / {images.length}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
