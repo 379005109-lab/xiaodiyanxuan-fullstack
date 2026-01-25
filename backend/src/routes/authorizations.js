@@ -940,6 +940,9 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
             ownProductCommission: authDoc.ownProductCommission || 10,
             partnerProductMinDiscount: authDoc.partnerProductMinDiscount || 60,
             partnerProductCommission: authDoc.partnerProductCommission || 10,
+            // 兼容前端TierSystem读取的字段
+            boundUserDiscount: authDoc.ownProductMinDiscount || 60,
+            distributionRate: authDoc.ownProductCommission || 10,
             status: 'active',
             updatedAt: new Date()
           }
@@ -1692,6 +1695,9 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
             ownProductCommission: authDoc.ownProductCommission || 10,
             partnerProductMinDiscount: authDoc.partnerProductMinDiscount || 60,
             partnerProductCommission: authDoc.partnerProductCommission || 10,
+            // 兼容前端TierSystem读取的字段
+            boundUserDiscount: authDoc.ownProductMinDiscount || 60,
+            distributionRate: authDoc.ownProductCommission || 10,
             status: 'active',
             updatedAt: new Date()
           }
@@ -2188,6 +2194,9 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
             ownProductCommission: authDoc.ownProductCommission || 10,
             partnerProductMinDiscount: authDoc.partnerProductMinDiscount || 60,
             partnerProductCommission: authDoc.partnerProductCommission || 10,
+            // 兼容前端TierSystem读取的字段
+            boundUserDiscount: authDoc.ownProductMinDiscount || 60,
+            distributionRate: authDoc.ownProductCommission || 10,
             status: 'active',
             updatedAt: new Date()
           }
