@@ -399,7 +399,7 @@ export default function Header() {
                   {/* 左侧：一级分类列表 */}
                   <div className="w-48 border-r border-stone-100 py-3 flex-shrink-0">
                     <div className="px-4 py-2 text-xs font-bold text-stone-400 uppercase tracking-wider">商品分类</div>
-                    {categories.filter(c => c.level === 1 || (!c.parentId && c.parentId !== null)).map((cat) => (
+                    {categories.filter(c => c.level === 1 || c.parentId === null || c.parentId === undefined || c.parentId === '').map((cat) => (
                       <div
                         key={cat._id}
                         onMouseEnter={() => {
