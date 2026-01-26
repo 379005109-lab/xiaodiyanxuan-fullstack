@@ -199,11 +199,25 @@ export default function ProductGalleryPage() {
     return isVideoFileByExtension(fileId);
   };
 
-  // Get all SKU images and videos combined (from all SKUs, not deduplicated)
+  // Get all SKU images and videos combined (from all SKUs, deduplicated)
   const allSkuImages = useMemo(() => {
     const images = allSkus.flatMap((sku: any) => sku.images || []).filter(Boolean);
     const videos = allSkus.flatMap((sku: any) => sku.videos || []).filter(Boolean);
-    return [...videos, ...images]; // Videos first
+    // Deduplicate - normalize IDs by removing .mp4 suffix for comparison
+    const seen = new Set<string>();
+    const uniqueVideos = videos.filter((v: string) => {
+      const normalized = v.replace(/\.mp4$/i, '');
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    });
+    const uniqueImages = images.filter((img: string) => {
+      const normalized = img.replace(/\.mp4$/i, '');
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    });
+    return [...uniqueVideos, ...uniqueImages]; // Videos first
   }, [allSkus]);
 
   // Filter images based on selected SKU and active tab
@@ -211,7 +225,7 @@ export default function ProductGalleryPage() {
     let result: string[] = [];
     if (activeTab === 'material') {
       if (!selectedSkuId) {
-        // Show all SKU images (deduplicated)
+        // Show all SKU images (already deduplicated in allSkuImages)
         result = allSkuImages;
       } else {
         // Find the selected SKU and get all SKUs with the same fabricName
@@ -224,7 +238,21 @@ export default function ProductGalleryPage() {
         });
         const skuVideos = matchingSkus.flatMap((sku: any) => sku.videos || []).filter(Boolean);
         const skuImages = matchingSkus.flatMap((sku: any) => sku.images || []).filter(Boolean);
-        result = [...skuVideos, ...skuImages]; // Videos first
+        // Deduplicate by normalizing IDs
+        const seen = new Set<string>();
+        const uniqueVideos = skuVideos.filter((v: string) => {
+          const normalized = v.replace(/\.mp4$/i, '');
+          if (seen.has(normalized)) return false;
+          seen.add(normalized);
+          return true;
+        });
+        const uniqueImages = skuImages.filter((img: string) => {
+          const normalized = img.replace(/\.mp4$/i, '');
+          if (seen.has(normalized)) return false;
+          seen.add(normalized);
+          return true;
+        });
+        result = [...uniqueVideos, ...uniqueImages]; // Videos first
       }
     } else if (activeTab === 'effect') {
       // Show effect images from SKUs
@@ -233,8 +261,7 @@ export default function ProductGalleryPage() {
       // Show review images (实景案例)
       result = reviewImages;
     }
-    // Deduplicate images to avoid showing same image multiple times
-    return Array.from(new Set(result));
+    return result;
   }, [activeTab, selectedSkuId, skus, allSkus, allSkuImages, effectImages, reviewImages]);
 
   // Handle video play/pause
@@ -496,7 +523,21 @@ export default function ProductGalleryPage() {
                 {skus.map((sku: any) => {
                   const skuId = sku.id || sku._id;
                   const isSelected = selectedSkuId === skuId;
-                  const imageCount = (sku.images || []).length;
+                  // Calculate unique image count for this fabric name
+                  const skuFabricName = sku.fabricName || sku.color || sku.spec || '';
+                  const matchingSkusForCount = allSkus.filter((s: any) => {
+                    const fn = s.fabricName || s.color || s.spec || '';
+                    return fn === skuFabricName;
+                  });
+                  const skuVideosForCount = matchingSkusForCount.flatMap((s: any) => s.videos || []).filter(Boolean);
+                  const skuImagesForCount = matchingSkusForCount.flatMap((s: any) => s.images || []).filter(Boolean);
+                  const seenForCount = new Set<string>();
+                  const uniqueCount = [...skuVideosForCount, ...skuImagesForCount].filter((id: string) => {
+                    const normalized = id.replace(/\.mp4$/i, '');
+                    if (seenForCount.has(normalized)) return false;
+                    seenForCount.add(normalized);
+                    return true;
+                  }).length;
                   // Get first image as thumbnail
                   const thumbImage = sku.images?.[0];
                   const skuName = sku.fabricName || sku.color || sku.spec || sku.specs?.map((s: any) => s.value).join(' / ') || sku.name || `SKU ${skuId?.slice(-4)}`;
@@ -523,7 +564,7 @@ export default function ProductGalleryPage() {
                       <span className="max-w-[120px] truncate">{skuName}</span>
                       <span className={`text-xs ${
                         isSelected ? 'text-white/80' : 'text-gray-500'
-                      }`}>({imageCount})</span>
+                      }`}>({uniqueCount})</span>
                     </button>
                   );
                 })}

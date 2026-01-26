@@ -1537,8 +1537,16 @@ const ProductDetailPage = () => {
                             )}
                           >
                             {isVideoFile(img) ? (
-                              <div className="w-full h-16 flex items-center justify-center bg-gray-900 relative">
-                                <Play className="h-6 w-6 text-white" />
+                              <div className="w-full h-16 relative bg-gray-900">
+                                <video
+                                  src={getFileUrl(img)}
+                                  className="w-full h-full object-cover"
+                                  preload="metadata"
+                                  muted
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <Play className="h-5 w-5 text-white/80" />
+                                </div>
                               </div>
                             ) : (
                               <img
