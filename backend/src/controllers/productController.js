@@ -1050,8 +1050,10 @@ const updateProduct = async (req, res) => {
 
     res.json(successResponse(product, '商品更新成功'))
   } catch (err) {
-    console.error('Update product error:', err)
-    res.status(500).json(errorResponse(err.message, 500))
+    console.error('🔴 [更新商品] 错误:', err)
+    console.error('🔴 [更新商品] 错误堆栈:', err.stack)
+    console.error('🔴 [更新商品] 错误名称:', err.name)
+    res.status(500).json(errorResponse(err.message || '更新商品失败', 500))
   }
 }
 
