@@ -7,7 +7,7 @@ import apiClient from '@/lib/apiClient';
 import { getFileUrl } from '@/services/uploadService';
 import { toast } from 'sonner';
 
-const isVideoFile = (url: string): boolean => {
+const isVideoFileByExtension = (url: string): boolean => {
   if (!url) return false;
   const ext = url.split('.').pop()?.toLowerCase();
   return ['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext || '');
@@ -163,6 +163,24 @@ export default function ProductGalleryPage() {
   const categoryTags = useMemo(() => {
     return Object.keys(materialCategories);
   }, [materialCategories]);
+
+  // Get all video IDs for video detection
+  const videoIds = useMemo(() => {
+    const allVideoIds = new Set<string>();
+    skus.forEach((sku: any) => {
+      (sku.videos || []).forEach((v: string) => v && allVideoIds.add(v));
+    });
+    return allVideoIds;
+  }, [skus]);
+
+  // Check if a file ID is a video
+  const isVideoFile = (fileId: string): boolean => {
+    if (!fileId) return false;
+    // Check if it's in our known video IDs set
+    if (videoIds.has(fileId)) return true;
+    // Also check by extension for external URLs
+    return isVideoFileByExtension(fileId);
+  };
 
   // Get all SKU images and videos combined
   const allSkuImages = useMemo(() => {

@@ -146,7 +146,7 @@ const getMaterialUpgradePrice = (materialName: string, upgradePrices?: Record<st
   return 0;
 };
 
-const isVideoFile = (url: string) => /\.(mp4|webm|ogg)$/i.test(url);
+const isVideoFileByExtension = (url: string) => /\.(mp4|webm|ogg)$/i.test(url);
 
 const buildVideoEmbedUrl = (url: string) => {
   try {
@@ -477,6 +477,27 @@ const ProductDetailPage = () => {
     console.log('🔥 [DEBUG] ProductDetailPage materialConfigs:', configs, 'count:', configs.length);
     return configs;
   }, [product]);
+
+  // 获取所有视频ID用于视频检测
+  const videoIds = useMemo(() => {
+    const allVideoIds = new Set<string>();
+    if (!product) return allVideoIds;
+    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : [];
+    skus.forEach((sku: any) => {
+      (sku.videos || []).forEach((v: string) => v && allVideoIds.add(v));
+    });
+    // 也添加产品级别的视频
+    const productVideos = (product as any).videos || (product as any).videoUrls || [];
+    (Array.isArray(productVideos) ? productVideos : [productVideos]).forEach((v: string) => v && allVideoIds.add(v));
+    return allVideoIds;
+  }, [product]);
+
+  // 检查文件ID是否为视频
+  const isVideoFile = (fileId: string): boolean => {
+    if (!fileId) return false;
+    if (videoIds.has(fileId)) return true;
+    return isVideoFileByExtension(fileId);
+  };
 
   // 其他材质（固定文字）
   const otherMaterialsText = useMemo(() => {
