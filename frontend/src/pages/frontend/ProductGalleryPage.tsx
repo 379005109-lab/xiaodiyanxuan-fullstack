@@ -208,29 +208,33 @@ export default function ProductGalleryPage() {
 
   // Filter images based on selected SKU and active tab
   const filteredImages = useMemo(() => {
+    let result: string[] = [];
     if (activeTab === 'material') {
       if (!selectedSkuId) {
-        // Show all SKU images
-        return allSkuImages;
+        // Show all SKU images (deduplicated)
+        result = allSkuImages;
+      } else {
+        // Find the selected SKU and get all SKUs with the same fabricName
+        const selectedSku = skus.find((sku: any) => sku.id === selectedSkuId || sku._id === selectedSkuId);
+        const selectedFabricName = selectedSku?.fabricName || selectedSku?.color || selectedSku?.spec || '';
+        // Get all SKUs with matching fabricName (since we deduplicated the filter)
+        const matchingSkus = allSkus.filter((sku: any) => {
+          const fabricName = sku.fabricName || sku.color || sku.spec || '';
+          return fabricName === selectedFabricName;
+        });
+        const skuVideos = matchingSkus.flatMap((sku: any) => sku.videos || []).filter(Boolean);
+        const skuImages = matchingSkus.flatMap((sku: any) => sku.images || []).filter(Boolean);
+        result = [...skuVideos, ...skuImages]; // Videos first
       }
-      // Find the selected SKU and get all SKUs with the same fabricName
-      const selectedSku = skus.find((sku: any) => sku.id === selectedSkuId || sku._id === selectedSkuId);
-      const selectedFabricName = selectedSku?.fabricName || selectedSku?.color || selectedSku?.spec || '';
-      // Get all SKUs with matching fabricName (since we deduplicated the filter)
-      const matchingSkus = allSkus.filter((sku: any) => {
-        const fabricName = sku.fabricName || sku.color || sku.spec || '';
-        return fabricName === selectedFabricName;
-      });
-      const skuVideos = matchingSkus.flatMap((sku: any) => sku.videos || []).filter(Boolean);
-      const skuImages = matchingSkus.flatMap((sku: any) => sku.images || []).filter(Boolean);
-      return [...skuVideos, ...skuImages]; // Videos first
     } else if (activeTab === 'effect') {
       // Show effect images from SKUs
-      return effectImages;
+      result = effectImages;
     } else {
       // Show review images (实景案例)
-      return reviewImages;
+      result = reviewImages;
     }
+    // Deduplicate images to avoid showing same image multiple times
+    return Array.from(new Set(result));
   }, [activeTab, selectedSkuId, skus, allSkus, allSkuImages, effectImages, reviewImages]);
 
   // Handle video play/pause

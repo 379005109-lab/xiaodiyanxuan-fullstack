@@ -1463,11 +1463,6 @@ const ProductDetailPage = () => {
                             className="w-full h-full object-contain"
                             poster=""
                           />
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-16 h-16 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm">
-                              <Play className="h-8 w-8 text-white ml-1" />
-                            </div>
-                          </div>
                         </div>
                       ) : (
                         <TrackedImage src={getThumbnailUrl(mainImage, 800)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" loading="eager" />
