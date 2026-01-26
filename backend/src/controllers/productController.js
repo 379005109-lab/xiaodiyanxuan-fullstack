@@ -18,6 +18,23 @@ const getProductOwnerManufacturerId = (product) => {
   return null
 }
 
+// 为视频文件ID添加.mp4后缀，方便前端识别
+const markVideoIds = (product) => {
+  if (!product) return product
+  const result = { ...product }
+  if (Array.isArray(result.skus)) {
+    result.skus = result.skus.map(sku => {
+      if (!sku) return sku
+      const newSku = { ...sku }
+      if (Array.isArray(newSku.videos)) {
+        newSku.videos = newSku.videos.map(v => v ? `${v}.mp4` : v)
+      }
+      return newSku
+    })
+  }
+  return result
+}
+
 const resolveTierDocForAuth = (tierDocRaw, auth) => {
   if (!tierDocRaw || typeof tierDocRaw !== 'object') return tierDocRaw
   const companyId = auth?.tierCompanyId ? String(auth.tierCompanyId) : ''
@@ -627,7 +644,7 @@ const getProduct = async (req, res) => {
         labelPrice1 = (product.authorizedLabelPrices && key) ? (product.authorizedLabelPrices[key] || takePrice) : takePrice
       }
 
-      const safeProduct = stripCostPriceFromProduct(product)
+      const safeProduct = markVideoIds(stripCostPriceFromProduct(product))
       return res.json(successResponse({
         ...safeProduct,
         ...(typeof takePrice === 'number' ? { takePrice } : {}),
@@ -639,7 +656,7 @@ const getProduct = async (req, res) => {
     if (user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') {
       const ownerManufacturerId = getProductOwnerManufacturerId(product)
       if (ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
-        return res.json(successResponse(product))
+        return res.json(successResponse(markVideoIds(product)))
       }
 
       const auth = await findAuthorizationForUserAndProduct(user, product)
@@ -670,7 +687,7 @@ const getProduct = async (req, res) => {
       const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
       const tierPricing = computeTierPricing({ tierDoc, user, product, auth })
       
-      const finalData = sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1, allow, tierPricing)
+      const finalData = markVideoIds(sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1, allow, tierPricing))
       console.log('[getProduct] 返回数据中的价格:', { takePrice: finalData.takePrice, labelPrice1: finalData.labelPrice1 })
 
       return res.json(successResponse(finalData))
@@ -687,7 +704,8 @@ const getProduct = async (req, res) => {
     }
     
     const allow = allowCostPriceForUser(user)
-    const finalProduct = allow ? product : stripCostPriceFromProduct(product)
+    const strippedProduct = allow ? product : stripCostPriceFromProduct(product)
+    const finalProduct = markVideoIds(strippedProduct)
     console.log('🔥 [getProduct] Final product materialConfigs count:', finalProduct.materialConfigs?.length || 0)
     console.log('🔥 [getProduct] Final product keys:', Object.keys(finalProduct).filter(k => k.includes('material')))
     const response = successResponse(finalProduct)

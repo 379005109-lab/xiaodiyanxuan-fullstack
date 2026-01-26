@@ -82,7 +82,9 @@ const uploadMultiple = async (req, res) => {
  */
 const downloadFile = async (req, res) => {
   try {
-    const { fileId } = req.params;
+    let { fileId } = req.params;
+    // 移除视频扩展名标记（如果有）
+    fileId = fileId.replace(/\.(mp4|webm|ogg|mov)$/i, '');
     const { w, h, q, format } = req.query;
     const width = w ? parseInt(w) : null;
     const height = h ? parseInt(h) : null;
