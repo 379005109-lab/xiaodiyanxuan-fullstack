@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, Check, Download, Grid, List, Filter, X, RotateCw, FlipHorizontal } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Check, Download, Grid, List, Filter, X, RotateCw, FlipHorizontal, RotateCcw } from 'lucide-react';
 import { getProductById } from '@/services/productService';
 import { Product, ProductSKU } from '@/types';
 import apiClient from '@/lib/apiClient';
@@ -64,6 +64,7 @@ export default function ProductGalleryPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [imageRotation, setImageRotation] = useState(0);
   const [imageMirror, setImageMirror] = useState(false);
+  const [videoEnded, setVideoEnded] = useState(false);
   
   useEffect(() => {
     const loadProduct = async () => {
@@ -119,8 +120,24 @@ export default function ProductGalleryPage() {
     return ((product as any).materialConfigs || []) as MaterialConfig[];
   }, [product]);
 
-  // Get SKUs for material filtering
+  // Get SKUs for material filtering (deduplicated by fabricName)
   const skus = useMemo(() => {
+    if (!product) return [];
+    const allSkus = Array.isArray((product as any)?.skus) ? (product as any).skus : [];
+    // Deduplicate by fabricName - keep only one SKU per unique fabric name
+    const seenFabricNames = new Set<string>();
+    return allSkus.filter((sku: any) => {
+      const fabricName = sku.fabricName || sku.color || sku.spec || '';
+      if (!fabricName || seenFabricNames.has(fabricName)) {
+        return false;
+      }
+      seenFabricNames.add(fabricName);
+      return true;
+    });
+  }, [product]);
+  
+  // Get all SKUs (not deduplicated) for image/video collection
+  const allSkus = useMemo(() => {
     if (!product) return [];
     return Array.isArray((product as any)?.skus) ? (product as any).skus : [];
   }, [product]);
@@ -167,11 +184,11 @@ export default function ProductGalleryPage() {
   // Get all video IDs for video detection
   const videoIds = useMemo(() => {
     const allVideoIds = new Set<string>();
-    skus.forEach((sku: any) => {
+    allSkus.forEach((sku: any) => {
       (sku.videos || []).forEach((v: string) => v && allVideoIds.add(v));
     });
     return allVideoIds;
-  }, [skus]);
+  }, [allSkus]);
 
   // Check if a file ID is a video
   const isVideoFile = (fileId: string): boolean => {
@@ -182,12 +199,12 @@ export default function ProductGalleryPage() {
     return isVideoFileByExtension(fileId);
   };
 
-  // Get all SKU images and videos combined
+  // Get all SKU images and videos combined (from all SKUs, not deduplicated)
   const allSkuImages = useMemo(() => {
-    const images = skus.flatMap((sku: any) => sku.images || []).filter(Boolean);
-    const videos = skus.flatMap((sku: any) => sku.videos || []).filter(Boolean);
+    const images = allSkus.flatMap((sku: any) => sku.images || []).filter(Boolean);
+    const videos = allSkus.flatMap((sku: any) => sku.videos || []).filter(Boolean);
     return [...videos, ...images]; // Videos first
-  }, [skus]);
+  }, [allSkus]);
 
   // Filter images based on selected SKU and active tab
   const filteredImages = useMemo(() => {
@@ -196,10 +213,16 @@ export default function ProductGalleryPage() {
         // Show all SKU images
         return allSkuImages;
       }
-      // Show videos and images from selected SKU
+      // Find the selected SKU and get all SKUs with the same fabricName
       const selectedSku = skus.find((sku: any) => sku.id === selectedSkuId || sku._id === selectedSkuId);
-      const skuVideos = (selectedSku?.videos || []).filter(Boolean);
-      const skuImages = (selectedSku?.images || []).filter(Boolean);
+      const selectedFabricName = selectedSku?.fabricName || selectedSku?.color || selectedSku?.spec || '';
+      // Get all SKUs with matching fabricName (since we deduplicated the filter)
+      const matchingSkus = allSkus.filter((sku: any) => {
+        const fabricName = sku.fabricName || sku.color || sku.spec || '';
+        return fabricName === selectedFabricName;
+      });
+      const skuVideos = matchingSkus.flatMap((sku: any) => sku.videos || []).filter(Boolean);
+      const skuImages = matchingSkus.flatMap((sku: any) => sku.images || []).filter(Boolean);
       return [...skuVideos, ...skuImages]; // Videos first
     } else if (activeTab === 'effect') {
       // Show effect images from SKUs
@@ -208,7 +231,7 @@ export default function ProductGalleryPage() {
       // Show review images (实景案例)
       return reviewImages;
     }
-  }, [activeTab, selectedSkuId, skus, allSkuImages, effectImages, reviewImages]);
+  }, [activeTab, selectedSkuId, skus, allSkus, allSkuImages, effectImages, reviewImages]);
 
   // Handle video play/pause
   const togglePlay = () => {
@@ -606,12 +629,12 @@ export default function ProductGalleryPage() {
       {previewImage && (
         <div 
           className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4"
-          onClick={() => { setPreviewImage(null); setImageRotation(0); setImageMirror(false); }}
+          onClick={() => { setPreviewImage(null); setImageRotation(0); setImageMirror(false); setVideoEnded(false); setIsPlaying(false); }}
         >
           {/* Close button */}
           <button
             className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-full bg-black/50 hover:bg-black/70"
-            onClick={() => { setPreviewImage(null); setImageRotation(0); setImageMirror(false); }}
+            onClick={() => { setPreviewImage(null); setImageRotation(0); setImageMirror(false); setVideoEnded(false); setIsPlaying(false); }}
           >
             <X className="h-6 w-6" />
           </button>
@@ -619,12 +642,61 @@ export default function ProductGalleryPage() {
           {/* Image/Video container */}
           <div className="max-w-[90vw] max-h-[70vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             {isVideoFile(previewImage) ? (
-              <video
-                src={getFileUrl(previewImage)}
-                controls
-                autoPlay
-                className="max-w-full max-h-[70vh] rounded-lg"
-              />
+              <div className="relative group">
+                <video
+                  ref={videoRef}
+                  src={getFileUrl(previewImage)}
+                  autoPlay
+                  className="max-w-full max-h-[70vh] rounded-lg"
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onEnded={() => { setIsPlaying(false); setVideoEnded(true); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (videoRef.current) {
+                      if (videoEnded) {
+                        videoRef.current.currentTime = 0;
+                        videoRef.current.play();
+                        setVideoEnded(false);
+                      } else if (isPlaying) {
+                        videoRef.current.pause();
+                      } else {
+                        videoRef.current.play();
+                      }
+                    }
+                  }}
+                />
+                {/* Video overlay controls */}
+                <div 
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity ${
+                    isPlaying && !videoEnded ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (videoRef.current) {
+                      if (videoEnded) {
+                        videoRef.current.currentTime = 0;
+                        videoRef.current.play();
+                        setVideoEnded(false);
+                      } else if (isPlaying) {
+                        videoRef.current.pause();
+                      } else {
+                        videoRef.current.play();
+                      }
+                    }
+                  }}
+                >
+                  <div className="p-4 rounded-full bg-black/50 hover:bg-black/70 cursor-pointer">
+                    {videoEnded ? (
+                      <RotateCcw className="h-12 w-12 text-white" />
+                    ) : isPlaying ? (
+                      <Pause className="h-12 w-12 text-white" />
+                    ) : (
+                      <Play className="h-12 w-12 text-white" />
+                    )}
+                  </div>
+                </div>
+              </div>
             ) : (
               <img
                 src={getFileUrl(previewImage)}
