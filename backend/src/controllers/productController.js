@@ -1012,15 +1012,32 @@ const updateProduct = async (req, res) => {
       })
     }
 
-    // 处理 SKU 数据，确保 materialCategories 正确保存
+    // 处理 SKU 数据，确保字段格式正确
     if (productData.skus && Array.isArray(productData.skus)) {
-      productData.skus = productData.skus.map(sku => ({
-        ...sku,
-        materialCategories: sku.materialCategories || [],
-        material: sku.material || {},
-        materialUpgradePrices: sku.materialUpgradePrices || {},
-      }))
-      console.log('🔥 [更新商品] 处理后的SKU materialCategories:', productData.skus.map(s => s.materialCategories))
+      productData.skus = productData.skus.map(sku => {
+        // 确保 files 是数组格式（可能从前端接收到字符串）
+        let files = sku.files || []
+        if (typeof files === 'string') {
+          try {
+            files = JSON.parse(files)
+          } catch (e) {
+            console.warn('🔴 [更新商品] SKU files 解析失败:', e.message)
+            files = []
+          }
+        }
+        
+        return {
+          ...sku,
+          materialCategories: sku.materialCategories || [],
+          material: sku.material || {},
+          materialUpgradePrices: sku.materialUpgradePrices || {},
+          files: Array.isArray(files) ? files : [],
+          videos: Array.isArray(sku.videos) ? sku.videos : [],
+          images: Array.isArray(sku.images) ? sku.images : [],
+          effectImages: Array.isArray(sku.effectImages) ? sku.effectImages : [],
+        }
+      })
+      console.log('🔥 [更新商品] 处理后的SKU数据:', productData.skus.map(s => ({ code: s.code, files: s.files?.length || 0, videos: s.videos?.length || 0 })))
     }
 
     const product = await Product.findByIdAndUpdate(
