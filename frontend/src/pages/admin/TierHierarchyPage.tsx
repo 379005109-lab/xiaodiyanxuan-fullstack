@@ -503,7 +503,7 @@ export default function TierHierarchyPage() {
   const [editingNode, setEditingNode] = useState<TierNode | null>(null)
   const [parentNodeForAdd, setParentNodeForAdd] = useState<TierNode | null>(null)
   
-  const currentUserId = user?._id || user?.id || ''
+  const currentUserId = (user as any)?._id || (user as any)?.id || ''
   
   // 加载层级数据
   const loadHierarchy = useCallback(async () => {

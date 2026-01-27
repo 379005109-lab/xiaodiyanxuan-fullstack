@@ -3341,12 +3341,15 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
     } else {
       // 使用第一个根节点作为主根
       const firstRoot = rootNodes[0]
+      const isRootOwner = String(firstRoot.createdBy?._id || firstRoot.createdBy) === req.userId ||
+        (user.manufacturerId && String(user.manufacturerId) === manufacturerId) ||
+        user.role === 'super_admin' || user.role === 'admin'
       rootNode = {
         _id: firstRoot._id,
         tierDisplayName: firstRoot.tierDisplayName || firstRoot.tierCompanyName || manufacturer.fullName || manufacturer.name,
         tierRole: firstRoot.tierRole || 'company',
-        tierDiscountRate: firstRoot.tierDiscountRate || firstRoot.minDiscountRate || 60,
-        tierDelegatedRate: firstRoot.tierDelegatedRate || 40,
+        tierDiscountRate: firstRoot.minDiscountRate || firstRoot.tierDiscountRate || 60,
+        tierDelegatedRate: firstRoot.tierDelegatedRate || 0,
         tierCommissionRate: firstRoot.commissionRate || firstRoot.tierCommissionRate || 0,
         tierLevel: 0,
         childCount: authorizations.filter(a => String(a.parentAuthorizationId) === String(firstRoot._id)).length,
@@ -3357,14 +3360,19 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         toManufacturer: firstRoot.toManufacturer,
         createdBy: String(firstRoot.createdBy?._id || firstRoot.createdBy || ''),
         status: firstRoot.status,
-        isOwner: String(firstRoot.createdBy?._id || firstRoot.createdBy) === req.userId,
-        allowSubAuthorization: firstRoot.allowSubAuthorization !== false
+        isOwner: isRootOwner,
+        allowSubAuthorization: true
       }
     }
 
+    // 检查用户是否是厂家管理员
+    const isManufacturerAdmin = (user.manufacturerId && String(user.manufacturerId) === manufacturerId) ||
+      user.role === 'super_admin' || user.role === 'admin'
+
     // 转换授权为层级节点
     const nodes = authorizations.map(auth => {
-      const isOwner = String(auth.createdBy?._id || auth.createdBy) === req.userId
+      const isCreator = String(auth.createdBy?._id || auth.createdBy) === req.userId
+      const isOwner = isCreator || isManufacturerAdmin
       const childCount = authorizations.filter(a => 
         String(a.parentAuthorizationId) === String(auth._id)
       ).length
