@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, X, Trash2, Upload, FileSpreadsheet, RefreshCw, ChevronDown, ChevronRight, Edit2, FolderTree } from 'lucide-react'
+import { ArrowLeft, Plus, X, Trash2, Upload, FileSpreadsheet, RefreshCw, ChevronDown, ChevronRight, Edit2, FolderTree, Palette } from 'lucide-react'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -595,12 +595,22 @@ export default function ProductForm() {
   // ========== 分类树处理函数 ==========
   // 构建3层分类树结构
   const buildCategoryTree = (flatCategories: Category[]): Category[] => {
+    // 如果数据已经是树状结构（第一个顶级分类有children且不为空），直接返回顶级分类
+    const topLevelCategories = flatCategories.filter(cat => !cat.parentId)
+    const hasExistingTree = topLevelCategories.some(cat => cat.children && cat.children.length > 0)
+    
+    if (hasExistingTree) {
+      // 后端已返回树状结构，直接返回顶级分类
+      return topLevelCategories
+    }
+    
+    // 否则从扁平数据构建树
     const categoryMap = new Map<string, Category>()
     const rootCategories: Category[] = []
     
-    // 首先将所有分类放入map
+    // 首先将所有分类放入map，保留原有children
     flatCategories.forEach(cat => {
-      categoryMap.set(cat._id, { ...cat, children: [] })
+      categoryMap.set(cat._id, { ...cat, children: cat.children || [] })
     })
     
     // 构建树形结构
@@ -609,8 +619,11 @@ export default function ProductForm() {
       if (cat.parentId && categoryMap.has(cat.parentId)) {
         const parent = categoryMap.get(cat.parentId)!
         if (!parent.children) parent.children = []
-        parent.children.push(category)
-      } else {
+        // 避免重复添加
+        if (!parent.children.find(c => c._id === category._id)) {
+          parent.children.push(category)
+        }
+      } else if (!cat.parentId) {
         rootCategories.push(category)
       }
     })
@@ -2553,6 +2566,17 @@ export default function ProductForm() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* 材质配置按钮 */}
+                        <button
+                          onClick={() => {
+                            setAddCategoryForSkuIndex(index)
+                            setShowAddCategoryModal(true)
+                          }}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          title="配置材质"
+                        >
+                          <Palette className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => removeSKU(index)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
@@ -2561,6 +2585,28 @@ export default function ProductForm() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
+                      {/* 已配置的材质类目显示 */}
+                      {sku.materialCategories && sku.materialCategories.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {sku.materialCategories.map((catKey: string) => {
+                            const colorStyle = getMaterialCategoryColor(catKey)
+                            const materials = (sku.material as Record<string, string[]>)?.[catKey] || []
+                            return (
+                              <div key={catKey} className={`text-xs px-2 py-1 rounded ${colorStyle.bg} ${colorStyle.text}`}>
+                                <span className="font-medium">{getMaterialCategoryName(catKey)}</span>
+                                {materials.length > 0 && <span className="ml-1">({materials.length})</span>}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMaterialCategory(index, catKey)}
+                                  className="ml-1 hover:text-red-500"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
