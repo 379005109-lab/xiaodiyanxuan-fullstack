@@ -3095,7 +3095,7 @@ router.put('/:id/pricing', auth, async (req, res) => {
 })
 
 // GET /api/authorizations/:id - 获取授权详情 (放在最后，避免捕获其他/:id/xxx路由)
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
   try {
     const { id } = req.params
     if (!mongoose.Types.ObjectId.isValid(id)) {
