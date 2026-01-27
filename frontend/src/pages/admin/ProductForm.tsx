@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, X, Trash2, Upload, FileSpreadsheet, RefreshCw, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Plus, X, Trash2, Upload, FileSpreadsheet, RefreshCw, ChevronDown, ChevronRight, Edit2, FolderTree } from 'lucide-react'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -73,10 +73,20 @@ export default function ProductForm() {
   const [showImageManager, setShowImageManager] = useState(false)
   const [managingSkuIndex, setManagingSkuIndex] = useState<number>(-1)
   
-  // 分类展开状态
-  const [expandedCategories, setExpandedCategories] = useState<string[]>([])
+  // 分类展开状态（支持多层级）
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   // 分类选择面板展开状态
   const [showCategoryPanel, setShowCategoryPanel] = useState(false)
+  
+  // 系列管理状态
+  const [showSeriesModal, setShowSeriesModal] = useState(false)
+  const [seriesList, setSeriesList] = useState<Array<{id: string, name: string, image: string}>>(() => {
+    const saved = localStorage.getItem('product_series_list')
+    return saved ? JSON.parse(saved) : []
+  })
+  const [editingSeriesId, setEditingSeriesId] = useState<string | null>(null)
+  const [newSeriesName, setNewSeriesName] = useState('')
+  const [newSeriesImage, setNewSeriesImage] = useState('')
   
   const hasRestoredCategory = useRef(false)
 
@@ -580,6 +590,152 @@ export default function ProductForm() {
     delete newSkus[skuIndex].material[categoryKey]
     setFormData({ ...formData, skus: newSkus })
     toast.success(`已移除材质类目：${getMaterialCategoryName(categoryKey)}`)
+  }
+
+  // ========== 分类树处理函数 ==========
+  // 构建3层分类树结构
+  const buildCategoryTree = (flatCategories: Category[]): Category[] => {
+    const categoryMap = new Map<string, Category>()
+    const rootCategories: Category[] = []
+    
+    // 首先将所有分类放入map
+    flatCategories.forEach(cat => {
+      categoryMap.set(cat._id, { ...cat, children: [] })
+    })
+    
+    // 构建树形结构
+    flatCategories.forEach(cat => {
+      const category = categoryMap.get(cat._id)!
+      if (cat.parentId && categoryMap.has(cat.parentId)) {
+        const parent = categoryMap.get(cat.parentId)!
+        if (!parent.children) parent.children = []
+        parent.children.push(category)
+      } else {
+        rootCategories.push(category)
+      }
+    })
+    
+    return rootCategories
+  }
+
+  // 获取分类的所有父级ID
+  const getParentIds = (categoryId: string, flatCategories: Category[]): string[] => {
+    const parentIds: string[] = []
+    let current = flatCategories.find(c => c._id === categoryId)
+    
+    while (current && current.parentId) {
+      parentIds.push(current.parentId)
+      current = flatCategories.find(c => c._id === current!.parentId)
+    }
+    
+    return parentIds
+  }
+
+  // 切换分类展开/收起
+  const toggleCategoryExpand = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId)
+      } else {
+        newSet.add(categoryId)
+      }
+      return newSet
+    })
+  }
+
+  // 选择分类（自动选中父级）
+  const handleCategorySelect = (categoryId: string, isSelected: boolean, flatCategories: Category[]) => {
+    let newCategories = [...formData.categories]
+    
+    if (isSelected) {
+      // 添加该分类
+      if (!newCategories.includes(categoryId)) {
+        newCategories.push(categoryId)
+      }
+      // 自动添加所有父级
+      const parentIds = getParentIds(categoryId, flatCategories)
+      parentIds.forEach(parentId => {
+        if (!newCategories.includes(parentId)) {
+          newCategories.push(parentId)
+        }
+      })
+    } else {
+      // 取消选择该分类
+      newCategories = newCategories.filter(id => id !== categoryId)
+      // 如果取消选择父级，也要取消所有子级
+      const category = flatCategories.find(c => c._id === categoryId)
+      if (category) {
+        const getAllChildIds = (cat: Category): string[] => {
+          let ids: string[] = []
+          if (cat.children) {
+            cat.children.forEach(child => {
+              ids.push(child._id)
+              ids = ids.concat(getAllChildIds(child))
+            })
+          }
+          return ids
+        }
+        const childIds = getAllChildIds(category)
+        newCategories = newCategories.filter(id => !childIds.includes(id))
+      }
+    }
+    
+    setFormData({ 
+      ...formData, 
+      categories: newCategories, 
+      category: newCategories[0] || '' 
+    })
+  }
+
+  // ========== 系列管理函数 ==========
+  // 保存系列列表到localStorage
+  const saveSeriesList = (list: Array<{id: string, name: string, image: string}>) => {
+    setSeriesList(list)
+    localStorage.setItem('product_series_list', JSON.stringify(list))
+  }
+
+  // 添加新系列
+  const handleAddSeries = async () => {
+    if (!newSeriesName.trim()) {
+      toast.error('请输入系列名称')
+      return
+    }
+    
+    const newSeries = {
+      id: `series-${Date.now()}`,
+      name: newSeriesName.trim(),
+      image: newSeriesImage
+    }
+    
+    const updatedList = [...seriesList, newSeries]
+    saveSeriesList(updatedList)
+    setNewSeriesName('')
+    setNewSeriesImage('')
+    toast.success('系列添加成功')
+  }
+
+  // 更新系列
+  const handleUpdateSeries = (seriesId: string, name: string, image: string) => {
+    const updatedList = seriesList.map(s => 
+      s.id === seriesId ? { ...s, name, image } : s
+    )
+    saveSeriesList(updatedList)
+    setEditingSeriesId(null)
+    toast.success('系列更新成功')
+  }
+
+  // 删除系列
+  const handleDeleteSeries = (seriesId: string) => {
+    if (!confirm('确定要删除该系列吗？')) return
+    const updatedList = seriesList.filter(s => s.id !== seriesId)
+    saveSeriesList(updatedList)
+    // 如果当前商品使用的是被删除的系列，清空选择
+    const deletedSeries = seriesList.find(s => s.id === seriesId)
+    if (deletedSeries && formData.series === deletedSeries.name) {
+      setFormData({ ...formData, series: '', seriesImage: '' })
+    }
+    toast.success('系列删除成功')
   }
 
   const handleSubmit = async () => {
@@ -1336,7 +1492,10 @@ export default function ProductForm() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">商品分类（可多选）</label>
+              <label className="block text-sm font-medium mb-2">
+                <FolderTree className="inline w-4 h-4 mr-1" />
+                商品分类（可多选，选择子级自动选中父级）
+              </label>
               {/* 点击展开分类选择 */}
               <button
                 type="button"
@@ -1348,97 +1507,117 @@ export default function ProductForm() {
                 <span className="text-gray-700">
                   {formData.categories.length > 0 
                     ? `已选择 ${formData.categories.length} 个分类` 
-                    : '点击选择分类'}
+                    : '点击选择分类（支持3层树状结构）'}
                 </span>
                 <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${showCategoryPanel ? 'rotate-180' : ''}`} />
               </button>
-              {/* 分类选择面板 */}
+              {/* 3层树状分类选择面板 */}
               {showCategoryPanel && (
-              <div className="space-y-2 p-3 border border-t-0 rounded-b-lg bg-gray-50">
-                {categories.map(parent => {
-                  const isExpanded = expandedCategories.includes(parent._id)
-                  const hasSelectedChild = parent.children?.some(child => formData.categories.includes(child._id)) || formData.categories.includes(parent._id)
+              <div className="p-3 border border-t-0 rounded-b-lg bg-gray-50 max-h-96 overflow-y-auto">
+                {buildCategoryTree(categories).map(level1 => {
+                  const isLevel1Expanded = expandedCategories.has(level1._id)
+                  const isLevel1Selected = formData.categories.includes(level1._id)
+                  const hasLevel1SelectedChild = level1.children?.some(l2 => 
+                    formData.categories.includes(l2._id) || l2.children?.some(l3 => formData.categories.includes(l3._id))
+                  )
+                  
                   return (
-                    <div key={parent._id} className="border rounded-lg bg-white overflow-hidden">
-                      {/* 分类标题栏 - 点击展开/收起 */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setExpandedCategories(prev => 
-                            prev.includes(parent._id) 
-                              ? prev.filter(id => id !== parent._id)
-                              : [...prev, parent._id]
-                          )
-                        }}
-                        className={`w-full px-4 py-3 flex items-center justify-between text-left transition-colors ${
-                          hasSelectedChild ? 'bg-blue-50' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="font-medium text-gray-800 flex items-center gap-2">
-                          {parent.name}
-                          {hasSelectedChild && (
-                            <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                              已选
-                            </span>
-                          )}
-                        </span>
-                        <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                      </button>
+                    <div key={level1._id} className="mb-2">
+                      {/* 第1层分类 */}
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
+                        isLevel1Selected || hasLevel1SelectedChild ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-200'
+                      }`}>
+                        <button
+                          type="button"
+                          onClick={() => toggleCategoryExpand(level1._id)}
+                          className="p-1 hover:bg-gray-100 rounded"
+                        >
+                          {level1.children && level1.children.length > 0 ? (
+                            isLevel1Expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
+                          ) : <span className="w-4 h-4" />}
+                        </button>
+                        <input
+                          type="checkbox"
+                          checked={isLevel1Selected}
+                          onChange={(e) => handleCategorySelect(level1._id, e.target.checked, categories)}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                        />
+                        <span className="font-medium text-gray-800">{level1.name}</span>
+                        {(isLevel1Selected || hasLevel1SelectedChild) && (
+                          <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full ml-auto">
+                            {isLevel1Selected ? '已选' : '子项已选'}
+                          </span>
+                        )}
+                      </div>
                       
-                      {/* 展开的子分类 */}
-                      {isExpanded && (
-                        <div className="px-4 py-3 border-t bg-gray-50">
-                          <div className="flex flex-wrap gap-2">
-                            {/* 父分类本身也可选 */}
-                            <label
-                              className={`
-                                px-3 py-1.5 rounded-lg border-2 cursor-pointer transition-all text-sm font-medium
-                                ${formData.categories.includes(parent._id)
-                                  ? 'bg-blue-600 text-white border-blue-600'
-                                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                                }
-                              `}
-                            >
-                              <input
-                                type="checkbox"
-                                className="sr-only"
-                                checked={formData.categories.includes(parent._id)}
-                                onChange={(e) => {
-                                  const newCategories = e.target.checked
-                                    ? [...formData.categories, parent._id]
-                                    : formData.categories.filter(id => id !== parent._id)
-                                  setFormData({ ...formData, categories: newCategories, category: newCategories[0] || '' })
-                                }}
-                              />
-                              {parent.name}（全部）
-                            </label>
-                            {/* 子分类 */}
-                            {parent.children && parent.children.map(child => (
-                              <label
-                                key={child._id}
-                                className={`
-                                  px-3 py-1.5 rounded-lg border-2 cursor-pointer transition-all text-sm font-medium
-                                  ${formData.categories.includes(child._id)
-                                    ? 'bg-blue-600 text-white border-blue-600'
-                                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                                  }
-                                `}
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="sr-only"
-                                  checked={formData.categories.includes(child._id)}
-                                  onChange={(e) => {
-                                    const newCategories = e.target.checked
-                                      ? [...formData.categories, child._id]
-                                      : formData.categories.filter(id => id !== child._id)
-                                    setFormData({ ...formData, categories: newCategories, category: newCategories[0] || '' })
-                                  }}
-                                />
-                                {child.name}
-                              </label>
-                            ))}
-                          </div>
+                      {/* 第2层分类 */}
+                      {isLevel1Expanded && level1.children && level1.children.length > 0 && (
+                        <div className="ml-6 mt-1 space-y-1">
+                          {level1.children.map(level2 => {
+                            const isLevel2Expanded = expandedCategories.has(level2._id)
+                            const isLevel2Selected = formData.categories.includes(level2._id)
+                            const hasLevel2SelectedChild = level2.children?.some(l3 => formData.categories.includes(l3._id))
+                            
+                            return (
+                              <div key={level2._id}>
+                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${
+                                  isLevel2Selected || hasLevel2SelectedChild ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'
+                                }`}>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleCategoryExpand(level2._id)}
+                                    className="p-1 hover:bg-gray-100 rounded"
+                                  >
+                                    {level2.children && level2.children.length > 0 ? (
+                                      isLevel2Expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />
+                                    ) : <span className="w-3 h-3" />}
+                                  </button>
+                                  <input
+                                    type="checkbox"
+                                    checked={isLevel2Selected}
+                                    onChange={(e) => handleCategorySelect(level2._id, e.target.checked, categories)}
+                                    className="w-4 h-4 text-green-600 rounded border-gray-300"
+                                  />
+                                  <span className="text-sm text-gray-700">{level2.name}</span>
+                                  {(isLevel2Selected || hasLevel2SelectedChild) && (
+                                    <span className="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded-full ml-auto">
+                                      {isLevel2Selected ? '✓' : '子项'}
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {/* 第3层分类 */}
+                                {isLevel2Expanded && level2.children && level2.children.length > 0 && (
+                                  <div className="ml-6 mt-1 flex flex-wrap gap-1">
+                                    {level2.children.map(level3 => {
+                                      const isLevel3Selected = formData.categories.includes(level3._id)
+                                      return (
+                                        <label
+                                          key={level3._id}
+                                          className={`
+                                            inline-flex items-center gap-1 px-2 py-1 rounded border cursor-pointer text-xs transition-all
+                                            ${isLevel3Selected
+                                              ? 'bg-purple-600 text-white border-purple-600'
+                                              : 'bg-white text-gray-600 border-gray-200 hover:border-purple-400'
+                                            }
+                                          `}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            className="sr-only"
+                                            checked={isLevel3Selected}
+                                            onChange={(e) => handleCategorySelect(level3._id, e.target.checked, categories)}
+                                          />
+                                          {level3.name}
+                                          {isLevel3Selected && <span>✓</span>}
+                                        </label>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       )}
                     </div>
@@ -1462,63 +1641,277 @@ export default function ProductForm() {
             </div>
           </div>
 
-          {/* 系列 */}
+          {/* 系列管理 */}
           <div className="mt-6">
-            <label className="block text-sm font-medium mb-2">系列</label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium">系列</label>
+              <button
+                type="button"
+                onClick={() => setShowSeriesModal(true)}
+                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              >
+                <Edit2 className="w-3 h-3" />
+                管理系列
+              </button>
+            </div>
+            
+            {/* 系列选择和显示 */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              {/* 已选系列显示 */}
+              {formData.series ? (
+                <div className="flex items-center gap-4 mb-3">
+                  {formData.seriesImage && (
+                    <img
+                      src={getFileUrl(formData.seriesImage)}
+                      alt={formData.series}
+                      className="w-16 h-16 rounded-lg object-cover border"
+                    />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800">{formData.series}</p>
+                    <p className="text-xs text-gray-500">已选系列</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, series: '', seriesImage: '' })}
+                    className="p-1 text-gray-400 hover:text-red-500"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : null}
+              
+              {/* 系列列表选择 */}
+              <div className="flex flex-wrap gap-2">
+                {seriesList.length === 0 ? (
+                  <p className="text-sm text-gray-500">暂无系列，点击"管理系列"添加</p>
+                ) : (
+                  seriesList.map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, series: s.name, seriesImage: s.image })}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                        formData.series === s.name
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-blue-400'
+                      }`}
+                    >
+                      {s.image && (
+                        <img src={getFileUrl(s.image)} alt={s.name} className="w-6 h-6 rounded object-cover" />
+                      )}
+                      <span className="text-sm">{s.name}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+              
+              {/* 快速添加系列 */}
+              <div className="mt-3 pt-3 border-t flex items-center gap-2">
                 <input
                   type="text"
                   value={formData.series}
                   onChange={(e) => setFormData({ ...formData, series: e.target.value })}
-                  placeholder="请输入系列名称（如：北欧简约系列）"
-                  className="input"
+                  placeholder="或输入新系列名称"
+                  className="input flex-1 text-sm"
                 />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">系列图片（可选）</label>
-                <div className="flex items-center gap-3">
+                <label className="flex items-center justify-center w-10 h-10 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        try {
+                          const result = await uploadFile(file)
+                          setFormData({ ...formData, seriesImage: result.url })
+                          toast.success('系列图片上传成功')
+                        } catch (error) {
+                          toast.error('上传失败')
+                        }
+                      }
+                    }}
+                  />
                   {formData.seriesImage ? (
-                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
-                      <img
-                        src={getFileUrl(formData.seriesImage)}
-                        alt="系列图片"
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, seriesImage: '' })}
-                        className="absolute top-0 right-0 bg-red-500 text-white rounded-bl p-0.5"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
+                    <img src={getFileUrl(formData.seriesImage)} alt="" className="w-full h-full rounded object-cover" />
                   ) : (
-                    <label className="flex items-center justify-center w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0]
-                          if (file) {
-                            try {
-                              const result = await uploadFile(file)
-                              setFormData({ ...formData, seriesImage: result.url })
-                              toast.success('系列图片上传成功')
-                            } catch (error) {
-                              toast.error('上传失败')
-                            }
-                          }
-                        }}
-                      />
-                      <Upload className="w-5 h-5 text-gray-400" />
-                    </label>
+                    <Upload className="w-4 h-4 text-gray-400" />
                   )}
-                </div>
+                </label>
               </div>
             </div>
           </div>
+          
+          {/* 系列管理弹窗 */}
+          {showSeriesModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden">
+                <div className="px-6 py-4 border-b flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">系列管理</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSeriesModal(false)
+                      setEditingSeriesId(null)
+                      setNewSeriesName('')
+                      setNewSeriesImage('')
+                    }}
+                    className="p-1 hover:bg-gray-100 rounded"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="p-6 overflow-y-auto max-h-96">
+                  {/* 添加新系列 */}
+                  <div className="mb-4 p-4 border rounded-lg bg-gray-50">
+                    <p className="text-sm font-medium mb-2">添加新系列</p>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center justify-center w-12 h-12 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors flex-shrink-0">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              try {
+                                const result = await uploadFile(file)
+                                setNewSeriesImage(result.url)
+                                toast.success('图片上传成功')
+                              } catch (error) {
+                                toast.error('上传失败')
+                              }
+                            }
+                          }}
+                        />
+                        {newSeriesImage ? (
+                          <img src={getFileUrl(newSeriesImage)} alt="" className="w-full h-full rounded object-cover" />
+                        ) : (
+                          <Upload className="w-4 h-4 text-gray-400" />
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={newSeriesName}
+                        onChange={(e) => setNewSeriesName(e.target.value)}
+                        placeholder="输入系列名称"
+                        className="input flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddSeries}
+                        className="btn-primary px-4 py-2 whitespace-nowrap"
+                      >
+                        添加
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* 系列列表 */}
+                  <div className="space-y-2">
+                    {seriesList.length === 0 ? (
+                      <p className="text-center text-gray-500 py-4">暂无系列</p>
+                    ) : (
+                      seriesList.map(s => (
+                        <div key={s.id} className="flex items-center gap-3 p-3 border rounded-lg bg-white">
+                          {editingSeriesId === s.id ? (
+                            <>
+                              <label className="flex items-center justify-center w-12 h-12 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary-500 transition-colors flex-shrink-0">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) {
+                                      try {
+                                        const result = await uploadFile(file)
+                                        const updatedList = seriesList.map(item => 
+                                          item.id === s.id ? { ...item, image: result.url } : item
+                                        )
+                                        saveSeriesList(updatedList)
+                                        toast.success('图片更新成功')
+                                      } catch (error) {
+                                        toast.error('上传失败')
+                                      }
+                                    }
+                                  }}
+                                />
+                                {s.image ? (
+                                  <img src={getFileUrl(s.image)} alt="" className="w-full h-full rounded object-cover" />
+                                ) : (
+                                  <Upload className="w-4 h-4 text-gray-400" />
+                                )}
+                              </label>
+                              <input
+                                type="text"
+                                defaultValue={s.name}
+                                className="input flex-1"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleUpdateSeries(s.id, (e.target as HTMLInputElement).value, s.image)
+                                  }
+                                }}
+                                onBlur={(e) => handleUpdateSeries(s.id, e.target.value, s.image)}
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setEditingSeriesId(null)}
+                                className="text-gray-500 hover:text-gray-700"
+                              >
+                                取消
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              {s.image ? (
+                                <img src={getFileUrl(s.image)} alt={s.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-gray-400 text-xs">无图</span>
+                                </div>
+                              )}
+                              <span className="flex-1 font-medium">{s.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => setEditingSeriesId(s.id)}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSeries(s.id)}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                
+                <div className="px-6 py-4 border-t bg-gray-50">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSeriesModal(false)
+                      setEditingSeriesId(null)
+                    }}
+                    className="w-full btn-secondary py-2"
+                  >
+                    完成
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* 风格标签 */}
           <div className="mt-6">
