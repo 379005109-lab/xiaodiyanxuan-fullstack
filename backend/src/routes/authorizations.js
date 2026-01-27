@@ -3345,9 +3345,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         _id: firstRoot._id,
         tierDisplayName: firstRoot.tierDisplayName || firstRoot.tierCompanyName || manufacturer.fullName || manufacturer.name,
         tierRole: firstRoot.tierRole || 'company',
-        tierDiscountRate: firstRoot.tierDiscountRate || 60,
+        tierDiscountRate: firstRoot.tierDiscountRate || firstRoot.minDiscountRate || 60,
         tierDelegatedRate: firstRoot.tierDelegatedRate || 40,
-        tierCommissionRate: firstRoot.tierCommissionRate || 20,
+        tierCommissionRate: firstRoot.commissionRate || firstRoot.tierCommissionRate || 0,
         tierLevel: 0,
         childCount: authorizations.filter(a => String(a.parentAuthorizationId) === String(firstRoot._id)).length,
         productCount: firstRoot.productCount || 0,
@@ -3357,7 +3357,8 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         toManufacturer: firstRoot.toManufacturer,
         createdBy: String(firstRoot.createdBy?._id || firstRoot.createdBy || ''),
         status: firstRoot.status,
-        isOwner: String(firstRoot.createdBy?._id || firstRoot.createdBy) === req.userId
+        isOwner: String(firstRoot.createdBy?._id || firstRoot.createdBy) === req.userId,
+        allowSubAuthorization: firstRoot.allowSubAuthorization !== false
       }
     }
 
@@ -3384,9 +3385,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         _id: auth._id,
         tierDisplayName: displayName,
         tierRole: auth.tierRole || (auth.toDesigner ? 'designer' : 'company'),
-        tierDiscountRate: auth.tierDiscountRate || auth.ownProductMinDiscount || 60,
+        tierDiscountRate: auth.tierDiscountRate || auth.minDiscountRate || auth.ownProductMinDiscount || 60,
         tierDelegatedRate: auth.tierDelegatedRate || 0,
-        tierCommissionRate: auth.tierCommissionRate || 0,
+        tierCommissionRate: auth.commissionRate || auth.tierCommissionRate || 0,
         tierLevel: auth.tierLevel || 0,
         childCount,
         productCount: auth.productCount || 0,
@@ -3396,7 +3397,8 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         toManufacturer: auth.toManufacturer,
         createdBy: String(auth.createdBy?._id || auth.createdBy || ''),
         status: auth.status,
-        isOwner
+        isOwner,
+        allowSubAuthorization: auth.allowSubAuthorization !== false
       }
     })
 

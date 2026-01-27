@@ -58,8 +58,8 @@ function TierCard({
   const isOwner = node.createdBy === currentUserId || node.isOwner
   const hasChildren = (node.children?.length || 0) > 0 || node.childCount > 0
   
-  // 计算返佣比例
-  const commissionRate = node.tierDiscountRate - node.tierDelegatedRate
+  // 使用后端返回的实际返佣比例
+  const commissionRate = node.tierCommissionRate || 0
   
   return (
     <div className="relative">
@@ -143,7 +143,7 @@ function TierCard({
         </div>
         
         {/* 添加层级按钮 */}
-        {isOwner && node.tierDelegatedRate > 0 && (
+        {isOwner && (
           <button
             onClick={() => onAddChild(node._id)}
             className="w-full py-2.5 border-2 border-dashed border-green-300 rounded-xl text-green-600 hover:bg-green-50 hover:border-green-400 transition-colors flex items-center justify-center gap-2 font-medium"
