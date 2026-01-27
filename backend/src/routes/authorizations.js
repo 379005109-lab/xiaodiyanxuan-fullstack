@@ -3266,4 +3266,363 @@ router.get('/:id/products', auth, async (req, res) => {
   }
 })
 
+// ==================== 层级分成体系 V2 API ====================
+
+// GET /api/authorizations/tier-hierarchy-v2 - 获取层级树结构
+router.get('/tier-hierarchy-v2', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+    if (!user) {
+      return res.status(404).json({ success: false, message: '用户不存在' })
+    }
+
+    const { manufacturerId, companyId, companyName } = req.query
+    
+    if (!manufacturerId) {
+      return res.status(400).json({ success: false, message: '缺少manufacturerId参数' })
+    }
+
+    // 获取厂家信息
+    const manufacturer = await Manufacturer.findById(manufacturerId).select('name fullName shortName logo').lean()
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    // 查询条件：基于厂家的所有有效授权
+    const query = {
+      fromManufacturer: manufacturerId,
+      status: 'active',
+      $or: [
+        { validUntil: { $exists: false } },
+        { validUntil: { $gt: new Date() } }
+      ]
+    }
+
+    // 如果指定了公司ID或名称，只查询该公司的层级
+    if (companyId) {
+      query.tierCompanyId = companyId
+    } else if (companyName) {
+      query.tierCompanyName = companyName
+    }
+
+    // 查询所有相关授权
+    const authorizations = await Authorization.find(query)
+      .populate('toDesigner', 'username nickname avatar')
+      .populate('toManufacturer', 'name fullName shortName logo')
+      .populate('createdBy', 'username nickname')
+      .sort({ tierLevel: 1, createdAt: 1 })
+      .lean()
+
+    // 找到根节点（tierLevel=0 或无父级的节点）
+    const rootNodes = authorizations.filter(a => 
+      !a.parentAuthorizationId || a.tierLevel === 0
+    )
+
+    // 如果没有根节点，创建一个虚拟的厂家根节点
+    let rootNode = null
+    if (rootNodes.length === 0) {
+      rootNode = {
+        _id: `mfr_${manufacturerId}`,
+        tierDisplayName: manufacturer.fullName || manufacturer.name || '厂家',
+        tierRole: 'company',
+        tierDiscountRate: 60, // 厂家默认总控比例
+        tierDelegatedRate: 40, // 厂家默认下放比例
+        tierCommissionRate: 20,
+        tierLevel: 0,
+        childCount: authorizations.length,
+        productCount: 0,
+        parentAuthorizationId: null,
+        fromManufacturer: manufacturer,
+        createdBy: req.userId,
+        status: 'active',
+        isOwner: true,
+        isVirtual: true
+      }
+    } else {
+      // 使用第一个根节点作为主根
+      const firstRoot = rootNodes[0]
+      rootNode = {
+        _id: firstRoot._id,
+        tierDisplayName: firstRoot.tierDisplayName || firstRoot.tierCompanyName || manufacturer.fullName || manufacturer.name,
+        tierRole: firstRoot.tierRole || 'company',
+        tierDiscountRate: firstRoot.tierDiscountRate || 60,
+        tierDelegatedRate: firstRoot.tierDelegatedRate || 40,
+        tierCommissionRate: firstRoot.tierCommissionRate || 20,
+        tierLevel: 0,
+        childCount: authorizations.filter(a => String(a.parentAuthorizationId) === String(firstRoot._id)).length,
+        productCount: firstRoot.productCount || 0,
+        parentAuthorizationId: null,
+        fromManufacturer: manufacturer,
+        toDesigner: firstRoot.toDesigner,
+        toManufacturer: firstRoot.toManufacturer,
+        createdBy: String(firstRoot.createdBy?._id || firstRoot.createdBy || ''),
+        status: firstRoot.status,
+        isOwner: String(firstRoot.createdBy?._id || firstRoot.createdBy) === req.userId
+      }
+    }
+
+    // 转换授权为层级节点
+    const nodes = authorizations.map(auth => {
+      const isOwner = String(auth.createdBy?._id || auth.createdBy) === req.userId
+      const childCount = authorizations.filter(a => 
+        String(a.parentAuthorizationId) === String(auth._id)
+      ).length
+
+      // 确定显示名称
+      let displayName = auth.tierDisplayName
+      if (!displayName) {
+        if (auth.toDesigner) {
+          displayName = auth.toDesigner.nickname || auth.toDesigner.username
+        } else if (auth.toManufacturer) {
+          displayName = auth.toManufacturer.fullName || auth.toManufacturer.name
+        } else {
+          displayName = auth.tierCompanyName || '未命名'
+        }
+      }
+
+      return {
+        _id: auth._id,
+        tierDisplayName: displayName,
+        tierRole: auth.tierRole || (auth.toDesigner ? 'designer' : 'company'),
+        tierDiscountRate: auth.tierDiscountRate || auth.ownProductMinDiscount || 60,
+        tierDelegatedRate: auth.tierDelegatedRate || 0,
+        tierCommissionRate: auth.tierCommissionRate || 0,
+        tierLevel: auth.tierLevel || 0,
+        childCount,
+        productCount: auth.productCount || 0,
+        parentAuthorizationId: auth.parentAuthorizationId ? String(auth.parentAuthorizationId) : null,
+        fromManufacturer: auth.fromManufacturer,
+        toDesigner: auth.toDesigner,
+        toManufacturer: auth.toManufacturer,
+        createdBy: String(auth.createdBy?._id || auth.createdBy || ''),
+        status: auth.status,
+        isOwner
+      }
+    })
+
+    res.json({
+      success: true,
+      data: {
+        root: rootNode,
+        nodes,
+        manufacturer: {
+          _id: manufacturer._id,
+          name: manufacturer.fullName || manufacturer.name,
+          logo: manufacturer.logo
+        }
+      }
+    })
+  } catch (error) {
+    console.error('获取层级结构失败:', error)
+    res.status(500).json({ success: false, message: '获取层级结构失败' })
+  }
+})
+
+// POST /api/authorizations/tier-node - 创建新层级节点
+router.post('/tier-node', auth, async (req, res) => {
+  try {
+    const {
+      parentAuthorizationId,
+      manufacturerId,
+      companyId,
+      companyName,
+      tierDisplayName,
+      tierRole,
+      tierDiscountRate,
+      tierDelegatedRate,
+      tierCommissionRate
+    } = req.body
+
+    if (!parentAuthorizationId || !manufacturerId) {
+      return res.status(400).json({ success: false, message: '缺少必要参数' })
+    }
+
+    if (!tierDisplayName?.trim()) {
+      return res.status(400).json({ success: false, message: '请输入名称' })
+    }
+
+    // 查找父级授权
+    const parentAuth = await Authorization.findById(parentAuthorizationId)
+    if (!parentAuth) {
+      return res.status(404).json({ success: false, message: '父级授权不存在' })
+    }
+
+    // 检查是否有权限添加子级（必须是父级的创建者或厂家管理员）
+    const user = await User.findById(req.userId)
+    const isParentOwner = String(parentAuth.createdBy) === req.userId
+    const isManufacturerAdmin = user?.manufacturerId && String(user.manufacturerId) === String(manufacturerId)
+    
+    if (!isParentOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '无权添加子级' })
+    }
+
+    // 验证折扣率不超过父级下放率
+    const parentDelegatedRate = parentAuth.tierDelegatedRate || 0
+    if (tierDiscountRate > parentDelegatedRate) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `折扣率不能超过上级下放的 ${parentDelegatedRate}%` 
+      })
+    }
+
+    // 创建新的授权记录
+    const newAuth = new Authorization({
+      fromManufacturer: manufacturerId,
+      authorizationType: 'designer', // 默认类型
+      scope: 'all',
+      status: 'active',
+      createdBy: req.userId,
+      
+      // 层级相关字段
+      parentAuthorizationId,
+      tierLevel: (parentAuth.tierLevel || 0) + 1,
+      tierCompanyId: companyId || parentAuth.tierCompanyId || parentAuth._id,
+      tierCompanyName: companyName || parentAuth.tierCompanyName,
+      tierDisplayName: tierDisplayName.trim(),
+      tierRole: tierRole || 'person',
+      tierDiscountRate: tierDiscountRate || 0,
+      tierDelegatedRate: tierDelegatedRate || 0,
+      tierCommissionRate: tierCommissionRate || (tierDiscountRate - tierDelegatedRate) || 0,
+      allowSubAuthorization: tierDelegatedRate > 0,
+      
+      // 继承父级的价格设置
+      ownProductMinDiscount: tierDiscountRate || parentAuth.ownProductMinDiscount,
+      ownProductCommission: tierCommissionRate || parentAuth.ownProductCommission
+    })
+
+    await newAuth.save()
+
+    // 更新父级的子级数量
+    await Authorization.findByIdAndUpdate(parentAuthorizationId, {
+      $inc: { childCount: 1 }
+    })
+
+    res.json({
+      success: true,
+      message: '层级创建成功',
+      data: newAuth
+    })
+  } catch (error) {
+    console.error('创建层级失败:', error)
+    res.status(500).json({ success: false, message: '创建层级失败' })
+  }
+})
+
+// PUT /api/authorizations/tier-node/:id - 更新层级节点
+router.put('/tier-node/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const {
+      tierDisplayName,
+      tierRole,
+      tierDiscountRate,
+      tierDelegatedRate,
+      tierCommissionRate
+    } = req.body
+
+    const auth = await Authorization.findById(id)
+    if (!auth) {
+      return res.status(404).json({ success: false, message: '层级不存在' })
+    }
+
+    // 检查权限
+    const user = await User.findById(req.userId)
+    const isOwner = String(auth.createdBy) === req.userId
+    const isManufacturerAdmin = user?.manufacturerId && String(user.manufacturerId) === String(auth.fromManufacturer)
+    
+    if (!isOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '无权编辑此层级' })
+    }
+
+    // 如果有父级，验证折扣率不超过父级下放率
+    if (auth.parentAuthorizationId) {
+      const parentAuth = await Authorization.findById(auth.parentAuthorizationId)
+      if (parentAuth && tierDiscountRate > (parentAuth.tierDelegatedRate || 0)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `折扣率不能超过上级下放的 ${parentAuth.tierDelegatedRate}%` 
+        })
+      }
+    }
+
+    // 更新字段
+    if (tierDisplayName !== undefined) auth.tierDisplayName = tierDisplayName.trim()
+    if (tierRole !== undefined) auth.tierRole = tierRole
+    if (tierDiscountRate !== undefined) {
+      auth.tierDiscountRate = tierDiscountRate
+      auth.ownProductMinDiscount = tierDiscountRate
+    }
+    if (tierDelegatedRate !== undefined) {
+      auth.tierDelegatedRate = tierDelegatedRate
+      auth.allowSubAuthorization = tierDelegatedRate > 0
+    }
+    if (tierCommissionRate !== undefined) {
+      auth.tierCommissionRate = tierCommissionRate
+      auth.ownProductCommission = tierCommissionRate
+    }
+    
+    auth.updatedAt = new Date()
+    await auth.save()
+
+    res.json({
+      success: true,
+      message: '层级更新成功',
+      data: auth
+    })
+  } catch (error) {
+    console.error('更新层级失败:', error)
+    res.status(500).json({ success: false, message: '更新层级失败' })
+  }
+})
+
+// DELETE /api/authorizations/tier-node/:id - 删除层级节点
+router.delete('/tier-node/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const authDoc = await Authorization.findById(id)
+    if (!authDoc) {
+      return res.status(404).json({ success: false, message: '层级不存在' })
+    }
+
+    // 检查权限
+    const user = await User.findById(req.userId)
+    const isOwner = String(authDoc.createdBy) === req.userId
+    const isManufacturerAdmin = user?.manufacturerId && String(user.manufacturerId) === String(authDoc.fromManufacturer)
+    
+    if (!isOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '无权删除此层级' })
+    }
+
+    // 递归删除所有子层级
+    const deleteChildren = async (parentId) => {
+      const children = await Authorization.find({ parentAuthorizationId: parentId })
+      for (const child of children) {
+        await deleteChildren(child._id)
+        await Authorization.findByIdAndDelete(child._id)
+      }
+    }
+
+    await deleteChildren(id)
+    
+    // 更新父级的子级数量
+    if (authDoc.parentAuthorizationId) {
+      await Authorization.findByIdAndUpdate(authDoc.parentAuthorizationId, {
+        $inc: { childCount: -1 }
+      })
+    }
+
+    // 删除当前节点
+    await Authorization.findByIdAndDelete(id)
+
+    res.json({
+      success: true,
+      message: '层级已删除'
+    })
+  } catch (error) {
+    console.error('删除层级失败:', error)
+    res.status(500).json({ success: false, message: '删除层级失败' })
+  }
+})
+
 module.exports = router

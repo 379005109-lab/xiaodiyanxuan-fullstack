@@ -220,6 +220,57 @@ const authorizationSchema = new mongoose.Schema({
     default: true
   },
   
+  // === 新层级分成体系字段 ===
+  // 此账号获得的折扣率（百分比，如40表示可以拿到40%的利润空间）
+  // 这是厂家授权给此账号的最大折扣空间
+  tierDiscountRate: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+  
+  // 此账号下放给下级的折扣率（百分比，如35表示下级可以分配35%的利润空间）
+  // 下级只能在此范围内再分配，不能超过此值
+  tierDelegatedRate: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+  
+  // 此账号的返佣比例 = tierDiscountRate - tierDelegatedRate
+  // 当下级成交时，此账号获得的返佣比例
+  // 例如：tierDiscountRate=40, tierDelegatedRate=35, 则返佣=5%
+  tierCommissionRate: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+  
+  // 层级显示名称（公司名或个人名）
+  tierDisplayName: String,
+  
+  // 层级角色类型
+  tierRole: {
+    type: String,
+    enum: ['company', 'person', 'channel', 'designer', null],
+    default: null
+  },
+  
+  // 下级数量（缓存字段，方便显示）
+  childCount: {
+    type: Number,
+    default: 0
+  },
+  
+  // 授权商品数量（缓存字段）
+  productCount: {
+    type: Number,
+    default: 0
+  },
+  
   // === 协议相关字段 ===
   // 协议是否已签署
   agreementSigned: {

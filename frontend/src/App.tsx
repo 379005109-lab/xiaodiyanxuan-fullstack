@@ -89,6 +89,7 @@ const ImageSearchStats = lazy(() => import('./pages/admin/ImageSearchStats'))
 const AuthorizationManagement = lazy(() => import('./pages/admin/AuthorizationManagement'))
 const EnterpriseUserManagement = lazy(() => import('./pages/admin/EnterpriseUserManagement'))
 const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManagement'))
+const TierHierarchyPage = lazy(() => import('./pages/admin/TierHierarchyPage'))
 const InvoiceManagement = lazy(() => import('./pages/admin/InvoiceManagement'))
 
 const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
@@ -589,6 +590,7 @@ function App() {
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
             <Route path="tier-system" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
+            <Route path="tier-hierarchy" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><TierHierarchyPage /></ProtectedRoute>} />
             <Route path="invoices" element={<ProtectedRoute requireAdmin fallbackPath="/admin/orders"><InvoiceManagement /></ProtectedRoute>} />
           </Route>
  
