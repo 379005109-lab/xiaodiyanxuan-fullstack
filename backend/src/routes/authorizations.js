@@ -3313,6 +3313,34 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       .sort({ tierLevel: 1, createdAt: 1 })
       .lean()
 
+    console.log('[tier-hierarchy-v2] Found', authorizations.length, 'authorizations for manufacturer', manufacturerId)
+    if (authorizations.length > 0) {
+      const first = authorizations[0]
+      console.log('[tier-hierarchy-v2] First auth:', {
+        _id: first._id,
+        minDiscountRate: first.minDiscountRate,
+        commissionRate: first.commissionRate,
+        tierDiscountRate: first.tierDiscountRate,
+        tierDelegatedRate: first.tierDelegatedRate,
+        tierCommissionRate: first.tierCommissionRate,
+        parentAuthorizationId: first.parentAuthorizationId,
+        tierLevel: first.tierLevel
+      })
+    }
+
+    // 检查用户是否是厂家管理员
+    const isManufacturerAdmin = (user.manufacturerId && String(user.manufacturerId) === manufacturerId) ||
+      (user.manufacturerIds && user.manufacturerIds.some(id => String(id) === manufacturerId)) ||
+      user.role === 'super_admin' || user.role === 'admin' || user.role === 'platform_admin'
+    
+    console.log('[tier-hierarchy-v2] User check:', {
+      userId: req.userId,
+      userManufacturerId: user.manufacturerId,
+      userManufacturerIds: user.manufacturerIds,
+      userRole: user.role,
+      isManufacturerAdmin
+    })
+
     // 找到根节点（tierLevel=0 或无父级的节点）
     const rootNodes = authorizations.filter(a => 
       !a.parentAuthorizationId || a.tierLevel === 0
@@ -3325,9 +3353,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         _id: `mfr_${manufacturerId}`,
         tierDisplayName: manufacturer.fullName || manufacturer.name || '厂家',
         tierRole: 'company',
-        tierDiscountRate: 60, // 厂家默认总控比例
-        tierDelegatedRate: 40, // 厂家默认下放比例
-        tierCommissionRate: 20,
+        tierDiscountRate: 60,
+        tierDelegatedRate: 0,
+        tierCommissionRate: 0,
         tierLevel: 0,
         childCount: authorizations.length,
         productCount: 0,
@@ -3341,9 +3369,15 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
     } else {
       // 使用第一个根节点作为主根
       const firstRoot = rootNodes[0]
-      const isRootOwner = String(firstRoot.createdBy?._id || firstRoot.createdBy) === req.userId ||
-        (user.manufacturerId && String(user.manufacturerId) === manufacturerId) ||
-        user.role === 'super_admin' || user.role === 'admin'
+      const isRootOwner = String(firstRoot.createdBy?._id || firstRoot.createdBy) === req.userId || isManufacturerAdmin
+      
+      console.log('[tier-hierarchy-v2] Root node:', {
+        firstRootId: firstRoot._id,
+        minDiscountRate: firstRoot.minDiscountRate,
+        commissionRate: firstRoot.commissionRate,
+        isRootOwner
+      })
+      
       rootNode = {
         _id: firstRoot._id,
         tierDisplayName: firstRoot.tierDisplayName || firstRoot.tierCompanyName || manufacturer.fullName || manufacturer.name,
@@ -3364,10 +3398,6 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         allowSubAuthorization: true
       }
     }
-
-    // 检查用户是否是厂家管理员
-    const isManufacturerAdmin = (user.manufacturerId && String(user.manufacturerId) === manufacturerId) ||
-      user.role === 'super_admin' || user.role === 'admin'
 
     // 转换授权为层级节点
     const nodes = authorizations.map(auth => {
