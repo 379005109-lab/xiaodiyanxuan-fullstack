@@ -1167,7 +1167,7 @@ export default function AuthorizationManagement() {
                       const manufacturerId = String((user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0] || '').trim()
                       const companyName = String(selectedCompany.name || '').trim() || '未命名公司'
                       const companyId = String(selectedCompany.id || '').trim()
-                      const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(manufacturerId)}`
+                      const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(manufacturerId)}`
                       const withCompany = companyId
                         ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
                         : `${base}&companyName=${encodeURIComponent(companyName)}`

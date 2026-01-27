@@ -2103,7 +2103,7 @@ export default function ManufacturerManagement() {
                                   const targetId = target?._id
                                   if (!targetId) return
                                   const rt = encodeURIComponent(`/admin/manufacturer-management`)
-                                  navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${targetId}&returnTo=${rt}`)
+                                  navigate(`/admin/tier-hierarchy?manufacturerId=${targetId}&returnTo=${rt}`)
                                 }}
                                 className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                               >

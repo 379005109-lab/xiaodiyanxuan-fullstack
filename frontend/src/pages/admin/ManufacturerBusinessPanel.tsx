@@ -846,12 +846,12 @@ export default function ManufacturerBusinessPanel() {
                     <p className="text-sm text-gray-500">管理本厂家授权的渠道商 ({channels.length})</p>
                   </button>
                   <button
-                    onClick={() => navigate(`/admin/tier-system?manufacturerId=${manufacturerId}`)}
+                    onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}`)}
                     className="bg-purple-50 border border-purple-100 rounded-xl p-6 text-left hover:shadow-md transition-all"
                   >
                     <DollarSign className="w-8 h-8 text-purple-600 mb-3" />
-                    <h4 className="font-semibold text-gray-900 mb-1">分成体系</h4>
-                    <p className="text-sm text-gray-500">管理层级分成规则</p>
+                    <h4 className="font-semibold text-gray-900 mb-1">层级分成</h4>
+                    <p className="text-sm text-gray-500">卡片式层级树管理</p>
                   </button>
                 </div>
 
@@ -1302,7 +1302,7 @@ export default function ManufacturerBusinessPanel() {
                             }}
                             onViewTierSystem={() => {
                               const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)
-                              navigate(`/admin/tier-system?tab=hierarchy&manufacturerId=${manufacturerId}&partnerId=${partner.partnerId}&returnTo=${rt}`)
+                              navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&partnerId=${partner.partnerId}&returnTo=${rt}`)
                             }}
                           />
                         )
@@ -1390,7 +1390,7 @@ export default function ManufacturerBusinessPanel() {
                             className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer"
                             onClick={() => {
                               const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)
-                              const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
+                              const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
                               const withCompany = companyId
                                 ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
                                 : `${base}&companyName=${encodeURIComponent(companyName)}`
@@ -1487,7 +1487,7 @@ export default function ManufacturerBusinessPanel() {
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)
-                                    const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
+                                    const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
                                     const withCompany = companyId
                                       ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
                                       : `${base}&companyName=${encodeURIComponent(companyName)}`
@@ -1528,7 +1528,7 @@ export default function ManufacturerBusinessPanel() {
                       const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=granted_auth`)
                       setShowTierMapModal(false)
                       setSelectedAuthForMap(null)
-                      const base = `/admin/tier-system?tab=hierarchy&manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
+                      const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
                       const withCompany = companyId
                         ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
                         : `${base}&companyName=${encodeURIComponent(companyName)}`
