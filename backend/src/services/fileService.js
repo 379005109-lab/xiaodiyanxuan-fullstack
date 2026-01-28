@@ -112,9 +112,10 @@ class FileService {
   /**
    * 从 GridFS 下载文件
    * @param {String} fileId - 文件 ID
+   * @param {Object} downloadOptions - 下载选项（GridFS openDownloadStream options，如 start/end）
    * @returns {Promise<Object>} - { stream, filename, mimeType }
    */
-  static async downloadFromGridFS(fileId) {
+  static async downloadFromGridFS(fileId, downloadOptions = {}) {
     const gridFSBucket = ensureGridFSBucket();
     if (!gridFSBucket) {
       throw new Error('GridFSBucket 未初始化');
@@ -130,7 +131,7 @@ class FileService {
       }
 
       const file = files[0];
-      const downloadStream = gridFSBucket.openDownloadStream(objectId);
+      const downloadStream = gridFSBucket.openDownloadStream(objectId, downloadOptions);
 
       return {
         stream: downloadStream,
@@ -390,7 +391,8 @@ class FileService {
    */
   static async getFile(fileId) {
     try {
-      return await this.downloadFromGridFS(fileId);
+      const downloadOptions = arguments.length >= 2 ? arguments[1] : undefined;
+      return await this.downloadFromGridFS(fileId, downloadOptions || {});
     } catch (err) {
       throw err;
     }

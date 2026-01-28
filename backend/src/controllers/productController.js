@@ -946,6 +946,28 @@ const createProduct = async (req, res) => {
 
     const productData = req.body
 
+    // 兼容 materialDescriptionOptions 可能为字符串/异常结构
+    if (productData.materialDescriptionOptions) {
+      let options = productData.materialDescriptionOptions
+      if (typeof options === 'string') {
+        try {
+          options = JSON.parse(options)
+        } catch (e) {
+          console.warn('🔴 [创建商品] materialDescriptionOptions 解析失败:', e.message)
+          options = []
+        }
+      }
+      if (!Array.isArray(options)) options = []
+      productData.materialDescriptionOptions = options
+        .map((o, idx) => {
+          if (!o || typeof o !== 'object') return null
+          const id = String(o.id || `md-${idx}`)
+          const text = String(o.text || '')
+          return { id, text }
+        })
+        .filter(Boolean)
+    }
+
     // 设置产品拥有者（谁上传谁就是拥有者）
     productData.ownerId = req.user._id || req.user.id
     productData.ownerName = req.user.nickname || req.user.username || req.user.name
@@ -998,6 +1020,28 @@ const updateProduct = async (req, res) => {
   try {
     const { id } = req.params
     const productData = req.body
+
+    // 兼容 materialDescriptionOptions 可能为字符串/异常结构
+    if (productData.materialDescriptionOptions) {
+      let options = productData.materialDescriptionOptions
+      if (typeof options === 'string') {
+        try {
+          options = JSON.parse(options)
+        } catch (e) {
+          console.warn('🔴 [更新商品] materialDescriptionOptions 解析失败:', e.message)
+          options = []
+        }
+      }
+      if (!Array.isArray(options)) options = []
+      productData.materialDescriptionOptions = options
+        .map((o, idx) => {
+          if (!o || typeof o !== 'object') return null
+          const id = String(o.id || `md-${idx}`)
+          const text = String(o.text || '')
+          return { id, text }
+        })
+        .filter(Boolean)
+    }
 
     const existingProduct = await Product.findById(id)
     if (!existingProduct) {

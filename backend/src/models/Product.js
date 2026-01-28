@@ -1,6 +1,11 @@
 const mongoose = require('mongoose')
 const { PRODUCT_STATUS } = require('../config/constants')
 
+const materialDescriptionOptionSchema = new mongoose.Schema({
+  id: String,
+  text: String
+}, { _id: false })
+
 // SKU子文档Schema
 const skuSchema = new mongoose.Schema({
   code: String,
@@ -88,10 +93,7 @@ const productSchema = new mongoose.Schema({
     images: [String], // 该材质对应的图片组
     price: { type: Number, default: 0 } // 加价金额
   }],
-  materialDescriptionOptions: [{
-    id: String,
-    text: String
-  }],
+  materialDescriptionOptions: [materialDescriptionOptionSchema],
   otherMaterialsText: String, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
   otherMaterialsImage: String, // 其他材质图片
   materialImages: mongoose.Schema.Types.Mixed, // 材质图片 { categoryName: [{name, url}] }

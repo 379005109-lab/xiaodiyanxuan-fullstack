@@ -65,7 +65,13 @@ const pickMediaId = (v: any): string => {
 const normalizeFileId = (v: any): string => {
   const raw = pickMediaId(v);
   if (!raw) return '';
-  if (raw.startsWith('/api/files/')) return raw.replace('/api/files/', '').split('?')[0];
+  // 兼容完整URL / API路径
+  // - /api/files/:id?...
+  // - http(s)://.../api/files/:id?...
+  // - http(s)://.../files/:id?...
+  const cleaned = raw.split('?')[0];
+  const m = cleaned.match(/\/api\/files\/([^/]+)$/) || cleaned.match(/\/files\/([^/]+)$/);
+  if (m && m[1]) return m[1];
   return raw;
 };
 
@@ -1493,7 +1499,13 @@ const ProductDetailPage = () => {
                     <div className="w-1/2 h-full border-r border-gray-200 bg-white">
                       {mainImage ? (
                         isVideoFile(mainImage) ? (
-                          <video src={getFileUrl(mainImage)} controls className="w-full h-full object-contain" />
+                          <video
+                            src={getFileUrl(mainImage)}
+                            controls
+                            preload="metadata"
+                            playsInline
+                            className="w-full h-full object-contain"
+                          />
                         ) : (
                           <TrackedImage src={getThumbnailUrl(mainImage, 800)} alt={product.name} className="w-full h-full object-contain" loading="eager" />
                         )
@@ -1519,8 +1531,9 @@ const ProductDetailPage = () => {
                           <video 
                             src={getFileUrl(mainImage)} 
                             controls 
+                            preload="metadata"
+                            playsInline
                             className="w-full h-full object-contain"
-                            poster=""
                           />
                         </div>
                       ) : (
@@ -1601,10 +1614,10 @@ const ProductDetailPage = () => {
                                   src={getFileUrl(img)}
                                   className="w-full h-full object-cover"
                                   preload="metadata"
-                                  muted
+                                  playsInline
                                 />
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                  <Play className="h-5 w-5 text-white/80" />
+                                  <Play className="w-4 h-4 text-white opacity-80" />
                                 </div>
                               </div>
                             ) : (

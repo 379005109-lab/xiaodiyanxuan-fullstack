@@ -72,7 +72,13 @@ const pickMediaId = (v: any): string => {
 const normalizeFileId = (v: any): string => {
   const raw = pickMediaId(v)
   if (!raw) return ''
-  if (raw.startsWith('/api/files/')) return raw.replace('/api/files/', '').split('?')[0]
+  // 兼容完整URL / API路径
+  // - /api/files/:id?...
+  // - http(s)://.../api/files/:id?...
+  // - http(s)://.../files/:id?...
+  const cleaned = raw.split('?')[0]
+  const m = cleaned.match(/\/api\/files\/([^/]+)$/) || cleaned.match(/\/files\/([^/]+)$/)
+  if (m && m[1]) return m[1]
   return raw
 }
 
@@ -2403,7 +2409,12 @@ export default function ProductForm() {
                           <>
                             <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-gray-100">
                               {sku.videos?.length > 0 ? (
-                                <video src={getFileUrl(normalizeFileId(sku.videos[0]))} className="w-full h-full object-cover" />
+                                <video
+                                  src={getFileUrl(normalizeFileId(sku.videos[0]))}
+                                  preload="metadata"
+                                  playsInline
+                                  className="w-full h-full object-cover"
+                                />
                               ) : sku.images?.length > 0 ? (
                                 <img src={getThumbnailUrl(normalizeFileId(sku.images[0]), 80)} alt="预览" className="w-full h-full object-cover" />
                               ) : (

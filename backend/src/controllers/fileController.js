@@ -165,10 +165,62 @@ const downloadFile = async (req, res) => {
       }
     }
 
-    // 返回原始文件
+    // 支持视频/音频 Range 请求（浏览器播放/拖动/首帧需要）
+    const range = req.headers.range;
+    const isMedia = fileData.mimeType && (fileData.mimeType.startsWith('video/') || fileData.mimeType.startsWith('audio/'));
+    const canRange = !!range && isMedia && !isImage;
+
+    if (canRange) {
+      const size = Number(fileData.size || 0);
+      if (!Number.isFinite(size) || size <= 0) {
+        // 无法确定大小时退化为全量返回
+        res.setHeader('Content-Type', fileData.mimeType);
+        res.setHeader('Content-Disposition', `inline; filename="${fileData.filename}"`);
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        res.setHeader('Accept-Ranges', 'bytes');
+        return fileData.stream.pipe(res);
+      }
+
+      const match = String(range).match(/bytes=(\d*)-(\d*)/);
+      const startRaw = match?.[1];
+      const endRaw = match?.[2];
+      const start = startRaw ? parseInt(startRaw, 10) : 0;
+      const endInclusive = endRaw ? parseInt(endRaw, 10) : size - 1;
+
+      if (!Number.isFinite(start) || !Number.isFinite(endInclusive) || start < 0 || endInclusive < start || start >= size) {
+        // RFC 7233
+        res.status(416);
+        res.setHeader('Content-Range', `bytes */${size}`);
+        return res.end();
+      }
+
+      // 关闭全量 stream，使用 Range stream
+      try {
+        fileData.stream.destroy();
+      } catch (_) {}
+
+      const endExclusive = Math.min(endInclusive + 1, size);
+      const ranged = await FileService.getFile(fileId, { start, end: endExclusive });
+      const chunkSize = endExclusive - start;
+
+      res.status(206);
+      res.setHeader('Content-Type', ranged.mimeType);
+      res.setHeader('Content-Disposition', `inline; filename="${ranged.filename}"`);
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Range', `bytes ${start}-${endExclusive - 1}/${size}`);
+      res.setHeader('Content-Length', String(chunkSize));
+
+      return ranged.stream.pipe(res);
+    }
+
+    // 返回原始文件（非缩略图）
     res.setHeader('Content-Type', fileData.mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${fileData.filename}"`);
     res.setHeader('Cache-Control', 'public, max-age=31536000');
+    if (!isImage) {
+      res.setHeader('Accept-Ranges', 'bytes');
+    }
 
     fileData.stream.pipe(res);
   } catch (err) {
