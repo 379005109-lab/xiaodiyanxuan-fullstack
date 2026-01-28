@@ -518,10 +518,20 @@ export default function TierHierarchyPage() {
     (user as any)?.role === 'admin' ||
     (user as any)?.role === 'platform_admin' ||
     (user as any)?.role === 'platform_staff'
+  
+  const queryManufacturerIdNormalized = String((queryManufacturerId as any)?._id || (queryManufacturerId as any)?.id || queryManufacturerId || '')
+  const userManufacturerIdNormalized = String((userManufacturerRaw as any)?._id || (userManufacturerRaw as any)?.id || userManufacturerRaw || '')
+  const userManufacturerIdsNormalized = Array.isArray((user as any)?.manufacturerIds)
+    ? (user as any).manufacturerIds.map((m: any) => String(m?._id || m?.id || m || ''))
+    : []
+  const userAllManufacturerIds = [userManufacturerIdNormalized, ...userManufacturerIdsNormalized].filter(Boolean)
+  const queryMatchesUser = Boolean(queryManufacturerIdNormalized) && userAllManufacturerIds.includes(queryManufacturerIdNormalized)
+
   const rawManufacturerId = isPlatformAdmin
-    ? (queryManufacturerId || userManufacturerRaw || '')
-    : (userManufacturerRaw || queryManufacturerId || '')
-  const manufacturerId = String((rawManufacturerId as any)?._id || (rawManufacturerId as any)?.id || rawManufacturerId || '')
+    ? (queryManufacturerIdNormalized || userManufacturerIdNormalized || '')
+    : (queryMatchesUser ? queryManufacturerIdNormalized : (userManufacturerIdNormalized || queryManufacturerIdNormalized || ''))
+
+  const manufacturerId = String(rawManufacturerId || '')
   const companyId = searchParams.get('companyId') || ''
   const companyName = searchParams.get('companyName') || ''
   
@@ -588,13 +598,17 @@ export default function TierHierarchyPage() {
   const handleAddChild = (parentId: string) => {
     const parent = nodes.find(n => n._id === parentId) || rootNode
     if (!parent) return
+
+    const derivedDelegatedRate = parent.tierDelegatedRate > 0
+      ? parent.tierDelegatedRate
+      : Math.max(0, Number(parent.tierDiscountRate || 0) - Number(parent.tierCommissionRate || 0))
     
-    if (parent.tierDelegatedRate <= 0) {
+    if (derivedDelegatedRate <= 0) {
       toast.error('此节点未设置下放率，无法添加下级')
       return
     }
     
-    setParentNodeForAdd(parent)
+    setParentNodeForAdd({ ...parent, tierDelegatedRate: derivedDelegatedRate })
     setEditingNode(null)
     setShowEditModal(true)
   }
@@ -603,7 +617,14 @@ export default function TierHierarchyPage() {
   const handleEdit = (node: TierNode) => {
     // 找到父节点以获取最大可分配率
     const parent = nodes.find(n => n._id === node.parentAuthorizationId) || rootNode
-    setParentNodeForAdd(parent)
+    if (parent) {
+      const derivedDelegatedRate = parent.tierDelegatedRate > 0
+        ? parent.tierDelegatedRate
+        : Math.max(0, Number(parent.tierDiscountRate || 0) - Number(parent.tierCommissionRate || 0))
+      setParentNodeForAdd({ ...parent, tierDelegatedRate: derivedDelegatedRate })
+    } else {
+      setParentNodeForAdd(parent)
+    }
     setEditingNode(node)
     setShowEditModal(true)
   }

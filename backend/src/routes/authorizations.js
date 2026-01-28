@@ -3505,12 +3505,6 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
 
       const legacyDiscount = auth.ownProductMinDiscount ?? auth.minDiscountRate
       const legacyCommission = auth.ownProductCommission ?? auth.commissionRate
-      const isLegacyTierDefaults =
-        (auth.tierDiscountRate === 0 || auth.tierDiscountRate === undefined || auth.tierDiscountRate === null) &&
-        (auth.tierDelegatedRate === 0 || auth.tierDelegatedRate === undefined || auth.tierDelegatedRate === null) &&
-        (auth.tierCommissionRate === 0 || auth.tierCommissionRate === undefined || auth.tierCommissionRate === null) &&
-        legacyDiscount !== undefined && legacyDiscount !== null &&
-        legacyCommission !== undefined && legacyCommission !== null
 
       const effectiveTierDiscountRate = (auth.tierDiscountRate && auth.tierDiscountRate > 0)
         ? auth.tierDiscountRate
@@ -3520,9 +3514,14 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         ? auth.tierCommissionRate
         : (legacyCommission ?? 0)
 
+      const shouldDeriveDelegatedRate =
+        (auth.tierDelegatedRate === 0 || auth.tierDelegatedRate === undefined || auth.tierDelegatedRate === null) &&
+        effectiveTierDiscountRate !== undefined && effectiveTierDiscountRate !== null &&
+        effectiveTierCommissionRate !== undefined && effectiveTierCommissionRate !== null
+
       const effectiveTierDelegatedRate = (auth.tierDelegatedRate && auth.tierDelegatedRate > 0)
         ? auth.tierDelegatedRate
-        : (isLegacyTierDefaults
+        : (shouldDeriveDelegatedRate
           ? Math.max(0, Number(effectiveTierDiscountRate) - Number(effectiveTierCommissionRate))
           : (auth.tierDelegatedRate ?? 0))
 
