@@ -169,6 +169,8 @@ export interface ProductSKU {
   // 面料材质配置
   fabricMaterialId?: string
   fabricName?: string
+  fabricImage?: string
+  materialDescriptionId?: string
   stock: number
   price: number
   costPrice?: number
@@ -245,6 +247,7 @@ export interface Product {
   files?: ProductFile[]
   manufacturerId?: string  // 厂家ID
   manufacturerName?: string  // 厂家名称
+  materialDescriptionOptions?: Array<{ id: string; name: string; text: string }>
 }
 
 // 套餐相关类型

@@ -9,6 +9,8 @@ const skuSchema = new mongoose.Schema({
   // 面料选择（单选，关联materialsGroups）
   fabricMaterialId: String, // 关联的材质分组ID
   fabricName: String, // 面料名称（如：纳帕皮A+黑色）
+  fabricImage: String, // 面料缩略图（材质库图片）
+  materialDescriptionId: String, // 关联商品的材质描述选项ID
   // 其他材质（文字+图片）
   otherMaterials: String, // 其他材质描述（如：蛇形弹簧+45D海绵+不锈钢支撑脚）
   otherMaterialsImage: String, // 其他材质图片
@@ -85,6 +87,11 @@ const productSchema = new mongoose.Schema({
     fabricId: String, // 材质库ID
     images: [String], // 该材质对应的图片组
     price: { type: Number, default: 0 } // 加价金额
+  }],
+  materialDescriptionOptions: [{
+    id: String,
+    name: String,
+    text: String
   }],
   otherMaterialsText: String, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
   otherMaterialsImage: String, // 其他材质图片

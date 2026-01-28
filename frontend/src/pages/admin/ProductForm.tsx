@@ -119,6 +119,7 @@ export default function ProductForm() {
       images: string[] // 该材质对应的图片组
       price: number // 加价金额
     }>,
+    materialDescriptionOptions: [] as Array<{ id: string; name: string; text: string }>,
     otherMaterialsText: '' as string, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
     otherMaterialsImage: '' as string, // 其他材质图片
     specifications: [
@@ -142,6 +143,7 @@ export default function ProductForm() {
         fabricMaterialId: '' as string, // 关联的材质分组ID
         fabricName: '' as string, // 面料名称（如：纳帕皮A+黑色）
         fabricImage: '' as string, // 面料缩略图（材质库图片）
+        materialDescriptionId: '' as string, // 关联商品的材质描述选项ID
         // 其他材质描述（文字+图片）
         otherMaterials: '' as string, // 其他材质文字描述（如：蛇形弹簧+45D海绵+不锈钢支撑脚）
         otherMaterialsImage: '' as string, // 其他材质图片
@@ -343,6 +345,7 @@ export default function ProductForm() {
               fabricMaterialId: (sku as any).fabricMaterialId || '',
               fabricName: (sku as any).fabricName || '',
               fabricImage: (sku as any).fabricImage || '',
+              materialDescriptionId: (sku as any).materialDescriptionId || '',
               // 其他材质
               otherMaterials: (sku as any).otherMaterials || '',
               otherMaterialsImage: (sku as any).otherMaterialsImage || '',
@@ -394,6 +397,11 @@ export default function ProductForm() {
               price: config.price || 0,
             }
           }),
+          materialDescriptionOptions: ((product as any).materialDescriptionOptions || []).map((opt: any, idx: number) => ({
+            id: opt.id || `md-${idx}`,
+            name: opt.name || '',
+            text: opt.text || '',
+          })),
           otherMaterialsText: (product as any).otherMaterialsText || '',
           otherMaterialsImage: (product as any).otherMaterialsImage || '',
           files: ((product as any).files || []).filter((file: any) => {
@@ -824,6 +832,7 @@ export default function ProductForm() {
           fabricMaterialId: sku.fabricMaterialId || '',
           fabricName: sku.fabricName || '',
           fabricImage: (sku as any).fabricImage || '',
+          materialDescriptionId: (sku as any).materialDescriptionId || '',
           // 其他材质（文字+图片）
           otherMaterials: sku.otherMaterials || '',
           otherMaterialsImage: sku.otherMaterialsImage || '',
@@ -878,6 +887,11 @@ export default function ProductForm() {
           fabricId: config.fabricId,
           images: config.images || [],
           price: config.price || 0,
+        })),
+        materialDescriptionOptions: (formData.materialDescriptionOptions || []).map(opt => ({
+          id: opt.id,
+          name: opt.name,
+          text: opt.text,
         })),
         otherMaterialsText: formData.otherMaterialsText || '',
         otherMaterialsImage: formData.otherMaterialsImage || '',
@@ -1004,6 +1018,7 @@ export default function ProductForm() {
           fabricMaterialId: '',
           fabricName: '',
           fabricImage: '',
+          materialDescriptionId: '',
           otherMaterials: '',
           otherMaterialsImage: '',
           material: createEmptyMaterialSelection(),
@@ -1117,6 +1132,7 @@ export default function ProductForm() {
             fabricMaterialId: matConfig.fabricId,
             fabricName: matConfig.fabricName,
             fabricImage: (matConfig.images && matConfig.images.length > 0) ? matConfig.images[0] : '',
+            materialDescriptionId: formData.materialDescriptionOptions?.[0]?.id || '',
             otherMaterials: formData.otherMaterialsText, // 使用统一的其他材质
             otherMaterialsImage: '',
             material: createEmptyMaterialSelection(),
@@ -1159,6 +1175,7 @@ export default function ProductForm() {
           fabricMaterialId: '',
           fabricName: '',
           fabricImage: '',
+          materialDescriptionId: formData.materialDescriptionOptions?.[0]?.id || '',
           otherMaterials: formData.otherMaterialsText,
           otherMaterialsImage: '',
           material: createEmptyMaterialSelection(),
@@ -1375,6 +1392,7 @@ export default function ProductForm() {
             fabricMaterialId: '',
             fabricName: '',
             fabricImage: '',
+            materialDescriptionId: formData.materialDescriptionOptions?.[0]?.id || '',
             otherMaterials: materialDescription,
             otherMaterialsImage: '',
             material: material,
@@ -2137,6 +2155,81 @@ export default function ProductForm() {
           </div>
         </div>
 
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">材质描述</h2>
+            <button
+              type="button"
+              onClick={() => {
+                const next = [...(formData.materialDescriptionOptions || [])]
+                next.push({ id: `md-${Date.now()}`, name: '', text: '' })
+                setFormData({ ...formData, materialDescriptionOptions: next })
+              }}
+              className="text-primary-600 hover:text-primary-700 text-sm flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              添加描述
+            </button>
+          </div>
+          <div className="space-y-4">
+            {(formData.materialDescriptionOptions || []).length === 0 ? (
+              <div className="text-sm text-gray-400">暂无材质描述</div>
+            ) : (
+              (formData.materialDescriptionOptions || []).map((opt, idx) => (
+                <div key={opt.id} className="grid grid-cols-12 gap-4 items-start">
+                  <div className="col-span-3">
+                    <label className="block text-sm font-medium mb-2">名称</label>
+                    <input
+                      type="text"
+                      value={opt.name}
+                      onChange={(e) => {
+                        const next = [...(formData.materialDescriptionOptions || [])]
+                        next[idx] = { ...next[idx], name: e.target.value }
+                        setFormData({ ...formData, materialDescriptionOptions: next })
+                      }}
+                      placeholder="如：冰丝面料"
+                      className="input"
+                    />
+                  </div>
+                  <div className="col-span-8">
+                    <label className="block text-sm font-medium mb-2">描述内容</label>
+                    <textarea
+                      value={opt.text}
+                      onChange={(e) => {
+                        const next = [...(formData.materialDescriptionOptions || [])]
+                        next[idx] = { ...next[idx], text: e.target.value }
+                        setFormData({ ...formData, materialDescriptionOptions: next })
+                      }}
+                      placeholder="输入材质描述文字"
+                      className="input min-h-[80px]"
+                    />
+                  </div>
+                  <div className="col-span-1 pt-7">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextOptions = (formData.materialDescriptionOptions || []).filter((_, i) => i !== idx)
+                        const newSkus = formData.skus.map(sku => ({
+                          ...sku,
+                          materialDescriptionId: (sku as any).materialDescriptionId === opt.id ? '' : (sku as any).materialDescriptionId,
+                        }))
+                        setFormData({
+                          ...formData,
+                          materialDescriptionOptions: nextOptions,
+                          skus: newSkus,
+                        })
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         {/* SKU列表 */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -2208,6 +2301,7 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">尺寸(长×宽×高)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[180px]">材质面料</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[220px]">材质描述</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">折扣价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[140px]">库存/发货</th>
@@ -2439,6 +2533,33 @@ export default function ProductForm() {
                         </button>
                       </div>
                     </td>
+
+                    <td className="py-3 px-4">
+                      <div className="space-y-1">
+                        <select
+                          value={(sku as any).materialDescriptionId || ''}
+                          onChange={(e) => {
+                            const newSkus = [...formData.skus]
+                            ;(newSkus[index] as any).materialDescriptionId = e.target.value
+                            setFormData({ ...formData, skus: newSkus })
+                          }}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        >
+                          <option value="">未选择</option>
+                          {(formData.materialDescriptionOptions || []).map(opt => (
+                            <option key={opt.id} value={opt.id}>{opt.name || opt.id}</option>
+                          ))}
+                        </select>
+                        {(() => {
+                          const selected = (formData.materialDescriptionOptions || []).find(o => o.id === (sku as any).materialDescriptionId)
+                          if (!selected?.text) return null
+                          return (
+                            <div className="text-xs text-gray-500 line-clamp-2">{selected.text}</div>
+                          )
+                        })()}
+                      </div>
+                    </td>
+
                     <td className="py-3 px-4">
                       <div className="flex flex-col gap-1">
                         <input

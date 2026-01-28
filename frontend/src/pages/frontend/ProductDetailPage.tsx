@@ -505,6 +505,15 @@ const ProductDetailPage = () => {
     return (product as any).otherMaterialsText || '';
   }, [product]);
 
+  const selectedMaterialDescriptionText = useMemo(() => {
+    if (!product || !selectedSku) return '';
+    const options = ((product as any).materialDescriptionOptions || []) as Array<{ id: string; name: string; text: string }>;
+    const id = (selectedSku as any).materialDescriptionId as string | undefined;
+    if (!id) return '';
+    const hit = options.find(o => o.id === id);
+    return hit?.text || '';
+  }, [product, selectedSku]);
+
   // 当前选中的材质配置ID
   const [selectedMaterialConfigId, setSelectedMaterialConfigId] = useState<string | null>(null);
   
@@ -1859,6 +1868,9 @@ const ProductDetailPage = () => {
                           <div className="flex flex-wrap gap-2">
                             {configs.map((config) => {
                         const isSelected = selectedMaterialConfigId === config.id || (!selectedMaterialConfigId && materialConfigs[0]?.id === config.id);
+                        const tileSku = (currentSpecSkus.find(sku => sku.fabricMaterialId === config.id) || filteredSkus.find(sku => sku.fabricMaterialId === config.id) || null) as any;
+                        const tileImage = tileSku?.fabricImage || config.images?.[0] || '';
+                        const tileName = tileSku?.fabricName || config.fabricName;
                         return (
                           <button
                             key={config.id}
@@ -1866,7 +1878,7 @@ const ProductDetailPage = () => {
                             onClick={() => {
                               setSelectedMaterialConfigId(config.id);
                               // 切换到对应材质的SKU
-                              const targetSku = filteredSkus.find(sku => sku.fabricMaterialId === config.id);
+                              const targetSku = currentSpecSkus.find(sku => sku.fabricMaterialId === config.id) || filteredSkus.find(sku => sku.fabricMaterialId === config.id);
                               if (targetSku) {
                                 handleSkuChange(targetSku);
                               }
@@ -1877,17 +1889,17 @@ const ProductDetailPage = () => {
                                 ? 'border-primary-500 ring-2 ring-primary-200'
                                 : 'border-gray-200 hover:border-gray-300'
                             )}
-                            title={config.fabricName}
+                            title={tileName}
                           >
-                            {config.images?.[0] ? (
+                            {tileImage ? (
                               <img 
-                                src={getFileUrl(config.images[0])} 
-                                alt={config.fabricName}
+                                src={getFileUrl(tileImage)} 
+                                alt={tileName}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
                               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                <span className="text-xs text-gray-500">{config.fabricName?.charAt(0) || '?'}</span>
+                                <span className="text-xs text-gray-500">{tileName?.charAt(0) || '?'}</span>
                               </div>
                             )}
                           </button>
@@ -1900,10 +1912,17 @@ const ProductDetailPage = () => {
                     {/* 显示选中材质的名称和加价 */}
                     {selectedMaterialConfig && (
                       <div className="mt-3 flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-900">{selectedMaterialConfig.fabricName}</span>
+                        <span className="text-sm font-medium text-gray-900">{(selectedSku as any)?.fabricName || selectedMaterialConfig.fabricName}</span>
                         {selectedMaterialConfig.price > 0 && (
                           <span className="text-sm text-red-500 font-medium">+¥{selectedMaterialConfig.price}</span>
                         )}
+                      </div>
+                    )}
+                    {selectedMaterialDescriptionText && (
+                      <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                        <p className="text-xs text-gray-600 whitespace-pre-wrap">
+                          {selectedMaterialDescriptionText}
+                        </p>
                       </div>
                     )}
                     {/* 其他材质文字显示在选择材质下面 */}
