@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Package, Save, Percent, Lock, Building2, Users, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
@@ -39,6 +39,7 @@ interface ProductItem {
 export default function AuthorizationPricingPage() {
   const navigate = useNavigate()
   const { authorizationId } = useParams()
+  const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   
   const [loading, setLoading] = useState(true)
@@ -155,6 +156,13 @@ export default function AuthorizationPricingPage() {
       loadData()
     }
   }, [authorizationId])
+
+  useEffect(() => {
+    const desired = searchParams.get('productTab')
+    if (desired === 'own' || desired === 'partner') {
+      setProductTab(desired)
+    }
+  }, [searchParams])
 
   const loadData = async () => {
     setLoading(true)

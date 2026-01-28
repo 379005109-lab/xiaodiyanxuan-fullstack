@@ -933,7 +933,7 @@ export default function ManufacturerBusinessPanel() {
                           
                           <div className="space-y-2">
                             <button
-                              onClick={() => navigate(`/admin/manufacturers/${manufacturerId}/authorized-products?partnerId=${partnerId}`)}
+                              onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing?productTab=partner`)}
                               className="w-full py-2.5 bg-[#153e35] text-white rounded-lg text-sm hover:bg-[#1a4d42]"
                             >
                               查看授权商品
@@ -1298,7 +1298,13 @@ export default function ManufacturerBusinessPanel() {
                               commissionRate: Math.round(partner.receivedAuths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / partner.receivedAuths.length * 10) / 10
                             } : undefined}
                             onViewProducts={() => {
-                              navigate(`/admin/manufacturers/${manufacturerId}/authorized-products?partnerId=${partner.partnerId}`)
+                              const firstAuth = (partner.receivedAuths && partner.receivedAuths[0]) || (partner.grantedAuths && partner.grantedAuths[0])
+                              const authId = firstAuth?._id
+                              if (!authId) {
+                                toast.error('未找到授权记录')
+                                return
+                              }
+                              navigate(`/admin/authorizations/${authId}/pricing?productTab=partner`)
                             }}
                             onViewTierSystem={() => {
                               const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)

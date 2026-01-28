@@ -308,6 +308,45 @@ const computeTierPricing = ({ tierDoc, user, product, auth }) => {
   }
 }
 
+const computeAuthorizationPricingFallback = ({ product, auth }) => {
+  if (!product || !auth) return null
+
+  const retailPrice = getProductRetailPrice(product)
+  if (!Number.isFinite(retailPrice) || retailPrice <= 0) return null
+
+  let discountRate = null
+  if (typeof auth.minDiscountRate === 'number' && Number.isFinite(auth.minDiscountRate) && auth.minDiscountRate > 0) {
+    discountRate = Math.max(0.01, Math.min(1, auth.minDiscountRate / 100))
+  } else if (typeof auth.priceSettings?.globalDiscount === 'number' && Number.isFinite(auth.priceSettings.globalDiscount)) {
+    discountRate = Math.max(0.01, Math.min(1, auth.priceSettings.globalDiscount))
+  }
+
+  let commissionRate = null
+  if (typeof auth.commissionRate === 'number' && Number.isFinite(auth.commissionRate) && auth.commissionRate >= 0) {
+    commissionRate = Math.max(0, Math.min(0.5, auth.commissionRate / 100))
+  } else if (typeof auth.priceSettings?.commissionRate === 'number' && Number.isFinite(auth.priceSettings.commissionRate)) {
+    commissionRate = Math.max(0, Math.min(0.5, auth.priceSettings.commissionRate))
+  }
+
+  if (!discountRate || commissionRate === null) return null
+
+  const discountedPrice = Math.round(retailPrice * discountRate)
+  const commissionAmount = Math.round(discountedPrice * commissionRate)
+  const netCostPrice = Math.round(discountedPrice - commissionAmount)
+
+  return {
+    source: 'authorization',
+    authorizationId: auth?._id,
+    discountType: 'rate',
+    discountRate,
+    retailPrice,
+    discountedPrice,
+    commissionRate,
+    commissionAmount,
+    netCostPrice,
+  }
+}
+
 const isManufacturerScopedUser = (user) => {
   return Boolean(user?.manufacturerId)
 }
@@ -535,7 +574,7 @@ const listProducts = async (req, res) => {
         const tierDocRaw = ownerManufacturerId ? tierByOwnerId.get(ownerManufacturerId) : null
         const auth = authByProduct.get(p._id.toString())
         const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
-        const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth })
+        const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth }) || computeAuthorizationPricingFallback({ product: p, auth })
         
         // 获取商品覆盖设置
         const productIdStr = p._id.toString()
@@ -649,7 +688,7 @@ const getProduct = async (req, res) => {
         ? await TierSystem.findOne({ manufacturerId: ownerManufacturerId }).lean()
         : null
       const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
-      const tierPricing = computeTierPricing({ tierDoc, user, product, auth })
+      const tierPricing = computeTierPricing({ tierDoc, user, product, auth }) || computeAuthorizationPricingFallback({ product, auth })
 
       let takePrice
       let labelPrice1
@@ -700,7 +739,7 @@ const getProduct = async (req, res) => {
         ? await TierSystem.findOne({ manufacturerId: ownerManufacturerId }).lean()
         : null
       const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
-      const tierPricing = computeTierPricing({ tierDoc, user, product, auth })
+      const tierPricing = computeTierPricing({ tierDoc, user, product, auth }) || computeAuthorizationPricingFallback({ product, auth })
       
       const finalData = markVideoIds(sanitizeProductForAuthorizedViewer(product, takePrice, labelPrice1, allow, tierPricing))
       console.log('[getProduct] 返回数据中的价格:', { takePrice: finalData.takePrice, labelPrice1: finalData.labelPrice1 })
