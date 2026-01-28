@@ -247,7 +247,7 @@ export interface Product {
   files?: ProductFile[]
   manufacturerId?: string  // 厂家ID
   manufacturerName?: string  // 厂家名称
-  materialDescriptionOptions?: Array<{ id: string; name: string; text: string }>
+  materialDescriptionOptions?: Array<{ id: string; text: string }>
 }
 
 // 套餐相关类型

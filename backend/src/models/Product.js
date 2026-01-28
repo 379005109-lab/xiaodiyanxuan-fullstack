@@ -90,7 +90,6 @@ const productSchema = new mongoose.Schema({
   }],
   materialDescriptionOptions: [{
     id: String,
-    name: String,
     text: String
   }],
   otherMaterialsText: String, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）

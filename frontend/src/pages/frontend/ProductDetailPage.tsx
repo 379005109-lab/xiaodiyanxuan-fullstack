@@ -507,7 +507,7 @@ const ProductDetailPage = () => {
 
   const selectedMaterialDescriptionText = useMemo(() => {
     if (!product || !selectedSku) return '';
-    const options = ((product as any).materialDescriptionOptions || []) as Array<{ id: string; name: string; text: string }>;
+    const options = ((product as any).materialDescriptionOptions || []) as Array<{ id: string; text: string }>;
     const id = (selectedSku as any).materialDescriptionId as string | undefined;
     if (!id) return '';
     const hit = options.find(o => o.id === id);
@@ -551,17 +551,25 @@ const ProductDetailPage = () => {
 
   const defaultGalleryImages = useMemo(() => {
     if (!product) return [];
-    
-    // 优先使用选中的材质配置的图片
+
+    // 选择材质后，优先使用当前选中 SKU 的整组多媒体
+    if (selectedSku) {
+      const skuVideos = (((selectedSku as any).videos || []) as string[]).filter(Boolean);
+      const skuImages = (selectedSku.images || []).filter(Boolean);
+      const combined = [...skuVideos, ...skuImages].filter(Boolean);
+      if (combined.length > 0) return combined;
+    }
+
+    // 其次使用选中的材质配置的图片
     if (selectedMaterialConfig && selectedMaterialConfig.images?.length > 0) {
       return selectedMaterialConfig.images;
     }
-    
-    // 如果有选中的材质分组且有图片，使用材质分组的图片
+
+    // 再次使用材质分组的图片
     if (selectedMaterialGroup && selectedMaterialGroup.images?.length > 0) {
       return selectedMaterialGroup.images;
     }
-    
+
     // 否则使用默认图片（视频优先）
     const baseImages = Array.isArray(product.images) ? product.images : [];
     const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : [];
@@ -569,7 +577,7 @@ const ProductDetailPage = () => {
     const skuImages = skus.flatMap((sku: any) => sku.images || []);
     const merged = [...skuVideos, ...baseImages, ...skuImages].filter(Boolean);
     return Array.from(new Set(merged));
-  }, [product, selectedMaterialConfig, selectedMaterialGroup]);
+  }, [product, selectedMaterialConfig, selectedMaterialGroup, selectedSku]);
 
   const isComboProduct = Boolean((product as any)?.isCombo);
 
@@ -770,11 +778,6 @@ const ProductDetailPage = () => {
             const matchingConfig = fetchedMaterialConfigs.find(c => c.id === initialSku.fabricMaterialId);
             if (matchingConfig) {
               setSelectedMaterialConfigId(matchingConfig.id);
-              // 使用匹配的materialConfig的图片作为主图
-              if (matchingConfig.images?.length > 0) {
-                setMainImage(matchingConfig.images[0]);
-                return;
-              }
             }
           }
           
@@ -798,6 +801,16 @@ const ProductDetailPage = () => {
     setMaterialAssetMap({}); // 清除本地缓存
     fetchProduct();
   }, [id]);
+
+  useEffect(() => {
+    if (!selectedSku) return;
+    if (!Array.isArray(materialConfigs) || materialConfigs.length === 0) return;
+    const nextId = (selectedSku as any).fabricMaterialId as string | undefined;
+    if (!nextId) return;
+    if (materialConfigs.some(c => c.id === nextId)) {
+      setSelectedMaterialConfigId(nextId);
+    }
+  }, [selectedSku, materialConfigs]);
 
   useEffect(() => {
     // 如果筛选后没有SKU，清空选中的SKU
@@ -881,17 +894,17 @@ const ProductDetailPage = () => {
 
   const handleSkuChange = (sku: ProductSKU) => {
     setSelectedSku(sku);
-    const firstSkuImage = sku.images?.find(Boolean);
-    const fallbackImage = defaultGalleryImages[0] || product?.images?.[0] || '';
-    setMainImage(firstSkuImage || fallbackImage);
+    const firstSkuMedia = ((sku as any).videos || []).find(Boolean) || sku.images?.find(Boolean);
+    const fallbackMedia = defaultGalleryImages[0] || (product as any)?.videos?.find?.(Boolean) || product?.images?.[0] || '';
+    setMainImage(firstSkuMedia || fallbackMedia);
     setQuantity(1);
   };
 
   const handleToggleSku = (sku: ProductSKU) => {
     setSelectedSku(sku);
-    const firstSkuImage = sku.images?.find(Boolean);
-    const fallbackImage = defaultGalleryImages[0] || product?.images?.[0] || '';
-    setMainImage(firstSkuImage || fallbackImage);
+    const firstSkuMedia = ((sku as any).videos || []).find(Boolean) || sku.images?.find(Boolean);
+    const fallbackMedia = defaultGalleryImages[0] || (product as any)?.videos?.find?.(Boolean) || product?.images?.[0] || '';
+    setMainImage(firstSkuMedia || fallbackMedia);
     setSelectedSkuIds(prev => {
       const id = String(sku._id);
       if (prev.includes(id)) return prev.filter(x => x !== id);
@@ -911,7 +924,7 @@ const ProductDetailPage = () => {
   const findSkuByImage = (img: string) => {
     if (!product) return undefined;
     const allSkus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
-    return allSkus.find(sku => (sku.images || []).includes(img));
+    return allSkus.find(sku => (sku.images || []).includes(img) || (((sku as any).videos || []) as string[]).includes(img));
   };
 
   const handleThumbnailClick = (img: string) => {

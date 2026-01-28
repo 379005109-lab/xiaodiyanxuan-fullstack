@@ -119,7 +119,7 @@ export default function ProductForm() {
       images: string[] // 该材质对应的图片组
       price: number // 加价金额
     }>,
-    materialDescriptionOptions: [] as Array<{ id: string; name: string; text: string }>,
+    materialDescriptionOptions: [] as Array<{ id: string; text: string }>,
     otherMaterialsText: '' as string, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
     otherMaterialsImage: '' as string, // 其他材质图片
     specifications: [
@@ -399,7 +399,6 @@ export default function ProductForm() {
           }),
           materialDescriptionOptions: ((product as any).materialDescriptionOptions || []).map((opt: any, idx: number) => ({
             id: opt.id || `md-${idx}`,
-            name: opt.name || '',
             text: opt.text || '',
           })),
           otherMaterialsText: (product as any).otherMaterialsText || '',
@@ -454,7 +453,9 @@ export default function ProductForm() {
           id: `mc-${Date.now()}`,
           fabricName: material.name,
           fabricId: material._id || material.id || '',
-          images: material.image ? [material.image] : [],
+          images: (material.image || (material as any).img || (material as any).thumbnail || (material as any).images?.[0])
+            ? [material.image || (material as any).img || (material as any).thumbnail || (material as any).images?.[0]]
+            : [],
           price: upgradePrice || 0,
         }
         console.log('🔥 [DEBUG] 添加材质配置:', {
@@ -480,7 +481,10 @@ export default function ProductForm() {
         if (materialType === 'fabric') {
           newSkus[selectingMaterialForSkuIndex].fabricName = material.name
           newSkus[selectingMaterialForSkuIndex].fabricMaterialId = material._id || material.id || ''
-          newSkus[selectingMaterialForSkuIndex].fabricImage = (material as any).image || ((material as any).images?.[0] || '')
+          newSkus[selectingMaterialForSkuIndex].fabricImage = (material as any).image
+            || (material as any).img
+            || (material as any).thumbnail
+            || ((material as any).images?.[0] || '')
           console.log('🔥 [面料选择] 设置SKU面料:', material.name)
           // 关闭弹窗
           setShowMaterialSelectModal(false)
@@ -890,7 +894,6 @@ export default function ProductForm() {
         })),
         materialDescriptionOptions: (formData.materialDescriptionOptions || []).map(opt => ({
           id: opt.id,
-          name: opt.name,
           text: opt.text,
         })),
         otherMaterialsText: formData.otherMaterialsText || '',
@@ -2155,6 +2158,7 @@ export default function ProductForm() {
           </div>
         </div>
 
+        {/* 材质描述 */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">材质描述</h2>
@@ -2162,7 +2166,7 @@ export default function ProductForm() {
               type="button"
               onClick={() => {
                 const next = [...(formData.materialDescriptionOptions || [])]
-                next.push({ id: `md-${Date.now()}`, name: '', text: '' })
+                next.push({ id: `md-${Date.now()}`, text: '' })
                 setFormData({ ...formData, materialDescriptionOptions: next })
               }}
               className="text-primary-600 hover:text-primary-700 text-sm flex items-center"
@@ -2177,27 +2181,13 @@ export default function ProductForm() {
             ) : (
               (formData.materialDescriptionOptions || []).map((opt, idx) => (
                 <div key={opt.id} className="grid grid-cols-12 gap-4 items-start">
-                  <div className="col-span-3">
-                    <label className="block text-sm font-medium mb-2">名称</label>
-                    <input
-                      type="text"
-                      value={opt.name}
-                      onChange={(e) => {
-                        const next = [...(formData.materialDescriptionOptions || [])]
-                        next[idx] = { ...next[idx], name: e.target.value }
-                        setFormData({ ...formData, materialDescriptionOptions: next })
-                      }}
-                      placeholder="如：冰丝面料"
-                      className="input"
-                    />
-                  </div>
-                  <div className="col-span-8">
+                  <div className="col-span-11">
                     <label className="block text-sm font-medium mb-2">描述内容</label>
                     <textarea
                       value={opt.text}
                       onChange={(e) => {
                         const next = [...(formData.materialDescriptionOptions || [])]
-                        next[idx] = { ...next[idx], text: e.target.value }
+                        next[idx].text = e.target.value
                         setFormData({ ...formData, materialDescriptionOptions: next })
                       }}
                       placeholder="输入材质描述文字"
@@ -2299,7 +2289,6 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">多媒体</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">型号</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium">尺寸(长×宽×高)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[180px]">材质面料</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[220px]">材质描述</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
@@ -2340,7 +2329,7 @@ export default function ProductForm() {
                           newSkus[index].manufacturerName = selectedManufacturer?.name || ''
                           setFormData({ ...formData, skus: newSkus })
                         }}
-                        className="w-28 px-2 py-1 text-sm border border-gray-300 rounded"
+                        className="w-28 px-2 py-1 border border-gray-300 rounded"
                       >
                         <option value="">选择厂家</option>
                         {manufacturers.map((m) => (
@@ -2427,7 +2416,7 @@ export default function ProductForm() {
                             newSkus[index].length = parseFloat(e.target.value) || 0
                             setFormData({ ...formData, skus: newSkus })
                           }}
-                          className="w-14 px-1 py-1 border border-gray-300 rounded text-center text-sm"
+                          className="w-14 px-1 py-0.5 border border-gray-300 rounded text-center text-sm"
                           placeholder="长"
                         />
                         <span className="text-gray-400">×</span>
@@ -2439,7 +2428,7 @@ export default function ProductForm() {
                             newSkus[index].width = parseFloat(e.target.value) || 0
                             setFormData({ ...formData, skus: newSkus })
                           }}
-                          className="w-14 px-1 py-1 border border-gray-300 rounded text-center text-sm"
+                          className="w-14 px-1 py-0.5 border border-gray-300 rounded text-center text-sm"
                           placeholder="宽"
                         />
                         <span className="text-gray-400">×</span>
@@ -2451,7 +2440,7 @@ export default function ProductForm() {
                             newSkus[index].height = parseFloat(e.target.value) || 0
                             setFormData({ ...formData, skus: newSkus })
                           }}
-                          className="w-14 px-1 py-1 border border-gray-300 rounded text-center text-sm"
+                          className="w-14 px-1 py-0.5 border border-gray-300 rounded text-center text-sm"
                           placeholder="高"
                         />
                       </div>
@@ -2546,8 +2535,10 @@ export default function ProductForm() {
                           className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                         >
                           <option value="">未选择</option>
-                          {(formData.materialDescriptionOptions || []).map(opt => (
-                            <option key={opt.id} value={opt.id}>{opt.name || opt.id}</option>
+                          {(formData.materialDescriptionOptions || []).map((opt, i) => (
+                            <option key={opt.id} value={opt.id}>
+                              {`描述${i + 1}`}
+                            </option>
                           ))}
                         </select>
                         {(() => {
