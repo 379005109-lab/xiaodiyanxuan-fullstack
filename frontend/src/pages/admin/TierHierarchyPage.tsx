@@ -488,7 +488,8 @@ export default function TierHierarchyPage() {
   const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   
-  const manufacturerId = searchParams.get('manufacturerId') || (user as any)?.manufacturerId || ''
+  const rawManufacturerId = searchParams.get('manufacturerId') || (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0] || ''
+  const manufacturerId = String((rawManufacturerId as any)?._id || (rawManufacturerId as any)?.id || rawManufacturerId || '')
   const companyId = searchParams.get('companyId') || ''
   const companyName = searchParams.get('companyName') || ''
   

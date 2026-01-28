@@ -3329,9 +3329,12 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
     }
 
     // 检查用户是否是厂家管理员
-    const isManufacturerAdmin = (user.manufacturerId && String(user.manufacturerId) === manufacturerId) ||
-      (user.manufacturerIds && user.manufacturerIds.some(id => String(id) === manufacturerId)) ||
-      user.role === 'super_admin' || user.role === 'admin' || user.role === 'platform_admin'
+    const userManufacturerId = user.manufacturerId?._id || user.manufacturerId
+    const userManufacturerIds = Array.isArray(user.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === manufacturerId) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === manufacturerId)
+    const isPlatformAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'platform_admin' || user.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
     
     console.log('[tier-hierarchy-v2] User check:', {
       userId: req.userId,
@@ -3346,14 +3349,35 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       !a.parentAuthorizationId || a.tierLevel === 0
     )
 
-    // 如果没有根节点，创建一个虚拟的厂家根节点
+    // 如果没有指定公司（companyId/companyName），返回一个虚拟的厂家根节点，
+    // 并把各公司根节点挂到该虚拟根下，避免 rootNodes[0] 随机选中导致返佣/名称不匹配
     let rootNode = null
-    if (rootNodes.length === 0) {
+    const useVirtualManufacturerRoot = !companyId && !companyName
+
+    if (useVirtualManufacturerRoot) {
       rootNode = {
         _id: `mfr_${manufacturerId}`,
         tierDisplayName: manufacturer.fullName || manufacturer.name || '厂家',
         tierRole: 'company',
-        tierDiscountRate: 60,
+        tierDiscountRate: manufacturer.defaultDiscount || 60,
+        tierDelegatedRate: 0,
+        tierCommissionRate: 0,
+        tierLevel: 0,
+        childCount: rootNodes.length,
+        productCount: 0,
+        parentAuthorizationId: null,
+        fromManufacturer: manufacturer,
+        createdBy: '',
+        status: 'active',
+        isOwner: isManufacturerAdmin,
+        isVirtual: true
+      }
+    } else if (rootNodes.length === 0) {
+      rootNode = {
+        _id: `mfr_${manufacturerId}`,
+        tierDisplayName: manufacturer.fullName || manufacturer.name || '厂家',
+        tierRole: 'company',
+        tierDiscountRate: manufacturer.defaultDiscount || 60,
         tierDelegatedRate: 0,
         tierCommissionRate: 0,
         tierLevel: 0,
@@ -3361,9 +3385,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         productCount: 0,
         parentAuthorizationId: null,
         fromManufacturer: manufacturer,
-        createdBy: req.userId,
+        createdBy: '',
         status: 'active',
-        isOwner: true,
+        isOwner: isManufacturerAdmin,
         isVirtual: true
       }
     } else {
@@ -3419,6 +3443,12 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         }
       }
 
+      const isCompanyRootForList = useVirtualManufacturerRoot && (!auth.parentAuthorizationId || auth.tierLevel === 0)
+      const effectiveParentAuthorizationId = isCompanyRootForList
+        ? String(rootNode?._id)
+        : (auth.parentAuthorizationId ? String(auth.parentAuthorizationId) : null)
+      const effectiveTierLevel = isCompanyRootForList ? 1 : (auth.tierLevel || 0)
+
       return {
         _id: auth._id,
         tierDisplayName: displayName,
@@ -3426,10 +3456,10 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         tierDiscountRate: auth.minDiscountRate ?? auth.tierDiscountRate ?? auth.ownProductMinDiscount ?? 60,
         tierDelegatedRate: auth.tierDelegatedRate ?? 0,
         tierCommissionRate: auth.commissionRate ?? auth.tierCommissionRate ?? 0,
-        tierLevel: auth.tierLevel || 0,
+        tierLevel: effectiveTierLevel,
         childCount,
         productCount: auth.productCount || 0,
-        parentAuthorizationId: auth.parentAuthorizationId ? String(auth.parentAuthorizationId) : null,
+        parentAuthorizationId: effectiveParentAuthorizationId,
         fromManufacturer: auth.fromManufacturer,
         toDesigner: auth.toDesigner,
         toManufacturer: auth.toManufacturer,
