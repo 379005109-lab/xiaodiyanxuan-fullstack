@@ -19,6 +19,10 @@ interface TierNode {
   tierDiscountRate: number  // 获得的折扣率
   tierDelegatedRate: number // 下放给下级的折扣率
   tierCommissionRate: number // 返佣比例 = discountRate - delegatedRate
+  ownProductMinDiscount?: number
+  ownProductCommission?: number
+  partnerProductMinDiscount?: number
+  partnerProductCommission?: number
   tierLevel: number
   childCount: number
   productCount: number
@@ -31,6 +35,8 @@ interface TierNode {
   children?: TierNode[]
   // 可见性控制
   isOwner: boolean  // 是否是自己创建的
+  allowSubAuthorization?: boolean
+  isVirtual?: boolean
 }
 
 // 卡片组件
@@ -56,10 +62,15 @@ function TierCard({
   currentUserId: string
 }) {
   const isOwner = node.createdBy === currentUserId || node.isOwner
+  const isVirtual = Boolean((node as any).isVirtual)
+  const canEdit = isOwner && !isVirtual
+  const canAddChild = canEdit && node.allowSubAuthorization !== false
   const hasChildren = (node.children?.length || 0) > 0 || node.childCount > 0
   
-  // 使用后端返回的实际返佣比例
-  const commissionRate = node.tierCommissionRate || 0
+  const ownDiscount = (node.ownProductMinDiscount ?? node.tierDiscountRate ?? 0) || 0
+  const ownCommission = (node.ownProductCommission ?? node.tierCommissionRate ?? 0) || 0
+  const partnerDiscount = (node.partnerProductMinDiscount ?? node.ownProductMinDiscount ?? node.tierDiscountRate ?? 0) || 0
+  const partnerCommission = (node.partnerProductCommission ?? node.ownProductCommission ?? node.tierCommissionRate ?? 0) || 0
   
   return (
     <div className="relative">
@@ -105,7 +116,7 @@ function TierCard({
           </div>
           
           {/* 编辑按钮 */}
-          {isOwner && (
+          {canEdit && (
             <button
               onClick={() => onEdit(node)}
               className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
@@ -119,13 +130,23 @@ function TierCard({
         {/* 折扣和返佣信息 */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="bg-green-50 rounded-xl p-3 text-center">
-            <p className="text-xs text-green-600 mb-1">最低折扣</p>
-            <p className="text-2xl font-bold text-green-700">{node.tierDiscountRate || 0}</p>
-            <p className="text-xs text-green-500">% {isRoot ? '' : '(厂家授权)'}</p>
+            <p className="text-xs text-green-600 mb-1">自有最低折扣</p>
+            <p className="text-2xl font-bold text-green-700">{ownDiscount}</p>
+            <p className="text-xs text-green-500">%</p>
           </div>
           <div className="bg-blue-50 rounded-xl p-3 text-center">
-            <p className="text-xs text-blue-600 mb-1">返佣上限</p>
-            <p className="text-2xl font-bold text-blue-700">{commissionRate || 0}</p>
+            <p className="text-xs text-blue-600 mb-1">自有返佣</p>
+            <p className="text-2xl font-bold text-blue-700">{ownCommission}</p>
+            <p className="text-xs text-blue-500">%</p>
+          </div>
+          <div className="bg-green-50 rounded-xl p-3 text-center">
+            <p className="text-xs text-green-600 mb-1">合作商最低折扣</p>
+            <p className="text-2xl font-bold text-green-700">{partnerDiscount}</p>
+            <p className="text-xs text-green-500">%</p>
+          </div>
+          <div className="bg-blue-50 rounded-xl p-3 text-center">
+            <p className="text-xs text-blue-600 mb-1">合作商返佣</p>
+            <p className="text-2xl font-bold text-blue-700">{partnerCommission}</p>
             <p className="text-xs text-blue-500">%</p>
           </div>
         </div>
@@ -143,7 +164,7 @@ function TierCard({
         </div>
         
         {/* 添加层级按钮 */}
-        {isOwner && (
+        {canAddChild && (
           <button
             onClick={() => onAddChild(node._id)}
             className="w-full py-2.5 border-2 border-dashed border-green-300 rounded-xl text-green-600 hover:bg-green-50 hover:border-green-400 transition-colors flex items-center justify-center gap-2 font-medium"
@@ -154,7 +175,7 @@ function TierCard({
         )}
         
         {/* 操作按钮 */}
-        {!isRoot && isOwner && (
+        {!isRoot && canEdit && (
           <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
             {hasChildren && (
               <button
@@ -165,13 +186,15 @@ function TierCard({
                 <ChevronRight className="w-4 h-4" />
               </button>
             )}
-            <button
-              onClick={() => onAddChild(node._id)}
-              className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg"
-              title="添加下级"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+            {canAddChild && (
+              <button
+                onClick={() => onAddChild(node._id)}
+                className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg"
+                title="添加下级"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => onDelete(node._id)}
               className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
@@ -488,7 +511,16 @@ export default function TierHierarchyPage() {
   const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   
-  const rawManufacturerId = searchParams.get('manufacturerId') || (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0] || ''
+  const queryManufacturerId = searchParams.get('manufacturerId') || ''
+  const userManufacturerRaw = (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0] || ''
+  const isPlatformAdmin =
+    (user as any)?.role === 'super_admin' ||
+    (user as any)?.role === 'admin' ||
+    (user as any)?.role === 'platform_admin' ||
+    (user as any)?.role === 'platform_staff'
+  const rawManufacturerId = isPlatformAdmin
+    ? (queryManufacturerId || userManufacturerRaw || '')
+    : (userManufacturerRaw || queryManufacturerId || '')
   const manufacturerId = String((rawManufacturerId as any)?._id || (rawManufacturerId as any)?.id || rawManufacturerId || '')
   const companyId = searchParams.get('companyId') || ''
   const companyName = searchParams.get('companyName') || ''
@@ -512,7 +544,7 @@ export default function TierHierarchyPage() {
     
     setLoading(true)
     try {
-      const params: any = { manufacturerId }
+      const params: any = { manufacturerId, _t: Date.now() }
       if (companyId) params.companyId = companyId
       if (companyName) params.companyName = companyName
       
@@ -623,6 +655,9 @@ export default function TierHierarchyPage() {
   
   // 计算最大可分配率
   const maxDiscountRate = useMemo(() => {
+    if ((rootNode as any)?.isVirtual) {
+      return 0
+    }
     if (editingNode && parentNodeForAdd) {
       return parentNodeForAdd.tierDelegatedRate
     }

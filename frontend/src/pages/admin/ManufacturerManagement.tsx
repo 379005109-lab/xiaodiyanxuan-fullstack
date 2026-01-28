@@ -2099,11 +2099,16 @@ export default function ManufacturerManagement() {
                               </button>
                               <button 
                                 onClick={() => {
-                                  const target = auth.toManufacturer || auth.toDesigner
-                                  const targetId = target?._id
-                                  if (!targetId) return
+                                  const fromId = String((auth as any)?.fromManufacturer?._id || (auth as any)?.fromManufacturer || '').trim()
+                                  if (!fromId) return
+                                  const cid = String((auth as any)?.tierCompanyId?._id || (auth as any)?.tierCompanyId || (auth as any)?._id || '').trim()
+                                  const cname = String((auth as any)?.tierCompanyName || (auth as any)?.tierDisplayName || '').trim()
                                   const rt = encodeURIComponent(`/admin/manufacturer-management`)
-                                  navigate(`/admin/tier-hierarchy?manufacturerId=${targetId}&returnTo=${rt}`)
+                                  const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(fromId)}&returnTo=${rt}`
+                                  const withCompany = cid
+                                    ? `${base}&companyId=${encodeURIComponent(cid)}${cname ? `&companyName=${encodeURIComponent(cname)}` : ''}`
+                                    : (cname ? `${base}&companyName=${encodeURIComponent(cname)}` : base)
+                                  navigate(withCompany)
                                 }}
                                 className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                               >

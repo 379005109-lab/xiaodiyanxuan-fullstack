@@ -3283,7 +3283,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
     }
 
     // 获取厂家信息
-    const manufacturer = await Manufacturer.findById(manufacturerId).select('name fullName shortName logo').lean()
+    const manufacturer = await Manufacturer.findById(manufacturerId).select('name fullName shortName logo defaultDiscount').lean()
     if (!manufacturer) {
       return res.status(404).json({ success: false, message: '厂家不存在' })
     }
@@ -3298,12 +3298,14 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       ]
     }
 
-    // 如果指定了公司ID或名称，只查询该公司的层级
-    if (companyId) {
-      query.tierCompanyId = companyId
-    } else if (companyName) {
-      query.tierCompanyName = companyName
-    }
+    query.$and = [
+      {
+        $or: [
+          { tierType: { $in: ['new_company', 'existing_tier'] } },
+          { tierType: { $in: [null] }, parentAuthorizationId: { $exists: true, $ne: null } }
+        ]
+      }
+    ]
 
     // 查询所有相关授权
     const authorizations = await Authorization.find(query)
@@ -3344,10 +3346,46 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       isManufacturerAdmin
     })
 
-    // 找到根节点（tierLevel=0 或无父级的节点）
-    const rootNodes = authorizations.filter(a => 
-      !a.parentAuthorizationId || a.tierLevel === 0
-    )
+    const authMap = new Map((authorizations || []).map(a => [String(a._id), a]))
+    const resolveCompanyId = (auth) => {
+      if (!auth) return ''
+      if (auth.tierCompanyId) return String(auth.tierCompanyId)
+      if (!auth.parentAuthorizationId) return String(auth._id)
+      let cur = auth
+      let guard = 0
+      while (cur?.parentAuthorizationId && guard++ < 50) {
+        const p = authMap.get(String(cur.parentAuthorizationId))
+        if (!p) break
+        if (p.tierCompanyId) return String(p.tierCompanyId)
+        cur = p
+      }
+      return cur?.tierCompanyId ? String(cur.tierCompanyId) : (cur?._id ? String(cur._id) : '')
+    }
+    const resolveCompanyName = (auth) => {
+      const cid = resolveCompanyId(auth)
+      const root = cid ? authMap.get(String(cid)) : null
+      if (root) {
+        return root.tierCompanyName || root.tierDisplayName || (root.toManufacturer?.fullName || root.toManufacturer?.name) || (root.toDesigner?.nickname || root.toDesigner?.username) || ''
+      }
+      return auth?.tierCompanyName || auth?.tierDisplayName || ''
+    }
+
+    const filteredAuthorizations = (() => {
+      if (companyId) {
+        const cid = String(companyId)
+        return (authorizations || []).filter(a => resolveCompanyId(a) === cid || String(a._id) === cid)
+      }
+      if (companyName) {
+        const cname = String(companyName)
+        return (authorizations || []).filter(a => {
+          const n = resolveCompanyName(a)
+          return n === cname || String(a.tierCompanyName || '') === cname
+        })
+      }
+      return authorizations || []
+    })()
+
+    const rootNodes = filteredAuthorizations.filter(a => !a.parentAuthorizationId)
 
     // 如果没有指定公司（companyId/companyName），返回一个虚拟的厂家根节点，
     // 并把各公司根节点挂到该虚拟根下，避免 rootNodes[0] 随机选中导致返佣/名称不匹配
@@ -3394,6 +3432,18 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       // 使用第一个根节点作为主根
       const firstRoot = rootNodes[0]
       const isRootOwner = String(firstRoot.createdBy?._id || firstRoot.createdBy) === req.userId || isManufacturerAdmin
+
+      const rootLegacyDiscount = firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate
+      const rootLegacyCommission = firstRoot.ownProductCommission ?? firstRoot.commissionRate
+      const rootDiscountRate = (firstRoot.tierDiscountRate && firstRoot.tierDiscountRate > 0)
+        ? firstRoot.tierDiscountRate
+        : (rootLegacyDiscount ?? 60)
+      const rootCommissionRate = (firstRoot.tierCommissionRate && firstRoot.tierCommissionRate > 0)
+        ? firstRoot.tierCommissionRate
+        : (rootLegacyCommission ?? 0)
+      const rootDelegatedRate = (firstRoot.tierDelegatedRate && firstRoot.tierDelegatedRate > 0)
+        ? firstRoot.tierDelegatedRate
+        : Math.max(0, Number(rootDiscountRate) - Number(rootCommissionRate))
       
       console.log('[tier-hierarchy-v2] Root node:', {
         firstRootId: firstRoot._id,
@@ -3406,11 +3456,15 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         _id: firstRoot._id,
         tierDisplayName: firstRoot.tierDisplayName || firstRoot.tierCompanyName || manufacturer.fullName || manufacturer.name,
         tierRole: firstRoot.tierRole || 'company',
-        tierDiscountRate: firstRoot.minDiscountRate ?? firstRoot.tierDiscountRate ?? 60,
-        tierDelegatedRate: firstRoot.tierDelegatedRate ?? 0,
-        tierCommissionRate: firstRoot.commissionRate ?? firstRoot.tierCommissionRate ?? 0,
+        tierDiscountRate: rootDiscountRate,
+        tierDelegatedRate: rootDelegatedRate,
+        tierCommissionRate: rootCommissionRate,
+        ownProductMinDiscount: firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate ?? rootDiscountRate,
+        ownProductCommission: firstRoot.ownProductCommission ?? firstRoot.commissionRate ?? rootCommissionRate,
+        partnerProductMinDiscount: firstRoot.partnerProductMinDiscount ?? firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate ?? rootDiscountRate,
+        partnerProductCommission: firstRoot.partnerProductCommission ?? firstRoot.ownProductCommission ?? firstRoot.commissionRate ?? rootCommissionRate,
         tierLevel: 0,
-        childCount: authorizations.filter(a => String(a.parentAuthorizationId) === String(firstRoot._id)).length,
+        childCount: filteredAuthorizations.filter(a => String(a.parentAuthorizationId) === String(firstRoot._id)).length,
         productCount: firstRoot.productCount || 0,
         parentAuthorizationId: null,
         fromManufacturer: manufacturer,
@@ -3419,15 +3473,15 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         createdBy: String(firstRoot.createdBy?._id || firstRoot.createdBy || ''),
         status: firstRoot.status,
         isOwner: isRootOwner,
-        allowSubAuthorization: true
+        allowSubAuthorization: firstRoot.allowSubAuthorization !== false
       }
     }
 
     // 转换授权为层级节点
-    const nodes = authorizations.map(auth => {
+    const nodes = filteredAuthorizations.map(auth => {
       const isCreator = String(auth.createdBy?._id || auth.createdBy) === req.userId
       const isOwner = isCreator || isManufacturerAdmin
-      const childCount = authorizations.filter(a => 
+      const childCount = filteredAuthorizations.filter(a => 
         String(a.parentAuthorizationId) === String(auth._id)
       ).length
 
@@ -3443,19 +3497,46 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         }
       }
 
-      const isCompanyRootForList = useVirtualManufacturerRoot && (!auth.parentAuthorizationId || auth.tierLevel === 0)
+      const isCompanyRootForList = useVirtualManufacturerRoot && !auth.parentAuthorizationId
       const effectiveParentAuthorizationId = isCompanyRootForList
         ? String(rootNode?._id)
         : (auth.parentAuthorizationId ? String(auth.parentAuthorizationId) : null)
       const effectiveTierLevel = isCompanyRootForList ? 1 : (auth.tierLevel || 0)
 
+      const legacyDiscount = auth.ownProductMinDiscount ?? auth.minDiscountRate
+      const legacyCommission = auth.ownProductCommission ?? auth.commissionRate
+      const isLegacyTierDefaults =
+        (auth.tierDiscountRate === 0 || auth.tierDiscountRate === undefined || auth.tierDiscountRate === null) &&
+        (auth.tierDelegatedRate === 0 || auth.tierDelegatedRate === undefined || auth.tierDelegatedRate === null) &&
+        (auth.tierCommissionRate === 0 || auth.tierCommissionRate === undefined || auth.tierCommissionRate === null) &&
+        legacyDiscount !== undefined && legacyDiscount !== null &&
+        legacyCommission !== undefined && legacyCommission !== null
+
+      const effectiveTierDiscountRate = (auth.tierDiscountRate && auth.tierDiscountRate > 0)
+        ? auth.tierDiscountRate
+        : (legacyDiscount ?? 60)
+
+      const effectiveTierCommissionRate = (auth.tierCommissionRate && auth.tierCommissionRate > 0)
+        ? auth.tierCommissionRate
+        : (legacyCommission ?? 0)
+
+      const effectiveTierDelegatedRate = (auth.tierDelegatedRate && auth.tierDelegatedRate > 0)
+        ? auth.tierDelegatedRate
+        : (isLegacyTierDefaults
+          ? Math.max(0, Number(effectiveTierDiscountRate) - Number(effectiveTierCommissionRate))
+          : (auth.tierDelegatedRate ?? 0))
+
       return {
         _id: auth._id,
         tierDisplayName: displayName,
         tierRole: auth.tierRole || (auth.toDesigner ? 'designer' : 'company'),
-        tierDiscountRate: auth.minDiscountRate ?? auth.tierDiscountRate ?? auth.ownProductMinDiscount ?? 60,
-        tierDelegatedRate: auth.tierDelegatedRate ?? 0,
-        tierCommissionRate: auth.commissionRate ?? auth.tierCommissionRate ?? 0,
+        tierDiscountRate: effectiveTierDiscountRate,
+        tierDelegatedRate: effectiveTierDelegatedRate,
+        tierCommissionRate: effectiveTierCommissionRate,
+        ownProductMinDiscount: auth.ownProductMinDiscount ?? auth.minDiscountRate ?? effectiveTierDiscountRate,
+        ownProductCommission: auth.ownProductCommission ?? auth.commissionRate ?? effectiveTierCommissionRate,
+        partnerProductMinDiscount: auth.partnerProductMinDiscount ?? auth.ownProductMinDiscount ?? auth.minDiscountRate ?? effectiveTierDiscountRate,
+        partnerProductCommission: auth.partnerProductCommission ?? auth.ownProductCommission ?? auth.commissionRate ?? effectiveTierCommissionRate,
         tierLevel: effectiveTierLevel,
         childCount,
         productCount: auth.productCount || 0,
@@ -3520,7 +3601,12 @@ router.post('/tier-node', auth, async (req, res) => {
     // 检查是否有权限添加子级（必须是父级的创建者或厂家管理员）
     const user = await User.findById(req.userId)
     const isParentOwner = String(parentAuth.createdBy) === req.userId
-    const isManufacturerAdmin = user?.manufacturerId && String(user.manufacturerId) === String(manufacturerId)
+    const userManufacturerId = user?.manufacturerId?._id || user?.manufacturerId
+    const userManufacturerIds = Array.isArray(user?.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === String(manufacturerId)) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === String(manufacturerId))
+    const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
     
     if (!isParentOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
       return res.status(403).json({ success: false, message: '无权添加子级' })
@@ -3544,6 +3630,7 @@ router.post('/tier-node', auth, async (req, res) => {
       createdBy: req.userId,
       
       // 层级相关字段
+      tierType: 'existing_tier',
       parentAuthorizationId,
       tierLevel: (parentAuth.tierLevel || 0) + 1,
       tierCompanyId: companyId || parentAuth.tierCompanyId || parentAuth._id,
@@ -3557,7 +3644,11 @@ router.post('/tier-node', auth, async (req, res) => {
       
       // 继承父级的价格设置
       ownProductMinDiscount: tierDiscountRate || parentAuth.ownProductMinDiscount,
-      ownProductCommission: tierCommissionRate || parentAuth.ownProductCommission
+      ownProductCommission: tierCommissionRate || parentAuth.ownProductCommission,
+      partnerProductMinDiscount: parentAuth.partnerProductMinDiscount,
+      partnerProductCommission: parentAuth.partnerProductCommission,
+      minDiscountRate: tierDiscountRate || parentAuth.ownProductMinDiscount,
+      commissionRate: tierCommissionRate || parentAuth.ownProductCommission
     })
 
     await newAuth.save()
@@ -3598,7 +3689,12 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     // 检查权限
     const user = await User.findById(req.userId)
     const isOwner = String(auth.createdBy) === req.userId
-    const isManufacturerAdmin = user?.manufacturerId && String(user.manufacturerId) === String(auth.fromManufacturer)
+    const userManufacturerId = user?.manufacturerId?._id || user?.manufacturerId
+    const userManufacturerIds = Array.isArray(user?.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === String(auth.fromManufacturer)) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === String(auth.fromManufacturer))
+    const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
     
     if (!isOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
       return res.status(403).json({ success: false, message: '无权编辑此层级' })
@@ -3621,6 +3717,7 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     if (tierDiscountRate !== undefined) {
       auth.tierDiscountRate = tierDiscountRate
       auth.ownProductMinDiscount = tierDiscountRate
+      auth.minDiscountRate = tierDiscountRate
     }
     if (tierDelegatedRate !== undefined) {
       auth.tierDelegatedRate = tierDelegatedRate
@@ -3629,6 +3726,7 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     if (tierCommissionRate !== undefined) {
       auth.tierCommissionRate = tierCommissionRate
       auth.ownProductCommission = tierCommissionRate
+      auth.commissionRate = tierCommissionRate
     }
     
     auth.updatedAt = new Date()
@@ -3658,7 +3756,12 @@ router.delete('/tier-node/:id', auth, async (req, res) => {
     // 检查权限
     const user = await User.findById(req.userId)
     const isOwner = String(authDoc.createdBy) === req.userId
-    const isManufacturerAdmin = user?.manufacturerId && String(user.manufacturerId) === String(authDoc.fromManufacturer)
+    const userManufacturerId = user?.manufacturerId?._id || user?.manufacturerId
+    const userManufacturerIds = Array.isArray(user?.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === String(authDoc.fromManufacturer)) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === String(authDoc.fromManufacturer))
+    const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
     
     if (!isOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
       return res.status(403).json({ success: false, message: '无权删除此层级' })
