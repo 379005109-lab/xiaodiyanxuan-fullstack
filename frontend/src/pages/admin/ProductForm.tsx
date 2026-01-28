@@ -2382,20 +2382,29 @@ export default function ProductForm() {
                                       setSelectingMaterialType(catKey)
                                       setShowMaterialSelectModal(true)
                                     }}
-                                    className={`text-xs px-2 py-1 rounded ${colorStyle.bg} ${colorStyle.text} hover:opacity-80`}
+                                    className={catKey === 'fabric'
+                                      ? `w-full text-left p-2 rounded border border-gray-200 hover:border-primary-400 bg-white hover:bg-gray-50 transition-colors`
+                                      : `text-xs px-2 py-1 rounded ${colorStyle.bg} ${colorStyle.text} hover:opacity-80`
+                                    }
                                   >
                                     {catKey === 'fabric' ? (
-                                      <span className="inline-flex items-center gap-1">
-                                        <span>{getMaterialCategoryName(catKey)}:</span>
-                                        {sku.fabricImage ? (
-                                          <img
-                                            src={getThumbnailUrl(sku.fabricImage, 40)}
-                                            alt={sku.fabricName}
-                                            className="w-4 h-4 rounded object-cover border border-white/50"
-                                          />
-                                        ) : null}
-                                        <span>{sku.fabricName || '未选'}</span>
-                                      </span>
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                                          {sku.fabricImage ? (
+                                            <img
+                                              src={getThumbnailUrl(sku.fabricImage, 160)}
+                                              alt={sku.fabricName}
+                                              className="w-full h-full object-cover"
+                                            />
+                                          ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">无图</div>
+                                          )}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="text-xs text-gray-500">{getMaterialCategoryName(catKey)}</div>
+                                          <div className="text-sm font-medium text-gray-900 truncate">{sku.fabricName || '未选'}</div>
+                                        </div>
+                                      </div>
                                     ) : (
                                       <span>
                                         {getMaterialCategoryName(catKey)}: {materials.length > 0 ? materials.join(', ') : '未选'}
