@@ -3612,7 +3612,13 @@ router.post('/tier-node', auth, async (req, res) => {
     }
 
     // 验证折扣率不超过父级下放率
-    const parentDelegatedRate = parentAuth.tierDelegatedRate || 0
+    const parentDiscountForValidation = parentAuth.ownProductMinDiscount ?? parentAuth.minDiscountRate ?? parentAuth.tierDiscountRate ?? 0
+    const parentCommissionForValidation = parentAuth.ownProductCommission ?? parentAuth.commissionRate ?? parentAuth.tierCommissionRate ?? 0
+    const derivedParentDelegatedRate = Math.max(0, Number(parentDiscountForValidation) - Number(parentCommissionForValidation))
+    const parentDelegatedRate = (parentAuth.tierDelegatedRate && parentAuth.tierDelegatedRate > 0)
+      ? parentAuth.tierDelegatedRate
+      : derivedParentDelegatedRate
+
     if (tierDiscountRate > parentDelegatedRate) {
       return res.status(400).json({ 
         success: false, 
@@ -3702,11 +3708,20 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     // 如果有父级，验证折扣率不超过父级下放率
     if (auth.parentAuthorizationId) {
       const parentAuth = await Authorization.findById(auth.parentAuthorizationId)
-      if (parentAuth && tierDiscountRate > (parentAuth.tierDelegatedRate || 0)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: `折扣率不能超过上级下放的 ${parentAuth.tierDelegatedRate}%` 
-        })
+      if (parentAuth) {
+        const parentDiscountForValidation = parentAuth.ownProductMinDiscount ?? parentAuth.minDiscountRate ?? parentAuth.tierDiscountRate ?? 0
+        const parentCommissionForValidation = parentAuth.ownProductCommission ?? parentAuth.commissionRate ?? parentAuth.tierCommissionRate ?? 0
+        const derivedParentDelegatedRate = Math.max(0, Number(parentDiscountForValidation) - Number(parentCommissionForValidation))
+        const parentDelegatedRate = (parentAuth.tierDelegatedRate && parentAuth.tierDelegatedRate > 0)
+          ? parentAuth.tierDelegatedRate
+          : derivedParentDelegatedRate
+
+        if (tierDiscountRate > parentDelegatedRate) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `折扣率不能超过上级下放的 ${parentDelegatedRate}%` 
+          })
+        }
       }
     }
 

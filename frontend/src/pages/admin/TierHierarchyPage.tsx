@@ -601,7 +601,11 @@ export default function TierHierarchyPage() {
 
     const derivedDelegatedRate = parent.tierDelegatedRate > 0
       ? parent.tierDelegatedRate
-      : Math.max(0, Number(parent.tierDiscountRate || 0) - Number(parent.tierCommissionRate || 0))
+      : Math.max(
+          0,
+          Number(parent.ownProductMinDiscount ?? parent.tierDiscountRate ?? 0) -
+            Number(parent.ownProductCommission ?? parent.tierCommissionRate ?? 0)
+        )
     
     if (derivedDelegatedRate <= 0) {
       toast.error('此节点未设置下放率，无法添加下级')
@@ -620,7 +624,11 @@ export default function TierHierarchyPage() {
     if (parent) {
       const derivedDelegatedRate = parent.tierDelegatedRate > 0
         ? parent.tierDelegatedRate
-        : Math.max(0, Number(parent.tierDiscountRate || 0) - Number(parent.tierCommissionRate || 0))
+        : Math.max(
+            0,
+            Number(parent.ownProductMinDiscount ?? parent.tierDiscountRate ?? 0) -
+              Number(parent.ownProductCommission ?? parent.tierCommissionRate ?? 0)
+          )
       setParentNodeForAdd({ ...parent, tierDelegatedRate: derivedDelegatedRate })
     } else {
       setParentNodeForAdd(parent)
