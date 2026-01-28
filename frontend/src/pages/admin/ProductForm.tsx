@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, X, Trash2, Upload, FileSpreadsheet, RefreshCw, ChevronDown, ChevronRight, Edit2, FolderTree, Palette } from 'lucide-react'
+import { ArrowLeft, Plus, X, Trash2, Upload, FileSpreadsheet, RefreshCw, ChevronDown, ChevronRight, Edit2, FolderTree } from 'lucide-react'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
 import ImageUploader from '@/components/admin/ImageUploader'
@@ -141,6 +141,7 @@ export default function ProductForm() {
         // 面料选择（单选，关联materialsGroups中的材质）
         fabricMaterialId: '' as string, // 关联的材质分组ID
         fabricName: '' as string, // 面料名称（如：纳帕皮A+黑色）
+        fabricImage: '' as string, // 面料缩略图（材质库图片）
         // 其他材质描述（文字+图片）
         otherMaterials: '' as string, // 其他材质文字描述（如：蛇形弹簧+45D海绵+不锈钢支撑脚）
         otherMaterialsImage: '' as string, // 其他材质图片
@@ -341,6 +342,7 @@ export default function ProductForm() {
               // 面料选择
               fabricMaterialId: (sku as any).fabricMaterialId || '',
               fabricName: (sku as any).fabricName || '',
+              fabricImage: (sku as any).fabricImage || '',
               // 其他材质
               otherMaterials: (sku as any).otherMaterials || '',
               otherMaterialsImage: (sku as any).otherMaterialsImage || '',
@@ -470,6 +472,7 @@ export default function ProductForm() {
         if (materialType === 'fabric') {
           newSkus[selectingMaterialForSkuIndex].fabricName = material.name
           newSkus[selectingMaterialForSkuIndex].fabricMaterialId = material._id || material.id || ''
+          newSkus[selectingMaterialForSkuIndex].fabricImage = (material as any).image || ((material as any).images?.[0] || '')
           console.log('🔥 [面料选择] 设置SKU面料:', material.name)
           // 关闭弹窗
           setShowMaterialSelectModal(false)
@@ -585,6 +588,7 @@ export default function ProductForm() {
     if (categoryKey === 'fabric') {
       newSkus[skuIndex].fabricName = ''
       newSkus[skuIndex].fabricMaterialId = ''
+      newSkus[skuIndex].fabricImage = ''
     }
     setFormData({ ...formData, skus: newSkus })
     toast.success(`已移除材质类目：${getMaterialCategoryName(categoryKey)}`)
@@ -819,6 +823,7 @@ export default function ProductForm() {
           // 面料选择（单选）
           fabricMaterialId: sku.fabricMaterialId || '',
           fabricName: sku.fabricName || '',
+          fabricImage: (sku as any).fabricImage || '',
           // 其他材质（文字+图片）
           otherMaterials: sku.otherMaterials || '',
           otherMaterialsImage: sku.otherMaterialsImage || '',
@@ -998,6 +1003,7 @@ export default function ProductForm() {
           packageCount: 1,
           fabricMaterialId: '',
           fabricName: '',
+          fabricImage: '',
           otherMaterials: '',
           otherMaterialsImage: '',
           material: createEmptyMaterialSelection(),
@@ -1110,6 +1116,7 @@ export default function ProductForm() {
             packageCount: 1,
             fabricMaterialId: matConfig.fabricId,
             fabricName: matConfig.fabricName,
+            fabricImage: (matConfig.images && matConfig.images.length > 0) ? matConfig.images[0] : '',
             otherMaterials: formData.otherMaterialsText, // 使用统一的其他材质
             otherMaterialsImage: '',
             material: createEmptyMaterialSelection(),
@@ -1151,6 +1158,7 @@ export default function ProductForm() {
           packageCount: 1,
           fabricMaterialId: '',
           fabricName: '',
+          fabricImage: '',
           otherMaterials: formData.otherMaterialsText,
           otherMaterialsImage: '',
           material: createEmptyMaterialSelection(),
@@ -1366,6 +1374,7 @@ export default function ProductForm() {
             packageCount: packageCount,
             fabricMaterialId: '',
             fabricName: '',
+            fabricImage: '',
             otherMaterials: materialDescription,
             otherMaterialsImage: '',
             material: material,
@@ -2375,7 +2384,23 @@ export default function ProductForm() {
                                     }}
                                     className={`text-xs px-2 py-1 rounded ${colorStyle.bg} ${colorStyle.text} hover:opacity-80`}
                                   >
-                                    {getMaterialCategoryName(catKey)}: {materials.length > 0 ? materials.join(', ') : '未选'}
+                                    {catKey === 'fabric' ? (
+                                      <span className="inline-flex items-center gap-1">
+                                        <span>{getMaterialCategoryName(catKey)}:</span>
+                                        {sku.fabricImage ? (
+                                          <img
+                                            src={getThumbnailUrl(sku.fabricImage, 40)}
+                                            alt={sku.fabricName}
+                                            className="w-4 h-4 rounded object-cover border border-white/50"
+                                          />
+                                        ) : null}
+                                        <span>{sku.fabricName || '未选'}</span>
+                                      </span>
+                                    ) : (
+                                      <span>
+                                        {getMaterialCategoryName(catKey)}: {materials.length > 0 ? materials.join(', ') : '未选'}
+                                      </span>
+                                    )}
                                   </button>
                                   <button
                                     type="button"
@@ -2629,17 +2654,6 @@ export default function ProductForm() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {/* 材质配置按钮 */}
-                        <button
-                          onClick={() => {
-                            setAddCategoryForSkuIndex(index)
-                            setShowAddCategoryModal(true)
-                          }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                          title="配置材质"
-                        >
-                          <Palette className="h-4 w-4" />
-                        </button>
                         <button
                           onClick={() => removeSKU(index)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
@@ -2648,28 +2662,6 @@ export default function ProductForm() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                      {/* 已配置的材质类目显示 */}
-                      {sku.materialCategories && sku.materialCategories.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {sku.materialCategories.map((catKey: string) => {
-                            const colorStyle = getMaterialCategoryColor(catKey)
-                            const materials = (sku.material as Record<string, string[]>)?.[catKey] || []
-                            return (
-                              <div key={catKey} className={`text-xs px-2 py-1 rounded ${colorStyle.bg} ${colorStyle.text}`}>
-                                <span className="font-medium">{getMaterialCategoryName(catKey)}</span>
-                                {materials.length > 0 && <span className="ml-1">({materials.length})</span>}
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveMaterialCategory(index, catKey)}
-                                  className="ml-1 hover:text-red-500"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
                     </td>
                   </tr>
                 ))}

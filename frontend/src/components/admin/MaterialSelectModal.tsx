@@ -101,6 +101,33 @@ export default function MaterialSelectModal({ onSelect, onBatchSelect, onClose, 
     }
   }
 
+  const getDescendantCategoryIds = (categoryList: MaterialCategory[], rootId: string): Set<string> => {
+    const ids = new Set<string>()
+    if (!rootId) return ids
+
+    const findNode = (cats: MaterialCategory[]): MaterialCategory | null => {
+      for (const cat of cats) {
+        if (cat._id === rootId) return cat
+        if (cat.children && cat.children.length > 0) {
+          const found = findNode(cat.children)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    const collect = (node: MaterialCategory) => {
+      ids.add(node._id)
+      if (node.children && node.children.length > 0) {
+        node.children.forEach(collect)
+      }
+    }
+
+    const root = findNode(categoryList)
+    if (root) collect(root)
+    return ids
+  }
+
   // 获取材质所属的类别
   const getMaterialCategory = (materialName: string): string => {
     if (materialName.includes('普通皮')) return '普通皮'
@@ -216,8 +243,11 @@ export default function MaterialSelectModal({ onSelect, onBatchSelect, onClose, 
     if (material.isCategory) {
       return false
     }
-    if (selectedCategoryId && material.categoryId !== selectedCategoryId) {
-      return false
+    if (selectedCategoryId) {
+      const allowedCategoryIds = getDescendantCategoryIds(categories, selectedCategoryId)
+      if (allowedCategoryIds.size > 0 && !allowedCategoryIds.has(material.categoryId)) {
+        return false
+      }
     }
     if (searchQuery && !material.name.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false
