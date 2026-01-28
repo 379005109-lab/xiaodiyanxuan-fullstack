@@ -347,11 +347,11 @@ function TierEditModal({
       return
     }
     if (formData.tierDiscountRate > maxDiscountRate) {
-      toast.error(`折扣率不能超过上级下放的 ${maxDiscountRate}%`)
+      toast.error(`折扣率不能超过上级返佣折扣上限 ${maxDiscountRate}%`)
       return
     }
     if (formData.tierDelegatedRate > formData.tierDiscountRate) {
-      toast.error('下放率不能超过折扣率')
+      toast.error('返佣折扣不能超过折扣率')
       return
     }
     onSave({
@@ -371,7 +371,7 @@ function TierEditModal({
           </h2>
           {parentNode && (
             <p className="text-sm text-gray-500 mt-1">
-              上级: {parentNode.tierDisplayName} (可分配: {parentNode.tierDelegatedRate}%)
+              上级: {parentNode.tierDisplayName} (返佣折扣上限: {parentNode.tierDelegatedRate}%)
             </p>
           )}
         </div>
@@ -442,10 +442,10 @@ function TierEditModal({
             </p>
           </div>
           
-          {/* 下放率 */}
+          {/* 返佣折扣 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              下放率 (最高 {formData.tierDiscountRate}%)
+              返佣折扣 (最高 {formData.tierDiscountRate}%)
             </label>
             <div className="flex items-center gap-3">
               <input
@@ -461,7 +461,7 @@ function TierEditModal({
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              下级可分配的空间，下级只能在此范围内再分配
+              下级可设置的返佣折扣上限，下级只能在此范围内再设置
             </p>
           </div>
           
@@ -471,7 +471,7 @@ function TierEditModal({
               <div>
                 <p className="text-sm text-gray-600">下级成交时的返佣</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  = 折扣率 - 下放率
+                  = 折扣率 - 返佣折扣
                 </p>
               </div>
               <div className="text-right">
@@ -608,7 +608,7 @@ export default function TierHierarchyPage() {
         )
     
     if (derivedDelegatedRate <= 0) {
-      toast.error('此节点未设置下放率，无法添加下级')
+      toast.error('此节点未设置返佣折扣，无法添加下级')
       return
     }
     

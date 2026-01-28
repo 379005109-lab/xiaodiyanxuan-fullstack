@@ -3622,7 +3622,7 @@ router.post('/tier-node', auth, async (req, res) => {
     if (tierDiscountRate > parentDelegatedRate) {
       return res.status(400).json({ 
         success: false, 
-        message: `折扣率不能超过上级下放的 ${parentDelegatedRate}%` 
+        message: `折扣率不能超过上级返佣折扣上限 ${parentDelegatedRate}%` 
       })
     }
 
@@ -3719,7 +3719,7 @@ router.put('/tier-node/:id', auth, async (req, res) => {
         if (tierDiscountRate > parentDelegatedRate) {
           return res.status(400).json({ 
             success: false, 
-            message: `折扣率不能超过上级下放的 ${parentDelegatedRate}%` 
+            message: `折扣率不能超过上级返佣折扣上限 ${parentDelegatedRate}%` 
           })
         }
       }
