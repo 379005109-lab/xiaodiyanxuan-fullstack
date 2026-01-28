@@ -555,13 +555,6 @@ export default function ProductForm() {
   // 添加材质类目并直接打开材质选择弹窗
   const handleAddMaterialCategory = (skuIndex: number, categoryKey: string) => {
     console.log('🔥 [添加材质类目] SKU索引:', skuIndex, '类目:', categoryKey)
-
-    if (isEnterpriseAdmin) {
-      toast.error('当前账号无权限配置材质，请联系管理员授权')
-      setShowAddCategoryModal(false)
-      setAddCategoryForSkuIndex(-1)
-      return
-    }
     
     const newSkus = [...formData.skus]
     if (!newSkus[skuIndex].materialCategories.includes(categoryKey)) {
@@ -588,6 +581,11 @@ export default function ProductForm() {
     newSkus[skuIndex].materialCategories = newSkus[skuIndex].materialCategories.filter(cat => cat !== categoryKey)
     // 同时删除该类目下的材质数据
     delete newSkus[skuIndex].material[categoryKey]
+    // 移除面料类目时，同步清空面料单选字段
+    if (categoryKey === 'fabric') {
+      newSkus[skuIndex].fabricName = ''
+      newSkus[skuIndex].fabricMaterialId = ''
+    }
     setFormData({ ...formData, skus: newSkus })
     toast.success(`已移除材质类目：${getMaterialCategoryName(categoryKey)}`)
   }
@@ -1738,8 +1736,12 @@ export default function ProductForm() {
                       if (file) {
                         try {
                           const result = await uploadFile(file)
-                          setFormData({ ...formData, seriesImage: result.url })
-                          toast.success('系列图片上传成功')
+                          if (result.success && result.data?.fileId) {
+                            setFormData({ ...formData, seriesImage: result.data.fileId })
+                            toast.success('系列图片上传成功')
+                          } else {
+                            toast.error('上传失败')
+                          }
                         } catch (error) {
                           toast.error('上传失败')
                         }
@@ -1791,8 +1793,12 @@ export default function ProductForm() {
                             if (file) {
                               try {
                                 const result = await uploadFile(file)
-                                setNewSeriesImage(result.url)
-                                toast.success('图片上传成功')
+                                if (result.success && result.data?.fileId) {
+                                  setNewSeriesImage(result.data.fileId)
+                                  toast.success('图片上传成功')
+                                } else {
+                                  toast.error('上传失败')
+                                }
                               } catch (error) {
                                 toast.error('上传失败')
                               }
@@ -1841,11 +1847,15 @@ export default function ProductForm() {
                                     if (file) {
                                       try {
                                         const result = await uploadFile(file)
-                                        const updatedList = seriesList.map(item => 
-                                          item.id === s.id ? { ...item, image: result.url } : item
-                                        )
-                                        saveSeriesList(updatedList)
-                                        toast.success('图片更新成功')
+                                        if (result.success && result.data?.fileId) {
+                                          const updatedList = seriesList.map(item => 
+                                            item.id === s.id ? { ...item, image: result.data.fileId } : item
+                                          )
+                                          saveSeriesList(updatedList)
+                                          toast.success('图片更新成功')
+                                        } else {
+                                          toast.error('上传失败')
+                                        }
                                       } catch (error) {
                                         toast.error('上传失败')
                                       }
@@ -2188,6 +2198,7 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">型号</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">尺寸(长×宽×高)</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[180px]">材质面料</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">折扣价(元)</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[140px]">库存/发货</th>
@@ -2340,6 +2351,58 @@ export default function ProductForm() {
                           className="w-14 px-1 py-1 border border-gray-300 rounded text-center text-sm"
                           placeholder="高"
                         />
+                      </div>
+                    </td>
+                    {/* 材质面料列 */}
+                    <td className="py-3 px-4">
+                      <div className="space-y-1">
+                        {/* 已配置的材质类目 */}
+                        {sku.materialCategories && sku.materialCategories.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {sku.materialCategories.map((catKey: string) => {
+                              const colorStyle = getMaterialCategoryColor(catKey)
+                              const materials = catKey === 'fabric'
+                                ? (sku.fabricName ? [sku.fabricName] : [])
+                                : ((sku.material as Record<string, string[]>)?.[catKey] || [])
+                              return (
+                                <div key={catKey} className="group relative">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectingMaterialForSkuIndex(index)
+                                      setSelectingMaterialType(catKey)
+                                      setShowMaterialSelectModal(true)
+                                    }}
+                                    className={`text-xs px-2 py-1 rounded ${colorStyle.bg} ${colorStyle.text} hover:opacity-80`}
+                                  >
+                                    {getMaterialCategoryName(catKey)}: {materials.length > 0 ? materials.join(', ') : '未选'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveMaterialCategory(index, catKey)}
+                                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">未配置</span>
+                        )}
+                        {/* 添加材质类目按钮 */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddCategoryForSkuIndex(index)
+                            setShowAddCategoryModal(true)
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          添加材质
+                        </button>
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -3006,15 +3069,20 @@ export default function ProductForm() {
       {/* 材质选择模态框 */}
       {showMaterialSelectModal && (selectingMaterialForSkuIndex >= 0 || selectingMaterialForSkuIndex === -2) && (
         <MaterialSelectModal
-          multiple={selectingMaterialForSkuIndex !== -2}
+          multiple={selectingMaterialForSkuIndex !== -2 && selectingMaterialType !== 'fabric'}
           materialType={selectingMaterialType}
           skuIsPro={selectingMaterialForSkuIndex >= 0 ? (formData.skus[selectingMaterialForSkuIndex]?.isPro || false) : false}
           selectedMaterials={(() => {
             if (selectingMaterialForSkuIndex === -2) return [] // 添加材质配置时不需要已选列表
             const sku = formData.skus[selectingMaterialForSkuIndex]
             if (!sku) return []
-            const materialObj = sku.material || {}
-            const materialList = materialObj[selectingMaterialType] || []
+            // 面料：单选字段回显
+            if (selectingMaterialType === 'fabric') {
+              return sku.fabricName ? [sku.fabricName] : []
+            }
+            // 其他材质：从 material 对象回显，防止 material 为 string 时读取报错
+            const materialObj = sku.material && typeof sku.material === 'object' ? (sku.material as any) : {}
+            const materialList = materialObj?.[selectingMaterialType] || []
             return Array.isArray(materialList) ? materialList : (materialList ? [materialList] : [])
           })()}
           materialUpgradePrices={(() => {
