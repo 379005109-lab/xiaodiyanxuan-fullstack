@@ -50,6 +50,32 @@ const getMaterialCategoryColor = (categoryKey: string): { bg: string; text: stri
 
 const createEmptyMaterialSelection = (): MaterialSelection => ({})
 
+const pickMediaId = (v: any): string => {
+  if (!v) return ''
+  if (typeof v === 'string' || typeof v === 'number') return String(v)
+  if (Array.isArray(v)) return pickMediaId(v[0])
+  if (typeof v === 'object') {
+    return String(
+      (v as any).fileId ||
+        (v as any).id ||
+        (v as any)._id ||
+        (v as any).url ||
+        (v as any).path ||
+        (v as any).image ||
+        (v as any).thumbnail ||
+        ''
+    )
+  }
+  return ''
+}
+
+const normalizeFileId = (v: any): string => {
+  const raw = pickMediaId(v)
+  if (!raw) return ''
+  if (raw.startsWith('/api/files/')) return raw.replace('/api/files/', '').split('?')[0]
+  return raw
+}
+
 
 export default function ProductForm() {
   const navigate = useNavigate()
@@ -234,6 +260,23 @@ export default function ProductForm() {
     })
   }, [normalizedProductCode, skuCount])
 
+  useEffect(() => {
+    const opts = formData.materialDescriptionOptions || []
+    if (opts.length !== 1) return
+    const onlyId = opts[0]?.id
+    if (!onlyId) return
+    setFormData(prev => {
+      let changed = false
+      const nextSkus = (prev.skus || []).map((sku: any) => {
+        if (sku.materialDescriptionId) return sku
+        changed = true
+        return { ...sku, materialDescriptionId: onlyId }
+      })
+      if (!changed) return prev
+      return { ...prev, skus: nextSkus }
+    })
+  }, [formData.materialDescriptionOptions])
+
   // 如果是编辑模式，加载商品数据
   useEffect(() => {
     const loadProduct = async () => {
@@ -319,20 +362,27 @@ export default function ProductForm() {
             }
             
             const material = parseMaterial()
-            // 从材质数据中提取已配置的类目列表
-            const materialCategories = (sku as any).materialCategories || Object.keys(material).filter(key => material[key]?.length > 0)
+            const fabricName = String((sku as any).fabricName || '')
+            const fabricMaterialId = String((sku as any).fabricMaterialId || '')
+            const fabricImage = normalizeFileId((sku as any).fabricImage || '')
+
+            const baseMaterialCategories = (sku as any).materialCategories || Object.keys(material).filter(key => material[key]?.length > 0)
+            const materialCategories = Array.from(new Set([
+              ...baseMaterialCategories,
+              ...(fabricName || fabricMaterialId || fabricImage ? ['fabric'] : [])
+            ]))
             
             return {
               id: sku._id,
-              videos: ((sku as any).videos || []).filter((v: string) => v && !v.startsWith('data:')),
-              images: (sku.images || []).filter((img: string) => {
-                if (img.startsWith('data:')) {
-                  console.warn(`SKU ${sku._id} 检测到旧Base64图片数据，已过滤`);
-                  return false;
-                }
-                return true;
-              }),
-              effectImages: ((sku as any).effectImages || []).filter((img: string) => !img.startsWith('data:')),
+              videos: (((sku as any).videos || []) as any[])
+                .map(normalizeFileId)
+                .filter((v: string) => v && !v.startsWith('data:')),
+              images: (((sku.images || []) as any[])
+                .map(normalizeFileId)
+                .filter((img: string) => img && !img.startsWith('data:'))),
+              effectImages: (((sku as any).effectImages || []) as any[])
+                .map(normalizeFileId)
+                .filter((img: string) => img && !img.startsWith('data:')),
               code: (sku as any).code || sku._id,
               spec: (sku as any).spec || sku.color || '',
               length: (sku as any).length || 0,
@@ -342,9 +392,9 @@ export default function ProductForm() {
               packageVolume: (sku as any).packageVolume || '',
               packageCount: (sku as any).packageCount || 1,
               // 面料选择
-              fabricMaterialId: (sku as any).fabricMaterialId || '',
-              fabricName: (sku as any).fabricName || '',
-              fabricImage: (sku as any).fabricImage || '',
+              fabricMaterialId,
+              fabricName,
+              fabricImage,
               materialDescriptionId: (sku as any).materialDescriptionId || '',
               // 其他材质
               otherMaterials: (sku as any).otherMaterials || '',
@@ -1139,7 +1189,7 @@ export default function ProductForm() {
             otherMaterials: formData.otherMaterialsText, // 使用统一的其他材质
             otherMaterialsImage: '',
             material: createEmptyMaterialSelection(),
-            materialCategories: [] as string[],
+            materialCategories: ['fabric'] as string[],
             materialUpgradePrices: {},
             price: (formData.basePrice || 0) + (matConfig.price || 0), // 基础价 + 材质加价
             discountPrice: 0,
@@ -2289,6 +2339,7 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">多媒体</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">型号</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[200px]">尺寸</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[180px]">材质面料</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[220px]">材质描述</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">销价(元)</th>
@@ -2352,11 +2403,11 @@ export default function ProductForm() {
                           <>
                             <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-gray-100">
                               {sku.videos?.length > 0 ? (
-                                <video src={getFileUrl(sku.videos[0])} className="w-full h-full object-cover" />
+                                <video src={getFileUrl(normalizeFileId(sku.videos[0]))} className="w-full h-full object-cover" />
                               ) : sku.images?.length > 0 ? (
-                                <img src={getThumbnailUrl(sku.images[0], 80)} alt="预览" className="w-full h-full object-cover" />
+                                <img src={getThumbnailUrl(normalizeFileId(sku.images[0]), 80)} alt="预览" className="w-full h-full object-cover" />
                               ) : (
-                                <img src={getThumbnailUrl(sku.effectImages[0], 80)} alt="预览" className="w-full h-full object-cover" />
+                                <img src={getThumbnailUrl(normalizeFileId(sku.effectImages[0]), 80)} alt="预览" className="w-full h-full object-cover" />
                               )}
                             </div>
                             <div className="flex flex-col text-left text-xs">
@@ -2475,7 +2526,7 @@ export default function ProductForm() {
                                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
                                           {sku.fabricImage ? (
                                             <img
-                                              src={getThumbnailUrl(sku.fabricImage, 160)}
+                                              src={getThumbnailUrl(normalizeFileId(sku.fabricImage), 160)}
                                               alt={sku.fabricName}
                                               className="w-full h-full object-cover"
                                             />
@@ -2525,27 +2576,39 @@ export default function ProductForm() {
 
                     <td className="py-3 px-4">
                       <div className="space-y-1">
-                        <select
-                          value={(sku as any).materialDescriptionId || ''}
-                          onChange={(e) => {
-                            const newSkus = [...formData.skus]
-                            ;(newSkus[index] as any).materialDescriptionId = e.target.value
-                            setFormData({ ...formData, skus: newSkus })
-                          }}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                        >
-                          <option value="">未选择</option>
-                          {(formData.materialDescriptionOptions || []).map((opt, i) => (
-                            <option key={opt.id} value={opt.id}>
-                              {`描述${i + 1}`}
-                            </option>
-                          ))}
-                        </select>
                         {(() => {
-                          const selected = (formData.materialDescriptionOptions || []).find(o => o.id === (sku as any).materialDescriptionId)
-                          if (!selected?.text) return null
+                          const options = formData.materialDescriptionOptions || []
+                          const selectedId = (sku as any).materialDescriptionId || (options.length === 1 ? options[0]?.id : '')
+                          const selected = options.find(o => o.id === selectedId)
+                          if (options.length <= 1) {
+                            if (!selected?.text) return <div className="text-xs text-gray-400">暂无</div>
+                            return <div className="text-xs text-gray-500 line-clamp-3">{selected.text}</div>
+                          }
                           return (
-                            <div className="text-xs text-gray-500 line-clamp-2">{selected.text}</div>
+                            <>
+                              <select
+                                value={selectedId}
+                                onChange={(e) => {
+                                  const newSkus = [...formData.skus]
+                                  ;(newSkus[index] as any).materialDescriptionId = e.target.value
+                                  setFormData({ ...formData, skus: newSkus })
+                                }}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                              >
+                                <option value="">未选择</option>
+                                {options.map((opt, i) => {
+                                  const label = (opt.text || '').trim().slice(0, 12)
+                                  return (
+                                    <option key={opt.id} value={opt.id}>
+                                      {label ? `${i + 1}. ${label}` : `描述${i + 1}`}
+                                    </option>
+                                  )
+                                })}
+                              </select>
+                              {selected?.text ? (
+                                <div className="text-xs text-gray-500 line-clamp-2">{selected.text}</div>
+                              ) : null}
+                            </>
                           )
                         })()}
                       </div>

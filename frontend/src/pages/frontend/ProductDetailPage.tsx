@@ -43,6 +43,32 @@ const getMaterialCategoryConfig = (key: string) => {
   };
 };
 
+const pickMediaId = (v: any): string => {
+  if (!v) return '';
+  if (typeof v === 'string' || typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return pickMediaId(v[0]);
+  if (typeof v === 'object') {
+    return String(
+      (v as any).fileId ||
+        (v as any).id ||
+        (v as any)._id ||
+        (v as any).url ||
+        (v as any).path ||
+        (v as any).image ||
+        (v as any).thumbnail ||
+        ''
+    );
+  }
+  return '';
+};
+
+const normalizeFileId = (v: any): string => {
+  const raw = pickMediaId(v);
+  if (!raw) return '';
+  if (raw.startsWith('/api/files/')) return raw.replace('/api/files/', '').split('?')[0];
+  return raw;
+};
+
 const SKU_FILTERS: { key: SkuFilter; label: string }[] = [
   { key: 'all', label: '全部款式' },
   { key: 'standard', label: '标准版' },
@@ -508,7 +534,8 @@ const ProductDetailPage = () => {
   const selectedMaterialDescriptionText = useMemo(() => {
     if (!product || !selectedSku) return '';
     const options = ((product as any).materialDescriptionOptions || []) as Array<{ id: string; text: string }>;
-    const id = (selectedSku as any).materialDescriptionId as string | undefined;
+    const idRaw = (selectedSku as any).materialDescriptionId as string | undefined;
+    const id = idRaw || (options.length === 1 ? options[0]?.id : '');
     if (!id) return '';
     const hit = options.find(o => o.id === id);
     return hit?.text || '';
@@ -531,6 +558,14 @@ const ProductDetailPage = () => {
     }
     return materialConfigs[0] || null;
   }, [materialConfigs, selectedMaterialConfigId]);
+
+  const resolveMaterialConfigIdForSku = (sku: any): string | null => {
+    if (!sku) return null;
+    const skuKey = String((sku as any).fabricMaterialId || '');
+    if (!skuKey) return null;
+    const match = materialConfigs.find(c => String(c.id) === skuKey || String((c as any).fabricId) === skuKey);
+    return match ? String(match.id) : null;
+  };
 
 
   // 获取选中的材质分组
@@ -693,10 +728,12 @@ const ProductDetailPage = () => {
   const currentMaterialSku = useMemo(() => {
     if (currentSpecSkus.length === 0) return null;
     if (selectedMaterialConfigId) {
-      return currentSpecSkus.find(sku => sku.fabricMaterialId === selectedMaterialConfigId) || currentSpecSkus[0];
+      const selectedConfig = materialConfigs.find(c => c.id === selectedMaterialConfigId) as any;
+      const keys = [selectedMaterialConfigId, selectedConfig?.fabricId].filter(Boolean).map(String);
+      return currentSpecSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || ''))) || currentSpecSkus[0];
     }
     return currentSpecSkus[0];
-  }, [currentSpecSkus, selectedMaterialConfigId]);
+  }, [currentSpecSkus, selectedMaterialConfigId, materialConfigs]);
 
   // 根据商品实际的SKU动态生成可用的筛选选项
   const availableFilters = useMemo(() => {
@@ -775,9 +812,10 @@ const ProductDetailPage = () => {
           // 同步材质配置选择与SKU
           // 如果有materialConfigs，根据初始SKU的fabricMaterialId选择对应的配置
           if (fetchedMaterialConfigs.length > 0 && initialSku?.fabricMaterialId) {
-            const matchingConfig = fetchedMaterialConfigs.find(c => c.id === initialSku.fabricMaterialId);
-            if (matchingConfig) {
-              setSelectedMaterialConfigId(matchingConfig.id);
+            const skuKey = String((initialSku as any).fabricMaterialId || '');
+            const matchingConfig = fetchedMaterialConfigs.find((c: any) => String(c.id) === skuKey || String(c.fabricId) === skuKey);
+            if (matchingConfig?.id) {
+              setSelectedMaterialConfigId(String(matchingConfig.id));
             }
           }
           
@@ -805,10 +843,9 @@ const ProductDetailPage = () => {
   useEffect(() => {
     if (!selectedSku) return;
     if (!Array.isArray(materialConfigs) || materialConfigs.length === 0) return;
-    const nextId = (selectedSku as any).fabricMaterialId as string | undefined;
-    if (!nextId) return;
-    if (materialConfigs.some(c => c.id === nextId)) {
-      setSelectedMaterialConfigId(nextId);
+    const resolved = resolveMaterialConfigIdForSku(selectedSku as any);
+    if (resolved) {
+      setSelectedMaterialConfigId(resolved);
     }
   }, [selectedSku, materialConfigs]);
 
@@ -1881,8 +1918,15 @@ const ProductDetailPage = () => {
                           <div className="flex flex-wrap gap-2">
                             {configs.map((config) => {
                         const isSelected = selectedMaterialConfigId === config.id || (!selectedMaterialConfigId && materialConfigs[0]?.id === config.id);
-                        const tileSku = (currentSpecSkus.find(sku => sku.fabricMaterialId === config.id) || filteredSkus.find(sku => sku.fabricMaterialId === config.id) || null) as any;
-                        const tileImage = tileSku?.fabricImage || config.images?.[0] || '';
+                        const keyA = String((config as any).id || '')
+                        const keyB = String((config as any).fabricId || '')
+                        const keys = [keyA, keyB].filter(Boolean)
+                        const tileSku = (
+                          currentSpecSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || ''))) ||
+                          filteredSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || ''))) ||
+                          null
+                        ) as any;
+                        const tileImage = normalizeFileId(tileSku?.fabricImage || config.images?.[0] || '');
                         const tileName = tileSku?.fabricName || config.fabricName;
                         return (
                           <button
@@ -1891,7 +1935,9 @@ const ProductDetailPage = () => {
                             onClick={() => {
                               setSelectedMaterialConfigId(config.id);
                               // 切换到对应材质的SKU
-                              const targetSku = currentSpecSkus.find(sku => sku.fabricMaterialId === config.id) || filteredSkus.find(sku => sku.fabricMaterialId === config.id);
+                              const targetSku =
+                                currentSpecSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || ''))) ||
+                                filteredSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || '')));
                               if (targetSku) {
                                 handleSkuChange(targetSku);
                               }
