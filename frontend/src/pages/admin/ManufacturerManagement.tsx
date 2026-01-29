@@ -1466,13 +1466,18 @@ export default function ManufacturerManagement() {
                               <button
                                 onClick={async () => {
                                   const authId = authInfo?.authorizationId
-                                  if (!authId) return
+                                  console.log('[Toggle] authId:', authId, 'item._id:', item._id, 'authInfo:', authInfo)
+                                  if (!authId) {
+                                    toast.error('授权ID缺失，请刷新页面')
+                                    return
+                                  }
                                   const newEnabled = authInfo?.isEnabled === false
                                   try {
                                     setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: newEnabled } }))
                                     await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: newEnabled })
                                     toast.success(newEnabled ? '已开启' : '已关闭')
                                   } catch (e: any) {
+                                    console.error('[Toggle] Error:', e)
                                     setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: !newEnabled } }))
                                     toast.error(e.response?.data?.message || '操作失败')
                                   }
@@ -1582,7 +1587,11 @@ export default function ManufacturerManagement() {
                               <button 
                                 onClick={async () => {
                                   const authId = authInfo?.authorizationId
-                                  if (!authId) return
+                                  console.log('[暂停/恢复合作] authId:', authId, 'item._id:', item._id, 'authInfo:', authInfo)
+                                  if (!authId) {
+                                    toast.error('授权ID缺失，请刷新页面')
+                                    return
+                                  }
                                   const newEnabled = authInfo?.isEnabled === false
                                   try {
                                     setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: newEnabled } }))
