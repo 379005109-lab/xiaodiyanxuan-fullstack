@@ -495,7 +495,7 @@ const listProducts = async (req, res) => {
       }
 
       const onlyAuthorized = req.query.onlyAuthorized === 'true'
-      // 不再显示无 manufacturerId 的商品，只显示：授权商品 + 自有商品 + 平台商品
+      // 严格模式：不再显示无 manufacturerId 的商品，只显示：授权商品 + 自有商品 + 平台商品
       const baseOr = isDesigner
         ? [
             { _id: { $in: Array.from(authorizedProductIds) } },
