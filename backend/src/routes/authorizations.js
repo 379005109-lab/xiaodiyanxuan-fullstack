@@ -3612,17 +3612,29 @@ router.post('/tier-node', auth, async (req, res) => {
     }
 
     // 验证折扣率不超过父级下放率
+    // 核心逻辑：上级的下放比例 = 本级的可用基础比例
     const parentDiscountForValidation = parentAuth.ownProductMinDiscount ?? parentAuth.minDiscountRate ?? parentAuth.tierDiscountRate ?? 0
     const parentCommissionForValidation = parentAuth.ownProductCommission ?? parentAuth.commissionRate ?? parentAuth.tierCommissionRate ?? 0
     const derivedParentDelegatedRate = Math.max(0, Number(parentDiscountForValidation) - Number(parentCommissionForValidation))
-    const parentDelegatedRate = (parentAuth.tierDelegatedRate && parentAuth.tierDelegatedRate > 0)
+    
+    // 优先使用明确设置的 tierDelegatedRate (即使是 0)，否则回退到推导值
+    const parentDelegatedRate = (parentAuth.tierDelegatedRate !== undefined && parentAuth.tierDelegatedRate !== null)
       ? parentAuth.tierDelegatedRate
       : derivedParentDelegatedRate
+
+    console.log('[TierNode] Create Validation - Check Parent Limit:', {
+      requestTierDiscount: tierDiscountRate,
+      parentId: parentAuthorizationId,
+      parentHasDelegatedRate: parentAuth.tierDelegatedRate !== undefined,
+      parentDirectDelegated: parentAuth.tierDelegatedRate,
+      derivedFallback: derivedParentDelegatedRate,
+      finalLimit: parentDelegatedRate
+    })
 
     if (tierDiscountRate > parentDelegatedRate) {
       return res.status(400).json({ 
         success: false, 
-        message: `折扣率不能超过上级返佣折扣上限 ${parentDelegatedRate}%` 
+        message: `折扣率不能超过上级返佣折扣上限 ${parentDelegatedRate}% (上级未设置足够的下放比例)` 
       })
     }
 
@@ -3712,9 +3724,17 @@ router.put('/tier-node/:id', auth, async (req, res) => {
         const parentDiscountForValidation = parentAuth.ownProductMinDiscount ?? parentAuth.minDiscountRate ?? parentAuth.tierDiscountRate ?? 0
         const parentCommissionForValidation = parentAuth.ownProductCommission ?? parentAuth.commissionRate ?? parentAuth.tierCommissionRate ?? 0
         const derivedParentDelegatedRate = Math.max(0, Number(parentDiscountForValidation) - Number(parentCommissionForValidation))
-        const parentDelegatedRate = (parentAuth.tierDelegatedRate && parentAuth.tierDelegatedRate > 0)
+        const parentDelegatedRate = (parentAuth.tierDelegatedRate !== undefined && parentAuth.tierDelegatedRate !== null)
           ? parentAuth.tierDelegatedRate
           : derivedParentDelegatedRate
+
+        console.log('[TierNode] Update Validation:', {
+          tierDiscountRate,
+          parentId: auth.parentAuthorizationId,
+          parentDirectDelegated: parentAuth.tierDelegatedRate,
+          derived: derivedParentDelegatedRate,
+          finalLimit: parentDelegatedRate
+        })
 
         if (tierDiscountRate > parentDelegatedRate) {
           return res.status(400).json({ 
