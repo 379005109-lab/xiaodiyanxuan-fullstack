@@ -384,8 +384,9 @@ const listProducts = async (req, res) => {
       })
     }
 
-    // 厂家/设计师：自有 + 已授权 + 平台自营
-    if (((user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') || user?.role === 'designer')) {
+    // 厂家/设计师/有厂家绑定的管理员：自有 + 已授权 + 平台自营
+    // 注意：即使是 admin/super_admin，如果绑定了厂家，也按厂家权限过滤
+    if ((user?.manufacturerId || user?.role === 'designer')) {
       const isDesigner = user?.role === 'designer'
       const authQuery = {
         status: 'active',

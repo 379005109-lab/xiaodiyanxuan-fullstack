@@ -540,14 +540,16 @@ const ProductDetailPage = () => {
 
   const selectedMaterialDescriptionText = useMemo(() => {
     if (!product || !selectedSku) return '';
-    const skuRefText = String((selectedSku as any).otherMaterials || '').trim();
-    if (skuRefText) return skuRefText;
+    // 优先显示当前选项的实时文本，而非 SKU 存储的历史数据
     const options = ((product as any).materialDescriptionOptions || []) as Array<{ id: string; text: string }>;
     const idRaw = (selectedSku as any).materialDescriptionId as string | undefined;
     const id = idRaw || (options.length === 1 ? options[0]?.id : '');
-    if (!id) return '';
-    const hit = options.find(o => o.id === id);
-    return hit?.text || '';
+    if (id) {
+      const hit = options.find(o => o.id === id);
+      if (hit?.text) return hit.text;
+    }
+    // 仅当没有匹配的选项时才回退到 SKU 的历史数据
+    return String((selectedSku as any).otherMaterials || '').trim();
   }, [product, selectedSku]);
 
   // 当前选中的材质配置ID

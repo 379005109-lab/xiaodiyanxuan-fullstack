@@ -2594,11 +2594,11 @@ export default function ProductForm() {
                           const options = formData.materialDescriptionOptions || []
                           const selectedId = (sku as any).materialDescriptionId || (options.length === 1 ? options[0]?.id : '')
                           const selected = options.find(o => o.id === selectedId)
-                          const skuRefText = String((sku as any).otherMaterials || '').trim()
+                          // 优先显示当前选项的实时文本，而非 SKU 存储的历史数据
+                          const currentOptionText = String(selected?.text || '').trim()
                           if (options.length <= 1) {
-                            const text = skuRefText || String(selected?.text || '').trim()
-                            if (!text) return <div className="text-xs text-gray-400">暂无</div>
-                            return <div className="text-xs text-gray-500 line-clamp-3">{text}</div>
+                            if (!currentOptionText) return <div className="text-xs text-gray-400">暂无</div>
+                            return <div className="text-xs text-gray-500 line-clamp-3">{currentOptionText}</div>
                           }
                           return (
                             <>
@@ -2621,8 +2621,8 @@ export default function ProductForm() {
                                   )
                                 })}
                               </select>
-                              {(skuRefText || selected?.text) ? (
-                                <div className="text-xs text-gray-500 line-clamp-2">{skuRefText || selected?.text}</div>
+                              {currentOptionText ? (
+                                <div className="text-xs text-gray-500 line-clamp-2">{currentOptionText}</div>
                               ) : null}
                             </>
                           )
