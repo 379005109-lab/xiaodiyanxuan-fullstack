@@ -495,13 +495,12 @@ const listProducts = async (req, res) => {
       }
 
       const onlyAuthorized = req.query.onlyAuthorized === 'true'
+      // 不再显示无 manufacturerId 的商品，只显示：授权商品 + 自有商品 + 平台商品
       const baseOr = isDesigner
         ? [
             { _id: { $in: Array.from(authorizedProductIds) } },
             { manufacturerId: platformManufacturerId },
             { 'skus.manufacturerId': platformManufacturerId },
-            { manufacturerId: { $exists: false } },
-            { manufacturerId: null },
           ]
         : [
             { _id: { $in: Array.from(authorizedProductIds) } },
@@ -509,8 +508,6 @@ const listProducts = async (req, res) => {
             { 'skus.manufacturerId': user.manufacturerId },
             { manufacturerId: platformManufacturerId },
             { 'skus.manufacturerId': platformManufacturerId },
-            { manufacturerId: { $exists: false } },
-            { manufacturerId: null },
           ]
 
       const accessQuery = onlyAuthorized
@@ -610,13 +607,12 @@ const listProducts = async (req, res) => {
 
     const allowedManufacturerIds = Array.from(new Set([platformManufacturerId, ...cooperatedManufacturerIds]))
 
+    // 不再显示无 manufacturerId 的商品，只显示平台自营 + 已启用合作厂家的商品
     const accessQuery = {
       status: 'active',
       $or: [
         { manufacturerId: { $in: allowedManufacturerIds } },
         { 'skus.manufacturerId': { $in: allowedManufacturerIds } },
-        { manufacturerId: { $exists: false } },
-        { manufacturerId: null }
       ]
     }
 
