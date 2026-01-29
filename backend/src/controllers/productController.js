@@ -357,9 +357,35 @@ const listProducts = async (req, res) => {
     const { page = 1, pageSize = 10000, search, categoryId, styleId, sortBy } = req.query
 
     const user = req.user
-    if (
-      ((user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') || user?.role === 'designer')
-    ) {
+    const platformManufacturerId = '6948fca5630729ca224ec425'
+
+    // 统一分类映射
+    const Category = require('../models/Category')
+    const allCategories = await Category.find({}).lean()
+    const categoryMap = new Map()
+    allCategories.forEach(cat => {
+      categoryMap.set(cat._id.toString(), cat.name)
+      if (cat.slug) categoryMap.set(cat.slug, cat.name)
+    })
+
+    const attachCategoryName = (items) => {
+      return (items || []).map(p => {
+        let categoryName = ''
+        if (p?.category) {
+          if (typeof p.category === 'object' && p.category.name) {
+            categoryName = p.category.name
+          } else if (typeof p.category === 'string') {
+            categoryName = categoryMap.get(p.category) || p.category
+          } else if (p.category._id) {
+            categoryName = categoryMap.get(p.category._id.toString()) || ''
+          }
+        }
+        return { ...p, categoryName }
+      })
+    }
+
+    // 厂家/设计师：自有 + 已授权 + 平台自营
+    if (((user?.manufacturerId && user.role !== 'super_admin' && user.role !== 'admin') || user?.role === 'designer')) {
       const isDesigner = user?.role === 'designer'
       const authQuery = {
         status: 'active',
@@ -379,23 +405,18 @@ const listProducts = async (req, res) => {
       const authorizedProductIds = new Set()
       const authByProduct = new Map()
       const hiddenProductIds = new Set()
-      const productOverridesMap = new Map() // 存储商品覆盖设置
+      const productOverridesMap = new Map()
 
       for (const auth of authorizations) {
-        // 过滤关闭的授权
-        if (auth.isEnabled === false) {
-          continue
-        }
-        
-        // 收集隐藏的商品和覆盖设置
+        if (auth.isEnabled === false) continue
+
         if (auth.productOverrides) {
           for (const [productId, override] of Object.entries(auth.productOverrides)) {
             productOverridesMap.set(productId, override)
-            if (override.hidden === true) {
-              hiddenProductIds.add(productId)
-            }
+            if (override.hidden === true) hiddenProductIds.add(productId)
           }
         }
+
         if (auth.scope === 'all') {
           const manufacturerOid = auth.fromManufacturer
           const products = await Product.find({
@@ -419,9 +440,7 @@ const listProducts = async (req, res) => {
                   { 'skus.manufacturerId': manufacturerOid },
                 ],
               },
-              {
-                status: 'active',
-              },
+              { status: 'active' },
               {
                 $or: [
                   { category: { $in: auth.categories || [] } },
@@ -451,9 +470,7 @@ const listProducts = async (req, res) => {
                     { 'skus.manufacturerId': manufacturerOid },
                   ],
                 },
-                {
-                  status: 'active',
-                },
+                { status: 'active' },
                 {
                   $or: [
                     { category: { $in: auth.categories || [] } },
@@ -476,36 +493,32 @@ const listProducts = async (req, res) => {
         }
       }
 
-      const platformManufacturerId = '6948fca5630729ca224ec425'
       const onlyAuthorized = req.query.onlyAuthorized === 'true'
-      
-      const accessQuery = isDesigner
-        ? (
-            onlyAuthorized
-              ? { _id: { $in: Array.from(authorizedProductIds) }, status: 'active' }
-              : {
-                  $or: [
-                    { _id: { $in: Array.from(authorizedProductIds) } },
-                    { $or: [
-                      { manufacturerId: platformManufacturerId },
-                      { 'skus.manufacturerId': platformManufacturerId },
-                      { manufacturerId: { $exists: false } },
-                      { manufacturerId: null }
-                    ] }
-                  ],
-                  status: 'active'
-                }
-          )
-        : {
-            status: 'active'
-          }
+      const baseOr = isDesigner
+        ? [
+            { _id: { $in: Array.from(authorizedProductIds) } },
+            { manufacturerId: platformManufacturerId },
+            { 'skus.manufacturerId': platformManufacturerId },
+            { manufacturerId: { $exists: false } },
+            { manufacturerId: null },
+          ]
+        : [
+            { _id: { $in: Array.from(authorizedProductIds) } },
+            { manufacturerId: user.manufacturerId },
+            { 'skus.manufacturerId': user.manufacturerId },
+            { manufacturerId: platformManufacturerId },
+            { 'skus.manufacturerId': platformManufacturerId },
+            { manufacturerId: { $exists: false } },
+            { manufacturerId: null },
+          ]
 
-      if (search) {
-        accessQuery.$text = { $search: search }
-      }
+      const accessQuery = onlyAuthorized
+        ? { _id: { $in: Array.from(authorizedProductIds) }, status: 'active' }
+        : { $or: baseOr, status: 'active' }
+
+      if (search) accessQuery.$text = { $search: search }
 
       if (categoryId) {
-        // 分类过滤条件
         const categoryFilter = {
           $or: [
             { 'category.id': categoryId },
@@ -513,40 +526,10 @@ const listProducts = async (req, res) => {
             { category: categoryId },
           ]
         }
-        
-        if (isDesigner) {
-          if (onlyAuthorized) {
-            accessQuery.$and = [
-              { _id: { $in: Array.from(authorizedProductIds) } },
-              categoryFilter
-            ]
-          } else {
-            accessQuery.$and = [
-              {
-                $or: [
-                  { _id: { $in: Array.from(authorizedProductIds) } },
-                  { manufacturerId: platformManufacturerId },
-                  { 'skus.manufacturerId': platformManufacturerId },
-                  { manufacturerId: { $exists: false } },
-                  { manufacturerId: null }
-                ]
-              },
-              categoryFilter
-            ]
-            delete accessQuery.$or
-          }
-        } else {
-          // 厂家账号：显示所有active商品 + 分类过滤
-          accessQuery.$and = [
-            { status: 'active' },
-            categoryFilter
-          ]
-        }
+        accessQuery.$and = [categoryFilter]
       }
 
-      if (styleId) {
-        accessQuery['style.id'] = styleId
-      }
+      if (styleId) accessQuery['style.id'] = styleId
 
       const total = await Product.countDocuments(accessQuery)
       const products = await Product.find(accessQuery)
@@ -566,105 +549,102 @@ const listProducts = async (req, res) => {
         : []
       const manufacturerById = new Map((manufacturerDocs || []).map((m) => [String(m._id), m]))
 
-      // 在管理页面显示所有商品（包括隐藏的），在商城展示时过滤隐藏商品
       const includeHidden = req.query.includeHidden === 'true'
       const shaped = products
         .filter(p => includeHidden || !hiddenProductIds.has(p._id.toString()))
         .map(p => {
-        const ownerManufacturerId = getProductOwnerManufacturerId(p)
-        const tierDocRaw = ownerManufacturerId ? tierByOwnerId.get(ownerManufacturerId) : null
-        const auth = authByProduct.get(p._id.toString())
-        const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
-        const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth }) || computeAuthorizationPricingFallback({ product: p, auth })
-        
-        // 获取商品覆盖设置
-        const productIdStr = p._id.toString()
-        const override = productOverridesMap.get(productIdStr)
-        const overrideFields = {}
-        if (override) {
-          if (override.price !== undefined) overrideFields.overridePrice = override.price
-          if (override.hidden !== undefined) overrideFields.isHidden = override.hidden
-        }
+          const ownerManufacturerId = getProductOwnerManufacturerId(p)
+          const tierDocRaw = ownerManufacturerId ? tierByOwnerId.get(ownerManufacturerId) : null
+          const auth = authByProduct.get(p._id.toString())
+          const tierDoc = resolveTierDocForAuth(tierDocRaw, auth)
+          const tierPricing = computeTierPricing({ tierDoc, user, product: p, auth }) || computeAuthorizationPricingFallback({ product: p, auth })
 
-        const manufacturerDoc = ownerManufacturerId ? manufacturerById.get(ownerManufacturerId) : null
-        // 只要商品有厂家就显示厂家名，没有厂家的才显示平台
-        const manufacturerDisplayName = manufacturerDoc
-          ? (manufacturerDoc.fullName || manufacturerDoc.shortName || manufacturerDoc.name || '未知厂家')
-          : '小迪严选（平台）'
+          const productIdStr = p._id.toString()
+          const override = productOverridesMap.get(productIdStr)
+          const overrideFields = {}
+          if (override) {
+            if (override.price !== undefined) overrideFields.overridePrice = override.price
+            if (override.hidden !== undefined) overrideFields.isHidden = override.hidden
+          }
 
-        if (!isDesigner && ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
-          return { ...p, manufacturerDisplayName, ...overrideFields, ...(tierPricing ? { tierPricing } : {}) }
-        }
-        if (!auth) {
-          return { ...sanitizeProductForAuthorizedViewer(p, 0, 0, false, tierPricing, manufacturerDisplayName), ...overrideFields }
-        }
+          const manufacturerDoc = ownerManufacturerId ? manufacturerById.get(ownerManufacturerId) : null
+          const manufacturerDisplayName = manufacturerDoc
+            ? (manufacturerDoc.fullName || manufacturerDoc.shortName || manufacturerDoc.name || '未知厂家')
+            : '小迪严选（平台）'
 
-        const takePrice = getAuthorizedTakePrice(auth, p)
-        const key = getAuthorizationViewerKey(user)
-        const labelPrice1 = (p.authorizedLabelPrices && key) ? (p.authorizedLabelPrices[key] || takePrice) : takePrice
+          if (!isDesigner && ownerManufacturerId && ownerManufacturerId === user.manufacturerId.toString()) {
+            return { ...p, manufacturerDisplayName, ...overrideFields, ...(tierPricing ? { tierPricing } : {}) }
+          }
+          if (!auth) {
+            return { ...sanitizeProductForAuthorizedViewer(p, 0, 0, false, tierPricing, manufacturerDisplayName), ...overrideFields }
+          }
 
-        const allow = allowCostPriceForUser(user)
-        return { ...sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1, allow, tierPricing, manufacturerDisplayName), ...overrideFields }
-      })
+          const takePrice = getAuthorizedTakePrice(auth, p)
+          const key = getAuthorizationViewerKey(user)
+          const labelPrice1 = (p.authorizedLabelPrices && key) ? (p.authorizedLabelPrices[key] || takePrice) : takePrice
+          const allow = allowCostPriceForUser(user)
 
-      return res.json(paginatedResponse(shaped, total, parseInt(page), parseInt(pageSize)))
+          return { ...sanitizeProductForAuthorizedViewer(p, takePrice, labelPrice1, allow, tierPricing, manufacturerDisplayName), ...overrideFields }
+        })
+
+      res.json(paginatedResponse(attachCategoryName(shaped), total, parseInt(page), parseInt(pageSize)))
+      return
     }
-    
-    const result = await getProducts({
-      page,
-      pageSize,
-      search,
-      categoryId,
-      styleId,
-      sortBy
-    })
-    
-    // 调试日志：检查返回的商品styles
-    const productsWithStyles = result.products.filter(p => p.styles && p.styles.length > 0)
-    console.log('🔥 [商品列表] 总商品数:', result.total)
-    console.log('🔥 [商品列表] 有styles的商品数:', productsWithStyles.length)
-    if (productsWithStyles.length > 0) {
-      console.log('🔥 [商品列表] 示例:', productsWithStyles.slice(0, 2).map(p => ({
-        name: p.name,
-        styles: p.styles
-      })))
+
+    // 平台/公开：仅平台自营 + 已合作厂家（授权有效且启用）
+    const coopAuthQuery = {
+      authorizationType: 'manufacturer',
+      toManufacturer: platformManufacturerId,
+      status: 'active',
+      isEnabled: { $ne: false },
+      $or: [
+        { validUntil: { $exists: false } },
+        { validUntil: { $gt: new Date() } }
+      ]
     }
-    
-    const allow = allowCostPriceForUser(user)
-    const safeProducts = allow ? result.products : result.products.map(stripCostPriceFromProduct)
-    console.log('🔥 [listProducts] Total products:', result.total)
-    const testProduct = safeProducts.find(p => p.name?.includes('1213'))
-    if (testProduct) {
-      console.log('🔥 [listProducts] 1213 product materialConfigs count:', testProduct.materialConfigs?.length || 0)
-      console.log('🔥 [listProducts] 1213 product has materialConfigs:', 'materialConfigs' in testProduct)
-      console.log('🔥 [listProducts] 1213 product keys:', Object.keys(testProduct).filter(k => k.includes('material')))
+    const coopAuths = await Authorization.find(coopAuthQuery).select('fromManufacturer').lean()
+    const cooperatedManufacturerIds = Array.from(new Set((coopAuths || [])
+      .map(a => (a?.fromManufacturer ? a.fromManufacturer.toString() : ''))
+      .filter(Boolean)))
+
+    const allowedManufacturerIds = Array.from(new Set([platformManufacturerId, ...cooperatedManufacturerIds]))
+
+    const accessQuery = {
+      status: 'active',
+      $or: [
+        { manufacturerId: { $in: allowedManufacturerIds } },
+        { 'skus.manufacturerId': { $in: allowedManufacturerIds } },
+        { manufacturerId: { $exists: false } },
+        { manufacturerId: null }
+      ]
     }
-    
-    // 获取分类映射，将分类ID转换为分类名称
-    const Category = require('../models/Category')
-    const allCategories = await Category.find({}).lean()
-    const categoryMap = new Map()
-    allCategories.forEach(cat => {
-      categoryMap.set(cat._id.toString(), cat.name)
-      if (cat.slug) categoryMap.set(cat.slug, cat.name)
-    })
-    
-    // 为每个商品添加分类名称
-    const productsWithCategoryName = safeProducts.map(p => {
-      let categoryName = ''
-      if (p.category) {
-        if (typeof p.category === 'object' && p.category.name) {
-          categoryName = p.category.name
-        } else if (typeof p.category === 'string') {
-          categoryName = categoryMap.get(p.category) || p.category
-        } else if (p.category._id) {
-          categoryName = categoryMap.get(p.category._id.toString()) || ''
-        }
+
+    if (search) accessQuery.$text = { $search: search }
+
+    if (categoryId) {
+      const categoryFilter = {
+        $or: [
+          { 'category.id': categoryId },
+          { 'category._id': categoryId },
+          { category: categoryId },
+        ]
       }
-      return { ...p, categoryName }
-    })
-    
-    res.json(paginatedResponse(productsWithCategoryName, result.total, result.page, result.pageSize))
+      accessQuery.$and = [categoryFilter]
+    }
+
+    if (styleId) accessQuery['style.id'] = styleId
+
+    const total = await Product.countDocuments(accessQuery)
+    const products = await Product.find(accessQuery)
+      .sort(sortBy || 'order -createdAt')
+      .skip((parseInt(page) - 1) * parseInt(pageSize))
+      .limit(parseInt(pageSize))
+      .lean()
+
+    const allow = allowCostPriceForUser(user)
+    const safeProducts = allow ? products : products.map(stripCostPriceFromProduct)
+
+    res.json(paginatedResponse(attachCategoryName(safeProducts), total, parseInt(page), parseInt(pageSize)))
   } catch (err) {
     console.error('List products error:', err)
     res.status(500).json(errorResponse(err.message, 500))

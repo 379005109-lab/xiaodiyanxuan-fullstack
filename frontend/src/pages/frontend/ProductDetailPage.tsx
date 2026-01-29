@@ -540,6 +540,8 @@ const ProductDetailPage = () => {
 
   const selectedMaterialDescriptionText = useMemo(() => {
     if (!product || !selectedSku) return '';
+    const skuRefText = String((selectedSku as any).otherMaterials || '').trim();
+    if (skuRefText) return skuRefText;
     const options = ((product as any).materialDescriptionOptions || []) as Array<{ id: string; text: string }>;
     const idRaw = (selectedSku as any).materialDescriptionId as string | undefined;
     const id = idRaw || (options.length === 1 ? options[0]?.id : '');
@@ -1664,7 +1666,7 @@ const ProductDetailPage = () => {
           <div className="flex flex-col min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
-                <p className="text-sm text-gray-400">产品系列</p>
+                <p className="text-sm text-gray-400">{(product as any).series || '产品系列'}</p>
                 <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
               </div>
               <div className="flex items-center gap-4 text-sm">

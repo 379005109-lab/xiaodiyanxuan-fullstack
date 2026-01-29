@@ -257,21 +257,16 @@ export default function ProductsPage() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      // 加载所有商品（移除数量限制）
-      const response = await getAllProducts({ pageSize: 50000 });
+      // 拉取足够多的商品供前端筛选/分页使用；后端已按“平台自营+合作商家”过滤
+      const response = await getAllProducts({ pageSize: 10000 });
       if (response.success && response.data) {
-        // 只显示上架的商品
-        const activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');
+        const list = (response.data || []) as Product[];
+        const activeProducts = list.filter((p: Product) => p.status !== 'inactive');
         setProducts(activeProducts);
-        console.log(`[商城] 共加载 ${activeProducts.length} 个商品`);
-        // 打印前3个商品的分类信息用于调试
-        activeProducts.slice(0, 3).forEach((p: any, i: number) => {
-          console.log(`[商城] 商品${i+1}:`, p.name, '分类:', p.category, '分类名:', p.categoryName);
-        });
-      } else {
-        setProducts([]);
+        console.log(`✅ 成功加载商品: ${activeProducts.length} 个`);
       }
     } catch (error) {
+      console.error('❌ 加载商品失败:', error);
       console.error('[ProductsPage] 加载商品失败:', error);
       toast.error('加载商品失败');
       setProducts([]);
@@ -1091,6 +1086,15 @@ export default function ProductsPage() {
                                   <h3 className={`font-semibold hover:text-primary-600 transition-colors line-clamp-1 ${viewMode === 'grid' ? 'text-lg mb-2' : 'text-sm'}`}>
                                     {product.name}
                                   </h3>
+                                  {(() => {
+                                    const series = String((product as any).series || (product as any).productSeries || '').trim()
+                                    if (!series) return null
+                                    return (
+                                      <div className={`text-xs text-gray-500 ${viewMode === 'grid' ? 'mb-2' : 'mt-1'}`}>
+                                        系列: {series}
+                                      </div>
+                                    )
+                                  })()}
                                   {viewMode === 'grid' && firstSku && ((firstSku as any).length || (firstSku as any).width || (firstSku as any).height) && (
                                     <div className="text-xs text-gray-500 mb-2">
                                       尺寸: {(firstSku as any).length || '-'}×{(firstSku as any).width || '-'}×{(firstSku as any).height || '-'} CM

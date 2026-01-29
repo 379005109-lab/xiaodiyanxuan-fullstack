@@ -874,6 +874,8 @@ export default function ProductForm() {
         category: formData.category || formData.categories[0] || '', // 主分类（兼容旧数据）
         categories: formData.categories, // 多选分类数组
         basePrice: formData.basePrice,
+        series: formData.series,
+        seriesImage: formData.seriesImage,
         styles: formData.styles, // 风格标签
         images: formData.mainImages,
         // 视频和文件
@@ -2592,9 +2594,11 @@ export default function ProductForm() {
                           const options = formData.materialDescriptionOptions || []
                           const selectedId = (sku as any).materialDescriptionId || (options.length === 1 ? options[0]?.id : '')
                           const selected = options.find(o => o.id === selectedId)
+                          const skuRefText = String((sku as any).otherMaterials || '').trim()
                           if (options.length <= 1) {
-                            if (!selected?.text) return <div className="text-xs text-gray-400">暂无</div>
-                            return <div className="text-xs text-gray-500 line-clamp-3">{selected.text}</div>
+                            const text = skuRefText || String(selected?.text || '').trim()
+                            if (!text) return <div className="text-xs text-gray-400">暂无</div>
+                            return <div className="text-xs text-gray-500 line-clamp-3">{text}</div>
                           }
                           return (
                             <>
@@ -2617,8 +2621,8 @@ export default function ProductForm() {
                                   )
                                 })}
                               </select>
-                              {selected?.text ? (
-                                <div className="text-xs text-gray-500 line-clamp-2">{selected.text}</div>
+                              {(skuRefText || selected?.text) ? (
+                                <div className="text-xs text-gray-500 line-clamp-2">{skuRefText || selected?.text}</div>
                               ) : null}
                             </>
                           )
