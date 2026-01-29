@@ -600,7 +600,8 @@ const listProducts = async (req, res) => {
         { validUntil: { $gt: new Date() } }
       ]
     }
-    const coopAuths = await Authorization.find(coopAuthQuery).select('fromManufacturer').lean()
+    const coopAuths = await Authorization.find(coopAuthQuery).select('fromManufacturer isEnabled status').lean()
+    console.log('[Product Filter] coopAuths details:', JSON.stringify(coopAuths.map(a => ({ from: a.fromManufacturer?.toString(), isEnabled: a.isEnabled, status: a.status }))))
     const cooperatedManufacturerIds = Array.from(new Set((coopAuths || [])
       .map(a => (a?.fromManufacturer ? a.fromManufacturer.toString() : ''))
       .filter(Boolean)))
