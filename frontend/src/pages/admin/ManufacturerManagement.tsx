@@ -153,7 +153,8 @@ export default function ManufacturerManagement() {
   const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
   const isManufacturerUser = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff' || (user as any)?.permissions?.canAccessAdmin === true
 
-  const isFactoryPortal = !!myManufacturerId && !isAdmin
+  // 有厂家绑定的用户（包括管理员）都显示厂家门户视图
+  const isFactoryPortal = !!myManufacturerId
 
   const canManageManufacturer = (manufacturerId: string) => {
     if (isAdmin) return true

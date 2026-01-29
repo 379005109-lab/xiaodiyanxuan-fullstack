@@ -741,32 +741,6 @@ export default function ProductsPage() {
             </div>
           )}
 
-          {/* 系列筛选 */}
-          {seriesOptions.length > 0 && (
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-sm text-stone-500">系列:</span>
-              <select
-                value={filters.series}
-                onChange={(e) => {
-                  setFilters({ ...filters, series: e.target.value })
-                  if (e.target.value) {
-                    setSearchParams({ ...Object.fromEntries(searchParams), series: e.target.value })
-                  } else {
-                    const params = new URLSearchParams(searchParams.toString())
-                    params.delete('series')
-                    setSearchParams(params)
-                  }
-                }}
-                className="px-3 py-1.5 rounded-lg bg-stone-100 text-sm text-stone-700 border-none"
-              >
-                <option value="">全部系列</option>
-                {seriesOptions.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div className="mt-6 pb-4 border-b border-stone-200 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-wrap">
               <select
@@ -816,6 +790,29 @@ export default function ProductsPage() {
                   </option>
                 ))}
               </select>
+
+              {/* 系列筛选 - 与风格同一行 */}
+              {seriesOptions.length > 0 && (
+                <select
+                  value={filters.series}
+                  onChange={(e) => {
+                    setFilters({ ...filters, series: e.target.value })
+                    if (e.target.value) {
+                      setSearchParams({ ...Object.fromEntries(searchParams), series: e.target.value })
+                    } else {
+                      const params = new URLSearchParams(searchParams.toString())
+                      params.delete('series')
+                      setSearchParams(params)
+                    }
+                  }}
+                  className="px-4 py-2 rounded-full bg-stone-100 text-sm text-stone-700"
+                >
+                  <option value="">全部系列</option>
+                  {seriesOptions.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              )}
 
               <button
                 type="button"

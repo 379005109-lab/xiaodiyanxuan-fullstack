@@ -2002,14 +2002,7 @@ const ProductDetailPage = () => {
                         </p>
                       </div>
                     )}
-                    {/* 其他材质文字显示在选择材质下面 */}
-                    {otherMaterialsText && (
-                      <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        <p className="text-xs text-gray-600">
-                          {otherMaterialsText}
-                        </p>
-                      </div>
-                    )}
+                    {/* 移除旧的 otherMaterialsText 显示，仅保留 SKU 材质描述 */}
                   </div>
                 </div>
               )}
