@@ -19,7 +19,15 @@ const setRedirecting = (val: boolean) => {
 const getApiUrl = () => {
   // 优先使用环境变量
   if (import.meta.env.VITE_API_URL) {
-    const apiUrl = import.meta.env.VITE_API_URL;
+    let apiUrl = import.meta.env.VITE_API_URL;
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
+        if (apiUrl === '/api' || apiUrl === 'https://api.xiaodiyanxuan.com' || apiUrl === 'https://api.xiaodiyanxuan.com/') {
+          apiUrl = 'https://api.xiaodiyanxuan.com/api';
+        }
+      }
+    }
     console.log(`✅ 使用环境变量 VITE_API_URL: ${apiUrl}`);
     return apiUrl;
   }
@@ -49,7 +57,7 @@ const getApiUrl = () => {
 
     // 如果是正式域名，使用阿里云CDN加速后的API域名
     if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
-      const apiUrl = 'https://api.xiaodiyanxuan.com';
+      const apiUrl = 'https://api.xiaodiyanxuan.com/api';
       console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
       return apiUrl;
     }

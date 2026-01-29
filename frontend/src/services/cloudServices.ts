@@ -17,8 +17,21 @@ const setRedirecting = (val: boolean) => {
 /**
  * 云端服务配置
  */
+const getCloudApiUrl = () => {
+  let apiUrl = import.meta.env.VITE_API_URL || '/api'
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
+      if (apiUrl === '/api' || apiUrl === 'https://api.xiaodiyanxuan.com' || apiUrl === 'https://api.xiaodiyanxuan.com/') {
+        apiUrl = 'https://api.xiaodiyanxuan.com/api'
+      }
+    }
+  }
+  return apiUrl
+}
+
 export const cloudConfig = {
-  apiUrl: import.meta.env.VITE_API_URL || '/api',
+  apiUrl: getCloudApiUrl(),
   useCloud: import.meta.env.VITE_USE_CLOUD === 'true',
   enableLocalFallback: import.meta.env.VITE_ENABLE_LOCAL_FALLBACK === 'true'
 }
