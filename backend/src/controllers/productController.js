@@ -149,6 +149,7 @@ const stripCostPriceFromProduct = (product) => {
   return {
     ...product,
     materialConfigs: product.materialConfigs || [],
+    materialDescriptionOptions: product.materialDescriptionOptions || [],
     otherMaterialsText: product.otherMaterialsText || '',
     otherMaterialsImage: product.otherMaterialsImage || '',
     skus: product.skus.map((sku) => {

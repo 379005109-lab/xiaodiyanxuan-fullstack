@@ -71,8 +71,9 @@ const normalizeFileId = (v: any): string => {
   // - http(s)://.../files/:id?...
   const cleaned = raw.split('?')[0];
   const m = cleaned.match(/\/api\/files\/([^/]+)$/) || cleaned.match(/\/files\/([^/]+)$/);
-  if (m && m[1]) return m[1];
-  return raw;
+  const id = (m && m[1]) ? m[1] : raw;
+  // 兼容历史数据：可能出现 6976...ab5.mp4.mp4.mp4 这种重复后缀
+  return String(id).replace(/(\.(mp4|webm|ogg|mov))+$/i, '');
 };
 
 const SKU_FILTERS: { key: SkuFilter; label: string }[] = [
