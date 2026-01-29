@@ -606,8 +606,9 @@ const listProducts = async (req, res) => {
       .filter(Boolean)))
 
     const allowedManufacturerIds = Array.from(new Set([platformManufacturerId, ...cooperatedManufacturerIds]))
+    console.log('[Product Filter] allowedManufacturerIds:', allowedManufacturerIds, 'coopAuths count:', coopAuths?.length || 0)
 
-    // 不再显示无 manufacturerId 的商品，只显示平台自营 + 已启用合作厂家的商品
+    // 严格模式：不再显示无 manufacturerId 的商品，只显示平台自营 + 已启用合作厂家的商品
     const accessQuery = {
       status: 'active',
       $or: [
