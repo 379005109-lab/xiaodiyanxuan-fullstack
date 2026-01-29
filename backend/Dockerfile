@@ -29,6 +29,10 @@ RUN apt-get update \
 # 从构建阶段复制 node_modules
 COPY --from=builder /app/node_modules ./node_modules
 
+# Cache bust arg - 变化时强制重新 COPY
+ARG CACHEBUST
+RUN echo "Cache bust: ${CACHEBUST:-none}"
+
 # 复制应用代码
 COPY . .
 
