@@ -354,14 +354,26 @@ function TierEditModal({
       toast.error('返佣折扣不能超过折扣率')
       return
     }
-    onSave({
+
+    // 清理 payload，移除空字段
+    const payload: any = {
       ...formData,
       tierCommissionRate: commissionRate
-    })
+    }
+
+    if (!payload.tierRole) {
+      delete payload.tierRole
+    }
+
+    onSave(payload)
   }
   
   if (!isOpen) return null
-  
+
+  // 检查上级是否设置了下放比例
+  const parentDelegatedRate = parentNode?.tierDelegatedRate || 0
+  const isParentDelegatedRateZero = parentNode && parentDelegatedRate <= 0
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
@@ -370,9 +382,17 @@ function TierEditModal({
             {editingNode ? '编辑层级规则' : '添加新层级'}
           </h2>
           {parentNode && (
-            <p className="text-sm text-gray-500 mt-1">
-              上级: {parentNode.tierDisplayName} (返佣折扣上限: {parentNode.tierDelegatedRate}%)
-            </p>
+            <div className="mt-2">
+              <p className="text-sm text-gray-500">
+                上级: {parentNode.tierDisplayName}
+              </p>
+              <div className={`mt-1 text-xs px-2 py-1 rounded-lg inline-block ${isParentDelegatedRateZero ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                {isParentDelegatedRateZero 
+                  ? '⚠️ 上级未设置下放比例（返佣折扣上限为 0%），无法继续分配' 
+                  : `上级返佣折扣上限: ${parentDelegatedRate}%`
+                }
+              </div>
+            </div>
           )}
         </div>
         
