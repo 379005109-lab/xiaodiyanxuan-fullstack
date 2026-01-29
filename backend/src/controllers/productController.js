@@ -600,8 +600,15 @@ const listProducts = async (req, res) => {
         { validUntil: { $gt: new Date() } }
       ]
     }
+    // 先查所有授权看看 isEnabled 的真实状态
+    const allAuths = await Authorization.find({
+      authorizationType: 'manufacturer',
+      toManufacturer: platformManufacturerId
+    }).select('fromManufacturer isEnabled status _id').lean()
+    console.log('[Product Filter] ALL auths:', JSON.stringify(allAuths.map(a => ({ id: a._id?.toString(), from: a.fromManufacturer?.toString(), isEnabled: a.isEnabled, status: a.status }))))
+    
     const coopAuths = await Authorization.find(coopAuthQuery).select('fromManufacturer isEnabled status').lean()
-    console.log('[Product Filter] coopAuths details:', JSON.stringify(coopAuths.map(a => ({ from: a.fromManufacturer?.toString(), isEnabled: a.isEnabled, status: a.status }))))
+    console.log('[Product Filter] filtered coopAuths:', JSON.stringify(coopAuths.map(a => ({ from: a.fromManufacturer?.toString(), isEnabled: a.isEnabled, status: a.status }))))
     const cooperatedManufacturerIds = Array.from(new Set((coopAuths || [])
       .map(a => (a?.fromManufacturer ? a.fromManufacturer.toString() : ''))
       .filter(Boolean)))
