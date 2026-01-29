@@ -49,7 +49,7 @@ const getApiUrl = () => {
 
     // 如果是正式域名，使用阿里云CDN加速后的API域名
     if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
-      const apiUrl = '/api';
+      const apiUrl = 'https://api.xiaodiyanxuan.com';
       console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
       return apiUrl;
     }
