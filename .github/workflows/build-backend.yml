@@ -48,8 +48,10 @@ jobs:
         with:
           context: ./backend
           file: ./backend/Dockerfile
+          no-cache: ${{ github.ref == 'refs/heads/main' }}
           build-args: |
             GIT_SHA=${{ github.sha }}
+            CACHEBUST=${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
