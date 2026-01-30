@@ -166,13 +166,33 @@ function TierCard({
         <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
           <span className="flex items-center gap-1">
             <Users className="w-4 h-4" />
-            {node.childCount || 0}人
+            {(node as any).boundUserIds?.length || node.childCount || 0}人
           </span>
           <span className="flex items-center gap-1">
             <Package className="w-4 h-4" />
             {node.productCount || 0}商品
           </span>
         </div>
+        
+        {/* 已绑定的账号列表 */}
+        {(node as any).boundUserIds?.length > 0 && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-xl">
+            <p className="text-xs text-gray-500 mb-2">已绑定账号:</p>
+            <div className="flex flex-wrap gap-2">
+              {(node as any).boundUserIds.slice(0, 5).map((user: any) => (
+                <div key={user._id} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg text-xs border">
+                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-xs">
+                    {user.nickname?.charAt(0) || user.username?.charAt(0) || '?'}
+                  </div>
+                  <span className="text-gray-700">{user.nickname || user.username}</span>
+                </div>
+              ))}
+              {(node as any).boundUserIds.length > 5 && (
+                <span className="text-xs text-gray-400">+{(node as any).boundUserIds.length - 5}</span>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* 绑定账号 + 添加层级 */}
         {canAddChild && (
@@ -868,24 +888,14 @@ export default function TierHierarchyPage() {
     setShowBindModal(true)
   }
   
-  // 执行账号绑定
-  const handleBindAccounts = async (accounts: any[], parentNode: TierNode) => {
+  // 执行账号绑定 - 将账号关联到现有层级
+  const handleBindAccounts = async (accounts: any[], targetNode: TierNode) => {
     try {
-      // 为每个选中的账号创建一个层级节点
-      for (const account of accounts) {
-        await apiClient.post('/authorizations/tier-node', {
-          tierDisplayName: account.nickname || account.username,
-          tierRole: account.role === 'designer' ? 'designer' : 'person',
-          tierDiscountRate: parentNode.tierDelegatedRate || 0,
-          tierDelegatedRate: 0,  // 默认不下放
-          tierCommissionRate: parentNode.tierDelegatedRate || 0,  // 继承父节点下放的额度作为返佣
-          parentAuthorizationId: parentNode._id,
-          manufacturerId,
-          companyId,
-          companyName,
-          boundUserId: account._id  // 绑定的用户ID
-        })
-      }
+      // 将账号绑定到现有层级节点
+      const userIds = accounts.map(a => a._id)
+      await apiClient.put(`/authorizations/tier-node/${targetNode._id}/bind-users`, {
+        userIds
+      })
       
       toast.success(`成功绑定 ${accounts.length} 个账号`)
       loadHierarchy()

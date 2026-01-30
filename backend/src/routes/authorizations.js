@@ -3312,6 +3312,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       .populate('toDesigner', 'username nickname avatar')
       .populate('toManufacturer', 'name fullName shortName logo')
       .populate('createdBy', 'username nickname')
+      .populate('boundUserIds', 'username nickname avatar phone')
       .sort({ tierLevel: 1, createdAt: 1 })
       .lean()
 
@@ -3646,7 +3647,8 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         createdBy: String(auth.createdBy?._id || auth.createdBy || ''),
         status: auth.status,
         isOwner,
-        allowSubAuthorization: (auth.allowSubAuthorization !== false) && ((effectiveTierDelegatedRate > 0) || (effectiveTierPartnerDelegatedRate > 0))
+        allowSubAuthorization: (auth.allowSubAuthorization !== false) && ((effectiveTierDelegatedRate > 0) || (effectiveTierPartnerDelegatedRate > 0)),
+        boundUserIds: auth.boundUserIds || []
       }
     }))
 
@@ -3930,6 +3932,57 @@ router.put('/tier-node/:id', auth, async (req, res) => {
   } catch (error) {
     console.error('更新层级失败:', error)
     res.status(500).json({ success: false, message: '更新层级失败' })
+  }
+})
+
+// PUT /api/authorizations/tier-node/:id/bind-users - 绑定用户到层级
+router.put('/tier-node/:id/bind-users', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { userIds } = req.body
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ success: false, message: '请选择要绑定的用户' })
+    }
+
+    const authDoc = await Authorization.findById(id)
+    if (!authDoc) {
+      return res.status(404).json({ success: false, message: '层级不存在' })
+    }
+
+    // 检查权限
+    const user = await User.findById(req.userId)
+    const isOwner = String(authDoc.createdBy) === req.userId
+    const userManufacturerId = user?.manufacturerId?._id || user?.manufacturerId
+    const userManufacturerIds = Array.isArray(user?.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === String(authDoc.fromManufacturer)) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === String(authDoc.fromManufacturer))
+    const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
+    
+    if (!isOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '无权绑定用户到此层级' })
+    }
+
+    // 获取现有绑定用户列表
+    const existingUserIds = authDoc.boundUserIds || []
+    
+    // 合并新用户ID（去重）
+    const newUserIds = [...new Set([...existingUserIds.map(id => String(id)), ...userIds.map(id => String(id))])]
+    
+    // 更新绑定用户列表
+    authDoc.boundUserIds = newUserIds
+    authDoc.updatedAt = new Date()
+    await authDoc.save()
+
+    res.json({
+      success: true,
+      message: `成功绑定 ${userIds.length} 个用户`,
+      data: authDoc
+    })
+  } catch (error) {
+    console.error('绑定用户失败:', error)
+    res.status(500).json({ success: false, message: '绑定用户失败' })
   }
 })
 
