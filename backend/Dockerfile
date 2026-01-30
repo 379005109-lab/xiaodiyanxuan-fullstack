@@ -31,7 +31,7 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Cache bust arg - 变化时强制重新 COPY
 ARG CACHEBUST
-RUN echo "Cache bust: ${CACHEBUST:-none}"
+RUN echo "Cache bust: ${CACHEBUST:-none}" && date
 
 # 复制应用代码
 COPY . .
