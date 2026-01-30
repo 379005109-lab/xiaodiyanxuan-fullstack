@@ -1889,6 +1889,9 @@ const ProductDetailPage = () => {
                               </div>
                             </div>
                             <p className="text-xs text-gray-500 mt-1 leading-relaxed">尺寸：{specDetail}</p>
+                            {representativeSku.specRemark && (
+                              <p className="text-xs text-gray-400 leading-relaxed">{representativeSku.specRemark}</p>
+                            )}
                           </button>
                         );
                       })}

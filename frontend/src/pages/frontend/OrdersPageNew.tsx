@@ -151,9 +151,7 @@ export default function OrdersPageNew() {
   }
 
   const handleRefundRequest = async (orderId: string, order: any) => {
-    const reason = window.prompt('请输入退款原因：')
-    if (!reason) {
-      toast.error('请输入退款原因')
+    if (!window.confirm('确定要申请退款吗？')) {
       return
     }
     
@@ -162,7 +160,7 @@ export default function OrdersPageNew() {
       
       await axios.post('/refunds', {
         orderId,
-        reason,
+        reason: '客户申请退款',
         amount: order.totalAmount
       })
       

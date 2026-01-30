@@ -10,6 +10,7 @@ const materialDescriptionOptionSchema = new mongoose.Schema({
 const skuSchema = new mongoose.Schema({
   code: String,
   spec: String,
+  specRemark: String, // 规格备注（如：外径尺寸为：227*187*103）
   color: String,
   // 面料选择（单选，关联materialsGroups）
   fabricMaterialId: String, // 关联的材质分组ID

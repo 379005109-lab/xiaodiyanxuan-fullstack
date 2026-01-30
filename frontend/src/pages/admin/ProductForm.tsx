@@ -166,6 +166,7 @@ export default function ProductForm() {
         effectImages: [] as string[],
         code: 'sku-1762',
         spec: '2人位',
+        specRemark: '', // 规格备注
         length: 200,
         width: 90,
         height: 85,
@@ -392,6 +393,7 @@ export default function ProductForm() {
                 .filter((img: string) => img && !img.startsWith('data:')),
               code: (sku as any).code || sku._id,
               spec: (sku as any).spec || sku.color || '',
+              specRemark: (sku as any).specRemark || '',
               length: (sku as any).length || 0,
               width: (sku as any).width || 0,
               height: (sku as any).height || 0,
@@ -888,6 +890,7 @@ export default function ProductForm() {
           code: sku.code,
           color: sku.spec || '默认',
           spec: sku.spec,
+          specRemark: sku.specRemark || '',
           length: sku.length,
           width: sku.width,
           height: sku.height,
@@ -1072,6 +1075,7 @@ export default function ProductForm() {
           effectImages: [],
           code: newCode,
           spec: '',
+          specRemark: '',
           length: 0,
           width: 0,
           height: 0,
@@ -1186,6 +1190,7 @@ export default function ProductForm() {
             effectImages: [], // 效果图独立管理
             code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
             spec: spec.name,
+            specRemark: '',
             length: spec.length,
             width: spec.width,
             height: spec.height,
@@ -1229,6 +1234,7 @@ export default function ProductForm() {
           effectImages: [],
           code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
           spec: spec.name,
+          specRemark: '',
           length: spec.length,
           width: spec.width,
           height: spec.height,
@@ -1446,6 +1452,7 @@ export default function ProductForm() {
             effectImages: [],
             code: modelCode || `SKU-${index + 1}`,
             spec: spec,
+            specRemark: '',
             length: length,
             width: width,
             height: height,
@@ -2348,6 +2355,7 @@ export default function ProductForm() {
                   <th className="text-left py-3 px-4 text-sm font-medium">多媒体</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">型号</th>
                   <th className="text-left py-3 px-4 text-sm font-medium">规格</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium min-w-[150px]">规格备注</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[200px]">尺寸</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[180px]">材质面料</th>
                   <th className="text-left py-3 px-4 text-sm font-medium min-w-[220px]">材质描述</th>
@@ -2469,6 +2477,20 @@ export default function ProductForm() {
                           </option>
                         ))}
                       </select>
+                    </td>
+                    {/* 规格备注 */}
+                    <td className="py-3 px-4">
+                      <input
+                        type="text"
+                        value={sku.specRemark || ''}
+                        onChange={(e) => {
+                          const newSkus = [...formData.skus]
+                          newSkus[index].specRemark = e.target.value
+                          setFormData({ ...formData, skus: newSkus })
+                        }}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                        placeholder="如：外径尺寸227*187"
+                      />
                     </td>
                     {/* 尺寸（长×宽×高）合并为一列 */}
                     <td className="py-3 px-4">

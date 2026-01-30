@@ -178,6 +178,7 @@ export interface ProductSKU {
   images: string[]
   code?: string
   spec?: string
+  specRemark?: string
   length?: number
   width?: number
   height?: number
