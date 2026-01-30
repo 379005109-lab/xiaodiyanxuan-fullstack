@@ -47,6 +47,7 @@ function TierCard({
   node,
   isRoot,
   onAddChild,
+  onBindAccount,
   onEdit,
   onDelete,
   onViewDetails,
@@ -57,6 +58,7 @@ function TierCard({
   node: TierNode
   isRoot?: boolean
   onAddChild: (parentId: string) => void
+  onBindAccount: (parentId: string) => void
   onEdit: (node: TierNode) => void
   onDelete: (nodeId: string) => void
   onViewDetails: (node: TierNode) => void
@@ -162,15 +164,24 @@ function TierCard({
           </span>
         </div>
         
-        {/* 绑定账号按钮 */}
+        {/* 绑定账号 + 添加层级 */}
         {canAddChild && (
-          <button
-            onClick={() => onAddChild(node._id)}
-            className="w-full py-2.5 border-2 border-dashed border-green-300 rounded-xl text-green-600 hover:bg-green-50 hover:border-green-400 transition-colors flex items-center justify-center gap-2 font-medium"
-          >
-            <Users className="w-4 h-4" />
-            绑定账号
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onBindAccount(node._id)}
+              className="flex-1 py-2.5 border-2 border-dashed border-green-300 rounded-xl text-green-600 hover:bg-green-50 hover:border-green-400 transition-colors flex items-center justify-center gap-2 font-medium"
+            >
+              <Users className="w-4 h-4" />
+              绑定账号
+            </button>
+            <button
+              onClick={() => onAddChild(node._id)}
+              className="w-12 h-12 border-2 border-dashed border-blue-300 rounded-xl text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors flex items-center justify-center"
+              title="添加层级"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
         )}
         
         {/* 操作按钮 */}
@@ -186,13 +197,22 @@ function TierCard({
               </button>
             )}
             {canAddChild && (
-              <button
-                onClick={() => onAddChild(node._id)}
-                className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg"
-                title="绑定账号"
-              >
-                <Users className="w-4 h-4" />
-              </button>
+              <>
+                <button
+                  onClick={() => onBindAccount(node._id)}
+                  className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg"
+                  title="绑定账号"
+                >
+                  <Users className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onAddChild(node._id)}
+                  className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                  title="添加层级"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </>
             )}
             <button
               onClick={() => onDelete(node._id)}
@@ -214,6 +234,7 @@ function TierTree({
   parentId,
   level,
   onAddChild,
+  onBindAccount,
   onEdit,
   onDelete,
   onViewDetails,
@@ -225,6 +246,7 @@ function TierTree({
   parentId: string | null
   level: number
   onAddChild: (parentId: string) => void
+  onBindAccount: (parentId: string) => void
   onEdit: (node: TierNode) => void
   onDelete: (nodeId: string) => void
   onViewDetails: (node: TierNode) => void
@@ -258,6 +280,7 @@ function TierTree({
               node={node}
               isRoot={level === 0}
               onAddChild={onAddChild}
+              onBindAccount={onBindAccount}
               onEdit={onEdit}
               onDelete={onDelete}
               onViewDetails={onViewDetails}
@@ -280,6 +303,7 @@ function TierTree({
                   parentId={node._id}
                   level={level + 1}
                   onAddChild={onAddChild}
+                  onBindAccount={onBindAccount}
                   onEdit={onEdit}
                   onDelete={onDelete}
                   onViewDetails={onViewDetails}
@@ -792,6 +816,7 @@ export default function TierHierarchyPage() {
               node={rootNode}
               isRoot
               onAddChild={handleAddChild}
+              onBindAccount={handleAddChild}
               onEdit={handleEdit}
               onDelete={handleDelete}
               onViewDetails={handleViewDetails}
@@ -808,6 +833,7 @@ export default function TierHierarchyPage() {
                   parentId={rootNode._id}
                   level={1}
                   onAddChild={handleAddChild}
+                  onBindAccount={handleAddChild}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onViewDetails={handleViewDetails}
