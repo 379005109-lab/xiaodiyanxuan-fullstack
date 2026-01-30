@@ -150,6 +150,38 @@ export default function OrdersPageNew() {
     }
   }
 
+  const handleRefundRequest = async (orderId: string, order: any) => {
+    const reason = window.prompt('请输入退款原因：')
+    if (!reason) {
+      toast.error('请输入退款原因')
+      return
+    }
+    
+    try {
+      console.log('🔄 提交退款申请:', orderId)
+      
+      await axios.post('/refunds', {
+        orderId,
+        reason,
+        amount: order.totalAmount
+      })
+      
+      // 更新UI状态
+      setOrders(prev => prev.map((o: any) => {
+        if ((o._id || o.id) === orderId) {
+          return { ...o, refundStatus: 'pending' }
+        }
+        return o
+      }))
+      
+      toast.success('退款申请已提交，请等待审核')
+      
+    } catch (error: any) {
+      console.error('❌ 提交退款申请失败:', error)
+      toast.error(error.response?.data?.message || '提交失败，请重试')
+    }
+  }
+
   const handleDeleteOrder = async (orderId: string) => {
     if (!window.confirm('确定要删除这个订单吗？')) {
       return
@@ -798,13 +830,32 @@ export default function OrdersPageNew() {
                   {/* 操作按钮 */}
                   <div className="mt-4 flex gap-3 justify-end">
                     {/* 取消订单按钮 - 待付款和待发货状态可取消，且没有取消申请中的 */}
-                    {(order.status === 1 || order.status === 2 || order.status === 'pending' || order.status === 'processing') && !order.cancelRequest && (
+                    {(order.status === 1 || order.status === 'pending') && !order.cancelRequest && (
                       <button
                         onClick={() => handleCancelOrder(order._id || order.id)}
                         className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                       >
                         取消订单
                       </button>
+                    )}
+                    {/* 申请退款按钮 - 已付款/已发货/待收货状态可申请退款 */}
+                    {(order.status === 2 || order.status === 'paid' || order.status === 3 || order.status === 'shipped' || order.status === 'processing' || order.status === 'confirmed') && !order.refundStatus && !order.cancelRequest && (
+                      <button
+                        onClick={() => handleRefundRequest(order._id || order.id, order)}
+                        className="px-4 py-2 text-sm border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
+                      >
+                        申请退款
+                      </button>
+                    )}
+                    {/* 退款状态显示 */}
+                    {order.refundStatus === 'pending' && (
+                      <span className="px-4 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg">退款申请中</span>
+                    )}
+                    {order.refundStatus === 'approved' && (
+                      <span className="px-4 py-2 text-sm bg-green-100 text-green-700 rounded-lg">退款已批准</span>
+                    )}
+                    {order.refundStatus === 'rejected' && (
+                      <span className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg">退款已拒绝</span>
                     )}
                     {/* 删除订单按钮 - 已完成/已取消/申请取消中的订单可删除 */}
                     {(order.cancelRequest || order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed') && (
