@@ -3504,13 +3504,61 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       }
     }
 
+    // 计算每个授权的实际商品数量
+    const calculateProductCount = async (auth) => {
+      const mfId = auth.fromManufacturer?._id || auth.fromManufacturer
+      let count = 0
+      
+      if (auth.scope === 'all') {
+        count = await Product.countDocuments({
+          status: 'active',
+          $or: [
+            { manufacturerId: mfId },
+            { 'skus.manufacturerId': mfId }
+          ]
+        })
+      } else if (auth.scope === 'category' && auth.categories?.length > 0) {
+        const catIds = auth.categories.map(c => String(c))
+        const catOids = catIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id))
+        count = await Product.countDocuments({
+          status: 'active',
+          $and: [
+            { $or: [{ manufacturerId: mfId }, { 'skus.manufacturerId': mfId }] },
+            { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+          ]
+        })
+      } else if (auth.scope === 'specific' && auth.products?.length > 0) {
+        count = auth.products.length
+      } else if (auth.scope === 'mixed') {
+        let categoryCount = 0
+        if (auth.categories?.length > 0) {
+          const catIds = auth.categories.map(c => String(c))
+          const catOids = catIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id))
+          categoryCount = await Product.countDocuments({
+            status: 'active',
+            $and: [
+              { $or: [{ manufacturerId: mfId }, { 'skus.manufacturerId': mfId }] },
+              { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+            ]
+          })
+        }
+        const specificCount = auth.products?.length || 0
+        count = categoryCount + specificCount
+      }
+      
+      return count
+    }
+
     // 转换授权为层级节点
-    const nodes = filteredAuthorizations.map(auth => {
+    const nodes = await Promise.all(filteredAuthorizations.map(async (auth) => {
       const isCreator = String(auth.createdBy?._id || auth.createdBy) === req.userId
       const isOwner = isCreator || isManufacturerAdmin
       const childCount = filteredAuthorizations.filter(a => 
         String(a.parentAuthorizationId) === String(auth._id)
       ).length
+      
+      // 计算商品数量
+      const productCount = await calculateProductCount(auth)
 
       // 确定显示名称
       let displayName = auth.tierDisplayName
@@ -3590,7 +3638,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         partnerProductCommission: effectiveTierPartnerCommissionRate,
         tierLevel: effectiveTierLevel,
         childCount,
-        productCount: auth.productCount || 0,
+        productCount,
         parentAuthorizationId: effectiveParentAuthorizationId,
         fromManufacturer: auth.fromManufacturer,
         toDesigner: auth.toDesigner,
@@ -3600,7 +3648,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         isOwner,
         allowSubAuthorization: (auth.allowSubAuthorization !== false) && ((effectiveTierDelegatedRate > 0) || (effectiveTierPartnerDelegatedRate > 0))
       }
-    })
+    }))
 
     res.json({
       success: true,
