@@ -1142,7 +1142,7 @@ const updateProduct = async (req, res) => {
           effectImages: Array.isArray(sku.effectImages) ? sku.effectImages : [],
         }
       })
-      console.log('🔥 [更新商品] 处理后的SKU数据:', productData.skus.map(s => ({ code: s.code, files: s.files?.length || 0, videos: s.videos?.length || 0 })))
+      console.log('🔥 [更新商品] 处理后的SKU数据:', productData.skus.map(s => ({ code: s.code, spec: s.spec, specRemark: s.specRemark, files: s.files?.length || 0 })))
     }
 
     const product = await Product.findByIdAndUpdate(
