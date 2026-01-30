@@ -3825,7 +3825,8 @@ router.put('/tier-node/:id', auth, async (req, res) => {
       tierCommissionRate,
       tierPartnerDiscountRate,
       tierPartnerDelegatedRate,
-      tierPartnerCommissionRate
+      tierPartnerCommissionRate,
+      boundUserIds  // 绑定的用户ID列表
     } = req.body
 
     const auth = await Authorization.findById(id)
@@ -3919,6 +3920,15 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     if (tierPartnerCommissionRate !== undefined) {
       auth.tierPartnerCommissionRate = tierPartnerCommissionRate
       auth.partnerProductCommission = tierPartnerCommissionRate
+    }
+    
+    // 处理绑定用户列表
+    if (boundUserIds !== undefined && Array.isArray(boundUserIds)) {
+      // 获取现有绑定用户列表
+      const existingUserIds = auth.boundUserIds || []
+      // 合并新用户ID（去重）
+      const newUserIds = [...new Set([...existingUserIds.map(id => String(id)), ...boundUserIds.map(id => String(id))])]
+      auth.boundUserIds = newUserIds
     }
     
     auth.updatedAt = new Date()

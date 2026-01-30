@@ -891,10 +891,10 @@ export default function TierHierarchyPage() {
   // 执行账号绑定 - 将账号关联到现有层级
   const handleBindAccounts = async (accounts: any[], targetNode: TierNode) => {
     try {
-      // 将账号绑定到现有层级节点
-      const userIds = accounts.map(a => a._id)
-      await apiClient.put(`/authorizations/tier-node/${targetNode._id}/bind-users`, {
-        userIds
+      // 将账号绑定到现有层级节点（使用现有PUT接口）
+      const boundUserIds = accounts.map(a => a._id)
+      await apiClient.put(`/authorizations/tier-node/${targetNode._id}`, {
+        boundUserIds
       })
       
       toast.success(`成功绑定 ${accounts.length} 个账号`)
