@@ -477,7 +477,13 @@ router.get('/my-grants', auth, async (req, res) => {
       .lean()
 
     const authorizations = await Authorization.find({
-      fromManufacturer: user.manufacturerId
+      fromManufacturer: user.manufacturerId,
+      // 排除层级节点（tierLevel > 0的是分成体系子节点，不是独立渠道）
+      $or: [
+        { tierLevel: { $exists: false } },
+        { tierLevel: null },
+        { tierLevel: 0 }
+      ]
     })
       .populate('toManufacturer', 'name fullName logo contactPerson code styleTags categoryTags priceRangeMin priceRangeMax galleryImages defaultDiscount defaultCommission')
       .populate('toDesigner', 'username nickname avatar email')
