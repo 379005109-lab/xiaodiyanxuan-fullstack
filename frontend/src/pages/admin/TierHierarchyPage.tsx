@@ -710,38 +710,46 @@ function BindAccountModal({
           ) : filteredAccounts.length === 0 ? (
             <div className="text-center py-8 text-gray-500">暂无可绑定的账号</div>
           ) : (
-            filteredAccounts.map(account => (
-              <div
-                key={account._id}
-                onClick={() => toggleSelect(account._id)}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all",
-                  selectedIds.has(account._id)
-                    ? "border-primary-500 bg-primary-50"
-                    : "border-gray-200 hover:border-gray-300"
-                )}
-              >
-                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
-                  {account.avatar ? (
-                    <img src={account.avatar.startsWith('http') ? account.avatar : `/api/files/${account.avatar}`} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    account.nickname?.charAt(0) || account.username?.charAt(0) || '?'
+            filteredAccounts.map(account => {
+              const isBound = parentNode && (parentNode as any).boundUserIds?.some((u: any) => String(u._id || u) === String(account._id))
+              return (
+                <div
+                  key={account._id}
+                  onClick={() => toggleSelect(account._id)}
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all",
+                    isBound
+                      ? "border-green-500 bg-green-50"
+                      : selectedIds.has(account._id)
+                        ? "border-primary-500 bg-primary-50"
+                        : "border-gray-200 hover:border-gray-300"
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
+                    {account.avatar ? (
+                      <img src={account.avatar.startsWith('http') ? account.avatar : `/api/files/${account.avatar}`} alt="" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      account.nickname?.charAt(0) || account.username?.charAt(0) || '?'
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-900 truncate flex items-center gap-2">
+                      {account.nickname || account.username}
+                      {isBound && (
+                        <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">已绑定</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {account.phone || account.username}
+                      {account.role && ` · ${account.role}`}
+                    </div>
+                  </div>
+                  {(isBound || selectedIds.has(account._id)) && (
+                    <CheckCircle className={cn("w-5 h-5", isBound ? "text-green-600" : "text-primary-600")} />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">
-                    {account.nickname || account.username}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {account.phone || account.username}
-                    {account.role && ` · ${account.role}`}
-                  </div>
-                </div>
-                {selectedIds.has(account._id) && (
-                  <CheckCircle className="w-5 h-5 text-primary-600" />
-                )}
-              </div>
-            ))
+              )
+            })
           )}
         </div>
         

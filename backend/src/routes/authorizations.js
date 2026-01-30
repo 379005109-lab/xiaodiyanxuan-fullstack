@@ -478,6 +478,8 @@ router.get('/my-grants', auth, async (req, res) => {
 
     const authorizations = await Authorization.find({
       fromManufacturer: user.manufacturerId,
+      // 排除已撤销的授权
+      status: { $ne: 'revoked' },
       // 排除层级节点（tierLevel > 0的是分成体系子节点，不是独立渠道）
       $or: [
         { tierLevel: { $exists: false } },
