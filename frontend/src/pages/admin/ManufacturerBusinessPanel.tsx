@@ -96,6 +96,8 @@ export default function ManufacturerBusinessPanel() {
   const [pendingCount, setPendingCount] = useState(0)
   const [tierSystemConfig, setTierSystemConfig] = useState<any>(null)
   const [channelFilter, setChannelFilter] = useState<'all' | 'manufacturer' | 'designer'>('all')
+  const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set())  // 折叠状态
+  const [channelTiers, setChannelTiers] = useState<Record<string, any[]>>({})  // 每个渠道的层级数据
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
@@ -356,6 +358,34 @@ export default function ManufacturerBusinessPanel() {
 
     return Array.from(categoryMap.values()).filter(g => g.products.length > 0)
   }, [products, searchKeyword, productFilter])
+
+  // 切换渠道展开/折叠并加载层级数据
+  const toggleChannelExpand = async (channelId: string) => {
+    const isCurrentlyExpanded = expandedChannels.has(channelId)
+    
+    setExpandedChannels(prev => {
+      const next = new Set(prev)
+      if (next.has(channelId)) {
+        next.delete(channelId)
+      } else {
+        next.add(channelId)
+      }
+      return next
+    })
+    
+    // 如果展开且尚未加载层级数据，则加载
+    if (!isCurrentlyExpanded && !channelTiers[channelId]) {
+      try {
+        const res = await apiClient.get(`/authorizations/tier-hierarchy-v2`, {
+          params: { manufacturerId, companyId: channelId }
+        })
+        const nodes = res.data?.data?.nodes || []
+        setChannelTiers(prev => ({ ...prev, [channelId]: nodes }))
+      } catch (error) {
+        console.error('加载层级数据失败:', error)
+      }
+    }
+  }
 
   const toggleCategoryExpand = (categoryId: string) => {
     setExpandedCategories(prev => {
@@ -694,10 +724,23 @@ export default function ManufacturerBusinessPanel() {
                 ) : (
                   <div className="space-y-4">
                     {channels.filter(c => channelFilter === 'all' || c.type === channelFilter).map(channel => (
-                      <div key={channel._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="relative">
+                      <div key={channel._id} className="border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+                        {/* 渠道卡片头部 */}
+                        <div className="p-5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              {/* 展开/折叠按钮 */}
+                              <button
+                                onClick={() => toggleChannelExpand(channel._id)}
+                                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                              >
+                                {expandedChannels.has(channel._id) ? (
+                                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                                ) : (
+                                  <ChevronRight className="w-5 h-5 text-gray-500" />
+                                )}
+                              </button>
+                              <div className="relative">
                               <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
                                 {channel.avatar ? (
                                   <img src={channel.avatar.startsWith('http') ? channel.avatar : `/api/files/${channel.avatar}`} alt="" className="w-full h-full object-cover" />
@@ -771,6 +814,49 @@ export default function ManufacturerBusinessPanel() {
                             </div>
                           </div>
                         </div>
+                        </div>
+                        
+                        {/* 展开的层级列表 */}
+                        {expandedChannels.has(channel._id) && (
+                          <div className="bg-gray-50 border-t border-gray-100 p-4">
+                            <div className="text-sm font-medium text-gray-700 mb-3">下级层级</div>
+                            {channelTiers[channel._id]?.length > 0 ? (
+                              <div className="space-y-2">
+                                {channelTiers[channel._id].map((tier: any) => (
+                                  <div key={tier._id} className="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-sm font-medium">
+                                        {tier.tierDisplayName?.charAt(0) || '?'}
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-gray-900">{tier.tierDisplayName || '未命名'}</div>
+                                        <div className="text-xs text-gray-500">
+                                          返佣: {tier.tierCommissionRate || 0}% | 下放: {tier.tierDelegatedRate || 0}%
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${channel._id}`)}
+                                      className="text-xs text-blue-600 hover:text-blue-800"
+                                    >
+                                      管理层级
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-gray-400 text-sm">
+                                暂无下级层级
+                              </div>
+                            )}
+                            <button
+                              onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${channel._id}`)}
+                              className="mt-3 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors text-sm"
+                            >
+                              + 管理层级体系
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
