@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   ArrowLeft, Plus, Edit2, Trash2, Users, Package, 
   ChevronDown, ChevronRight, Building2, User, Settings,
-  Eye, EyeOff, Check, X
+  Eye, EyeOff, Check, X, Search, CheckCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import apiClient from '@/lib/apiClient'
@@ -562,6 +562,190 @@ function TierEditModal({
   )
 }
 
+// 绑定账号模态框
+function BindAccountModal({
+  isOpen,
+  onClose,
+  onBind,
+  parentNode,
+  manufacturerId
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onBind: (accounts: any[], parentNode: TierNode) => void
+  parentNode: TierNode | null
+  manufacturerId: string
+}) {
+  const [loading, setLoading] = useState(false)
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [searchKeyword, setSearchKeyword] = useState('')
+
+  // 加载账号列表
+  useEffect(() => {
+    if (!isOpen) return
+    
+    const loadAccounts = async () => {
+      setLoading(true)
+      try {
+        const resp = await apiClient.get('/accounts/users', {
+          params: { 
+            manufacturerId,
+            limit: 100 
+          }
+        })
+        const list = resp.data?.data?.list || resp.data?.list || []
+        setAccounts(list)
+      } catch (err) {
+        console.error('加载账号列表失败:', err)
+        toast.error('加载账号列表失败')
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadAccounts()
+    setSelectedIds(new Set())
+    setSearchKeyword('')
+  }, [isOpen, manufacturerId])
+
+  const filteredAccounts = useMemo(() => {
+    if (!searchKeyword) return accounts
+    const kw = searchKeyword.toLowerCase()
+    return accounts.filter(a => 
+      a.username?.toLowerCase().includes(kw) ||
+      a.nickname?.toLowerCase().includes(kw) ||
+      a.phone?.includes(kw)
+    )
+  }, [accounts, searchKeyword])
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleConfirm = () => {
+    if (selectedIds.size === 0) {
+      toast.error('请选择至少一个账号')
+      return
+    }
+    if (!parentNode) return
+    
+    const selected = accounts.filter(a => selectedIds.has(a._id))
+    onBind(selected, parentNode)
+    onClose()
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">绑定账号</h2>
+          {parentNode && (
+            <p className="text-sm text-gray-500 mt-1">
+              将账号绑定到: {parentNode.tierDisplayName}
+            </p>
+          )}
+        </div>
+        
+        {/* 搜索框 */}
+        <div className="px-6 pt-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchKeyword}
+              onChange={e => setSearchKeyword(e.target.value)}
+              placeholder="搜索账号名称、昵称、手机号..."
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+        </div>
+        
+        {/* 账号列表 */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">加载中...</div>
+          ) : filteredAccounts.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">暂无可绑定的账号</div>
+          ) : (
+            filteredAccounts.map(account => (
+              <div
+                key={account._id}
+                onClick={() => toggleSelect(account._id)}
+                className={cn(
+                  "flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all",
+                  selectedIds.has(account._id)
+                    ? "border-primary-500 bg-primary-50"
+                    : "border-gray-200 hover:border-gray-300"
+                )}
+              >
+                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
+                  {account.avatar ? (
+                    <img src={account.avatar.startsWith('http') ? account.avatar : `/api/files/${account.avatar}`} alt="" className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    account.nickname?.charAt(0) || account.username?.charAt(0) || '?'
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 truncate">
+                    {account.nickname || account.username}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {account.phone || account.username}
+                    {account.role && ` · ${account.role}`}
+                  </div>
+                </div>
+                {selectedIds.has(account._id) && (
+                  <CheckCircle className="w-5 h-5 text-primary-600" />
+                )}
+              </div>
+            ))
+          )}
+        </div>
+        
+        {/* 底部按钮 */}
+        <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            已选择 {selectedIds.size} 个账号
+          </span>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={selectedIds.size === 0}
+              className={cn(
+                "px-6 py-2.5 rounded-xl text-white",
+                selectedIds.size === 0
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-primary-600 hover:bg-primary-700"
+              )}
+            >
+              确认绑定
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // 主组件
 export default function TierHierarchyPage() {
   const navigate = useNavigate()
@@ -602,6 +786,10 @@ export default function TierHierarchyPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingNode, setEditingNode] = useState<TierNode | null>(null)
   const [parentNodeForAdd, setParentNodeForAdd] = useState<TierNode | null>(null)
+  
+  // 绑定账号模态框状态
+  const [showBindModal, setShowBindModal] = useState(false)
+  const [bindParentNode, setBindParentNode] = useState<TierNode | null>(null)
   
   const currentUserId = (user as any)?._id || (user as any)?.id || ''
   
@@ -669,6 +857,41 @@ export default function TierHierarchyPage() {
     })
     setEditingNode(null)
     setShowEditModal(true)
+  }
+  
+  // 绑定账号 - 打开选择模态框
+  const handleBindAccount = (parentId: string) => {
+    const parent = nodes.find(n => n._id === parentId) || rootNode
+    if (!parent) return
+    
+    setBindParentNode(parent)
+    setShowBindModal(true)
+  }
+  
+  // 执行账号绑定
+  const handleBindAccounts = async (accounts: any[], parentNode: TierNode) => {
+    try {
+      // 为每个选中的账号创建一个层级节点
+      for (const account of accounts) {
+        await apiClient.post('/authorizations/tier-node', {
+          tierDisplayName: account.nickname || account.username,
+          tierRole: account.role === 'designer' ? 'designer' : 'person',
+          tierDiscountRate: parentNode.tierDelegatedRate || 0,
+          tierDelegatedRate: 0,  // 默认不下放
+          tierCommissionRate: parentNode.tierDelegatedRate || 0,  // 继承父节点下放的额度作为返佣
+          parentAuthorizationId: parentNode._id,
+          manufacturerId,
+          companyId,
+          companyName,
+          boundUserId: account._id  // 绑定的用户ID
+        })
+      }
+      
+      toast.success(`成功绑定 ${accounts.length} 个账号`)
+      loadHierarchy()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || '绑定失败')
+    }
   }
   
   // 编辑节点
@@ -799,7 +1022,7 @@ export default function TierHierarchyPage() {
               node={rootNode}
               isRoot
               onAddChild={handleAddChild}
-              onBindAccount={handleAddChild}
+              onBindAccount={handleBindAccount}
               onEdit={handleEdit}
               onDelete={handleDelete}
               onViewDetails={handleViewDetails}
@@ -816,7 +1039,7 @@ export default function TierHierarchyPage() {
                   parentId={rootNode._id}
                   level={1}
                   onAddChild={handleAddChild}
-                  onBindAccount={handleAddChild}
+                  onBindAccount={handleBindAccount}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onViewDetails={handleViewDetails}
@@ -856,6 +1079,15 @@ export default function TierHierarchyPage() {
         editingNode={editingNode}
         maxDiscountRate={maxDiscountRate}
         rootDiscount={rootNode?.tierDiscountRate || rootNode?.ownProductMinDiscount || 0}
+      />
+      
+      {/* 绑定账号模态框 */}
+      <BindAccountModal
+        isOpen={showBindModal}
+        onClose={() => setShowBindModal(false)}
+        onBind={handleBindAccounts}
+        parentNode={bindParentNode}
+        manufacturerId={manufacturerId}
       />
     </div>
   )

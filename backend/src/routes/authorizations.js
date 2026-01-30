@@ -3635,7 +3635,8 @@ router.post('/tier-node', auth, async (req, res) => {
       tierCommissionRate,
       tierPartnerDiscountRate,
       tierPartnerDelegatedRate,
-      tierPartnerCommissionRate
+      tierPartnerCommissionRate,
+      boundUserId  // 绑定的用户ID
     } = req.body
 
     if (!parentAuthorizationId || !manufacturerId) {
@@ -3715,6 +3716,9 @@ router.post('/tier-node', auth, async (req, res) => {
       scope: 'all',
       status: 'active',
       createdBy: req.userId,
+      
+      // 绑定的用户ID（如果有）
+      boundUserId: boundUserId || null,
       
       // 层级相关字段
       tierType: 'existing_tier',

@@ -184,6 +184,12 @@ const authorizationSchema = new mongoose.Schema({
     ref: 'User'
   },
   
+  // 绑定的用户ID（被绑定到此层级的用户账号）
+  boundUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  
   // === 分层体系相关字段 ===
   // 层级类型：新建公司或插入现有层级
   tierType: {
