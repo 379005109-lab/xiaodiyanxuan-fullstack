@@ -2160,25 +2160,74 @@ export default function ManufacturerManagement() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="text-sm text-gray-500 mb-2">待申请返佣</div>
+                  <div className="text-3xl font-bold text-blue-600">¥{(commissionStats as any).pendingApplication?.toLocaleString() || 0}</div>
+                </div>
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
                   <div className="text-sm text-gray-500 mb-2">待核销返佣</div>
                   <div className="text-3xl font-bold text-yellow-600">¥{commissionStats.applied?.toLocaleString() || 0}</div>
                 </div>
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
                   <div className="text-sm text-gray-500 mb-2">待打款返佣</div>
-                  <div className="text-3xl font-bold text-orange-600">¥{commissionStats.pending.toLocaleString()}</div>
+                  <div className="text-3xl font-bold text-orange-600">¥{commissionStats.pending?.toLocaleString() || 0}</div>
                 </div>
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
                   <div className="text-sm text-gray-500 mb-2">已结算返佣</div>
-                  <div className="text-3xl font-bold text-green-600">¥{commissionStats.settled.toLocaleString()}</div>
+                  <div className="text-3xl font-bold text-green-600">¥{commissionStats.settled?.toLocaleString() || 0}</div>
                 </div>
                 <div className="bg-white border border-gray-200 rounded-xl p-6">
                   <div className="text-sm text-gray-500 mb-2">累计返佣</div>
-                  <div className="text-3xl font-bold text-gray-900">¥{commissionStats.total.toLocaleString()}</div>
+                  <div className="text-3xl font-bold text-gray-900">¥{commissionStats.total?.toLocaleString() || 0}</div>
                 </div>
               </div>
               
+              {/* 待申请返佣订单 - commissionStatus=null/pending */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">📝 待申请返佣订单</h3>
+                {((commissionStats as any).pendingApplicationOrders || []).length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>暂无待申请的返佣订单</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {((commissionStats as any).pendingApplicationOrders || []).map((order: any) => (
+                      <div key={order._id} className="flex items-center justify-between p-4 border border-blue-200 bg-blue-50 rounded-xl">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium text-gray-900">订单号: {order.orderNo}</span>
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">待申请</span>
+                          </div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            订单金额: ¥{order.totalAmount?.toFixed(2) || 0}
+                          </div>
+                        </div>
+                        <div className="text-right mr-4">
+                          <div className="text-sm text-gray-500">可申请返佣</div>
+                          <div className="font-bold text-blue-600">¥{(order.commissionAmount || 0).toFixed(2)}</div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`确认申请订单 ${order.orderNo} 的返佣？金额: ¥${order.commissionAmount?.toFixed(2)}`)) return
+                            try {
+                              await apiClient.post(`/orders/${order._id}/apply-commission`)
+                              toast.success('返佣申请已提交')
+                              fetchData()
+                            } catch (e: any) {
+                              toast.error(e.response?.data?.message || '申请失败')
+                            }
+                          }}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+                        >
+                          申请返佣
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* 待核销返佣订单 - commissionStatus='applied' */}
               <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">📋 待核销返佣订单</h3>

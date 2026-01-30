@@ -1567,9 +1567,9 @@ router.get('/commission-stats', async (req, res) => {
     const isAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin'].includes(user?.role)
     
     // 直接查询所有返佣模式订单（简化查询，移除厂家限制）
+    // 包含所有已完成的返佣模式订单，无论是否已申请返佣
     let query = {
       settlementMode: 'commission_mode',
-      commissionStatus: { $in: ['applied', 'approved', 'paid'] },
       isDeleted: { $ne: true }
     }
     
@@ -1583,9 +1583,11 @@ router.get('/commission-stats', async (req, res) => {
     
     console.log('📊 [commission-stats] found', commissionOrders.length, 'orders')
 
+    let pendingApplicationAmount = 0  // 待申请金额
     let appliedAmount = 0   // 待核销金额
     let pendingAmount = 0   // 待打款金额（已核销）
     let settledAmount = 0   // 已结算金额
+    const pendingApplicationOrders = [] // 待申请订单
     const appliedOrders = []  // 待核销订单
     const approvedOrders = [] // 待打款订单
     const paidOrders = []     // 已完成订单
@@ -1593,7 +1595,19 @@ router.get('/commission-stats', async (req, res) => {
     for (const order of commissionOrders) {
       const commission = order.commissionAmount || 0
 
-      if (order.commissionStatus === 'applied') {
+      if (!order.commissionStatus || order.commissionStatus === 'pending') {
+        // 待申请返佣（已完成但未申请）
+        pendingApplicationAmount += commission
+        pendingApplicationOrders.push({
+          _id: order._id,
+          orderNo: order.orderNo,
+          completedAt: order.completedAt,
+          totalAmount: order.totalAmount,
+          commissionAmount: commission,
+          status: order.status,
+          commissionStatus: order.commissionStatus || 'pending'
+        })
+      } else if (order.commissionStatus === 'applied') {
         // 已申请待核销
         appliedAmount += commission
         appliedOrders.push({
@@ -1632,17 +1646,22 @@ router.get('/commission-stats', async (req, res) => {
       }
     }
 
+    const totalAmount = pendingApplicationAmount + appliedAmount + pendingAmount + settledAmount
+    console.log('📊 [commission-stats] pendingApplication:', pendingApplicationAmount, 'applied:', appliedAmount, 'pending:', pendingAmount, 'settled:', settledAmount)
+
     res.json({ 
       success: true, 
       data: { 
+        pendingApplication: Math.round(pendingApplicationAmount * 100) / 100,
         applied: Math.round(appliedAmount * 100) / 100,
         pending: Math.round(pendingAmount * 100) / 100,
         settled: Math.round(settledAmount * 100) / 100,
-        total: Math.round((appliedAmount + pendingAmount + settledAmount) * 100) / 100,
+        total: Math.round(totalAmount * 100) / 100,
+        pendingApplicationOrders,
         appliedOrders,
         approvedOrders,
         paidOrders,
-        pendingOrders: []  // 兼容旧字段
+        pendingOrders: pendingApplicationOrders  // 兼容旧字段
       } 
     })
   } catch (error) {
