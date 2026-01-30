@@ -979,10 +979,11 @@ const createProduct = async (req, res) => {
     console.log('🔥 [创建商品] 商品名称:', productData.name)
     console.log('🔥 [创建商品] 接收到的category:', productData.category)
 
-    // 处理 SKU 数据，确保 materialCategories 正确保存
+    // 处理 SKU 数据，确保 materialCategories 和 specRemark 正确保存
     if (productData.skus && Array.isArray(productData.skus)) {
       productData.skus = productData.skus.map(sku => ({
         ...sku,
+        specRemark: sku.specRemark || '', // 确保specRemark被保存
         materialCategories: sku.materialCategories || [],
         material: sku.material || {},
         materialUpgradePrices: sku.materialUpgradePrices || {},
@@ -1131,6 +1132,7 @@ const updateProduct = async (req, res) => {
         
         return {
           ...sku,
+          specRemark: sku.specRemark || '', // 确保specRemark被保存
           materialCategories: sku.materialCategories || [],
           material: sku.material || {},
           materialUpgradePrices: sku.materialUpgradePrices || {},
