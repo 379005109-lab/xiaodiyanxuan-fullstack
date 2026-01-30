@@ -866,6 +866,7 @@ export default function ProductForm() {
       console.log(`[ProductForm] 商品图片数量: ${totalImageCount} 张 (SKU: ${formData.skus.reduce((sum, sku) => sum + (sku.images || []).length, 0)}张, 主图: ${formData.mainImages.length}张)`)
       console.log(`[ProductForm] 使用GridFS存储，商品数据大小: < 1KB`)
       console.log(`[ProductForm] 分类数据: category="${formData.category}", categories=[${formData.categories.join(', ')}]`)
+      console.log(`[ProductForm] SKU规格备注数据:`, formData.skus.map(sku => ({ spec: sku.spec, specRemark: sku.specRemark })))
 
       // 构建商品数据
       const productData: any = {
