@@ -2503,6 +2503,7 @@ export default function ProductForm() {
                         onChange={(e) => {
                           const newSkus = [...formData.skus]
                           newSkus[index].specRemark = e.target.value
+                          console.log(`[specRemark] SKU${index} 规格备注更新为:`, e.target.value)
                           setFormData({ ...formData, skus: newSkus })
                         }}
                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
