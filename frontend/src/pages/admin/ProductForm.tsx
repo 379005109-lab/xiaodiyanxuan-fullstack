@@ -867,6 +867,13 @@ export default function ProductForm() {
       console.log(`[ProductForm] 使用GridFS存储，商品数据大小: < 1KB`)
       console.log(`[ProductForm] 分类数据: category="${formData.category}", categories=[${formData.categories.join(', ')}]`)
       console.log(`[ProductForm] SKU规格备注数据:`, formData.skus.map(sku => ({ spec: sku.spec, specRemark: sku.specRemark })))
+      
+      // 在保存前打印完整SKU数据
+      console.log('🔥 [ProductForm] 完整SKU数据:', JSON.stringify(formData.skus.map(sku => ({
+        code: sku.code,
+        spec: sku.spec,
+        specRemark: sku.specRemark,
+      })), null, 2))
 
       // 构建商品数据
       const productData: any = {
