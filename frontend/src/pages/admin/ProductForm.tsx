@@ -1338,28 +1338,41 @@ export default function ProductForm() {
 
         // 跳过表头，从第二行开始读取数据
         const skuData = dataRows.map((row: any[], index) => {
-          // Excel格式v5.0（简化版）：
+          // Excel格式v6.0（含规格备注）：
+          // A(0):商品名称 B(1):型号 C(2):类别 D(3):规格 E(4):规格备注 F(5):长宽高
+          // G(6):材质面料 H(7):材质描述 I(8):标价 J(9):折扣价
+          // K(10):库存天数 L(11):制作天数 M(12):包装体积 N(13):包装件数 O(14):厂家
+          //
+          // Excel格式v5.0（简化版-兼容）：
           // A(0):商品名称 B(1):型号 C(2):类别 D(3):规格 E(4):长宽高
           // F(5):材质面料 G(6):材质描述 H(7):标价 I(8):折扣价
           // J(9):库存天数 K(10):制作天数 L(11):包装体积 M(12):包装件数 N(13):厂家
-          //
-          // Excel格式v3.0（兼容旧格式）：
-          // A(0):商品名称 B(1):型号 C(2):类别 D(3):规格 E(4):长宽高 F(5):材质 G(6):标价 H(7):折扣价 I(8):库存 J(9):销量 K(10):PRO L(11):PRO特性
           
           const productName = row[0] || '' // A列：商品名称
           const modelCode = row[1] || '' // B列：型号
           const spec = row[3] || '' // D列：规格
-          const dimensions = row[4]?.toString() || '' // E列：长宽高
+          
+          // 判断是否有规格备注列（检查E列是否是尺寸格式如 200*100*80）
+          const colE = row[4]?.toString() || ''
+          const isDimensionFormat = /^\d+[*×x]\d+[*×x]\d+/.test(colE.replace(/\s/g, ''))
+          
+          // 如果E列不是尺寸格式，则认为E列是规格备注，F列是尺寸
+          const specRemark = isDimensionFormat ? '' : colE
+          const dimensions = isDimensionFormat ? colE : (row[5]?.toString() || '')
+          
+          // 根据是否有规格备注列，调整后续列的索引偏移
+          const colOffset = isDimensionFormat ? 0 : 1
           
           console.log(`=== ProductForm 第${index + 2}行数据 ===`, {
             '完整行': row,
             'A列[0]-商品名称': productName,
             'B列[1]-型号': modelCode,
             'D列[3]-规格': spec,
-            'E列[4]-长宽高': dimensions,
-            'F列[5]-面料': row[5],
-            'J列[9]-标价': row[9],
-            'K列[10]-折扣价': row[10]
+            'E列[4]-规格备注或尺寸': colE,
+            '是否尺寸格式': isDimensionFormat,
+            '规格备注': specRemark,
+            '尺寸': dimensions,
+            '列偏移': colOffset
           })
           
           // 解析长宽高 - 格式: 长*宽*高
@@ -1397,14 +1410,16 @@ export default function ProductForm() {
           // 构建动态材质对象
           const buildMaterial = (): MaterialSelection => {
             const result: MaterialSelection = {}
-            // 新格式v5.0：F(5):材质面料
-            const fabric = parseMaterialString(row[5]?.toString() || '')
+            // 新格式v6.0：G(6):材质面料 或 v5.0：F(5):材质面料
+            const fabricColIndex = 5 + colOffset
+            const fabric = parseMaterialString(row[fabricColIndex]?.toString() || '')
             if (fabric.length > 0) result.fabric = fabric
             return result
           }
           
           // 获取材质描述
-          const materialDescription = isNewFormat ? (row[6]?.toString() || '') : ''
+          const materialDescColIndex = 6 + colOffset
+          const materialDescription = isNewFormat ? (row[materialDescColIndex]?.toString() || '') : ''
           
           material = buildMaterial()
           // 从材质数据中提取已配置的类目列表
@@ -1417,12 +1432,12 @@ export default function ProductForm() {
           let packageCount = 1
           
           if (isNewFormat) {
-            price = parseFloat((row[7]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // H列：标价
-            discountPrice = parseFloat((row[8]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // I列：折扣价
-            deliveryDays = parseInt(row[9]) || 7 // J列：库存天数
-            productionDays = parseInt(row[10]) || 30 // K列：制作天数
-            packageVolume = (row[11]?.toString() || '').trim() // L列：包装体积
-            packageCount = parseInt(row[12]) || 1 // M列：包装件数
+            price = parseFloat((row[7 + colOffset]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // 标价
+            discountPrice = parseFloat((row[8 + colOffset]?.toString() || '').replace(/[^\d.]/g, '')) || 0 // 折扣价
+            deliveryDays = parseInt(row[9 + colOffset]) || 7 // 库存天数
+            productionDays = parseInt(row[10 + colOffset]) || 30 // 制作天数
+            packageVolume = (row[11 + colOffset]?.toString() || '').trim() // 包装体积
+            packageCount = parseInt(row[12 + colOffset]) || 1 // 包装件数
             sales = 0
             isPro = false
             proFeature = ''
@@ -1436,13 +1451,14 @@ export default function ProductForm() {
           }
           
           console.log('材质字段映射:', {
-            格式: isNewFormat ? '新格式v5.0' : '旧格式',
+            格式: isNewFormat ? (colOffset ? '新格式v6.0(含规格备注)' : '新格式v5.0') : '旧格式',
             行长度: row.length,
+            列偏移: colOffset,
             已配置类目: materialCategories,
             material: material,
-            'F列[5]-面料': row[5],
-            'G列[6]-材质描述': row[6],
-            'N列[13]-厂家': row[13],
+            面料列: row[5 + colOffset],
+            材质描述列: row[6 + colOffset],
+            厂家列: row[13 + colOffset],
           })
           
           return {
@@ -1452,7 +1468,7 @@ export default function ProductForm() {
             effectImages: [],
             code: modelCode || `SKU-${index + 1}`,
             spec: spec,
-            specRemark: '',
+            specRemark: specRemark,
             length: length,
             width: width,
             height: height,
@@ -1481,7 +1497,7 @@ export default function ProductForm() {
             proFeature: proFeature,
             status: true,
             manufacturerId: '',
-            manufacturerName: isNewFormat ? (row[13]?.toString() || '') : (row[15]?.toString() || ''),
+            manufacturerName: isNewFormat ? (row[13 + colOffset]?.toString() || '') : (row[15]?.toString() || ''),
           }
         })
 
