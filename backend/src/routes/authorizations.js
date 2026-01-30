@@ -4043,4 +4043,4 @@ router.delete('/tier-node/:id', auth, async (req, res) => {
 
 module.exports = router
 // Force rebuild: 2026-01-29-18-50 - ensure latest tier validation with 返佣折扣上限 message
-// Build trigger 1769802448
+// Build trigger v2 1769802448
