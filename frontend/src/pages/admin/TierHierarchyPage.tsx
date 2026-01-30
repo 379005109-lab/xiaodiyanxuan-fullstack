@@ -920,10 +920,8 @@ export default function TierHierarchyPage() {
     setShowEditModal(true)
   }
   
-  // 删除节点
+  // 删除节点 - 直接删除无需确认
   const handleDelete = async (nodeId: string) => {
-    if (!confirm('确定要删除此层级吗？其下级也会被删除。')) return
-    
     try {
       await apiClient.delete(`/authorizations/tier-node/${nodeId}`)
       toast.success('层级已删除')
