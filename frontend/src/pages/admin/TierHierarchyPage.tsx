@@ -70,6 +70,7 @@ function TierCard({
   const isVirtual = Boolean((node as any).isVirtual)
   const canEdit = isOwner && !isVirtual
   const canAddChild = canEdit && node.allowSubAuthorization !== false
+  const canBindAccount = canEdit  // 绑定账号只需要canEdit权限
   const hasChildren = (node.children?.length || 0) > 0 || node.childCount > 0
   
   const ownCommission = (node.tierCommissionRate ?? node.ownProductCommission ?? 0) || 0
@@ -195,22 +196,26 @@ function TierCard({
         )}
         
         {/* 绑定账号 + 添加层级 */}
-        {canAddChild && (
+        {(canBindAccount || canAddChild) && (
           <div className="flex gap-2">
-            <button
-              onClick={() => onBindAccount(node._id)}
-              className="flex-1 py-2.5 border-2 border-dashed border-green-300 rounded-xl text-green-600 hover:bg-green-50 hover:border-green-400 transition-colors flex items-center justify-center gap-2 font-medium"
-            >
-              <Users className="w-4 h-4" />
-              绑定账号
-            </button>
-            <button
-              onClick={() => onAddChild(node._id)}
-              className="w-12 h-12 border-2 border-dashed border-blue-300 rounded-xl text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors flex items-center justify-center"
-              title="添加层级"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
+            {canBindAccount && (
+              <button
+                onClick={() => onBindAccount(node._id)}
+                className="flex-1 py-2.5 border-2 border-dashed border-green-300 rounded-xl text-green-600 hover:bg-green-50 hover:border-green-400 transition-colors flex items-center justify-center gap-2 font-medium"
+              >
+                <Users className="w-4 h-4" />
+                绑定账号
+              </button>
+            )}
+            {canAddChild && (
+              <button
+                onClick={() => onAddChild(node._id)}
+                className="w-12 h-12 border-2 border-dashed border-blue-300 rounded-xl text-blue-600 hover:bg-blue-50 hover:border-blue-400 transition-colors flex items-center justify-center"
+                title="添加层级"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            )}
           </div>
         )}
         
@@ -616,6 +621,14 @@ function BindAccountModal({
         })
         const list = resp.data?.data?.list || resp.data?.list || []
         setAccounts(list)
+        
+        // 预选已绑定的账号
+        if (parentNode && (parentNode as any).boundUserIds?.length > 0) {
+          const existingIds = new Set<string>((parentNode as any).boundUserIds.map((u: any) => String(u._id || u)))
+          setSelectedIds(existingIds)
+        } else {
+          setSelectedIds(new Set())
+        }
       } catch (err) {
         console.error('加载账号列表失败:', err)
         toast.error('加载账号列表失败')
@@ -625,9 +638,8 @@ function BindAccountModal({
     }
     
     loadAccounts()
-    setSelectedIds(new Set())
     setSearchKeyword('')
-  }, [isOpen, manufacturerId])
+  }, [isOpen, manufacturerId, parentNode])
 
   const filteredAccounts = useMemo(() => {
     if (!searchKeyword) return accounts
