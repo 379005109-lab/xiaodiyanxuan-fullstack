@@ -162,14 +162,14 @@ function TierCard({
           </span>
         </div>
         
-        {/* 添加层级按钮 */}
+        {/* 绑定账号按钮 */}
         {canAddChild && (
           <button
             onClick={() => onAddChild(node._id)}
             className="w-full py-2.5 border-2 border-dashed border-green-300 rounded-xl text-green-600 hover:bg-green-50 hover:border-green-400 transition-colors flex items-center justify-center gap-2 font-medium"
           >
-            <Plus className="w-4 h-4" />
-            添加层级
+            <Users className="w-4 h-4" />
+            绑定账号
           </button>
         )}
         
@@ -189,9 +189,9 @@ function TierCard({
               <button
                 onClick={() => onAddChild(node._id)}
                 className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg"
-                title="添加下级"
+                title="绑定账号"
               >
-                <Plus className="w-4 h-4" />
+                <Users className="w-4 h-4" />
               </button>
             )}
             <button
@@ -381,7 +381,7 @@ function TierEditModal({
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900">
-            {editingNode ? '编辑层级' : '添加下级'}
+            {editingNode ? '编辑返佣设置' : '绑定账号'}
           </h2>
           {parentNode && (
             <p className="text-sm text-gray-500 mt-1">
@@ -391,17 +391,17 @@ function TierEditModal({
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* 名称 */}
+          {/* 账号名称 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              名称 <span className="text-red-500">*</span>
+              账号名称 <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.tierDisplayName}
               onChange={e => setFormData({ ...formData, tierDisplayName: e.target.value })}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="公司名或个人名"
+              placeholder="输入要绑定的账号名称"
             />
           </div>
           
@@ -546,7 +546,7 @@ function TierEditModal({
                   : "bg-primary-600 hover:bg-primary-700"
               )}
             >
-              {editingNode ? '保存' : '添加'}
+              {editingNode ? '保存' : '绑定'}
             </button>
           </div>
         </form>

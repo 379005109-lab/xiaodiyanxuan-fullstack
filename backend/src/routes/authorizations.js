@@ -3447,10 +3447,11 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       const rootCommissionRate = (firstRoot.tierCommissionRate && firstRoot.tierCommissionRate > 0)
         ? firstRoot.tierCommissionRate
         : (rootLegacyCommission ?? 0)
-      // 根节点的下放额度 = 返佣率（返佣是可分配的总额度，不是折扣率-返佣率）
-      const rootDelegatedRate = (firstRoot.tierDelegatedRate && firstRoot.tierDelegatedRate > 0)
-        ? firstRoot.tierDelegatedRate
-        : rootCommissionRate  // 返佣率就是可下放的上限
+      // 根节点的下放额度上限 = ownProductCommission (19%)，不是 tierCommissionRate
+      // 这是厂家授权给渠道的返佣率，是可分配的总额度
+      const maxDelegatedRate = rootLegacyCommission || 0
+      const storedDelegatedRate = firstRoot.tierDelegatedRate || 0
+      const rootDelegatedRate = Math.min(storedDelegatedRate || maxDelegatedRate, maxDelegatedRate)
 
       const rootPartnerLegacyDiscount = firstRoot.partnerProductMinDiscount ?? firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate
       const rootPartnerLegacyCommission = firstRoot.partnerProductCommission ?? firstRoot.ownProductCommission ?? firstRoot.commissionRate
@@ -3460,13 +3461,16 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       const rootPartnerCommissionRate = (firstRoot.tierPartnerCommissionRate && firstRoot.tierPartnerCommissionRate > 0)
         ? firstRoot.tierPartnerCommissionRate
         : (rootPartnerLegacyCommission ?? 0)
-      // 合作商产品同理：下放额度 = 返佣率
-      const rootPartnerDelegatedRate = (firstRoot.tierPartnerDelegatedRate !== undefined && firstRoot.tierPartnerDelegatedRate !== null)
-        ? firstRoot.tierPartnerDelegatedRate
-        : rootPartnerCommissionRate
+      // 合作商产品同理：下放上限 = partnerProductCommission
+      const maxPartnerDelegatedRate = rootPartnerLegacyCommission || 0
+      const storedPartnerDelegatedRate = firstRoot.tierPartnerDelegatedRate || 0
+      const rootPartnerDelegatedRate = Math.min(storedPartnerDelegatedRate || maxPartnerDelegatedRate, maxPartnerDelegatedRate)
       
-      console.log('[tier-hierarchy-v2] Root node:', {
+      console.log('[tier-hierarchy-v2] Root node delegated calc:', {
         firstRootId: firstRoot._id,
+        storedDelegatedRate,
+        rootCommissionRate,
+        rootDelegatedRate,
         minDiscountRate: firstRoot.minDiscountRate,
         commissionRate: firstRoot.commissionRate,
         isRootOwner
