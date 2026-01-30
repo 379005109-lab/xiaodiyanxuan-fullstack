@@ -2826,6 +2826,10 @@ export default function OrderManagementNew2() {
                       <p className="text-sm text-gray-500 mt-1">
                         {product.skuName || '标准款'} / {product.specifications?.color || '默认'}
                       </p>
+                      {/* 商品描述 */}
+                      {product.description && (
+                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">{product.description}</p>
+                      )}
                       
                       {/* 标签区域 */}
                       <div className="flex flex-wrap gap-2 mt-3">

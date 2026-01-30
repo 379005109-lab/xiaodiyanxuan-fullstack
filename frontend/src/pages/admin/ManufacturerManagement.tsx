@@ -1,13 +1,14 @@
 // Build cache bust: 20260110-v1
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package, Clock } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package, Clock, Camera } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
 import ImageUploader from '@/components/admin/ImageUploader'
 import ManufacturerEditDrawer from '@/components/admin/ManufacturerEditDrawer'
 import { getFileUrl } from '@/services/uploadService'
 import { useAuthStore } from '@/store/authStore'
+import ImageSearchModal from '@/components/frontend/ImageSearchModal'
 
 // 中文转拼音首字母（简化版）
 const pinyinMap: Record<string, string> = {
@@ -150,6 +151,7 @@ export default function ManufacturerManagement() {
   const { user } = useAuthStore()
   const role = (user as any)?.role
   const isAdmin = role === 'admin' || role === 'super_admin' || role === 'platform_admin' || role === 'platform_staff'
+  const isSuperAdmin = role === 'super_admin' // 超级管理员可以删除厂家
   const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
   const isManufacturerUser = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff' || (user as any)?.permissions?.canAccessAdmin === true
 
@@ -272,6 +274,7 @@ export default function ManufacturerManagement() {
   const [scopeTarget, setScopeTarget] = useState<any>(null)
   const [showMarketplace, setShowMarketplace] = useState(false) // 是否显示合作市场
   const [marketplaceFilter, setMarketplaceFilter] = useState('') // 合作市场筛选标签
+  const [showImageSearchModal, setShowImageSearchModal] = useState(false) // 以图搜索弹窗
   const [showEditSectionModal, setShowEditSectionModal] = useState(false) // 资料编辑弹窗
   const [editSection, setEditSection] = useState<'basic' | 'settlement' | 'qualification' | 'tags' | 'priceRange' | 'discount' | 'commission' | 'paymentRatio' | 'invoice'>('basic')
   const [editSectionData, setEditSectionData] = useState<any>({})
@@ -283,6 +286,7 @@ export default function ManufacturerManagement() {
   // 合作商家详情弹窗
   const [showPartnerDetailModal, setShowPartnerDetailModal] = useState(false)
   const [partnerDetailTarget, setPartnerDetailTarget] = useState<any>(null)
+  const [expandedPartnerPrices, setExpandedPartnerPrices] = useState<Set<string>>(new Set()) // 展开显示价格详情的合作商家
   
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
@@ -1530,24 +1534,45 @@ export default function ManufacturerManagement() {
                               <div className="text-xs text-orange-500 mb-4">{item.code}</div>
                             )}
                             
-                            {/* 折扣和返佣 */}
-                            <div className="grid grid-cols-2 gap-3 mb-4">
-                              <div className="border border-gray-200 rounded-xl p-3 text-center">
-                                <div className="text-xs text-gray-500 mb-1">最低折扣(%)</div>
-                                <div className="text-2xl font-bold text-gray-900">{authInfo?.minDiscountRate || item.defaultDiscount || 60}</div>
-                              </div>
-                              <div className="border border-gray-200 rounded-xl p-3 text-center">
-                                <div className="text-xs text-gray-500 mb-1">返佣比例(%)</div>
-                                <div className="text-2xl font-bold text-gray-900">{authInfo?.commissionRate || item.defaultCommission || 40}</div>
-                              </div>
-                            </div>
-                            
-                            {/* 价格范围 */}
+                            {/* 成本价范围 - 默认显示 */}
                             {(priceMin > 0 || priceMax > 0) && (
-                              <div className="mb-4">
-                                <div className="text-xs text-gray-500 mb-1">产品价格范围</div>
+                              <div className="mb-3">
+                                <div className="text-xs text-gray-500 mb-1">成本价范围</div>
                                 <div className="text-lg font-semibold text-gray-900">
                                   ¥{priceMin.toLocaleString()} - ¥{priceMax.toLocaleString()}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* 折扣和返佣 - 点击展开 */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setExpandedPartnerPrices(prev => {
+                                  const next = new Set(prev)
+                                  if (next.has(item._id)) {
+                                    next.delete(item._id)
+                                  } else {
+                                    next.add(item._id)
+                                  }
+                                  return next
+                                })
+                              }}
+                              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors mb-3"
+                            >
+                              <span className="text-xs text-gray-500">折扣与返佣详情</span>
+                              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedPartnerPrices.has(item._id) ? 'rotate-180' : ''}`} />
+                            </button>
+                            
+                            {expandedPartnerPrices.has(item._id) && (
+                              <div className="grid grid-cols-2 gap-3 mb-4 animate-in slide-in-from-top-2 duration-200">
+                                <div className="border border-gray-200 rounded-xl p-3 text-center">
+                                  <div className="text-xs text-gray-500 mb-1">最低折扣(%)</div>
+                                  <div className="text-2xl font-bold text-gray-900">{authInfo?.minDiscountRate || item.defaultDiscount || 60}</div>
+                                </div>
+                                <div className="border border-gray-200 rounded-xl p-3 text-center">
+                                  <div className="text-xs text-gray-500 mb-1">返佣比例(%)</div>
+                                  <div className="text-2xl font-bold text-gray-900">{authInfo?.commissionRate || item.defaultCommission || 40}</div>
                                 </div>
                               </div>
                             )}
@@ -1680,15 +1705,25 @@ export default function ManufacturerManagement() {
                     <p className="text-sm text-gray-500 mt-1">探索品牌厂家，申请建立合作</p>
                   </div>
                 </div>
-                <div className="relative max-w-md w-full">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="搜索品牌..."
-                    value={portalKeyword}
-                    onChange={(e) => setPortalKeyword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-full bg-white shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
+                <div className="flex items-center gap-3">
+                  <div className="relative max-w-md w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="搜索品牌..."
+                      value={portalKeyword}
+                      onChange={(e) => setPortalKeyword(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-full bg-white shadow-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowImageSearchModal(true)}
+                    className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-full hover:from-purple-600 hover:to-blue-600 transition-all shadow-md hover:shadow-lg"
+                    title="以图搜索"
+                  >
+                    <Camera className="w-5 h-5" />
+                    <span className="text-sm font-medium">以图搜索</span>
+                  </button>
                 </div>
               </div>
 
@@ -1744,20 +1779,35 @@ export default function ManufacturerManagement() {
                       return (
                         <div
                           key={item._id}
-                          className="bg-white rounded-[2.5rem] border border-gray-100 p-8 shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all"
+                          className="bg-white rounded-[2.5rem] border border-gray-100 overflow-hidden shadow-[0_30px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.06)] transition-all cursor-pointer"
+                          onClick={() => handleOpenProductAuthorization(item)}
                         >
-                          <div className="flex items-start justify-between">
-                            <div className="flex flex-col gap-1">
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {/* 产品图片区域 */}
+                          <div className="relative h-48 bg-gray-100">
+                            {item.galleryImages?.[0] || item.logo ? (
+                              <img
+                                src={getFileUrl(item.galleryImages?.[0] || item.logo || '')}
+                                alt={item.fullName || item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Factory className="w-16 h-16 text-gray-300" />
+                              </div>
+                            )}
+                            {/* 状态标签 */}
+                            <div className="absolute top-3 left-3 flex flex-col gap-1">
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.status === 'active' ? 'bg-emerald-500 text-white' : 'bg-gray-500 text-white'}`}>
                                 {item.status === 'active' ? '启用中' : '已停用'}
                               </span>
                               {isPending && (
-                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500 text-white">
                                   ⏳ 申请中
                                 </span>
                               )}
                             </div>
-                            <div className="w-14 h-14 rounded-2xl bg-gray-50 border shadow-inner flex items-center justify-center overflow-hidden">
+                            {/* Logo */}
+                            <div className="absolute bottom-3 right-3 w-12 h-12 rounded-xl bg-white border shadow-lg flex items-center justify-center overflow-hidden">
                               <img
                                 src={getFileUrl(item.logo || '')}
                                 alt={item.fullName || item.name}
@@ -1765,39 +1815,63 @@ export default function ManufacturerManagement() {
                               />
                             </div>
                           </div>
-                          <div className="mt-5">
-                            <div className="mt-2 text-2xl font-black text-gray-900 tracking-tight">
+                          
+                          {/* 内容区域 */}
+                          <div className="p-6">
+                            <div className="text-xl font-bold text-gray-900 mb-1">
                               {item.shortName || item.fullName || item.name}
                             </div>
-                            <div className="text-[10px] font-black text-gray-300 uppercase tracking-widest mt-2">
-                              {item.code || ''}
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 mt-6">
-                            <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
-                              <div className="text-xs font-semibold text-emerald-700">最低折扣(%)</div>
-                              <div className="text-3xl font-black text-[#153e35] mt-2">
-                                {item.defaultDiscount || 0}
+                            {item.code && (
+                              <div className="text-xs text-gray-400 mb-3">{item.code}</div>
+                            )}
+                            
+                            {/* 风格标签 */}
+                            {(item.styleTags && item.styleTags.length > 0) && (
+                              <div className="flex flex-wrap gap-1.5 mb-3">
+                                {item.styleTags.slice(0, 4).map((tag: string, i: number) => (
+                                  <span key={i} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-full">
+                                    {tag}
+                                  </span>
+                                ))}
+                                {item.styleTags.length > 4 && (
+                                  <span className="px-2.5 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">
+                                    +{item.styleTags.length - 4}
+                                  </span>
+                                )}
                               </div>
-                            </div>
-                            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-5 text-center">
-                              <div className="text-xs font-semibold text-blue-700">返佣比例(%)</div>
-                              <div className="text-3xl font-black text-blue-700 mt-2">
-                                {item.defaultCommission || 0}
+                            )}
+                            
+                            {/* 品类标签 */}
+                            {(item.categoryTags && item.categoryTags.length > 0) && (
+                              <div className="flex flex-wrap gap-1.5 mb-4">
+                                {item.categoryTags.slice(0, 4).map((tag: string, i: number) => (
+                                  <span key={i} className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
+                                    {tag}
+                                  </span>
+                                ))}
                               </div>
-                            </div>
+                            )}
+                            
+                            {/* 产品介绍 */}
+                            {item.productIntro && (
+                              <p className="text-sm text-gray-500 line-clamp-2 mb-4">{item.productIntro}</p>
+                            )}
+                            
+                            <button
+                              disabled={item.status !== 'active'}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenProductAuthorization(item)
+                              }}
+                              className={`w-full px-6 py-3 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                isPending
+                                  ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
+                                  : 'bg-[#153e35] text-white hover:bg-[#1a4d42]'
+                              }`}
+                            >
+                              {isPending ? '查看申请状态' : '进入查看产品'}
+                            </button>
                           </div>
-                          <button
-                            disabled={item.status !== 'active'}
-                            onClick={() => handleOpenProductAuthorization(item)}
-                            className={`mt-6 w-full px-6 py-3 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                              isPending
-                                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100' 
-                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            {isPending ? '查看申请状态' : '申请经销授权'}
-                          </button>
                         </div>
                       )
                     })}
@@ -2657,6 +2731,15 @@ export default function ManufacturerManagement() {
                           <Settings className="w-4 h-4" />
                           选品授权
                         </button>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => handleDelete(item._id)}
+                            className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors col-span-2"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            删除厂家
+                          </button>
+                        )}
                       </>
                     ) : (
                       <button
@@ -4805,6 +4888,12 @@ export default function ManufacturerManagement() {
           </div>
         </div>
       )}
+
+      {/* 以图搜索弹窗 */}
+      <ImageSearchModal 
+        isOpen={showImageSearchModal} 
+        onClose={() => setShowImageSearchModal(false)} 
+      />
     </div>
   )
 }
