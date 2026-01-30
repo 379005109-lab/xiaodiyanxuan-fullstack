@@ -83,16 +83,26 @@ function TierCard({
       )}>
         {/* 头部 - 名称和角色 */}
         <div className="flex items-center gap-3 mb-4">
-          {/* 头像/图标 */}
-          <div className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg",
-            isRoot ? "bg-gradient-to-br from-primary-500 to-primary-700" : 
-            node.tierRole === 'company' ? "bg-gradient-to-br from-blue-500 to-blue-700" :
-            node.tierRole === 'designer' ? "bg-gradient-to-br from-purple-500 to-purple-700" :
-            "bg-gradient-to-br from-gray-400 to-gray-600"
-          )}>
+          {/* 头像/图标 - 点击编辑 */}
+          <button
+            onClick={() => canEdit && onEdit(node)}
+            className={cn(
+              "w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg relative group",
+              isRoot ? "bg-gradient-to-br from-primary-500 to-primary-700" : 
+              node.tierRole === 'company' ? "bg-gradient-to-br from-blue-500 to-blue-700" :
+              node.tierRole === 'designer' ? "bg-gradient-to-br from-purple-500 to-purple-700" :
+              "bg-gradient-to-br from-gray-400 to-gray-600",
+              canEdit && "cursor-pointer hover:opacity-90"
+            )}
+            title={canEdit ? "编辑层级" : undefined}
+          >
             {node.tierDisplayName?.charAt(0) || '?'}
-          </div>
+            {canEdit && (
+              <div className="absolute inset-0 bg-black/30 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                <Edit2 className="w-4 h-4 text-white" />
+              </div>
+            )}
+          </button>
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -117,12 +127,12 @@ function TierCard({
             </p>
           </div>
           
-          {/* 编辑按钮 */}
+          {/* 右上角齿轮 - 模板设置 */}
           {canEdit && (
             <button
               onClick={() => onEdit(node)}
               className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-              title="编辑规则"
+              title="角色模板设置"
             >
               <Settings className="w-5 h-5" />
             </button>
@@ -184,36 +194,9 @@ function TierCard({
           </div>
         )}
         
-        {/* 操作按钮 */}
+        {/* 底部操作按钮 - 只保留删除 */}
         {!isRoot && canEdit && (
           <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
-            {hasChildren && (
-              <button
-                onClick={() => onViewDetails(node)}
-                className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
-                title="查看详情"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
-            {canAddChild && (
-              <>
-                <button
-                  onClick={() => onBindAccount(node._id)}
-                  className="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg"
-                  title="绑定账号"
-                >
-                  <Users className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onAddChild(node._id)}
-                  className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
-                  title="添加层级"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </>
-            )}
             <button
               onClick={() => onDelete(node._id)}
               className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
