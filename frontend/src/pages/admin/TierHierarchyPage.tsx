@@ -16,9 +16,12 @@ interface TierNode {
   _id: string
   tierDisplayName: string
   tierRole: 'company' | 'person' | 'channel' | 'designer' | null
-  tierDiscountRate: number  // 获得的折扣率
-  tierDelegatedRate: number // 下放给下级的折扣率
-  tierCommissionRate: number // 返佣比例 = discountRate - delegatedRate
+  tierDiscountRate: number  // 自有产品返佣率
+  tierDelegatedRate: number // 自有产品下放给下级的比例
+  tierCommissionRate: number // 自有产品自留 = discountRate - delegatedRate
+  tierPartnerDiscountRate?: number  // 合作商产品返佣率
+  tierPartnerDelegatedRate?: number // 合作商产品下放给下级的比例
+  tierPartnerCommissionRate?: number // 合作商产品自留
   ownProductMinDiscount?: number
   ownProductCommission?: number
   partnerProductMinDiscount?: number
@@ -69,8 +72,8 @@ function TierCard({
   
   const ownDiscount = (node.ownProductMinDiscount ?? node.tierDiscountRate ?? 0) || 0
   const ownCommission = (node.ownProductCommission ?? node.tierCommissionRate ?? 0) || 0
-  const partnerDiscount = (node.partnerProductMinDiscount ?? node.ownProductMinDiscount ?? node.tierDiscountRate ?? 0) || 0
-  const partnerCommission = (node.partnerProductCommission ?? node.ownProductCommission ?? node.tierCommissionRate ?? 0) || 0
+  const partnerDiscount = (node.tierPartnerDiscountRate ?? node.partnerProductMinDiscount ?? node.tierDiscountRate ?? 0) || 0
+  const partnerCommission = (node.tierPartnerCommissionRate ?? node.partnerProductCommission ?? node.tierCommissionRate ?? 0) || 0
   
   return (
     <div className="relative">
@@ -127,29 +130,42 @@ function TierCard({
           )}
         </div>
         
-        {/* 折扣和返佣信息 */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="bg-green-50 rounded-xl p-3 text-center">
-            <p className="text-xs text-green-600 mb-1">自有最低折扣</p>
-            <p className="text-2xl font-bold text-green-700">{ownDiscount}</p>
-            <p className="text-xs text-green-500">%</p>
+        {/* 折扣和返佣信息 - 仅所有者可见详情 */}
+        {isOwner ? (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-green-50 rounded-xl p-3 text-center">
+              <p className="text-xs text-green-600 mb-1">自有返佣</p>
+              <p className="text-2xl font-bold text-green-700">{ownDiscount}</p>
+              <p className="text-xs text-green-500">%</p>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-3 text-center">
+              <p className="text-xs text-blue-600 mb-1">自有自留</p>
+              <p className="text-2xl font-bold text-blue-700">{ownCommission}</p>
+              <p className="text-xs text-blue-500">%</p>
+            </div>
+            {partnerDiscount > 0 && (
+              <>
+                <div className="bg-purple-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-purple-600 mb-1">合作商返佣</p>
+                  <p className="text-2xl font-bold text-purple-700">{partnerDiscount}</p>
+                  <p className="text-xs text-purple-500">%</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-purple-600 mb-1">合作商自留</p>
+                  <p className="text-2xl font-bold text-purple-700">{partnerCommission}</p>
+                  <p className="text-xs text-purple-500">%</p>
+                </div>
+              </>
+            )}
           </div>
-          <div className="bg-blue-50 rounded-xl p-3 text-center">
-            <p className="text-xs text-blue-600 mb-1">自有返佣</p>
-            <p className="text-2xl font-bold text-blue-700">{ownCommission}</p>
-            <p className="text-xs text-blue-500">%</p>
+        ) : (
+          <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
+            <p className="text-sm text-gray-500">
+              <EyeOff className="w-4 h-4 inline mr-1" />
+              非本人创建，详细信息已隐藏
+            </p>
           </div>
-          <div className="bg-green-50 rounded-xl p-3 text-center">
-            <p className="text-xs text-green-600 mb-1">合作商最低折扣</p>
-            <p className="text-2xl font-bold text-green-700">{partnerDiscount}</p>
-            <p className="text-xs text-green-500">%</p>
-          </div>
-          <div className="bg-blue-50 rounded-xl p-3 text-center">
-            <p className="text-xs text-blue-600 mb-1">合作商返佣</p>
-            <p className="text-2xl font-bold text-blue-700">{partnerCommission}</p>
-            <p className="text-xs text-blue-500">%</p>
-          </div>
-        </div>
+        )}
         
         {/* 统计信息 */}
         <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
@@ -317,28 +333,44 @@ function TierEditModal({
     tierDisplayName: '',
     tierRole: 'person' as 'company' | 'person' | 'channel' | 'designer',
     tierDiscountRate: 0,
-    tierDelegatedRate: 0
+    tierDelegatedRate: 0,
+    tierPartnerDiscountRate: 0,
+    tierPartnerDelegatedRate: 0
   })
   
+  // 获取合作商产品上限
+  const maxPartnerDiscountRate = (parentNode?.tierPartnerDelegatedRate && parentNode.tierPartnerDelegatedRate > 0)
+    ? parentNode.tierPartnerDelegatedRate
+    : Math.max(
+        0,
+        Number(parentNode?.tierPartnerDiscountRate ?? parentNode?.partnerProductMinDiscount ?? 0) -
+          Number(parentNode?.tierPartnerCommissionRate ?? parentNode?.partnerProductCommission ?? 0)
+      )
+
   useEffect(() => {
     if (editingNode) {
       setFormData({
         tierDisplayName: editingNode.tierDisplayName || '',
         tierRole: editingNode.tierRole || 'person',
         tierDiscountRate: editingNode.tierDiscountRate || 0,
-        tierDelegatedRate: editingNode.tierDelegatedRate || 0
+        tierDelegatedRate: editingNode.tierDelegatedRate || 0,
+        tierPartnerDiscountRate: editingNode.tierPartnerDiscountRate ?? editingNode.partnerProductMinDiscount ?? 0,
+        tierPartnerDelegatedRate: editingNode.tierPartnerDelegatedRate ?? 0
       })
     } else {
       setFormData({
         tierDisplayName: '',
         tierRole: 'person',
         tierDiscountRate: maxDiscountRate,
-        tierDelegatedRate: 0
+        tierDelegatedRate: 0,
+        tierPartnerDiscountRate: maxPartnerDiscountRate,
+        tierPartnerDelegatedRate: 0
       })
     }
-  }, [editingNode, maxDiscountRate])
+  }, [editingNode, maxDiscountRate, maxPartnerDiscountRate])
   
   const commissionRate = formData.tierDiscountRate - formData.tierDelegatedRate
+  const partnerCommissionRate = formData.tierPartnerDiscountRate - formData.tierPartnerDelegatedRate
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -346,19 +378,30 @@ function TierEditModal({
       toast.error('请输入名称')
       return
     }
+    // 自有产品验证
     if (formData.tierDiscountRate > maxDiscountRate) {
-      toast.error(`折扣率不能超过上级返佣折扣上限 ${maxDiscountRate}%`)
+      toast.error(`自有产品返佣不能超过上级返佣折扣上限 ${maxDiscountRate}%`)
       return
     }
     if (formData.tierDelegatedRate > formData.tierDiscountRate) {
-      toast.error('返佣折扣不能超过折扣率')
+      toast.error('自有产品下放比例不能超过返佣率')
+      return
+    }
+    // 合作商产品验证
+    if (formData.tierPartnerDiscountRate > maxPartnerDiscountRate) {
+      toast.error(`合作商产品返佣不能超过上级返佣折扣上限 ${maxPartnerDiscountRate}%`)
+      return
+    }
+    if (formData.tierPartnerDelegatedRate > formData.tierPartnerDiscountRate) {
+      toast.error('合作商产品下放比例不能超过返佣率')
       return
     }
 
     // 清理 payload，移除空字段
     const payload: any = {
       ...formData,
-      tierCommissionRate: commissionRate
+      tierCommissionRate: commissionRate,
+      tierPartnerCommissionRate: partnerCommissionRate
     }
 
     if (!payload.tierRole) {
@@ -388,7 +431,7 @@ function TierEditModal({
               </p>
               <div className={`mt-1 text-xs px-2 py-1 rounded-lg inline-block ${isParentDelegatedRateZero ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
                 {isParentDelegatedRateZero 
-                  ? '⚠️ 上级未设置下放比例（返佣折扣上限为 0%），无法继续分配' 
+                  ? '⚠️ 上级未设置返佣折扣，无法继续分配' 
                   : `上级返佣折扣上限: ${parentDelegatedRate}%`
                 }
               </div>
@@ -485,21 +528,84 @@ function TierEditModal({
             </p>
           </div>
           
+          {/* 合作商产品返佣 - 分隔线 */}
+          {maxPartnerDiscountRate > 0 && (
+            <>
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-sm font-semibold text-purple-700 mb-3">合作商产品返佣设置</h3>
+              </div>
+              
+              {/* 合作商产品折扣率 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  合作商返佣 (最高 {maxPartnerDiscountRate}%)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max={maxPartnerDiscountRate}
+                    value={formData.tierPartnerDiscountRate}
+                    onChange={e => setFormData({ ...formData, tierPartnerDiscountRate: Number(e.target.value) })}
+                    className="flex-1"
+                  />
+                  <span className="w-16 text-center font-bold text-lg text-purple-600">
+                    {formData.tierPartnerDiscountRate}%
+                  </span>
+                </div>
+              </div>
+              
+              {/* 合作商产品返佣折扣 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  合作商下放比例 (最高 {formData.tierPartnerDiscountRate}%)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max={formData.tierPartnerDiscountRate}
+                    value={formData.tierPartnerDelegatedRate}
+                    onChange={e => setFormData({ ...formData, tierPartnerDelegatedRate: Number(e.target.value) })}
+                    className="flex-1"
+                  />
+                  <span className="w-16 text-center font-bold text-lg text-purple-600">
+                    {formData.tierPartnerDelegatedRate}%
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+          
           {/* 返佣预览 */}
           <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">下级成交时的返佣</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  = 折扣率 - 返佣折扣
-                </p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">自有产品自留返佣</p>
+                  <p className="text-xs text-gray-500">= 返佣率 - 下放比例</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-green-600">{commissionRate}%</p>
+                  <p className="text-xs text-gray-500">
+                    {formData.tierDiscountRate}% - {formData.tierDelegatedRate}%
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-primary-600">{commissionRate}%</p>
-                <p className="text-xs text-gray-500">
-                  {formData.tierDiscountRate}% - {formData.tierDelegatedRate}%
-                </p>
-              </div>
+              {maxPartnerDiscountRate > 0 && (
+                <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                  <div>
+                    <p className="text-sm text-gray-600">合作商产品自留返佣</p>
+                    <p className="text-xs text-gray-500">= 返佣率 - 下放比例</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-purple-600">{partnerCommissionRate}%</p>
+                    <p className="text-xs text-gray-500">
+                      {formData.tierPartnerDiscountRate}% - {formData.tierPartnerDelegatedRate}%
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           
@@ -626,13 +732,25 @@ export default function TierHierarchyPage() {
           Number(parent.ownProductMinDiscount ?? parent.tierDiscountRate ?? 0) -
             Number(parent.ownProductCommission ?? parent.tierCommissionRate ?? 0)
         )
+
+    const derivedPartnerDelegatedRate = (parent.tierPartnerDelegatedRate && parent.tierPartnerDelegatedRate > 0)
+      ? parent.tierPartnerDelegatedRate
+      : Math.max(
+          0,
+          Number(parent.tierPartnerDiscountRate ?? parent.partnerProductMinDiscount ?? 0) -
+            Number(parent.tierPartnerCommissionRate ?? parent.partnerProductCommission ?? 0)
+        )
     
-    if (derivedDelegatedRate <= 0) {
+    if (derivedDelegatedRate <= 0 && derivedPartnerDelegatedRate <= 0) {
       toast.error('此节点未设置返佣折扣，无法添加下级')
       return
     }
     
-    setParentNodeForAdd({ ...parent, tierDelegatedRate: derivedDelegatedRate })
+    setParentNodeForAdd({
+      ...parent,
+      tierDelegatedRate: derivedDelegatedRate,
+      tierPartnerDelegatedRate: derivedPartnerDelegatedRate
+    })
     setEditingNode(null)
     setShowEditModal(true)
   }
@@ -649,7 +767,20 @@ export default function TierHierarchyPage() {
             Number(parent.ownProductMinDiscount ?? parent.tierDiscountRate ?? 0) -
               Number(parent.ownProductCommission ?? parent.tierCommissionRate ?? 0)
           )
-      setParentNodeForAdd({ ...parent, tierDelegatedRate: derivedDelegatedRate })
+
+      const derivedPartnerDelegatedRate = (parent.tierPartnerDelegatedRate && parent.tierPartnerDelegatedRate > 0)
+        ? parent.tierPartnerDelegatedRate
+        : Math.max(
+            0,
+            Number(parent.tierPartnerDiscountRate ?? parent.partnerProductMinDiscount ?? 0) -
+              Number(parent.tierPartnerCommissionRate ?? parent.partnerProductCommission ?? 0)
+          )
+
+      setParentNodeForAdd({
+        ...parent,
+        tierDelegatedRate: derivedDelegatedRate,
+        tierPartnerDelegatedRate: derivedPartnerDelegatedRate
+      })
     } else {
       setParentNodeForAdd(parent)
     }

@@ -3400,6 +3400,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         tierDiscountRate: manufacturer.defaultDiscount || 60,
         tierDelegatedRate: 0,
         tierCommissionRate: 0,
+        tierPartnerDiscountRate: 0,
+        tierPartnerDelegatedRate: 0,
+        tierPartnerCommissionRate: 0,
         tierLevel: 0,
         childCount: rootNodes.length,
         productCount: 0,
@@ -3418,6 +3421,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         tierDiscountRate: manufacturer.defaultDiscount || 60,
         tierDelegatedRate: 0,
         tierCommissionRate: 0,
+        tierPartnerDiscountRate: 0,
+        tierPartnerDelegatedRate: 0,
+        tierPartnerCommissionRate: 0,
         tierLevel: 0,
         childCount: authorizations.length,
         productCount: 0,
@@ -3444,6 +3450,18 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       const rootDelegatedRate = (firstRoot.tierDelegatedRate && firstRoot.tierDelegatedRate > 0)
         ? firstRoot.tierDelegatedRate
         : Math.max(0, Number(rootDiscountRate) - Number(rootCommissionRate))
+
+      const rootPartnerLegacyDiscount = firstRoot.partnerProductMinDiscount ?? firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate
+      const rootPartnerLegacyCommission = firstRoot.partnerProductCommission ?? firstRoot.ownProductCommission ?? firstRoot.commissionRate
+      const rootPartnerDiscountRate = (firstRoot.tierPartnerDiscountRate && firstRoot.tierPartnerDiscountRate > 0)
+        ? firstRoot.tierPartnerDiscountRate
+        : (rootPartnerLegacyDiscount ?? 0)
+      const rootPartnerCommissionRate = (firstRoot.tierPartnerCommissionRate && firstRoot.tierPartnerCommissionRate > 0)
+        ? firstRoot.tierPartnerCommissionRate
+        : (rootPartnerLegacyCommission ?? 0)
+      const rootPartnerDelegatedRate = (firstRoot.tierPartnerDelegatedRate !== undefined && firstRoot.tierPartnerDelegatedRate !== null)
+        ? firstRoot.tierPartnerDelegatedRate
+        : Math.max(0, Number(rootPartnerDiscountRate) - Number(rootPartnerCommissionRate))
       
       console.log('[tier-hierarchy-v2] Root node:', {
         firstRootId: firstRoot._id,
@@ -3459,10 +3477,13 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         tierDiscountRate: rootDiscountRate,
         tierDelegatedRate: rootDelegatedRate,
         tierCommissionRate: rootCommissionRate,
+        tierPartnerDiscountRate: rootPartnerDiscountRate,
+        tierPartnerDelegatedRate: rootPartnerDelegatedRate,
+        tierPartnerCommissionRate: rootPartnerCommissionRate,
         ownProductMinDiscount: firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate ?? rootDiscountRate,
         ownProductCommission: firstRoot.ownProductCommission ?? firstRoot.commissionRate ?? rootCommissionRate,
-        partnerProductMinDiscount: firstRoot.partnerProductMinDiscount ?? firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate ?? rootDiscountRate,
-        partnerProductCommission: firstRoot.partnerProductCommission ?? firstRoot.ownProductCommission ?? firstRoot.commissionRate ?? rootCommissionRate,
+        partnerProductMinDiscount: rootPartnerDiscountRate,
+        partnerProductCommission: rootPartnerCommissionRate,
         tierLevel: 0,
         childCount: filteredAuthorizations.filter(a => String(a.parentAuthorizationId) === String(firstRoot._id)).length,
         productCount: firstRoot.productCount || 0,
@@ -3473,7 +3494,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         createdBy: String(firstRoot.createdBy?._id || firstRoot.createdBy || ''),
         status: firstRoot.status,
         isOwner: isRootOwner,
-        allowSubAuthorization: firstRoot.allowSubAuthorization !== false
+        allowSubAuthorization: (firstRoot.allowSubAuthorization !== false) && ((rootDelegatedRate > 0) || (rootPartnerDelegatedRate > 0))
       }
     }
 
@@ -3506,6 +3527,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       const legacyDiscount = auth.ownProductMinDiscount ?? auth.minDiscountRate
       const legacyCommission = auth.ownProductCommission ?? auth.commissionRate
 
+      const legacyPartnerDiscount = auth.partnerProductMinDiscount ?? auth.ownProductMinDiscount ?? auth.minDiscountRate
+      const legacyPartnerCommission = auth.partnerProductCommission ?? auth.ownProductCommission ?? auth.commissionRate
+
       const effectiveTierDiscountRate = (auth.tierDiscountRate && auth.tierDiscountRate > 0)
         ? auth.tierDiscountRate
         : (legacyDiscount ?? 60)
@@ -3525,6 +3549,25 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
           ? Math.max(0, Number(effectiveTierDiscountRate) - Number(effectiveTierCommissionRate))
           : (auth.tierDelegatedRate ?? 0))
 
+      const effectiveTierPartnerDiscountRate = (auth.tierPartnerDiscountRate && auth.tierPartnerDiscountRate > 0)
+        ? auth.tierPartnerDiscountRate
+        : (legacyPartnerDiscount ?? 0)
+
+      const effectiveTierPartnerCommissionRate = (auth.tierPartnerCommissionRate && auth.tierPartnerCommissionRate > 0)
+        ? auth.tierPartnerCommissionRate
+        : (legacyPartnerCommission ?? 0)
+
+      const shouldDerivePartnerDelegatedRate =
+        (auth.tierPartnerDelegatedRate === 0 || auth.tierPartnerDelegatedRate === undefined || auth.tierPartnerDelegatedRate === null) &&
+        effectiveTierPartnerDiscountRate !== undefined && effectiveTierPartnerDiscountRate !== null &&
+        effectiveTierPartnerCommissionRate !== undefined && effectiveTierPartnerCommissionRate !== null
+
+      const effectiveTierPartnerDelegatedRate = (auth.tierPartnerDelegatedRate && auth.tierPartnerDelegatedRate > 0)
+        ? auth.tierPartnerDelegatedRate
+        : (shouldDerivePartnerDelegatedRate
+          ? Math.max(0, Number(effectiveTierPartnerDiscountRate) - Number(effectiveTierPartnerCommissionRate))
+          : (auth.tierPartnerDelegatedRate ?? 0))
+
       return {
         _id: auth._id,
         tierDisplayName: displayName,
@@ -3532,10 +3575,13 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         tierDiscountRate: effectiveTierDiscountRate,
         tierDelegatedRate: effectiveTierDelegatedRate,
         tierCommissionRate: effectiveTierCommissionRate,
+        tierPartnerDiscountRate: effectiveTierPartnerDiscountRate,
+        tierPartnerDelegatedRate: effectiveTierPartnerDelegatedRate,
+        tierPartnerCommissionRate: effectiveTierPartnerCommissionRate,
         ownProductMinDiscount: auth.ownProductMinDiscount ?? auth.minDiscountRate ?? effectiveTierDiscountRate,
         ownProductCommission: auth.ownProductCommission ?? auth.commissionRate ?? effectiveTierCommissionRate,
-        partnerProductMinDiscount: auth.partnerProductMinDiscount ?? auth.ownProductMinDiscount ?? auth.minDiscountRate ?? effectiveTierDiscountRate,
-        partnerProductCommission: auth.partnerProductCommission ?? auth.ownProductCommission ?? auth.commissionRate ?? effectiveTierCommissionRate,
+        partnerProductMinDiscount: effectiveTierPartnerDiscountRate,
+        partnerProductCommission: effectiveTierPartnerCommissionRate,
         tierLevel: effectiveTierLevel,
         childCount,
         productCount: auth.productCount || 0,
@@ -3546,7 +3592,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         createdBy: String(auth.createdBy?._id || auth.createdBy || ''),
         status: auth.status,
         isOwner,
-        allowSubAuthorization: auth.allowSubAuthorization !== false
+        allowSubAuthorization: (auth.allowSubAuthorization !== false) && ((effectiveTierDelegatedRate > 0) || (effectiveTierPartnerDelegatedRate > 0))
       }
     })
 
@@ -3580,7 +3626,10 @@ router.post('/tier-node', auth, async (req, res) => {
       tierRole,
       tierDiscountRate,
       tierDelegatedRate,
-      tierCommissionRate
+      tierCommissionRate,
+      tierPartnerDiscountRate,
+      tierPartnerDelegatedRate,
+      tierPartnerCommissionRate
     } = req.body
 
     if (!parentAuthorizationId || !manufacturerId) {
@@ -3634,7 +3683,22 @@ router.post('/tier-node', auth, async (req, res) => {
     if (tierDiscountRate > parentDelegatedRate) {
       return res.status(400).json({ 
         success: false, 
-        message: `折扣率不能超过上级返佣折扣上限 ${parentDelegatedRate}% (上级未设置足够的下放比例)` 
+        message: `自有产品返佣不能超过上级返佣折扣上限 ${parentDelegatedRate}%` 
+      })
+    }
+
+    // 验证合作商产品返佣上限
+    const parentPartnerDiscount = parentAuth.partnerProductMinDiscount ?? parentAuth.tierPartnerDiscountRate ?? 0
+    const parentPartnerCommission = parentAuth.partnerProductCommission ?? parentAuth.tierPartnerCommissionRate ?? 0
+    const derivedParentPartnerDelegated = Math.max(0, Number(parentPartnerDiscount) - Number(parentPartnerCommission))
+    const parentPartnerDelegatedRate = (parentAuth.tierPartnerDelegatedRate !== undefined && parentAuth.tierPartnerDelegatedRate !== null)
+      ? parentAuth.tierPartnerDelegatedRate
+      : derivedParentPartnerDelegated
+
+    if ((tierPartnerDiscountRate || 0) > parentPartnerDelegatedRate) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `合作商产品返佣不能超过上级返佣折扣上限 ${parentPartnerDelegatedRate}%` 
       })
     }
 
@@ -3657,13 +3721,16 @@ router.post('/tier-node', auth, async (req, res) => {
       tierDiscountRate: tierDiscountRate || 0,
       tierDelegatedRate: tierDelegatedRate || 0,
       tierCommissionRate: tierCommissionRate || (tierDiscountRate - tierDelegatedRate) || 0,
-      allowSubAuthorization: tierDelegatedRate > 0,
+      tierPartnerDiscountRate: tierPartnerDiscountRate || 0,
+      tierPartnerDelegatedRate: tierPartnerDelegatedRate || 0,
+      tierPartnerCommissionRate: tierPartnerCommissionRate || ((tierPartnerDiscountRate || 0) - (tierPartnerDelegatedRate || 0)) || 0,
+      allowSubAuthorization: (tierDelegatedRate > 0) || (tierPartnerDelegatedRate > 0),
       
       // 继承父级的价格设置
       ownProductMinDiscount: tierDiscountRate || parentAuth.ownProductMinDiscount,
       ownProductCommission: tierCommissionRate || parentAuth.ownProductCommission,
-      partnerProductMinDiscount: parentAuth.partnerProductMinDiscount,
-      partnerProductCommission: parentAuth.partnerProductCommission,
+      partnerProductMinDiscount: tierPartnerDiscountRate || parentAuth.partnerProductMinDiscount,
+      partnerProductCommission: tierPartnerCommissionRate || parentAuth.partnerProductCommission,
       minDiscountRate: tierDiscountRate || parentAuth.ownProductMinDiscount,
       commissionRate: tierCommissionRate || parentAuth.ownProductCommission
     })
@@ -3695,7 +3762,10 @@ router.put('/tier-node/:id', auth, async (req, res) => {
       tierRole,
       tierDiscountRate,
       tierDelegatedRate,
-      tierCommissionRate
+      tierCommissionRate,
+      tierPartnerDiscountRate,
+      tierPartnerDelegatedRate,
+      tierPartnerCommissionRate
     } = req.body
 
     const auth = await Authorization.findById(id)
@@ -3739,7 +3809,22 @@ router.put('/tier-node/:id', auth, async (req, res) => {
         if (tierDiscountRate > parentDelegatedRate) {
           return res.status(400).json({ 
             success: false, 
-            message: `折扣率不能超过上级返佣折扣上限 ${parentDelegatedRate}%` 
+            message: `自有产品返佣不能超过上级返佣折扣上限 ${parentDelegatedRate}%` 
+          })
+        }
+
+        // 验证合作商产品返佣上限
+        const parentPartnerDiscount = parentAuth.partnerProductMinDiscount ?? parentAuth.tierPartnerDiscountRate ?? 0
+        const parentPartnerCommission = parentAuth.partnerProductCommission ?? parentAuth.tierPartnerCommissionRate ?? 0
+        const derivedParentPartnerDelegated = Math.max(0, Number(parentPartnerDiscount) - Number(parentPartnerCommission))
+        const parentPartnerDelegatedRate = (parentAuth.tierPartnerDelegatedRate !== undefined && parentAuth.tierPartnerDelegatedRate !== null)
+          ? parentAuth.tierPartnerDelegatedRate
+          : derivedParentPartnerDelegated
+
+        if ((tierPartnerDiscountRate || 0) > parentPartnerDelegatedRate) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `合作商产品返佣不能超过上级返佣折扣上限 ${parentPartnerDelegatedRate}%` 
           })
         }
       }
@@ -3755,12 +3840,25 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     }
     if (tierDelegatedRate !== undefined) {
       auth.tierDelegatedRate = tierDelegatedRate
-      auth.allowSubAuthorization = tierDelegatedRate > 0
+      auth.allowSubAuthorization = (tierDelegatedRate > 0) || (auth.tierPartnerDelegatedRate > 0)
     }
     if (tierCommissionRate !== undefined) {
       auth.tierCommissionRate = tierCommissionRate
       auth.ownProductCommission = tierCommissionRate
       auth.commissionRate = tierCommissionRate
+    }
+    // 合作商产品返佣字段
+    if (tierPartnerDiscountRate !== undefined) {
+      auth.tierPartnerDiscountRate = tierPartnerDiscountRate
+      auth.partnerProductMinDiscount = tierPartnerDiscountRate
+    }
+    if (tierPartnerDelegatedRate !== undefined) {
+      auth.tierPartnerDelegatedRate = tierPartnerDelegatedRate
+      auth.allowSubAuthorization = (auth.tierDelegatedRate > 0) || (tierPartnerDelegatedRate > 0)
+    }
+    if (tierPartnerCommissionRate !== undefined) {
+      auth.tierPartnerCommissionRate = tierPartnerCommissionRate
+      auth.partnerProductCommission = tierPartnerCommissionRate
     }
     
     auth.updatedAt = new Date()

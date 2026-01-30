@@ -248,6 +248,31 @@ const authorizationSchema = new mongoose.Schema({
     max: 100,
     default: 0
   },
+
+  // === 合作商产品返佣字段 ===
+  // 此账号获得的合作商产品折扣率
+  tierPartnerDiscountRate: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+  
+  // 此账号下放给下级的合作商产品折扣率
+  tierPartnerDelegatedRate: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+  
+  // 此账号的合作商产品返佣比例 = tierPartnerDiscountRate - tierPartnerDelegatedRate
+  tierPartnerCommissionRate: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
   
   // 层级显示名称（公司名或个人名）
   tierDisplayName: String,
