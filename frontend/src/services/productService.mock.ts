@@ -69,6 +69,7 @@ const normalizeSku = (sku: any, index: number, fallbackPrice: number): ProductSK
     images: Array.isArray(sku?.images) ? sku.images : [],
     code: sku?.code ?? sku?.spec ?? `SKU-${index + 1}`,
     spec: sku?.spec ?? sku?.code ?? `规格${index + 1}`,
+    specRemark: sku?.specRemark ?? '', // 规格备注
     length: sku?.length ?? 0,
     width: sku?.width ?? 0,
     height: sku?.height ?? 0,
