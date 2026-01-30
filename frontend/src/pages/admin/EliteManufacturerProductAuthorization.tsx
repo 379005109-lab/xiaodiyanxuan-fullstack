@@ -295,42 +295,61 @@ export default function EliteManufacturerProductAuthorization() {
   }
 
   const getSkuPricing = (skuPrice: number) => {
+    // 优先使用授权记录中的折扣和返佣比例
+    const activeAuth = existingAuthorizations.find(a => a.status === 'active')
+    const authDiscountRate = activeAuth?.minDiscountRate // 授权记录中的最低折扣率（如52%表示52%的价格）
+    const authCommissionRate = activeAuth?.commissionRate // 授权记录中的返佣比例（如19%）
+
     const profitSettings = tierSystemConfig?.profitSettings || {}
     const rule = tierSystemConfig?.discountRule || null
 
     const minSaleDiscountRate = Number(profitSettings?.minSaleDiscountRate ?? 1)
     const safeMinSaleRate = Number.isFinite(minSaleDiscountRate) ? Math.max(0, Math.min(1, minSaleDiscountRate)) : 1
 
-    const discountType = rule?.discountType || (typeof rule?.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
-    const ruleDiscountRate = typeof rule?.discountRate === 'number' && Number.isFinite(rule.discountRate)
-      ? Math.max(0, Math.min(1, rule.discountRate))
-      : 0.6
-    const minDiscountPrice = typeof rule?.minDiscountPrice === 'number' && Number.isFinite(rule.minDiscountPrice)
-      ? Math.max(0, rule.minDiscountPrice)
-      : 0
-
-    let discountedPrice = 0
-    if (discountType === 'minPrice') {
-      discountedPrice = minDiscountPrice
+    // 优先使用授权记录中的折扣率
+    let discountRate: number
+    if (typeof authDiscountRate === 'number' && authDiscountRate > 0) {
+      // 授权记录中的折扣率是百分比，如52表示52%
+      discountRate = authDiscountRate / 100
     } else {
-      discountedPrice = skuPrice * ruleDiscountRate
+      const discountType = rule?.discountType || (typeof rule?.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
+      if (discountType === 'minPrice' && typeof rule?.minDiscountPrice === 'number') {
+        // 固定价格模式
+        const discountedPrice = Math.max(rule.minDiscountPrice, skuPrice * safeMinSaleRate)
+        const commRate = typeof authCommissionRate === 'number' ? authCommissionRate / 100 : (rule?.commissionRate || 0.4)
+        const commission = Math.round(discountedPrice * Math.max(0, Math.min(0.5, commRate)))
+        return {
+          listPrice: skuPrice,
+          discountPrice: Math.round(discountedPrice),
+          commission,
+          discountRate: undefined
+        }
+      }
+      discountRate = typeof rule?.discountRate === 'number' ? Math.max(0, Math.min(1, rule.discountRate)) : 0.6
     }
 
+    let discountedPrice = skuPrice * discountRate
     const minAllowed = skuPrice * safeMinSaleRate
     discountedPrice = Math.max(discountedPrice, minAllowed)
     discountedPrice = Math.round(discountedPrice)
 
-    const commissionRateRaw = typeof rule?.commissionRate === 'number' && Number.isFinite(rule.commissionRate)
-      ? rule.commissionRate
-      : 0.4
-    const commissionRate = Math.max(0, Math.min(0.5, commissionRateRaw))
+    // 优先使用授权记录中的返佣比例
+    let commissionRate: number
+    if (typeof authCommissionRate === 'number' && authCommissionRate > 0) {
+      commissionRate = authCommissionRate / 100
+    } else {
+      const commissionRateRaw = typeof rule?.commissionRate === 'number' && Number.isFinite(rule.commissionRate)
+        ? rule.commissionRate
+        : 0.4
+      commissionRate = Math.max(0, Math.min(0.5, commissionRateRaw))
+    }
     const commission = Math.round(discountedPrice * commissionRate)
 
     return {
       listPrice: skuPrice,
       discountPrice: discountedPrice,
       commission,
-      discountRate: discountType === 'rate' ? ruleDiscountRate : undefined
+      discountRate
     }
   }
 
