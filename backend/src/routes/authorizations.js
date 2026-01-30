@@ -3447,9 +3447,10 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       const rootCommissionRate = (firstRoot.tierCommissionRate && firstRoot.tierCommissionRate > 0)
         ? firstRoot.tierCommissionRate
         : (rootLegacyCommission ?? 0)
+      // 根节点的下放额度 = 返佣率（返佣是可分配的总额度，不是折扣率-返佣率）
       const rootDelegatedRate = (firstRoot.tierDelegatedRate && firstRoot.tierDelegatedRate > 0)
         ? firstRoot.tierDelegatedRate
-        : Math.max(0, Number(rootDiscountRate) - Number(rootCommissionRate))
+        : rootCommissionRate  // 返佣率就是可下放的上限
 
       const rootPartnerLegacyDiscount = firstRoot.partnerProductMinDiscount ?? firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate
       const rootPartnerLegacyCommission = firstRoot.partnerProductCommission ?? firstRoot.ownProductCommission ?? firstRoot.commissionRate
@@ -3459,9 +3460,10 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       const rootPartnerCommissionRate = (firstRoot.tierPartnerCommissionRate && firstRoot.tierPartnerCommissionRate > 0)
         ? firstRoot.tierPartnerCommissionRate
         : (rootPartnerLegacyCommission ?? 0)
+      // 合作商产品同理：下放额度 = 返佣率
       const rootPartnerDelegatedRate = (firstRoot.tierPartnerDelegatedRate !== undefined && firstRoot.tierPartnerDelegatedRate !== null)
         ? firstRoot.tierPartnerDelegatedRate
-        : Math.max(0, Number(rootPartnerDiscountRate) - Number(rootPartnerCommissionRate))
+        : rootPartnerCommissionRate
       
       console.log('[tier-hierarchy-v2] Root node:', {
         firstRootId: firstRoot._id,
