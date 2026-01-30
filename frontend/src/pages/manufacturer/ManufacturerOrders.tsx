@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Factory, Package, Truck, CheckCircle, Clock, LogOut, RefreshCw, ChevronRight, Play, Shield, Settings } from 'lucide-react';
+import { Factory, Package, Truck, CheckCircle, Clock, LogOut, RefreshCw, ChevronRight, Play, Shield, Settings, Camera, Video, X, AlertTriangle, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '@/lib/apiClient';
 
@@ -25,6 +25,9 @@ interface ManufacturerOrder {
   trackingNo?: string;
   trackingCompany?: string;
   createdAt: string;
+  inspectionImages?: string[];
+  inspectionVideos?: string[];
+  refundStatus?: 'pending' | 'approved' | 'rejected' | 'completed' | null;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -47,6 +50,11 @@ export default function ManufacturerOrders() {
   const [selectedOrder, setSelectedOrder] = useState<ManufacturerOrder | null>(null);
   const [trackingNo, setTrackingNo] = useState('');
   const [trackingCompany, setTrackingCompany] = useState('顺丰速运');
+  const [inspectionImages, setInspectionImages] = useState<string[]>([]);
+  const [inspectionVideos, setInspectionVideos] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const info = localStorage.getItem('manufacturerInfo');
@@ -142,16 +150,71 @@ export default function ManufacturerOrders() {
     }
   };
 
+  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await apiClient.post('/upload', formData, {
+          headers: { ...getAuthHeaders(), 'Content-Type': 'multipart/form-data' }
+        });
+        if (res.data.url) {
+          setInspectionImages(prev => [...prev, res.data.url]);
+        }
+      }
+      toast.success('图片上传成功');
+    } catch (error) {
+      toast.error('图片上传失败');
+    } finally {
+      setUploading(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
+  const handleUploadVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await apiClient.post('/upload', formData, {
+          headers: { ...getAuthHeaders(), 'Content-Type': 'multipart/form-data' }
+        });
+        if (res.data.url) {
+          setInspectionVideos(prev => [...prev, res.data.url]);
+        }
+      }
+      toast.success('视频上传成功');
+    } catch (error) {
+      toast.error('视频上传失败');
+    } finally {
+      setUploading(false);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+    }
+  };
+
   const handleShip = async () => {
     if (!selectedOrder || !trackingNo) {
       toast.error('请输入快递单号');
+      return;
+    }
+    
+    if (inspectionImages.length === 0) {
+      toast.error('请上传至少一张验货图片');
       return;
     }
 
     try {
       const res = await apiClient.post(
         `/manufacturer-orders/manufacturer/orders/${selectedOrder._id}/ship`,
-        { trackingNo, trackingCompany },
+        { trackingNo, trackingCompany, inspectionImages, inspectionVideos },
         { headers: getAuthHeaders() }
       );
       if (res.data.success) {
@@ -159,6 +222,8 @@ export default function ManufacturerOrders() {
         setShowShipModal(false);
         setSelectedOrder(null);
         setTrackingNo('');
+        setInspectionImages([]);
+        setInspectionVideos([]);
         fetchOrders();
       }
     } catch (error) {
@@ -168,6 +233,8 @@ export default function ManufacturerOrders() {
 
   const openShipModal = (order: ManufacturerOrder) => {
     setSelectedOrder(order);
+    setInspectionImages(order.inspectionImages || []);
+    setInspectionVideos(order.inspectionVideos || []);
     setShowShipModal(true);
   };
 
@@ -245,6 +312,13 @@ export default function ManufacturerOrders() {
           <div className="space-y-4">
             {orders.map((order) => (
               <div key={order._id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                {/* 退款提醒 */}
+                {order.refundStatus === 'pending' && (
+                  <div className="px-5 py-3 bg-red-50 border-b border-red-100 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                    <span className="text-red-700 font-medium">⚠️ 客户申请退款中，请注意处理</span>
+                  </div>
+                )}
                 {/* 订单头部 */}
                 <div className="px-5 py-4 border-b flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -252,6 +326,12 @@ export default function ManufacturerOrders() {
                       {statusConfig[order.status]?.icon}
                       {statusConfig[order.status]?.label}
                     </span>
+                    {order.refundStatus === 'pending' && (
+                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">退款申请中</span>
+                    )}
+                    {order.refundStatus === 'approved' && (
+                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">退款已批准</span>
+                    )}
                     <span className="text-gray-500 text-sm">{order.orderNo}</span>
                   </div>
                   <span className="text-sm text-gray-400">
@@ -335,10 +415,82 @@ export default function ManufacturerOrders() {
 
       {/* 发货弹窗 */}
       {showShipModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6 my-8">
             <h3 className="text-lg font-bold text-gray-900 mb-4">发货</h3>
             <div className="space-y-4">
+              {/* 验货图片上传 - 必填 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  验货图片 <span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-400 ml-2">(发货前必须上传验货照片)</span>
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {inspectionImages.map((url, idx) => (
+                    <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => setInspectionImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-cyan-500 hover:bg-cyan-50">
+                    <Camera className="w-6 h-6 text-gray-400" />
+                    <span className="text-xs text-gray-400 mt-1">上传图片</span>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleUploadImage}
+                      className="hidden"
+                      disabled={uploading}
+                    />
+                  </label>
+                </div>
+                {inspectionImages.length === 0 && (
+                  <p className="text-xs text-red-500">请上传至少一张验货图片</p>
+                )}
+              </div>
+
+              {/* 验货视频上传 - 选填 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  验货视频 <span className="text-xs text-gray-400">(选填)</span>
+                </label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {inspectionVideos.map((url, idx) => (
+                    <div key={idx} className="relative w-24 h-20 rounded-lg overflow-hidden border bg-gray-100">
+                      <video src={url} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <Video className="w-6 h-6 text-white" />
+                      </div>
+                      <button
+                        onClick={() => setInspectionVideos(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-24 h-20 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-cyan-500 hover:bg-cyan-50">
+                    <Video className="w-6 h-6 text-gray-400" />
+                    <span className="text-xs text-gray-400 mt-1">上传视频</span>
+                    <input
+                      ref={videoInputRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={handleUploadVideo}
+                      className="hidden"
+                      disabled={uploading}
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">快递公司</label>
                 <select
@@ -369,16 +521,25 @@ export default function ManufacturerOrders() {
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowShipModal(false)}
+                onClick={() => {
+                  setShowShipModal(false);
+                  setInspectionImages([]);
+                  setInspectionVideos([]);
+                }}
                 className="flex-1 py-2 border rounded-lg hover:bg-gray-50"
               >
                 取消
               </button>
               <button
                 onClick={handleShip}
-                className="flex-1 py-2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white rounded-lg hover:from-cyan-600 hover:to-emerald-600"
+                disabled={uploading || inspectionImages.length === 0}
+                className={`flex-1 py-2 rounded-lg text-white ${
+                  uploading || inspectionImages.length === 0
+                    ? 'bg-gray-300 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-600 hover:to-emerald-600'
+                }`}
               >
-                确认发货
+                {uploading ? '上传中...' : '确认发货'}
               </button>
             </div>
           </div>
