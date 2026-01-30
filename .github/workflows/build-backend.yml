@@ -22,6 +22,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify source code
+        run: |
+          echo "Git SHA: ${{ github.sha }}"
+          echo "Lines in authorizations.js:"
+          wc -l backend/src/routes/authorizations.js
+          echo "boundUserIds occurrences:"
+          grep -c "boundUserIds" backend/src/routes/authorizations.js || echo "0"
 
       - name: Login to Registry
         uses: docker/login-action@v3
