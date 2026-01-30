@@ -144,6 +144,11 @@ const manufacturerSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
+  // 月结白名单（开启后可按月结算）
+  monthlySettlementEnabled: {
+    type: Boolean,
+    default: false
+  },
   // 兼容旧版付款比例设置
   paymentRatio: {
     enabled: {

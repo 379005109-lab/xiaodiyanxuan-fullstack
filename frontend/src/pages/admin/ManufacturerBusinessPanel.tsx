@@ -773,14 +773,6 @@ export default function ManufacturerBusinessPanel() {
 
                           <div className="flex items-center gap-6">
                             <div className="text-center">
-                              <div className="text-xs text-gray-500">最低折扣</div>
-                              <div className="text-lg font-bold text-green-600">{channel.minDiscount ?? '--'}%</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500">返佣比例</div>
-                              <div className="text-lg font-bold text-blue-600">{channel.commissionRate ?? '--'}%</div>
-                            </div>
-                            <div className="text-center">
                               <div className="text-xs text-gray-500">已授权SKU</div>
                               <div className="text-lg font-bold text-gray-900">{channel.skuCount}</div>
                             </div>

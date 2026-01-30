@@ -1423,6 +1423,39 @@ export default function ManufacturerManagement() {
                       设置加价
                     </button>
                   </div>
+
+                  {/* 月结白名单 */}
+                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium text-gray-500">月结白名单</div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={myManufacturer.monthlySettlementEnabled || false}
+                          onChange={async () => {
+                            try {
+                              await apiClient.put(`/manufacturers/${myManufacturer._id}`, {
+                                monthlySettlementEnabled: !myManufacturer.monthlySettlementEnabled
+                              })
+                              fetchData()
+                            } catch (error) {
+                              toast.error('更新失败')
+                            }
+                          }}
+                        />
+                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-purple-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                      </label>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-2">
+                      {myManufacturer.monthlySettlementEnabled ? (
+                        <span className="text-purple-600 font-medium">已开启月结</span>
+                      ) : (
+                        <span className="text-gray-400">未开启</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400">开启后可按月结算</p>
+                  </div>
                 </div>
               </div>
             </div>
