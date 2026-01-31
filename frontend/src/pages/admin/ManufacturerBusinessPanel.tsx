@@ -924,12 +924,12 @@ export default function ManufacturerBusinessPanel() {
                     <p className="text-sm text-gray-500">管理本厂家授权的渠道商 ({channels.length})</p>
                   </button>
                   <button
-                    onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}`)}
+                    onClick={() => setActiveTab('channels')}
                     className="bg-purple-50 border border-purple-100 rounded-xl p-6 text-left hover:shadow-md transition-all"
                   >
                     <DollarSign className="w-8 h-8 text-purple-600 mb-3" />
                     <h4 className="font-semibold text-gray-900 mb-1">层级分成</h4>
-                    <p className="text-sm text-gray-500">卡片式层级树管理</p>
+                    <p className="text-sm text-gray-500">在渠道管理中设置分成体系</p>
                   </button>
                 </div>
 
