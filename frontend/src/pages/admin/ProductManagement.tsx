@@ -964,6 +964,17 @@ export default function ProductManagement() {
       const proFeatureIndex = priceColumnIndex + 3;
       const styleTagIndex = priceColumnIndex + 4;
       const imageStartIndex = priceColumnIndex + 5;
+      
+      // 查找厂家列索引
+      let manufacturerColumnIndex = -1;
+      for (let i = 0; i < header.length; i++) {
+        const colName = (header[i] || '').toString().trim();
+        if (colName === '厂家') {
+          manufacturerColumnIndex = i;
+          console.log(`✓ 找到厂家列: 索引=${i}`);
+          break;
+        }
+      }
 
       const rows = jsonData.slice(1).filter((row: any[]) => row && row.length > 0 && row[0] && row[0].toString().trim() !== '');
 
@@ -1040,6 +1051,25 @@ export default function ProductManagement() {
         const styleTagText = (row[styleTagIndex] || '').toString().trim();
         // 解析多个风格标签，支持逗号/顿号分隔（如：中古风、现代风）
         const styleTags = styleTagText.split(/[,，、\n]/).map(s => s.trim()).filter(s => s);
+        
+        // 读取厂家名称并匹配厂家ID
+        const manufacturerName = manufacturerColumnIndex >= 0 ? (row[manufacturerColumnIndex] || '').toString().trim() : '';
+        let matchedManufacturerId = '';
+        if (manufacturerName) {
+          const matchedMfr = manufacturers.find(m => 
+            m.name === manufacturerName || 
+            m.shortName === manufacturerName || 
+            m.fullName === manufacturerName ||
+            (m.shortName && m.shortName.includes(manufacturerName)) ||
+            (m.fullName && m.fullName.includes(manufacturerName))
+          );
+          if (matchedMfr) {
+            matchedManufacturerId = matchedMfr._id;
+            console.log(`✓ 厂家匹配: "${manufacturerName}" -> "${matchedMfr.shortName || matchedMfr.name}" (${matchedMfr._id})`);
+          } else {
+            console.log(`⚠️ 厂家未匹配: "${manufacturerName}"`);
+          }
+        }
 
         // 收集图片列（从imageStartIndex开始，最多7张）
         const images: string[] = [];
@@ -1165,6 +1195,7 @@ export default function ProductManagement() {
             skus: [skuData],
             specifications: [],
             firstImages: images.length > 0 ? [...images] : [], // 第一个SKU的图片作为商品主图
+            manufacturerId: matchedManufacturerId, // Excel中指定的厂家ID
           });
         } else {
           const product = productMap.get(productKey)!;
@@ -1188,6 +1219,7 @@ export default function ProductManagement() {
 
       let importedCount = 0, updatedCount = 0, totalSkuCount = 0;
       let errorCount = 0;
+      let skippedCount = 0; // 跳过的重复商品数量
       const errors: string[] = [];
       
       console.log('=== 开始导入商品 ===');
@@ -1203,8 +1235,11 @@ export default function ProductManagement() {
       console.log('已有商品数量:', allProducts.length);
 
       for (const [productKey, productData] of productMap.entries()) {
-        // 查找已存在的商品（按名称匹配）
-        const existingProduct = allProducts.find((p: any) => p.name === productData.name);
+        // 查找已存在的商品（按名称或型号匹配）
+        const existingProduct = allProducts.find((p: any) => 
+          p.name === productData.name || 
+          (productData.productCode && p.productCode === productData.productCode)
+        );
 
         // 构建SKU数据 - 包含材质名称、材质类目和升级价格
         const buildSkus = (skuList: any[]) => skuList.map((sku: any, index: number) => ({
@@ -1226,36 +1261,10 @@ export default function ProductManagement() {
         }));
 
         if (existingProduct) {
-          const newSkus = buildSkus(productData.skus);
-          const existingSpecs = existingProduct.specifications || {};
-          const newSpecs = { ...existingSpecs };
-          productData.specifications.forEach((spec: any) => {
-            if (!newSpecs[spec.name]) {
-              newSpecs[spec.name] = `${spec.length}x${spec.width}x${spec.height}${spec.unit}`;
-            }
-          });
-
-          // 合并风格标签（支持多个标签）
-          const existingStyles = existingProduct.styles || [];
-          const newStyleTags = productData.styleTags || [];
-          const mergedStyles = [...new Set([...existingStyles, ...newStyleTags])];
-
-          try {
-            await updateProduct(existingProduct._id, {
-              productCode: productData.productCode || existingProduct.productCode, // 更新主型号
-              subCodes: [...new Set([...(existingProduct.subCodes || []), ...productData.subCodes])], // 合并副型号
-              skus: [...existingProduct.skus, ...newSkus],
-              specifications: newSpecs,
-              styles: mergedStyles, // 风格标签（多个）
-              images: existingProduct.images?.length > 0 ? existingProduct.images : productData.firstImages, // 保留原图或使用新图
-            });
-            updatedCount++;
-            totalSkuCount += newSkus.length;
-          } catch (err: any) {
-            console.error(`  ❌ 更新失败:`, err);
-            errorCount++;
-            errors.push(`更新${productData.name}: ${err.response?.data?.message || err.message}`);
-          }
+          // 商品已存在，跳过导入（不再重复导入）
+          console.log(`⏭️ 跳过已存在的商品: ${productData.name} (型号: ${productData.productCode})`);
+          skippedCount++;
+          continue;
         } else {
           const specifications = productData.specifications.reduce((acc: any, spec: any) => {
             acc[spec.name] = `${spec.length}x${spec.width}x${spec.height}${spec.unit}`;
@@ -1270,8 +1279,9 @@ export default function ProductManagement() {
             console.log(`  SKU${idx + 1} 图片:`, sku.images);
           });
           
-          // 使用当前筛选的厂家ID，如果没有选择则使用用户绑定的厂家ID
-          const targetManufacturerId = filterManufacturer || myManufacturerId;
+          // 优先使用Excel中的厂家ID，其次使用筛选的厂家，最后使用用户绑定的厂家
+          const targetManufacturerId = productData.manufacturerId || filterManufacturer || myManufacturerId;
+          console.log(`  📦 厂家ID来源: Excel=${productData.manufacturerId || '无'}, 筛选=${filterManufacturer || '无'}, 用户=${myManufacturerId || '无'}, 最终=${targetManufacturerId || '无'}`);
           
           const newProduct: any = {
             name: productData.name,
@@ -1317,10 +1327,13 @@ export default function ProductManagement() {
         toast.error(`导入完成但有 ${errorCount} 个错误: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
       }
       
-      if (importedCount > 0 || updatedCount > 0) {
-        toast.success(`成功导入 ${importedCount} 个新商品，更新 ${updatedCount} 个商品（共 ${totalSkuCount} 个SKU）`);
+      if (importedCount > 0) {
+        const skipMsg = skippedCount > 0 ? `，跳过 ${skippedCount} 个已存在的商品` : '';
+        toast.success(`成功导入 ${importedCount} 个新商品（共 ${totalSkuCount} 个SKU）${skipMsg}`);
+      } else if (skippedCount > 0) {
+        toast.warning(`跳过 ${skippedCount} 个已存在的商品，没有新商品被导入`);
       } else if (errorCount === 0) {
-        toast.warning('没有新商品被导入，可能数据已存在或格式不正确');
+        toast.warning('没有新商品被导入，请检查Excel格式');
       }
       await loadProducts();
     } catch (error) {
@@ -2825,7 +2838,7 @@ export default function ProductManagement() {
           <div className="w-full md:w-40">
             <select
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
+              onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
               className="input w-full"
             >
               <option value="">所有分类</option>
@@ -2841,7 +2854,7 @@ export default function ProductManagement() {
           <div className="w-full md:w-40">
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
               className="input w-full"
             >
               <option value="">所有状态</option>
@@ -2855,7 +2868,7 @@ export default function ProductManagement() {
           <div className="w-full md:w-40">
             <select
               value={filterManufacturer}
-              onChange={(e) => setFilterManufacturer(e.target.value)}
+              onChange={(e) => { setFilterManufacturer(e.target.value); setCurrentPage(1); }}
               className="input w-full"
             >
               <option value="">所有厂家</option>
