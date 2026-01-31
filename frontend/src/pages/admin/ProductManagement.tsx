@@ -1291,7 +1291,9 @@ export default function ProductManagement() {
 
         if (existingProduct) {
           // 商品已存在，跳过导入（不再重复导入）
-          console.log(`⏭️ 跳过已存在的商品: ${productData.name} (型号: ${productData.productCode})`);
+          const reason = existingProduct.name === productData.name ? '名称相同' : '型号相同';
+          console.log(`⏭️ 跳过已存在的商品: ${productData.name} (型号: ${productData.productCode}) - 原因: ${reason}, 已有商品: ${existingProduct.name}/${existingProduct.productCode}`);
+          toast.info(`跳过: ${productData.name} (${reason})`);
           skippedCount++;
           continue;
         } else {
