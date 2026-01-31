@@ -21,6 +21,8 @@ interface ProductItem {
   images?: string[]
   status?: string
   basePrice?: number
+  authStatus?: 'own' | 'authorized'
+  fromManufacturer?: { _id: string; name: string }
   skus?: Array<{
     code?: string
     spec?: string
@@ -85,18 +87,38 @@ export default function EliteManufacturerProductAuthorization() {
 
       setLoading(true)
       try {
-        const [mRes, cRes, pRes, tRes, aRes, summaryRes] = await Promise.all([
+        const [mRes, cRes, pRes, tRes, aRes, summaryRes, authProdRes] = await Promise.all([
           apiClient.get(`/manufacturers/${manufacturerId}`),
           apiClient.get(`/manufacturers/${manufacturerId}/product-categories`),
           apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 10000 } }),
           apiClient.get('/tier-system/effective', { params: { manufacturerId } }).catch(() => ({ data: { data: null } })),
           apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'active' } }).catch(() => ({ data: { data: [] } })),
           apiClient.get('/authorizations/summary').catch(() => ({ data: { data: [] } })),
+          apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } }).catch(() => ({ data: { data: [] } })),
         ])
 
         setManufacturer(mRes.data?.data || null)
         setCategories(cRes.data?.data || [])
-        setProducts(pRes.data?.data || [])
+        
+        // 自有产品标记为 'own'
+        const ownProducts = (pRes.data?.data || []).map((p: any) => ({
+          ...p,
+          authStatus: 'own' as const
+        }))
+        
+        // 合作商产品标记为 'authorized'
+        const authorizedProducts = (authProdRes.data?.data || []).map((p: any) => ({
+          ...p,
+          authStatus: 'authorized' as const
+        }))
+        
+        // 合并产品列表，去重
+        const existingIds = new Set(ownProducts.map((p: any) => p._id))
+        const uniqueAuthorized = authorizedProducts.filter((p: any) => !existingIds.has(p._id))
+        const allProducts = [...ownProducts, ...uniqueAuthorized]
+        
+        console.log('[EliteAuth] ownProducts:', ownProducts.length, 'authorizedProducts:', uniqueAuthorized.length)
+        setProducts(allProducts)
         setTierSystemConfig(tRes.data?.data || null)
         
         // 从summary API获取当前厂家的授权折扣和返佣比例
@@ -667,6 +689,16 @@ export default function EliteManufacturerProductAuthorization() {
                                   <div className="flex-grow min-w-0">
                                     <div className="flex items-center gap-2">
                                       <h4 className="text-base font-bold text-gray-800 truncate">{prod.name}</h4>
+                                      {prod.authStatus === 'authorized' && (
+                                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded-full">
+                                          合作商
+                                        </span>
+                                      )}
+                                      {prod.authStatus === 'own' && (
+                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
+                                          自有
+                                        </span>
+                                      )}
                                       <button
                                         onClick={() => toggleProductExpansion(productId)}
                                         className="text-blue-500 text-xs font-bold hover:underline flex items-center"
@@ -678,7 +710,7 @@ export default function EliteManufacturerProductAuthorization() {
                                         </svg>
                                       </button>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5 uppercase tracking-tighter">编码：{prod.productCode || '无编码'}</p>
+                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5 uppercase tracking-tighter">编码：{prod.productCode || '无编码'}{prod.fromManufacturer?.name ? ` | 来源：${prod.fromManufacturer.name}` : ''}</p>
 
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
                                       <div className="px-2 py-1 bg-gray-50 rounded">

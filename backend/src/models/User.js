@@ -62,9 +62,6 @@ const userSchema = new mongoose.Schema({
     note: String,                       // 备注（如：给XX客户看价）
   },
   
-  // === 月结设置 ===
-  monthlySettlementAllowed: { type: Boolean, default: false }, // 是否允许月结
-  
   // === 状态与统计 ===
   status: { type: String, enum: ['active', 'inactive', 'banned', 'expired'], default: 'active' },
   balance: { type: Number, default: 0 },

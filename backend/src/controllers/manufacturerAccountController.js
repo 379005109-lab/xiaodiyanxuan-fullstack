@@ -212,9 +212,6 @@ exports.updateAccount = async (req, res) => {
       user.specialAccountConfig.expiresAt = expiresAt ? new Date(expiresAt) : null
     }
     if (status) user.status = status
-    if (req.body.monthlySettlementAllowed !== undefined) {
-      user.monthlySettlementAllowed = req.body.monthlySettlementAllowed
-    }
     
     await user.save()
     
