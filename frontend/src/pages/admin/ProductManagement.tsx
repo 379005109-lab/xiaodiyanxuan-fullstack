@@ -909,73 +909,69 @@ export default function ProductManagement() {
       console.log('表头:', header);
       console.log('表头各列:', header.map((h: any, i: number) => `[${i}]${h}`).join(', '));
 
-      // 动态解析表头，找出颜色列和材质列的位置
-      // 固定列索引: 商品名称(0)、型号(1)、商品型号(2)、类别(3)、规格(4)、长宽高(5)
-      // 颜色列可能在第6列，也可能不存在
-      // 材质列从颜色列之后开始，直到遇到"标价"列
+      // 动态检测所有列的位置（根据表头名称）
+      const findColumnIndex = (names: string[]): number => {
+        for (let i = 0; i < header.length; i++) {
+          const colName = (header[i] || '').toString().trim();
+          if (names.includes(colName)) {
+            return i;
+          }
+        }
+        return -1;
+      };
+      
+      // 检测各列位置
+      const productNameIndex = findColumnIndex(['商品名称', '名称', '产品名称']);
+      const mainCodeIndex = findColumnIndex(['型号', '主型号', '产品型号']);
+      const subCodeIndex = findColumnIndex(['备用型号', '副型号', '商品型号', 'SKU编码']);
+      const categoryIndex = findColumnIndex(['类别', '分类', '商品分类']);
+      const specIndex = findColumnIndex(['规格', '规格型号']);
+      const dimensionsIndex = findColumnIndex(['长宽高', '尺寸', '产品尺寸']);
+      const colorColumnIndex = findColumnIndex(['颜色']);
+      const priceColumnIndex = findColumnIndex(['标价', '价格', '原价']);
+      const discountPriceIndex = findColumnIndex(['折扣价', '售价', '优惠价']);
+      const manufacturerColumnIndex = findColumnIndex(['厂家', '生产厂家', '供应商']);
+      
+      console.log('=== 列位置检测 ===');
+      console.log(`商品名称: ${productNameIndex}, 型号: ${mainCodeIndex}, 备用型号: ${subCodeIndex}`);
+      console.log(`类别: ${categoryIndex}, 规格: ${specIndex}, 长宽高: ${dimensionsIndex}`);
+      console.log(`颜色: ${colorColumnIndex}, 标价: ${priceColumnIndex}, 折扣价: ${discountPriceIndex}`);
+      console.log(`厂家: ${manufacturerColumnIndex}`);
+      
+      // 检测材质相关列（在标价列之前，排除已知列）
+      const knownIndices = new Set([productNameIndex, mainCodeIndex, subCodeIndex, categoryIndex, specIndex, dimensionsIndex, colorColumnIndex, priceColumnIndex, discountPriceIndex, manufacturerColumnIndex]);
       let materialColumns: { index: number; name: string }[] = [];
-      let priceColumnIndex = -1;
-      let colorColumnIndex = -1; // 颜色列索引，-1表示不存在
       
-      // 在表头中查找"颜色"列
-      for (let i = 0; i < header.length; i++) {
+      // 如果找到标价列，从长宽高之后到标价之前的列可能是材质列
+      const materialStartIndex = dimensionsIndex >= 0 ? dimensionsIndex + 1 : 6;
+      const materialEndIndex = priceColumnIndex >= 0 ? priceColumnIndex : header.length;
+      
+      for (let i = materialStartIndex; i < materialEndIndex; i++) {
+        if (knownIndices.has(i)) continue;
         const colName = (header[i] || '').toString().trim();
-        if (colName === '颜色') {
-          colorColumnIndex = i;
-          console.log(`✓ 找到颜色列: 索引=${i}`);
-          break;
-        }
-      }
-      
-      const hasColorColumn = colorColumnIndex >= 0;
-      // 材质列从颜色列之后开始，或从第6列开始（如果没有颜色列）
-      const materialStartIndex = hasColorColumn ? colorColumnIndex + 1 : 6;
-      
-      console.log('颜色列索引:', colorColumnIndex, '是否有颜色列:', hasColorColumn, '材质起始列:', materialStartIndex);
-      
-      for (let i = materialStartIndex; i < header.length; i++) {
-        const colName = (header[i] || '').toString().trim();
-        if (colName === '标价') {
-          priceColumnIndex = i;
-          break;
-        }
-        if (colName && colName !== '颜色') { // 排除颜色列
+        // 材质相关的列名
+        const materialKeywords = ['面料', '材质', '填充', '框架', '脚架', '座包', '皮', '布', '绒', '棉', '麻'];
+        if (colName && materialKeywords.some(k => colName.includes(k))) {
           materialColumns.push({ index: i, name: colName });
         }
       }
-
-      // 如果没找到"标价"列，使用默认位置
-      if (priceColumnIndex === -1) {
-        // 兼容旧模板：颜色(6)、面料(7)、填充(8)、框架(9)、脚架(10)、标价(11)
-        materialColumns = [
-          { index: 7, name: '面料' },
-          { index: 8, name: '填充' },
-          { index: 9, name: '框架' },
-          { index: 10, name: '脚架' },
-        ];
-        priceColumnIndex = 11;
+      
+      // 如果没检测到材质列，检查是否有"材质面料"和"材质描述"列
+      if (materialColumns.length === 0) {
+        const fabricIndex = findColumnIndex(['材质面料', '面料', '材质']);
+        const fabricDescIndex = findColumnIndex(['材质描述', '面料描述']);
+        if (fabricIndex >= 0) {
+          materialColumns.push({ index: fabricIndex, name: '面料' });
+        }
       }
 
       console.log('材质列:', materialColumns);
-      console.log('标价列索引:', priceColumnIndex);
-
-      // 计算后续列的索引
-      const discountPriceIndex = priceColumnIndex + 1;
-      const proIndex = priceColumnIndex + 2;
-      const proFeatureIndex = priceColumnIndex + 3;
-      const styleTagIndex = priceColumnIndex + 4;
-      const imageStartIndex = priceColumnIndex + 5;
       
-      // 查找厂家列索引
-      let manufacturerColumnIndex = -1;
-      for (let i = 0; i < header.length; i++) {
-        const colName = (header[i] || '').toString().trim();
-        if (colName === '厂家') {
-          manufacturerColumnIndex = i;
-          console.log(`✓ 找到厂家列: 索引=${i}`);
-          break;
-        }
-      }
+      // 后续列索引（如果未检测到则使用相对位置）
+      const proIndex = priceColumnIndex >= 0 ? priceColumnIndex + 2 : -1;
+      const proFeatureIndex = priceColumnIndex >= 0 ? priceColumnIndex + 3 : -1;
+      const styleTagIndex = priceColumnIndex >= 0 ? priceColumnIndex + 4 : -1;
+      const imageStartIndex = priceColumnIndex >= 0 ? priceColumnIndex + 5 : -1;
 
       const rows = jsonData.slice(1).filter((row: any[]) => row && row.length > 0 && row[0] && row[0].toString().trim() !== '');
 
@@ -983,18 +979,18 @@ export default function ProductManagement() {
       const productMap = new Map<string, any>();
 
       rows.forEach((row: any[], rowIndex) => {
-        const productName = (row[0] || '').toString().trim();
+        // 动态读取各列数据
+        const productName = (row[productNameIndex >= 0 ? productNameIndex : 0] || '').toString().trim();
         if (!productName) return;
 
-        // 固定列
-        const mainCode = (row[1] || '').toString().trim(); // 型号 = 主型号
-        const subCode = (row[2] || '').toString().trim();  // 商品型号 = 副型号
-        const categoryName = (row[3] || '').toString().trim();
-        const spec = (row[4] || '').toString().trim();
-        const dimensions = (row[5] || '').toString().trim();
+        const mainCode = (row[mainCodeIndex >= 0 ? mainCodeIndex : 1] || '').toString().trim();
+        const subCode = subCodeIndex >= 0 ? (row[subCodeIndex] || '').toString().trim() : '';
+        const categoryName = (row[categoryIndex >= 0 ? categoryIndex : 2] || '').toString().trim();
+        const spec = specIndex >= 0 ? (row[specIndex] || '').toString().trim() : '';
+        const dimensions = dimensionsIndex >= 0 ? (row[dimensionsIndex] || '').toString().trim() : '';
         
         // 读取颜色字段（如果存在）
-        const colorText = hasColorColumn ? (row[colorColumnIndex] || '').toString().trim() : '';
+        const colorText = colorColumnIndex >= 0 ? (row[colorColumnIndex] || '').toString().trim() : '';
         console.log(`===== 行${rowIndex + 2} 颜色字段: "${colorText}" =====`);
         
         // 解析颜色字段，获取材质类别筛选信息
@@ -1044,12 +1040,12 @@ export default function ProductManagement() {
         });
         console.log(`  材质加价汇总:`, materialUpgradePrices);
 
-        // 后续列
-        const price = parseFloat((row[priceColumnIndex]?.toString() || '').replace(/[^\d.]/g, '')) || 0;
-        const discountPrice = parseFloat((row[discountPriceIndex]?.toString() || '').replace(/[^\d.]/g, '')) || 0;
-        const isPro = row[proIndex] === '是' || row[proIndex] === 'PRO' || false;
-        const proFeature = (row[proFeatureIndex] || '').toString().trim();
-        const styleTagText = (row[styleTagIndex] || '').toString().trim();
+        // 后续列（使用动态检测的列索引）
+        const price = priceColumnIndex >= 0 ? parseFloat((row[priceColumnIndex]?.toString() || '').replace(/[^\d.]/g, '')) || 0 : 0;
+        const discountPrice = discountPriceIndex >= 0 ? parseFloat((row[discountPriceIndex]?.toString() || '').replace(/[^\d.]/g, '')) || 0 : 0;
+        const isPro = proIndex >= 0 ? (row[proIndex] === '是' || row[proIndex] === 'PRO') : false;
+        const proFeature = proFeatureIndex >= 0 ? (row[proFeatureIndex] || '').toString().trim() : '';
+        const styleTagText = styleTagIndex >= 0 ? (row[styleTagIndex] || '').toString().trim() : '';
         // 解析多个风格标签，支持逗号/顿号分隔（如：中古风、现代风）
         const styleTags = styleTagText.split(/[,，、\n]/).map(s => s.trim()).filter(s => s);
         
