@@ -290,6 +290,11 @@ export default function ManufacturerManagement() {
   
   const [showSmsModal, setShowSmsModal] = useState(false)
   const [smsTarget, setSmsTarget] = useState<Manufacturer | null>(null)
+  
+  // 月结白名单账号管理
+  const [showMonthlySettlementModal, setShowMonthlySettlementModal] = useState(false)
+  const [monthlySettlementAccounts, setMonthlySettlementAccounts] = useState<any[]>([])
+  const [monthlySettlementLoading, setMonthlySettlementLoading] = useState(false)
   const [smsLoading, setSmsLoading] = useState(false)
   const [smsSending, setSmsSending] = useState(false)
   const [smsBinding, setSmsBinding] = useState(false)
@@ -900,8 +905,8 @@ export default function ManufacturerManagement() {
   }
 
   const handleOpenTierSystem = (item: Manufacturer, tab?: 'hierarchy' | 'pool' | 'reconciliation') => {
-    // 跳转到授权管理的层级结构标签页
-    navigate('/admin/authorizations?tab=tier_hierarchy')
+    // 跳转到经营授权的渠道管理标签页
+    navigate(`/admin/manufacturers/${item._id}/business-panel?tab=channels`)
   }
 
   const handleOpenProductAuthorization = (item: Manufacturer) => {
@@ -1454,7 +1459,26 @@ export default function ManufacturerManagement() {
                         <span className="text-gray-400">未开启</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400">开启后可按月结算</p>
+                    <p className="text-xs text-gray-400 mb-2">开启后可按月结算</p>
+                    {myManufacturer.monthlySettlementEnabled && (
+                      <button
+                        onClick={async () => {
+                          setShowMonthlySettlementModal(true)
+                          setMonthlySettlementLoading(true)
+                          try {
+                            const res = await apiClient.get(`/manufacturers/${myManufacturer._id}/accounts`)
+                            setMonthlySettlementAccounts(res.data?.data || [])
+                          } catch (e) {
+                            toast.error('加载账号失败')
+                          } finally {
+                            setMonthlySettlementLoading(false)
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-xs bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors"
+                      >
+                        管理可月结账号
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1573,39 +1597,6 @@ export default function ManufacturerManagement() {
                                 <div className="text-xs text-gray-500 mb-1">成本价范围</div>
                                 <div className="text-lg font-semibold text-gray-900">
                                   ¥{priceMin.toLocaleString()} - ¥{priceMax.toLocaleString()}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* 折扣和返佣 - 点击展开 */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setExpandedPartnerPrices(prev => {
-                                  const next = new Set(prev)
-                                  if (next.has(item._id)) {
-                                    next.delete(item._id)
-                                  } else {
-                                    next.add(item._id)
-                                  }
-                                  return next
-                                })
-                              }}
-                              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors mb-3"
-                            >
-                              <span className="text-xs text-gray-500">折扣与返佣详情</span>
-                              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedPartnerPrices.has(item._id) ? 'rotate-180' : ''}`} />
-                            </button>
-                            
-                            {expandedPartnerPrices.has(item._id) && (
-                              <div className="grid grid-cols-2 gap-3 mb-4 animate-in slide-in-from-top-2 duration-200">
-                                <div className="border border-gray-200 rounded-xl p-3 text-center">
-                                  <div className="text-xs text-gray-500 mb-1">最低折扣(%)</div>
-                                  <div className="text-2xl font-bold text-gray-900">{authInfo?.minDiscountRate || item.defaultDiscount || 60}</div>
-                                </div>
-                                <div className="border border-gray-200 rounded-xl p-3 text-center">
-                                  <div className="text-xs text-gray-500 mb-1">返佣比例(%)</div>
-                                  <div className="text-2xl font-bold text-gray-900">{authInfo?.commissionRate || item.defaultCommission || 40}</div>
                                 </div>
                               </div>
                             )}
@@ -4927,6 +4918,84 @@ export default function ManufacturerManagement() {
         isOpen={showImageSearchModal} 
         onClose={() => setShowImageSearchModal(false)} 
       />
+
+      {/* 月结白名单账号管理弹窗 */}
+      {showMonthlySettlementModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">月结白名单账号</h3>
+                <p className="text-sm text-gray-500 mt-1">勾选允许月结的账号</p>
+              </div>
+              <button onClick={() => setShowMonthlySettlementModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {monthlySettlementLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                </div>
+              ) : monthlySettlementAccounts.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>暂无账号</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {monthlySettlementAccounts.map((account: any) => (
+                    <div
+                      key={account._id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                          <Users className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{account.nickname || account.username}</div>
+                          <div className="text-xs text-gray-500">{account.username}</div>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={account.monthlySettlementAllowed || false}
+                          onChange={async () => {
+                            const newValue = !account.monthlySettlementAllowed
+                            try {
+                              await apiClient.put(`/manufacturers/${myManufacturer?._id}/accounts/${account._id}`, {
+                                monthlySettlementAllowed: newValue
+                              })
+                              setMonthlySettlementAccounts(prev => 
+                                prev.map(a => a._id === account._id ? { ...a, monthlySettlementAllowed: newValue } : a)
+                              )
+                              toast.success(newValue ? '已允许月结' : '已取消月结')
+                            } catch (e) {
+                              toast.error('更新失败')
+                            }
+                          }}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-purple-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setShowMonthlySettlementModal(false)}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
