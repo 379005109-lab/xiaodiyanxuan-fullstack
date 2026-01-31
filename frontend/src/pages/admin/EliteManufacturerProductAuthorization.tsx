@@ -325,44 +325,58 @@ export default function EliteManufacturerProductAuthorization() {
 
   const getSkuPricing = (skuPrice: number) => {
     // 优先使用授权记录中的折扣和返佣比例
-    const activeAuth = existingAuthorizations.find(a => a.status === 'active')
-    const authDiscountRate = activeAuth?.minDiscountRate // 授权记录中的最低折扣率（如52%表示52%的价格）
-    const authCommissionRate = activeAuth?.commissionRate // 授权记录中的返佣比例（如19%）
+    const activeAuth = existingAuthorizations.find(a => a.status === 'active') || existingAuthorizations[0]
+    const authDiscountRate = activeAuth?.minDiscountRate // 授权记录中的最低折扣率（如60表示60%的价格）
+    const authCommissionRate = activeAuth?.commissionRate // 授权记录中的返佣比例（如40表示40%）
 
+    console.log('[getSkuPricing] skuPrice:', skuPrice, 'activeAuth:', activeAuth, 'authDiscountRate:', authDiscountRate, 'authCommissionRate:', authCommissionRate)
+
+    // 如果有授权记录中的折扣和返佣，直接使用
+    if (typeof authDiscountRate === 'number' && authDiscountRate > 0) {
+      const discountRate = authDiscountRate / 100 // 60 -> 0.6
+      const discountedPrice = Math.round(skuPrice * discountRate)
+      const commRate = typeof authCommissionRate === 'number' && authCommissionRate > 0 
+        ? authCommissionRate / 100 
+        : 0.3
+      const commission = Math.round(discountedPrice * commRate)
+      
+      console.log('[getSkuPricing] Using auth rates - discountRate:', discountRate, 'discountedPrice:', discountedPrice, 'commRate:', commRate, 'commission:', commission)
+      
+      return {
+        listPrice: skuPrice,
+        discountPrice: discountedPrice,
+        commission,
+        discountRate
+      }
+    }
+
+    // 回退到tierSystemConfig
     const profitSettings = tierSystemConfig?.profitSettings || {}
     const rule = tierSystemConfig?.discountRule || null
 
     const minSaleDiscountRate = Number(profitSettings?.minSaleDiscountRate ?? 1)
     const safeMinSaleRate = Number.isFinite(minSaleDiscountRate) ? Math.max(0, Math.min(1, minSaleDiscountRate)) : 1
 
-    // 优先使用授权记录中的折扣率
-    let discountRate: number
-    if (typeof authDiscountRate === 'number' && authDiscountRate > 0) {
-      // 授权记录中的折扣率是百分比，如52表示52%
-      discountRate = authDiscountRate / 100
-    } else {
-      const discountType = rule?.discountType || (typeof rule?.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
-      if (discountType === 'minPrice' && typeof rule?.minDiscountPrice === 'number') {
-        // 固定价格模式
-        const discountedPrice = Math.max(rule.minDiscountPrice, skuPrice * safeMinSaleRate)
-        const commRate = typeof authCommissionRate === 'number' ? authCommissionRate / 100 : (rule?.commissionRate || 0.4)
-        const commission = Math.round(discountedPrice * Math.max(0, Math.min(0.5, commRate)))
-        return {
-          listPrice: skuPrice,
-          discountPrice: Math.round(discountedPrice),
-          commission,
-          discountRate: undefined
-        }
+    const discountType = rule?.discountType || (typeof rule?.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
+    if (discountType === 'minPrice' && typeof rule?.minDiscountPrice === 'number') {
+      const discountedPrice = Math.max(rule.minDiscountPrice, skuPrice * safeMinSaleRate)
+      const commRate = typeof authCommissionRate === 'number' ? authCommissionRate / 100 : (rule?.commissionRate || 0.4)
+      const commission = Math.round(discountedPrice * Math.max(0, Math.min(0.5, commRate)))
+      return {
+        listPrice: skuPrice,
+        discountPrice: Math.round(discountedPrice),
+        commission,
+        discountRate: undefined
       }
-      discountRate = typeof rule?.discountRate === 'number' ? Math.max(0, Math.min(1, rule.discountRate)) : 0.6
     }
-
+    
+    const discountRate = typeof rule?.discountRate === 'number' ? Math.max(0, Math.min(1, rule.discountRate)) : 0.6
     let discountedPrice = skuPrice * discountRate
     const minAllowed = skuPrice * safeMinSaleRate
     discountedPrice = Math.max(discountedPrice, minAllowed)
     discountedPrice = Math.round(discountedPrice)
 
-    // 优先使用授权记录中的返佣比例
+    // 使用授权记录中的返佣比例或默认值
     let commissionRate: number
     if (typeof authCommissionRate === 'number' && authCommissionRate > 0) {
       commissionRate = authCommissionRate / 100
