@@ -26,16 +26,10 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 // 创建商品
 export const createProduct = async (productData: any) => {
   try {
-    // 临时调试：使用alert绕过生产环境console移除
-    const apiUrl = apiClient.defaults.baseURL;
-    alert(`正在创建商品: ${productData.name}\nAPI: ${apiUrl}/products`);
-    
     const response = await apiClient.post('/products', productData);
-    
-    alert(`创建成功! 状态: ${response.status}\n商品ID: ${response.data?.data?._id || response.data?._id || 'unknown'}`);
     return response.data;
   } catch (error: any) {
-    alert(`创建失败: ${error.message}\n状态: ${error.response?.status}\n详情: ${JSON.stringify(error.response?.data || {})}`);
+    console.error('创建商品失败:', error);
     throw error;
   }
 };
