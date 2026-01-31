@@ -1340,12 +1340,21 @@ export default function ProductManagement() {
           console.log(`  📋 分类信息: productData.category="${productData.category}", categoryName="${productData.categoryName}"`);
           console.log(`  最终提交的商品数据:`, JSON.stringify(newProduct, null, 2));
           try {
+            console.log(`  🚀 正在调用 createProduct API...`);
             const result = await createProduct(newProduct);
-            console.log(`  ✅ 创建成功:`, result);
-            importedCount++;
-            totalSkuCount += productData.skus.length;
+            console.log(`  ✅ createProduct 返回:`, result);
+            if (result && (result.success || result.data || result._id)) {
+              importedCount++;
+              totalSkuCount += productData.skus.length;
+              console.log(`  ✅ 创建成功，当前已导入: ${importedCount} 个商品`);
+            } else {
+              console.error(`  ⚠️ createProduct 返回异常:`, result);
+              errorCount++;
+              errors.push(`${productData.name}: API返回异常`);
+            }
           } catch (err: any) {
             console.error(`  ❌ 创建失败:`, err);
+            console.error(`  ❌ 错误响应:`, err.response?.data);
             errorCount++;
             errors.push(`${productData.name}: ${err.response?.data?.message || err.message}`);
           }
