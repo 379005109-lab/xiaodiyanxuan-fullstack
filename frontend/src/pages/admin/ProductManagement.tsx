@@ -520,9 +520,6 @@ export default function ProductManagement() {
   // 动态材质列: 从第7列开始，直到遇到"标价"列之前都是材质列（如面料、填充、框架、脚架、座包等）
   // 后续列: 标价、折扣价、PRO、PRO特性、风格标签、商品图片1-7
   const processImportedData = async (jsonData: any[]) => {
-    // 版本标记 v2.0 - 2026-01-31 调试版
-    alert('导入代码版本: v2.0 (2026-01-31)\n如果看到此消息说明代码已更新');
-    
     try {
       console.log('=== Excel导入开始 ===');
       console.log('总行数（包括表头）:', jsonData.length);
@@ -945,7 +942,7 @@ export default function ProductManagement() {
       const subCodeIndex = findColumnIndex(['备用型号', '副型号', '商品型号', 'SKU编码']);
       const categoryIndex = findColumnIndex(['类别', '分类', '商品分类']);
       const specIndex = findColumnIndex(['规格', '规格型号']);
-      const dimensionsIndex = findColumnIndex(['长宽高', '尺寸', '产品尺寸']);
+      const dimensionsIndex = findColumnIndex(['长宽高', '尺寸', '产品尺寸', '外径尺寸']);
       const colorColumnIndex = findColumnIndex(['颜色']);
       const priceColumnIndex = findColumnIndex(['标价', '价格', '原价']);
       const discountPriceIndex = findColumnIndex(['折扣价', '售价', '优惠价']);
