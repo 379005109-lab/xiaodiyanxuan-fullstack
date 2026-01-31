@@ -444,28 +444,28 @@ export default function ProductManagement() {
     }
   }
 
-  // 下载导入模板 v6.0（含规格备注）
+  // 下载导入模板 v7.0（含备用型号）
   const handleDownloadTemplate = () => {
-    // 创建模板数据 - v6.0版（含规格备注）
-    // 列: 商品名称、型号、类别、规格、规格备注、长宽高、材质面料、材质描述、标价、折扣价、库存天数、制作天数、包装体积、包装件数、厂家
+    // 创建模板数据 - v7.0版（含备用型号）
+    // 列: 商品名称、型号、备用型号、类别、规格、长宽高、材质面料、材质描述、标价、折扣价、库存天数、制作天数、包装体积、包装件数、厂家
     const templateData = [
-      ['商品名称', '型号', '类别', '规格', '规格备注', '长宽高', '材质面料', '材质描述', '标价', '折扣价', '库存天数', '制作天数', '包装体积', '包装件数', '厂家'],
-      ['现代沙发A', 'SF-001', '沙发', '三人位', '外径尺寸227*187', '200*115*77', '泰迪绒', 'A类泰迪绒面料，高回弹海绵填充', 13200, 11880, 7, 0, '0.8m³', 2, '广东家具厂'],
-      ['现代沙发A', 'SF-001', '沙发', '四人位', '外径尺寸287*187', '260*115*77', '雪尼尔绒', 'B类雪尼尔绒面料，高回弹海绵填充', 17940, 16146, 7, 0, '1.0m³', 2, '广东家具厂'],
-      ['北欧床', 'BED-001', '床', '1.5米', '', '150*200*45', '科技布', '科技布面料，实木框架', 2999, 2499, 0, 15, '0.5m³', 1, '佛山床垫厂'],
-      ['北欧床', 'BED-001', '床', '1.8米', '', '180*200*45', '科技布', '科技布面料，实木框架', 3499, 2999, 0, 15, '0.6m³', 1, '佛山床垫厂'],
+      ['商品名称', '型号', '备用型号', '类别', '规格', '长宽高', '材质面料', '材质描述', '标价', '折扣价', '库存天数', '制作天数', '包装体积', '包装件数', '厂家'],
+      ['现代沙发A', 'SF-001', 'SF-001-A', '沙发', '三人位', '200*115*77', '泰迪绒', 'A类泰迪绒面料，高回弹海绵填充', 13200, 11880, 7, 0, '0.8m³', 2, '广东家具厂'],
+      ['现代沙发A', 'SF-001', 'SF-001-B', '沙发', '四人位', '260*115*77', '雪尼尔绒', 'B类雪尼尔绒面料，高回弹海绵填充', 17940, 16146, 7, 0, '1.0m³', 2, '广东家具厂'],
+      ['北欧床', 'BED-001', 'BED-001-150', '床', '1.5米', '150*200*45', '科技布', '科技布面料，实木框架', 2999, 2499, 0, 15, '0.5m³', 1, '佛山床垫厂'],
+      ['北欧床', 'BED-001', 'BED-001-180', '床', '1.8米', '180*200*45', '科技布', '科技布面料，实木框架', 3499, 2999, 0, 15, '0.6m³', 1, '佛山床垫厂'],
     ]
 
     // 创建说明工作表
     const instructions = [
-      ['商品导入模板使用说明 v6.0'],
+      ['商品导入模板使用说明 v7.0'],
       [''],
       ['列说明：'],
       ['A. 商品名称: 商品的显示名称'],
-      ['B. 型号: 商品型号，同一商品的多个SKU使用相同型号'],
-      ['C. 类别: 商品分类'],
-      ['D. 规格: SKU规格，如"三人位"、"1.5米"等'],
-      ['E. 规格备注: 规格的补充说明，如"外径尺寸227*187"（可为空）'],
+      ['B. 型号: 主型号，同一商品的多个SKU使用相同主型号'],
+      ['C. 备用型号: 副型号/SKU编码，用于区分同一商品的不同SKU，可通过此型号搜索'],
+      ['D. 类别: 商品分类（如沙发、床、茶几等）'],
+      ['E. 规格: SKU规格，如"三人位"、"1.5米"等'],
       ['F. 长宽高: 商品尺寸，格式如"200*115*77"'],
       ['G. 材质面料: 主要材质名称'],
       ['H. 材质描述: 材质的详细描述'],
@@ -475,12 +475,13 @@ export default function ProductManagement() {
       ['L. 制作天数: 定制制作需要的天数（与库存天数二选一）'],
       ['M. 包装体积: 包装体积，如"0.5m³"'],
       ['N. 包装件数: 包装件数，默认1'],
-      ['O. 厂家: 生产厂家名称'],
+      ['O. 厂家: 生产厂家名称（必须与系统中的厂家名称完全一致）'],
       [''],
       ['注意事项：'],
-      ['1. 同一型号的多行会自动合并为同一商品的多个SKU'],
-      ['2. 库存天数>0表示有库存，制作天数>0表示需要定制'],
-      ['3. 包装体积和件数用于物流计算'],
+      ['1. 同一主型号的多行会自动合并为同一商品的多个SKU'],
+      ['2. 备用型号会保存到SKU的副型号字段，可通过主型号或备用型号搜索商品'],
+      ['3. 库存天数>0表示有库存，制作天数>0表示需要定制'],
+      ['4. 厂家名称必须与系统中已有的厂家名称完全一致，否则无法匹配'],
     ]
 
     // 创建工作簿
@@ -494,9 +495,9 @@ export default function ProductManagement() {
     ws['!cols'] = [
       { wch: 15 },  // 商品名称
       { wch: 12 },  // 型号
+      { wch: 15 },  // 备用型号
       { wch: 10 },  // 类别
       { wch: 10 },  // 规格
-      { wch: 18 },  // 规格备注
       { wch: 15 },  // 长宽高
       { wch: 12 },  // 材质面料
       { wch: 30 },  // 材质描述
@@ -510,7 +511,7 @@ export default function ProductManagement() {
     ]
 
     // 下载文件
-    XLSX.writeFile(wb, '商品导入模板v6.xlsx')
+    XLSX.writeFile(wb, '商品导入模板v7.xlsx')
     toast.success('模板下载成功')
   }
 
@@ -2581,13 +2582,27 @@ export default function ProductManagement() {
 
     if (confirm(`确定要删除选中的 ${selectedIds.length} 个商品吗？`)) {
       let successCount = 0;
+      let failCount = 0;
       for (const id of selectedIds) {
-        if (await deleteProduct(id)) {
-          successCount++;
+        try {
+          const result = await deleteProduct(id);
+          if (result && result.success !== false) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          console.error(`删除商品 ${id} 失败:`, err);
+          failCount++;
         }
       }
       
-      toast.success(`成功删除 ${successCount} 个商品`);
+      if (successCount > 0) {
+        toast.success(`成功删除 ${successCount} 个商品`);
+      }
+      if (failCount > 0) {
+        toast.error(`${failCount} 个商品删除失败`);
+      }
       setSelectedIds([]);
       await loadProducts();
     }
@@ -2663,8 +2678,18 @@ export default function ProductManagement() {
 
   const filteredProducts = products
     .filter((product) => {
-      if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false
+      // 搜索：支持商品名称、主型号、副型号（备用型号）
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const p = product as any
+        const nameMatch = product.name.toLowerCase().includes(query)
+        const codeMatch = p.productCode?.toLowerCase().includes(query)
+        const subCodesMatch = (p.subCodes || []).some((code: string) => code.toLowerCase().includes(query))
+        // SKU编码匹配
+        const skuCodeMatch = (product.skus || []).some((sku: any) => sku.code?.toLowerCase().includes(query))
+        if (!nameMatch && !codeMatch && !subCodesMatch && !skuCodeMatch) {
+          return false
+        }
       }
       if (filterCategory) {
         // 匹配分类的_id、slug或name
