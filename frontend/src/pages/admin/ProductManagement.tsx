@@ -1187,8 +1187,20 @@ export default function ProductManagement() {
       });
 
       let importedCount = 0, updatedCount = 0, totalSkuCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+      
+      console.log('=== 开始导入商品 ===');
+      console.log('productMap 大小:', productMap.size);
+      
+      if (productMap.size === 0) {
+        toast.error('没有解析到有效的商品数据，请检查Excel格式');
+        return;
+      }
+      
       const response = await getProducts({ pageSize: 10000 });
       const allProducts = response.success ? response.data : [];
+      console.log('已有商品数量:', allProducts.length);
 
       for (const [productKey, productData] of productMap.entries()) {
         // 查找已存在的商品（按名称匹配）
@@ -1228,16 +1240,22 @@ export default function ProductManagement() {
           const newStyleTags = productData.styleTags || [];
           const mergedStyles = [...new Set([...existingStyles, ...newStyleTags])];
 
-          await updateProduct(existingProduct._id, {
-            productCode: productData.productCode || existingProduct.productCode, // 更新主型号
-            subCodes: [...new Set([...(existingProduct.subCodes || []), ...productData.subCodes])], // 合并副型号
-            skus: [...existingProduct.skus, ...newSkus],
-            specifications: newSpecs,
-            styles: mergedStyles, // 风格标签（多个）
-            images: existingProduct.images?.length > 0 ? existingProduct.images : productData.firstImages, // 保留原图或使用新图
-          });
-          updatedCount++;
-          totalSkuCount += newSkus.length;
+          try {
+            await updateProduct(existingProduct._id, {
+              productCode: productData.productCode || existingProduct.productCode, // 更新主型号
+              subCodes: [...new Set([...(existingProduct.subCodes || []), ...productData.subCodes])], // 合并副型号
+              skus: [...existingProduct.skus, ...newSkus],
+              specifications: newSpecs,
+              styles: mergedStyles, // 风格标签（多个）
+              images: existingProduct.images?.length > 0 ? existingProduct.images : productData.firstImages, // 保留原图或使用新图
+            });
+            updatedCount++;
+            totalSkuCount += newSkus.length;
+          } catch (err: any) {
+            console.error(`  ❌ 更新失败:`, err);
+            errorCount++;
+            errors.push(`更新${productData.name}: ${err.response?.data?.message || err.message}`);
+          }
         } else {
           const specifications = productData.specifications.reduce((acc: any, spec: any) => {
             acc[spec.name] = `${spec.length}x${spec.width}x${spec.height}${spec.unit}`;
@@ -1273,13 +1291,29 @@ export default function ProductManagement() {
 
           console.log(`  📋 分类信息: productData.category="${productData.category}", categoryName="${productData.categoryName}"`);
           console.log(`  最终提交的商品数据:`, JSON.stringify(newProduct, null, 2));
-          await createProduct(newProduct);
-          importedCount++;
-          totalSkuCount += productData.skus.length;
+          try {
+            const result = await createProduct(newProduct);
+            console.log(`  ✅ 创建成功:`, result);
+            importedCount++;
+            totalSkuCount += productData.skus.length;
+          } catch (err: any) {
+            console.error(`  ❌ 创建失败:`, err);
+            errorCount++;
+            errors.push(`${productData.name}: ${err.response?.data?.message || err.message}`);
+          }
         }
       }
 
-      toast.success(`成功导入 ${importedCount} 个新商品，更新 ${updatedCount} 个商品（共 ${totalSkuCount} 个SKU）`);
+      if (errorCount > 0) {
+        console.error('导入错误列表:', errors);
+        toast.error(`导入完成但有 ${errorCount} 个错误: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
+      }
+      
+      if (importedCount > 0 || updatedCount > 0) {
+        toast.success(`成功导入 ${importedCount} 个新商品，更新 ${updatedCount} 个商品（共 ${totalSkuCount} 个SKU）`);
+      } else if (errorCount === 0) {
+        toast.warning('没有新商品被导入，可能数据已存在或格式不正确');
+      }
       await loadProducts();
     } catch (error) {
       console.error('导入失败:', error);
