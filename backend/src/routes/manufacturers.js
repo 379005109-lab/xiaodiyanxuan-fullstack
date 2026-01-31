@@ -37,7 +37,197 @@ const canAccessManufacturer = (user, manufacturerId) => {
   return false
 }
 
-// 需要认证
+// ========== 公开路由（不需要认证） ==========
+
+// GET /api/manufacturers/:manufacturerId/product-categories - 获取厂家商品分类（公开）
+router.get('/:manufacturerId/product-categories', async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+
+    const mid = new mongoose.Types.ObjectId(manufacturerId)
+    
+    // 获取厂家信息用于名称匹配
+    const manufacturer = await ManufacturerModel.findById(mid).select('name fullName shortName code').lean()
+    const manufacturerNames = [
+      manufacturer?.name,
+      manufacturer?.fullName,
+      manufacturer?.shortName,
+      manufacturer?.code
+    ].filter(Boolean)
+    
+    // 方法1: 通过商品的manufacturerId查询
+    // 方法2: 通过商品的manufacturerName查询（兼容旧数据）
+    const productQuery = {
+      status: 'active',
+      $or: [
+        { manufacturerId: mid },
+        { 'skus.manufacturerId': mid }
+      ]
+    }
+    
+    // 如果有厂家名称，也通过名称匹配
+    if (manufacturerNames.length > 0) {
+      productQuery.$or.push({ manufacturerName: { $in: manufacturerNames } })
+      productQuery.$or.push({ 'skus.manufacturerName': { $in: manufacturerNames } })
+    }
+    
+    const products = await Product.find(productQuery).select('category').lean()
+
+    const countByCategoryId = new Map()
+    for (const p of products) {
+      const c = p?.category
+      let categoryId = null
+      if (typeof c === 'string') {
+        categoryId = c
+      } else if (c && typeof c === 'object') {
+        categoryId = c._id || c.id || c.slug
+      }
+      if (!categoryId) continue
+      const key = String(categoryId)
+      countByCategoryId.set(key, (countByCategoryId.get(key) || 0) + 1)
+    }
+
+    // 方法2: 直接查询厂家关联的分类（作为备选）
+    const manufacturerCategories = await Category.find({ 
+      manufacturerId: mid,
+      status: { $ne: 'inactive' }
+    }).select('_id name parentId').lean()
+    
+    // 合并厂家分类（如果商品查询没有结果）
+    for (const cat of manufacturerCategories) {
+      const catId = String(cat._id)
+      if (!countByCategoryId.has(catId)) {
+        const catProductCount = await Product.countDocuments({
+          status: 'active',
+          $or: [
+            { category: cat._id },
+            { 'category._id': cat._id },
+            { category: catId }
+          ]
+        })
+        countByCategoryId.set(catId, catProductCount)
+      }
+    }
+
+    const categoryIds = Array.from(countByCategoryId.keys())
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id))
+
+    const categories = categoryIds.length > 0
+      ? await Category.find({ _id: { $in: categoryIds } }).select('_id name parentId').lean()
+      : []
+
+    // 收集所有父分类ID
+    const parentIds = new Set()
+    categories.forEach(c => {
+      if (c.parentId) {
+        parentIds.add(String(c.parentId))
+      }
+    })
+    
+    // 获取父分类信息（不在当前列表中的）
+    const missingParentIds = Array.from(parentIds)
+      .filter(pid => !categoryIds.some(cid => String(cid) === pid))
+      .filter(pid => mongoose.Types.ObjectId.isValid(pid))
+      .map(pid => new mongoose.Types.ObjectId(pid))
+    
+    const parentCategories = missingParentIds.length > 0
+      ? await Category.find({ _id: { $in: missingParentIds } }).select('_id name parentId').lean()
+      : []
+
+    const categoryById = new Map(categories.map(c => [String(c._id), c]))
+    
+    // 构建结果数据
+    const data = Array.from(countByCategoryId.entries())
+      .map(([id, count]) => {
+        const cat = categoryById.get(id)
+        return {
+          id,
+          name: cat?.name || id,
+          parentId: cat?.parentId ? String(cat.parentId) : null,
+          count
+        }
+      })
+      .sort((a, b) => b.count - a.count)
+    
+    // 添加父分类（商品数为子分类商品数之和）
+    parentCategories.forEach(pc => {
+      const pcId = String(pc._id)
+      // 计算该父分类下所有子分类的商品总数
+      const childCount = data
+        .filter(d => d.parentId === pcId)
+        .reduce((sum, d) => sum + d.count, 0)
+      
+      data.push({
+        id: pcId,
+        name: pc.name,
+        parentId: pc.parentId ? String(pc.parentId) : null,
+        count: childCount
+      })
+    })
+
+    res.json({ success: true, data })
+  } catch (error) {
+    console.error('获取厂家商品分类失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+// GET /api/manufacturers/:manufacturerId/products - 获取厂家商品（公开）
+router.get('/:manufacturerId/products', async (req, res) => {
+  try {
+    const { manufacturerId } = req.params
+    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
+      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
+    }
+
+    const { status = 'active', limit = 2000 } = req.query
+
+    const mid = new mongoose.Types.ObjectId(manufacturerId)
+    
+    // 获取厂家信息用于名称匹配
+    const manufacturer = await ManufacturerModel.findById(mid).select('name fullName shortName code').lean()
+    const manufacturerNames = [
+      manufacturer?.name,
+      manufacturer?.fullName,
+      manufacturer?.shortName,
+      manufacturer?.code
+    ].filter(Boolean)
+    
+    const query = {
+      $or: [
+        { manufacturerId: mid },
+        { 'skus.manufacturerId': mid }
+      ]
+    }
+    
+    // 如果有厂家名称，也通过名称匹配
+    if (manufacturerNames.length > 0) {
+      query.$or.push({ manufacturerName: { $in: manufacturerNames } })
+      query.$or.push({ 'skus.manufacturerName': { $in: manufacturerNames } })
+    }
+    
+    if (status && status !== 'all') {
+      query.status = status
+    }
+
+    const products = await Product.find(query)
+      .select('_id name productCode category thumbnail images status basePrice skus')
+      .sort({ createdAt: -1 })
+      .limit(Math.min(Number(limit) || 10000, 20000))
+      .lean()
+
+    res.json({ success: true, data: products })
+  } catch (error) {
+    console.error('获取厂家商品失败:', error)
+    res.status(500).json({ success: false, message: '服务器错误' })
+  }
+})
+
+// ========== 需要认证的路由 ==========
 router.use(auth)
 
 // GET /api/manufacturers - 获取厂家列表（分页）
@@ -254,91 +444,6 @@ router.get('/me', async (req, res) => {
     res.json({ success: true, data: manufacturer })
   } catch (error) {
     console.error('获取厂家信息失败:', error)
-    res.status(500).json({ success: false, message: '服务器错误' })
-  }
-})
-
-router.get('/:manufacturerId/product-categories', async (req, res) => {
-  try {
-    const { manufacturerId } = req.params
-    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
-      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
-    }
-
-    const mid = new mongoose.Types.ObjectId(manufacturerId)
-    const products = await Product.find({
-      status: 'active',
-      $or: [{ manufacturerId: mid }, { 'skus.manufacturerId': mid }]
-    }).select('category').lean()
-
-    const countByCategoryId = new Map()
-    for (const p of products) {
-      const c = p?.category
-      let categoryId = null
-      if (typeof c === 'string') {
-        categoryId = c
-      } else if (c && typeof c === 'object') {
-        categoryId = c._id || c.id || c.slug
-      }
-      if (!categoryId) continue
-      const key = String(categoryId)
-      countByCategoryId.set(key, (countByCategoryId.get(key) || 0) + 1)
-    }
-
-    const categoryIds = Array.from(countByCategoryId.keys())
-      .filter(id => mongoose.Types.ObjectId.isValid(id))
-      .map(id => new mongoose.Types.ObjectId(id))
-
-    const categories = categoryIds.length > 0
-      ? await Category.find({ _id: { $in: categoryIds } }).select('_id name parentId').lean()
-      : []
-
-    const categoryById = new Map(categories.map(c => [String(c._id), c]))
-    const data = Array.from(countByCategoryId.entries())
-      .map(([id, count]) => {
-        const cat = categoryById.get(id)
-        return {
-          id,
-          name: cat?.name || id,
-          parentId: cat?.parentId ? String(cat.parentId) : null,
-          count
-        }
-      })
-      .sort((a, b) => b.count - a.count)
-
-    res.json({ success: true, data })
-  } catch (error) {
-    console.error('获取厂家商品分类失败:', error)
-    res.status(500).json({ success: false, message: '服务器错误' })
-  }
-})
-
-router.get('/:manufacturerId/products', async (req, res) => {
-  try {
-    const { manufacturerId } = req.params
-    if (!manufacturerId || !mongoose.Types.ObjectId.isValid(manufacturerId)) {
-      return res.status(400).json({ success: false, message: 'manufacturerId 无效' })
-    }
-
-    const { status = 'active', limit = 2000 } = req.query
-
-    const mid = new mongoose.Types.ObjectId(manufacturerId)
-    const query = {
-      $or: [{ manufacturerId: mid }, { 'skus.manufacturerId': mid }]
-    }
-    if (status && status !== 'all') {
-      query.status = status
-    }
-
-    const products = await Product.find(query)
-      .select('_id name productCode category thumbnail images status basePrice skus')
-      .sort({ createdAt: -1 })
-      .limit(Math.min(Number(limit) || 10000, 20000))
-      .lean()
-
-    res.json({ success: true, data: products })
-  } catch (error) {
-    console.error('获取厂家商品失败:', error)
     res.status(500).json({ success: false, message: '服务器错误' })
   }
 })

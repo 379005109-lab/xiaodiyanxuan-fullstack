@@ -1,8 +1,8 @@
-# 构建阶段 - Updated 2026-01-13 - Force rebuild with cache bust
+# 构建阶段 - Updated 2026-01-30 - Force rebuild
 FROM node:18-alpine AS builder
 
 # Cache bust arg
-ARG CACHEBUST=1
+ARG CACHEBUST=20260130
 
 WORKDIR /app
 

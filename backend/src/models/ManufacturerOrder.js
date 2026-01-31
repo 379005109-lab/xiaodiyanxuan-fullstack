@@ -67,8 +67,19 @@ const manufacturerOrderSchema = new mongoose.Schema({
   shippedAt: Date,
   trackingNo: String,
   trackingCompany: String,
+  
+  // 验货图片和视频
+  inspectionImages: [String],
+  inspectionVideos: [String],
 
   completedAt: Date,
+  
+  // 退款状态（从原始订单同步）
+  refundStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected', 'completed', null],
+    default: null
+  },
   
   // 备注
   remark: String,

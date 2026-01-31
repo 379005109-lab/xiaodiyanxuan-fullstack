@@ -32,7 +32,7 @@ const getProducts = async (filters = {}) => {
   
   const total = await Product.countDocuments(query)
   const products = await Product.find(query)
-    .select('name productCode code subCodes description basePrice manufacturerId authorizedLabelPrices stock thumbnail images videos videoTitles files category style styles specifications skus materialsGroups materialConfigs otherMaterialsText otherMaterialsImage tags isCombo comboItems sales views rating reviews order status createdAt updatedAt __v')
+    .select('name productCode code subCodes description basePrice manufacturerId authorizedLabelPrices stock thumbnail images videos videoTitles files category style styles specifications skus materialsGroups materialConfigs materialDescriptionOptions otherMaterialsText otherMaterialsImage series seriesImage tags isCombo comboItems sales views rating reviews order status createdAt updatedAt __v')
     .populate('category', 'name slug')
     .sort(sortBy)
     .skip(skip)
@@ -45,7 +45,7 @@ const getProducts = async (filters = {}) => {
 const getProductById = async (id) => {
   // 使用 lean() 加速查询，单独更新浏览量
   const product = await Product.findById(id)
-    .select('name productCode code subCodes description basePrice manufacturerId authorizedLabelPrices stock thumbnail images videos videoTitles files category style styles specifications skus materialsGroups materialConfigs otherMaterialsText otherMaterialsImage tags isCombo comboItems sales views rating reviews order status createdAt updatedAt __v')
+    .select('name productCode code subCodes description basePrice manufacturerId authorizedLabelPrices stock thumbnail images videos videoTitles files category style styles specifications skus materialsGroups materialConfigs materialDescriptionOptions otherMaterialsText otherMaterialsImage series seriesImage tags isCombo comboItems sales views rating reviews order status createdAt updatedAt __v')
     .populate('category', 'name slug')
     .lean()
   if (!product) {

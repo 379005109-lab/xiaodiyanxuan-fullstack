@@ -477,7 +477,15 @@ router.get('/my-grants', auth, async (req, res) => {
       .lean()
 
     const authorizations = await Authorization.find({
-      fromManufacturer: user.manufacturerId
+      fromManufacturer: user.manufacturerId,
+      // 排除已撤销的授权
+      status: { $ne: 'revoked' },
+      // 排除层级节点（tierLevel > 0的是分成体系子节点，不是独立渠道）
+      $or: [
+        { tierLevel: { $exists: false } },
+        { tierLevel: null },
+        { tierLevel: 0 }
+      ]
     })
       .populate('toManufacturer', 'name fullName logo contactPerson code styleTags categoryTags priceRangeMin priceRangeMax galleryImages defaultDiscount defaultCommission')
       .populate('toDesigner', 'username nickname avatar email')
@@ -836,6 +844,10 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
       notes,
       discountRate,
       commissionRate,
+      ownProductMinDiscount,
+      ownProductCommission,
+      partnerProductMinDiscount,
+      partnerProductCommission,
       tierType,
       parentAuthorizationId,
       tierCompanyName,
@@ -848,12 +860,32 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
     if (validUntil !== undefined) authDoc.validUntil = validUntil
     if (notes !== undefined) authDoc.notes = notes
 
-    // 设置折扣和返佣
+    // 设置自有产品和合作商产品的折扣和返佣
+    if (ownProductMinDiscount !== undefined && ownProductMinDiscount >= 0 && ownProductMinDiscount <= 100) {
+      authDoc.ownProductMinDiscount = ownProductMinDiscount
+      authDoc.minDiscountRate = ownProductMinDiscount // 兼容旧字段
+    }
+    if (ownProductCommission !== undefined && ownProductCommission >= 0 && ownProductCommission <= 100) {
+      authDoc.ownProductCommission = ownProductCommission
+      authDoc.commissionRate = ownProductCommission // 兼容旧字段
+    }
+    if (partnerProductMinDiscount !== undefined && partnerProductMinDiscount >= 0 && partnerProductMinDiscount <= 100) {
+      authDoc.partnerProductMinDiscount = partnerProductMinDiscount
+    }
+    if (partnerProductCommission !== undefined && partnerProductCommission >= 0 && partnerProductCommission <= 100) {
+      authDoc.partnerProductCommission = partnerProductCommission
+    }
+    
+    // 兼容旧的单一字段
     if (discountRate !== undefined && discountRate >= 0 && discountRate <= 100) {
       authDoc.minDiscountRate = discountRate
+      if (ownProductMinDiscount === undefined) authDoc.ownProductMinDiscount = discountRate
+      if (partnerProductMinDiscount === undefined) authDoc.partnerProductMinDiscount = discountRate
     }
     if (commissionRate !== undefined && commissionRate >= 0 && commissionRate <= 100) {
       authDoc.commissionRate = commissionRate
+      if (ownProductCommission === undefined) authDoc.ownProductCommission = commissionRate
+      if (partnerProductCommission === undefined) authDoc.partnerProductCommission = commissionRate
     }
 
     // 处理分层体系
@@ -889,9 +921,66 @@ router.put('/manufacturer/designer-requests/:id/approve', verifyManufacturerToke
       authDoc.allowSubAuthorization = allowSubAuthorization
     }
 
+    // 同步到 priceSettings（前端专属价格池设置页面读取此字段）
+    authDoc.priceSettings = {
+      ...authDoc.priceSettings,
+      minDiscountRate: (authDoc.ownProductMinDiscount || 60) / 100,
+      commissionRate: (authDoc.ownProductCommission || 10) / 100,
+      partnerMinDiscountRate: (authDoc.partnerProductMinDiscount || 60) / 100,
+      partnerCommissionRate: (authDoc.partnerProductCommission || 10) / 100
+    }
+
     authDoc.status = 'active'
     authDoc.updatedAt = new Date()
     await authDoc.save()
+
+    // 同步到分成体系 TierSystem
+    try {
+      const manufacturerId = authDoc.fromManufacturer
+      const tierSystem = await TierSystem.findOne({ manufacturerId })
+      if (tierSystem) {
+        const accountId = authDoc.toDesigner?.toString() || authDoc.toManufacturer?.toString()
+        const accountType = authDoc.authorizationType
+        
+        if (accountId) {
+          const existingIndex = (tierSystem.authorizedAccounts || []).findIndex(
+            acc => acc.accountId === accountId
+          )
+          
+          const accountData = {
+            accountId,
+            accountType,
+            authorizationId: authDoc._id.toString(),
+            minDiscountRate: authDoc.minDiscountRate || 0,
+            commissionRate: authDoc.commissionRate || 0,
+            ownProductMinDiscount: authDoc.ownProductMinDiscount || 60,
+            ownProductCommission: authDoc.ownProductCommission || 10,
+            partnerProductMinDiscount: authDoc.partnerProductMinDiscount || 60,
+            partnerProductCommission: authDoc.partnerProductCommission || 10,
+            // 兼容前端TierSystem读取的字段
+            boundUserDiscount: authDoc.ownProductMinDiscount || 60,
+            distributionRate: authDoc.ownProductCommission || 10,
+            status: 'active',
+            updatedAt: new Date()
+          }
+          
+          if (existingIndex >= 0) {
+            tierSystem.authorizedAccounts[existingIndex] = {
+              ...tierSystem.authorizedAccounts[existingIndex],
+              ...accountData
+            }
+          } else {
+            tierSystem.authorizedAccounts = tierSystem.authorizedAccounts || []
+            tierSystem.authorizedAccounts.push(accountData)
+          }
+          
+          await tierSystem.save()
+          console.log(`[TierSystem] 已同步授权账户折扣(${authDoc.minDiscountRate}%)和返佣(${authDoc.commissionRate}%)`)
+        }
+      }
+    } catch (tierErr) {
+      console.error('[TierSystem] 同步失败:', tierErr.message)
+    }
 
     if (authDoc.toDesigner) {
       const designer = await User.findById(authDoc.toDesigner)
@@ -1513,6 +1602,10 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
       notes,
       discountRate,
       commissionRate,
+      ownProductMinDiscount,
+      ownProductCommission,
+      partnerProductMinDiscount,
+      partnerProductCommission,
       tierType,
       parentAuthorizationId,
       tierCompanyName,
@@ -1526,12 +1619,32 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
     if (validUntil !== undefined) authDoc.validUntil = validUntil
     if (notes !== undefined) authDoc.notes = notes
     
-    // 设置折扣和返佣
+    // 设置自有产品和合作商产品的折扣和返佣
+    if (ownProductMinDiscount !== undefined && ownProductMinDiscount >= 0 && ownProductMinDiscount <= 100) {
+      authDoc.ownProductMinDiscount = ownProductMinDiscount
+      authDoc.minDiscountRate = ownProductMinDiscount
+    }
+    if (ownProductCommission !== undefined && ownProductCommission >= 0 && ownProductCommission <= 100) {
+      authDoc.ownProductCommission = ownProductCommission
+      authDoc.commissionRate = ownProductCommission
+    }
+    if (partnerProductMinDiscount !== undefined && partnerProductMinDiscount >= 0 && partnerProductMinDiscount <= 100) {
+      authDoc.partnerProductMinDiscount = partnerProductMinDiscount
+    }
+    if (partnerProductCommission !== undefined && partnerProductCommission >= 0 && partnerProductCommission <= 100) {
+      authDoc.partnerProductCommission = partnerProductCommission
+    }
+    
+    // 兼容旧的单一字段
     if (discountRate !== undefined && discountRate >= 0 && discountRate <= 100) {
       authDoc.minDiscountRate = discountRate
+      if (ownProductMinDiscount === undefined) authDoc.ownProductMinDiscount = discountRate
+      if (partnerProductMinDiscount === undefined) authDoc.partnerProductMinDiscount = discountRate
     }
     if (commissionRate !== undefined && commissionRate >= 0 && commissionRate <= 100) {
       authDoc.commissionRate = commissionRate
+      if (ownProductCommission === undefined) authDoc.ownProductCommission = commissionRate
+      if (partnerProductCommission === undefined) authDoc.partnerProductCommission = commissionRate
     }
     
     // 处理分层体系
@@ -1572,9 +1685,66 @@ router.put('/designer-requests/:id/approve', auth, async (req, res) => {
       authDoc.allowSubAuthorization = allowSubAuthorization
     }
 
+    // 同步到 priceSettings（前端专属价格池设置页面读取此字段）
+    authDoc.priceSettings = {
+      ...authDoc.priceSettings,
+      minDiscountRate: (authDoc.ownProductMinDiscount || 60) / 100,
+      commissionRate: (authDoc.ownProductCommission || 10) / 100,
+      partnerMinDiscountRate: (authDoc.partnerProductMinDiscount || 60) / 100,
+      partnerCommissionRate: (authDoc.partnerProductCommission || 10) / 100
+    }
+
     authDoc.status = 'active'
     authDoc.updatedAt = new Date()
     await authDoc.save()
+
+    // 同步到分成体系 TierSystem
+    try {
+      const manufacturerId = authDoc.fromManufacturer
+      const tierSystem = await TierSystem.findOne({ manufacturerId })
+      if (tierSystem) {
+        const accountId = authDoc.toDesigner?.toString() || authDoc.toManufacturer?.toString()
+        const accountType = authDoc.authorizationType
+        
+        if (accountId) {
+          const existingIndex = (tierSystem.authorizedAccounts || []).findIndex(
+            acc => acc.accountId === accountId
+          )
+          
+          const accountData = {
+            accountId,
+            accountType,
+            authorizationId: authDoc._id.toString(),
+            minDiscountRate: authDoc.minDiscountRate || 0,
+            commissionRate: authDoc.commissionRate || 0,
+            ownProductMinDiscount: authDoc.ownProductMinDiscount || 60,
+            ownProductCommission: authDoc.ownProductCommission || 10,
+            partnerProductMinDiscount: authDoc.partnerProductMinDiscount || 60,
+            partnerProductCommission: authDoc.partnerProductCommission || 10,
+            // 兼容前端TierSystem读取的字段
+            boundUserDiscount: authDoc.ownProductMinDiscount || 60,
+            distributionRate: authDoc.ownProductCommission || 10,
+            status: 'active',
+            updatedAt: new Date()
+          }
+          
+          if (existingIndex >= 0) {
+            tierSystem.authorizedAccounts[existingIndex] = {
+              ...tierSystem.authorizedAccounts[existingIndex],
+              ...accountData
+            }
+          } else {
+            tierSystem.authorizedAccounts = tierSystem.authorizedAccounts || []
+            tierSystem.authorizedAccounts.push(accountData)
+          }
+          
+          await tierSystem.save()
+          console.log(`[TierSystem] 已同步授权账户折扣(${authDoc.minDiscountRate}%)和返佣(${authDoc.commissionRate}%)`)
+        }
+      }
+    } catch (tierErr) {
+      console.error('[TierSystem] 同步失败:', tierErr.message)
+    }
 
     if (authDoc.toDesigner) {
       const designer = await User.findById(authDoc.toDesigner)
@@ -1949,6 +2119,10 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
       notes,
       discountRate,
       commissionRate,
+      ownProductMinDiscount,
+      ownProductCommission,
+      partnerProductMinDiscount,
+      partnerProductCommission,
       tierType,
       parentAuthorizationId,
       tierCompanyName,
@@ -1961,12 +2135,32 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
     if (validUntil !== undefined) authDoc.validUntil = validUntil
     if (notes !== undefined) authDoc.notes = notes
 
-    // 设置折扣和返佣
+    // 设置自有产品和合作商产品的折扣和返佣
+    if (ownProductMinDiscount !== undefined && ownProductMinDiscount >= 0 && ownProductMinDiscount <= 100) {
+      authDoc.ownProductMinDiscount = ownProductMinDiscount
+      authDoc.minDiscountRate = ownProductMinDiscount
+    }
+    if (ownProductCommission !== undefined && ownProductCommission >= 0 && ownProductCommission <= 100) {
+      authDoc.ownProductCommission = ownProductCommission
+      authDoc.commissionRate = ownProductCommission
+    }
+    if (partnerProductMinDiscount !== undefined && partnerProductMinDiscount >= 0 && partnerProductMinDiscount <= 100) {
+      authDoc.partnerProductMinDiscount = partnerProductMinDiscount
+    }
+    if (partnerProductCommission !== undefined && partnerProductCommission >= 0 && partnerProductCommission <= 100) {
+      authDoc.partnerProductCommission = partnerProductCommission
+    }
+    
+    // 兼容旧的单一字段
     if (discountRate !== undefined && discountRate >= 0 && discountRate <= 100) {
       authDoc.minDiscountRate = discountRate
+      if (ownProductMinDiscount === undefined) authDoc.ownProductMinDiscount = discountRate
+      if (partnerProductMinDiscount === undefined) authDoc.partnerProductMinDiscount = discountRate
     }
     if (commissionRate !== undefined && commissionRate >= 0 && commissionRate <= 100) {
       authDoc.commissionRate = commissionRate
+      if (ownProductCommission === undefined) authDoc.ownProductCommission = commissionRate
+      if (partnerProductCommission === undefined) authDoc.partnerProductCommission = commissionRate
     }
 
     // 处理分层体系
@@ -1999,9 +2193,66 @@ router.put('/manufacturer-requests/:id/approve', auth, async (req, res) => {
       authDoc.allowSubAuthorization = allowSubAuthorization
     }
 
+    // 同步到 priceSettings（前端专属价格池设置页面读取此字段）
+    authDoc.priceSettings = {
+      ...authDoc.priceSettings,
+      minDiscountRate: (authDoc.ownProductMinDiscount || 60) / 100,
+      commissionRate: (authDoc.ownProductCommission || 10) / 100,
+      partnerMinDiscountRate: (authDoc.partnerProductMinDiscount || 60) / 100,
+      partnerCommissionRate: (authDoc.partnerProductCommission || 10) / 100
+    }
+
     authDoc.status = 'active'
     authDoc.updatedAt = new Date()
     await authDoc.save()
+
+    // 同步到分成体系 TierSystem
+    try {
+      const manufacturerId = authDoc.fromManufacturer
+      const tierSystem = await TierSystem.findOne({ manufacturerId })
+      if (tierSystem) {
+        const accountId = authDoc.toManufacturer?.toString()
+        const accountType = 'manufacturer'
+        
+        if (accountId) {
+          const existingIndex = (tierSystem.authorizedAccounts || []).findIndex(
+            acc => acc.accountId === accountId
+          )
+          
+          const accountData = {
+            accountId,
+            accountType,
+            authorizationId: authDoc._id.toString(),
+            minDiscountRate: authDoc.minDiscountRate || 0,
+            commissionRate: authDoc.commissionRate || 0,
+            ownProductMinDiscount: authDoc.ownProductMinDiscount || 60,
+            ownProductCommission: authDoc.ownProductCommission || 10,
+            partnerProductMinDiscount: authDoc.partnerProductMinDiscount || 60,
+            partnerProductCommission: authDoc.partnerProductCommission || 10,
+            // 兼容前端TierSystem读取的字段
+            boundUserDiscount: authDoc.ownProductMinDiscount || 60,
+            distributionRate: authDoc.ownProductCommission || 10,
+            status: 'active',
+            updatedAt: new Date()
+          }
+          
+          if (existingIndex >= 0) {
+            tierSystem.authorizedAccounts[existingIndex] = {
+              ...tierSystem.authorizedAccounts[existingIndex],
+              ...accountData
+            }
+          } else {
+            tierSystem.authorizedAccounts = tierSystem.authorizedAccounts || []
+            tierSystem.authorizedAccounts.push(accountData)
+          }
+          
+          await tierSystem.save()
+          console.log(`[TierSystem] 已同步厂家授权折扣(${authDoc.minDiscountRate}%)和返佣(${authDoc.commissionRate}%)`)
+        }
+      }
+    } catch (tierErr) {
+      console.error('[TierSystem] 同步失败:', tierErr.message)
+    }
 
     res.json({ success: true, data: authDoc, message: '已通过' })
   } catch (error) {
@@ -2852,7 +3103,7 @@ router.put('/:id/pricing', auth, async (req, res) => {
 })
 
 // GET /api/authorizations/:id - 获取授权详情 (放在最后，避免捕获其他/:id/xxx路由)
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id([0-9a-fA-F]{24})', auth, async (req, res) => {
   try {
     const { id } = req.params
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -3023,4 +3274,792 @@ router.get('/:id/products', auth, async (req, res) => {
   }
 })
 
+// ==================== 层级分成体系 V2 API ====================
+
+// GET /api/authorizations/tier-hierarchy-v2 - 获取层级树结构
+router.get('/tier-hierarchy-v2', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId)
+    if (!user) {
+      return res.status(404).json({ success: false, message: '用户不存在' })
+    }
+
+    const { manufacturerId, companyId, companyName } = req.query
+    
+    if (!manufacturerId) {
+      return res.status(400).json({ success: false, message: '缺少manufacturerId参数' })
+    }
+
+    // 获取厂家信息
+    const manufacturer = await Manufacturer.findById(manufacturerId).select('name fullName shortName logo defaultDiscount').lean()
+    if (!manufacturer) {
+      return res.status(404).json({ success: false, message: '厂家不存在' })
+    }
+
+    // 查询条件：基于厂家的所有有效授权
+    const query = {
+      fromManufacturer: manufacturerId,
+      status: 'active',
+      $or: [
+        { validUntil: { $exists: false } },
+        { validUntil: { $gt: new Date() } }
+      ]
+    }
+
+    query.$and = [
+      {
+        $or: [
+          { tierType: { $in: ['new_company', 'existing_tier'] } },
+          { tierType: { $in: [null] }, parentAuthorizationId: { $exists: true, $ne: null } }
+        ]
+      }
+    ]
+
+    // 查询所有相关授权
+    const authorizations = await Authorization.find(query)
+      .populate('toDesigner', 'username nickname avatar')
+      .populate('toManufacturer', 'name fullName shortName logo')
+      .populate('createdBy', 'username nickname')
+      .populate('boundUserIds', 'username nickname avatar phone')
+      .sort({ tierLevel: 1, createdAt: 1 })
+      .lean()
+
+    console.log('[tier-hierarchy-v2] Found', authorizations.length, 'authorizations for manufacturer', manufacturerId)
+    if (authorizations.length > 0) {
+      const first = authorizations[0]
+      console.log('[tier-hierarchy-v2] First auth:', {
+        _id: first._id,
+        minDiscountRate: first.minDiscountRate,
+        commissionRate: first.commissionRate,
+        tierDiscountRate: first.tierDiscountRate,
+        tierDelegatedRate: first.tierDelegatedRate,
+        tierCommissionRate: first.tierCommissionRate,
+        parentAuthorizationId: first.parentAuthorizationId,
+        tierLevel: first.tierLevel
+      })
+    }
+
+    // 检查用户是否是厂家管理员
+    const userManufacturerId = user.manufacturerId?._id || user.manufacturerId
+    const userManufacturerIds = Array.isArray(user.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === manufacturerId) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === manufacturerId)
+    const isPlatformAdmin = user.role === 'super_admin' || user.role === 'admin' || user.role === 'platform_admin' || user.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
+    
+    console.log('[tier-hierarchy-v2] User check:', {
+      userId: req.userId,
+      userManufacturerId: user.manufacturerId,
+      userManufacturerIds: user.manufacturerIds,
+      userRole: user.role,
+      isManufacturerAdmin
+    })
+
+    const authMap = new Map((authorizations || []).map(a => [String(a._id), a]))
+    const resolveCompanyId = (auth) => {
+      if (!auth) return ''
+      if (auth.tierCompanyId) return String(auth.tierCompanyId)
+      if (!auth.parentAuthorizationId) return String(auth._id)
+      let cur = auth
+      let guard = 0
+      while (cur?.parentAuthorizationId && guard++ < 50) {
+        const p = authMap.get(String(cur.parentAuthorizationId))
+        if (!p) break
+        if (p.tierCompanyId) return String(p.tierCompanyId)
+        cur = p
+      }
+      return cur?.tierCompanyId ? String(cur.tierCompanyId) : (cur?._id ? String(cur._id) : '')
+    }
+    const resolveCompanyName = (auth) => {
+      const cid = resolveCompanyId(auth)
+      const root = cid ? authMap.get(String(cid)) : null
+      if (root) {
+        return root.tierCompanyName || root.tierDisplayName || (root.toManufacturer?.fullName || root.toManufacturer?.name) || (root.toDesigner?.nickname || root.toDesigner?.username) || ''
+      }
+      return auth?.tierCompanyName || auth?.tierDisplayName || ''
+    }
+
+    const filteredAuthorizations = (() => {
+      if (companyId) {
+        const cid = String(companyId)
+        return (authorizations || []).filter(a => resolveCompanyId(a) === cid || String(a._id) === cid)
+      }
+      if (companyName) {
+        const cname = String(companyName)
+        return (authorizations || []).filter(a => {
+          const n = resolveCompanyName(a)
+          return n === cname || String(a.tierCompanyName || '') === cname
+        })
+      }
+      return authorizations || []
+    })()
+
+    const rootNodes = filteredAuthorizations.filter(a => !a.parentAuthorizationId)
+
+    // 如果没有指定公司（companyId/companyName），返回一个虚拟的厂家根节点，
+    // 并把各公司根节点挂到该虚拟根下，避免 rootNodes[0] 随机选中导致返佣/名称不匹配
+    let rootNode = null
+    const useVirtualManufacturerRoot = !companyId && !companyName
+
+    if (useVirtualManufacturerRoot) {
+      rootNode = {
+        _id: `mfr_${manufacturerId}`,
+        tierDisplayName: manufacturer.fullName || manufacturer.name || '厂家',
+        tierRole: 'company',
+        tierDiscountRate: manufacturer.defaultDiscount || 60,
+        tierDelegatedRate: 0,
+        tierCommissionRate: 0,
+        tierPartnerDiscountRate: 0,
+        tierPartnerDelegatedRate: 0,
+        tierPartnerCommissionRate: 0,
+        tierLevel: 0,
+        childCount: rootNodes.length,
+        productCount: 0,
+        parentAuthorizationId: null,
+        fromManufacturer: manufacturer,
+        createdBy: '',
+        status: 'active',
+        isOwner: isManufacturerAdmin,
+        isVirtual: true
+      }
+    } else if (rootNodes.length === 0) {
+      rootNode = {
+        _id: `mfr_${manufacturerId}`,
+        tierDisplayName: manufacturer.fullName || manufacturer.name || '厂家',
+        tierRole: 'company',
+        tierDiscountRate: manufacturer.defaultDiscount || 60,
+        tierDelegatedRate: 0,
+        tierCommissionRate: 0,
+        tierPartnerDiscountRate: 0,
+        tierPartnerDelegatedRate: 0,
+        tierPartnerCommissionRate: 0,
+        tierLevel: 0,
+        childCount: authorizations.length,
+        productCount: 0,
+        parentAuthorizationId: null,
+        fromManufacturer: manufacturer,
+        createdBy: '',
+        status: 'active',
+        isOwner: isManufacturerAdmin,
+        isVirtual: true
+      }
+    } else {
+      // 使用第一个根节点作为主根
+      const firstRoot = rootNodes[0]
+      const isRootOwner = String(firstRoot.createdBy?._id || firstRoot.createdBy) === req.userId || isManufacturerAdmin
+
+      const rootLegacyDiscount = firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate
+      const rootLegacyCommission = firstRoot.ownProductCommission ?? firstRoot.commissionRate
+      const rootDiscountRate = (firstRoot.tierDiscountRate && firstRoot.tierDiscountRate > 0)
+        ? firstRoot.tierDiscountRate
+        : (rootLegacyDiscount ?? 60)
+      const rootCommissionRate = (firstRoot.tierCommissionRate && firstRoot.tierCommissionRate > 0)
+        ? firstRoot.tierCommissionRate
+        : (rootLegacyCommission ?? 0)
+      // 根节点的下放额度上限 = ownProductCommission (19%)，不是 tierCommissionRate
+      // 这是厂家授权给渠道的返佣率，是可分配的总额度
+      const maxDelegatedRate = rootLegacyCommission || 0
+      const storedDelegatedRate = firstRoot.tierDelegatedRate || 0
+      const rootDelegatedRate = Math.min(storedDelegatedRate || maxDelegatedRate, maxDelegatedRate)
+
+      const rootPartnerLegacyDiscount = firstRoot.partnerProductMinDiscount ?? firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate
+      const rootPartnerLegacyCommission = firstRoot.partnerProductCommission ?? firstRoot.ownProductCommission ?? firstRoot.commissionRate
+      const rootPartnerDiscountRate = (firstRoot.tierPartnerDiscountRate && firstRoot.tierPartnerDiscountRate > 0)
+        ? firstRoot.tierPartnerDiscountRate
+        : (rootPartnerLegacyDiscount ?? 0)
+      const rootPartnerCommissionRate = (firstRoot.tierPartnerCommissionRate && firstRoot.tierPartnerCommissionRate > 0)
+        ? firstRoot.tierPartnerCommissionRate
+        : (rootPartnerLegacyCommission ?? 0)
+      // 合作商产品同理：下放上限 = partnerProductCommission
+      const maxPartnerDelegatedRate = rootPartnerLegacyCommission || 0
+      const storedPartnerDelegatedRate = firstRoot.tierPartnerDelegatedRate || 0
+      const rootPartnerDelegatedRate = Math.min(storedPartnerDelegatedRate || maxPartnerDelegatedRate, maxPartnerDelegatedRate)
+      
+      console.log('[tier-hierarchy-v2] Root node delegated calc:', {
+        firstRootId: firstRoot._id,
+        storedDelegatedRate,
+        rootCommissionRate,
+        rootDelegatedRate,
+        minDiscountRate: firstRoot.minDiscountRate,
+        commissionRate: firstRoot.commissionRate,
+        isRootOwner
+      })
+      
+      rootNode = {
+        _id: firstRoot._id,
+        tierDisplayName: firstRoot.tierDisplayName || firstRoot.tierCompanyName || manufacturer.fullName || manufacturer.name,
+        tierRole: firstRoot.tierRole || 'company',
+        tierDiscountRate: rootDiscountRate,
+        tierDelegatedRate: rootDelegatedRate,
+        tierCommissionRate: rootCommissionRate,
+        tierPartnerDiscountRate: rootPartnerDiscountRate,
+        tierPartnerDelegatedRate: rootPartnerDelegatedRate,
+        tierPartnerCommissionRate: rootPartnerCommissionRate,
+        ownProductMinDiscount: firstRoot.ownProductMinDiscount ?? firstRoot.minDiscountRate ?? rootDiscountRate,
+        ownProductCommission: firstRoot.ownProductCommission ?? firstRoot.commissionRate ?? rootCommissionRate,
+        partnerProductMinDiscount: rootPartnerDiscountRate,
+        partnerProductCommission: rootPartnerCommissionRate,
+        tierLevel: 0,
+        childCount: filteredAuthorizations.filter(a => String(a.parentAuthorizationId) === String(firstRoot._id)).length,
+        productCount: firstRoot.productCount || 0,
+        parentAuthorizationId: null,
+        fromManufacturer: manufacturer,
+        toDesigner: firstRoot.toDesigner,
+        toManufacturer: firstRoot.toManufacturer,
+        createdBy: String(firstRoot.createdBy?._id || firstRoot.createdBy || ''),
+        status: firstRoot.status,
+        isOwner: isRootOwner,
+        allowSubAuthorization: (firstRoot.allowSubAuthorization !== false) && ((rootDelegatedRate > 0) || (rootPartnerDelegatedRate > 0))
+      }
+    }
+
+    // 计算每个授权的实际商品数量
+    const calculateProductCount = async (auth) => {
+      const mfId = auth.fromManufacturer?._id || auth.fromManufacturer
+      let count = 0
+      
+      if (auth.scope === 'all') {
+        count = await Product.countDocuments({
+          status: 'active',
+          $or: [
+            { manufacturerId: mfId },
+            { 'skus.manufacturerId': mfId }
+          ]
+        })
+      } else if (auth.scope === 'category' && auth.categories?.length > 0) {
+        const catIds = auth.categories.map(c => String(c))
+        const catOids = catIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id))
+        count = await Product.countDocuments({
+          status: 'active',
+          $and: [
+            { $or: [{ manufacturerId: mfId }, { 'skus.manufacturerId': mfId }] },
+            { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+          ]
+        })
+      } else if (auth.scope === 'specific' && auth.products?.length > 0) {
+        count = auth.products.length
+      } else if (auth.scope === 'mixed') {
+        let categoryCount = 0
+        if (auth.categories?.length > 0) {
+          const catIds = auth.categories.map(c => String(c))
+          const catOids = catIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id))
+          categoryCount = await Product.countDocuments({
+            status: 'active',
+            $and: [
+              { $or: [{ manufacturerId: mfId }, { 'skus.manufacturerId': mfId }] },
+              { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+            ]
+          })
+        }
+        const specificCount = auth.products?.length || 0
+        count = categoryCount + specificCount
+      }
+      
+      return count
+    }
+
+    // 转换授权为层级节点
+    const nodes = await Promise.all(filteredAuthorizations.map(async (auth) => {
+      const isCreator = String(auth.createdBy?._id || auth.createdBy) === req.userId
+      const isOwner = isCreator || isManufacturerAdmin
+      const childCount = filteredAuthorizations.filter(a => 
+        String(a.parentAuthorizationId) === String(auth._id)
+      ).length
+      
+      // 计算商品数量
+      const productCount = await calculateProductCount(auth)
+
+      // 确定显示名称
+      let displayName = auth.tierDisplayName
+      if (!displayName) {
+        if (auth.toDesigner) {
+          displayName = auth.toDesigner.nickname || auth.toDesigner.username
+        } else if (auth.toManufacturer) {
+          displayName = auth.toManufacturer.fullName || auth.toManufacturer.name
+        } else {
+          displayName = auth.tierCompanyName || '未命名'
+        }
+      }
+
+      const isCompanyRootForList = useVirtualManufacturerRoot && !auth.parentAuthorizationId
+      const effectiveParentAuthorizationId = isCompanyRootForList
+        ? String(rootNode?._id)
+        : (auth.parentAuthorizationId ? String(auth.parentAuthorizationId) : null)
+      const effectiveTierLevel = isCompanyRootForList ? 1 : (auth.tierLevel || 0)
+
+      const legacyDiscount = auth.ownProductMinDiscount ?? auth.minDiscountRate
+      const legacyCommission = auth.ownProductCommission ?? auth.commissionRate
+
+      const legacyPartnerDiscount = auth.partnerProductMinDiscount ?? auth.ownProductMinDiscount ?? auth.minDiscountRate
+      const legacyPartnerCommission = auth.partnerProductCommission ?? auth.ownProductCommission ?? auth.commissionRate
+
+      const effectiveTierDiscountRate = (auth.tierDiscountRate && auth.tierDiscountRate > 0)
+        ? auth.tierDiscountRate
+        : (legacyDiscount ?? 60)
+
+      const effectiveTierCommissionRate = (auth.tierCommissionRate && auth.tierCommissionRate > 0)
+        ? auth.tierCommissionRate
+        : (legacyCommission ?? 0)
+
+      const shouldDeriveDelegatedRate =
+        (auth.tierDelegatedRate === 0 || auth.tierDelegatedRate === undefined || auth.tierDelegatedRate === null) &&
+        effectiveTierDiscountRate !== undefined && effectiveTierDiscountRate !== null &&
+        effectiveTierCommissionRate !== undefined && effectiveTierCommissionRate !== null
+
+      const effectiveTierDelegatedRate = (auth.tierDelegatedRate && auth.tierDelegatedRate > 0)
+        ? auth.tierDelegatedRate
+        : (shouldDeriveDelegatedRate
+          ? Math.max(0, Number(effectiveTierDiscountRate) - Number(effectiveTierCommissionRate))
+          : (auth.tierDelegatedRate ?? 0))
+
+      const effectiveTierPartnerDiscountRate = (auth.tierPartnerDiscountRate && auth.tierPartnerDiscountRate > 0)
+        ? auth.tierPartnerDiscountRate
+        : (legacyPartnerDiscount ?? 0)
+
+      const effectiveTierPartnerCommissionRate = (auth.tierPartnerCommissionRate && auth.tierPartnerCommissionRate > 0)
+        ? auth.tierPartnerCommissionRate
+        : (legacyPartnerCommission ?? 0)
+
+      const shouldDerivePartnerDelegatedRate =
+        (auth.tierPartnerDelegatedRate === 0 || auth.tierPartnerDelegatedRate === undefined || auth.tierPartnerDelegatedRate === null) &&
+        effectiveTierPartnerDiscountRate !== undefined && effectiveTierPartnerDiscountRate !== null &&
+        effectiveTierPartnerCommissionRate !== undefined && effectiveTierPartnerCommissionRate !== null
+
+      const effectiveTierPartnerDelegatedRate = (auth.tierPartnerDelegatedRate && auth.tierPartnerDelegatedRate > 0)
+        ? auth.tierPartnerDelegatedRate
+        : (shouldDerivePartnerDelegatedRate
+          ? Math.max(0, Number(effectiveTierPartnerDiscountRate) - Number(effectiveTierPartnerCommissionRate))
+          : (auth.tierPartnerDelegatedRate ?? 0))
+
+      return {
+        _id: auth._id,
+        tierDisplayName: displayName,
+        tierRole: auth.tierRole || (auth.toDesigner ? 'designer' : 'company'),
+        tierDiscountRate: effectiveTierDiscountRate,
+        tierDelegatedRate: effectiveTierDelegatedRate,
+        tierCommissionRate: effectiveTierCommissionRate,
+        tierPartnerDiscountRate: effectiveTierPartnerDiscountRate,
+        tierPartnerDelegatedRate: effectiveTierPartnerDelegatedRate,
+        tierPartnerCommissionRate: effectiveTierPartnerCommissionRate,
+        ownProductMinDiscount: auth.ownProductMinDiscount ?? auth.minDiscountRate ?? effectiveTierDiscountRate,
+        ownProductCommission: auth.ownProductCommission ?? auth.commissionRate ?? effectiveTierCommissionRate,
+        partnerProductMinDiscount: effectiveTierPartnerDiscountRate,
+        partnerProductCommission: effectiveTierPartnerCommissionRate,
+        tierLevel: effectiveTierLevel,
+        childCount,
+        productCount,
+        parentAuthorizationId: effectiveParentAuthorizationId,
+        fromManufacturer: auth.fromManufacturer,
+        toDesigner: auth.toDesigner,
+        toManufacturer: auth.toManufacturer,
+        createdBy: String(auth.createdBy?._id || auth.createdBy || ''),
+        status: auth.status,
+        isOwner,
+        allowSubAuthorization: (auth.allowSubAuthorization !== false) && ((effectiveTierDelegatedRate > 0) || (effectiveTierPartnerDelegatedRate > 0)),
+        boundUserIds: auth.boundUserIds || []
+      }
+    }))
+
+    res.json({
+      success: true,
+      data: {
+        root: rootNode,
+        nodes,
+        manufacturer: {
+          _id: manufacturer._id,
+          name: manufacturer.fullName || manufacturer.name,
+          logo: manufacturer.logo
+        }
+      }
+    })
+  } catch (error) {
+    console.error('获取层级结构失败:', error)
+    res.status(500).json({ success: false, message: '获取层级结构失败' })
+  }
+})
+
+// POST /api/authorizations/tier-node - 创建新层级节点
+router.post('/tier-node', auth, async (req, res) => {
+  try {
+    const {
+      parentAuthorizationId,
+      manufacturerId,
+      companyId,
+      companyName,
+      tierDisplayName,
+      tierRole,
+      tierDiscountRate,
+      tierDelegatedRate,
+      tierCommissionRate,
+      tierPartnerDiscountRate,
+      tierPartnerDelegatedRate,
+      tierPartnerCommissionRate,
+      boundUserId  // 绑定的用户ID
+    } = req.body
+
+    if (!parentAuthorizationId || !manufacturerId) {
+      return res.status(400).json({ success: false, message: '缺少必要参数' })
+    }
+
+    if (!tierDisplayName?.trim()) {
+      return res.status(400).json({ success: false, message: '请输入名称' })
+    }
+
+    // 查找父级授权
+    const parentAuth = await Authorization.findById(parentAuthorizationId)
+    if (!parentAuth) {
+      return res.status(404).json({ success: false, message: '父级授权不存在' })
+    }
+
+    // 检查是否有权限添加子级（必须是父级的创建者或厂家管理员）
+    const user = await User.findById(req.userId)
+    const isParentOwner = String(parentAuth.createdBy) === req.userId
+    const userManufacturerId = user?.manufacturerId?._id || user?.manufacturerId
+    const userManufacturerIds = Array.isArray(user?.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === String(manufacturerId)) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === String(manufacturerId))
+    const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
+    
+    if (!isParentOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '无权添加子级' })
+    }
+
+    // 验证折扣率不超过父级下放率
+    // 核心逻辑：上级的下放比例 = 本级的可用基础比例
+    const parentDiscountForValidation = parentAuth.ownProductMinDiscount ?? parentAuth.minDiscountRate ?? parentAuth.tierDiscountRate ?? 0
+    const parentCommissionForValidation = parentAuth.ownProductCommission ?? parentAuth.commissionRate ?? parentAuth.tierCommissionRate ?? 0
+    const derivedParentDelegatedRate = Math.max(0, Number(parentDiscountForValidation) - Number(parentCommissionForValidation))
+    
+    // 优先使用明确设置的 tierDelegatedRate (即使是 0)，否则回退到推导值
+    const parentDelegatedRate = (parentAuth.tierDelegatedRate !== undefined && parentAuth.tierDelegatedRate !== null)
+      ? parentAuth.tierDelegatedRate
+      : derivedParentDelegatedRate
+
+    console.log('[TierNode] Create Validation - Check Parent Limit:', {
+      requestTierDiscount: tierDiscountRate,
+      parentId: parentAuthorizationId,
+      parentHasDelegatedRate: parentAuth.tierDelegatedRate !== undefined,
+      parentDirectDelegated: parentAuth.tierDelegatedRate,
+      derivedFallback: derivedParentDelegatedRate,
+      finalLimit: parentDelegatedRate
+    })
+
+    if (tierDiscountRate > parentDelegatedRate) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `自有产品返佣不能超过上级返佣折扣上限 ${parentDelegatedRate}%` 
+      })
+    }
+
+    // 验证合作商产品返佣上限
+    const parentPartnerDiscount = parentAuth.partnerProductMinDiscount ?? parentAuth.tierPartnerDiscountRate ?? 0
+    const parentPartnerCommission = parentAuth.partnerProductCommission ?? parentAuth.tierPartnerCommissionRate ?? 0
+    const derivedParentPartnerDelegated = Math.max(0, Number(parentPartnerDiscount) - Number(parentPartnerCommission))
+    const parentPartnerDelegatedRate = (parentAuth.tierPartnerDelegatedRate !== undefined && parentAuth.tierPartnerDelegatedRate !== null)
+      ? parentAuth.tierPartnerDelegatedRate
+      : derivedParentPartnerDelegated
+
+    if ((tierPartnerDiscountRate || 0) > parentPartnerDelegatedRate) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `合作商产品返佣不能超过上级返佣折扣上限 ${parentPartnerDelegatedRate}%` 
+      })
+    }
+
+    // 创建新的授权记录
+    const newAuth = new Authorization({
+      fromManufacturer: manufacturerId,
+      authorizationType: 'designer', // 默认类型
+      scope: 'all',
+      status: 'active',
+      createdBy: req.userId,
+      
+      // 绑定的用户ID（如果有）
+      boundUserId: boundUserId || null,
+      
+      // 层级相关字段
+      tierType: 'existing_tier',
+      parentAuthorizationId,
+      tierLevel: (parentAuth.tierLevel || 0) + 1,
+      tierCompanyId: companyId || parentAuth.tierCompanyId || parentAuth._id,
+      tierCompanyName: companyName || parentAuth.tierCompanyName,
+      tierDisplayName: tierDisplayName.trim(),
+      tierRole: tierRole || 'person',
+      tierDiscountRate: tierDiscountRate || 0,
+      tierDelegatedRate: tierDelegatedRate || 0,
+      tierCommissionRate: tierCommissionRate || (tierDiscountRate - tierDelegatedRate) || 0,
+      tierPartnerDiscountRate: tierPartnerDiscountRate || 0,
+      tierPartnerDelegatedRate: tierPartnerDelegatedRate || 0,
+      tierPartnerCommissionRate: tierPartnerCommissionRate || ((tierPartnerDiscountRate || 0) - (tierPartnerDelegatedRate || 0)) || 0,
+      allowSubAuthorization: (tierDelegatedRate > 0) || (tierPartnerDelegatedRate > 0),
+      
+      // 继承父级的价格设置
+      ownProductMinDiscount: tierDiscountRate || parentAuth.ownProductMinDiscount,
+      ownProductCommission: tierCommissionRate || parentAuth.ownProductCommission,
+      partnerProductMinDiscount: tierPartnerDiscountRate || parentAuth.partnerProductMinDiscount,
+      partnerProductCommission: tierPartnerCommissionRate || parentAuth.partnerProductCommission,
+      minDiscountRate: tierDiscountRate || parentAuth.ownProductMinDiscount,
+      commissionRate: tierCommissionRate || parentAuth.ownProductCommission
+    })
+
+    await newAuth.save()
+
+    // 更新父级的子级数量
+    await Authorization.findByIdAndUpdate(parentAuthorizationId, {
+      $inc: { childCount: 1 }
+    })
+
+    res.json({
+      success: true,
+      message: '层级创建成功',
+      data: newAuth
+    })
+  } catch (error) {
+    console.error('创建层级失败:', error)
+    res.status(500).json({ success: false, message: '创建层级失败' })
+  }
+})
+
+// PUT /api/authorizations/tier-node/:id - 更新层级节点
+router.put('/tier-node/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const {
+      tierDisplayName,
+      tierRole,
+      tierDiscountRate,
+      tierDelegatedRate,
+      tierCommissionRate,
+      tierPartnerDiscountRate,
+      tierPartnerDelegatedRate,
+      tierPartnerCommissionRate,
+      boundUserIds  // 绑定的用户ID列表
+    } = req.body
+
+    const auth = await Authorization.findById(id)
+    if (!auth) {
+      return res.status(404).json({ success: false, message: '层级不存在' })
+    }
+
+    // 检查权限
+    const user = await User.findById(req.userId)
+    const isOwner = String(auth.createdBy) === req.userId
+    const userManufacturerId = user?.manufacturerId?._id || user?.manufacturerId
+    const userManufacturerIds = Array.isArray(user?.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === String(auth.fromManufacturer)) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === String(auth.fromManufacturer))
+    const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
+    
+    if (!isOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '无权编辑此层级' })
+    }
+
+    // 如果有父级，验证折扣率不超过父级下放率
+    if (auth.parentAuthorizationId) {
+      const parentAuth = await Authorization.findById(auth.parentAuthorizationId)
+      if (parentAuth) {
+        const parentDiscountForValidation = parentAuth.ownProductMinDiscount ?? parentAuth.minDiscountRate ?? parentAuth.tierDiscountRate ?? 0
+        const parentCommissionForValidation = parentAuth.ownProductCommission ?? parentAuth.commissionRate ?? parentAuth.tierCommissionRate ?? 0
+        const derivedParentDelegatedRate = Math.max(0, Number(parentDiscountForValidation) - Number(parentCommissionForValidation))
+        const parentDelegatedRate = (parentAuth.tierDelegatedRate !== undefined && parentAuth.tierDelegatedRate !== null)
+          ? parentAuth.tierDelegatedRate
+          : derivedParentDelegatedRate
+
+        console.log('[TierNode] Update Validation:', {
+          tierDiscountRate,
+          parentId: auth.parentAuthorizationId,
+          parentDirectDelegated: parentAuth.tierDelegatedRate,
+          derived: derivedParentDelegatedRate,
+          finalLimit: parentDelegatedRate
+        })
+
+        if (tierDiscountRate > parentDelegatedRate) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `自有产品返佣不能超过上级返佣折扣上限 ${parentDelegatedRate}%` 
+          })
+        }
+
+        // 验证合作商产品返佣上限
+        const parentPartnerDiscount = parentAuth.partnerProductMinDiscount ?? parentAuth.tierPartnerDiscountRate ?? 0
+        const parentPartnerCommission = parentAuth.partnerProductCommission ?? parentAuth.tierPartnerCommissionRate ?? 0
+        const derivedParentPartnerDelegated = Math.max(0, Number(parentPartnerDiscount) - Number(parentPartnerCommission))
+        const parentPartnerDelegatedRate = (parentAuth.tierPartnerDelegatedRate !== undefined && parentAuth.tierPartnerDelegatedRate !== null)
+          ? parentAuth.tierPartnerDelegatedRate
+          : derivedParentPartnerDelegated
+
+        if ((tierPartnerDiscountRate || 0) > parentPartnerDelegatedRate) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `合作商产品返佣不能超过上级返佣折扣上限 ${parentPartnerDelegatedRate}%` 
+          })
+        }
+      }
+    }
+
+    // 更新字段
+    if (tierDisplayName !== undefined) auth.tierDisplayName = tierDisplayName.trim()
+    if (tierRole !== undefined) auth.tierRole = tierRole
+    if (tierDiscountRate !== undefined) {
+      auth.tierDiscountRate = tierDiscountRate
+      auth.ownProductMinDiscount = tierDiscountRate
+      auth.minDiscountRate = tierDiscountRate
+    }
+    if (tierDelegatedRate !== undefined) {
+      auth.tierDelegatedRate = tierDelegatedRate
+      auth.allowSubAuthorization = (tierDelegatedRate > 0) || (auth.tierPartnerDelegatedRate > 0)
+    }
+    if (tierCommissionRate !== undefined) {
+      auth.tierCommissionRate = tierCommissionRate
+      auth.ownProductCommission = tierCommissionRate
+      auth.commissionRate = tierCommissionRate
+    }
+    // 合作商产品返佣字段
+    if (tierPartnerDiscountRate !== undefined) {
+      auth.tierPartnerDiscountRate = tierPartnerDiscountRate
+      auth.partnerProductMinDiscount = tierPartnerDiscountRate
+    }
+    if (tierPartnerDelegatedRate !== undefined) {
+      auth.tierPartnerDelegatedRate = tierPartnerDelegatedRate
+      auth.allowSubAuthorization = (auth.tierDelegatedRate > 0) || (tierPartnerDelegatedRate > 0)
+    }
+    if (tierPartnerCommissionRate !== undefined) {
+      auth.tierPartnerCommissionRate = tierPartnerCommissionRate
+      auth.partnerProductCommission = tierPartnerCommissionRate
+    }
+    
+    // 处理绑定用户列表
+    if (boundUserIds !== undefined && Array.isArray(boundUserIds)) {
+      // 获取现有绑定用户列表
+      const existingUserIds = auth.boundUserIds || []
+      // 合并新用户ID（去重）
+      const newUserIds = [...new Set([...existingUserIds.map(id => String(id)), ...boundUserIds.map(id => String(id))])]
+      auth.boundUserIds = newUserIds
+    }
+    
+    auth.updatedAt = new Date()
+    await auth.save()
+
+    res.json({
+      success: true,
+      message: '层级更新成功',
+      data: auth
+    })
+  } catch (error) {
+    console.error('更新层级失败:', error)
+    res.status(500).json({ success: false, message: '更新层级失败' })
+  }
+})
+
+// PUT /api/authorizations/tier-node/:id/bind-users - 绑定用户到层级
+router.put('/tier-node/:id/bind-users', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { userIds } = req.body
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ success: false, message: '请选择要绑定的用户' })
+    }
+
+    const authDoc = await Authorization.findById(id)
+    if (!authDoc) {
+      return res.status(404).json({ success: false, message: '层级不存在' })
+    }
+
+    // 检查权限
+    const user = await User.findById(req.userId)
+    const isOwner = String(authDoc.createdBy) === req.userId
+    const userManufacturerId = user?.manufacturerId?._id || user?.manufacturerId
+    const userManufacturerIds = Array.isArray(user?.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === String(authDoc.fromManufacturer)) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === String(authDoc.fromManufacturer))
+    const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
+    
+    if (!isOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '无权绑定用户到此层级' })
+    }
+
+    // 获取现有绑定用户列表
+    const existingUserIds = authDoc.boundUserIds || []
+    
+    // 合并新用户ID（去重）
+    const newUserIds = [...new Set([...existingUserIds.map(id => String(id)), ...userIds.map(id => String(id))])]
+    
+    // 更新绑定用户列表
+    authDoc.boundUserIds = newUserIds
+    authDoc.updatedAt = new Date()
+    await authDoc.save()
+
+    res.json({
+      success: true,
+      message: `成功绑定 ${userIds.length} 个用户`,
+      data: authDoc
+    })
+  } catch (error) {
+    console.error('绑定用户失败:', error)
+    res.status(500).json({ success: false, message: '绑定用户失败' })
+  }
+})
+
+// DELETE /api/authorizations/tier-node/:id - 删除层级节点
+router.delete('/tier-node/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const authDoc = await Authorization.findById(id)
+    if (!authDoc) {
+      return res.status(404).json({ success: false, message: '层级不存在' })
+    }
+
+    // 检查权限
+    const user = await User.findById(req.userId)
+    const isOwner = String(authDoc.createdBy) === req.userId
+    const userManufacturerId = user?.manufacturerId?._id || user?.manufacturerId
+    const userManufacturerIds = Array.isArray(user?.manufacturerIds) ? user.manufacturerIds : []
+    const hasManufacturerMatch = (userManufacturerId && String(userManufacturerId) === String(authDoc.fromManufacturer)) ||
+      userManufacturerIds.some(m => String(m?._id || m?.id || m) === String(authDoc.fromManufacturer))
+    const isPlatformAdmin = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'platform_admin' || user?.role === 'platform_staff'
+    const isManufacturerAdmin = hasManufacturerMatch || isPlatformAdmin
+    
+    if (!isOwner && !isManufacturerAdmin && user?.role !== 'super_admin' && user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '无权删除此层级' })
+    }
+
+    // 递归删除所有子层级
+    const deleteChildren = async (parentId) => {
+      const children = await Authorization.find({ parentAuthorizationId: parentId })
+      for (const child of children) {
+        await deleteChildren(child._id)
+        await Authorization.findByIdAndDelete(child._id)
+      }
+    }
+
+    await deleteChildren(id)
+    
+    // 更新父级的子级数量
+    if (authDoc.parentAuthorizationId) {
+      await Authorization.findByIdAndUpdate(authDoc.parentAuthorizationId, {
+        $inc: { childCount: -1 }
+      })
+    }
+
+    // 删除当前节点
+    await Authorization.findByIdAndDelete(id)
+
+    res.json({
+      success: true,
+      message: '层级已删除'
+    })
+  } catch (error) {
+    console.error('删除层级失败:', error)
+    res.status(500).json({ success: false, message: '删除层级失败' })
+  }
+})
+
 module.exports = router
+// Force rebuild: 2026-01-29-18-50 - ensure latest tier validation with 返佣折扣上限 message
+// Build trigger v2 1769802448
+// Cache cleared 1769808227

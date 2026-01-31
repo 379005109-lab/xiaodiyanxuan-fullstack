@@ -141,29 +141,40 @@ const remove = async (req, res) => {
     console.log('selectedMaterials:', selectedMaterials)
     console.log('userId:', req.userId)
     
-    // 先查找用户的所有对比项
-    const userItems = await Compare.find({ userId: req.userId })
-    console.log('User compare items count:', userItems.length)
-    console.log('User compare items:', userItems.map(i => ({ _id: i._id, productId: i.productId, skuId: i.skuId })))
-    
-    // 直接按 productId 删除（忽略 skuId 以确保删除成功）
-    const result = await Compare.deleteMany({
+    // 构建精确的删除条件
+    const deleteQuery = {
       userId: req.userId,
       productId: productId
-    })
+    }
     
+    // 如果指定了 skuId，加入条件
+    if (skuId) {
+      deleteQuery.skuId = skuId
+    }
+    
+    // 如果指定了 selectedMaterials，需要精确匹配
+    if (selectedMaterials && Object.keys(selectedMaterials).length > 0) {
+      // 找到匹配的项目然后删除
+      const userItems = await Compare.find({ userId: req.userId, productId: productId })
+      const materialKey = JSON.stringify(selectedMaterials)
+      
+      const itemToDelete = userItems.find(item => {
+        const itemMaterialKey = JSON.stringify(item.selectedMaterials || {})
+        const skuMatch = !skuId || item.skuId === skuId
+        return skuMatch && itemMaterialKey === materialKey
+      })
+      
+      if (itemToDelete) {
+        await Compare.deleteOne({ _id: itemToDelete._id })
+        console.log('Deleted item by material match:', itemToDelete._id)
+        return res.json(successResponse(null, '已移除'))
+      }
+    }
+    
+    // 如果没有材质要求，按 productId + skuId 删除
+    const result = await Compare.deleteOne(deleteQuery)
     console.log('Delete result:', result)
     console.log('==========================================')
-    
-    if (result.deletedCount === 0) {
-      console.log('⚠️ No items deleted, trying string match...')
-      // 尝试字符串匹配（处理可能的 ObjectId vs String 问题）
-      const fallbackResult = await Compare.deleteMany({
-        userId: req.userId,
-        productId: { $regex: new RegExp(productId, 'i') }
-      })
-      console.log('Fallback delete result:', fallbackResult)
-    }
     
     res.json(successResponse(null, '已移除'))
   } catch (err) {

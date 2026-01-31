@@ -1,14 +1,22 @@
 const mongoose = require('mongoose')
 const { PRODUCT_STATUS } = require('../config/constants')
 
+const materialDescriptionOptionSchema = new mongoose.Schema({
+  id: String,
+  text: String
+}, { _id: false })
+
 // SKU子文档Schema
 const skuSchema = new mongoose.Schema({
   code: String,
   spec: String,
+  specRemark: String, // 规格备注（如：外径尺寸为：227*187*103）
   color: String,
   // 面料选择（单选，关联materialsGroups）
   fabricMaterialId: String, // 关联的材质分组ID
   fabricName: String, // 面料名称（如：纳帕皮A+黑色）
+  fabricImage: String, // 面料缩略图（材质库图片）
+  materialDescriptionId: String, // 关联商品的材质描述选项ID
   // 其他材质（文字+图片）
   otherMaterials: String, // 其他材质描述（如：蛇形弹簧+45D海绵+不锈钢支撑脚）
   otherMaterialsImage: String, // 其他材质图片
@@ -28,16 +36,16 @@ const skuSchema = new mongoose.Schema({
   price: { type: Number, default: 0 },
   costPrice: { type: Number, default: 0 },
   discountPrice: Number,
+  videos: [String], // SKU视频
   images: [String],
-  files: [{ // SKU专属文件
-    name: String,
-    url: String,
-    size: Number,
-    type: String // 文件类型：design, manual, certificate等
-  }],
+  effectImages: [String], // 效果图/渲染图
+  files: [mongoose.Schema.Types.Mixed], // SKU专属文件 {name, url, size, type}
   length: Number,
   width: Number,
   height: Number,
+  // 包装信息
+  packageVolume: String, // 包装体积（如：0.5m³）
+  packageCount: { type: Number, default: 1 }, // 包装件数
   isPro: { type: Boolean, default: false },
   proFeature: String,
   status: { type: Boolean, default: true },
@@ -86,10 +94,14 @@ const productSchema = new mongoose.Schema({
     images: [String], // 该材质对应的图片组
     price: { type: Number, default: 0 } // 加价金额
   }],
+  materialDescriptionOptions: [materialDescriptionOptionSchema],
   otherMaterialsText: String, // 其他材质（固定文字，如：蛇形弹簧+45D海绵+不锈钢脚）
   otherMaterialsImage: String, // 其他材质图片
   materialImages: mongoose.Schema.Types.Mixed, // 材质图片 { categoryName: [{name, url}] }
   materialCategories: [String], // 材质类目列表
+  // 系列信息
+  series: String, // 系列名称
+  seriesImage: String, // 系列图片
   tags: [String],
   isCombo: { type: Boolean, default: false },
   comboItems: [String],

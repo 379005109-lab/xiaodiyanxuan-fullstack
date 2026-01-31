@@ -16,10 +16,10 @@ import FrontendLayout from './layouts/FrontendLayout'
 // 前台页面 - 懒加载
 const ProductsPage = lazy(() => import('./pages/frontend/ProductsPage'))
 const ProductDetailPage = lazy(() => import('./pages/frontend/ProductDetailPage'))
+const ProductGalleryPage = lazy(() => import('./pages/frontend/ProductGalleryPage'))
 const ProductSharePage = lazy(() => import('./pages/frontend/ProductSharePage'))
 const CartPage = lazy(() => import('./pages/frontend/CartPage'))
 const CheckoutPage = lazy(() => import('./pages/frontend/CheckoutPage'))
-const ComparePage = lazy(() => import('./pages/frontend/ComparePage'))
 const FavoritesPage = lazy(() => import('./pages/frontend/FavoritesPage'))
 const DesignServicePage = lazy(() => import('./pages/frontend/DesignServicePage'))
 const BuyingServicePage = lazy(() => import('./pages/frontend/BuyingServicePage'))
@@ -89,6 +89,7 @@ const ImageSearchStats = lazy(() => import('./pages/admin/ImageSearchStats'))
 const AuthorizationManagement = lazy(() => import('./pages/admin/AuthorizationManagement'))
 const EnterpriseUserManagement = lazy(() => import('./pages/admin/EnterpriseUserManagement'))
 const TierSystemManagement = lazy(() => import('./pages/admin/TierSystemManagement'))
+const TierHierarchyPage = lazy(() => import('./pages/admin/TierHierarchyPage'))
 const InvoiceManagement = lazy(() => import('./pages/admin/InvoiceManagement'))
 
 const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
@@ -476,15 +477,15 @@ function App() {
           {/* 前台路由 */}
           <Route path="/" element={<FrontendLayout />}>
             <Route index element={<HomePage />} />
-            <Route path="products" element={<FrontendProtectedRoute><ProductsPage /></FrontendProtectedRoute>} />
+                        <Route path="products" element={<FrontendProtectedRoute><ProductsPage /></FrontendProtectedRoute>} />
             <Route path="products/:id" element={<FrontendProtectedRoute><ProductDetailPage /></FrontendProtectedRoute>} />
+            <Route path="products/:id/gallery" element={<FrontendProtectedRoute><ProductGalleryPage /></FrontendProtectedRoute>} />
             <Route path="categories" element={<FrontendProtectedRoute><CategoriesPage /></FrontendProtectedRoute>} />
             <Route path="packages" element={<FrontendProtectedRoute><PackagesPage /></FrontendProtectedRoute>} />
             <Route path="packages/:id" element={<FrontendProtectedRoute><PackageDetailPage /></FrontendProtectedRoute>} />
             <Route path="share/product/:id" element={<ProductSharePage />} />
             <Route path="cart" element={<CartPage />} />
             <Route path="checkout" element={<CheckoutPage />} />
-            <Route path="compare" element={<ComparePage />} />
             <Route path="favorites" element={<FavoritesPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="addresses" element={<AddressesPage />} />
@@ -589,6 +590,7 @@ function App() {
             <Route path="manufacturer-orders" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/orders"><ManufacturerOrderManagement /></ProtectedRoute>} />
             <Route path="image-search-stats" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ImageSearchStats /></ProtectedRoute>} />
             <Route path="tier-system" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><TierSystemManagement /></ProtectedRoute>} />
+            <Route path="tier-hierarchy" element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'enterprise_admin', 'enterprise_staff']} fallbackPath="/admin/products"><TierHierarchyPage /></ProtectedRoute>} />
             <Route path="invoices" element={<ProtectedRoute requireAdmin fallbackPath="/admin/orders"><InvoiceManagement /></ProtectedRoute>} />
           </Route>
  
@@ -609,3 +611,4 @@ function App() {
 
 export default App
 
+// Force rebuild 1769789136

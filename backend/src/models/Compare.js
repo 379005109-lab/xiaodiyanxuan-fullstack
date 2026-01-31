@@ -26,7 +26,7 @@ const compareSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 })
 
-// 复合索引：用户 + 产品 ID + SKU ID
-compareSchema.index({ userId: 1, productId: 1, skuId: 1 })
+// 复合唯一索引：防止重复添加同一商品配置
+compareSchema.index({ userId: 1, productId: 1, skuId: 1, 'selectedMaterials.fabric': 1, 'selectedMaterials.filling': 1 }, { unique: true, sparse: true })
 
 module.exports = mongoose.model('Compare', compareSchema)

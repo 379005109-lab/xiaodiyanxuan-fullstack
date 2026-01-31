@@ -196,6 +196,114 @@ router.post('/', create)
 // GET /api/orders - 获取订单列表
 router.get('/', list)
 
+// ========== 返佣管理路由（必须在 /:id 之前定义）==========
+// GET /api/orders/commission-stats - 获取返佣统计数据
+router.get('/commission-stats', async (req, res) => {
+  try {
+    const Order = require('../models/Order')
+    const User = require('../models/User')
+    
+    const user = await User.findById(req.userId).select('manufacturerId manufacturerIds role').lean()
+    const isAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin'].includes(user?.role)
+    
+    // 查询所有返佣模式订单
+    let query = {
+      settlementMode: 'commission_mode',
+      isDeleted: { $ne: true }
+    }
+    
+    console.log('📊 [commission-stats] userId:', req.userId, 'role:', user?.role, 'isAdmin:', isAdmin)
+    console.log('📊 [commission-stats] query:', JSON.stringify(query))
+    
+    const commissionOrders = await Order.find(query)
+      .select('orderNo items commissionAmount commissionStatus commissionAppliedAt commissionApprovedAt commissionPaidAt commissionInvoiceUrl commissionPaymentProofUrl commissionPaymentRemark completedAt totalAmount status')
+      .lean()
+    
+    console.log('📊 [commission-stats] found', commissionOrders.length, 'orders')
+
+    let pendingApplicationAmount = 0
+    let appliedAmount = 0
+    let pendingAmount = 0
+    let settledAmount = 0
+    const pendingApplicationOrders = []
+    const appliedOrders = []
+    const approvedOrders = []
+    const paidOrders = []
+
+    for (const order of commissionOrders) {
+      const commission = order.commissionAmount || 0
+
+      if (!order.commissionStatus || order.commissionStatus === 'pending') {
+        pendingApplicationAmount += commission
+        pendingApplicationOrders.push({
+          _id: order._id,
+          orderNo: order.orderNo,
+          completedAt: order.completedAt,
+          totalAmount: order.totalAmount,
+          commissionAmount: commission,
+          status: order.status,
+          commissionStatus: order.commissionStatus || 'pending'
+        })
+      } else if (order.commissionStatus === 'applied') {
+        appliedAmount += commission
+        appliedOrders.push({
+          _id: order._id,
+          orderNo: order.orderNo,
+          commissionAppliedAt: order.commissionAppliedAt,
+          commissionInvoiceUrl: order.commissionInvoiceUrl,
+          totalAmount: order.totalAmount,
+          commissionAmount: commission,
+          commissionStatus: 'applied'
+        })
+      } else if (order.commissionStatus === 'approved') {
+        pendingAmount += commission
+        approvedOrders.push({
+          _id: order._id,
+          orderNo: order.orderNo,
+          commissionApprovedAt: order.commissionApprovedAt,
+          totalAmount: order.totalAmount,
+          commissionAmount: commission,
+          commissionStatus: 'approved'
+        })
+      } else if (order.commissionStatus === 'paid') {
+        settledAmount += commission
+        paidOrders.push({
+          _id: order._id,
+          orderNo: order.orderNo,
+          commissionPaidAt: order.commissionPaidAt,
+          commissionPaymentProofUrl: order.commissionPaymentProofUrl,
+          commissionPaymentRemark: order.commissionPaymentRemark,
+          totalAmount: order.totalAmount,
+          commissionAmount: commission,
+          commissionStatus: 'paid'
+        })
+      }
+    }
+
+    const totalAmount = pendingApplicationAmount + appliedAmount + pendingAmount + settledAmount
+    console.log('📊 [commission-stats] pendingApplication:', pendingApplicationAmount, 'applied:', appliedAmount, 'pending:', pendingAmount, 'settled:', settledAmount)
+
+    res.json({ 
+      success: true, 
+      data: { 
+        pendingApplication: Math.round(pendingApplicationAmount * 100) / 100,
+        applied: Math.round(appliedAmount * 100) / 100,
+        pending: Math.round(pendingAmount * 100) / 100,
+        settled: Math.round(settledAmount * 100) / 100,
+        total: Math.round(totalAmount * 100) / 100,
+        pendingApplicationOrders,
+        appliedOrders,
+        approvedOrders,
+        paidOrders,
+        pendingOrders: pendingApplicationOrders
+      } 
+    })
+  } catch (error) {
+    console.error('获取返佣统计失败:', error)
+    res.status(500).json({ success: false, message: '获取返佣统计失败' })
+  }
+})
+
 // GET /api/orders/:id - 获取订单详情
 router.get('/:id', getOrder)
 
@@ -1551,103 +1659,6 @@ router.delete('/:id/permanent', async (req, res) => {
   } catch (error) {
     console.error('永久删除订单失败:', error)
     res.status(500).json({ success: false, message: '永久删除订单失败' })
-  }
-})
-
-// ========== 返佣管理路由 ==========
-// GET /api/orders/commission-stats - 获取返佣统计数据
-router.get('/commission-stats', async (req, res) => {
-  try {
-    const Order = require('../models/Order')
-    const User = require('../models/User')
-    const { ORDER_STATUS } = require('../config/constants')
-    
-    const user = await User.findById(req.userId).select('manufacturerId manufacturerIds role').lean()
-    const manufacturerId = user?.manufacturerId || user?.manufacturerIds?.[0]
-    const isAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin'].includes(user?.role)
-    
-    // 直接查询所有返佣模式订单（简化查询，移除厂家限制）
-    let query = {
-      settlementMode: 'commission_mode',
-      commissionStatus: { $in: ['applied', 'approved', 'paid'] },
-      isDeleted: { $ne: true }
-    }
-    
-    console.log('📊 [commission-stats] userId:', req.userId, 'role:', user?.role, 'isAdmin:', isAdmin)
-    console.log('📊 [commission-stats] query:', JSON.stringify(query))
-    
-    // 查询返佣模式订单
-    const commissionOrders = await Order.find(query)
-      .select('orderNo items commissionAmount commissionStatus commissionAppliedAt commissionApprovedAt commissionPaidAt commissionInvoiceUrl commissionPaymentProofUrl commissionPaymentRemark completedAt totalAmount status')
-      .lean()
-    
-    console.log('📊 [commission-stats] found', commissionOrders.length, 'orders')
-
-    let appliedAmount = 0   // 待核销金额
-    let pendingAmount = 0   // 待打款金额（已核销）
-    let settledAmount = 0   // 已结算金额
-    const appliedOrders = []  // 待核销订单
-    const approvedOrders = [] // 待打款订单
-    const paidOrders = []     // 已完成订单
-
-    for (const order of commissionOrders) {
-      const commission = order.commissionAmount || 0
-
-      if (order.commissionStatus === 'applied') {
-        // 已申请待核销
-        appliedAmount += commission
-        appliedOrders.push({
-          _id: order._id,
-          orderNo: order.orderNo,
-          commissionAppliedAt: order.commissionAppliedAt,
-          commissionInvoiceUrl: order.commissionInvoiceUrl,
-          totalAmount: order.totalAmount,
-          commissionAmount: commission,
-          commissionStatus: 'applied'
-        })
-      } else if (order.commissionStatus === 'approved') {
-        // 已核销待打款
-        pendingAmount += commission
-        approvedOrders.push({
-          _id: order._id,
-          orderNo: order.orderNo,
-          commissionApprovedAt: order.commissionApprovedAt,
-          totalAmount: order.totalAmount,
-          commissionAmount: commission,
-          commissionStatus: 'approved'
-        })
-      } else if (order.commissionStatus === 'paid') {
-        // 已打款完成
-        settledAmount += commission
-        paidOrders.push({
-          _id: order._id,
-          orderNo: order.orderNo,
-          commissionPaidAt: order.commissionPaidAt,
-          commissionPaymentProofUrl: order.commissionPaymentProofUrl,
-          commissionPaymentRemark: order.commissionPaymentRemark,
-          totalAmount: order.totalAmount,
-          commissionAmount: commission,
-          commissionStatus: 'paid'
-        })
-      }
-    }
-
-    res.json({ 
-      success: true, 
-      data: { 
-        applied: Math.round(appliedAmount * 100) / 100,
-        pending: Math.round(pendingAmount * 100) / 100,
-        settled: Math.round(settledAmount * 100) / 100,
-        total: Math.round((appliedAmount + pendingAmount + settledAmount) * 100) / 100,
-        appliedOrders,
-        approvedOrders,
-        paidOrders,
-        pendingOrders: []  // 兼容旧字段
-      } 
-    })
-  } catch (error) {
-    console.error('获取返佣统计失败:', error)
-    res.status(500).json({ success: false, message: '获取返佣统计失败' })
   }
 })
 

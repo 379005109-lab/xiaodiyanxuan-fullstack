@@ -21,6 +21,7 @@ export default function OrdersPageNew() {
   const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false)
   const [commissionModal, setCommissionModal] = useState<any>(null)  // 返佣申请弹窗
   const [invoiceUrl, setInvoiceUrl] = useState('')  // 发票URL
+  const [expandedInvoice, setExpandedInvoice] = useState<Set<string>>(new Set())  // 展开的开票信息
 
   const normalizeStagedPaymentAmounts = (order: any) => {
     const totalAmount = Number(order?.totalAmount || 0)
@@ -146,6 +147,36 @@ export default function OrdersPageNew() {
     } catch (error) {
       console.error('❌ 提交取消申请失败:', error)
       toast.error('提交失败，请重试')
+    }
+  }
+
+  const handleRefundRequest = async (orderId: string, order: any) => {
+    if (!window.confirm('确定要申请退款吗？')) {
+      return
+    }
+    
+    try {
+      console.log('🔄 提交退款申请:', orderId)
+      
+      await axios.post('/refunds', {
+        orderId,
+        reason: '客户申请退款',
+        amount: order.totalAmount
+      })
+      
+      // 更新UI状态
+      setOrders(prev => prev.map((o: any) => {
+        if ((o._id || o.id) === orderId) {
+          return { ...o, refundStatus: 'pending' }
+        }
+        return o
+      }))
+      
+      toast.success('退款申请已提交，请等待审核')
+      
+    } catch (error: any) {
+      console.error('❌ 提交退款申请失败:', error)
+      toast.error(error.response?.data?.message || '提交失败，请重试')
     }
   }
 
@@ -475,16 +506,30 @@ export default function OrdersPageNew() {
                   </div>
                 )}
 
-                {/* 开票信息 */}
+                {/* 开票信息 - 可折叠，默认收起 */}
                 {order.needInvoice && (
                   <div className="px-6 py-3 bg-amber-50 border-b border-amber-100">
-                    <div className="flex items-center gap-2">
+                    <div 
+                      className="flex items-center gap-2 cursor-pointer"
+                      onClick={() => {
+                        const orderId = order._id || order.id
+                        setExpandedInvoice(prev => {
+                          const next = new Set(prev)
+                          if (next.has(orderId)) next.delete(orderId)
+                          else next.add(orderId)
+                          return next
+                        })
+                      }}
+                    >
                       <span className="text-lg">🧾</span>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-amber-800">需要发票</p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-amber-800">需要发票</p>
+                          <span className="text-xs text-amber-600">{expandedInvoice.has(order._id || order.id) ? '收起 ▲' : '展开 ▼'}</span>
+                        </div>
                         <div className="text-xs text-amber-700 mt-1">
                           <span>抬头: {order.invoiceInfo?.title || '-'}</span>
-                          {order.invoiceInfo?.taxNumber && <span className="ml-3">税号: {order.invoiceInfo.taxNumber}</span>}
+                          <span className="ml-3">税号: {order.invoiceInfo?.taxNumber || '-'}</span>
                           <span className="ml-3">
                             状态:{' '}
                             {order.invoiceStatus === 'issued'
@@ -503,6 +548,17 @@ export default function OrdersPageNew() {
                         </div>
                       </div>
                     </div>
+                    {/* 展开显示更多信息 */}
+                    {expandedInvoice.has(order._id || order.id) && (
+                      <div className="mt-2 pt-2 border-t border-amber-200 text-xs text-amber-700 space-y-1">
+                        {order.invoiceInfo?.bankName && <p>开户银行: {order.invoiceInfo.bankName}</p>}
+                        {order.invoiceInfo?.bankAccount && <p>银行账号: {order.invoiceInfo.bankAccount}</p>}
+                        {(order.invoiceInfo?.companyAddress || order.invoiceInfo?.address) && <p>企业地址: {order.invoiceInfo.companyAddress || order.invoiceInfo.address}</p>}
+                        {(order.invoiceInfo?.companyPhone || order.invoiceInfo?.phone) && <p>企业电话: {order.invoiceInfo.companyPhone || order.invoiceInfo.phone}</p>}
+                        {order.invoiceInfo?.email && <p>收票邮箱: {order.invoiceInfo.email}</p>}
+                        {order.invoiceInfo?.mailingAddress && <p>邮寄地址: {order.invoiceInfo.mailingAddress}</p>}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -709,23 +765,44 @@ export default function OrdersPageNew() {
                               {(item.skuDimensions?.length || item.skuDimensions?.width || item.skuDimensions?.height || item.specifications?.dimensions) && (
                                 <p className="text-stone-500">尺寸: <span className="text-stone-800">{item.specifications?.dimensions || `${item.skuDimensions?.length || '-'}×${item.skuDimensions?.width || '-'}×${item.skuDimensions?.height || '-'}`} CM</span></p>
                               )}
-                              {/* 材质信息 - 动态遍历所有材质类目 */}
-                              {item.selectedMaterials && Object.keys(item.selectedMaterials).length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {Object.entries(item.selectedMaterials).map(([category, material]) => {
-                                    if (!material) return null
-                                    const upgradePrice = item.materialUpgradePrices?.[category] || 0
-                                    return (
+                              {/* 材质信息 - 动态遍历所有材质类目（去重） */}
+                              {item.selectedMaterials && Object.keys(item.selectedMaterials).length > 0 && (() => {
+                                // 英文到中文的映射，用于去重
+                                const keyMapping: Record<string, string> = {
+                                  'fabric': '面料', 'material': '面料', '面料': '面料', '材质': '面料',
+                                  'filling': '填充', 'fill': '填充', '填充': '填充',
+                                  'frame': '框架', '框架': '框架',
+                                  'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
+                                }
+                                // 去重：按规范化键名和值合并
+                                const deduped: Record<string, { value: string; upgradePrice: number }> = {}
+                                const seenValues = new Set<string>()
+                                Object.entries(item.selectedMaterials).forEach(([key, value]) => {
+                                  if (!value) return
+                                  const valueStr = String(value)
+                                  if (seenValues.has(valueStr)) return
+                                  seenValues.add(valueStr)
+                                  const normalizedKey = keyMapping[key.toLowerCase()] || keyMapping[key] || key
+                                  if (!deduped[normalizedKey]) {
+                                    deduped[normalizedKey] = {
+                                      value: valueStr,
+                                      upgradePrice: item.materialUpgradePrices?.[key] || 0
+                                    }
+                                  }
+                                })
+                                return (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {Object.entries(deduped).map(([category, { value, upgradePrice }]) => (
                                       <span key={category} className="inline-flex items-center px-2 py-0.5 bg-stone-100 text-stone-600 text-xs rounded">
-                                        {material as string}
+                                        {value}
                                         {upgradePrice > 0 && (
                                           <span className="text-red-600 font-semibold ml-1">+¥{upgradePrice}</span>
                                         )}
                                       </span>
-                                    )
-                                  })}
-                                </div>
-                              )}
+                                    ))}
+                                  </div>
+                                )
+                              })()}
                               <p className="text-stone-500">× {item.quantity || 1}</p>
                             </div>
                           </div>
@@ -751,13 +828,32 @@ export default function OrdersPageNew() {
                   {/* 操作按钮 */}
                   <div className="mt-4 flex gap-3 justify-end">
                     {/* 取消订单按钮 - 待付款和待发货状态可取消，且没有取消申请中的 */}
-                    {(order.status === 1 || order.status === 2 || order.status === 'pending' || order.status === 'processing') && !order.cancelRequest && (
+                    {(order.status === 1 || order.status === 'pending') && !order.cancelRequest && (
                       <button
                         onClick={() => handleCancelOrder(order._id || order.id)}
                         className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                       >
                         取消订单
                       </button>
+                    )}
+                    {/* 申请退款按钮 - 已付款/已发货/待收货状态可申请退款 */}
+                    {(order.status === 2 || order.status === 'paid' || order.status === 3 || order.status === 'shipped' || order.status === 'processing' || order.status === 'confirmed') && !order.refundStatus && !order.cancelRequest && (
+                      <button
+                        onClick={() => handleRefundRequest(order._id || order.id, order)}
+                        className="px-4 py-2 text-sm border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
+                      >
+                        申请退款
+                      </button>
+                    )}
+                    {/* 退款状态显示 */}
+                    {order.refundStatus === 'pending' && (
+                      <span className="px-4 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg">退款申请中</span>
+                    )}
+                    {order.refundStatus === 'approved' && (
+                      <span className="px-4 py-2 text-sm bg-green-100 text-green-700 rounded-lg">退款已批准</span>
+                    )}
+                    {order.refundStatus === 'rejected' && (
+                      <span className="px-4 py-2 text-sm bg-red-100 text-red-700 rounded-lg">退款已拒绝</span>
                     )}
                     {/* 删除订单按钮 - 已完成/已取消/申请取消中的订单可删除 */}
                     {(order.cancelRequest || order.status === 5 || order.status === 'cancelled' || order.status === 6 || order.status === 4 || order.status === 'completed') && (
@@ -1102,3 +1198,4 @@ export default function OrdersPageNew() {
     </div>
   )
 }
+// Rebuild 1769790506

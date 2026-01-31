@@ -284,8 +284,11 @@ const normalizeFileId = (v: any): string => {
   if (!v) return ''
   const raw = String(v)
   if (!raw) return ''
-  if (raw.startsWith('/api/files/')) return raw.replace('/api/files/', '').split('?')[0]
-  return raw
+  const cleaned = raw.split('?')[0]
+  const m = cleaned.match(/\/api\/files\/([^/]+)$/) || cleaned.match(/\/files\/([^/]+)$/)
+  const id = (m && m[1]) ? m[1] : raw
+  // 兼容历史数据：可能出现 6976...ab5.mp4.mp4.mp4 这种重复后缀
+  return String(id).replace(/(\.(mp4|webm|ogg|mov))+$/i, '')
 }
 
 const getLogoSrc = (logo: any, size: number) => {

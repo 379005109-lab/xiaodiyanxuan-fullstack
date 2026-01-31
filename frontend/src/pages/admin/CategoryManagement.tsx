@@ -314,7 +314,7 @@ export default function CategoryManagement() {
             </div>
 
             {/* 分类名称 */}
-            <div className="flex-1 min-w-0">
+            <div className="w-64 min-w-0">
               <div className="flex items-center">
                 {/* 分类图片 */}
                 {category.image && (
@@ -337,35 +337,12 @@ export default function CategoryManagement() {
                     放入此分类下
                   </span>
                 )}
-                {/* 折扣标签：只有最低折扣低于60%才显示 */}
-                {category.hasDiscount && category.discounts && category.discounts.length > 0 && (() => {
-                  const minDiscount = Math.min(...category.discounts.map(d => d.discount))
-                  if (minDiscount < 60) {
-                    const discountLabel = Math.floor(minDiscount / 10)
-                    return (
-                      <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded font-semibold">
-                        {discountLabel}折
-                      </span>
-                    )
-                  }
-                  return null
-                })()}
               </div>
             </div>
 
             {/* 层级 */}
-            <div className="w-20 text-center text-sm text-gray-600">
-              {category.level}
-            </div>
-
-            {/* 厂家 */}
-            <div className="w-40 text-sm text-gray-600 truncate">
-              {(() => {
-                const mid: any = (category as any).manufacturerId
-                if (!mid) return '平台'
-                if (typeof mid === 'string') return mid
-                return mid?.name || mid?._id || '平台'
-              })()}
+            <div className="w-16 text-center text-sm text-gray-600">
+              {category.level}级
             </div>
 
             {/* 商品数量 */}
@@ -374,7 +351,7 @@ export default function CategoryManagement() {
             </div>
 
             {/* 状态开关 */}
-            <div className="w-32 flex justify-center">
+            <div className="w-20 flex justify-center">
               <button
                 onClick={(e) => handleToggleStatus(category._id, e)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -400,45 +377,25 @@ export default function CategoryManagement() {
               })}
             </div>
 
-            {/* 角色折扣 */}
-            <div className="flex-1 text-sm text-gray-600 px-4">
-              {category.discounts && category.discounts.length > 0 ? (
-                category.discounts.map((d, idx) => (
-                  <span key={idx} className="mr-4">
-                    {d.roleName}:{d.discount}%
-                  </span>
-                ))
-              ) : (
-                <span className="text-gray-400">未设置</span>
-              )}
-            </div>
-
             {/* 操作按钮 */}
-            <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center justify-end gap-1 pr-2">
               <button
                 onClick={(e) => handleEdit(category, e)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
                 title="编辑"
               >
                 <Edit className="h-4 w-4" />
               </button>
               <button
-                onClick={(e) => handleSetDiscount(category, e)}
-                className="p-2 text-orange-600 hover:bg-orange-50 rounded"
-                title="折扣"
-              >
-                <Percent className="h-4 w-4" />
-              </button>
-              <button
                 onClick={(e) => handleAddSubCategory(category, e)}
-                className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors"
+                className="p-1.5 text-green-600 hover:bg-green-50 rounded"
                 title="添加子分类"
               >
-                <Plus className="h-5 w-5" />
+                <Plus className="h-4 w-4" />
               </button>
               <button
                 onClick={(e) => handleDelete(category, e)}
-                className="p-2 text-red-600 hover:bg-red-50 rounded"
+                className="p-1.5 text-red-600 hover:bg-red-50 rounded"
                 title="删除"
               >
                 <Trash2 className="h-4 w-4" />
@@ -465,7 +422,7 @@ export default function CategoryManagement() {
       </div>
 
       {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-3 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -495,23 +452,6 @@ export default function CategoryManagement() {
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <Package className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-orange-50 rounded-lg p-6"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-orange-600 mb-1">折扣分类数</p>
-              <p className="text-3xl font-bold text-orange-900">{stats.withDiscount}</p>
-            </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Tag className="h-6 w-6 text-orange-600" />
             </div>
           </div>
         </motion.div>
@@ -573,20 +513,6 @@ export default function CategoryManagement() {
         {/* 操作按钮 */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowBatchDiscountModal(true)}
-            className="btn-secondary flex items-center text-sm px-4 py-2"
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            设置全部分类折扣
-          </button>
-          <button 
-            onClick={() => setShowDiscountSummary(true)}
-            className="btn-secondary flex items-center text-sm px-4 py-2"
-          >
-            <Percent className="h-4 w-4 mr-2" />
-            总折扣信息
-          </button>
-          <button
             onClick={() => {
               setEditingCategory(null)
               setShowCategoryModal(true)
@@ -605,14 +531,12 @@ export default function CategoryManagement() {
         <div className="bg-gray-50 border-b border-gray-200">
           <div className="flex items-center py-3 px-4">
             <div className="w-8"></div>
-            <div className="flex-1 text-sm font-medium text-gray-700">分类</div>
-            <div className="w-20 text-center text-sm font-medium text-gray-700">层级</div>
-            <div className="w-40 text-sm font-medium text-gray-700">厂家</div>
-            <div className="w-20 text-center text-sm font-medium text-gray-700">商品数量</div>
-            <div className="w-32 text-center text-sm font-medium text-gray-700">状态</div>
+            <div className="w-64 text-sm font-medium text-gray-700">分类</div>
+            <div className="w-16 text-center text-sm font-medium text-gray-700">层级</div>
+            <div className="w-20 text-center text-sm font-medium text-gray-700">商品数</div>
+            <div className="w-20 text-center text-sm font-medium text-gray-700">状态</div>
             <div className="w-40 text-sm font-medium text-gray-700">创建时间</div>
-            <div className="flex-1 text-sm font-medium text-gray-700 px-4">角色折扣</div>
-            <div className="w-40 text-center text-sm font-medium text-gray-700">操作</div>
+            <div className="flex-1 text-right text-sm font-medium text-gray-700 pr-4">操作</div>
           </div>
         </div>
 
@@ -648,32 +572,6 @@ export default function CategoryManagement() {
         />
       )}
 
-      {/* 折扣设置模态框 */}
-      {showDiscountModal && editingCategory && (
-        <DiscountModal
-          category={editingCategory}
-          onClose={handleModalClose}
-          onSuccess={handleModalClose}
-        />
-      )}
-
-      {/* 批量折扣设置模态框 */}
-      {showBatchDiscountModal && (
-        <DiscountModal
-          category={null}
-          onClose={handleModalClose}
-          isBatch={true}
-          onSuccess={handleModalClose}
-        />
-      )}
-
-      {/* 总折扣信息模态框 */}
-      {showDiscountSummary && (
-        <DiscountSummaryModal
-          categories={categories}
-          onClose={() => setShowDiscountSummary(false)}
-        />
-      )}
     </div>
   )
 }

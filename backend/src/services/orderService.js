@@ -532,6 +532,54 @@ const createOrder = async (userId, {
   console.log('✅ [OrderService] Order userId:', order.userId);
   console.log('✅ [OrderService] Order status:', order.status);
   
+  // 减少SKU库存
+  const lowStockWarnings = []
+  for (const item of enrichedItems) {
+    const productId = item.productId || item.product
+    const skuId = item.skuId
+    const quantity = item.quantity || 1
+    
+    if (productId && skuId) {
+      try {
+        // 找到商品并减少对应SKU的库存
+        const product = await Product.findById(productId)
+        if (product && product.skus) {
+          const sku = product.skus.find(s => String(s._id) === String(skuId))
+          if (sku && sku.stockMode === true) {
+            // 只有库存模式才减库存
+            const newStock = Math.max(0, (sku.stock || 0) - quantity)
+            await Product.updateOne(
+              { _id: productId, 'skus._id': skuId },
+              { $set: { 'skus.$.stock': newStock } }
+            )
+            console.log(`📦 [Stock] SKU ${skuId} 库存减少 ${quantity}，剩余 ${newStock}`)
+            
+            // 检查库存是否为0
+            if (newStock === 0) {
+              lowStockWarnings.push({
+                productId,
+                productName: item.productName || product.name,
+                skuId,
+                skuCode: sku.code,
+                skuSpec: sku.spec,
+                message: '库存已耗尽，请及时补充'
+              })
+              console.warn(`⚠️ [Stock] SKU ${skuId} 库存已耗尽!`)
+            }
+          }
+        }
+      } catch (stockErr) {
+        console.error('📦 [Stock] 减库存失败:', stockErr)
+      }
+    }
+  }
+  
+  // 如果有低库存警告，记录到订单
+  if (lowStockWarnings.length > 0) {
+    order.stockWarnings = lowStockWarnings
+    await order.save()
+  }
+  
   // Update user stats
   const user = await User.findById(userId)
   if (user) {

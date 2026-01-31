@@ -692,10 +692,15 @@ router.post('/manufacturer/orders/:id/start-production', verifyManufacturer, asy
 // 厂家发货
 router.post('/manufacturer/orders/:id/ship', verifyManufacturer, async (req, res) => {
   try {
-    const { trackingNo, trackingCompany } = req.body;
+    const { trackingNo, trackingCompany, inspectionImages, inspectionVideos } = req.body;
     
     if (!trackingNo) {
       return res.status(400).json({ success: false, message: '请输入快递单号' });
+    }
+    
+    // 验货图片必填
+    if (!inspectionImages || inspectionImages.length === 0) {
+      return res.status(400).json({ success: false, message: '请上传至少一张验货图片' });
     }
     
     const order = await ManufacturerOrder.findOne({
@@ -715,9 +720,11 @@ router.post('/manufacturer/orders/:id/ship', verifyManufacturer, async (req, res
     order.shippedAt = new Date();
     order.trackingNo = trackingNo;
     order.trackingCompany = trackingCompany || '顺丰速运';
+    order.inspectionImages = inspectionImages || [];
+    order.inspectionVideos = inspectionVideos || [];
     order.logs.push({
       action: 'ship',
-      content: `已发货，${order.trackingCompany}：${trackingNo}`,
+      content: `已发货，${order.trackingCompany}：${trackingNo}，验货图片${inspectionImages.length}张${inspectionVideos?.length ? `，视频${inspectionVideos.length}个` : ''}`,
       operator: req.manufacturerName,
       createdAt: new Date()
     });

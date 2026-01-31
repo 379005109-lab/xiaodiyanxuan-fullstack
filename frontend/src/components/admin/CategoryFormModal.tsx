@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { X, Upload } from 'lucide-react'
+import { X, Upload, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { Category } from '@/types'
@@ -30,6 +30,7 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
       { role: 'distributor' as const, roleName: '经销商', discount: 100 },
       { role: 'customer' as const, roleName: '普通客户', discount: 100 },
     ],
+    customFields: ((category as any)?.customFields || []) as Array<{ id: string; text: string; image: string }>,
   })
 
   const [allCategories, setAllCategories] = useState<Category[]>([])
@@ -224,6 +225,7 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
         level: computedLevel,
         status: formData.status,
         slug,
+        customFields: formData.customFields,
       }
       
       if (isEdit && category) {
@@ -341,6 +343,119 @@ export default function CategoryFormModal({ category, onClose }: CategoryFormMod
                 />
               </label>
             </div>
+          </div>
+
+          {/* 自定义字段 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium">
+                自定义字段
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData({
+                    ...formData,
+                    customFields: [
+                      ...formData.customFields,
+                      { id: `cf-${Date.now()}`, text: '', image: '' }
+                    ]
+                  })
+                }}
+                className="text-primary-600 hover:text-primary-700 text-sm flex items-center"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                添加字段
+              </button>
+            </div>
+            
+            {formData.customFields.length === 0 ? (
+              <p className="text-sm text-gray-400 py-4 text-center border-2 border-dashed border-gray-200 rounded-lg">
+                暂无自定义字段，点击"添加字段"创建
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {formData.customFields.map((field, index) => (
+                  <div key={field.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    {/* 字段图片 */}
+                    <div className="flex-shrink-0">
+                      {field.image ? (
+                        <div className="relative w-16 h-16">
+                          <img
+                            src={getFileUrl(field.image)}
+                            alt="字段图片"
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newFields = [...formData.customFields]
+                              newFields[index].image = ''
+                              setFormData({ ...formData, customFields: newFields })
+                            }}
+                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary-400 hover:bg-primary-50">
+                          <Upload className="h-5 w-5 text-gray-400" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              try {
+                                const result = await uploadFile(file)
+                                if (result.success) {
+                                  const newFields = [...formData.customFields]
+                                  newFields[index].image = result.data.fileId
+                                  setFormData({ ...formData, customFields: newFields })
+                                  toast.success('图片上传成功')
+                                }
+                              } catch (err) {
+                                toast.error('图片上传失败')
+                              }
+                              e.target.value = ''
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                    
+                    {/* 字段文字 */}
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={field.text}
+                        onChange={(e) => {
+                          const newFields = [...formData.customFields]
+                          newFields[index].text = e.target.value
+                          setFormData({ ...formData, customFields: newFields })
+                        }}
+                        placeholder="输入字段文字"
+                        className="input w-full"
+                      />
+                    </div>
+                    
+                    {/* 删除按钮 */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newFields = formData.customFields.filter((_, i) => i !== index)
+                        setFormData({ ...formData, customFields: newFields })
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 父分类 */}

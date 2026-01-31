@@ -29,8 +29,13 @@ RUN apt-get update \
 # 从构建阶段复制 node_modules
 COPY --from=builder /app/node_modules ./node_modules
 
-# 复制应用代码
-COPY . .
+# Cache bust arg - 变化时强制重新 COPY
+ARG CACHEBUST
+ARG GIT_SHA
+RUN echo "Cache bust: ${CACHEBUST:-none} SHA: ${GIT_SHA:-none}" && date
+
+# 复制应用代码 - 确保每次构建都是最新代码
+COPY --chown=node:node . .
 
 # 暴露端口
 EXPOSE 8080

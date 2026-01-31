@@ -1,14 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Grid, List, SlidersHorizontal, Heart, Scale, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
+import { Grid, List, SlidersHorizontal, Heart, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
 import { Product } from '@/types'
 import { formatPrice } from '@/lib/utils'
 // 使用真实API服务
 import { getProducts as getAllProducts } from '@/services/productService'
 import { getAllCategories } from '@/services/categoryService'
 import { useFavoriteStore } from '@/store/favoriteStore'
-import { useCompareStore } from '@/store/compareStore'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { toast } from 'sonner'
@@ -44,8 +43,7 @@ export default function ProductsPage() {
   const [favoriteStatuses, setFavoriteStatuses] = useState<Record<string, boolean>>({}) // 商品收藏状态
   
   const { isFavorited, toggleFavorite, loadFavorites, favorites } = useFavoriteStore()
-  const { isInCompare, addToCompare: addToCompareStore, loadCompareItems } = useCompareStore()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   
   // 恢复滚动位置
   useEffect(() => {
@@ -69,12 +67,17 @@ export default function ProductsPage() {
     }
   }, [])
 
+  // 厂家账号的分类列表
+  const [manufacturerCategories, setManufacturerCategories] = useState<string[]>([])
+  
   // 筛选条件 - 默认显示沙发类别
   const [filters, setFilters] = useState({
     category: searchParams.get('category') || '',
+    sub: searchParams.get('sub') || '',
     style: searchParams.get('style') || '',
     priceRange: searchParams.get('priceRange') || '',
     sort: searchParams.get('sort') || 'recommend',
+    series: searchParams.get('series') || '',
   })
   
   // 分页状态
@@ -155,9 +158,37 @@ export default function ProductsPage() {
     if (isAuthenticated) {
       loadFavorites()
     }
-    loadCompareItems()
     loadStyleImages()
   }, [isAuthenticated])
+  
+  // 厂家账号：加载厂家对应的分类并设置默认筛选
+  useEffect(() => {
+    if (user?.manufacturerId && categories.length > 0) {
+      // 找出厂家对应的分类
+      const mfgCategories: string[] = []
+      const findManufacturerCategories = (cats: any[]) => {
+        cats.forEach(cat => {
+          const catMfgId = typeof cat.manufacturerId === 'object' 
+            ? cat.manufacturerId?._id 
+            : cat.manufacturerId
+          if (catMfgId === user.manufacturerId) {
+            mfgCategories.push(cat._id)
+          }
+          if (cat.children) {
+            findManufacturerCategories(cat.children)
+          }
+        })
+      }
+      findManufacturerCategories(categories)
+      setManufacturerCategories(mfgCategories)
+      
+      // 如果URL没有指定分类，且找到了厂家分类，默认选中第一个
+      if (!searchParams.get('category') && mfgCategories.length > 0) {
+        setFilters(prev => ({ ...prev, category: mfgCategories[0] }))
+      }
+      console.log('🏭 厂家分类:', mfgCategories)
+    }
+  }, [user?.manufacturerId, categories])
   
   // 当商品或收藏列表变化时，更新收藏状态
   useEffect(() => {
@@ -194,15 +225,19 @@ export default function ProductsPage() {
   // 同步URL参数到筛选条件
   useEffect(() => {
     const category = searchParams.get('category') || ''
+    const sub = searchParams.get('sub') || ''
     const style = searchParams.get('style') || ''
     const priceRange = searchParams.get('priceRange') || ''
     const sort = searchParams.get('sort') || 'recommend'
     
+    const series = searchParams.get('series') || ''
     setFilters({
       category,
+      sub,
       style,
       priceRange,
       sort,
+      series,
     })
     
     // 同步价格区间
@@ -222,17 +257,16 @@ export default function ProductsPage() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      // 加载所有商品（移除数量限制）
-      const response = await getAllProducts({ pageSize: 50000 });
+      // 拉取足够多的商品供前端筛选/分页使用；后端已按“平台自营+合作商家”过滤
+      const response = await getAllProducts({ pageSize: 10000 });
       if (response.success && response.data) {
-        // 只显示上架的商品
-        const activeProducts = (response.data || []).filter((p: Product) => p.status !== 'inactive');
+        const list = (response.data || []) as Product[];
+        const activeProducts = list.filter((p: Product) => p.status !== 'inactive');
         setProducts(activeProducts);
-        console.log(`[商城] 共加载 ${activeProducts.length} 个商品`);
-      } else {
-        setProducts([]);
+        console.log(`✅ 成功加载商品: ${activeProducts.length} 个`);
       }
     } catch (error) {
+      console.error('❌ 加载商品失败:', error);
       console.error('[ProductsPage] 加载商品失败:', error);
       toast.error('加载商品失败');
       setProducts([]);
@@ -253,42 +287,119 @@ export default function ProductsPage() {
   // 获取分类及其所有子分类的ID和名称
   const getCategoryAndChildIds = (categoryId: string): Set<string> => {
     const result = new Set<string>()
-    result.add(categoryId)
     
-    // 递归查找子分类
-    const findChildren = (cats: any[], parentId: string) => {
-      cats.forEach(cat => {
-        // 检查是否匹配（通过ID、slug或name）
-        if (cat._id === parentId || cat.slug === parentId || cat.name === parentId) {
-          result.add(cat._id)
-          result.add(cat.slug || '')
-          result.add(cat.name)
-          // 添加所有子分类
-          if (cat.children && cat.children.length > 0) {
-            cat.children.forEach((child: any) => {
-              result.add(child._id)
-              result.add(child.slug || '')
-              result.add(child.name)
-              // 递归添加更深层的子分类
-              if (child.children) {
-                findChildren([child], child._id)
-              }
-            })
-          }
-        }
-        // 也在子分类中查找
-        if (cat.children && cat.children.length > 0) {
-          findChildren(cat.children, parentId)
-        }
-      })
+    // 递归添加分类及其所有后代
+    const addCategoryAndDescendants = (cat: any) => {
+      result.add(cat._id)
+      if (cat.slug) result.add(cat.slug)
+      result.add(cat.name)
+      // 递归添加所有子分类
+      if (cat.children && cat.children.length > 0) {
+        cat.children.forEach((child: any) => addCategoryAndDescendants(child))
+      }
     }
     
-    findChildren(categories, categoryId)
+    // 在分类树中查找匹配的分类
+    const findCategory = (cats: any[], targetId: string): any => {
+      for (const cat of cats) {
+        if (cat._id === targetId || cat.slug === targetId || cat.name === targetId) {
+          return cat
+        }
+        if (cat.children && cat.children.length > 0) {
+          const found = findCategory(cat.children, targetId)
+          if (found) return found
+        }
+      }
+      return null
+    }
+    
+    const targetCat = findCategory(categories, categoryId)
+    if (targetCat) {
+      addCategoryAndDescendants(targetCat)
+      console.log('🔍 分类筛选:', categoryId, '包含分类IDs:', Array.from(result))
+    }
+    
     return result
   }
 
   // 获取搜索关键词
   const searchKeyword = searchParams.get('search') || ''
+  const parentLabel = searchParams.get('parent') || ''
+
+  const subLabel = useMemo(() => {
+    const key = String(filters.sub || '')
+    const map: Record<string, string> = {
+      electric: '电动沙发',
+      double: '双人沙发',
+      triple: '三人沙发',
+      chaise: '带贵妃沙发',
+      modular: '模块沙发',
+      corner: '转角沙发',
+    }
+    return map[key] || ''
+  }, [filters.sub])
+
+  // 递归查找分类
+  const findCategoryRecursive = (cats: any[], targetId: string): any => {
+    for (const cat of cats) {
+      if (cat._id === targetId || cat.slug === targetId || cat.name === targetId) {
+        return cat
+      }
+      if (cat.children && cat.children.length > 0) {
+        const found = findCategoryRecursive(cat.children, targetId)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  const categoryLabel = useMemo(() => {
+    if (!filters.category) return ''
+    // 等待分类数据加载完成后再显示
+    if (categories.length === 0) return ''
+    const cat = findCategoryRecursive(categories, filters.category)
+    // 如果找不到分类，返回空字符串而不是显示"查看全部分类"
+    return cat?.name || ''
+  }, [categories, filters.category])
+
+  // 获取当前分类的子分类（用于顶部快捷标签）
+  const subcategoryTabs = useMemo(() => {
+    if (!filters.category) return []
+    // 递归找到当前分类
+    const currentCat = findCategoryRecursive(categories, filters.category)
+    if (!currentCat) return []
+    
+    // 返回其子分类（如果有）
+    if (currentCat.children && currentCat.children.length > 0) {
+      return currentCat.children.map((child: any) => ({
+        id: child._id,
+        name: child.name,
+        slug: child.slug || child._id,
+        image: child.image
+      }))
+    }
+    
+    return []
+  }, [categories, filters.category])
+
+  const pageTitle = useMemo(() => {
+    if (searchKeyword) return `搜索 "${searchKeyword}"`
+    if (subLabel) return subLabel
+    if (categoryLabel) return categoryLabel
+    return '产品目录'
+  }, [categoryLabel, searchKeyword, subLabel])
+
+  const breadcrumb = useMemo(() => {
+    const parts: string[] = []
+    if (parentLabel) parts.push(parentLabel)
+    // 避免重复：如果 categoryLabel 和 parentLabel 相同则不添加
+    if (categoryLabel && categoryLabel !== parentLabel) parts.push(categoryLabel)
+    if (subLabel && subLabel !== categoryLabel) parts.push(subLabel)
+    return parts
+  }, [categoryLabel, parentLabel, subLabel])
+
+  // 始终使用简洁布局（无侧边栏）
+  const categoryMode = true
 
   // 筛选商品
   const filteredProducts = products.filter(product => {
@@ -309,55 +420,88 @@ export default function ProductsPage() {
       }
     }
     
-    // 分类筛选 - 支持父子分类层级
-    if (filters.category) {
-      const categoryIds = filters.category.split(',').map(id => id.trim())
-      // 获取所有匹配的分类ID（包括子分类）
-      const allCategoryIds = new Set<string>()
-      categoryIds.forEach(catId => {
-        const ids = getCategoryAndChildIds(catId)
-        ids.forEach(id => allCategoryIds.add(id))
-      })
-      
-      // 检查商品分类是否匹配
+    // 分类筛选
+    if (filters.category && categories.length > 0) {
+      // 获取商品的分类ID
       const rawCategory: any = (product as any).category
-      const productCategory = typeof rawCategory === 'object'
+      const productCategoryId = typeof rawCategory === 'object'
         ? String(rawCategory?._id || rawCategory?.id || '')
         : String(rawCategory ?? '')
-      const productCategoryName = (product as any).categoryName || rawCategory?.name || rawCategory?.title || ''
       
-      if (!allCategoryIds.has(productCategory) && !allCategoryIds.has(productCategoryName)) {
-        return false
+      // 获取筛选分类及其所有子分类ID
+      const validCategoryIds = getCategoryAndChildIds(filters.category)
+      
+      // 如果找到有效分类，进行筛选
+      if (validCategoryIds.size > 0) {
+        // 检查商品分类是否在有效分类列表中
+        if (!validCategoryIds.has(productCategoryId)) {
+          // 也检查分类名称匹配
+          const productCategoryName = String((product as any).categoryName || rawCategory?.name || '')
+          if (!validCategoryIds.has(productCategoryName)) {
+            return false
+          }
+        }
       }
     }
-    
-    // 风格筛选 - 从styles数组中匹配
+
+    // 风格筛选
     if (filters.style) {
       const productStyles = (product as any).styles || []
-      
-      // 添加调试日志
-      console.log(`🔍 风格筛选: 商品"${product.name}" 的风格:`, productStyles, '| 筛选条件:', filters.style, '| 匹配:', productStyles.includes(filters.style))
-      
-      // 只在有styles字段且筛选条件不匹配时过滤掉
-      // 没有styles字段的商品在没有风格筛选时应该显示
-      if (Array.isArray(productStyles) && productStyles.length > 0 && !productStyles.includes(filters.style)) {
+      // 检查商品的styles数组是否包含筛选的风格
+      if (!Array.isArray(productStyles) || !productStyles.includes(filters.style)) {
         return false
       }
     }
-    
+
     // 价格筛选
     if (filters.priceRange) {
       const [min, max] = filters.priceRange.split('-').map(Number)
       const price = getDisplayPrice(product as any)
-      if (max) {
-        if (price < min || price > max) return false
-      } else {
-        if (price < min) return false
+      if (price < min || price > max) {
+        return false
+      }
+    }
+
+    // 系列筛选
+    if (filters.series) {
+      const productSeries = (product as any).series || (product as any).productSeries || ''
+      if (productSeries !== filters.series) {
+        return false
       }
     }
     
     return true
   })
+
+  // 调试日志
+  useEffect(() => {
+    console.log(`🔍 商品筛选结果: 总商品=${products.length}, 筛选后=${filteredProducts.length}, 筛选条件=`, filters)
+    if (filters.category) {
+      const validIds = getCategoryAndChildIds(filters.category)
+      console.log(`📋 有效分类ID列表:`, Array.from(validIds))
+      // 显示前5个商品的分类信息
+      products.slice(0, 5).forEach((product, index) => {
+        const rawCategory = (product as any).category
+        const categoryId = typeof rawCategory === 'object'
+          ? String(rawCategory?._id || rawCategory?.id || '')
+          : String(rawCategory ?? '')
+        const categoryName = String((product as any).categoryName || rawCategory?.name || '')
+        console.log(`📦 商品${index + 1}: ID=${categoryId}, Name=${categoryName}`)
+      })
+    }
+  }, [products.length, filteredProducts.length, filters])
+
+  // 获取系列选项（从商品数据中动态获取）
+  const seriesOptions = useMemo(() => {
+    const seriesSet = new Set<string>()
+    filteredProducts.forEach(product => {
+      const series = (product as any).series || (product as any).productSeries
+      if (series && typeof series === 'string') {
+        seriesSet.add(series)
+      }
+    })
+    return Array.from(seriesSet).sort()
+  }, [filteredProducts])
 
   // 动态计算价格区间
   const actualPriceRange = useMemo(() => {
@@ -525,39 +669,6 @@ export default function ProductsPage() {
     }
   }
 
-  // 添加到对比
-  const handleAddToCompare = async (e: React.MouseEvent, product: Product) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    // 检查是否登录
-    if (!isAuthenticated) {
-      toast.error('请先登录后再使用对比功能')
-      useAuthModalStore.getState().openLogin()
-      return
-    }
-    
-    // 添加产品的第一个SKU到对比列表
-    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : []
-    const firstSku = skus[0]
-    if (!firstSku) {
-      toast.error('该商品暂无可选规格')
-      return
-    }
-    
-    try {
-      const result = await addToCompareStore(product._id, firstSku._id)
-      if (result.success) {
-        toast.success(result.message)
-      } else {
-        toast.error(result.message)
-      }
-    } catch (error) {
-      console.error('添加对比失败:', error)
-      toast.error('添加对比失败，请重试')
-    }
-  }
-
   // 获取商品预览图（优先使用商品主图，其次使用SKU图片）
   const getProductPreviewImages = (product: Product) => {
     const skuImages = (product.skus || [])
@@ -583,22 +694,490 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F2F4F3]">
-      {/* 深绿色头部 */}
-      <div className="bg-primary py-16 text-center">
-        <h1 className="text-4xl font-serif font-bold text-white mb-2">
-          {searchKeyword ? `搜索 "${searchKeyword}"` : '产品目录'}
-        </h1>
-        <p className="text-white/60 uppercase tracking-[0.3em] text-sm">
-          {searchKeyword ? `找到 ${filteredProducts.length} 个商品` : 'PRODUCT CATALOG 2024'}
-        </p>
-      </div>
+    <div className={categoryMode ? 'min-h-screen bg-white' : 'min-h-screen bg-[#F2F4F3]'}>
+      {categoryMode ? (
+        <div className="max-w-[1800px] mx-auto px-4 lg:px-8 pt-10">
+          {breadcrumb.length > 0 && (
+            <div className="text-sm text-stone-500">
+              {breadcrumb.join(' > ')}
+            </div>
+          )}
+          <div className="mt-4 flex items-end justify-between gap-4">
+            <h1 className="text-4xl font-semibold text-stone-900">{pageTitle}</h1>
+          </div>
 
-      <div className="max-w-[1800px] mx-auto px-4 lg:px-8 py-8">
-        <div className="flex gap-8">
-          {/* 侧边栏筛选 */}
-          <aside className="w-64 flex-shrink-0">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 sticky top-24">
+          {/* 子分类图片卡片 */}
+          {subcategoryTabs.length > 0 && (
+            <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {subcategoryTabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  onClick={() => {
+                    setSearchParams({ ...Object.fromEntries(searchParams), category: tab.id })
+                    setFilters({ ...filters, category: tab.id })
+                  }}
+                  className={`cursor-pointer group ${
+                    filters.category === tab.id
+                      ? 'ring-2 ring-primary rounded-lg'
+                      : ''
+                  }`}
+                >
+                  <div className="aspect-[4/3] bg-stone-100 rounded-lg overflow-hidden mb-2">
+                    {tab.image ? (
+                      <img
+                        src={getFileUrl(tab.image)}
+                        alt={tab.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Grid className="w-8 h-8 text-stone-300" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-stone-700 group-hover:text-primary transition-colors">{tab.name}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-6 pb-4 border-b border-stone-200 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
+              <select
+                value={filters.sort}
+                onChange={(e) => {
+                  setFilters({ ...filters, sort: e.target.value })
+                  setSearchParams({ ...Object.fromEntries(searchParams), sort: e.target.value })
+                }}
+                className="px-4 py-2 rounded-full bg-stone-100 text-sm text-stone-700"
+              >
+                <option value="recommend">价格排序</option>
+                <option value="hot">综合热度</option>
+                <option value="newest">最新上架</option>
+                <option value="sales">销量最高</option>
+                <option value="views">浏览最多</option>
+                <option value="price-asc">价格从低到高</option>
+                <option value="price-desc">价格从高到低</option>
+              </select>
+
+              <select
+                value={filters.priceRange}
+                onChange={(e) => {
+                  setFilters({ ...filters, priceRange: e.target.value })
+                  setSearchParams({ ...Object.fromEntries(searchParams), priceRange: e.target.value })
+                }}
+                className="px-4 py-2 rounded-full bg-stone-100 text-sm text-stone-700"
+              >
+                <option value="">价格</option>
+                <option value="0-3000">0-3000</option>
+                <option value="3000-6000">3000-6000</option>
+                <option value="6000-10000">6000-10000</option>
+                <option value="10000-20000">10000-20000</option>
+                <option value="20000-">20000+</option>
+              </select>
+
+              <select
+                value={filters.style}
+                onChange={(e) => {
+                  setFilters({ ...filters, style: e.target.value })
+                  setSearchParams({ ...Object.fromEntries(searchParams), style: e.target.value })
+                }}
+                className="px-4 py-2 rounded-full bg-stone-100 text-sm text-stone-700"
+              >
+                {styleOptions.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label || '风格'}
+                  </option>
+                ))}
+              </select>
+
+              {/* 系列筛选 - 与风格同一行 */}
+              {seriesOptions.length > 0 && (
+                <select
+                  value={filters.series}
+                  onChange={(e) => {
+                    setFilters({ ...filters, series: e.target.value })
+                    if (e.target.value) {
+                      setSearchParams({ ...Object.fromEntries(searchParams), series: e.target.value })
+                    } else {
+                      const params = new URLSearchParams(searchParams.toString())
+                      params.delete('series')
+                      setSearchParams(params)
+                    }
+                  }}
+                  className="px-4 py-2 rounded-full bg-stone-100 text-sm text-stone-700"
+                >
+                  <option value="">全部系列</option>
+                  {seriesOptions.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setFilterOpen(v => !v)}
+                className="px-4 py-2 rounded-full bg-stone-100 text-sm text-stone-700 hover:bg-stone-200"
+              >
+                +更多筛选
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 border border-gray-200 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded ${viewMode === 'grid' ? 'bg-primary-50 text-primary-600' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  <Grid className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded ${viewMode === 'list' ? 'bg-primary-50 text-primary-600' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  <List className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {filterOpen && (
+            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-stone-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">设计风格 STYLE</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {styleOptions.map((style) => (
+                      <button
+                        key={style.value}
+                        type="button"
+                        onClick={() => {
+                          setFilters({ ...filters, style: style.value })
+                          setSearchParams({ ...Object.fromEntries(searchParams), style: style.value })
+                        }}
+                        className={`px-3 py-2 rounded-full text-sm transition-colors ${
+                          filters.style === style.value
+                            ? 'bg-primary text-white font-medium'
+                            : 'bg-stone-50 hover:bg-stone-100 text-stone-600'
+                        }`}
+                      >
+                        {style.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">价格区间</h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">最低价</label>
+                        <input
+                          type="number"
+                          value={priceRangeInput[0]}
+                          onChange={(e) => {
+                            const value = Math.max(actualPriceRange[0], Math.min(Number(e.target.value), priceRangeInput[1] - 1))
+                            setPriceRangeInput([value, priceRangeInput[1]])
+                            setPriceRange([value, priceRangeInput[1]])
+                            setFilters({ ...filters, priceRange: `${value}-${priceRangeInput[1]}` })
+                          }}
+                          className="input text-sm w-full"
+                          min={actualPriceRange[0]}
+                          max={priceRangeInput[1] - 1}
+                          placeholder={`最低${actualPriceRange[0]}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">最高价</label>
+                        <input
+                          type="number"
+                          value={priceRangeInput[1]}
+                          onChange={(e) => {
+                            const value = Math.max(priceRangeInput[0] + 1, Math.min(Number(e.target.value), actualPriceRange[1]))
+                            setPriceRangeInput([priceRangeInput[0], value])
+                            setPriceRange([priceRangeInput[0], value])
+                            setFilters({ ...filters, priceRange: `${priceRangeInput[0]}-${value}` })
+                          }}
+                          className="input text-sm w-full"
+                          min={priceRangeInput[0] + 1}
+                          max={actualPriceRange[1]}
+                          placeholder={`最高${actualPriceRange[1]}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative h-2">
+                      <div className="absolute w-full h-2 bg-gray-200 rounded-lg"></div>
+                      <div
+                        className="absolute h-2 bg-primary-600 rounded-lg"
+                        style={{
+                          left: `${((priceRange[0] - actualPriceRange[0]) / (actualPriceRange[1] - actualPriceRange[0])) * 100}%`,
+                          width: `${((priceRange[1] - priceRange[0]) / (actualPriceRange[1] - actualPriceRange[0])) * 100}%`,
+                        }}
+                      ></div>
+                      <input
+                        type="range"
+                        min={actualPriceRange[0]}
+                        max={actualPriceRange[1]}
+                        step="1000"
+                        value={priceRange[0]}
+                        onChange={(e) => {
+                          const min = Number(e.target.value)
+                          const max = Math.max(min, priceRange[1])
+                          setPriceRange([min, max])
+                          setPriceRangeInput([min, max])
+                          setFilters({ ...filters, priceRange: `${min}-${max}` })
+                        }}
+                        className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider"
+                        style={{ zIndex: 2 }}
+                      />
+                      <input
+                        type="range"
+                        min={actualPriceRange[0]}
+                        max={actualPriceRange[1]}
+                        step="1000"
+                        value={priceRange[1]}
+                        onChange={(e) => {
+                          const max = Number(e.target.value)
+                          const min = Math.min(max, priceRange[0])
+                          setPriceRange([min, max])
+                          setPriceRangeInput([min, max])
+                          setFilters({ ...filters, priceRange: `${min}-${max}` })
+                        }}
+                        className="absolute w-full h-2 bg-transparent appearance-none cursor-pointer slider"
+                        style={{ zIndex: 2 }}
+                      />
+                    </div>
+
+                    <div className="text-center text-sm text-gray-600">
+                      {formatPriceSimplified(priceRange[0])} - {formatPriceSimplified(priceRange[1])}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-3">系列 SERIES</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {seriesOptions.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => {
+                          setFilters({ ...filters, series: s })
+                          setSearchParams({ ...Object.fromEntries(searchParams), series: s })
+                        }}
+                        className={`px-3 py-2 rounded-full text-sm transition-colors ${
+                          filters.series === s
+                            ? 'bg-primary text-white font-medium'
+                            : 'bg-stone-50 hover:bg-stone-100 text-stone-600'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilters({ category: filters.category, sub: filters.sub, style: '', priceRange: '', sort: 'recommend', series: '' })
+                    setPriceRange(actualPriceRange as [number, number])
+                    setPriceRangeInput(actualPriceRange as [number, number])
+                    const params = new URLSearchParams(searchParams.toString())
+                    params.delete('style')
+                    params.delete('priceRange')
+                    params.delete('sort')
+                    setSearchParams(params)
+                  }}
+                  className="btn-secondary"
+                >
+                  重置筛选
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 商品列表 - categoryMode布局 */}
+          <div className="mt-8">
+            {sortedProducts.length === 0 ? (
+              <div className="card py-16 text-center">
+                <p className="text-gray-500 text-lg">暂无商品</p>
+              </div>
+            ) : (
+              <>
+                <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-5' : 'space-y-3'}>
+                  {paginatedProducts.map((product, index) => (
+                    <motion.div
+                      key={product._id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className={viewMode === 'grid' ? 'card hover:shadow-lg transition-shadow' : 'bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow border border-stone-100'}
+                    >
+                      {(() => {
+                        const skus = Array.isArray((product as any).skus) ? (product as any).skus : []
+                        const displayPrice = getDisplayPrice(product as any)
+                        const firstSku = skus[0]
+                        return (
+                          <div
+                            onMouseEnter={() => setHoveredProductId(product._id)}
+                            onMouseLeave={() => {
+                              setHoveredProductId(null)
+                              setPreviewImageIndex(prev => {
+                                const newState = { ...prev }
+                                delete newState[product._id]
+                                return newState
+                              })
+                            }}
+                            className={viewMode === 'list' ? 'flex gap-4' : ''}
+                          >
+                            <Link to={`/products/${product._id}`} className={viewMode === 'list' ? 'flex gap-4 w-full' : ''}>
+                              {/* 商品图片 */}
+                              <div className={`relative overflow-hidden rounded-lg bg-gray-100 group ${viewMode === 'grid' ? 'aspect-square mb-4' : 'w-24 h-24 flex-shrink-0'}`}>
+                                <img
+                                  src={getThumbnailUrl(getProductPreviewImages(product)[previewImageIndex[product._id] || 0] || (product.images && product.images[0]) || '/placeholder.png', 280)}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                                
+                                {/* SKU预览小方块 */}
+                                {viewMode === 'grid' && getProductPreviewImages(product).length > 1 && (
+                                  <div className="absolute bottom-2 left-2 flex gap-1 z-10" onClick={(e) => e.preventDefault()}>
+                                    {getProductPreviewImages(product).slice(0, 4).map((img, idx) => (
+                                      <div
+                                        key={idx}
+                                        onMouseEnter={(e) => {
+                                          e.stopPropagation()
+                                          setPreviewImageIndex(prev => ({ ...prev, [product._id]: idx }))
+                                        }}
+                                        className={`w-8 h-8 rounded border-2 shadow-sm overflow-hidden bg-white cursor-pointer transition-all hover:scale-110 ${
+                                          previewImageIndex[product._id] === idx ? 'border-primary ring-1 ring-primary' : 'border-white hover:border-gray-300'
+                                        }`}
+                                      >
+                                        <img src={getThumbnailUrl(img, 40)} alt="" className="w-full h-full object-cover pointer-events-none" loading="lazy" decoding="async" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* 操作按钮 */}
+                                <div className={`absolute top-2 right-2 flex flex-col gap-2 transition-opacity duration-200 ${hoveredProductId === product._id ? 'opacity-100' : 'opacity-0'}`}>
+                                  <button
+                                    onClick={(e) => { e.preventDefault(); handleToggleFavorite(e, product) }}
+                                    className={`p-2 rounded-full shadow-md transition-colors ${favoriteStatuses[product._id] ? 'bg-red-500 text-white' : 'bg-white text-gray-600 hover:text-red-500'}`}
+                                  >
+                                    <Heart className={`h-4 w-4 ${favoriteStatuses[product._id] ? 'fill-current' : ''}`} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* 商品信息 */}
+                              <div className={viewMode === 'list' ? 'flex-1 min-w-0 flex items-center justify-between' : ''}>
+                                <div className={viewMode === 'list' ? 'flex-1 min-w-0' : ''}>
+                                  <h3 className={`font-semibold hover:text-primary-600 transition-colors line-clamp-1 ${viewMode === 'grid' ? 'text-lg mb-2' : 'text-sm'}`}>
+                                    {product.name}
+                                  </h3>
+                                  {(() => {
+                                    const series = String((product as any).series || (product as any).productSeries || '').trim()
+                                    if (!series) return null
+                                    return (
+                                      <div className={`text-xs text-gray-500 ${viewMode === 'grid' ? 'mb-2' : 'mt-1'}`}>
+                                        系列: {series}
+                                      </div>
+                                    )
+                                  })()}
+                                  {viewMode === 'grid' && firstSku && ((firstSku as any).length || (firstSku as any).width || (firstSku as any).height) && (
+                                    <div className="text-xs text-gray-500 mb-2">
+                                      尺寸: {(firstSku as any).length || '-'}×{(firstSku as any).width || '-'}×{(firstSku as any).height || '-'} CM
+                                    </div>
+                                  )}
+                                  {viewMode === 'list' && <div className="text-xs text-gray-400">{skus.length} 个规格</div>}
+                                </div>
+                                
+                                <div className={viewMode === 'list' ? 'text-right ml-4' : 'flex items-baseline gap-2 mb-2'}>
+                                  <span className={`font-bold text-red-600 ${viewMode === 'grid' ? 'text-2xl' : 'text-base'}`}>
+                                    {formatPrice(displayPrice)}
+                                  </span>
+                                  {skus.length > 1 && <span className="text-xs text-gray-500">起</span>}
+                                </div>
+                                
+                                {viewMode === 'grid' && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    {product.style && <span className="px-2 py-1 bg-primary-50 text-primary-600 rounded-full font-medium">{product.style}</span>}
+                                    <span className="text-gray-500 ml-auto">{skus.length} 个规格</span>
+                                  </div>
+                                )}
+                              </div>
+                            </Link>
+                          </div>
+                        )
+                      })()}
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* 分页控件 */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-2 mt-8">
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      上一页
+                    </button>
+                    <div className="flex gap-2">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`w-10 h-10 rounded-lg ${currentPage === page ? 'bg-primary-600 text-white' : 'border hover:bg-gray-50'}`}
+                            >
+                              {page}
+                            </button>
+                          )
+                        } else if (page === currentPage - 2 || page === currentPage + 2) {
+                          return <span key={page} className="w-10 h-10 flex items-center justify-center">...</span>
+                        }
+                        return null
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      下一页
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 深绿色头部 */}
+          <div className="bg-primary py-16 text-center">
+            <h1 className="text-4xl font-serif font-bold text-white mb-2">{pageTitle}</h1>
+            <p className="text-white/60 uppercase tracking-[0.3em] text-sm">
+              {searchKeyword ? `找到 ${filteredProducts.length} 个商品` : 'PRODUCT CATALOG 2024'}
+            </p>
+          </div>
+
+          <div className="max-w-[1800px] mx-auto px-4 lg:px-8 py-8">
+            <div className="flex gap-8">
+              {/* 侧边栏筛选 */}
+              <aside className="w-64 flex-shrink-0">
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 sticky top-24">
               <div className="flex items-center gap-2 mb-6">
                 <SlidersHorizontal className="w-5 h-5 text-primary" />
                 <h3 className="font-serif font-bold text-lg text-primary">目录筛选 Catalog</h3>
@@ -724,7 +1303,7 @@ export default function ProductsPage() {
               {/* 重置筛选 */}
               <button
                 onClick={() => {
-                  setFilters({ category: '', style: '', priceRange: '', sort: 'recommend' })
+                  setFilters({ category: '', sub: '', style: '', priceRange: '', sort: 'recommend', series: '' })
                   setPriceRange(actualPriceRange as [number, number])
                   setPriceRangeInput(actualPriceRange as [number, number])
                 }}
@@ -735,10 +1314,10 @@ export default function ProductsPage() {
             </div>
           </aside>
 
-          {/* 主内容区 */}
-          <main className="flex-1">
-            {/* 风格卡片 - 从真实数据动态生成 */}
-            {styleCards.length > 0 && (
+              {/* 主内容区 */}
+              <main className="flex-1">
+                {/* 风格卡片 - 从真实数据动态生成 */}
+                {styleCards.length > 0 && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {styleCards.map((stat, index) => {
                 const Icon = stat.icon
@@ -797,7 +1376,7 @@ export default function ProductsPage() {
                 </span>
                 
                 {/* 筛选条件提示 */}
-                {(filters.category || filters.style || searchKeyword) && (
+                {(filters.category || filters.sub || filters.style || searchKeyword) && (
                   <div className="flex items-center gap-2 flex-wrap">
                     {searchKeyword && (
                       <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs flex items-center gap-1">
@@ -813,11 +1392,23 @@ export default function ProductsPage() {
                       <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs flex items-center gap-1">
                         分类: {categories.find(c => c._id === filters.category || c.slug === filters.category || c.name === filters.category)?.name || filters.category}
                         <button onClick={() => {
-                          setFilters({ ...filters, category: '' })
+                          setFilters({ ...filters, category: '', sub: '' })
                           const params = new URLSearchParams(searchParams.toString())
                           params.delete('category')
+                          params.delete('sub')
                           setSearchParams(params)
                         }} className="hover:text-primary/80">×</button>
+                      </span>
+                    )}
+                    {filters.sub && (
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs flex items-center gap-1">
+                        细分: {subLabel || filters.sub}
+                        <button onClick={() => {
+                          setFilters({ ...filters, sub: '' })
+                          const params = new URLSearchParams(searchParams.toString())
+                          params.delete('sub')
+                          setSearchParams(params)
+                        }} className="hover:text-indigo-900">×</button>
                       </span>
                     )}
                     {filters.style && (
@@ -962,20 +1553,6 @@ export default function ProductsPage() {
                             >
                               <Heart className={`h-4 w-4 ${favoriteStatuses[product._id] ? 'fill-current' : ''}`} />
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                handleAddToCompare(e, product)
-                              }}
-                              className={`p-2 rounded-full shadow-md transition-colors ${
-                                firstSku && isInCompare(product._id, firstSku._id)
-                                  ? 'bg-blue-500 text-white'
-                                  : 'bg-white text-gray-600 hover:text-blue-500'
-                              }`}
-                            >
-                              <Scale className="h-4 w-4" />
-                            </button>
                           </div>
                         </div>
 
@@ -1074,12 +1651,15 @@ export default function ProductsPage() {
                     下一页
                   </button>
                 </div>
-              )}
-              </>
             )}
-          </main>
-        </div>
-      </div>
+          </>
+        )}
+      </main>
+    </div>
+  </div>
+        </>
+      )}
     </div>
   )
+
 }

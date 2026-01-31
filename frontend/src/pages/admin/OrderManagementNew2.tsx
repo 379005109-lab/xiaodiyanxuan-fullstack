@@ -107,6 +107,7 @@ export default function OrderManagementNew2() {
   const [commissionProductionDays, setCommissionProductionDays] = useState<string>('30') // 返佣模式生产周期
 
   const [materialMetaMap, setMaterialMetaMap] = useState<Record<string, { image?: string; description?: string }>>({})
+  const [invoiceExpanded, setInvoiceExpanded] = useState(false) // 开票信息展开状态
   
   // 统计数据
   const [stats, setStats] = useState({
@@ -354,21 +355,35 @@ export default function OrderManagementNew2() {
       const products: any[] = []
       order.packageInfo.selections?.forEach((selection: any) => {
         selection.products?.forEach((product: any) => {
-          const materials = product.selectedMaterials || product.materials || {}
+          const rawMaterials = product.selectedMaterials || product.materials || {}
           const upgradePrices = product.materialUpgradePrices || {}
+          
+          // 规范化材质数据，去重英文/中文键
+          const fabricVal = normalizeMaterialValue(rawMaterials.fabric ?? rawMaterials['面料'] ?? rawMaterials.material ?? rawMaterials['材质'])
+          const fillingVal = normalizeMaterialValue(rawMaterials.filling ?? rawMaterials['填充'] ?? rawMaterials.fill)
+          const frameVal = normalizeMaterialValue(rawMaterials.frame ?? rawMaterials['框架'])
+          const legVal = normalizeMaterialValue(rawMaterials.leg ?? rawMaterials['脚架'] ?? rawMaterials.legs)
+          
+          const normalizedMaterials: Record<string, string> = {}
+          if (fabricVal) normalizedMaterials['面料'] = fabricVal
+          if (fillingVal) normalizedMaterials['填充'] = fillingVal
+          if (frameVal) normalizedMaterials['框架'] = frameVal
+          if (legVal) normalizedMaterials['脚架'] = legVal
           
           products.push({
             name: product.productName,
             quantity: product.quantity,
             skuName: product.skuName,
+            skuDimensions: product.skuDimensions,
+            specifications: product.specifications,
             manufacturerId: product.manufacturerId,
             manufacturerName: product.manufacturerName,
-            materials: materials,
+            materials: normalizedMaterials,
             selectedMaterials: {
-              fabric: normalizeMaterialValue(materials.fabric ?? materials['面料']),
-              filling: normalizeMaterialValue(materials.filling ?? materials['填充']),
-              frame: normalizeMaterialValue(materials.frame ?? materials['框架']),
-              leg: normalizeMaterialValue(materials.leg ?? materials['脚架'])
+              fabric: fabricVal,
+              filling: fillingVal,
+              frame: frameVal,
+              leg: legVal
             },
             materialUpgradePrices: {
               fabric: upgradePrices.fabric || upgradePrices['面料'] || 0,
@@ -376,6 +391,7 @@ export default function OrderManagementNew2() {
               frame: upgradePrices.frame || upgradePrices['框架'] || 0,
               leg: upgradePrices.leg || upgradePrices['脚架'] || 0
             },
+            materialSnapshots: product.materialSnapshots,
             upgradePrice: product.upgradePrice || product.materialUpgrade || 0,
             image: product.image,
             category: selection.categoryName
@@ -384,29 +400,40 @@ export default function OrderManagementNew2() {
       })
       return products
     } else if (order.items) {
-      return order.items.map((item: any) => ({
-        sku: item.sku,
-        name: item.productName,
-        quantity: item.quantity,
-        manufacturerId: item.manufacturerId,
-        manufacturerName: item.manufacturerName,
-        materials: item.materials,
-        specifications: item.specifications,
-        selectedMaterials: (() => {
-          const base = getEffectiveSelectedMaterials(item)
-          return {
-            ...(base || {}),
-            fabric: normalizeMaterialValue(base?.fabric ?? base?.['面料'] ?? item.specifications?.material),
-            filling: normalizeMaterialValue(base?.filling ?? base?.['填充'] ?? item.specifications?.fill),
-            frame: normalizeMaterialValue(base?.frame ?? base?.['框架'] ?? item.specifications?.frame),
-            leg: normalizeMaterialValue(base?.leg ?? base?.['脚架'] ?? item.specifications?.leg)
-          }
-        })(),
-        skuDimensions: item.skuDimensions,
-        materialUpgradePrices: item.materialUpgradePrices,
-        materialSnapshots: item.materialSnapshots,
-        image: item.image || item.productImage
-      }))
+      return order.items.map((item: any) => {
+        // 规范化材质数据，去重英文/中文键
+        const base = getEffectiveSelectedMaterials(item)
+        const fabricVal = normalizeMaterialValue(base?.fabric ?? base?.['面料'] ?? item.specifications?.material ?? item.specifications?.['材质'])
+        const fillingVal = normalizeMaterialValue(base?.filling ?? base?.['填充'] ?? item.specifications?.fill)
+        const frameVal = normalizeMaterialValue(base?.frame ?? base?.['框架'] ?? item.specifications?.frame)
+        const legVal = normalizeMaterialValue(base?.leg ?? base?.['脚架'] ?? item.specifications?.leg ?? item.specifications?.legs)
+        
+        const normalizedMaterials: Record<string, string> = {}
+        if (fabricVal) normalizedMaterials['面料'] = fabricVal
+        if (fillingVal) normalizedMaterials['填充'] = fillingVal
+        if (frameVal) normalizedMaterials['框架'] = frameVal
+        if (legVal) normalizedMaterials['脚架'] = legVal
+        
+        return {
+          sku: item.sku,
+          name: item.productName,
+          quantity: item.quantity,
+          manufacturerId: item.manufacturerId,
+          manufacturerName: item.manufacturerName,
+          materials: normalizedMaterials,
+          specifications: item.specifications,
+          selectedMaterials: {
+            fabric: fabricVal,
+            filling: fillingVal,
+            frame: frameVal,
+            leg: legVal
+          },
+          skuDimensions: item.skuDimensions,
+          materialUpgradePrices: item.materialUpgradePrices,
+          materialSnapshots: item.materialSnapshots,
+          image: item.image || item.productImage
+        }
+      })
     }
     return []
   }
@@ -922,38 +949,74 @@ export default function OrderManagementNew2() {
       return
     }
     
-    const exportData = filteredOrders.map(order => {
+    // 创建详细的订单数据，每个商品一行
+    const exportData: any[] = []
+    
+    filteredOrders.forEach(order => {
       const products = getProducts(order)
       const status = statusConfig[order.status] || statusConfig[1]
+      const customerInfo = (order as any).customerInfo || {}
+      const shippingAddress = (order as any).shippingAddress || {}
       
-      return {
-        '订单号': order.orderNo,
-        '创建时间': new Date(order.createdAt).toLocaleString('zh-CN'),
-        '商品信息': products.map((p: any) => `${p.name}x${p.quantity}`).join('; '),
-        '订单状态': status.label,
-        '商家备注': (order as any).adminNote || '',
-        '物流公司': (order as any).shippingCompany || '',
-        '物流单号': (order as any).trackingNumber || '',
-      }
+      products.forEach((p: any, idx: number) => {
+        // 获取材质信息
+        const materials = p.selectedMaterials || p.materials || {}
+        const specs = p.specifications || {}
+        const fabricVal = materials.fabric || materials['面料'] || ''
+        const fillingVal = materials.filling || materials['填充'] || ''
+        const frameVal = materials.frame || materials['框架'] || ''
+        const legVal = materials.leg || materials['脚架'] || ''
+        const sizeVal = p.skuName || p.skuDimensions || specs.size || specs['尺寸'] || ''
+        
+        exportData.push({
+          '订单号': order.orderNo,
+          '创建时间': new Date(order.createdAt).toLocaleString('zh-CN'),
+          '订单状态': status.label,
+          '客户姓名': customerInfo.name || shippingAddress.name || '',
+          '联系电话': customerInfo.phone || shippingAddress.phone || '',
+          '收货地址': [shippingAddress.province, shippingAddress.city, shippingAddress.district, shippingAddress.address].filter(Boolean).join(''),
+          '商品名称': p.name || '',
+          '数量': p.quantity || 1,
+          '尺寸/规格': sizeVal,
+          '面料': fabricVal,
+          '填充': fillingVal,
+          '框架': frameVal,
+          '脚架': legVal,
+          '厂家': p.manufacturerName || '',
+          '商家备注': idx === 0 ? ((order as any).adminNote || '') : '',
+          '物流公司': idx === 0 ? ((order as any).shippingCompany || '') : '',
+          '物流单号': idx === 0 ? ((order as any).trackingNumber || '') : '',
+        })
+      })
     })
     
     const ws = XLSX.utils.json_to_sheet(exportData)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, '订单列表')
+    XLSX.utils.book_append_sheet(wb, ws, '订单明细')
     
     // 设置列宽
     ws['!cols'] = [
-      { wch: 20 }, // 订单号
-      { wch: 20 }, // 创建时间
-      { wch: 40 }, // 商品信息
+      { wch: 22 }, // 订单号
+      { wch: 18 }, // 创建时间
       { wch: 10 }, // 订单状态
-      { wch: 30 }, // 商家备注
-      { wch: 15 }, // 物流公司
-      { wch: 20 }, // 物流单号
+      { wch: 12 }, // 客户姓名
+      { wch: 14 }, // 联系电话
+      { wch: 40 }, // 收货地址
+      { wch: 20 }, // 商品名称
+      { wch: 6 },  // 数量
+      { wch: 18 }, // 尺寸/规格
+      { wch: 25 }, // 面料
+      { wch: 15 }, // 填充
+      { wch: 15 }, // 框架
+      { wch: 15 }, // 脚架
+      { wch: 12 }, // 厂家
+      { wch: 25 }, // 商家备注
+      { wch: 12 }, // 物流公司
+      { wch: 18 }, // 物流单号
     ]
     
-    XLSX.writeFile(wb, `订单导出_${new Date().toLocaleDateString('zh-CN')}.xlsx`)
-    toast.success(`已导出 ${filteredOrders.length} 条订单`)
+    XLSX.writeFile(wb, `订单明细导出_${new Date().toLocaleDateString('zh-CN')}.xlsx`)
+    toast.success(`已导出 ${filteredOrders.length} 条订单，共 ${exportData.length} 条商品记录`)
   }
 
   // 导出订单清单图片（包含商品图片、规格、材质、数量等）
@@ -986,62 +1049,130 @@ export default function OrderManagementNew2() {
       const specs = p.specifications || p.specs || {}
       const selectedMaterials = p.selectedMaterials || p.materials || {}
       const merged: Record<string, any> = { ...specs, ...selectedMaterials }
-
-      const keyMap: Record<string, string> = {
-        'size': '尺寸',
-        'spec': '规格',
-        'material': '材质',
-        'fabric': '面料',
-        'filling': '填充',
-        'fill': '填充',
-        'frame': '框架',
-        'color': '颜色',
-        'style': '风格',
-        'leg': '脚架',
-        'legs': '脚架',
-        'armrest': '扶手',
-        'cushion': '坐垫',
-        'back': '靠背',
-        'width': '宽度',
-        'height': '高度',
-        'depth': '深度',
-        'length': '长度',
-        'seat': '座位',
-        'base': '底座',
-        'cover': '套面',
-        'inner': '内胆',
-        'support': '支撑',
-        'spring': '弹簧',
-        'foam': '海绵',
-        'wood': '木材',
-        'metal': '金属',
+      
+      // 确保尺寸信息被包含 - 优先使用实际尺寸数据
+      let sizeValue = ''
+      let hasActualDimensions = false
+      // 优先从 skuDimensions 获取实际尺寸（长×宽×高）
+      if (p.skuDimensions && (p.skuDimensions.length || p.skuDimensions.width || p.skuDimensions.height)) {
+        const l = p.skuDimensions.length || '-'
+        const w = p.skuDimensions.width || '-'
+        const h = p.skuDimensions.height || '-'
+        sizeValue = `${l}×${w}×${h} CM`
+        hasActualDimensions = true
+      } else if (specs.dimensions) {
+        sizeValue = specs.dimensions
+        hasActualDimensions = true
+      } else if (specs['尺寸'] && specs['尺寸'] !== '常规') {
+        sizeValue = specs['尺寸']
+      } else if (specs.size && specs.size !== '常规') {
+        sizeValue = specs.size
+      } else if (p.skuName && p.skuName !== '常规') {
+        sizeValue = p.skuName
+      }
+      // 如果有实际尺寸，强制覆盖
+      if (sizeValue) {
+        if (hasActualDimensions) {
+          merged['尺寸'] = sizeValue
+          delete merged['size']
+        } else if (!merged['尺寸'] && !merged['size']) {
+          merged['尺寸'] = sizeValue
+        }
       }
 
-      const lines = Object.entries(merged)
-        .map(([k, v]) => {
-          const text = normalizeMaterialValue(v)
-          return [k, text] as const
-        })
-        .filter(([, text]) => text !== '')
-        .map(([k, text]) => {
-          const displayKey = keyMap[String(k).toLowerCase()] || k
+      // 需要排除的键名（说明、描述等长文本）
+      const excludeKeys = new Set(['说明', 'description', 'desc', 'note', 'notes', '备注', 'remark', 'remarks'])
+
+      // 定义英文-中文键名映射，用于去重
+      const keyAliases: Record<string, string> = {
+        'fabric': '面料', '面料': '面料', 'material': '面料', '材质': '面料',
+        'filling': '填充', 'fill': '填充', '填充': '填充',
+        'frame': '框架', '框架': '框架',
+        'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
+        'color': '颜色', '颜色': '颜色',
+        'size': '尺寸', '尺寸': '尺寸', 'dimensions': '尺寸',
+        'spec': '规格', '规格': '规格',
+      }
+
+      // 规范化材质值，去除前缀如 "面料-", "fabric-" 等
+      const normalizeValueForDedup = (val: string) => {
+        return val.replace(/^(面料|fabric|材质|material|填充|filling|框架|frame|脚架|leg)[-:：]*/i, '').trim()
+      }
+
+      // 去重：合并英文和中文键，只保留一个值
+      const deduped: Record<string, string> = {}
+      const seenValues = new Set<string>() // 按规范化后的值去重
+      
+      for (const [k, v] of Object.entries(merged)) {
+        if (v === undefined || v === null || v === '') continue
+        const lowerKey = String(k).toLowerCase()
+        // 排除说明/描述等长文本
+        if (excludeKeys.has(lowerKey) || excludeKeys.has(k)) continue
+        
+        const normalizedKey = keyAliases[lowerKey] || keyAliases[k] || k
+        const valueStr = normalizeMaterialValue(v)
+        if (!valueStr) continue
+        
+        // 规范化值用于去重比较
+        const normalizedValue = normalizeValueForDedup(valueStr)
+        
+        // 跳过已经出现过的值（按规范化后的值去重）
+        if (seenValues.has(normalizedValue)) continue
+        
+        // 如果该规范化键名还没有值，则使用规范化后的值显示
+        if (!deduped[normalizedKey]) {
+          deduped[normalizedKey] = normalizedValue || valueStr
+          seenValues.add(normalizedValue)
+        }
+      }
+
+      const lines = Object.entries(deduped)
+        .map(([displayKey, text]) => {
           return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
 
+      // 已经在 deduped 中显示过的类别，不再从 snapshots 重复显示
+      const displayedCategories = new Set(Object.keys(deduped))
+      // 已经在 deduped 中显示过的值，不再从 snapshots 重复显示
+      const displayedValues = new Set(Object.values(deduped))
+
       const snaps = (p.materialSnapshots || []) as any[]
+      const keyAliasesSnap: Record<string, string> = {
+        'fabric': '面料', '面料': '面料', 'material': '面料', '材质': '面料',
+        'filling': '填充', 'fill': '填充', '填充': '填充',
+        'frame': '框架', '框架': '框架',
+        'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
+      }
       const snapHtml = snaps.length
         ? (() => {
+            // 对 snapshots 也进行去重，按 categoryKey 分组只显示一次
             const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
-              const key = String(s?.categoryKey || '材质')
+              const key = keyAliasesSnap[String(s?.categoryKey || '').toLowerCase()] || keyAliasesSnap[s?.categoryKey] || String(s?.categoryKey || '材质')
+              // 如果该类别已经在 deduped 中显示过，跳过
+              if (displayedCategories.has(key)) return acc
               if (!acc[key]) acc[key] = []
               acc[key].push(s)
               return acc
             }, {})
             return Object.entries(groups)
               .map(([categoryKey, list]) => {
-                const names = (list as any[]).map(s => s?.name).filter(Boolean).join('、')
-                const desc = (list as any[]).find(s => s?.description)?.description
-                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>${desc ? `<div style=\"margin-top: 4px; color: #6b7280;\">说明：${desc}</div>` : ''}`
+                // 对每个分组内的材质名称去重（去除前缀后比较）
+                const seenNormalizedNames = new Set<string>()
+                const uniqueNames: string[] = []
+                for (const s of (list as any[])) {
+                  const rawName = String(s?.name || '')
+                  if (!rawName) continue
+                  const normalizedName = normalizeValueForDedup(rawName)
+                  // 如果该值已经在 deduped 中显示过，跳过
+                  if (displayedValues.has(normalizedName)) continue
+                  if (!seenNormalizedNames.has(normalizedName)) {
+                    seenNormalizedNames.add(normalizedName)
+                    uniqueNames.push(normalizedName || rawName)
+                  }
+                }
+                if (uniqueNames.length === 0) return ''
+                const names = uniqueNames.join('、')
+                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>`
               })
               .join('')
           })()
@@ -1185,39 +1316,124 @@ export default function OrderManagementNew2() {
       const specs = p.specifications || p.specs || {}
       const selectedMaterials = p.selectedMaterials || p.materials || {}
       const merged: Record<string, any> = { ...specs, ...selectedMaterials }
-
-      const keyMap: Record<string, string> = {
-        'size': '尺寸', 'spec': '规格', 'material': '材质', 'fabric': '面料',
-        'filling': '填充', 'fill': '填充', 'frame': '框架', 'color': '颜色',
-        'style': '风格', 'leg': '脚架', 'legs': '脚架', 'armrest': '扶手',
-        'cushion': '坐垫', 'back': '靠背',
+      
+      // 确保尺寸信息被包含 - 优先使用实际尺寸数据
+      let sizeValue = ''
+      let hasActualDimensions = false
+      // 优先从 skuDimensions 获取实际尺寸（长×宽×高）
+      if (p.skuDimensions && (p.skuDimensions.length || p.skuDimensions.width || p.skuDimensions.height)) {
+        const l = p.skuDimensions.length || '-'
+        const w = p.skuDimensions.width || '-'
+        const h = p.skuDimensions.height || '-'
+        sizeValue = `${l}×${w}×${h} CM`
+        hasActualDimensions = true
+      } else if (specs.dimensions) {
+        sizeValue = specs.dimensions
+        hasActualDimensions = true
+      } else if (specs['尺寸'] && specs['尺寸'] !== '常规') {
+        sizeValue = specs['尺寸']
+      } else if (specs.size && specs.size !== '常规') {
+        sizeValue = specs.size
+      } else if (p.skuName && p.skuName !== '常规') {
+        sizeValue = p.skuName
+      }
+      // 如果有实际尺寸，强制覆盖
+      if (sizeValue) {
+        if (hasActualDimensions) {
+          merged['尺寸'] = sizeValue
+          delete merged['size']
+        } else if (!merged['尺寸'] && !merged['size']) {
+          merged['尺寸'] = sizeValue
+        }
       }
 
-      const lines = Object.entries(merged)
-        .map(([k, v]) => {
-          const text = normalizeMaterialValue(v)
-          return [k, text] as const
-        })
-        .filter(([, text]) => text !== '')
-        .map(([k, text]) => {
-          const displayKey = keyMap[String(k).toLowerCase()] || k
+      // 需要排除的键名（说明、描述等长文本）
+      const excludeKeys = new Set(['说明', 'description', 'desc', 'note', 'notes', '备注', 'remark', 'remarks'])
+
+      // 定义英文-中文键名映射，用于去重
+      const keyAliases: Record<string, string> = {
+        'fabric': '面料', '面料': '面料', 'material': '面料', '材质': '面料',
+        'filling': '填充', 'fill': '填充', '填充': '填充',
+        'frame': '框架', '框架': '框架',
+        'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
+        'color': '颜色', '颜色': '颜色',
+        'size': '尺寸', '尺寸': '尺寸', 'dimensions': '尺寸',
+        'spec': '规格', '规格': '规格',
+      }
+
+      // 规范化材质值，去除前缀如 "面料-", "fabric-" 等
+      const normalizeValueForDedup = (val: string) => {
+        return val.replace(/^(面料|fabric|材质|material|填充|filling|框架|frame|脚架|leg)[-:：]*/i, '').trim()
+      }
+
+      // 去重：合并英文和中文键，只保留一个值
+      const deduped: Record<string, string> = {}
+      const seenValues = new Set<string>() // 按规范化后的值去重
+      
+      for (const [k, v] of Object.entries(merged)) {
+        if (v === undefined || v === null || v === '') continue
+        const lowerKey = String(k).toLowerCase()
+        // 排除说明/描述等长文本
+        if (excludeKeys.has(lowerKey) || excludeKeys.has(k)) continue
+        
+        const normalizedKey = keyAliases[lowerKey] || keyAliases[k] || k
+        const valueStr = normalizeMaterialValue(v)
+        if (!valueStr) continue
+        
+        // 规范化值用于去重比较
+        const normalizedValue = normalizeValueForDedup(valueStr)
+        
+        // 跳过已经出现过的值（按规范化后的值去重）
+        if (seenValues.has(normalizedValue)) continue
+        
+        // 如果该规范化键名还没有值，则使用规范化后的值显示
+        if (!deduped[normalizedKey]) {
+          deduped[normalizedKey] = normalizedValue || valueStr
+          seenValues.add(normalizedValue)
+        }
+      }
+
+      const lines = Object.entries(deduped)
+        .map(([displayKey, text]) => {
           return `<div style="margin-bottom: 4px;"><span style="color: #6b7280;">${displayKey}：</span>${text}</div>`
         })
+
+      // 已经在 deduped 中显示过的类别，不再从 snapshots 重复显示
+      const displayedCategories = new Set(Object.keys(deduped))
+      // 已经在 deduped 中显示过的值，不再从 snapshots 重复显示
+      const displayedValues = new Set(Object.values(deduped))
 
       const snaps = (p.materialSnapshots || []) as any[]
       const snapHtml = snaps.length
         ? (() => {
+            // 对 snapshots 也进行去重，按 categoryKey 分组只显示一次
             const groups = snaps.reduce((acc: Record<string, any[]>, s: any) => {
-              const key = String(s?.categoryKey || '材质')
+              const key = keyAliases[String(s?.categoryKey || '').toLowerCase()] || keyAliases[s?.categoryKey] || String(s?.categoryKey || '材质')
+              // 如果该类别已经在 deduped 中显示过，跳过
+              if (displayedCategories.has(key)) return acc
               if (!acc[key]) acc[key] = []
               acc[key].push(s)
               return acc
             }, {})
             return Object.entries(groups)
               .map(([categoryKey, list]) => {
-                const names = (list as any[]).map(s => s?.name).filter(Boolean).join('、')
-                const desc = (list as any[]).find(s => s?.description)?.description
-                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>${desc ? `<div style=\"margin-top: 4px; color: #6b7280;\">说明：${desc}</div>` : ''}`
+                // 对每个分组内的材质名称去重（去除前缀后比较）
+                const seenNormalizedNames = new Set<string>()
+                const uniqueNames: string[] = []
+                for (const s of (list as any[])) {
+                  const rawName = String(s?.name || '')
+                  if (!rawName) continue
+                  const normalizedName = normalizeValueForDedup(rawName)
+                  // 如果该值已经在 deduped 中显示过，跳过
+                  if (displayedValues.has(normalizedName)) continue
+                  if (!seenNormalizedNames.has(normalizedName)) {
+                    seenNormalizedNames.add(normalizedName)
+                    uniqueNames.push(normalizedName || rawName)
+                  }
+                }
+                if (uniqueNames.length === 0) return ''
+                const names = uniqueNames.join('、')
+                return `<div style="margin-top: 6px;"><span style="color: #6b7280;">${categoryKey}：</span>${names || '-'}</div>`
               })
               .join('')
           })()
@@ -2381,16 +2597,21 @@ export default function OrderManagementNew2() {
           {/* 开票信息 */}
           {(selectedOrder as any).needInvoice && (
             <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
+              <div 
+                className="flex items-center justify-between mb-4 cursor-pointer"
+                onClick={() => setInvoiceExpanded(!invoiceExpanded)}
+              >
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-amber-600" />
                   <h2 className="font-semibold text-gray-800">开票信息</h2>
+                  <span className="text-xs text-gray-500">{invoiceExpanded ? '▲ 收起' : '▼ 展开'}</span>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${(invoiceStatusConfig as any)[(selectedOrder as any).invoiceStatus || 'pending']?.color || 'bg-amber-100 text-amber-700'}`}>
                   {(invoiceStatusConfig as any)[(selectedOrder as any).invoiceStatus || 'pending']?.label || '待开票'}
                 </span>
               </div>
 
+              {/* 基本信息 - 始终显示 */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">发票类型</span>
@@ -2401,31 +2622,47 @@ export default function OrderManagementNew2() {
                   <span className="font-medium">{(selectedOrder as any).invoiceInfo?.title || '-'}</span>
                 </div>
 
-                {(selectedOrder as any).invoiceInfo?.taxNumber && (
+                <div className="col-span-2 flex items-center justify-between">
+                  <span className="text-gray-500">税号</span>
+                  <span className="font-medium">{(selectedOrder as any).invoiceInfo?.taxNumber || '-'}</span>
+                </div>
+              </div>
+
+              {/* 详细信息 - 展开时显示 */}
+              {invoiceExpanded && (
+                <div className="grid grid-cols-2 gap-4 text-sm mt-4 pt-4 border-t border-gray-100">
                   <div className="col-span-2 flex items-center justify-between">
-                    <span className="text-gray-500">税号</span>
-                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.taxNumber}</span>
+                    <span className="text-gray-500">开户银行</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.bankName || '-'}</span>
                   </div>
-                )}
-                {(selectedOrder as any).invoiceInfo?.email && (
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">银行账号</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.bankAccount || '-'}</span>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">企业地址</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.companyAddress || (selectedOrder as any).invoiceInfo?.address || '-'}</span>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-gray-500">企业电话</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.companyPhone || (selectedOrder as any).invoiceInfo?.phone || '-'}</span>
+                  </div>
                   <div className="col-span-2 flex items-center justify-between">
                     <span className="text-gray-500">收票邮箱</span>
-                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.email}</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.email || '-'}</span>
                   </div>
-                )}
-                {(selectedOrder as any).invoiceInfo?.phone && (
                   <div className="col-span-2 flex items-center justify-between">
                     <span className="text-gray-500">收票手机</span>
-                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.phone}</span>
+                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.phone || '-'}</span>
                   </div>
-                )}
-                {(selectedOrder as any).invoiceInfo?.mailingAddress && (
-                  <div className="col-span-2 flex items-center justify-between">
-                    <span className="text-gray-500">邮寄地址</span>
-                    <span className="font-medium">{(selectedOrder as any).invoiceInfo?.mailingAddress}</span>
-                  </div>
-                )}
-              </div>
+                  {(selectedOrder as any).invoiceInfo?.mailingAddress && (
+                    <div className="col-span-2 flex items-center justify-between">
+                      <span className="text-gray-500">邮寄地址</span>
+                      <span className="font-medium">{(selectedOrder as any).invoiceInfo?.mailingAddress}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="mt-4 flex items-center gap-3">
                 <span className="text-sm text-gray-600">发票状态</span>
@@ -2520,8 +2757,29 @@ export default function OrderManagementNew2() {
                           }
                         })
                     })
-                const snapshotGroups = snapshots.reduce((acc: Record<string, any[]>, s: any) => {
-                  const key = String(s?.categoryKey || '材质')
+                // 规范化 categoryKey，去重英文/中文键
+                const categoryKeyAliases: Record<string, string> = {
+                  'fabric': '面料', '面料': '面料', 'material': '面料', '材质': '面料',
+                  'filling': '填充', 'fill': '填充', '填充': '填充',
+                  'frame': '框架', '框架': '框架',
+                  'leg': '脚架', 'legs': '脚架', '脚架': '脚架',
+                }
+                // 先按 name 去重，相同 name 的只保留一个（去除前缀如 "面料-", "fabric-" 等）
+                const seenNames = new Set<string>()
+                const normalizeName = (name: string) => {
+                  // 去除常见前缀
+                  return name.replace(/^(面料|fabric|材质|material|填充|filling|框架|frame|脚架|leg)[-:：]*/i, '').trim()
+                }
+                const dedupedSnapshots = snapshots.filter((s: any) => {
+                  const rawName = String(s?.name || '')
+                  const normalizedName = normalizeName(rawName)
+                  if (!normalizedName || seenNames.has(normalizedName)) return false
+                  seenNames.add(normalizedName)
+                  return true
+                })
+                const snapshotGroups = dedupedSnapshots.reduce((acc: Record<string, any[]>, s: any) => {
+                  const rawKey = String(s?.categoryKey || '材质')
+                  const key = categoryKeyAliases[rawKey.toLowerCase()] || categoryKeyAliases[rawKey] || rawKey
                   if (!acc[key]) acc[key] = []
                   acc[key].push(s)
                   return acc
@@ -2568,6 +2826,10 @@ export default function OrderManagementNew2() {
                       <p className="text-sm text-gray-500 mt-1">
                         {product.skuName || '标准款'} / {product.specifications?.color || '默认'}
                       </p>
+                      {/* 商品描述 */}
+                      {product.description && (
+                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">{product.description}</p>
+                      )}
                       
                       {/* 标签区域 */}
                       <div className="flex flex-wrap gap-2 mt-3">
@@ -2610,7 +2872,17 @@ export default function OrderManagementNew2() {
                         <div className="mt-3 space-y-2">
                           {Object.entries(snapshotGroups).map(([categoryKey, list]) => {
                             const snaps = (list as any[]) || []
-                            const names = snaps.map(s => s?.name).filter(Boolean)
+                            // 规范化名称显示，去除前缀，并去重
+                            const seenDisplayNames = new Set<string>()
+                            const names: string[] = []
+                            for (const s of snaps) {
+                              const rawName = String(s?.name || '')
+                              const normalized = normalizeName(rawName) || rawName
+                              if (normalized && !seenDisplayNames.has(normalized)) {
+                                seenDisplayNames.add(normalized)
+                                names.push(normalized)
+                              }
+                            }
                             const desc = snaps.find(s => s?.description)?.description
                             const upgradePrice =
                               (product.materialUpgradePrices?.[categoryKey] ??
@@ -2641,7 +2913,7 @@ export default function OrderManagementNew2() {
                                     )
                                   ))}
                                   <div className="text-xs text-gray-700 truncate">
-                                    {names.length ? `${categoryKey}-${names.join('、')}` : categoryKey}
+                                    {names.length ? names.join('、') : categoryKey}
                                   </div>
                                 </div>
 

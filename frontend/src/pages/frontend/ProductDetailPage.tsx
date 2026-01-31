@@ -6,11 +6,10 @@ import { recordBrowse } from '@/services/browseHistoryService';
 import { Product, ProductSKU, ProductFile } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { useFavoriteStore } from '@/store/favoriteStore';
-import { useCompareStore } from '@/store/compareStore';
 import { useAuthStore } from '@/store/authStore';
 import { useAuthModalStore } from '@/store/authModalStore';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, ChevronDown, Share2, Heart, Minus, Plus, FileText, Video, AlertCircle, X, Maximize2, Download, Check, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Share2, Heart, Minus, Plus, FileText, Video, AlertCircle, X, Maximize2, Download, Check, Info, Play } from 'lucide-react';
 import { cn, formatPrice } from '@/lib/utils';
 import { getFileUrl, getThumbnailUrl } from '@/services/uploadService';
 
@@ -42,6 +41,39 @@ const getMaterialCategoryConfig = (key: string) => {
     badgeClass: 'bg-gray-50 text-gray-700 border-gray-100',
     swatchStyle: 'from-gray-50 via-gray-100 to-gray-200',
   };
+};
+
+const pickMediaId = (v: any): string => {
+  if (!v) return '';
+  if (typeof v === 'string' || typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return pickMediaId(v[0]);
+  if (typeof v === 'object') {
+    return String(
+      (v as any).fileId ||
+        (v as any).id ||
+        (v as any)._id ||
+        (v as any).url ||
+        (v as any).path ||
+        (v as any).image ||
+        (v as any).thumbnail ||
+        ''
+    );
+  }
+  return '';
+};
+
+const normalizeFileId = (v: any): string => {
+  const raw = pickMediaId(v);
+  if (!raw) return '';
+  // 兼容完整URL / API路径
+  // - /api/files/:id?...
+  // - http(s)://.../api/files/:id?...
+  // - http(s)://.../files/:id?...
+  const cleaned = raw.split('?')[0];
+  const m = cleaned.match(/\/api\/files\/([^/]+)$/) || cleaned.match(/\/files\/([^/]+)$/);
+  const id = (m && m[1]) ? m[1] : raw;
+  // 兼容历史数据：可能出现 6976...ab5.mp4.mp4.mp4 这种重复后缀
+  return String(id).replace(/(\.(mp4|webm|ogg|mov))+$/i, '');
 };
 
 const SKU_FILTERS: { key: SkuFilter; label: string }[] = [
@@ -147,7 +179,7 @@ const getMaterialUpgradePrice = (materialName: string, upgradePrices?: Record<st
   return 0;
 };
 
-const isVideoFile = (url: string) => /\.(mp4|webm|ogg)$/i.test(url);
+const isVideoFileByExtension = (url: string) => /\.(mp4|webm|ogg)$/i.test(url);
 
 const buildVideoEmbedUrl = (url: string) => {
   try {
@@ -364,7 +396,6 @@ const ProductDetailPage = () => {
   const [expandedMaterialCategory, setExpandedMaterialCategory] = useState<string | null>(null);
   const [previewMaterialImage, setPreviewMaterialImage] = useState<string | null>(null);
   const [materialInfoModal, setMaterialInfoModal] = useState<{ open: boolean; section?: string; material?: string }>({ open: false });
-  const [isAllImageModalOpen, setAllImageModalOpen] = useState(false);
   const [thumbPage, setThumbPage] = useState(0);
   const [thumbsPerPage, setThumbsPerPage] = useState(4);
   const [selectedDownloadImages, setSelectedDownloadImages] = useState<string[]>([]);
@@ -374,7 +405,6 @@ const ProductDetailPage = () => {
 
   const { addItem } = useCartStore();
   const { favorites, toggleFavorite, loadFavorites } = useFavoriteStore();
-  const { compareItems, addToCompare, loadCompareItems } = useCompareStore();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
@@ -387,8 +417,7 @@ const ProductDetailPage = () => {
     if (isAuthenticated) {
       loadFavorites();
     }
-    loadCompareItems();
-  }, [isAuthenticated, loadFavorites, loadCompareItems]);
+  }, [isAuthenticated, loadFavorites]);
 
   // 材质图片加载函数（按需调用）
   const loadMaterialImagesIfNeeded = async () => {
@@ -482,11 +511,46 @@ const ProductDetailPage = () => {
     return configs;
   }, [product]);
 
+  // 获取所有视频ID用于视频检测
+  const videoIds = useMemo(() => {
+    const allVideoIds = new Set<string>();
+    if (!product) return allVideoIds;
+    const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : [];
+    skus.forEach((sku: any) => {
+      (sku.videos || []).forEach((v: string) => v && allVideoIds.add(v));
+    });
+    // 也添加产品级别的视频
+    const productVideos = (product as any).videos || (product as any).videoUrls || [];
+    (Array.isArray(productVideos) ? productVideos : [productVideos]).forEach((v: string) => v && allVideoIds.add(v));
+    return allVideoIds;
+  }, [product]);
+
+  // 检查文件ID是否为视频
+  const isVideoFile = (fileId: string): boolean => {
+    if (!fileId) return false;
+    if (videoIds.has(fileId)) return true;
+    return isVideoFileByExtension(fileId);
+  };
+
   // 其他材质（固定文字）
   const otherMaterialsText = useMemo(() => {
     if (!product) return '';
     return (product as any).otherMaterialsText || '';
   }, [product]);
+
+  const selectedMaterialDescriptionText = useMemo(() => {
+    if (!product || !selectedSku) return '';
+    // 优先显示当前选项的实时文本，而非 SKU 存储的历史数据
+    const options = ((product as any).materialDescriptionOptions || []) as Array<{ id: string; text: string }>;
+    const idRaw = (selectedSku as any).materialDescriptionId as string | undefined;
+    const id = idRaw || (options.length === 1 ? options[0]?.id : '');
+    if (id) {
+      const hit = options.find(o => o.id === id);
+      if (hit?.text) return hit.text;
+    }
+    // 仅当没有匹配的选项时才回退到 SKU 的历史数据
+    return String((selectedSku as any).otherMaterials || '').trim();
+  }, [product, selectedSku]);
 
   // 当前选中的材质配置ID
   const [selectedMaterialConfigId, setSelectedMaterialConfigId] = useState<string | null>(null);
@@ -496,9 +560,6 @@ const ProductDetailPage = () => {
   const [selectedMaterialCategory, setSelectedMaterialCategory] = useState<string>('');
   const [selectedCategoryConfigs, setSelectedCategoryConfigs] = useState<typeof materialConfigs>([]);
   
-  // 全部图片弹窗
-  const [showAllImagesModal, setShowAllImagesModal] = useState(false);
-  const [selectedAllImages, setSelectedAllImages] = useState<string[]>([]);
 
   // 获取选中的材质配置
   const selectedMaterialConfig = useMemo(() => {
@@ -508,6 +569,14 @@ const ProductDetailPage = () => {
     }
     return materialConfigs[0] || null;
   }, [materialConfigs, selectedMaterialConfigId]);
+
+  const resolveMaterialConfigIdForSku = (sku: any): string | null => {
+    if (!sku) return null;
+    const skuKey = String((sku as any).fabricMaterialId || '');
+    if (!skuKey) return null;
+    const match = materialConfigs.find(c => String(c.id) === skuKey || String((c as any).fabricId) === skuKey);
+    return match ? String(match.id) : null;
+  };
 
 
   // 获取选中的材质分组
@@ -528,24 +597,33 @@ const ProductDetailPage = () => {
 
   const defaultGalleryImages = useMemo(() => {
     if (!product) return [];
-    
-    // 优先使用选中的材质配置的图片
+
+    // 选择材质后，优先使用当前选中 SKU 的整组多媒体
+    if (selectedSku) {
+      const skuVideos = (((selectedSku as any).videos || []) as string[]).filter(Boolean);
+      const skuImages = (selectedSku.images || []).filter(Boolean);
+      const combined = [...skuVideos, ...skuImages].filter(Boolean);
+      if (combined.length > 0) return combined;
+    }
+
+    // 其次使用选中的材质配置的图片
     if (selectedMaterialConfig && selectedMaterialConfig.images?.length > 0) {
       return selectedMaterialConfig.images;
     }
-    
-    // 如果有选中的材质分组且有图片，使用材质分组的图片
+
+    // 再次使用材质分组的图片
     if (selectedMaterialGroup && selectedMaterialGroup.images?.length > 0) {
       return selectedMaterialGroup.images;
     }
-    
-    // 否则使用默认图片
+
+    // 否则使用默认图片（视频优先）
     const baseImages = Array.isArray(product.images) ? product.images : [];
     const skus = Array.isArray((product as any).skus) ? ((product as any).skus as any[]) : [];
+    const skuVideos = skus.flatMap((sku: any) => sku.videos || []);
     const skuImages = skus.flatMap((sku: any) => sku.images || []);
-    const merged = [...baseImages, ...skuImages].filter(Boolean);
+    const merged = [...skuVideos, ...baseImages, ...skuImages].filter(Boolean);
     return Array.from(new Set(merged));
-  }, [product, selectedMaterialConfig, selectedMaterialGroup]);
+  }, [product, selectedMaterialConfig, selectedMaterialGroup, selectedSku]);
 
   const isComboProduct = Boolean((product as any)?.isCombo);
 
@@ -604,15 +682,19 @@ const ProductDetailPage = () => {
     }
 
     if (multiSpecMode) {
-      const merged = selectedSkus.flatMap(sku => sku.images || []).filter(Boolean);
+      const videos = selectedSkus.flatMap(sku => (sku as any).videos || []).filter(Boolean);
+      const images = selectedSkus.flatMap(sku => sku.images || []).filter(Boolean);
+      const merged = [...videos, ...images];
       const unique = Array.from(new Set(merged));
       return unique.length ? unique : defaultGalleryImages;
     }
 
-    if (selectedSku?.images?.length) {
-      const skuImages = selectedSku.images.filter(Boolean);
-      if (skuImages.length > 0) {
-        return skuImages;
+    if (selectedSku) {
+      const skuVideos = ((selectedSku as any).videos || []).filter(Boolean);
+      const skuImages = (selectedSku.images || []).filter(Boolean);
+      const combined = [...skuVideos, ...skuImages];
+      if (combined.length > 0) {
+        return combined;
       }
     }
 
@@ -657,10 +739,12 @@ const ProductDetailPage = () => {
   const currentMaterialSku = useMemo(() => {
     if (currentSpecSkus.length === 0) return null;
     if (selectedMaterialConfigId) {
-      return currentSpecSkus.find(sku => sku.fabricMaterialId === selectedMaterialConfigId) || currentSpecSkus[0];
+      const selectedConfig = materialConfigs.find(c => c.id === selectedMaterialConfigId) as any;
+      const keys = [selectedMaterialConfigId, selectedConfig?.fabricId].filter(Boolean).map(String);
+      return currentSpecSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || ''))) || currentSpecSkus[0];
     }
     return currentSpecSkus[0];
-  }, [currentSpecSkus, selectedMaterialConfigId]);
+  }, [currentSpecSkus, selectedMaterialConfigId, materialConfigs]);
 
   // 根据商品实际的SKU动态生成可用的筛选选项
   const availableFilters = useMemo(() => {
@@ -689,7 +773,25 @@ const ProductDetailPage = () => {
   }, [product]);
 
   const videoList = useMemo(() => normalizeVideoUrls(product?.videos || (product as any)?.videoUrls), [product]);
-  const fileList = useMemo(() => normalizeFileList(product?.files || (product as any)?.fileList), [product]);
+  const fileList = useMemo(() => {
+    // 只显示当前选中SKU的文件，不显示所有SKU的文件
+    const skuFiles: ProductFile[] = [];
+    
+    // 只从当前选中的SKU中获取文件
+    if (selectedSku && (selectedSku as any).files && Array.isArray((selectedSku as any).files)) {
+      (selectedSku as any).files.forEach((file: any) => {
+        skuFiles.push({
+          name: file.name || '设计文件',
+          url: file.url || file.fileId,
+          format: file.type || file.format || file.name?.split('.').pop() || 'unknown',
+          size: file.size || 0,
+          uploadTime: file.uploadTime
+        });
+      });
+    }
+    
+    return skuFiles;
+  }, [selectedSku]);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -711,14 +813,29 @@ const ProductDetailPage = () => {
         
         if (fetchedProduct) {
           const fetchedSkus = Array.isArray((fetchedProduct as any).skus) ? ((fetchedProduct as any).skus as ProductSKU[]) : [];
+          const fetchedMaterialConfigs = ((fetchedProduct as any).materialConfigs || []) as Array<{id: string; fabricName: string; fabricId: string; images: string[]; price: number}>;
           const defaultFilter = determineDefaultFilter(fetchedSkus);
           setActiveFilter(defaultFilter);
           const initialSku = getInitialSkuForFilter(fetchedSkus, defaultFilter);
           setSelectedSku(initialSku);
           setSelectedSkuIds([]);
-          const firstSkuImage = initialSku?.images?.find(Boolean);
+          
+          // 同步材质配置选择与SKU
+          // 如果有materialConfigs，根据初始SKU的fabricMaterialId选择对应的配置
+          if (fetchedMaterialConfigs.length > 0 && initialSku?.fabricMaterialId) {
+            const skuKey = String((initialSku as any).fabricMaterialId || '');
+            const matchingConfig = fetchedMaterialConfigs.find((c: any) => String(c.id) === skuKey || String(c.fabricId) === skuKey);
+            if (matchingConfig?.id) {
+              setSelectedMaterialConfigId(String(matchingConfig.id));
+            }
+          }
+          
+          // 优先使用视频，然后是图片
+          const skuVideos = ((initialSku as any)?.videos || []).filter(Boolean);
+          const skuImages = (initialSku?.images || []).filter(Boolean);
+          const firstSkuMedia = skuVideos[0] || skuImages[0];
           const firstProductImage = fetchedProduct.images?.find(Boolean);
-          setMainImage(firstSkuImage || firstProductImage || '');
+          setMainImage(firstSkuMedia || firstProductImage || '');
         } else {
           toast.error('未找到该商品');
         }
@@ -733,6 +850,15 @@ const ProductDetailPage = () => {
     setMaterialAssetMap({}); // 清除本地缓存
     fetchProduct();
   }, [id]);
+
+  useEffect(() => {
+    if (!selectedSku) return;
+    if (!Array.isArray(materialConfigs) || materialConfigs.length === 0) return;
+    const resolved = resolveMaterialConfigIdForSku(selectedSku as any);
+    if (resolved) {
+      setSelectedMaterialConfigId(resolved);
+    }
+  }, [selectedSku, materialConfigs]);
 
   useEffect(() => {
     // 如果筛选后没有SKU，清空选中的SKU
@@ -816,17 +942,17 @@ const ProductDetailPage = () => {
 
   const handleSkuChange = (sku: ProductSKU) => {
     setSelectedSku(sku);
-    const firstSkuImage = sku.images?.find(Boolean);
-    const fallbackImage = defaultGalleryImages[0] || product?.images?.[0] || '';
-    setMainImage(firstSkuImage || fallbackImage);
+    const firstSkuMedia = ((sku as any).videos || []).find(Boolean) || sku.images?.find(Boolean);
+    const fallbackMedia = defaultGalleryImages[0] || (product as any)?.videos?.find?.(Boolean) || product?.images?.[0] || '';
+    setMainImage(firstSkuMedia || fallbackMedia);
     setQuantity(1);
   };
 
   const handleToggleSku = (sku: ProductSKU) => {
     setSelectedSku(sku);
-    const firstSkuImage = sku.images?.find(Boolean);
-    const fallbackImage = defaultGalleryImages[0] || product?.images?.[0] || '';
-    setMainImage(firstSkuImage || fallbackImage);
+    const firstSkuMedia = ((sku as any).videos || []).find(Boolean) || sku.images?.find(Boolean);
+    const fallbackMedia = defaultGalleryImages[0] || (product as any)?.videos?.find?.(Boolean) || product?.images?.[0] || '';
+    setMainImage(firstSkuMedia || fallbackMedia);
     setSelectedSkuIds(prev => {
       const id = String(sku._id);
       if (prev.includes(id)) return prev.filter(x => x !== id);
@@ -846,7 +972,7 @@ const ProductDetailPage = () => {
   const findSkuByImage = (img: string) => {
     if (!product) return undefined;
     const allSkus = Array.isArray((product as any).skus) ? ((product as any).skus as ProductSKU[]) : [];
-    return allSkus.find(sku => (sku.images || []).includes(img));
+    return allSkus.find(sku => (sku.images || []).includes(img) || (((sku as any).videos || []) as string[]).includes(img));
   };
 
   const handleThumbnailClick = (img: string) => {
@@ -1028,17 +1154,6 @@ const ProductDetailPage = () => {
     // Proceed with empty object if no materials selected
     addItem(product, selectedSku, quantity, chosenMaterials || {}, getFinalPrice(selectedSku, chosenMaterials || {}));
     toast.success('已添加到购物车');
-  };
-
-  const handleAddToCompare = async () => {
-    if (!product || !selectedSku) {
-      toast.error('请选择商品规格');
-      return;
-    }
-    const chosenMaterials = resolveSelectedMaterials();
-    // Material selection is optional for comparison
-    const result = await addToCompare(product._id, selectedSku._id, chosenMaterials || {});
-    toast[result.success ? 'success' : 'error'](result.message);
   };
 
   const handleBuyNow = () => {
@@ -1389,7 +1504,13 @@ const ProductDetailPage = () => {
                     <div className="w-1/2 h-full border-r border-gray-200 bg-white">
                       {mainImage ? (
                         isVideoFile(mainImage) ? (
-                          <video src={getFileUrl(mainImage)} controls className="w-full h-full object-contain" />
+                          <video
+                            src={getFileUrl(mainImage)}
+                            controls
+                            preload="metadata"
+                            playsInline
+                            className="w-full h-full object-contain"
+                          />
                         ) : (
                           <TrackedImage src={getThumbnailUrl(mainImage, 800)} alt={product.name} className="w-full h-full object-contain" loading="eager" />
                         )
@@ -1411,7 +1532,15 @@ const ProductDetailPage = () => {
                   <>
                     {mainImage ? (
                       isVideoFile(mainImage) ? (
-                        <video src={getFileUrl(mainImage)} controls className="absolute inset-0 w-full h-full object-contain bg-black" />
+                        <div className="absolute inset-0 w-full h-full bg-black">
+                          <video 
+                            src={getFileUrl(mainImage)} 
+                            controls 
+                            preload="metadata"
+                            playsInline
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
                       ) : (
                         <TrackedImage src={getThumbnailUrl(mainImage, 800)} alt={product.name} className="absolute inset-0 w-full h-full object-contain bg-white" loading="eager" />
                       )
@@ -1422,10 +1551,10 @@ const ProductDetailPage = () => {
                 )}
                 <button
                   type="button"
-                  onClick={() => setShowAllImagesModal(true)}
-                  className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-black/70 text-white text-xs px-4 py-2 z-10"
+                  onClick={() => navigate(`/products/${id}/gallery`)}
+                  className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-black/70 text-white text-xs px-4 py-2 z-10 hover:bg-black/90"
                 >
-                  <Maximize2 className="h-3.5 w-3.5" />全部图片
+                  <Maximize2 className="h-3.5 w-3.5" />查看全部图片
                 </button>
               </div>
               {galleryImages.length > 1 && (
@@ -1485,7 +1614,17 @@ const ProductDetailPage = () => {
                             )}
                           >
                             {isVideoFile(img) ? (
-                              <div className="w-full h-16 flex items-center justify-center bg-black text-white text-xs">视频</div>
+                              <div className="w-full h-16 relative bg-gray-900">
+                                <video
+                                  src={getFileUrl(img)}
+                                  className="w-full h-full object-cover"
+                                  preload="metadata"
+                                  playsInline
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <Play className="w-4 h-4 text-white opacity-80" />
+                                </div>
+                              </div>
                             ) : (
                               <img
                                 src={getThumbnailUrl(img, 100)}
@@ -1529,7 +1668,7 @@ const ProductDetailPage = () => {
           <div className="flex flex-col min-w-0">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div>
-                <p className="text-sm text-gray-400">产品系列</p>
+                <p className="text-sm text-gray-400">{(product as any).series || '产品系列'}</p>
                 <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
               </div>
               <div className="flex items-center gap-4 text-sm">
@@ -1750,6 +1889,9 @@ const ProductDetailPage = () => {
                               </div>
                             </div>
                             <p className="text-xs text-gray-500 mt-1 leading-relaxed">尺寸：{specDetail}</p>
+                            {representativeSku.specRemark && (
+                              <p className="text-xs text-gray-400 leading-relaxed">{representativeSku.specRemark}</p>
+                            )}
                           </button>
                         );
                       })}
@@ -1797,6 +1939,16 @@ const ProductDetailPage = () => {
                           <div className="flex flex-wrap gap-2">
                             {configs.map((config) => {
                         const isSelected = selectedMaterialConfigId === config.id || (!selectedMaterialConfigId && materialConfigs[0]?.id === config.id);
+                        const keyA = String((config as any).id || '')
+                        const keyB = String((config as any).fabricId || '')
+                        const keys = [keyA, keyB].filter(Boolean)
+                        const tileSku = (
+                          currentSpecSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || ''))) ||
+                          filteredSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || ''))) ||
+                          null
+                        ) as any;
+                        const tileImage = normalizeFileId(tileSku?.fabricImage || config.images?.[0] || '');
+                        const tileName = tileSku?.fabricName || config.fabricName;
                         return (
                           <button
                             key={config.id}
@@ -1804,7 +1956,9 @@ const ProductDetailPage = () => {
                             onClick={() => {
                               setSelectedMaterialConfigId(config.id);
                               // 切换到对应材质的SKU
-                              const targetSku = filteredSkus.find(sku => sku.fabricMaterialId === config.id);
+                              const targetSku =
+                                currentSpecSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || ''))) ||
+                                filteredSkus.find((sku: any) => keys.includes(String(sku.fabricMaterialId || '')));
                               if (targetSku) {
                                 handleSkuChange(targetSku);
                               }
@@ -1815,17 +1969,17 @@ const ProductDetailPage = () => {
                                 ? 'border-primary-500 ring-2 ring-primary-200'
                                 : 'border-gray-200 hover:border-gray-300'
                             )}
-                            title={config.fabricName}
+                            title={tileName}
                           >
-                            {config.images?.[0] ? (
+                            {tileImage ? (
                               <img 
-                                src={getFileUrl(config.images[0])} 
-                                alt={config.fabricName}
+                                src={getFileUrl(tileImage)} 
+                                alt={tileName}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
                               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                <span className="text-xs text-gray-500">{config.fabricName?.charAt(0) || '?'}</span>
+                                <span className="text-xs text-gray-500">{tileName?.charAt(0) || '?'}</span>
                               </div>
                             )}
                           </button>
@@ -1838,20 +1992,20 @@ const ProductDetailPage = () => {
                     {/* 显示选中材质的名称和加价 */}
                     {selectedMaterialConfig && (
                       <div className="mt-3 flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-900">{selectedMaterialConfig.fabricName}</span>
+                        <span className="text-sm font-medium text-gray-900">{(selectedSku as any)?.fabricName || selectedMaterialConfig.fabricName}</span>
                         {selectedMaterialConfig.price > 0 && (
                           <span className="text-sm text-red-500 font-medium">+¥{selectedMaterialConfig.price}</span>
                         )}
                       </div>
                     )}
-                    {/* 其他材质文字显示在选择材质下面 */}
-                    {otherMaterialsText && (
+                    {selectedMaterialDescriptionText && (
                       <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                        <p className="text-xs text-gray-600">
-                          {otherMaterialsText}
+                        <p className="text-xs text-gray-600 whitespace-pre-wrap">
+                          {selectedMaterialDescriptionText}
                         </p>
                       </div>
                     )}
+                    {/* 移除旧的 otherMaterialsText 显示，仅保留 SKU 材质描述 */}
                   </div>
                 </div>
               )}
@@ -1882,13 +2036,6 @@ const ProductDetailPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                   加入购物车
-                </button>
-                <button
-                  onClick={handleAddToCompare}
-                  className="py-3 rounded-lg border font-medium transition-all duration-200 text-base"
-                  style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR, backgroundColor: '#f0fdf4' }}
-                >
-                  加入对比
                 </button>
               </div>
               {/* 第二行：立即购买 */}
@@ -2068,75 +2215,6 @@ const ProductDetailPage = () => {
 
       </div>
       <ShareModal isOpen={isShareModalOpen} onClose={() => setShareModalOpen(false)} />
-      {isAllImageModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="p-4 border-b flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">全部图片</h3>
-                <p className="text-xs text-gray-500">可多选下载，需登录账号才可下载</p>
-              </div>
-              <button onClick={() => setAllImageModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-4 overflow-auto grid grid-cols-2 md:grid-cols-3 gap-4">
-              {defaultGalleryImages.map((img, idx) => {
-                const checked = selectedDownloadImages.includes(img);
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => toggleDownloadSelection(img)}
-                    className={cn(
-                      'relative rounded-2xl overflow-hidden border transition-all',
-                      checked ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200'
-                    )}
-                  >
-                    {isVideoFile(img) ? (
-                      <div className="w-full h-40 flex items-center justify-center bg-black text-white text-sm">视频</div>
-                    ) : (
-                      <img src={getFileUrl(img)} alt={`gallery-${idx}`} className="w-full h-40 object-cover" />
-                    )}
-                    <span className="absolute top-2 right-2 h-7 w-7 rounded-full flex items-center justify-center bg-white/90 text-gray-700 border">
-                      {checked ? <Check className="h-4 w-4 text-primary-600" /> : idx + 1}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="p-4 border-t bg-gray-50 flex items-center justify-between sticky bottom-0">
-              <div className="text-sm font-medium text-gray-700">
-                已选 <span className="text-primary-600 font-bold">{selectedDownloadImages.length}</span> 张
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 font-medium"
-                  onClick={() => {
-                    setSelectedDownloadImages([]);
-                    setAllImageModalOpen(false);
-                  }}
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  className="px-6 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ 
-                    backgroundColor: selectedDownloadImages.length > 0 ? '#1F64FF' : '#e5e7eb',
-                    color: selectedDownloadImages.length > 0 ? 'white' : '#9ca3af'
-                  }}
-                  onClick={handleDownloadImages}
-                  disabled={selectedDownloadImages.length === 0}
-                >
-                  <Download className="h-4 w-4" /> 下载所选 ({selectedDownloadImages.length})
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {materialInfoModal.open && materialInfoModal.section && materialInfoModal.material && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 relative">
@@ -2213,78 +2291,6 @@ const ProductDetailPage = () => {
         </div>
       )}
 
-      {/* All Images Modal */}
-      {showAllImagesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAllImagesModal(false)}>
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900">全部图片</h3>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
-                      const allImages = allSkus.flatMap(sku => sku.images || []);
-                      const uniqueImages = Array.from(new Set(allImages));
-                      selectedAllImages.forEach(imageId => {
-                        const link = document.createElement('a');
-                        link.href = getFileUrl(imageId);
-                        link.download = `image-${imageId}.jpg`;
-                        link.click();
-                      });
-                      toast.success(`已下载 ${selectedAllImages.length} 张图片`);
-                    }}
-                    disabled={selectedAllImages.length === 0}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    下载选中 ({selectedAllImages.length})
-                  </button>
-                  <button onClick={() => setShowAllImagesModal(false)} className="text-gray-400 hover:text-gray-600">
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                {(() => {
-                  const allSkus = Array.isArray((product as any)?.skus) ? ((product as any).skus as ProductSKU[]) : [];
-                  const allImages = allSkus.flatMap(sku => sku.images || []);
-                  const uniqueImages = Array.from(new Set(allImages));
-                  return uniqueImages.map((imageId, index) => {
-                    const isSelected = selectedAllImages.includes(imageId);
-                    return (
-                      <div 
-                        key={index}
-                        className="relative cursor-pointer"
-                        onClick={() => {
-                          setSelectedAllImages(prev => 
-                            prev.includes(imageId) 
-                              ? prev.filter(id => id !== imageId)
-                              : [...prev, imageId]
-                          );
-                        }}
-                      >
-                        <img 
-                          src={getFileUrl(imageId)} 
-                          alt={`SKU图片 ${index + 1}`}
-                          className={`w-full aspect-square rounded-lg object-cover transition-all ${
-                            isSelected ? 'ring-4 ring-primary-500' : 'hover:opacity-80'
-                          }`}
-                        />
-                        {isSelected && (
-                          <div className="absolute top-2 right-2 bg-green-600 text-white rounded-full p-1.5 shadow-lg">
-                            <Check className="h-5 w-5" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

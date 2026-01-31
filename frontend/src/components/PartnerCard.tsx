@@ -92,7 +92,7 @@ export default function PartnerCard({
       {/* 折扣和返佣显示 */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
-          <div className="text-xs text-gray-500 mb-2">经销折扣(%)</div>
+          <div className="text-xs text-gray-500 mb-2">最低折扣(%)</div>
           <div className="text-3xl font-bold text-gray-900">{currentAuth?.minDiscountRate || 0}</div>
         </div>
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">

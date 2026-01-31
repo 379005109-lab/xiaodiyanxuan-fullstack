@@ -3,6 +3,7 @@ const router = express.Router()
 const mongoose = require('mongoose')
 const Refund = require('../models/Refund')
 const Order = require('../models/Order')
+const ManufacturerOrder = require('../models/ManufacturerOrder')
 const { auth } = require('../middleware/auth')
 
 // 验证 ObjectId
@@ -107,6 +108,12 @@ router.post('/', auth, async (req, res) => {
     )
     console.log('退货创建 - 订单状态更新结果:', updateResult ? `订单 ${updateResult.orderNo} 状态已更新为 ${updateResult.status}` : '更新失败')
     
+    // 同步退款状态到厂家订单
+    await ManufacturerOrder.updateMany(
+      { orderId: orderId },
+      { $set: { refundStatus: 'pending' } }
+    )
+    
     res.json({ success: true, data: refund, message: '退款申请已提交' })
   } catch (error) {
     console.error('创建退款申请失败:', error)
@@ -151,6 +158,11 @@ router.put('/:id/handle', auth, async (req, res) => {
         status: 6,  // 退款中
         refundStatus: 'approved'
       })
+      // 同步退款状态到厂家订单
+      await ManufacturerOrder.updateMany(
+        { orderId: refund.orderId },
+        { $set: { refundStatus: 'approved' } }
+      )
     } else {
       // 拒绝退款，恢复订单原状态
       await Order.findByIdAndUpdate(refund.orderId, { 
@@ -158,6 +170,11 @@ router.put('/:id/handle', auth, async (req, res) => {
         refundId: null,
         refundStatus: 'rejected'
       })
+      // 同步退款状态到厂家订单
+      await ManufacturerOrder.updateMany(
+        { orderId: refund.orderId },
+        { $set: { refundStatus: null } }
+      )
     }
     
     res.json({ success: true, data: refund, message: action === 'approve' ? '已同意退款' : '已拒绝退款' })
@@ -187,6 +204,12 @@ router.put('/:id/complete', auth, async (req, res) => {
       status: 7,  // 已退款
       refundStatus: 'completed'
     })
+    
+    // 同步退款状态到厂家订单
+    await ManufacturerOrder.updateMany(
+      { orderId: refund.orderId },
+      { $set: { refundStatus: 'completed' } }
+    )
     
     res.json({ success: true, data: refund, message: '退款已完成' })
   } catch (error) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Package, Save, Percent, Lock, Building2, Users, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
@@ -39,6 +39,7 @@ interface ProductItem {
 export default function AuthorizationPricingPage() {
   const navigate = useNavigate()
   const { authorizationId } = useParams()
+  const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   
   const [loading, setLoading] = useState(true)
@@ -155,6 +156,13 @@ export default function AuthorizationPricingPage() {
       loadData()
     }
   }, [authorizationId])
+
+  useEffect(() => {
+    const desired = searchParams.get('productTab')
+    if (desired === 'own' || desired === 'partner') {
+      setProductTab(desired)
+    }
+  }, [searchParams])
 
   const loadData = async () => {
     setLoading(true)
@@ -299,7 +307,17 @@ export default function AuthorizationPricingPage() {
       <div className="max-w-5xl mx-auto px-6 py-6">
         {/* Price Settings */}
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">价格策略设置</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">价格策略设置</h2>
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <div className="text-sm text-blue-800">
+              <strong>价格计算公式：</strong>
+              <span className="ml-2">最低售价 = 零售价 × 折扣率</span>
+              <span className="mx-2">|</span>
+              <span>返佣 = 最低售价 × 返佣比例</span>
+              <span className="mx-2">|</span>
+              <span className="text-blue-900 font-semibold">成本价 = 最低售价 - 返佣</span>
+            </div>
+          </div>
           
           {/* 自有产品设置 */}
           <div className="mb-6">
@@ -437,22 +455,18 @@ export default function AuthorizationPricingPage() {
                   <div className="text-xs text-gray-500">最低折扣</div>
                   <div className="text-lg font-bold text-orange-600">{minDiscountRate}%</div>
                 </div>
-                {productTab === 'own' && (
-                  <>
-                    <div className="text-center">
-                      <div className="text-xs text-gray-500">预计总返佣</div>
-                      <div className="text-lg font-bold text-green-600">
-                        ¥{categoryStats.own.totalCommission.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xs text-gray-500">商品总价</div>
-                      <div className="text-lg font-bold text-gray-700">
-                        ¥{categoryStats.own.totalRetail.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </div>
-                    </div>
-                  </>
-                )}
+                <div className="text-center">
+                  <div className="text-xs text-green-500">预计总返佣</div>
+                  <div className="text-lg font-bold text-green-600">
+                    ¥{(productTab === 'own' ? categoryStats.own.totalCommission : categoryStats.partner.totalCommission).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs text-blue-500">预计总成本</div>
+                  <div className="text-lg font-bold text-blue-700">
+                    ¥{((productTab === 'own' ? categoryStats.own.totalMinPrice : categoryStats.partner.totalMinPrice) - (productTab === 'own' ? categoryStats.own.totalCommission : categoryStats.partner.totalCommission)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -508,18 +522,22 @@ export default function AuthorizationPricingPage() {
                         <div className="text-xs text-gray-500">{product.productCode || '-'}</div>
                       </div>
                       
-                      <div className="flex items-center gap-6 text-sm">
-                        <div className="text-center">
-                          <div className="text-xs text-gray-500">零售价</div>
-                          <div className="font-semibold text-gray-900">¥{retailPrice.toFixed(0)}</div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="text-center px-2 py-1 bg-gray-50 rounded-lg">
+                          <div className="text-xs text-gray-400">零售价</div>
+                          <div className="font-semibold text-gray-500">¥{retailPrice.toFixed(0)}</div>
                         </div>
-                        <div className="text-center">
+                        <div className="text-center px-2 py-1 bg-orange-50 rounded-lg">
                           <div className="text-xs text-orange-500">最低售价</div>
                           <div className="font-semibold text-orange-600">¥{minPrice.toFixed(0)}</div>
                         </div>
-                        <div className="text-center">
+                        <div className="text-center px-2 py-1 bg-green-50 rounded-lg">
                           <div className="text-xs text-green-500">渠道佣金</div>
                           <div className="font-semibold text-green-600">¥{commission.toFixed(0)}</div>
+                        </div>
+                        <div className="text-center px-2 py-1 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="text-xs text-blue-500">成本价</div>
+                          <div className="font-bold text-blue-700">¥{(minPrice - commission).toFixed(0)}</div>
                         </div>
                       </div>
                     </div>
@@ -611,18 +629,22 @@ export default function AuthorizationPricingPage() {
                                             <div className="text-xs text-gray-500">{product.productCode || '-'}</div>
                                           </div>
                                           
-                                          <div className="flex items-center gap-4 text-sm">
-                                            <div className="text-center">
-                                              <div className="text-xs text-gray-500">零售价</div>
-                                              <div className="font-semibold text-gray-900">¥{retailPrice.toFixed(0)}</div>
+                                          <div className="flex items-center gap-3 text-sm">
+                                            <div className="text-center px-2 py-1 bg-gray-50 rounded-lg">
+                                              <div className="text-xs text-gray-400">零售价</div>
+                                              <div className="font-semibold text-gray-500">¥{retailPrice.toFixed(0)}</div>
                                             </div>
-                                            <div className="text-center">
+                                            <div className="text-center px-2 py-1 bg-orange-50 rounded-lg">
                                               <div className="text-xs text-orange-500">最低售价</div>
                                               <div className="font-semibold text-orange-600">¥{minPrice.toFixed(0)}</div>
                                             </div>
-                                            <div className="text-center">
+                                            <div className="text-center px-2 py-1 bg-green-50 rounded-lg">
                                               <div className="text-xs text-green-500">返佣金额</div>
                                               <div className="font-semibold text-green-600">¥{commission.toFixed(0)}</div>
+                                            </div>
+                                            <div className="text-center px-2 py-1 bg-blue-50 rounded-lg border border-blue-200">
+                                              <div className="text-xs text-blue-500">成本价</div>
+                                              <div className="font-bold text-blue-700">¥{(minPrice - commission).toFixed(0)}</div>
                                             </div>
                                           </div>
                                         </div>

@@ -3,6 +3,7 @@ const multer = require('multer')
 const router = express.Router()
 const { optionalAuth, auth } = require('../middleware/auth')
 const { listProducts, getProduct, createProduct, updateProduct, deleteProduct, getProductCategories, getProductStyles, search, bulkImport, updateProductPricing, getProductPricing } = require('../controllers/productController')
+const { getProductReviews, createReview } = require('../controllers/productReviewController')
 
 // 配置 multer
 const storage = multer.memoryStorage()
@@ -307,6 +308,12 @@ router.patch('/:id/status', auth, async (req, res) => {
     res.status(500).json({ success: false, message: '切换商品状态失败' })
   }
 })
+
+// GET /api/products/:id/reviews - Get product reviews
+router.get('/:id/reviews', getProductReviews)
+
+// POST /api/products/:id/reviews - Create product review
+router.post('/:id/reviews', auth, createReview)
 
 // GET /api/products/:id - Get product details
 router.get('/:id', optionalAuth, getProduct)

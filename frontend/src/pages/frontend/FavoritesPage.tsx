@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Heart, Trash2, ShoppingBag, Loader2, ShoppingCart, GitCompare } from 'lucide-react'
+import { Heart, Trash2, ShoppingBag, Loader2, ShoppingCart } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useAuthModalStore } from '@/store/authModalStore'
 import { useFavoriteStore } from '@/store/favoriteStore'
-import { useCompareStore } from '@/store/compareStore'
 import { formatPrice } from '@/lib/utils'
 import { getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
@@ -14,9 +13,7 @@ export default function FavoritesPage() {
   const { user } = useAuthStore()
   const { openLogin } = useAuthModalStore()
   const { favorites, loadFavorites, removeFavorite, clearAll: clearAllFavorites } = useFavoriteStore()
-  const { addToCompare, clearAll: clearAllCompare, openModal: openCompareModal } = useCompareStore()
   const [loading, setLoading] = useState(true)
-  const [compareList, setCompareList] = useState<string[]>([])
 
   useEffect(() => {
     if (!user) {
@@ -59,74 +56,6 @@ export default function FavoritesPage() {
     // 跳转到商品详情页添加购物车（需要选择规格）
     navigate(`/products/${productId}?action=addToCart`)
     toast.info('请选择规格后加入购物车')
-  }
-
-  const handleToggleCompare = (productId: string) => {
-    setCompareList(prev => {
-      if (prev.includes(productId)) {
-        return prev.filter(id => id !== productId)
-      }
-      if (prev.length >= 4) {
-        toast.error('最多只能对比4个商品')
-        return prev
-      }
-      return [...prev, productId]
-    })
-  }
-
-  const handleCompare = async () => {
-    if (compareList.length < 2) {
-      toast.error('请至少选择2个商品进行对比')
-      return
-    }
-    
-    // 检查用户是否登录
-    if (!user) {
-      toast.error('请先登录后再使用对比功能')
-      openLogin()
-      return
-    }
-    
-    try {
-      toast.loading('正在添加到对比列表...')
-      
-      // 清空之前的对比列表（忽略错误）
-      try {
-        console.log('[FavoritesPage] 清空对比列表...')
-        await clearAllCompare()
-        console.log('[FavoritesPage] 清空完成')
-      } catch (clearError) {
-        console.warn('[FavoritesPage] 清空对比列表失败，继续添加:', clearError)
-      }
-      
-      // 将选中的商品添加到云端对比列表
-      let successCount = 0
-      let lastError = ''
-      for (const productId of compareList) {
-        console.log('[FavoritesPage] 添加商品到对比:', productId)
-        const result = await addToCompare(productId)
-        console.log('[FavoritesPage] 添加结果:', result)
-        if (result.success) {
-          successCount++
-        } else {
-          console.error('[FavoritesPage] 添加失败:', result.message)
-          lastError = result.message
-        }
-      }
-      
-      toast.dismiss()
-      if (successCount > 0) {
-        toast.success(`已添加 ${successCount} 个商品到对比列表`)
-        // 打开对比弹窗而不是跳转页面
-        openCompareModal()
-      } else {
-        toast.error(lastError || '添加对比失败，请重试')
-      }
-    } catch (error: any) {
-      toast.dismiss()
-      console.error('[FavoritesPage] 添加对比失败:', error)
-      toast.error(error.message || '添加对比失败，请检查网络连接')
-    }
   }
 
   const getProductId = (favorite: any) => {
@@ -206,13 +135,6 @@ export default function FavoritesPage() {
                       <div className="font-serif font-bold text-accent">
                         {formatPrice(favAny.price || productAny?.skus?.[0]?.price || 0)}
                       </div>
-                      <button
-                        onClick={() => handleToggleCompare(productId)}
-                        className={`text-xs px-2 py-1 rounded-full transition-colors flex items-center gap-1 ${compareList.includes(productId) ? 'bg-primary text-white' : 'bg-stone-100 hover:bg-stone-200 text-stone-600'}`}
-                      >
-                        <GitCompare className="w-3 h-3" />
-                        {compareList.includes(productId) ? '已选' : '对比'}
-                      </button>
                     </div>
                     <button
                       onClick={() => handleAddToCart(favorite)}
@@ -227,24 +149,6 @@ export default function FavoritesPage() {
           </div>
         )}
 
-        {/* 浮动对比按钮 */}
-        {compareList.length > 0 && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-2xl border border-stone-200 px-6 py-3 flex items-center gap-4 z-[9999]">
-            <span className="text-sm text-stone-600">已选 {compareList.length} 件商品</span>
-            <button
-              onClick={() => setCompareList([])}
-              className="text-xs text-stone-400 hover:text-red-500"
-            >
-              清空
-            </button>
-            <button
-              onClick={handleCompare}
-              className="bg-primary text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-green-900 transition-colors flex items-center gap-2"
-            >
-              <GitCompare className="w-4 h-4" /> 开始对比
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )
