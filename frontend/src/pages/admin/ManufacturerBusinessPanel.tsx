@@ -561,8 +561,8 @@ export default function ManufacturerBusinessPanel() {
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  合作商家
+                  <Package className="w-4 h-4" />
+                  经营授权
                 </span>
               </button>
               <button
@@ -924,9 +924,9 @@ export default function ManufacturerBusinessPanel() {
                     onClick={() => setActiveTab('partners')}
                     className="bg-blue-50 border border-blue-100 rounded-xl p-6 text-left hover:shadow-md transition-all"
                   >
-                    <Users className="w-8 h-8 text-blue-600 mb-3" />
-                    <h4 className="font-semibold text-gray-900 mb-1">合作商家</h4>
-                    <p className="text-sm text-gray-500">查看授权给本厂家的商家 ({receivedAuths.length})</p>
+                    <Package className="w-8 h-8 text-blue-600 mb-3" />
+                    <h4 className="font-semibold text-gray-900 mb-1">经营授权</h4>
+                    <p className="text-sm text-gray-500">管理本厂家的商品货盘 ({products.length})</p>
                   </button>
                   <button
                     onClick={() => setActiveTab('channels')}
@@ -968,86 +968,133 @@ export default function ManufacturerBusinessPanel() {
 
             {activeTab === 'partners' && (
               <div>
-                {/* 合作商家：其他商家授权给本厂家的信息 */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-bold text-gray-900">合作商家</h3>
-                  <p className="text-sm text-gray-500">其他商家授权给本厂家的合作信息</p>
+                {/* 经营授权：本厂家的商品货盘 */}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">经营授权 - 商品货盘</h3>
+                    <p className="text-sm text-gray-500">本厂家的商品列表，共 {products.length} 件商品</p>
+                  </div>
+                  <button
+                    onClick={() => navigate(`/admin/manufacturers/${manufacturerId}/products`)}
+                    className="px-4 py-2 bg-[#153e35] text-white text-sm rounded-lg hover:bg-[#1a4d42]"
+                  >
+                    商品管理
+                  </button>
                 </div>
 
-                {receivedAuths.length === 0 ? (
+                {/* 商品统计 */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-blue-50 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600">{products.length}</div>
+                    <div className="text-xs text-gray-500 mt-1">总商品数</div>
+                  </div>
+                  <div className="bg-green-50 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">{products.filter(p => p.authStatus === 'own').length}</div>
+                    <div className="text-xs text-gray-500 mt-1">自有商品</div>
+                  </div>
+                  <div className="bg-purple-50 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-600">{products.filter(p => p.authStatus === 'authorized').length}</div>
+                    <div className="text-xs text-gray-500 mt-1">授权商品</div>
+                  </div>
+                  <div className="bg-orange-50 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-orange-600">{channels.length}</div>
+                    <div className="text-xs text-gray-500 mt-1">已授权渠道</div>
+                  </div>
+                </div>
+
+                {/* 商品列表 */}
+                {products.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
-                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>暂无合作商家</p>
-                    <p className="text-sm mt-2">当其他商家授权给您时，会显示在这里</p>
+                    <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>暂无商品</p>
+                    <p className="text-sm mt-2">请先添加商品</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {receivedAuths.map((auth: any) => {
-                      const partnerName = auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家'
-                      const partnerLogo = auth.fromManufacturer?.logo
-                      const partnerId = auth.fromManufacturer?._id || auth._id
-                      const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
-                      
-                      return (
-                        <div key={auth._id} className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-md transition-all">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-                              {partnerLogo ? (
-                                <img src={partnerLogo.startsWith('http') ? partnerLogo : `/api/files/${partnerLogo}`} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <Package className="w-6 h-6 text-gray-300" />
-                                </div>
+                  <div className="space-y-3">
+                    {products.slice(0, 20).map((product: any) => (
+                      <div key={product._id} className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-md transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                            {product.thumbnail || product.images?.[0] ? (
+                              <img 
+                                src={(product.thumbnail || product.images?.[0])?.startsWith('http') 
+                                  ? (product.thumbnail || product.images?.[0]) 
+                                  : `/api/files/${product.thumbnail || product.images?.[0]}`} 
+                                alt="" 
+                                className="w-full h-full object-cover" 
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Package className="w-8 h-8 text-gray-300" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-gray-900 truncate">{product.name}</h4>
+                              {product.authStatus === 'authorized' && (
+                                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">合作商</span>
                               )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-gray-900 truncate">{partnerName}</h4>
-                              <p className="text-xs text-gray-500">{partnerId?.slice(-8)}</p>
-                            </div>
-                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">已授权</span>
+                            <p className="text-xs text-gray-500 mt-1">编码: {product.productCode || '无'}</p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              零售价: ¥{product.basePrice || product.skus?.[0]?.price || 0}
+                            </p>
                           </div>
-                          
-                          <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div className="bg-gray-50 rounded-lg p-3 text-center">
-                              <div className="text-xs text-gray-500 mb-1">授权折扣</div>
-                              <div className="text-xl font-bold text-gray-900">{auth.minDiscountRate || 0}%</div>
-                            </div>
-                            <div className="bg-gray-50 rounded-lg p-3 text-center">
-                              <div className="text-xs text-gray-500 mb-1">返佣比例</div>
-                              <div className="text-xl font-bold text-gray-900">{auth.commissionRate || 0}%</div>
-                            </div>
-                          </div>
-                          
-                          <div className="text-sm text-gray-500 mb-4">
-                            已授权 {productCount} 件商品
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <button
-                              onClick={() => navigate(`/admin/manufacturers/${auth.fromManufacturer?._id}/product-authorization`)}
-                              className="w-full py-2.5 bg-[#153e35] text-white rounded-lg text-sm hover:bg-[#1a4d42]"
-                            >
-                              经营授权
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (confirm('确定要取消与该厂家的合作吗？取消后将无法继续销售其授权商品。')) {
-                                  apiClient.delete(`/authorizations/${auth._id}`)
-                                    .then(() => {
-                                      toast.success('已取消合作')
-                                      loadData()
-                                    })
-                                    .catch(() => toast.error('取消合作失败'))
-                                }
-                              }}
-                              className="w-full py-2 border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50"
-                            >
-                              取消合作
-                            </button>
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500">SKU数量</div>
+                            <div className="text-lg font-bold text-gray-900">{product.skus?.length || 1}</div>
                           </div>
                         </div>
-                      )
-                    })}
+                      </div>
+                    ))}
+                    {products.length > 20 && (
+                      <div className="text-center py-4">
+                        <button
+                          onClick={() => navigate(`/admin/manufacturers/${manufacturerId}/products`)}
+                          className="text-[#153e35] hover:underline text-sm"
+                        >
+                          查看全部 {products.length} 件商品 →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 合作商家区域 */}
+                {receivedAuths.length > 0 && (
+                  <div className="mt-8 pt-8 border-t border-gray-200">
+                    <div className="mb-4">
+                      <h4 className="text-base font-bold text-gray-900">合作商家</h4>
+                      <p className="text-sm text-gray-500">其他商家授权给本厂家的合作信息</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {receivedAuths.map((auth: any) => {
+                        const partnerName = auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家'
+                        const partnerLogo = auth.fromManufacturer?.logo
+                        const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
+                        
+                        return (
+                          <div key={auth._id} className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-white overflow-hidden flex-shrink-0">
+                                {partnerLogo ? (
+                                  <img src={partnerLogo.startsWith('http') ? partnerLogo : `/api/files/${partnerLogo}`} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-gray-300" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h5 className="font-medium text-gray-900 truncate text-sm">{partnerName}</h5>
+                                <p className="text-xs text-gray-500">{productCount} 件商品 | 折扣 {auth.minDiscountRate || 0}%</p>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
               </div>

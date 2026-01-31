@@ -1163,7 +1163,7 @@ export default function ManufacturerManagement() {
                 </div>
 
                 <button
-                  onClick={() => navigate(`/admin/manufacturers/${myManufacturer._id}/business-panel`)}
+                  onClick={() => navigate(`/admin/manufacturers/${myManufacturer._id}/business-panel?tab=partners`)}
                   className="mt-6 w-full px-6 py-3 rounded-2xl bg-[#123a32] text-white font-bold hover:bg-[#0f2f29] transition-colors"
                 >
                   经营授权
@@ -1171,7 +1171,7 @@ export default function ManufacturerManagement() {
 
                 <div className="grid grid-cols-2 gap-3 mt-4">
                   <button
-                    onClick={() => handleOpenTierSystem(myManufacturer, 'hierarchy')}
+                    onClick={() => navigate(`/admin/manufacturers/${myManufacturer._id}/business-panel?tab=tier`)}
                     className="px-4 py-3 rounded-2xl bg-white border border-gray-100 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     分成体系
