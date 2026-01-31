@@ -520,6 +520,9 @@ export default function ProductManagement() {
   // 动态材质列: 从第7列开始，直到遇到"标价"列之前都是材质列（如面料、填充、框架、脚架、座包等）
   // 后续列: 标价、折扣价、PRO、PRO特性、风格标签、商品图片1-7
   const processImportedData = async (jsonData: any[]) => {
+    // 版本标记 v2.0 - 2026-01-31 调试版
+    alert('导入代码版本: v2.0 (2026-01-31)\n如果看到此消息说明代码已更新');
+    
     try {
       console.log('=== Excel导入开始 ===');
       console.log('总行数（包括表头）:', jsonData.length);
