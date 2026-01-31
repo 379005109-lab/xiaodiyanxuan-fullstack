@@ -124,140 +124,54 @@ export default function ManufacturerBusinessPanel() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [mRes, pRes, cRes, authRes, tRes, receivedRes, pendingDesignerRes, pendingManufacturerRes] = await Promise.all([
+      // 只加载基础数据，减少请求数量
+      const [mRes, pRes, authRes, receivedRes] = await Promise.all([
         apiClient.get(`/manufacturers/${manufacturerId}`),
-        apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 10000 } }),
-        apiClient.get(`/categories`),
+        apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 500 } }),
         apiClient.get(`/authorizations/my-grants`).catch(() => ({ data: { data: [] } })),
-        apiClient.get(`/commission-systems/manufacturer/${manufacturerId}`).catch(() => ({ data: { data: null } })),
-        apiClient.get(`/authorizations/received`).catch(() => ({ data: { data: [] } })),
-        apiClient.get(`/authorizations/designer-requests/pending`).catch(() => ({ data: { data: [] } })),
-        apiClient.get(`/authorizations/manufacturer-requests/pending`).catch(() => ({ data: { data: [] } }))
+        apiClient.get(`/authorizations/received`).catch(() => ({ data: { data: [] } }))
       ])
 
       setManufacturer(mRes.data?.data || null)
-      const categoryList = cRes.data?.data || []
-      setCategories(categoryList)
-      setTierSystemConfig(tRes.data?.data || null)
       setReceivedAuths(receivedRes.data?.data || [])
       setGrantedAuths((authRes.data?.data || []).filter((a: any) => a?.status === 'active'))
       
-      // 合并待审批请求
-      const pendingDesigner = pendingDesignerRes.data?.data || []
-      const pendingManufacturer = pendingManufacturerRes.data?.data || []
-      setPendingRequests([...pendingDesigner, ...pendingManufacturer])
-      
-      // Create category lookup map
-      const categoryMap = new Map<string, any>()
-      const flattenCategories = (cats: any[], parentName = '') => {
-        cats.forEach(cat => {
-          const fullName = parentName ? `${parentName} > ${cat.name}` : cat.name
-          categoryMap.set(String(cat._id), { ...cat, fullName })
-          if (cat.children?.length) {
-            flattenCategories(cat.children, cat.name)
-          }
-        })
-      }
-      flattenCategories(categoryList)
-      
-      // Process own products with category names
-      const ownProducts = (pRes.data?.data || []).map((p: any) => {
-        const catId = p.category?._id || p.category
-        const catInfo = catId ? categoryMap.get(String(catId)) : null
-        return {
-          ...p,
-          categoryName: catInfo?.name || p.category?.name || '未分类',
-          authStatus: 'own'
-        }
-      })
-      
-      // Fetch authorized products (from other manufacturers)
-      let authorizedProducts: any[] = []
-      try {
-        const authProdRes = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } })
-        authorizedProducts = (authProdRes.data?.data || []).map((p: any) => {
-          const catId = p.category?._id || p.category
-          const catInfo = catId ? categoryMap.get(String(catId)) : null
-          return {
-            ...p,
-            categoryName: catInfo?.name || p.category?.name || '未分类',
-            authStatus: 'authorized'
-          }
-        })
-      } catch {
-        // Ignore if API fails
-      }
-      
-      // Merge own and authorized products
-      const existingIds = new Set(ownProducts.map((p: any) => p._id))
-      const uniqueAuthorized = authorizedProducts.filter(p => !existingIds.has(p._id))
-      const productList = [...ownProducts, ...uniqueAuthorized]
-      setProducts(productList)
+      // Process own products
+      const ownProducts = (pRes.data?.data || []).map((p: any) => ({
+        ...p,
+        categoryName: p.category?.name || '未分类',
+        authStatus: 'own'
+      }))
+      setProducts(ownProducts)
 
       // Process authorizations to get channels
       const authorizations = authRes.data?.data || []
-      
-      // Fetch real GMV data for each authorization
-      let gmvData: Record<string, number> = {}
-      let growthData = { monthlyGrowth: 0 }
-      try {
-        const [gmvRes, growthRes] = await Promise.all([
-          apiClient.get(`/authorizations/gmv-stats`, { params: { manufacturerId } }),
-          apiClient.get(`/authorizations/growth-stats`, { params: { manufacturerId } })
-        ])
-        gmvData = gmvRes.data?.data || {}
-        growthData = growthRes.data?.data || { monthlyGrowth: 0 }
-      } catch {
-        // Use defaults if API fails
-      }
-      
-      const channelList: ChannelItem[] = authorizations.map((auth: any) => {
-        const targetId = auth.authorizationType === 'manufacturer' 
-          ? (auth.toManufacturer?._id || auth.toManufacturer)
-          : (auth.toDesigner?._id || auth.toDesigner)
-        
-        // 获取折扣和返佣信息 - 直接从授权记录根级别读取，默认值为0
-        const minDiscount = typeof auth.minDiscountRate === 'number' ? auth.minDiscountRate : 0
-        const commissionRate = typeof auth.commissionRate === 'number' ? auth.commissionRate : 0
-        
-        // SKU数量：scope='all'时使用actualProductCount，否则使用products数组长度
-        const skuCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
-        
-        return {
-          _id: auth._id,
-          type: auth.authorizationType,
-          name: auth.authorizationType === 'manufacturer' 
-            ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知商家')
-            : (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师'),
-          avatar: auth.authorizationType === 'manufacturer'
-            ? auth.toManufacturer?.logo
-            : auth.toDesigner?.avatar,
-          validUntil: auth.validUntil,
-          skuCount,
-          gmv: gmvData[String(targetId)] || 0,
-          status: auth.status,
-          minDiscount,
-          commissionRate
-        }
-      })
+      const channelList: ChannelItem[] = authorizations.map((auth: any) => ({
+        _id: auth._id,
+        type: auth.authorizationType,
+        name: auth.authorizationType === 'manufacturer' 
+          ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知商家')
+          : (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师'),
+        avatar: auth.authorizationType === 'manufacturer'
+          ? auth.toManufacturer?.logo
+          : auth.toDesigner?.avatar,
+        validUntil: auth.validUntil,
+        skuCount: auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0),
+        gmv: 0,
+        status: auth.status,
+        minDiscount: auth.minDiscountRate || 0,
+        commissionRate: auth.commissionRate || 0
+      }))
       setChannels(channelList.filter(c => c.status === 'active'))
 
       // Calculate stats
       const activeChannels = channelList.filter(c => c.status === 'active')
       setStats({
-        totalGmv: activeChannels.reduce((sum, c) => sum + c.gmv, 0),
-        monthlyGrowth: growthData.monthlyGrowth || 0,
+        totalGmv: 0,
+        monthlyGrowth: 0,
         channelCount: activeChannels.length,
-        productCount: productList.length
+        productCount: ownProducts.length
       })
-
-      // Get pending authorization requests
-      try {
-        const pendingRes = await apiClient.get(`/authorizations/manufacturer-requests/pending`)
-        setPendingCount(pendingRes.data?.data?.length || 0)
-      } catch {
-        setPendingCount(0)
-      }
 
     } catch (e: any) {
       toast.error(e?.response?.data?.message || '加载数据失败')
@@ -1104,68 +1018,20 @@ export default function ManufacturerBusinessPanel() {
               <div>
                 <div className="mb-6">
                   <h3 className="text-lg font-bold text-gray-900">分成体系管理</h3>
-                  <p className="text-sm text-gray-500">管理渠道商的层级分成和价格体系</p>
+                  <p className="text-sm text-gray-500">管理本厂家的分成体系层级树</p>
                 </div>
 
-                {channels.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>暂无渠道商</p>
-                    <p className="text-sm mt-2">请先在渠道管理中添加渠道商</p>
-                    <button
-                      onClick={() => setActiveTab('channels')}
-                      className="mt-4 px-4 py-2 bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
-                    >
-                      前往渠道管理
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {channels.map(channel => (
-                      <div key={channel._id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-xl font-bold">
-                              {channel.name.charAt(0)}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-lg font-bold text-gray-900">{channel.name}</h4>
-                                <span className={`px-2 py-0.5 text-xs rounded ${
-                                  channel.type === 'manufacturer' 
-                                    ? 'bg-blue-100 text-blue-700' 
-                                    : 'bg-purple-100 text-purple-700'
-                                }`}>
-                                  {channel.type === 'manufacturer' ? '厂家' : '设计师'}
-                                </span>
-                              </div>
-                              <div className="text-sm text-gray-500 mt-1">
-                                已授权 {channel.skuCount} 件商品 · 累计GMV ¥{channel.gmv.toLocaleString()}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-4">
-                            <div className="text-center px-4">
-                              <div className="text-xs text-gray-500">最低折扣</div>
-                              <div className="text-lg font-bold text-orange-600">{channel.minDiscount || 0}%</div>
-                            </div>
-                            <div className="text-center px-4">
-                              <div className="text-xs text-gray-500">返佣比例</div>
-                              <div className="text-lg font-bold text-green-600">{channel.commissionRate || 0}%</div>
-                            </div>
-                            <button
-                              onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&channelId=${channel._id}&channelName=${encodeURIComponent(channel.name)}`)}
-                              className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
-                            >
-                              管理层级树
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+                  <DollarSign className="w-16 h-16 mx-auto mb-4 text-purple-500" />
+                  <h4 className="text-xl font-bold text-gray-900 mb-2">分成体系层级树</h4>
+                  <p className="text-gray-500 mb-6">管理本厂家的渠道分成层级结构和价格体系</p>
+                  <button
+                    onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}`)}
+                    className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+                  >
+                    进入分成体系管理
+                  </button>
+                </div>
               </div>
             )}
 
