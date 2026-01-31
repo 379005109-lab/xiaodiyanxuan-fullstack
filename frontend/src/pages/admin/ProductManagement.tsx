@@ -523,6 +523,11 @@ export default function ProductManagement() {
     try {
       console.log('=== Excel导入开始 ===');
       console.log('总行数（包括表头）:', jsonData.length);
+      
+      if (!jsonData || jsonData.length < 2) {
+        toast.error('Excel文件为空或只有表头，请检查文件内容');
+        return;
+      }
 
       // enterprise_admin 不允许加载全量材质库数据
       if (isEnterpriseAdmin) {
@@ -531,8 +536,19 @@ export default function ProductManagement() {
       }
 
       // 加载材质库数据用于自动匹配
-      let allMaterials = await getAllMaterials();
-      const materialCategories = await getAllMaterialCategories();
+      console.log('[导入] 开始加载材质库...');
+      let allMaterials: any[] = [];
+      let materialCategories: any[] = [];
+      try {
+        allMaterials = await getAllMaterials();
+        materialCategories = await getAllMaterialCategories();
+        console.log('[导入] 材质库加载成功');
+      } catch (matErr) {
+        console.error('[导入] 材质库加载失败:', matErr);
+        // 继续导入，但不进行材质匹配
+        allMaterials = [];
+        materialCategories = [];
+      }
       
       // 过滤掉名称中包含换行符的错误材质数据
       const badMaterialCount = allMaterials.filter(m => m.name && m.name.includes('\n')).length;
