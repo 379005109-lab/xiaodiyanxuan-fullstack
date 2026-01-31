@@ -954,6 +954,20 @@ export default function ProductManagement() {
       console.log(`颜色: ${colorColumnIndex}, 标价: ${priceColumnIndex}, 折扣价: ${discountPriceIndex}`);
       console.log(`厂家: ${manufacturerColumnIndex}`);
       
+      // 验证必需列
+      if (productNameIndex < 0) {
+        toast.error('Excel缺少"商品名称"列，请检查表头');
+        return;
+      }
+      if (mainCodeIndex < 0) {
+        toast.error('Excel缺少"型号"列，请检查表头');
+        return;
+      }
+      if (categoryIndex < 0) {
+        toast.error('Excel缺少"类别"列，请检查表头');
+        return;
+      }
+      
       // 检测材质相关列（在标价列之前，排除已知列）
       const knownIndices = new Set([productNameIndex, mainCodeIndex, subCodeIndex, categoryIndex, specIndex, dimensionsIndex, colorColumnIndex, priceColumnIndex, discountPriceIndex, manufacturerColumnIndex]);
       let materialColumns: { index: number; name: string }[] = [];
