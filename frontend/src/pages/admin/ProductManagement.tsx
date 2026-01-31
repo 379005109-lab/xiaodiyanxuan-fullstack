@@ -1306,9 +1306,10 @@ export default function ProductManagement() {
             console.log(`  SKU${idx + 1} 图片:`, sku.images);
           });
           
-          // 优先使用Excel中的厂家ID，其次使用筛选的厂家，最后使用用户绑定的厂家
-          const targetManufacturerId = productData.manufacturerId || filterManufacturer || myManufacturerId;
-          console.log(`  📦 厂家ID来源: Excel=${productData.manufacturerId || '无'}, 筛选=${filterManufacturer || '无'}, 用户=${myManufacturerId || '无'}, 最终=${targetManufacturerId || '无'}`);
+          // 优先使用筛选的厂家（因为用户明确选择了），其次使用Excel中的厂家ID，最后使用用户绑定的厂家
+          // 注意：如果用户选择了厂家筛选，说明用户明确要将商品导入到该厂家
+          const targetManufacturerId = filterManufacturer || productData.manufacturerId || myManufacturerId;
+          console.log(`  📦 厂家ID来源: 筛选=${filterManufacturer || '无'}, Excel=${productData.manufacturerId || '无'}, 用户=${myManufacturerId || '无'}, 最终=${targetManufacturerId || '无'}`);
           
           const newProduct: any = {
             name: productData.name,
