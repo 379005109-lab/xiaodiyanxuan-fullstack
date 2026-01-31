@@ -967,6 +967,13 @@ const createProduct = async (req, res) => {
       productData.manufacturerId = productData.skus[0].manufacturerId
     }
 
+    // 如果仍然没有manufacturerId，默认分配给平台厂家
+    const platformManufacturerId = '6948fca5630729ca224ec425'
+    if (!productData.manufacturerId) {
+      productData.manufacturerId = platformManufacturerId
+      console.log('🔥 [创建商品] 未指定厂家，默认分配给平台:', platformManufacturerId)
+    }
+
     // 厂家体系账号：同步 SKU 的厂家归属，防止通过 SKU 绕过
     if (req.user?.manufacturerId && req.user.role !== 'super_admin' && Array.isArray(productData.skus)) {
       productData.skus = productData.skus.map(sku => ({
