@@ -1115,17 +1115,6 @@ export default function ManufacturerManagement() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 text-center">
-                    <div className="text-xs font-semibold text-emerald-700">最低折扣(%)</div>
-                    <div className="text-2xl font-black text-[#153e35] mt-1">{myManufacturer.defaultDiscount || 0}</div>
-                  </div>
-                  <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 text-center">
-                    <div className="text-xs font-semibold text-blue-700">返佣比例(%)</div>
-                    <div className="text-2xl font-black text-blue-700 mt-1">{myManufacturer.defaultCommission || 0}</div>
-                  </div>
-                </div>
-
                 {/* 价格范围 */}
                 <div className="mt-4 bg-gray-50 rounded-2xl p-4">
                   <div className="text-xs font-semibold text-gray-500 mb-1">产品价格范围</div>
@@ -1303,40 +1292,6 @@ export default function ManufacturerManagement() {
                       className="text-xs text-primary hover:underline"
                     >
                       编辑范围
-                    </button>
-                  </div>
-
-                  {/* 最低折扣 */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                    <div className="text-xs font-medium text-gray-500 mb-2">最低折扣</div>
-                    <div className="text-xl font-bold text-[#153e35] mb-3">
-                      {myManufacturer.defaultDiscount || 0}%
-                    </div>
-                    <button
-                      onClick={() => {
-                        setEditSection('discount')
-                        setShowEditSectionModal(true)
-                      }}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      编辑折扣
-                    </button>
-                  </div>
-
-                  {/* 返佣 */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                    <div className="text-xs font-medium text-gray-500 mb-2">默认返佣</div>
-                    <div className="text-xl font-bold text-blue-600 mb-3">
-                      {myManufacturer.defaultCommission || 0}%
-                    </div>
-                    <button
-                      onClick={() => {
-                        setEditSection('commission')
-                        setShowEditSectionModal(true)
-                      }}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      编辑返佣
                     </button>
                   </div>
 
