@@ -969,8 +969,9 @@ const createProduct = async (req, res) => {
 
     // 如果仍然没有manufacturerId，默认分配给平台厂家
     const platformManufacturerId = '6948fca5630729ca224ec425'
-    if (!productData.manufacturerId) {
-      productData.manufacturerId = platformManufacturerId
+    if (!productData.manufacturerId || productData.manufacturerId === '' || productData.manufacturerId === 'undefined') {
+      const mongoose = require('mongoose')
+      productData.manufacturerId = new mongoose.Types.ObjectId(platformManufacturerId)
       console.log('🔥 [创建商品] 未指定厂家，默认分配给平台:', platformManufacturerId)
     }
 
