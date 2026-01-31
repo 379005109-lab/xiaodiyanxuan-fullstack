@@ -1260,6 +1260,8 @@ export default function ProductManagement() {
       const response = await getProducts({ pageSize: 10000 });
       const allProducts = response.success ? response.data : [];
       console.log('已有商品数量:', allProducts.length);
+      console.log('待导入商品数量:', productMap.size);
+      console.log('待导入商品列表:', Array.from(productMap.keys()));
 
       for (const [productKey, productData] of productMap.entries()) {
         // 查找已存在的商品（按名称或型号匹配）
