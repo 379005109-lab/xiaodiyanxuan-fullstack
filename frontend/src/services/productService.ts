@@ -26,15 +26,16 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 // 创建商品
 export const createProduct = async (productData: any) => {
   try {
-    console.log('📤 [createProduct] 发送请求到后端, 商品名称:', productData.name);
-    console.log('📤 [createProduct] API URL:', apiClient.defaults.baseURL);
+    // 临时调试：使用alert绕过生产环境console移除
+    const apiUrl = apiClient.defaults.baseURL;
+    alert(`正在创建商品: ${productData.name}\nAPI: ${apiUrl}/products`);
+    
     const response = await apiClient.post('/products', productData);
-    console.log('📥 [createProduct] 后端响应:', response.status, response.data);
+    
+    alert(`创建成功! 状态: ${response.status}\n商品ID: ${response.data?.data?._id || response.data?._id || 'unknown'}`);
     return response.data;
   } catch (error: any) {
-    console.error('❌ [createProduct] 请求失败:', error.message);
-    console.error('❌ [createProduct] 响应状态:', error.response?.status);
-    console.error('❌ [createProduct] 响应数据:', error.response?.data);
+    alert(`创建失败: ${error.message}\n状态: ${error.response?.status}\n详情: ${JSON.stringify(error.response?.data || {})}`);
     throw error;
   }
 };
