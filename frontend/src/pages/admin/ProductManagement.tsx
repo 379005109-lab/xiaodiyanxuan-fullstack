@@ -1270,6 +1270,9 @@ export default function ProductManagement() {
             console.log(`  SKU${idx + 1} 图片:`, sku.images);
           });
           
+          // 使用当前筛选的厂家ID，如果没有选择则使用用户绑定的厂家ID
+          const targetManufacturerId = filterManufacturer || myManufacturerId || '';
+          
           const newProduct = {
             name: productData.name,
             productCode: productData.productCode, // 主型号
@@ -1287,6 +1290,7 @@ export default function ProductManagement() {
             rating: 0,
             reviews: 0,
             styles: productData.styleTags || [], // 风格标签（多个）
+            manufacturerId: targetManufacturerId, // 指定厂家ID
           };
 
           console.log(`  📋 分类信息: productData.category="${productData.category}", categoryName="${productData.categoryName}"`);

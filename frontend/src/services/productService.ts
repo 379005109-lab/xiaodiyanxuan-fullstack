@@ -23,16 +23,13 @@ export const getProductById = async (id: string): Promise<Product | null> => {
   }
 };
 
-// 创建商品 - Build: 20260131-v2
+// 创建商品
 export const createProduct = async (productData: any) => {
   try {
-    // 强制使用真实API
-    alert(`正在创建商品: ${productData.name}`);
     const response = await apiClient.post('/products', productData);
-    alert(`创建成功: ${JSON.stringify(response.data).substring(0, 100)}`);
     return response.data;
   } catch (error: any) {
-    alert(`创建失败: ${error.message}`);
+    console.error('创建商品失败:', error);
     throw error;
   }
 };
