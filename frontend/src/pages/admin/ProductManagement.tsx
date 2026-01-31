@@ -1333,9 +1333,10 @@ export default function ProductManagement() {
         toast.warning('没有新商品被导入，请检查Excel格式');
       }
       await loadProducts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('导入失败:', error);
-      toast.error('导入失败，请检查文件格式');
+      console.error('错误详情:', error?.message, error?.stack);
+      toast.error(`导入失败: ${error?.message || '请检查文件格式'}`);
     }
   };
 
@@ -2571,12 +2572,15 @@ export default function ProductManagement() {
 
   // 批量删除
   const handleBatchDelete = async () => {
+    console.log('[handleBatchDelete] 开始执行, selectedIds:', selectedIds);
     if (selectedIds.length === 0) {
       toast.error('请先选择要删除的商品');
       return;
     }
 
-    if (confirm(`确定要删除选中的 ${selectedIds.length} 个商品吗？`)) {
+    const confirmed = window.confirm(`确定要删除选中的 ${selectedIds.length} 个商品吗？`);
+    console.log('[handleBatchDelete] 确认结果:', confirmed);
+    if (confirmed) {
       let successCount = 0;
       let failCount = 0;
       for (const id of selectedIds) {
