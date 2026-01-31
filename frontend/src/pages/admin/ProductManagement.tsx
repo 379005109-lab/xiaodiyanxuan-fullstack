@@ -2812,7 +2812,10 @@ export default function ProductManagement() {
                 </button>
               )}
               <button
-                onClick={handleBatchDelete}
+                onClick={() => {
+                  console.log('[批量删除按钮] 点击触发');
+                  handleBatchDelete();
+                }}
                 className="btn-secondary flex items-center bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
               >
                 <Trash2 className="h-5 w-5 mr-2" />
