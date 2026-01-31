@@ -512,7 +512,7 @@ export default function ProductManagement() {
 
     // 下载文件
     XLSX.writeFile(wb, '商品导入模板v7.xlsx')
-    toast.success('模板下载成功')
+    console.log('模板下载成功')
   }
 
   // 表格导入 - 新版模板格式（动态材质列支持）
@@ -525,13 +525,13 @@ export default function ProductManagement() {
       console.log('总行数（包括表头）:', jsonData.length);
       
       if (!jsonData || jsonData.length < 2) {
-        toast.error('Excel文件为空或只有表头，请检查文件内容');
+        console.error('Excel文件为空或只有表头');
         return;
       }
 
       // enterprise_admin 不允许加载全量材质库数据
       if (isEnterpriseAdmin) {
-        toast.error('当前账号无权限导入材质映射，请联系管理员授权')
+        console.error('当前账号无权限导入材质映射')
         return
       }
 
@@ -956,15 +956,15 @@ export default function ProductManagement() {
       
       // 验证必需列
       if (productNameIndex < 0) {
-        toast.error('Excel缺少"商品名称"列，请检查表头');
+        console.error('Excel缺少"商品名称"列');
         return;
       }
       if (mainCodeIndex < 0) {
-        toast.error('Excel缺少"型号"列，请检查表头');
+        console.error('Excel缺少"型号"列');
         return;
       }
       if (categoryIndex < 0) {
-        toast.error('Excel缺少"类别"列，请检查表头');
+        console.error('Excel缺少"类别"列');
         return;
       }
       
@@ -1253,7 +1253,7 @@ export default function ProductManagement() {
       console.log('productMap 大小:', productMap.size);
       
       if (productMap.size === 0) {
-        toast.error('没有解析到有效的商品数据，请检查Excel格式');
+        console.error('没有解析到有效的商品数据');
         return;
       }
       
@@ -1363,22 +1363,13 @@ export default function ProductManagement() {
 
       if (errorCount > 0) {
         console.error('导入错误列表:', errors);
-        toast.error(`导入完成但有 ${errorCount} 个错误: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
       }
       
-      if (importedCount > 0) {
-        const skipMsg = skippedCount > 0 ? `，跳过 ${skippedCount} 个已存在的商品` : '';
-        toast.success(`成功导入 ${importedCount} 个新商品（共 ${totalSkuCount} 个SKU）${skipMsg}`);
-      } else if (skippedCount > 0) {
-        toast.warning(`跳过 ${skippedCount} 个已存在的商品，没有新商品被导入`);
-      } else if (errorCount === 0) {
-        toast.warning('没有新商品被导入，请检查Excel格式');
-      }
+      console.log(`导入完成: 新增 ${importedCount} 个商品, 跳过 ${skippedCount} 个, 错误 ${errorCount} 个`);
       await loadProducts();
     } catch (error: any) {
       console.error('导入失败:', error);
       console.error('错误详情:', error?.message, error?.stack);
-      toast.error(`导入失败: ${error?.message || '请检查文件格式'}`);
     }
   };
 
@@ -1390,7 +1381,6 @@ export default function ProductManagement() {
       return;
     }
     console.log('🟢 [handleImportTable] 选择的文件:', file.name, file.size, 'bytes');
-    toast.info(`正在解析文件: ${file.name}`);
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -1407,7 +1397,6 @@ export default function ProductManagement() {
     };
     reader.onerror = (error) => {
       console.error('🔴 [handleImportTable] 文件读取失败:', error);
-      toast.error('文件读取失败');
     };
     reader.readAsBinaryString(file);
     e.target.value = '';
