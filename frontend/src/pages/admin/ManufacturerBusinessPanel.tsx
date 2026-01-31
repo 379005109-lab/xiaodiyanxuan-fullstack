@@ -20,7 +20,7 @@ import {
   Settings
 } from 'lucide-react'
 
-type TabType = 'home' | 'partners' | 'channels'
+type TabType = 'home' | 'partners' | 'channels' | 'tier'
 type ProductFilter = 'all' | 'own' | 'authorized' | 'pending'
 
 interface ChannelItem {
@@ -578,6 +578,19 @@ export default function ManufacturerBusinessPanel() {
                   渠道管理
                 </span>
               </button>
+              <button
+                onClick={() => setActiveTab('tier')}
+                className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'tier'
+                    ? 'border-[#153e35] text-[#153e35]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  分成体系
+                </span>
+              </button>
             </div>
           </div>
 
@@ -924,12 +937,12 @@ export default function ManufacturerBusinessPanel() {
                     <p className="text-sm text-gray-500">管理本厂家授权的渠道商 ({channels.length})</p>
                   </button>
                   <button
-                    onClick={() => setActiveTab('channels')}
+                    onClick={() => setActiveTab('tier')}
                     className="bg-purple-50 border border-purple-100 rounded-xl p-6 text-left hover:shadow-md transition-all"
                   >
                     <DollarSign className="w-8 h-8 text-purple-600 mb-3" />
-                    <h4 className="font-semibold text-gray-900 mb-1">层级分成</h4>
-                    <p className="text-sm text-gray-500">在渠道管理中设置分成体系</p>
+                    <h4 className="font-semibold text-gray-900 mb-1">分成体系</h4>
+                    <p className="text-sm text-gray-500">管理渠道商的层级分成和价格体系</p>
                   </button>
                 </div>
 
@@ -1011,10 +1024,10 @@ export default function ManufacturerBusinessPanel() {
                           
                           <div className="space-y-2">
                             <button
-                              onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing?productTab=partner`)}
+                              onClick={() => navigate(`/admin/manufacturers/${auth.fromManufacturer?._id}/product-authorization`)}
                               className="w-full py-2.5 bg-[#153e35] text-white rounded-lg text-sm hover:bg-[#1a4d42]"
                             >
-                              查看授权商品
+                              经营授权
                             </button>
                             <button
                               onClick={() => {
@@ -1035,6 +1048,75 @@ export default function ManufacturerBusinessPanel() {
                         </div>
                       )
                     })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'tier' && (
+              <div>
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-gray-900">分成体系管理</h3>
+                  <p className="text-sm text-gray-500">管理渠道商的层级分成和价格体系</p>
+                </div>
+
+                {channels.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>暂无渠道商</p>
+                    <p className="text-sm mt-2">请先在渠道管理中添加渠道商</p>
+                    <button
+                      onClick={() => setActiveTab('channels')}
+                      className="mt-4 px-4 py-2 bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
+                    >
+                      前往渠道管理
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {channels.map(channel => (
+                      <div key={channel._id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-xl font-bold">
+                              {channel.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-lg font-bold text-gray-900">{channel.name}</h4>
+                                <span className={`px-2 py-0.5 text-xs rounded ${
+                                  channel.type === 'manufacturer' 
+                                    ? 'bg-blue-100 text-blue-700' 
+                                    : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                  {channel.type === 'manufacturer' ? '厂家' : '设计师'}
+                                </span>
+                              </div>
+                              <div className="text-sm text-gray-500 mt-1">
+                                已授权 {channel.skuCount} 件商品 · 累计GMV ¥{channel.gmv.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-4">
+                            <div className="text-center px-4">
+                              <div className="text-xs text-gray-500">最低折扣</div>
+                              <div className="text-lg font-bold text-orange-600">{channel.minDiscount || 0}%</div>
+                            </div>
+                            <div className="text-center px-4">
+                              <div className="text-xs text-gray-500">返佣比例</div>
+                              <div className="text-lg font-bold text-green-600">{channel.commissionRate || 0}%</div>
+                            </div>
+                            <button
+                              onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&channelId=${channel._id}&channelName=${encodeURIComponent(channel.name)}`)}
+                              className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
+                            >
+                              管理层级树
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
