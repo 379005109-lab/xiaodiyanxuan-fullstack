@@ -1383,17 +1383,31 @@ export default function ProductManagement() {
   };
 
   const handleImportTable = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🟢 [handleImportTable] 开始导入');
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log('🔴 [handleImportTable] 没有选择文件');
+      return;
+    }
+    console.log('🟢 [handleImportTable] 选择的文件:', file.name, file.size, 'bytes');
+    toast.info(`正在解析文件: ${file.name}`);
 
     const reader = new FileReader();
     reader.onload = (event) => {
+      console.log('🟢 [handleImportTable] 文件读取完成');
       const data = event.target?.result;
       const workbook = XLSX.read(data, { type: 'binary' });
       const sheetName = workbook.SheetNames[0];
+      console.log('🟢 [handleImportTable] 工作表名称:', sheetName);
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[];
+      console.log('🟢 [handleImportTable] 解析到的数据行数:', jsonData.length);
+      console.log('🟢 [handleImportTable] 表头:', jsonData[0]);
       processImportedData(jsonData);
+    };
+    reader.onerror = (error) => {
+      console.error('🔴 [handleImportTable] 文件读取失败:', error);
+      toast.error('文件读取失败');
     };
     reader.readAsBinaryString(file);
     e.target.value = '';
