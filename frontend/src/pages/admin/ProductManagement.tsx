@@ -1363,13 +1363,22 @@ export default function ProductManagement() {
 
       if (errorCount > 0) {
         console.error('导入错误列表:', errors);
+        toast.error(`导入有 ${errorCount} 个错误`);
+      }
+      
+      if (importedCount > 0) {
+        toast.success(`成功导入 ${importedCount} 个商品`);
+      } else if (skippedCount > 0) {
+        toast.info(`跳过 ${skippedCount} 个已存在的商品`);
+      } else if (errorCount === 0) {
+        toast.warning('没有新商品被导入');
       }
       
       console.log(`导入完成: 新增 ${importedCount} 个商品, 跳过 ${skippedCount} 个, 错误 ${errorCount} 个`);
       await loadProducts();
     } catch (error: any) {
       console.error('导入失败:', error);
-      console.error('错误详情:', error?.message, error?.stack);
+      toast.error(`导入失败: ${error?.message || '请检查文件格式'}`);
     }
   };
 
