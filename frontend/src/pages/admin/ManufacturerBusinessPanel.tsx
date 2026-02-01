@@ -397,10 +397,10 @@ export default function ManufacturerBusinessPanel() {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/admin/manufacturers')}
                 className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
               >
-                返回
+                返回厂家管理
               </button>
               <button
                 onClick={() => navigate('/admin/product-management')}
@@ -1062,10 +1062,10 @@ export default function ManufacturerBusinessPanel() {
                       </button>
                     )}
                     <button
-                      onClick={() => navigate(-1)}
+                      onClick={() => navigate('/admin/manufacturers')}
                       className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
                     >
-                      返回
+                      返回厂家管理
                     </button>
                   </div>
                 </div>
