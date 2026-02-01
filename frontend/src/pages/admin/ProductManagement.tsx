@@ -444,28 +444,28 @@ export default function ProductManagement() {
     }
   }
 
-  // 下载导入模板 v6.0（含规格备注）
+  // 下载导入模板 v7.0（含备用型号）
   const handleDownloadTemplate = () => {
-    // 创建模板数据 - v6.0版（含规格备注）
-    // 列: 商品名称、型号、类别、规格、规格备注、长宽高、材质面料、材质描述、标价、折扣价、库存天数、制作天数、包装体积、包装件数、厂家
+    // 创建模板数据 - v7.0版（含备用型号）
+    // 列: 商品名称、型号、备用型号、类别、规格、长宽高、材质面料、材质描述、标价、折扣价、库存天数、制作天数、包装体积、包装件数、厂家
     const templateData = [
-      ['商品名称', '型号', '类别', '规格', '规格备注', '长宽高', '材质面料', '材质描述', '标价', '折扣价', '库存天数', '制作天数', '包装体积', '包装件数', '厂家'],
-      ['现代沙发A', 'SF-001', '沙发', '三人位', '外径尺寸227*187', '200*115*77', '泰迪绒', 'A类泰迪绒面料，高回弹海绵填充', 13200, 11880, 7, 0, '0.8m³', 2, '广东家具厂'],
-      ['现代沙发A', 'SF-001', '沙发', '四人位', '外径尺寸287*187', '260*115*77', '雪尼尔绒', 'B类雪尼尔绒面料，高回弹海绵填充', 17940, 16146, 7, 0, '1.0m³', 2, '广东家具厂'],
-      ['北欧床', 'BED-001', '床', '1.5米', '', '150*200*45', '科技布', '科技布面料，实木框架', 2999, 2499, 0, 15, '0.5m³', 1, '佛山床垫厂'],
-      ['北欧床', 'BED-001', '床', '1.8米', '', '180*200*45', '科技布', '科技布面料，实木框架', 3499, 2999, 0, 15, '0.6m³', 1, '佛山床垫厂'],
+      ['商品名称', '型号', '备用型号', '类别', '规格', '长宽高', '材质面料', '材质描述', '标价', '折扣价', '库存天数', '制作天数', '包装体积', '包装件数', '厂家'],
+      ['现代沙发A', 'SF-001', 'SF-001-A', '沙发', '三人位', '200*115*77', '泰迪绒', 'A类泰迪绒面料，高回弹海绵填充', 13200, 11880, 7, 0, '0.8m³', 2, '广东家具厂'],
+      ['现代沙发A', 'SF-001', 'SF-001-B', '沙发', '四人位', '260*115*77', '雪尼尔绒', 'B类雪尼尔绒面料，高回弹海绵填充', 17940, 16146, 7, 0, '1.0m³', 2, '广东家具厂'],
+      ['北欧床', 'BED-001', 'BED-001-150', '床', '1.5米', '150*200*45', '科技布', '科技布面料，实木框架', 2999, 2499, 0, 15, '0.5m³', 1, '佛山床垫厂'],
+      ['北欧床', 'BED-001', 'BED-001-180', '床', '1.8米', '180*200*45', '科技布', '科技布面料，实木框架', 3499, 2999, 0, 15, '0.6m³', 1, '佛山床垫厂'],
     ]
 
     // 创建说明工作表
     const instructions = [
-      ['商品导入模板使用说明 v6.0'],
+      ['商品导入模板使用说明 v7.0'],
       [''],
       ['列说明：'],
       ['A. 商品名称: 商品的显示名称'],
-      ['B. 型号: 商品型号，同一商品的多个SKU使用相同型号'],
-      ['C. 类别: 商品分类'],
-      ['D. 规格: SKU规格，如"三人位"、"1.5米"等'],
-      ['E. 规格备注: 规格的补充说明，如"外径尺寸227*187"（可为空）'],
+      ['B. 型号: 主型号，同一商品的多个SKU使用相同主型号'],
+      ['C. 备用型号: 副型号/SKU编码，用于区分同一商品的不同SKU，可通过此型号搜索'],
+      ['D. 类别: 商品分类（如沙发、床、茶几等）'],
+      ['E. 规格: SKU规格，如"三人位"、"1.5米"等'],
       ['F. 长宽高: 商品尺寸，格式如"200*115*77"'],
       ['G. 材质面料: 主要材质名称'],
       ['H. 材质描述: 材质的详细描述'],
@@ -475,12 +475,13 @@ export default function ProductManagement() {
       ['L. 制作天数: 定制制作需要的天数（与库存天数二选一）'],
       ['M. 包装体积: 包装体积，如"0.5m³"'],
       ['N. 包装件数: 包装件数，默认1'],
-      ['O. 厂家: 生产厂家名称'],
+      ['O. 厂家: 生产厂家名称（必须与系统中的厂家名称完全一致）'],
       [''],
       ['注意事项：'],
-      ['1. 同一型号的多行会自动合并为同一商品的多个SKU'],
-      ['2. 库存天数>0表示有库存，制作天数>0表示需要定制'],
-      ['3. 包装体积和件数用于物流计算'],
+      ['1. 同一主型号的多行会自动合并为同一商品的多个SKU'],
+      ['2. 备用型号会保存到SKU的副型号字段，可通过主型号或备用型号搜索商品'],
+      ['3. 库存天数>0表示有库存，制作天数>0表示需要定制'],
+      ['4. 厂家名称必须与系统中已有的厂家名称完全一致，否则无法匹配'],
     ]
 
     // 创建工作簿
@@ -494,9 +495,9 @@ export default function ProductManagement() {
     ws['!cols'] = [
       { wch: 15 },  // 商品名称
       { wch: 12 },  // 型号
+      { wch: 15 },  // 备用型号
       { wch: 10 },  // 类别
       { wch: 10 },  // 规格
-      { wch: 18 },  // 规格备注
       { wch: 15 },  // 长宽高
       { wch: 12 },  // 材质面料
       { wch: 30 },  // 材质描述
@@ -510,8 +511,8 @@ export default function ProductManagement() {
     ]
 
     // 下载文件
-    XLSX.writeFile(wb, '商品导入模板v6.xlsx')
-    toast.success('模板下载成功')
+    XLSX.writeFile(wb, '商品导入模板v7.xlsx')
+    console.log('模板下载成功')
   }
 
   // 表格导入 - 新版模板格式（动态材质列支持）
@@ -522,16 +523,32 @@ export default function ProductManagement() {
     try {
       console.log('=== Excel导入开始 ===');
       console.log('总行数（包括表头）:', jsonData.length);
+      
+      if (!jsonData || jsonData.length < 2) {
+        console.error('Excel文件为空或只有表头');
+        return;
+      }
 
       // enterprise_admin 不允许加载全量材质库数据
       if (isEnterpriseAdmin) {
-        toast.error('当前账号无权限导入材质映射，请联系管理员授权')
+        console.error('当前账号无权限导入材质映射')
         return
       }
 
       // 加载材质库数据用于自动匹配
-      let allMaterials = await getAllMaterials();
-      const materialCategories = await getAllMaterialCategories();
+      console.log('[导入] 开始加载材质库...');
+      let allMaterials: any[] = [];
+      let materialCategories: any[] = [];
+      try {
+        allMaterials = await getAllMaterials();
+        materialCategories = await getAllMaterialCategories();
+        console.log('[导入] 材质库加载成功');
+      } catch (matErr) {
+        console.error('[导入] 材质库加载失败:', matErr);
+        // 继续导入，但不进行材质匹配
+        allMaterials = [];
+        materialCategories = [];
+      }
       
       // 过滤掉名称中包含换行符的错误材质数据
       const badMaterialCount = allMaterials.filter(m => m.name && m.name.includes('\n')).length;
@@ -908,62 +925,83 @@ export default function ProductManagement() {
       console.log('表头:', header);
       console.log('表头各列:', header.map((h: any, i: number) => `[${i}]${h}`).join(', '));
 
-      // 动态解析表头，找出颜色列和材质列的位置
-      // 固定列索引: 商品名称(0)、型号(1)、商品型号(2)、类别(3)、规格(4)、长宽高(5)
-      // 颜色列可能在第6列，也可能不存在
-      // 材质列从颜色列之后开始，直到遇到"标价"列
-      let materialColumns: { index: number; name: string }[] = [];
-      let priceColumnIndex = -1;
-      let colorColumnIndex = -1; // 颜色列索引，-1表示不存在
-      
-      // 在表头中查找"颜色"列
-      for (let i = 0; i < header.length; i++) {
-        const colName = (header[i] || '').toString().trim();
-        if (colName === '颜色') {
-          colorColumnIndex = i;
-          console.log(`✓ 找到颜色列: 索引=${i}`);
-          break;
+      // 动态检测所有列的位置（根据表头名称）
+      const findColumnIndex = (names: string[]): number => {
+        for (let i = 0; i < header.length; i++) {
+          const colName = (header[i] || '').toString().trim();
+          if (names.includes(colName)) {
+            return i;
+          }
         }
+        return -1;
+      };
+      
+      // 检测各列位置
+      const productNameIndex = findColumnIndex(['商品名称', '名称', '产品名称']);
+      const mainCodeIndex = findColumnIndex(['型号', '主型号', '产品型号']);
+      const subCodeIndex = findColumnIndex(['备用型号', '副型号', '商品型号', 'SKU编码']);
+      const categoryIndex = findColumnIndex(['类别', '分类', '商品分类']);
+      const specIndex = findColumnIndex(['规格', '规格型号']);
+      const dimensionsIndex = findColumnIndex(['长宽高', '尺寸', '产品尺寸', '外径尺寸']);
+      const colorColumnIndex = findColumnIndex(['颜色']);
+      const priceColumnIndex = findColumnIndex(['标价', '价格', '原价']);
+      const discountPriceIndex = findColumnIndex(['折扣价', '售价', '优惠价']);
+      const manufacturerColumnIndex = findColumnIndex(['厂家', '生产厂家', '供应商']);
+      
+      console.log('=== 列位置检测 ===');
+      console.log(`商品名称: ${productNameIndex}, 型号: ${mainCodeIndex}, 备用型号: ${subCodeIndex}`);
+      console.log(`类别: ${categoryIndex}, 规格: ${specIndex}, 长宽高: ${dimensionsIndex}`);
+      console.log(`颜色: ${colorColumnIndex}, 标价: ${priceColumnIndex}, 折扣价: ${discountPriceIndex}`);
+      console.log(`厂家: ${manufacturerColumnIndex}`);
+      
+      // 验证必需列
+      if (productNameIndex < 0) {
+        console.error('Excel缺少"商品名称"列');
+        return;
+      }
+      if (mainCodeIndex < 0) {
+        console.error('Excel缺少"型号"列');
+        return;
+      }
+      if (categoryIndex < 0) {
+        console.error('Excel缺少"类别"列');
+        return;
       }
       
-      const hasColorColumn = colorColumnIndex >= 0;
-      // 材质列从颜色列之后开始，或从第6列开始（如果没有颜色列）
-      const materialStartIndex = hasColorColumn ? colorColumnIndex + 1 : 6;
+      // 检测材质相关列（在标价列之前，排除已知列）
+      const knownIndices = new Set([productNameIndex, mainCodeIndex, subCodeIndex, categoryIndex, specIndex, dimensionsIndex, colorColumnIndex, priceColumnIndex, discountPriceIndex, manufacturerColumnIndex]);
+      let materialColumns: { index: number; name: string }[] = [];
       
-      console.log('颜色列索引:', colorColumnIndex, '是否有颜色列:', hasColorColumn, '材质起始列:', materialStartIndex);
+      // 如果找到标价列，从长宽高之后到标价之前的列可能是材质列
+      const materialStartIndex = dimensionsIndex >= 0 ? dimensionsIndex + 1 : 6;
+      const materialEndIndex = priceColumnIndex >= 0 ? priceColumnIndex : header.length;
       
-      for (let i = materialStartIndex; i < header.length; i++) {
+      for (let i = materialStartIndex; i < materialEndIndex; i++) {
+        if (knownIndices.has(i)) continue;
         const colName = (header[i] || '').toString().trim();
-        if (colName === '标价') {
-          priceColumnIndex = i;
-          break;
-        }
-        if (colName && colName !== '颜色') { // 排除颜色列
+        // 材质相关的列名
+        const materialKeywords = ['面料', '材质', '填充', '框架', '脚架', '座包', '皮', '布', '绒', '棉', '麻'];
+        if (colName && materialKeywords.some(k => colName.includes(k))) {
           materialColumns.push({ index: i, name: colName });
         }
       }
-
-      // 如果没找到"标价"列，使用默认位置
-      if (priceColumnIndex === -1) {
-        // 兼容旧模板：颜色(6)、面料(7)、填充(8)、框架(9)、脚架(10)、标价(11)
-        materialColumns = [
-          { index: 7, name: '面料' },
-          { index: 8, name: '填充' },
-          { index: 9, name: '框架' },
-          { index: 10, name: '脚架' },
-        ];
-        priceColumnIndex = 11;
+      
+      // 如果没检测到材质列，检查是否有"材质面料"和"材质描述"列
+      if (materialColumns.length === 0) {
+        const fabricIndex = findColumnIndex(['材质面料', '面料', '材质']);
+        const fabricDescIndex = findColumnIndex(['材质描述', '面料描述']);
+        if (fabricIndex >= 0) {
+          materialColumns.push({ index: fabricIndex, name: '面料' });
+        }
       }
 
       console.log('材质列:', materialColumns);
-      console.log('标价列索引:', priceColumnIndex);
-
-      // 计算后续列的索引
-      const discountPriceIndex = priceColumnIndex + 1;
-      const proIndex = priceColumnIndex + 2;
-      const proFeatureIndex = priceColumnIndex + 3;
-      const styleTagIndex = priceColumnIndex + 4;
-      const imageStartIndex = priceColumnIndex + 5;
+      
+      // 后续列索引（如果未检测到则使用相对位置）
+      const proIndex = priceColumnIndex >= 0 ? priceColumnIndex + 2 : -1;
+      const proFeatureIndex = priceColumnIndex >= 0 ? priceColumnIndex + 3 : -1;
+      const styleTagIndex = priceColumnIndex >= 0 ? priceColumnIndex + 4 : -1;
+      const imageStartIndex = priceColumnIndex >= 0 ? priceColumnIndex + 5 : -1;
 
       const rows = jsonData.slice(1).filter((row: any[]) => row && row.length > 0 && row[0] && row[0].toString().trim() !== '');
 
@@ -971,18 +1009,18 @@ export default function ProductManagement() {
       const productMap = new Map<string, any>();
 
       rows.forEach((row: any[], rowIndex) => {
-        const productName = (row[0] || '').toString().trim();
+        // 动态读取各列数据
+        const productName = (row[productNameIndex >= 0 ? productNameIndex : 0] || '').toString().trim();
         if (!productName) return;
 
-        // 固定列
-        const mainCode = (row[1] || '').toString().trim(); // 型号 = 主型号
-        const subCode = (row[2] || '').toString().trim();  // 商品型号 = 副型号
-        const categoryName = (row[3] || '').toString().trim();
-        const spec = (row[4] || '').toString().trim();
-        const dimensions = (row[5] || '').toString().trim();
+        const mainCode = (row[mainCodeIndex >= 0 ? mainCodeIndex : 1] || '').toString().trim();
+        const subCode = subCodeIndex >= 0 ? (row[subCodeIndex] || '').toString().trim() : '';
+        const categoryName = (row[categoryIndex >= 0 ? categoryIndex : 2] || '').toString().trim();
+        const spec = specIndex >= 0 ? (row[specIndex] || '').toString().trim() : '';
+        const dimensions = dimensionsIndex >= 0 ? (row[dimensionsIndex] || '').toString().trim() : '';
         
         // 读取颜色字段（如果存在）
-        const colorText = hasColorColumn ? (row[colorColumnIndex] || '').toString().trim() : '';
+        const colorText = colorColumnIndex >= 0 ? (row[colorColumnIndex] || '').toString().trim() : '';
         console.log(`===== 行${rowIndex + 2} 颜色字段: "${colorText}" =====`);
         
         // 解析颜色字段，获取材质类别筛选信息
@@ -1032,14 +1070,33 @@ export default function ProductManagement() {
         });
         console.log(`  材质加价汇总:`, materialUpgradePrices);
 
-        // 后续列
-        const price = parseFloat((row[priceColumnIndex]?.toString() || '').replace(/[^\d.]/g, '')) || 0;
-        const discountPrice = parseFloat((row[discountPriceIndex]?.toString() || '').replace(/[^\d.]/g, '')) || 0;
-        const isPro = row[proIndex] === '是' || row[proIndex] === 'PRO' || false;
-        const proFeature = (row[proFeatureIndex] || '').toString().trim();
-        const styleTagText = (row[styleTagIndex] || '').toString().trim();
+        // 后续列（使用动态检测的列索引）
+        const price = priceColumnIndex >= 0 ? parseFloat((row[priceColumnIndex]?.toString() || '').replace(/[^\d.]/g, '')) || 0 : 0;
+        const discountPrice = discountPriceIndex >= 0 ? parseFloat((row[discountPriceIndex]?.toString() || '').replace(/[^\d.]/g, '')) || 0 : 0;
+        const isPro = proIndex >= 0 ? (row[proIndex] === '是' || row[proIndex] === 'PRO') : false;
+        const proFeature = proFeatureIndex >= 0 ? (row[proFeatureIndex] || '').toString().trim() : '';
+        const styleTagText = styleTagIndex >= 0 ? (row[styleTagIndex] || '').toString().trim() : '';
         // 解析多个风格标签，支持逗号/顿号分隔（如：中古风、现代风）
         const styleTags = styleTagText.split(/[,，、\n]/).map(s => s.trim()).filter(s => s);
+        
+        // 读取厂家名称并匹配厂家ID
+        const manufacturerName = manufacturerColumnIndex >= 0 ? (row[manufacturerColumnIndex] || '').toString().trim() : '';
+        let matchedManufacturerId = '';
+        if (manufacturerName) {
+          const matchedMfr = manufacturers.find(m => 
+            m.name === manufacturerName || 
+            m.shortName === manufacturerName || 
+            m.fullName === manufacturerName ||
+            (m.shortName && m.shortName.includes(manufacturerName)) ||
+            (m.fullName && m.fullName.includes(manufacturerName))
+          );
+          if (matchedMfr) {
+            matchedManufacturerId = matchedMfr._id;
+            console.log(`✓ 厂家匹配: "${manufacturerName}" -> "${matchedMfr.shortName || matchedMfr.name}" (${matchedMfr._id})`);
+          } else {
+            console.log(`⚠️ 厂家未匹配: "${manufacturerName}"`);
+          }
+        }
 
         // 收集图片列（从imageStartIndex开始，最多7张）
         const images: string[] = [];
@@ -1165,6 +1222,7 @@ export default function ProductManagement() {
             skus: [skuData],
             specifications: [],
             firstImages: images.length > 0 ? [...images] : [], // 第一个SKU的图片作为商品主图
+            manufacturerId: matchedManufacturerId, // Excel中指定的厂家ID
           });
         } else {
           const product = productMap.get(productKey)!;
@@ -1188,23 +1246,29 @@ export default function ProductManagement() {
 
       let importedCount = 0, updatedCount = 0, totalSkuCount = 0;
       let errorCount = 0;
+      let skippedCount = 0; // 跳过的重复商品数量
       const errors: string[] = [];
       
       console.log('=== 开始导入商品 ===');
       console.log('productMap 大小:', productMap.size);
       
       if (productMap.size === 0) {
-        toast.error('没有解析到有效的商品数据，请检查Excel格式');
+        console.error('没有解析到有效的商品数据');
         return;
       }
       
       const response = await getProducts({ pageSize: 10000 });
       const allProducts = response.success ? response.data : [];
       console.log('已有商品数量:', allProducts.length);
+      console.log('待导入商品数量:', productMap.size);
+      console.log('待导入商品列表:', Array.from(productMap.keys()));
 
       for (const [productKey, productData] of productMap.entries()) {
-        // 查找已存在的商品（按名称匹配）
-        const existingProduct = allProducts.find((p: any) => p.name === productData.name);
+        // 查找已存在的商品（按名称或型号匹配）
+        const existingProduct = allProducts.find((p: any) => 
+          p.name === productData.name || 
+          (productData.productCode && p.productCode === productData.productCode)
+        );
 
         // 构建SKU数据 - 包含材质名称、材质类目和升级价格
         const buildSkus = (skuList: any[]) => skuList.map((sku: any, index: number) => ({
@@ -1226,36 +1290,12 @@ export default function ProductManagement() {
         }));
 
         if (existingProduct) {
-          const newSkus = buildSkus(productData.skus);
-          const existingSpecs = existingProduct.specifications || {};
-          const newSpecs = { ...existingSpecs };
-          productData.specifications.forEach((spec: any) => {
-            if (!newSpecs[spec.name]) {
-              newSpecs[spec.name] = `${spec.length}x${spec.width}x${spec.height}${spec.unit}`;
-            }
-          });
-
-          // 合并风格标签（支持多个标签）
-          const existingStyles = existingProduct.styles || [];
-          const newStyleTags = productData.styleTags || [];
-          const mergedStyles = [...new Set([...existingStyles, ...newStyleTags])];
-
-          try {
-            await updateProduct(existingProduct._id, {
-              productCode: productData.productCode || existingProduct.productCode, // 更新主型号
-              subCodes: [...new Set([...(existingProduct.subCodes || []), ...productData.subCodes])], // 合并副型号
-              skus: [...existingProduct.skus, ...newSkus],
-              specifications: newSpecs,
-              styles: mergedStyles, // 风格标签（多个）
-              images: existingProduct.images?.length > 0 ? existingProduct.images : productData.firstImages, // 保留原图或使用新图
-            });
-            updatedCount++;
-            totalSkuCount += newSkus.length;
-          } catch (err: any) {
-            console.error(`  ❌ 更新失败:`, err);
-            errorCount++;
-            errors.push(`更新${productData.name}: ${err.response?.data?.message || err.message}`);
-          }
+          // 商品已存在，跳过导入（不再重复导入）
+          const reason = existingProduct.name === productData.name ? '名称相同' : '型号相同';
+          console.log(`⏭️ 跳过已存在的商品: ${productData.name} (型号: ${productData.productCode}) - 原因: ${reason}, 已有商品: ${existingProduct.name}/${existingProduct.productCode}`);
+          toast.info(`跳过: ${productData.name} (${reason})`);
+          skippedCount++;
+          continue;
         } else {
           const specifications = productData.specifications.reduce((acc: any, spec: any) => {
             acc[spec.name] = `${spec.length}x${spec.width}x${spec.height}${spec.unit}`;
@@ -1270,8 +1310,11 @@ export default function ProductManagement() {
             console.log(`  SKU${idx + 1} 图片:`, sku.images);
           });
           
-          // 使用当前筛选的厂家ID，如果没有选择则使用用户绑定的厂家ID
-          const targetManufacturerId = filterManufacturer || myManufacturerId;
+          // 优先使用筛选的厂家，其次使用Excel中的厂家ID，最后使用平台默认厂家
+          // 注意：确保商品能在列表中显示，使用平台厂家ID作为默认值
+          const platformManufacturerId = '6948fca5630729ca224ec425'; // 平台默认厂家
+          const targetManufacturerId = filterManufacturer || productData.manufacturerId || platformManufacturerId;
+          console.log(`  📦 厂家ID来源: 筛选=${filterManufacturer || '无'}, Excel=${productData.manufacturerId || '无'}, 用户=${myManufacturerId || '无'}, 最终=${targetManufacturerId || '无'}`);
           
           const newProduct: any = {
             name: productData.name,
@@ -1300,12 +1343,21 @@ export default function ProductManagement() {
           console.log(`  📋 分类信息: productData.category="${productData.category}", categoryName="${productData.categoryName}"`);
           console.log(`  最终提交的商品数据:`, JSON.stringify(newProduct, null, 2));
           try {
+            console.log(`  🚀 正在调用 createProduct API...`);
             const result = await createProduct(newProduct);
-            console.log(`  ✅ 创建成功:`, result);
-            importedCount++;
-            totalSkuCount += productData.skus.length;
+            console.log(`  ✅ createProduct 返回:`, result);
+            if (result && (result.success || result.data || result._id)) {
+              importedCount++;
+              totalSkuCount += productData.skus.length;
+              console.log(`  ✅ 创建成功，当前已导入: ${importedCount} 个商品`);
+            } else {
+              console.error(`  ⚠️ createProduct 返回异常:`, result);
+              errorCount++;
+              errors.push(`${productData.name}: API返回异常`);
+            }
           } catch (err: any) {
             console.error(`  ❌ 创建失败:`, err);
+            console.error(`  ❌ 错误响应:`, err.response?.data);
             errorCount++;
             errors.push(`${productData.name}: ${err.response?.data?.message || err.message}`);
           }
@@ -1314,33 +1366,49 @@ export default function ProductManagement() {
 
       if (errorCount > 0) {
         console.error('导入错误列表:', errors);
-        toast.error(`导入完成但有 ${errorCount} 个错误: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`);
+        toast.error(`导入有 ${errorCount} 个错误`);
       }
       
-      if (importedCount > 0 || updatedCount > 0) {
-        toast.success(`成功导入 ${importedCount} 个新商品，更新 ${updatedCount} 个商品（共 ${totalSkuCount} 个SKU）`);
+      if (importedCount > 0) {
+        toast.success(`成功导入 ${importedCount} 个商品`);
+      } else if (skippedCount > 0) {
+        toast.info(`跳过 ${skippedCount} 个已存在的商品`);
       } else if (errorCount === 0) {
-        toast.warning('没有新商品被导入，可能数据已存在或格式不正确');
+        toast.warning('没有新商品被导入');
       }
+      
+      console.log(`导入完成: 新增 ${importedCount} 个商品, 跳过 ${skippedCount} 个, 错误 ${errorCount} 个`);
       await loadProducts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('导入失败:', error);
-      toast.error('导入失败，请检查文件格式');
+      toast.error(`导入失败: ${error?.message || '请检查文件格式'}`);
     }
   };
 
   const handleImportTable = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🟢 [handleImportTable] 开始导入');
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log('🔴 [handleImportTable] 没有选择文件');
+      return;
+    }
+    console.log('🟢 [handleImportTable] 选择的文件:', file.name, file.size, 'bytes');
 
     const reader = new FileReader();
     reader.onload = (event) => {
+      console.log('🟢 [handleImportTable] 文件读取完成');
       const data = event.target?.result;
       const workbook = XLSX.read(data, { type: 'binary' });
       const sheetName = workbook.SheetNames[0];
+      console.log('🟢 [handleImportTable] 工作表名称:', sheetName);
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[];
+      console.log('🟢 [handleImportTable] 解析到的数据行数:', jsonData.length);
+      console.log('🟢 [handleImportTable] 表头:', jsonData[0]);
       processImportedData(jsonData);
+    };
+    reader.onerror = (error) => {
+      console.error('🔴 [handleImportTable] 文件读取失败:', error);
     };
     reader.readAsBinaryString(file);
     e.target.value = '';
@@ -2561,20 +2629,37 @@ export default function ProductManagement() {
 
   // 批量删除
   const handleBatchDelete = async () => {
+    console.log('[handleBatchDelete] 开始执行, selectedIds:', selectedIds);
     if (selectedIds.length === 0) {
       toast.error('请先选择要删除的商品');
       return;
     }
 
-    if (confirm(`确定要删除选中的 ${selectedIds.length} 个商品吗？`)) {
+    const confirmed = window.confirm(`确定要删除选中的 ${selectedIds.length} 个商品吗？`);
+    console.log('[handleBatchDelete] 确认结果:', confirmed);
+    if (confirmed) {
       let successCount = 0;
+      let failCount = 0;
       for (const id of selectedIds) {
-        if (await deleteProduct(id)) {
-          successCount++;
+        try {
+          const result = await deleteProduct(id);
+          if (result && result.success !== false) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (err) {
+          console.error(`删除商品 ${id} 失败:`, err);
+          failCount++;
         }
       }
       
-      toast.success(`成功删除 ${successCount} 个商品`);
+      if (successCount > 0) {
+        toast.success(`成功删除 ${successCount} 个商品`);
+      }
+      if (failCount > 0) {
+        toast.error(`${failCount} 个商品删除失败`);
+      }
       setSelectedIds([]);
       await loadProducts();
     }
@@ -2650,8 +2735,18 @@ export default function ProductManagement() {
 
   const filteredProducts = products
     .filter((product) => {
-      if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false
+      // 搜索：支持商品名称、主型号、副型号（备用型号）
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        const p = product as any
+        const nameMatch = product.name.toLowerCase().includes(query)
+        const codeMatch = p.productCode?.toLowerCase().includes(query)
+        const subCodesMatch = (p.subCodes || []).some((code: string) => code.toLowerCase().includes(query))
+        // SKU编码匹配
+        const skuCodeMatch = (product.skus || []).some((sku: any) => sku.code?.toLowerCase().includes(query))
+        if (!nameMatch && !codeMatch && !subCodesMatch && !skuCodeMatch) {
+          return false
+        }
       }
       if (filterCategory) {
         // 匹配分类的_id、slug或name
@@ -2758,7 +2853,10 @@ export default function ProductManagement() {
                 </button>
               )}
               <button
-                onClick={handleBatchDelete}
+                onClick={() => {
+                  console.log('[批量删除按钮] 点击触发');
+                  handleBatchDelete();
+                }}
                 className="btn-secondary flex items-center bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
               >
                 <Trash2 className="h-5 w-5 mr-2" />
@@ -2825,7 +2923,7 @@ export default function ProductManagement() {
           <div className="w-full md:w-40">
             <select
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
+              onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
               className="input w-full"
             >
               <option value="">所有分类</option>
@@ -2841,7 +2939,7 @@ export default function ProductManagement() {
           <div className="w-full md:w-40">
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
               className="input w-full"
             >
               <option value="">所有状态</option>
@@ -2855,7 +2953,7 @@ export default function ProductManagement() {
           <div className="w-full md:w-40">
             <select
               value={filterManufacturer}
-              onChange={(e) => setFilterManufacturer(e.target.value)}
+              onChange={(e) => { setFilterManufacturer(e.target.value); setCurrentPage(1); }}
               className="input w-full"
             >
               <option value="">所有厂家</option>

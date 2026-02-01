@@ -959,7 +959,8 @@ const createProduct = async (req, res) => {
     productData.ownerId = req.user._id || req.user.id
     productData.ownerName = req.user.nickname || req.user.username || req.user.name
 
-    if (req.user.manufacturerId && req.user.role !== 'super_admin') {
+    // 如果前端已指定厂家ID，则使用前端传入的值；否则使用用户的厂家ID
+    if (!productData.manufacturerId && req.user.manufacturerId && req.user.role !== 'super_admin') {
       productData.manufacturerId = req.user.manufacturerId
     }
 

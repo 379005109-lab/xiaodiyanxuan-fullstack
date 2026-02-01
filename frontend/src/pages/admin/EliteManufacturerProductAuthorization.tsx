@@ -21,6 +21,8 @@ interface ProductItem {
   images?: string[]
   status?: string
   basePrice?: number
+  authStatus?: 'own' | 'authorized'
+  fromManufacturer?: { _id: string; name: string }
   skus?: Array<{
     code?: string
     spec?: string
@@ -85,18 +87,38 @@ export default function EliteManufacturerProductAuthorization() {
 
       setLoading(true)
       try {
-        const [mRes, cRes, pRes, tRes, aRes, summaryRes] = await Promise.all([
+        const [mRes, cRes, pRes, tRes, aRes, summaryRes, authProdRes] = await Promise.all([
           apiClient.get(`/manufacturers/${manufacturerId}`),
           apiClient.get(`/manufacturers/${manufacturerId}/product-categories`),
           apiClient.get(`/manufacturers/${manufacturerId}/products`, { params: { status: 'active', limit: 10000 } }),
           apiClient.get('/tier-system/effective', { params: { manufacturerId } }).catch(() => ({ data: { data: null } })),
           apiClient.get(`/authorizations`, { params: { manufacturerId, status: 'active' } }).catch(() => ({ data: { data: [] } })),
           apiClient.get('/authorizations/summary').catch(() => ({ data: { data: [] } })),
+          apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } }).catch(() => ({ data: { data: [] } })),
         ])
 
         setManufacturer(mRes.data?.data || null)
         setCategories(cRes.data?.data || [])
-        setProducts(pRes.data?.data || [])
+        
+        // 自有产品标记为 'own'
+        const ownProducts = (pRes.data?.data || []).map((p: any) => ({
+          ...p,
+          authStatus: 'own' as const
+        }))
+        
+        // 合作商产品标记为 'authorized'
+        const authorizedProducts = (authProdRes.data?.data || []).map((p: any) => ({
+          ...p,
+          authStatus: 'authorized' as const
+        }))
+        
+        // 合并产品列表，去重
+        const existingIds = new Set(ownProducts.map((p: any) => p._id))
+        const uniqueAuthorized = authorizedProducts.filter((p: any) => !existingIds.has(p._id))
+        const allProducts = [...ownProducts, ...uniqueAuthorized]
+        
+        console.log('[EliteAuth] ownProducts:', ownProducts.length, 'authorizedProducts:', uniqueAuthorized.length)
+        setProducts(allProducts)
         setTierSystemConfig(tRes.data?.data || null)
         
         // 从summary API获取当前厂家的授权折扣和返佣比例
@@ -325,44 +347,58 @@ export default function EliteManufacturerProductAuthorization() {
 
   const getSkuPricing = (skuPrice: number) => {
     // 优先使用授权记录中的折扣和返佣比例
-    const activeAuth = existingAuthorizations.find(a => a.status === 'active')
-    const authDiscountRate = activeAuth?.minDiscountRate // 授权记录中的最低折扣率（如52%表示52%的价格）
-    const authCommissionRate = activeAuth?.commissionRate // 授权记录中的返佣比例（如19%）
+    const activeAuth = existingAuthorizations.find(a => a.status === 'active') || existingAuthorizations[0]
+    const authDiscountRate = activeAuth?.minDiscountRate // 授权记录中的最低折扣率（如60表示60%的价格）
+    const authCommissionRate = activeAuth?.commissionRate // 授权记录中的返佣比例（如40表示40%）
 
+    console.log('[getSkuPricing] skuPrice:', skuPrice, 'activeAuth:', activeAuth, 'authDiscountRate:', authDiscountRate, 'authCommissionRate:', authCommissionRate)
+
+    // 如果有授权记录中的折扣和返佣，直接使用
+    if (typeof authDiscountRate === 'number' && authDiscountRate > 0) {
+      const discountRate = authDiscountRate / 100 // 60 -> 0.6
+      const discountedPrice = Math.round(skuPrice * discountRate)
+      const commRate = typeof authCommissionRate === 'number' && authCommissionRate > 0 
+        ? authCommissionRate / 100 
+        : 0.3
+      const commission = Math.round(discountedPrice * commRate)
+      
+      console.log('[getSkuPricing] Using auth rates - discountRate:', discountRate, 'discountedPrice:', discountedPrice, 'commRate:', commRate, 'commission:', commission)
+      
+      return {
+        listPrice: skuPrice,
+        discountPrice: discountedPrice,
+        commission,
+        discountRate
+      }
+    }
+
+    // 回退到tierSystemConfig
     const profitSettings = tierSystemConfig?.profitSettings || {}
     const rule = tierSystemConfig?.discountRule || null
 
     const minSaleDiscountRate = Number(profitSettings?.minSaleDiscountRate ?? 1)
     const safeMinSaleRate = Number.isFinite(minSaleDiscountRate) ? Math.max(0, Math.min(1, minSaleDiscountRate)) : 1
 
-    // 优先使用授权记录中的折扣率
-    let discountRate: number
-    if (typeof authDiscountRate === 'number' && authDiscountRate > 0) {
-      // 授权记录中的折扣率是百分比，如52表示52%
-      discountRate = authDiscountRate / 100
-    } else {
-      const discountType = rule?.discountType || (typeof rule?.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
-      if (discountType === 'minPrice' && typeof rule?.minDiscountPrice === 'number') {
-        // 固定价格模式
-        const discountedPrice = Math.max(rule.minDiscountPrice, skuPrice * safeMinSaleRate)
-        const commRate = typeof authCommissionRate === 'number' ? authCommissionRate / 100 : (rule?.commissionRate || 0.4)
-        const commission = Math.round(discountedPrice * Math.max(0, Math.min(0.5, commRate)))
-        return {
-          listPrice: skuPrice,
-          discountPrice: Math.round(discountedPrice),
-          commission,
-          discountRate: undefined
-        }
+    const discountType = rule?.discountType || (typeof rule?.minDiscountPrice === 'number' ? 'minPrice' : 'rate')
+    if (discountType === 'minPrice' && typeof rule?.minDiscountPrice === 'number') {
+      const discountedPrice = Math.max(rule.minDiscountPrice, skuPrice * safeMinSaleRate)
+      const commRate = typeof authCommissionRate === 'number' ? authCommissionRate / 100 : (rule?.commissionRate || 0.4)
+      const commission = Math.round(discountedPrice * Math.max(0, Math.min(0.5, commRate)))
+      return {
+        listPrice: skuPrice,
+        discountPrice: Math.round(discountedPrice),
+        commission,
+        discountRate: undefined
       }
-      discountRate = typeof rule?.discountRate === 'number' ? Math.max(0, Math.min(1, rule.discountRate)) : 0.6
     }
-
+    
+    const discountRate = typeof rule?.discountRate === 'number' ? Math.max(0, Math.min(1, rule.discountRate)) : 0.6
     let discountedPrice = skuPrice * discountRate
     const minAllowed = skuPrice * safeMinSaleRate
     discountedPrice = Math.max(discountedPrice, minAllowed)
     discountedPrice = Math.round(discountedPrice)
 
-    // 优先使用授权记录中的返佣比例
+    // 使用授权记录中的返佣比例或默认值
     let commissionRate: number
     if (typeof authCommissionRate === 'number' && authCommissionRate > 0) {
       commissionRate = authCommissionRate / 100
@@ -653,6 +689,16 @@ export default function EliteManufacturerProductAuthorization() {
                                   <div className="flex-grow min-w-0">
                                     <div className="flex items-center gap-2">
                                       <h4 className="text-base font-bold text-gray-800 truncate">{prod.name}</h4>
+                                      {prod.authStatus === 'authorized' && (
+                                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded-full">
+                                          合作商
+                                        </span>
+                                      )}
+                                      {prod.authStatus === 'own' && (
+                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">
+                                          自有
+                                        </span>
+                                      )}
                                       <button
                                         onClick={() => toggleProductExpansion(productId)}
                                         className="text-blue-500 text-xs font-bold hover:underline flex items-center"
@@ -664,7 +710,7 @@ export default function EliteManufacturerProductAuthorization() {
                                         </svg>
                                       </button>
                                     </div>
-                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5 uppercase tracking-tighter">编码：{prod.productCode || '无编码'}</p>
+                                    <p className="text-[10px] text-gray-400 font-bold mt-0.5 uppercase tracking-tighter">编码：{prod.productCode || '无编码'}{prod.fromManufacturer?.name ? ` | 来源：${prod.fromManufacturer.name}` : ''}</p>
 
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
                                       <div className="px-2 py-1 bg-gray-50 rounded">
