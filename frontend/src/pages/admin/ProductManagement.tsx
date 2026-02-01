@@ -45,36 +45,28 @@ export default function ProductManagement() {
   const [filterManufacturer, setFilterManufacturer] = useState('')  // 厂家筛选
   const [sortBy, setSortBy] = useState('')  // 排序方式
   
-  // 分页状态
-  const [currentPage, setCurrentPage] = useState(1)
+  // 分页状态 - 直接从URL初始化
+  const getInitialPage = () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const page = urlParams.get('page')
+    return page ? parseInt(page) || 1 : 1
+  }
+  const [currentPage, setCurrentPage] = useState(getInitialPage)
   const [itemsPerPage] = useState(10)
 
-  // 从 URL 参数恢复页码（每次 searchParams 变化时检查）
+  // 同步页码到 URL（仅当页码变化时）
   useEffect(() => {
-    const pageFromUrl = searchParams.get('page')
-    if (pageFromUrl) {
-      const pageNum = parseInt(pageFromUrl)
-      if (!isNaN(pageNum) && pageNum > 0 && pageNum !== currentPage) {
-        setCurrentPage(pageNum)
-      }
-    }
-  }, [searchParams])
-
-  // 同步页码到 URL
-  useEffect(() => {
-    const currentUrlPage = searchParams.get('page')
-    const shouldHavePage = currentPage > 1
+    const urlParams = new URLSearchParams(window.location.search)
+    const currentUrlPage = urlParams.get('page')
     const currentUrlPageNum = currentUrlPage ? parseInt(currentUrlPage) : 1
     
-    // 只有当URL中的页码与当前页码不一致时才更新
-    if ((shouldHavePage && currentUrlPageNum !== currentPage) || (!shouldHavePage && currentUrlPage)) {
-      const newParams = new URLSearchParams(searchParams)
-      if (shouldHavePage) {
-        newParams.set('page', currentPage.toString())
+    if (currentPage !== currentUrlPageNum) {
+      if (currentPage > 1) {
+        searchParams.set('page', currentPage.toString())
       } else {
-        newParams.delete('page')
+        searchParams.delete('page')
       }
-      setSearchParams(newParams, { replace: true })
+      setSearchParams(searchParams, { replace: true })
     }
   }, [currentPage])
 
