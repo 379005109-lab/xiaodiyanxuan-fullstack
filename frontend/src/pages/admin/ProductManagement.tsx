@@ -1613,16 +1613,22 @@ export default function ProductManagement() {
     try {
       const zip = await JSZip.loadAsync(file)
       
-      // 图片排序函数：正视图(1) > 侧视图(2) > 背面图(3) > 4宫格细节图(4) > 其他
+      // 图片排序函数：正视图(1) > 侧视图(2) > 背面图(3) > 其他(50) > 4宫格细节图(100)
+      // 确保细节图/四宫格永远排在最后，不会成为头图
       const getImageSortOrder = (fileName: string): number => {
         const lowerName = fileName.toLowerCase()
-        if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front') || lowerName.includes('主图')) return 1
+        // 细节图/四宫格排在最后（优先级最低）
+        if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('4宫格') || lowerName.includes('宫格') || lowerName.includes('四宫格')) return 100
+        // 正视图排第一（优先级最高）
+        if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front') || lowerName.includes('主图') || lowerName.includes('主')) return 1
         if (lowerName.includes('侧视') || lowerName.includes('侧面') || lowerName.includes('side')) return 2
         if (lowerName.includes('背面') || lowerName.includes('背视') || lowerName.includes('back') || lowerName.includes('后面')) return 3
-        if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('4宫格') || lowerName.includes('宫格')) return 4
-        const numMatch = fileName.match(/[_-]?(\d+)\./);
+        // 数字命名的图片（如 1.jpg, 2.jpg）按数字排序，排在中间
+        const numMatch = fileName.match(/^(\d+)\./);
         if (numMatch) return 10 + parseInt(numMatch[1])
-        return 100
+        const numMatch2 = fileName.match(/[_-](\d+)\./);
+        if (numMatch2) return 10 + parseInt(numMatch2[1])
+        return 50
       }
       
       // 按文件夹分组图片
