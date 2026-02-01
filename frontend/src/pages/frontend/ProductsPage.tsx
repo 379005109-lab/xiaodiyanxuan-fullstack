@@ -80,9 +80,28 @@ export default function ProductsPage() {
     series: searchParams.get('series') || '',
   })
   
-  // 分页状态
-  const [currentPage, setCurrentPage] = useState(1)
+  // 分页状态 - 从URL读取初始页码
+  const getInitialPage = () => {
+    const page = searchParams.get('page')
+    return page ? parseInt(page) || 1 : 1
+  }
+  const [currentPage, setCurrentPage] = useState(getInitialPage)
   const itemsPerPage = 18
+
+  // 同步页码到URL
+  useEffect(() => {
+    const currentUrlPage = searchParams.get('page')
+    const currentUrlPageNum = currentUrlPage ? parseInt(currentUrlPage) : 1
+    if (currentPage !== currentUrlPageNum) {
+      const newParams = new URLSearchParams(searchParams)
+      if (currentPage > 1) {
+        newParams.set('page', currentPage.toString())
+      } else {
+        newParams.delete('page')
+      }
+      setSearchParams(newParams, { replace: true })
+    }
+  }, [currentPage])
 
   // 价格区间拖拽条状态（初始值会在商品加载后更新）
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000])
