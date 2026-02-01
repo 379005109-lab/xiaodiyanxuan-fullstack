@@ -87,8 +87,11 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    // 直接从Zustand store获取状态
-    const token = useAuthStore.getState().token;
+    // 从Zustand store获取状态，如果为空则从localStorage获取（zustand persist异步恢复时的备份）
+    let token = useAuthStore.getState().token;
+    if (!token) {
+      token = localStorage.getItem('token');
+    }
     config.headers = (config.headers || {}) as any;
     const existingAuth = (config.headers as any)?.Authorization || (config.headers as any)?.authorization;
     if (token && !existingAuth) {
