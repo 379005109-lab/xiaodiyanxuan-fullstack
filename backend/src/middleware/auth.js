@@ -83,14 +83,21 @@ const optionalAuth = async (req, res, next) => {
       req.userId = decoded.userId
       
       const user = await User.findById(decoded.userId).select('-password')
+      console.log('[optionalAuth] Found user:', user ? { id: user._id, role: user.role, manufacturerId: user.manufacturerId, status: user.status } : 'NOT FOUND')
       if (user && user.status === 'active') {
         if (!(await isManufacturerExpiredForUser(user))) {
           req.user = user
+          console.log('[optionalAuth] User set to req.user, manufacturerId:', user.manufacturerId)
+        } else {
+          console.log('[optionalAuth] Manufacturer expired, user not set')
         }
+      } else {
+        console.log('[optionalAuth] User inactive or not found')
       }
     }
     next()
   } catch (err) {
+    console.log('[optionalAuth] Error:', err.message)
     next()
   }
 }
