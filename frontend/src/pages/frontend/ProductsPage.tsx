@@ -27,6 +27,10 @@ const formatPriceSimplified = (price: number): string => {
 const getDisplayPrice = (product: any): number => {
   const raw = product?.labelPrice1 ?? product?.takePrice ?? product?.basePrice ?? 0
   const n = Number(raw)
+  // 调试：如果价格为0，打印商品信息
+  if (n === 0 && product?.productCode) {
+    console.log('[价格调试]', product.productCode, '| labelPrice1:', product?.labelPrice1, '| takePrice:', product?.takePrice, '| basePrice:', product?.basePrice)
+  }
   return Number.isFinite(n) ? n : 0
 }
 
