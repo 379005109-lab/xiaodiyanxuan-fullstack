@@ -55,10 +55,10 @@ const getApiUrl = () => {
       return apiUrl;
     }
 
-    // 如果是正式域名，使用阿里云CDN加速后的API域名
+    // 如果是正式域名，使用相对路径（通过 Ingress 代理到后端）
     if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
-      const apiUrl = 'https://api.xiaodiyanxuan.com/api';
-      console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
+      const apiUrl = '/api';
+      console.log(`✅ 生产环境 (${hostname})，使用相对路径API: ${apiUrl}`);
       return apiUrl;
     }
     
