@@ -387,6 +387,30 @@ const listProducts = async (req, res) => {
       })
     }
 
+    // 超级管理员/管理员（无厂家绑定）：显示所有商品
+    if ((user?.role === 'super_admin' || user?.role === 'admin') && !user?.manufacturerId) {
+      const query = {}
+      if (search) query.$text = { $search: search }
+      if (categoryId) {
+        query.$or = [
+          { 'category.id': categoryId },
+          { 'category._id': categoryId },
+          { category: categoryId },
+        ]
+      }
+      if (styleId) query['style.id'] = styleId
+      
+      const total = await Product.countDocuments(query)
+      const products = await Product.find(query)
+        .sort(sortBy || 'order -createdAt')
+        .skip((parseInt(page) - 1) * parseInt(pageSize))
+        .limit(parseInt(pageSize))
+        .lean()
+      
+      res.json(paginatedResponse(attachCategoryName(products), total, parseInt(page), parseInt(pageSize)))
+      return
+    }
+
     // 厂家/设计师/有厂家绑定的管理员：自有 + 已授权 + 平台自营
     // 注意：即使是 admin/super_admin，如果绑定了厂家，也按厂家权限过滤
     if ((user?.manufacturerId || user?.role === 'designer')) {
