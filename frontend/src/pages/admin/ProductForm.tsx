@@ -997,7 +997,7 @@ export default function ProductForm() {
             duration: 3000,
           });
           // 延迟导航，确保 toast 显示
-          setTimeout(() => navigate('/admin/products'), 500);
+          setTimeout(() => navigate(-1), 500);
         } else {
           toast.error('商品更新失败');
         }
@@ -1011,7 +1011,7 @@ export default function ProductForm() {
             duration: 3000,
           });
           // 延迟导航，确保 toast 显示
-          setTimeout(() => navigate('/admin/products'), 500);
+          setTimeout(() => navigate(-1), 500);
         } else {
           toast.error('商品创建失败');
         }
@@ -1528,7 +1528,7 @@ export default function ProductForm() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => navigate('/admin/products')}
+            onClick={() => navigate(-1)}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -3257,7 +3257,7 @@ export default function ProductForm() {
         {/* 底部按钮 */}
         <div className="flex justify-end space-x-4">
           <button
-            onClick={() => navigate('/admin/products')}
+            onClick={() => navigate(-1)}
             className="btn-secondary"
           >
             取消
