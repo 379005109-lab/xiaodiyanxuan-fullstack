@@ -544,7 +544,16 @@ export default function ProductForm() {
             || (material as any).img
             || (material as any).thumbnail
             || ((material as any).images?.[0] || '')
-          console.log('🔥 [面料选择] 设置SKU面料:', material.name)
+          // 同时更新material.fabric数组，确保前端详情页能显示材质选择
+          if (!newSkus[selectingMaterialForSkuIndex].material || typeof newSkus[selectingMaterialForSkuIndex].material === 'string') {
+            newSkus[selectingMaterialForSkuIndex].material = createEmptyMaterialSelection()
+          }
+          const materialObj = newSkus[selectingMaterialForSkuIndex].material as MaterialSelection
+          if (!materialObj.fabric) materialObj.fabric = []
+          if (!materialObj.fabric.includes(material.name)) {
+            materialObj.fabric = [...materialObj.fabric, material.name]
+          }
+          console.log('🔥 [面料选择] 设置SKU面料:', material.name, 'material.fabric:', materialObj.fabric)
           // 关闭弹窗
           setShowMaterialSelectModal(false)
           setSelectingMaterialForSkuIndex(-1)
