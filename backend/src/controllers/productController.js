@@ -495,7 +495,8 @@ const listProducts = async (req, res) => {
       }
 
       const onlyAuthorized = req.query.onlyAuthorized === 'true'
-      // 严格模式：不再显示无 manufacturerId 的商品，只显示：授权商品 + 自有商品 + 平台商品
+      // 严格模式：厂家账号只显示自有商品 + 授权商品，不再默认显示平台商品
+      // 设计师账号显示授权商品 + 平台商品
       const baseOr = isDesigner
         ? [
             { _id: { $in: Array.from(authorizedProductIds) } },
@@ -506,8 +507,6 @@ const listProducts = async (req, res) => {
             { _id: { $in: Array.from(authorizedProductIds) } },
             { manufacturerId: user.manufacturerId },
             { 'skus.manufacturerId': user.manufacturerId },
-            { manufacturerId: platformManufacturerId },
-            { 'skus.manufacturerId': platformManufacturerId },
           ]
 
       const accessQuery = onlyAuthorized
