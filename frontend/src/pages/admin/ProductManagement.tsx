@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Plus, Search, Filter, Edit, Trash2, Eye, EyeOff, FileSpreadsheet, Download, ChevronDown, ChevronUp, BarChart3, ImageIcon, FolderOpen, Archive } from 'lucide-react'
 import { formatPrice, formatDate } from '@/lib/utils'
@@ -27,6 +27,7 @@ interface Manufacturer {
 
 export default function ProductManagement() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuthStore()
   const isEnterpriseAdmin = user?.role === 'enterprise_admin'
   const canViewCostPrice = user?.role === 'super_admin' || user?.role === 'admin' || (user as any)?.permissions?.canViewCostPrice === true
@@ -44,9 +45,23 @@ export default function ProductManagement() {
   const [filterManufacturer, setFilterManufacturer] = useState('')  // 厂家筛选
   const [sortBy, setSortBy] = useState('')  // 排序方式
   
-  // 分页状态
-  const [currentPage, setCurrentPage] = useState(1)
+  // 分页状态 - 从 URL 参数读取初始页码
+  const [currentPage, setCurrentPage] = useState(() => {
+    const page = searchParams.get('page')
+    return page ? parseInt(page) : 1
+  })
   const [itemsPerPage] = useState(10)
+
+  // 同步页码到 URL
+  useEffect(() => {
+    const newParams = new URLSearchParams(searchParams)
+    if (currentPage > 1) {
+      newParams.set('page', currentPage.toString())
+    } else {
+      newParams.delete('page')
+    }
+    setSearchParams(newParams, { replace: true })
+  }, [currentPage])
 
   // 商品数据
   const [products, setProducts] = useState<Product[]>([])
