@@ -360,13 +360,15 @@ export default function ProductManagement() {
       }
 
       const updatedSkus = applyManufacturerToSkus(targetProduct, manufacturerId)
-      await updateProduct(productId, { skus: updatedSkus })
+      // 同时更新商品的 manufacturerId 和 SKU 的厂家信息
+      await updateProduct(productId, { manufacturerId, skus: updatedSkus })
       toast.success('厂家已更新')
       setEditingManufacturer(null)
       // 更新本地数据
       setProducts(prev => prev.map(p => 
         p._id === productId ? ({
           ...(p as any),
+          manufacturerId,
           skus: updatedSkus
         } as any) : p
       ))
