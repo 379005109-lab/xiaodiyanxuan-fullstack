@@ -709,7 +709,10 @@ export default function ManufacturerBusinessPanel() {
                             </div>
                             <div className="flex items-center gap-2">
                               <button 
-                                onClick={() => navigate(`/admin/authorizations/${channel._id}/pricing`)}
+                                onClick={() => {
+                                  const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=channels`)
+                                  navigate(`/admin/authorizations/${channel._id}/pricing?returnTo=${rt}`)
+                                }}
                                 className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50"
                               >
                                 进入专属价格池
@@ -755,7 +758,10 @@ export default function ManufacturerBusinessPanel() {
                                       </div>
                                     </div>
                                     <button
-                                      onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${channel._id}`)}
+                                      onClick={() => {
+                                        const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=channels`)
+                                        navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${channel._id}&returnTo=${rt}`)
+                                      }}
                                       className="text-xs text-blue-600 hover:text-blue-800"
                                     >
                                       管理层级
@@ -769,7 +775,10 @@ export default function ManufacturerBusinessPanel() {
                               </div>
                             )}
                             <button
-                              onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${channel._id}`)}
+                              onClick={() => {
+                                const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=channels`)
+                                navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${channel._id}&returnTo=${rt}`)
+                              }}
                               className="mt-3 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors text-sm"
                             >
                               + 管理层级体系
@@ -1026,7 +1035,10 @@ export default function ManufacturerBusinessPanel() {
                   <h4 className="text-xl font-bold text-gray-900 mb-2">分成体系层级树</h4>
                   <p className="text-gray-500 mb-6">管理本厂家的渠道分成层级结构和价格体系</p>
                   <button
-                    onClick={() => navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}`)}
+                    onClick={() => {
+                      const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=tier`)
+                      navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&returnTo=${rt}`)
+                    }}
                     className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
                   >
                     进入分成体系管理
