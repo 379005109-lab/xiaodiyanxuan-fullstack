@@ -655,8 +655,14 @@ export default function ProductsPage() {
     currentPage * itemsPerPage
   )
 
-  // 当筛选条件变化时重置页码
+  // 当筛选条件变化时重置页码（跳过首次加载）
+  const [isFirstLoad, setIsFirstLoad] = useState(true)
   useEffect(() => {
+    if (isFirstLoad) {
+      setIsFirstLoad(false)
+      return
+    }
+    // 只有用户主动改变筛选条件时才重置页码
     setCurrentPage(1)
   }, [filters, priceRange])
 
