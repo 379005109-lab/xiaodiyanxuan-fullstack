@@ -151,15 +151,19 @@ export default function ProductsPage() {
       })
   }, [products, styleCardImages])
 
-  // 加载商品数据
+  // 加载商品数据 - 当用户登录状态或manufacturerId变化时重新加载
   useEffect(() => {
-    loadProducts()
-    loadCategories()
-    if (isAuthenticated) {
-      loadFavorites()
-    }
-    loadStyleImages()
-  }, [isAuthenticated])
+    // 添加小延迟确保token已更新
+    const timer = setTimeout(() => {
+      loadProducts()
+      loadCategories()
+      if (isAuthenticated) {
+        loadFavorites()
+      }
+      loadStyleImages()
+    }, isAuthenticated ? 100 : 0)
+    return () => clearTimeout(timer)
+  }, [isAuthenticated, user?.manufacturerId])
   
   // 厂家账号：加载厂家对应的分类并设置默认筛选
   useEffect(() => {
