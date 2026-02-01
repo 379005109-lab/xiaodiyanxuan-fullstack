@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Grid, List, SlidersHorizontal, Heart, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
@@ -655,15 +655,23 @@ export default function ProductsPage() {
     currentPage * itemsPerPage
   )
 
-  // 当筛选条件变化时重置页码（跳过首次加载）
-  const [isFirstLoad, setIsFirstLoad] = useState(true)
+  // 当筛选条件变化时重置页码（使用ref跟踪上一次的值）
+  const prevFiltersRef = useRef(filters)
+  const prevPriceRangeRef = useRef(priceRange)
   useEffect(() => {
-    if (isFirstLoad) {
-      setIsFirstLoad(false)
-      return
+    // 只有当筛选条件真正改变时才重置页码
+    const filtersChanged = JSON.stringify(prevFiltersRef.current) !== JSON.stringify(filters)
+    const priceRangeChanged = JSON.stringify(prevPriceRangeRef.current) !== JSON.stringify(priceRange)
+    
+    if (filtersChanged || priceRangeChanged) {
+      prevFiltersRef.current = filters
+      prevPriceRangeRef.current = priceRange
+      // 只有当不是从URL恢复页码时才重置
+      const urlPage = new URLSearchParams(window.location.search).get('page')
+      if (!urlPage) {
+        setCurrentPage(1)
+      }
     }
-    // 只有用户主动改变筛选条件时才重置页码
-    setCurrentPage(1)
   }, [filters, priceRange])
 
   // 切换收藏
