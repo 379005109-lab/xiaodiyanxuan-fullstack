@@ -153,15 +153,16 @@ export default function ProductsPage() {
 
   // 加载商品数据 - 当用户登录状态或manufacturerId变化时重新加载
   useEffect(() => {
-    // 添加小延迟确保token已更新
+    // 添加延迟确保token已更新到localStorage和store
     const timer = setTimeout(() => {
+      console.log('[ProductsPage] Loading products, isAuthenticated:', isAuthenticated, 'mfgId:', user?.manufacturerId)
       loadProducts()
       loadCategories()
       if (isAuthenticated) {
         loadFavorites()
       }
       loadStyleImages()
-    }, isAuthenticated ? 100 : 0)
+    }, isAuthenticated ? 300 : 0)
     return () => clearTimeout(timer)
   }, [isAuthenticated, user?.manufacturerId])
   
