@@ -75,7 +75,9 @@ const auth = async (req, res, next) => {
 
 const optionalAuth = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1]
+    const authHeader = req.headers.authorization
+    console.log('[optionalAuth] Path:', req.path, 'Auth header:', authHeader ? 'Bearer ***' : 'NONE')
+    const token = authHeader?.split(' ')[1]
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET)
       req.userId = decoded.userId
