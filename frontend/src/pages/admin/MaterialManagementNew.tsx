@@ -3,7 +3,7 @@ import type { DragEvent } from 'react'
 import { motion } from 'framer-motion'
 import {
   Plus, Search, FolderTree, Image, ChevronRight, ChevronDown,
-  Trash2, RotateCcw, Eye, EyeOff, CheckCircle, XCircle, Clock, Edit, X, Upload, Download
+  Trash2, RotateCcw, Eye, EyeOff, CheckCircle, XCircle, Clock, Edit, X, Upload, Download, Pencil
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
@@ -28,6 +28,7 @@ import MaterialReviewModal from '@/components/admin/MaterialReviewModal'
 import CategoryFormModal from '@/components/admin/MaterialCategoryModal'
 import MaterialSKUModal from '@/components/admin/MaterialSKUModal'
 import SKUEditModal from '@/components/admin/SKUEditModal'
+import ImageAnnotator, { Annotation } from '@/components/admin/ImageAnnotator'
 
 export default function MaterialManagement() {
   const [materials, setMaterials] = useState<Material[]>([])
@@ -73,6 +74,9 @@ export default function MaterialManagement() {
   const [showImportModal, setShowImportModal] = useState(false)
   const [importData, setImportData] = useState<any[]>([])
   const [importing, setImporting] = useState(false)
+  
+  // 图片标注
+  const [annotatingMaterial, setAnnotatingMaterial] = useState<Material | null>(null)
   
   // 统计
   const [stats, setStats] = useState({
@@ -1178,6 +1182,17 @@ export default function MaterialManagement() {
                         <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
                           {groupMaterials.length} 个SKU
                         </div>
+                        {/* 标注按钮 */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setAnnotatingMaterial(representativeMaterial)
+                          }}
+                          className="absolute bottom-2 right-2 p-1.5 bg-blue-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600"
+                          title="标注图片"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         {/* 展开提示 */}
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <ChevronDown className={`h-8 w-8 text-white transition-transform ${isSkuExpanded ? 'rotate-180' : ''}`} />
@@ -1662,6 +1677,25 @@ export default function MaterialManagement() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 图片标注编辑器 */}
+      {annotatingMaterial && (
+        <ImageAnnotator
+          imageUrl={getFileUrl(annotatingMaterial.image)}
+          initialAnnotations={(annotatingMaterial as any).annotations || []}
+          onSave={async (newAnnotations) => {
+            try {
+              await updateMaterial(annotatingMaterial._id, { annotations: newAnnotations } as any)
+              toast.success('标注已保存')
+              loadMaterials()
+            } catch (error) {
+              toast.error('保存标注失败')
+            }
+            setAnnotatingMaterial(null)
+          }}
+          onClose={() => setAnnotatingMaterial(null)}
+        />
       )}
     </div>
   )
