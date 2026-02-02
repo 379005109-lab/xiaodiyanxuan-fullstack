@@ -2212,7 +2212,11 @@ export default function ManufacturerManagement() {
                                 </button>
                               </div>
                               <button 
-                                onClick={() => navigate(`/admin/authorizations/${auth._id}/pricing`)}
+                                onClick={() => {
+                                  const fromId = String((auth as any)?.fromManufacturer?._id || (auth as any)?.fromManufacturer || '').trim()
+                                  const rt = encodeURIComponent(`/admin/manufacturers/${fromId}/business-panel?tab=channels`)
+                                  navigate(`/admin/authorizations/${auth._id}/pricing?returnTo=${rt}`)
+                                }}
                                 className="px-3 py-1.5 text-xs bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
                               >
                                 授权货盘
@@ -2223,7 +2227,7 @@ export default function ManufacturerManagement() {
                                   if (!fromId) return
                                   const cid = String((auth as any)?.tierCompanyId?._id || (auth as any)?.tierCompanyId || (auth as any)?._id || '').trim()
                                   const cname = String((auth as any)?.tierCompanyName || (auth as any)?.tierDisplayName || '').trim()
-                                  const rt = encodeURIComponent(`/admin/manufacturer-management`)
+                                  const rt = encodeURIComponent(`/admin/manufacturers/${fromId}/business-panel?tab=channels`)
                                   const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(fromId)}&returnTo=${rt}`
                                   const withCompany = cid
                                     ? `${base}&companyId=${encodeURIComponent(cid)}${cname ? `&companyName=${encodeURIComponent(cname)}` : ''}`
