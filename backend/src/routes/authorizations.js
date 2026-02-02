@@ -467,17 +467,20 @@ router.get('/summary', auth, async (req, res) => {
 router.get('/my-grants', auth, async (req, res) => {
   try {
     const user = await User.findById(req.userId)
-    if (!user.manufacturerId) {
+    // 超级管理员默认查询小迪严选的授权
+    const XDYX_MANUFACTURER_ID = '6948fca5630729ca224ec425'
+    const manufacturerId = user.manufacturerId || (user.role === 'super_admin' ? XDYX_MANUFACTURER_ID : null)
+    if (!manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以查看授权' })
     }
 
     // 获取当前厂家信息（包含默认折扣和返佣设置）
-    const currentManufacturer = await Manufacturer.findById(user.manufacturerId)
+    const currentManufacturer = await Manufacturer.findById(manufacturerId)
       .select('defaultDiscount defaultCommission')
       .lean()
 
     const authorizations = await Authorization.find({
-      fromManufacturer: user.manufacturerId,
+      fromManufacturer: manufacturerId,
       // 排除已撤销的授权
       status: { $ne: 'revoked' },
       // 排除层级节点（tierLevel > 0的是分成体系子节点，不是独立渠道）
@@ -1250,10 +1253,14 @@ router.get('/received', auth, async (req, res) => {
     }
 
     // 根据用户类型查询
+    // 超级管理员默认查询小迪严选的授权
+    const XDYX_MANUFACTURER_ID = '6948fca5630729ca224ec425'
     if (user.role === 'designer') {
       query.toDesigner = req.userId
     } else if (user.manufacturerId) {
       query.toManufacturer = user.manufacturerId
+    } else if (user.role === 'super_admin') {
+      query.toManufacturer = XDYX_MANUFACTURER_ID
     } else {
       return res.json({ success: true, data: [] })
     }
