@@ -544,7 +544,16 @@ export default function ProductForm() {
             || (material as any).img
             || (material as any).thumbnail
             || ((material as any).images?.[0] || '')
-          console.log('🔥 [面料选择] 设置SKU面料:', material.name)
+          // 同时更新material.fabric数组，确保前端详情页能显示材质选择
+          if (!newSkus[selectingMaterialForSkuIndex].material || typeof newSkus[selectingMaterialForSkuIndex].material === 'string') {
+            newSkus[selectingMaterialForSkuIndex].material = createEmptyMaterialSelection()
+          }
+          const materialObj = newSkus[selectingMaterialForSkuIndex].material as MaterialSelection
+          if (!materialObj.fabric) materialObj.fabric = []
+          if (!materialObj.fabric.includes(material.name)) {
+            materialObj.fabric = [...materialObj.fabric, material.name]
+          }
+          console.log('🔥 [面料选择] 设置SKU面料:', material.name, 'material.fabric:', materialObj.fabric)
           // 关闭弹窗
           setShowMaterialSelectModal(false)
           setSelectingMaterialForSkuIndex(-1)
@@ -997,7 +1006,7 @@ export default function ProductForm() {
             duration: 3000,
           });
           // 延迟导航，确保 toast 显示
-          setTimeout(() => navigate('/admin/products'), 500);
+          setTimeout(() => navigate(-1), 500);
         } else {
           toast.error('商品更新失败');
         }
@@ -1011,7 +1020,7 @@ export default function ProductForm() {
             duration: 3000,
           });
           // 延迟导航，确保 toast 显示
-          setTimeout(() => navigate('/admin/products'), 500);
+          setTimeout(() => navigate(-1), 500);
         } else {
           toast.error('商品创建失败');
         }
@@ -1528,7 +1537,7 @@ export default function ProductForm() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => navigate('/admin/products')}
+            onClick={() => navigate(-1)}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -3257,7 +3266,7 @@ export default function ProductForm() {
         {/* 底部按钮 */}
         <div className="flex justify-end space-x-4">
           <button
-            onClick={() => navigate('/admin/products')}
+            onClick={() => navigate(-1)}
             className="btn-secondary"
           >
             取消

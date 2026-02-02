@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Plus, Search, Filter, Edit, Trash2, Eye, EyeOff, FileSpreadsheet, Download, ChevronDown, ChevronUp, BarChart3, ImageIcon, FolderOpen, Archive } from 'lucide-react'
 import { formatPrice, formatDate } from '@/lib/utils'
@@ -27,6 +27,7 @@ interface Manufacturer {
 
 export default function ProductManagement() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuthStore()
   const isEnterpriseAdmin = user?.role === 'enterprise_admin'
   const canViewCostPrice = user?.role === 'super_admin' || user?.role === 'admin' || (user as any)?.permissions?.canViewCostPrice === true
@@ -44,9 +45,30 @@ export default function ProductManagement() {
   const [filterManufacturer, setFilterManufacturer] = useState('')  // 厂家筛选
   const [sortBy, setSortBy] = useState('')  // 排序方式
   
-  // 分页状态
-  const [currentPage, setCurrentPage] = useState(1)
+  // 分页状态 - 直接从URL初始化
+  const getInitialPage = () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const page = urlParams.get('page')
+    return page ? parseInt(page) || 1 : 1
+  }
+  const [currentPage, setCurrentPage] = useState(getInitialPage)
   const [itemsPerPage] = useState(10)
+
+  // 同步页码到 URL（仅当页码变化时）
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const currentUrlPage = urlParams.get('page')
+    const currentUrlPageNum = currentUrlPage ? parseInt(currentUrlPage) : 1
+    
+    if (currentPage !== currentUrlPageNum) {
+      if (currentPage > 1) {
+        searchParams.set('page', currentPage.toString())
+      } else {
+        searchParams.delete('page')
+      }
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [currentPage])
 
   // 商品数据
   const [products, setProducts] = useState<Product[]>([])
@@ -360,13 +382,15 @@ export default function ProductManagement() {
       }
 
       const updatedSkus = applyManufacturerToSkus(targetProduct, manufacturerId)
-      await updateProduct(productId, { skus: updatedSkus })
+      // 同时更新商品的 manufacturerId 和 SKU 的厂家信息
+      await updateProduct(productId, { manufacturerId, skus: updatedSkus })
       toast.success('厂家已更新')
       setEditingManufacturer(null)
       // 更新本地数据
       setProducts(prev => prev.map(p => 
         p._id === productId ? ({
           ...(p as any),
+          manufacturerId,
           skus: updatedSkus
         } as any) : p
       ))
@@ -1613,16 +1637,22 @@ export default function ProductManagement() {
     try {
       const zip = await JSZip.loadAsync(file)
       
-      // 图片排序函数：正视图(1) > 侧视图(2) > 背面图(3) > 4宫格细节图(4) > 其他
+      // 图片排序函数：正视图(1) > 侧视图(2) > 背面图(3) > 其他(50) > 4宫格细节图(100)
+      // 确保细节图/四宫格永远排在最后，不会成为头图
       const getImageSortOrder = (fileName: string): number => {
         const lowerName = fileName.toLowerCase()
-        if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front') || lowerName.includes('主图')) return 1
+        // 细节图/四宫格排在最后（优先级最低）
+        if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('4宫格') || lowerName.includes('宫格') || lowerName.includes('四宫格')) return 100
+        // 正视图排第一（优先级最高）
+        if (lowerName.includes('正视') || lowerName.includes('正面') || lowerName.includes('front') || lowerName.includes('主图') || lowerName.includes('主')) return 1
         if (lowerName.includes('侧视') || lowerName.includes('侧面') || lowerName.includes('side')) return 2
         if (lowerName.includes('背面') || lowerName.includes('背视') || lowerName.includes('back') || lowerName.includes('后面')) return 3
-        if (lowerName.includes('细节') || lowerName.includes('detail') || lowerName.includes('4宫格') || lowerName.includes('宫格')) return 4
-        const numMatch = fileName.match(/[_-]?(\d+)\./);
+        // 数字命名的图片（如 1.jpg, 2.jpg）按数字排序，排在中间
+        const numMatch = fileName.match(/^(\d+)\./);
         if (numMatch) return 10 + parseInt(numMatch[1])
-        return 100
+        const numMatch2 = fileName.match(/[_-](\d+)\./);
+        if (numMatch2) return 10 + parseInt(numMatch2[1])
+        return 50
       }
       
       // 按文件夹分组图片

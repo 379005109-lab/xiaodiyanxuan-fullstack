@@ -109,6 +109,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         login(response.data.user, response.data.token)
         toast.success('登录成功！')
         onClose()
+        // 强制刷新页面确保商品列表正确加载
+        setTimeout(() => window.location.reload(), 200)
       } else {
         toast.error(response.message || '登录失败')
       }
@@ -135,6 +137,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }: Au
         toast.success('登录成功！')
         login(result.data.user, result.data.token)
         onClose()
+        setTimeout(() => window.location.reload(), 200)
       } else {
         toast.error(result.message || '登录失败')
       }

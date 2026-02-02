@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Grid, List, SlidersHorizontal, Heart, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
@@ -27,6 +27,10 @@ const formatPriceSimplified = (price: number): string => {
 const getDisplayPrice = (product: any): number => {
   const raw = product?.labelPrice1 ?? product?.takePrice ?? product?.basePrice ?? 0
   const n = Number(raw)
+  // 调试：如果价格为0，打印商品信息
+  if (n === 0 && product?.productCode) {
+    console.log('[价格调试]', product.productCode, '| labelPrice1:', product?.labelPrice1, '| takePrice:', product?.takePrice, '| basePrice:', product?.basePrice)
+  }
   return Number.isFinite(n) ? n : 0
 }
 
@@ -80,9 +84,28 @@ export default function ProductsPage() {
     series: searchParams.get('series') || '',
   })
   
-  // 分页状态
-  const [currentPage, setCurrentPage] = useState(1)
+  // 分页状态 - 从URL读取初始页码
+  const getInitialPage = () => {
+    const page = searchParams.get('page')
+    return page ? parseInt(page) || 1 : 1
+  }
+  const [currentPage, setCurrentPage] = useState(getInitialPage)
   const itemsPerPage = 18
+
+  // 同步页码到URL
+  useEffect(() => {
+    const currentUrlPage = searchParams.get('page')
+    const currentUrlPageNum = currentUrlPage ? parseInt(currentUrlPage) : 1
+    if (currentPage !== currentUrlPageNum) {
+      const newParams = new URLSearchParams(searchParams)
+      if (currentPage > 1) {
+        newParams.set('page', currentPage.toString())
+      } else {
+        newParams.delete('page')
+      }
+      setSearchParams(newParams, { replace: true })
+    }
+  }, [currentPage])
 
   // 价格区间拖拽条状态（初始值会在商品加载后更新）
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000])
@@ -151,15 +174,20 @@ export default function ProductsPage() {
       })
   }, [products, styleCardImages])
 
-  // 加载商品数据
+  // 加载商品数据 - 当用户登录状态或manufacturerId变化时重新加载
   useEffect(() => {
-    loadProducts()
-    loadCategories()
-    if (isAuthenticated) {
-      loadFavorites()
-    }
-    loadStyleImages()
-  }, [isAuthenticated])
+    // 添加延迟确保token已更新到localStorage和store
+    const timer = setTimeout(() => {
+      console.log('[ProductsPage] Loading products, isAuthenticated:', isAuthenticated, 'mfgId:', user?.manufacturerId)
+      loadProducts()
+      loadCategories()
+      if (isAuthenticated) {
+        loadFavorites()
+      }
+      loadStyleImages()
+    }, isAuthenticated ? 300 : 0)
+    return () => clearTimeout(timer)
+  }, [isAuthenticated, user?.manufacturerId])
   
   // 厂家账号：加载厂家对应的分类并设置默认筛选
   useEffect(() => {
@@ -631,9 +659,23 @@ export default function ProductsPage() {
     currentPage * itemsPerPage
   )
 
-  // 当筛选条件变化时重置页码
+  // 当筛选条件变化时重置页码（使用ref跟踪上一次的值）
+  const prevFiltersRef = useRef(filters)
+  const prevPriceRangeRef = useRef(priceRange)
   useEffect(() => {
-    setCurrentPage(1)
+    // 只有当筛选条件真正改变时才重置页码
+    const filtersChanged = JSON.stringify(prevFiltersRef.current) !== JSON.stringify(filters)
+    const priceRangeChanged = JSON.stringify(prevPriceRangeRef.current) !== JSON.stringify(priceRange)
+    
+    if (filtersChanged || priceRangeChanged) {
+      prevFiltersRef.current = filters
+      prevPriceRangeRef.current = priceRange
+      // 只有当不是从URL恢复页码时才重置
+      const urlPage = new URLSearchParams(window.location.search).get('page')
+      if (!urlPage) {
+        setCurrentPage(1)
+      }
+    }
   }, [filters, priceRange])
 
   // 切换收藏

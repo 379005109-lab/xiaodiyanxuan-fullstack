@@ -358,6 +358,9 @@ const listProducts = async (req, res) => {
 
     const user = req.user
     const platformManufacturerId = '6948fca5630729ca224ec425'
+    
+    // Debug logging
+    console.log('[listProducts] user:', user ? { id: user._id, role: user.role, manufacturerId: user.manufacturerId } : 'NO USER')
 
     // 统一分类映射
     const Category = require('../models/Category')
@@ -382,6 +385,30 @@ const listProducts = async (req, res) => {
         }
         return { ...p, categoryName }
       })
+    }
+
+    // 超级管理员/管理员（无厂家绑定）：显示所有商品
+    if ((user?.role === 'super_admin' || user?.role === 'admin') && !user?.manufacturerId) {
+      const query = {}
+      if (search) query.$text = { $search: search }
+      if (categoryId) {
+        query.$or = [
+          { 'category.id': categoryId },
+          { 'category._id': categoryId },
+          { category: categoryId },
+        ]
+      }
+      if (styleId) query['style.id'] = styleId
+      
+      const total = await Product.countDocuments(query)
+      const products = await Product.find(query)
+        .sort(sortBy || 'order -createdAt')
+        .skip((parseInt(page) - 1) * parseInt(pageSize))
+        .limit(parseInt(pageSize))
+        .lean()
+      
+      res.json(paginatedResponse(attachCategoryName(products), total, parseInt(page), parseInt(pageSize)))
+      return
     }
 
     // 厂家/设计师/有厂家绑定的管理员：自有 + 已授权 + 平台自营
@@ -495,7 +522,9 @@ const listProducts = async (req, res) => {
       }
 
       const onlyAuthorized = req.query.onlyAuthorized === 'true'
-      // 严格模式：不再显示无 manufacturerId 的商品，只显示：授权商品 + 自有商品 + 平台商品
+      // 严格模式：厂家账号只显示自有商品 + 授权商品，不再默认显示平台商品
+      // 设计师账号显示授权商品 + 平台商品
+      console.log('[listProducts] Manufacturer mode - authorizedProductIds:', authorizedProductIds.size, 'userMfgId:', user.manufacturerId)
       const baseOr = isDesigner
         ? [
             { _id: { $in: Array.from(authorizedProductIds) } },
@@ -506,8 +535,6 @@ const listProducts = async (req, res) => {
             { _id: { $in: Array.from(authorizedProductIds) } },
             { manufacturerId: user.manufacturerId },
             { 'skus.manufacturerId': user.manufacturerId },
-            { manufacturerId: platformManufacturerId },
-            { 'skus.manufacturerId': platformManufacturerId },
           ]
 
       const accessQuery = onlyAuthorized

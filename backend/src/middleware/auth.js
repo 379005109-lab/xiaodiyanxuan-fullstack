@@ -75,20 +75,29 @@ const auth = async (req, res, next) => {
 
 const optionalAuth = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1]
+    const authHeader = req.headers.authorization
+    console.log('[optionalAuth] Path:', req.path, 'Auth header:', authHeader ? 'Bearer ***' : 'NONE')
+    const token = authHeader?.split(' ')[1]
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET)
       req.userId = decoded.userId
       
       const user = await User.findById(decoded.userId).select('-password')
+      console.log('[optionalAuth] Found user:', user ? { id: user._id, role: user.role, manufacturerId: user.manufacturerId, status: user.status } : 'NOT FOUND')
       if (user && user.status === 'active') {
         if (!(await isManufacturerExpiredForUser(user))) {
           req.user = user
+          console.log('[optionalAuth] User set to req.user, manufacturerId:', user.manufacturerId)
+        } else {
+          console.log('[optionalAuth] Manufacturer expired, user not set')
         }
+      } else {
+        console.log('[optionalAuth] User inactive or not found')
       }
     }
     next()
   } catch (err) {
+    console.log('[optionalAuth] Error:', err.message)
     next()
   }
 }

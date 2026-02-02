@@ -55,10 +55,10 @@ const getApiUrl = () => {
       return apiUrl;
     }
 
-    // 如果是正式域名，使用阿里云CDN加速后的API域名
+    // 如果是正式域名，使用相对路径（通过 Ingress 代理到后端）
     if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
-      const apiUrl = 'https://api.xiaodiyanxuan.com/api';
-      console.log(`✅ 生产环境 (${hostname})，使用后端API: ${apiUrl}`);
+      const apiUrl = '/api';
+      console.log(`✅ 生产环境 (${hostname})，使用相对路径API: ${apiUrl}`);
       return apiUrl;
     }
     
@@ -87,8 +87,11 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    // 直接从Zustand store获取状态
-    const token = useAuthStore.getState().token;
+    // 从Zustand store获取状态，如果为空则从localStorage获取（zustand persist异步恢复时的备份）
+    let token = useAuthStore.getState().token;
+    if (!token) {
+      token = localStorage.getItem('token');
+    }
     config.headers = (config.headers || {}) as any;
     const existingAuth = (config.headers as any)?.Authorization || (config.headers as any)?.authorization;
     if (token && !existingAuth) {
