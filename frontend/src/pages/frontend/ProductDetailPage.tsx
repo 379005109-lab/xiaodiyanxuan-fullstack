@@ -570,6 +570,15 @@ const ProductDetailPage = () => {
     return materialConfigs[0] || null;
   }, [materialConfigs, selectedMaterialConfigId]);
 
+  // 检查当前SKU是否有材质选项（用于显示SKU级别的材质选择）
+  const skuMaterialOptions = useMemo(() => {
+    if (!selectedSku) return { hasOptions: false, categories: {} as Record<string, string[]> };
+    const normalized = normalizeMaterialSelection(selectedSku.material);
+    const categories = (selectedSku as any).materialCategories || Object.keys(normalized);
+    const hasOptions = categories.some((cat: string) => (normalized[cat] || []).length > 0);
+    return { hasOptions, categories: normalized, categoryKeys: categories };
+  }, [selectedSku]);
+
   const resolveMaterialConfigIdForSku = (sku: any): string | null => {
     if (!sku) return null;
     const skuKey = String((sku as any).fabricMaterialId || '');
@@ -2006,6 +2015,61 @@ const ProductDetailPage = () => {
                       </div>
                     )}
                     {/* 移除旧的 otherMaterialsText 显示，仅保留 SKU 材质描述 */}
+                  </div>
+                </div>
+              )}
+
+              {/* SKU级别材质选择 - 当materialConfigs为空但SKU有材质配置时显示 */}
+              {materialConfigs.length === 0 && skuMaterialOptions.hasOptions && (
+                <div className="border border-gray-200 rounded-2xl bg-white mt-4">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-sm font-medium text-gray-900">选择材质</p>
+                    <p className="text-xs text-gray-400 mt-0.5">点击选择您喜欢的材质</p>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {(skuMaterialOptions.categoryKeys || []).map((categoryKey: string) => {
+                      const options = skuMaterialOptions.categories[categoryKey] || [];
+                      if (options.length === 0) return null;
+                      const categoryLabel = getMaterialCategoryConfig(categoryKey).label;
+                      const selectedOption = materialSelections[categoryKey] || (options.length === 1 ? options[0] : null);
+                      return (
+                        <div key={categoryKey}>
+                          <p className="text-xs text-gray-500 mb-2">{categoryLabel}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {options.map((optionName: string) => {
+                              const isSelected = selectedOption === optionName;
+                              const imageUrl = materialAssetMap[optionName];
+                              return (
+                                <button
+                                  key={optionName}
+                                  type="button"
+                                  onClick={() => {
+                                    setMaterialSelections(prev => ({ ...prev, [categoryKey]: optionName }));
+                                  }}
+                                  className={`relative rounded-lg border-2 overflow-hidden transition-all ${
+                                    isSelected
+                                      ? 'border-primary-500 ring-2 ring-primary-200'
+                                      : 'border-gray-200 hover:border-gray-300'
+                                  }`}
+                                  title={optionName}
+                                >
+                                  {imageUrl ? (
+                                    <img src={imageUrl} alt={optionName} className="w-14 h-14 object-cover" />
+                                  ) : (
+                                    <div className="w-14 h-14 bg-gray-100 flex items-center justify-center">
+                                      <span className="text-xs text-gray-500 text-center px-1 line-clamp-2">{optionName.slice(0, 8)}</span>
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {selectedOption && (
+                            <p className="mt-2 text-sm text-gray-700">{selectedOption}</p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
