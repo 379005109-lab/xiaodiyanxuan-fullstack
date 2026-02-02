@@ -2055,8 +2055,8 @@ const ProductDetailPage = () => {
                         </div>
                       </div>
                     )}
-                    {/* 显示 material 数组中的选项 */}
-                    {(skuMaterialOptions.categoryKeys || []).map((categoryKey: string) => {
+                    {/* 显示 material 数组中的选项（仅当没有 fabricName 时） */}
+                    {!skuMaterialOptions.fabricName && (skuMaterialOptions.categoryKeys || []).map((categoryKey: string) => {
                       const options = skuMaterialOptions.categories[categoryKey] || [];
                       if (options.length === 0) return null;
                       const categoryLabel = getMaterialCategoryConfig(categoryKey).label;

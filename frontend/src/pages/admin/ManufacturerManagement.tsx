@@ -152,11 +152,15 @@ export default function ManufacturerManagement() {
   const role = (user as any)?.role
   const isAdmin = role === 'admin' || role === 'super_admin' || role === 'platform_admin' || role === 'platform_staff'
   const isSuperAdmin = role === 'super_admin' // 超级管理员可以删除厂家
-  const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
+  // 超级管理员默认使用"小迪严选"厂家ID
+  const XDYX_MANUFACTURER_ID = '6948fca5630729ca224ec425'
+  const myManufacturerId = (user as any)?.manufacturerId 
+    ? String((user as any).manufacturerId) 
+    : (isSuperAdmin ? XDYX_MANUFACTURER_ID : '')
   const isManufacturerUser = user?.role === 'enterprise_admin' || user?.role === 'enterprise_staff' || (user as any)?.permissions?.canAccessAdmin === true
 
-  // 有厂家绑定的用户（包括管理员）都显示厂家门户视图
-  const isFactoryPortal = !!myManufacturerId
+  // 有厂家绑定的用户或超级管理员都显示厂家门户视图
+  const isFactoryPortal = !!myManufacturerId || isSuperAdmin
 
   const canManageManufacturer = (manufacturerId: string) => {
     if (isAdmin) return true
@@ -2110,24 +2114,34 @@ export default function ManufacturerManagement() {
                 </div>
               )}
 
-              {/* 已合作渠道 */}
-              <div className="flex items-center gap-2 mb-4">
-                <h3 className="text-lg font-bold text-gray-900">已合作渠道</h3>
-                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{grantedAuths.length}个</span>
-              </div>
+              {/* 已合作渠道 - 显示其他厂家授权给本厂家的记录 + 本厂家授权给其他厂家的记录 */}
+              {(() => {
+                const activeReceivedAuths = receivedAuths.filter((a: any) => a.status === 'active')
+                const allPartners = [...activeReceivedAuths, ...grantedAuths]
+                return (
+                  <>
+                    <div className="flex items-center gap-2 mb-4">
+                      <h3 className="text-lg font-bold text-gray-900">已合作渠道</h3>
+                      <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{allPartners.length}个</span>
+                    </div>
 
-              {grantedAuths.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-                  <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">暂无渠道授权</p>
-                  <p className="text-sm text-gray-400 mt-2">您授权给其他商家时，会显示在这里</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {grantedAuths.map((auth: any) => {
-                    const targetName = auth.toDesigner?.nickname || auth.toDesigner?.username || 
-                                      auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知渠道'
-                    const targetAvatar = auth.toDesigner?.avatar || auth.toManufacturer?.logo
+                    {allPartners.length === 0 ? (
+                      <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+                        <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">暂无渠道授权</p>
+                        <p className="text-sm text-gray-400 mt-2">审批通过的合作商家会显示在这里</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {allPartners.map((auth: any) => {
+                          // 判断是收到的授权还是授权出去的
+                          const isReceived = activeReceivedAuths.some((a: any) => a._id === auth._id)
+                          const targetName = isReceived
+                            ? (auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家')
+                            : (auth.toDesigner?.nickname || auth.toDesigner?.username || auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知渠道')
+                          const targetAvatar = isReceived
+                            ? auth.fromManufacturer?.logo
+                            : (auth.toDesigner?.avatar || auth.toManufacturer?.logo)
                     const targetType = auth.authorizationType === 'manufacturer' ? '厂家' : '设计师'
                     const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
                     
@@ -2260,6 +2274,9 @@ export default function ManufacturerManagement() {
                   })}
                 </div>
               )}
+                  </>
+                )
+              })()}
             </div>
           )}
           
