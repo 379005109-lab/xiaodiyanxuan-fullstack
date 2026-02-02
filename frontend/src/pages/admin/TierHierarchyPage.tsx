@@ -1014,11 +1014,11 @@ export default function TierHierarchyPage() {
             <div className="flex items-center gap-4">
               <button
                 onClick={() => {
-                  const returnTo = searchParams.get('returnTo')
-                  if (returnTo) {
-                    navigate(decodeURIComponent(returnTo))
+                  // 直接返回到厂家管理面板的渠道管理tab
+                  if (manufacturerId) {
+                    navigate(`/admin/manufacturers/${manufacturerId}/business-panel?tab=channels`)
                   } else {
-                    navigate(-1)
+                    navigate('/admin/manufacturers')
                   }
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg"

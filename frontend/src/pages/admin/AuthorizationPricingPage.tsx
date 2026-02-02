@@ -252,14 +252,7 @@ export default function AuthorizationPricingPage() {
         <div className="text-center">
           <p className="text-gray-500">授权不存在或已失效</p>
           <button 
-            onClick={() => {
-              const returnTo = searchParams.get('returnTo')
-              if (returnTo) {
-                navigate(decodeURIComponent(returnTo))
-              } else {
-                navigate(-1)
-              }
-            }}
+            onClick={() => navigate('/admin/manufacturers')}
             className="mt-4 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
           >
             返回
@@ -278,11 +271,12 @@ export default function AuthorizationPricingPage() {
             <div className="flex items-center gap-4">
               <button
                 onClick={() => {
-                  const returnTo = searchParams.get('returnTo')
-                  if (returnTo) {
-                    navigate(decodeURIComponent(returnTo))
+                  // 直接返回到厂家管理面板的渠道管理tab
+                  const fromMfrId = authorization?.fromManufacturer?._id || (authorization as any)?.fromManufacturer
+                  if (fromMfrId) {
+                    navigate(`/admin/manufacturers/${fromMfrId}/business-panel?tab=channels`)
                   } else {
-                    navigate(-1)
+                    navigate('/admin/manufacturers')
                   }
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
