@@ -450,10 +450,10 @@ const ProductDetailPage = () => {
     }
   };
   
-  // 页面加载后自动加载材质图片（如果区域展开）
+  // 页面加载后自动加载材质图片
   useEffect(() => {
     if (selectedSku && !materialCollapsed) {
-      const timer = setTimeout(triggerLoadMaterialImages, 500);
+      const timer = setTimeout(triggerLoadMaterialImages, 300);
       return () => clearTimeout(timer);
     }
   }, [selectedSku, materialCollapsed]);
@@ -572,12 +572,25 @@ const ProductDetailPage = () => {
 
   // 检查当前SKU是否有材质选项（用于显示SKU级别的材质选择）
   const skuMaterialOptions = useMemo(() => {
-    if (!selectedSku) return { hasOptions: false, categories: {} as Record<string, string[]> };
+    if (!selectedSku) return { hasOptions: false, categories: {} as Record<string, string[]>, categoryKeys: [] as string[], fabricName: '' };
     const normalized = normalizeMaterialSelection(selectedSku.material);
     const categories = (selectedSku as any).materialCategories || Object.keys(normalized);
-    const hasOptions = categories.some((cat: string) => (normalized[cat] || []).length > 0);
-    return { hasOptions, categories: normalized, categoryKeys: categories };
+    const fabricName = (selectedSku as any).fabricName || '';
+    // 检查是否有材质选项：要么 material 数组有内容，要么有 fabricName
+    const hasOptions = categories.some((cat: string) => (normalized[cat] || []).length > 0) || !!fabricName;
+    console.log('🔥 [SKU材质调试] selectedSku:', selectedSku.code || selectedSku.spec);
+    console.log('🔥 [SKU材质调试] material:', JSON.stringify(selectedSku.material));
+    console.log('🔥 [SKU材质调试] fabricName:', fabricName);
+    console.log('🔥 [SKU材质调试] hasOptions:', hasOptions);
+    return { hasOptions, categories: normalized, categoryKeys: categories, fabricName };
   }, [selectedSku]);
+
+  // 当SKU有材质选项时自动加载材质图片
+  useEffect(() => {
+    if (skuMaterialOptions.hasOptions && selectedSku) {
+      loadMaterialImagesIfNeeded();
+    }
+  }, [skuMaterialOptions.hasOptions, selectedSku]);
 
   const resolveMaterialConfigIdForSku = (sku: any): string | null => {
     if (!sku) return null;
@@ -2023,10 +2036,26 @@ const ProductDetailPage = () => {
               {materialConfigs.length === 0 && skuMaterialOptions.hasOptions && (
                 <div className="border border-gray-200 rounded-2xl bg-white mt-4">
                   <div className="px-4 py-3 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900">选择材质</p>
-                    <p className="text-xs text-gray-400 mt-0.5">点击选择您喜欢的材质</p>
+                    <p className="text-sm font-medium text-gray-900">材质面料</p>
                   </div>
                   <div className="p-4 space-y-4">
+                    {/* 显示 fabricName（如果有） */}
+                    {skuMaterialOptions.fabricName && (
+                      <div className="flex items-center gap-3">
+                        {(selectedSku as any)?.fabricImage && (
+                          <img 
+                            src={getFileUrl((selectedSku as any).fabricImage)} 
+                            alt={skuMaterialOptions.fabricName}
+                            className="w-14 h-14 rounded-lg object-cover border border-gray-200"
+                          />
+                        )}
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{skuMaterialOptions.fabricName}</p>
+                          <p className="text-xs text-gray-500">当前选择的面料</p>
+                        </div>
+                      </div>
+                    )}
+                    {/* 显示 material 数组中的选项 */}
                     {(skuMaterialOptions.categoryKeys || []).map((categoryKey: string) => {
                       const options = skuMaterialOptions.categories[categoryKey] || [];
                       if (options.length === 0) return null;
@@ -2038,7 +2067,8 @@ const ProductDetailPage = () => {
                           <div className="flex flex-wrap gap-2">
                             {options.map((optionName: string) => {
                               const isSelected = selectedOption === optionName;
-                              const imageUrl = materialAssetMap[optionName];
+                              const imageFileId = materialAssetMap[optionName];
+                              const imageUrl = imageFileId ? getFileUrl(imageFileId) : '';
                               return (
                                 <button
                                   key={optionName}
