@@ -277,7 +277,7 @@ export default function ManufacturerManagement() {
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [approveTarget, setApproveTarget] = useState<any>(null)
 
-  // 监听URL参数变化，更新标签页状态
+  // 监听URL参数变化，更新标签页状态（URL参数优先级最高）
   useEffect(() => {
     const tabParam = searchParams.get('tab') as FactoryTabType
     if (factoryTabs.includes(tabParam)) {
@@ -285,10 +285,14 @@ export default function ManufacturerManagement() {
     }
   }, [searchParams, factoryTabs])
 
-  // 记住最近一次停留的TAB（兜底：即使返回时URL丢了tab参数，也能回到上次TAB）
+  // 记住最近一次停留的TAB（兜底：仅在没有URL参数时使用）
   useEffect(() => {
-    sessionStorage.setItem(FACTORY_TAB_STORAGE_KEY, factoryTab)
-  }, [factoryTab])
+    const tabParam = searchParams.get('tab')
+    // 只有在URL没有tab参数时才记录到sessionStorage，避免干扰返回逻辑
+    if (!tabParam) {
+      sessionStorage.setItem(FACTORY_TAB_STORAGE_KEY, factoryTab)
+    }
+  }, [factoryTab, searchParams])
   const [approveForm, setApproveForm] = useState({
     ownProductMinDiscount: 60,
     ownProductCommission: 10,
