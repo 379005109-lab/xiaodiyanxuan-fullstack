@@ -257,9 +257,14 @@ export default function ManufacturerManagement() {
 
   // 厂家管理TAB
   type FactoryTabType = 'home' | 'partners' | 'channels' | 'commission'
+  const factoryTabs: FactoryTabType[] = ['home', 'partners', 'channels', 'commission']
+  const FACTORY_TAB_STORAGE_KEY = 'manufacturer_management_factory_tab'
   const [factoryTab, setFactoryTab] = useState<FactoryTabType>(() => {
-    const tabParam = searchParams.get('tab') as FactoryTabType
-    return ['home', 'partners', 'channels', 'commission'].includes(tabParam) ? tabParam : 'home'
+    const tabParam = (searchParams.get('tab') as FactoryTabType) || ''
+    if (factoryTabs.includes(tabParam)) return tabParam
+    const stored = (sessionStorage.getItem(FACTORY_TAB_STORAGE_KEY) as FactoryTabType) || ''
+    if (factoryTabs.includes(stored)) return stored
+    return 'home'
   })
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
@@ -275,10 +280,15 @@ export default function ManufacturerManagement() {
   // 监听URL参数变化，更新标签页状态
   useEffect(() => {
     const tabParam = searchParams.get('tab') as FactoryTabType
-    if (['home', 'partners', 'channels', 'commission'].includes(tabParam)) {
+    if (factoryTabs.includes(tabParam)) {
       setFactoryTab(tabParam)
     }
-  }, [searchParams])
+  }, [searchParams, factoryTabs])
+
+  // 记住最近一次停留的TAB（兜底：即使返回时URL丢了tab参数，也能回到上次TAB）
+  useEffect(() => {
+    sessionStorage.setItem(FACTORY_TAB_STORAGE_KEY, factoryTab)
+  }, [factoryTab])
   const [approveForm, setApproveForm] = useState({
     ownProductMinDiscount: 60,
     ownProductCommission: 10,
