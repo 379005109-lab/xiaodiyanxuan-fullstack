@@ -65,6 +65,8 @@ export default function ImageAnnotator({
   const [isSaving, setIsSaving] = useState(false)
   const [draggingAnnotationId, setDraggingAnnotationId] = useState<string | null>(null)
   const [dragCandidateId, setDragCandidateId] = useState<string | null>(null)
+  const [fontSize, setFontSize] = useState(14)
+  const [lineWidth, setLineWidth] = useState(2)
   const dragStartPointRef = useRef<{ x: number; y: number } | null>(null)
   const dragOriginalRef = useRef<Pick<Annotation, 'startX' | 'startY' | 'endX' | 'endY'> | null>(null)
   const dragLongPressTimerRef = useRef<number | null>(null)
@@ -137,7 +139,7 @@ export default function ImageAnnotator({
       }
       drawAnnotation(ctx, tempAnn, false)
     }
-  }, [annotations, isDrawing, startPoint, currentPoint, currentType, currentColor, currentUnit, selectedAnnotation, imageLoaded, scale, pendingAnnotation, editingValue])
+  }, [annotations, isDrawing, startPoint, currentPoint, currentType, currentColor, currentUnit, selectedAnnotation, imageLoaded, scale, pendingAnnotation, editingValue, fontSize, lineWidth])
 
   useEffect(() => {
     drawCanvas()
@@ -147,8 +149,8 @@ export default function ImageAnnotator({
   const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation, isSelected: boolean, drawScale: number = scale) => {
     ctx.strokeStyle = ann.color
     ctx.fillStyle = ann.color
-    ctx.lineWidth = isSelected ? 3 : 2
-    ctx.font = 'bold 14px Arial'
+    ctx.lineWidth = isSelected ? lineWidth + 1 : lineWidth
+    ctx.font = `bold ${fontSize}px Arial`
 
     const startX = ann.startX * drawScale
     const startY = ann.startY * drawScale
@@ -597,6 +599,34 @@ export default function ImageAnnotator({
               <option key={unit} value={unit}>{unit}</option>
             ))}
           </select>
+
+          {/* 字体大小调节 */}
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400 text-sm">字体:</span>
+            <input
+              type="range"
+              min="10"
+              max="24"
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              className="w-16 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+            />
+            <span className="text-gray-400 text-xs w-6">{fontSize}</span>
+          </div>
+
+          {/* 线条粗细调节 */}
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400 text-sm">线宽:</span>
+            <input
+              type="range"
+              min="1"
+              max="6"
+              value={lineWidth}
+              onChange={(e) => setLineWidth(Number(e.target.value))}
+              className="w-16 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+            />
+            <span className="text-gray-400 text-xs w-6">{lineWidth}</span>
+          </div>
 
           <button
             onClick={() => setOrthogonal((v) => !v)}
