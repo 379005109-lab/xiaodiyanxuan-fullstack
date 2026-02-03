@@ -1,6 +1,6 @@
 // Build cache bust: 20260110-v1
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package, Clock, Camera } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
@@ -148,6 +148,7 @@ interface ManufacturerAccount {
 
 export default function ManufacturerManagement() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   const role = (user as any)?.role
   const isAdmin = role === 'admin' || role === 'super_admin' || role === 'platform_admin' || role === 'platform_staff'
@@ -256,7 +257,10 @@ export default function ManufacturerManagement() {
 
   // 厂家管理TAB
   type FactoryTabType = 'home' | 'partners' | 'channels' | 'commission'
-  const [factoryTab, setFactoryTab] = useState<FactoryTabType>('home')
+  const [factoryTab, setFactoryTab] = useState<FactoryTabType>(() => {
+    const tabParam = searchParams.get('tab') as FactoryTabType
+    return ['home', 'partners', 'channels', 'commission'].includes(tabParam) ? tabParam : 'home'
+  })
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
   const [monthlyGrowth, setMonthlyGrowth] = useState<number>(0)
@@ -267,6 +271,14 @@ export default function ManufacturerManagement() {
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [approveTarget, setApproveTarget] = useState<any>(null)
+
+  // 监听URL参数变化，更新标签页状态
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as FactoryTabType
+    if (['home', 'partners', 'channels', 'commission'].includes(tabParam)) {
+      setFactoryTab(tabParam)
+    }
+  }, [searchParams])
   const [approveForm, setApproveForm] = useState({
     ownProductMinDiscount: 60,
     ownProductCommission: 10,
