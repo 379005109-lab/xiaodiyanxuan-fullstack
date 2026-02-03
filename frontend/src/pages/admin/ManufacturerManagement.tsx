@@ -2239,7 +2239,7 @@ export default function ManufacturerManagement() {
                               </div>
                               <button 
                                 onClick={() => {
-                                  const rt = encodeURIComponent(`/admin/manufacturer-management?tab=channels`)
+                                  const rt = encodeURIComponent(`/admin/manufacturers?tab=channels`)
                                   navigate(`/admin/authorizations/${auth._id}/pricing?returnTo=${rt}`)
                                 }}
                                 className="px-3 py-1.5 text-xs bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
@@ -2252,7 +2252,7 @@ export default function ManufacturerManagement() {
                                   if (!fromId) return
                                   const cid = String((auth as any)?.tierCompanyId?._id || (auth as any)?.tierCompanyId || (auth as any)?._id || '').trim()
                                   const cname = String((auth as any)?.tierCompanyName || (auth as any)?.tierDisplayName || '').trim()
-                                  const rt = encodeURIComponent(`/admin/manufacturer-management?tab=channels`)
+                                  const rt = encodeURIComponent(`/admin/manufacturers?tab=channels`)
                                   const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(fromId)}&returnTo=${rt}`
                                   const withCompany = cid
                                     ? `${base}&companyId=${encodeURIComponent(cid)}${cname ? `&companyName=${encodeURIComponent(cname)}` : ''}`
