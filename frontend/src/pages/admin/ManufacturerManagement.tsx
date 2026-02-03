@@ -1597,45 +1597,12 @@ export default function ManufacturerManagement() {
                               <div className="text-xs text-orange-500 mb-4">{item.code}</div>
                             )}
                             
-                            {/* 成本价范围 - 默认显示 */}
+                            {/* 零售价格范围 - 只显示零售价，隐藏成本价和敏感信息 */}
                             {(priceMin > 0 || priceMax > 0) && (
                               <div className="mb-3">
-                                <div className="text-xs text-gray-500 mb-1">成本价范围</div>
+                                <div className="text-xs text-gray-500 mb-1">零售价格范围</div>
                                 <div className="text-lg font-semibold text-gray-900">
                                   ¥{priceMin.toLocaleString()} - ¥{priceMax.toLocaleString()}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* 折扣和返佣 - 点击展开 */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setExpandedPartnerPrices(prev => {
-                                  const next = new Set(prev)
-                                  if (next.has(item._id)) {
-                                    next.delete(item._id)
-                                  } else {
-                                    next.add(item._id)
-                                  }
-                                  return next
-                                })
-                              }}
-                              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors mb-3"
-                            >
-                              <span className="text-xs text-gray-500">折扣与返佣详情</span>
-                              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedPartnerPrices.has(item._id) ? 'rotate-180' : ''}`} />
-                            </button>
-                            
-                            {expandedPartnerPrices.has(item._id) && (
-                              <div className="grid grid-cols-2 gap-3 mb-4 animate-in slide-in-from-top-2 duration-200">
-                                <div className="border border-gray-200 rounded-xl p-3 text-center">
-                                  <div className="text-xs text-gray-500 mb-1">最低折扣(%)</div>
-                                  <div className="text-2xl font-bold text-gray-900">{authInfo?.minDiscountRate || item.defaultDiscount || 60}</div>
-                                </div>
-                                <div className="border border-gray-200 rounded-xl p-3 text-center">
-                                  <div className="text-xs text-gray-500 mb-1">返佣比例(%)</div>
-                                  <div className="text-2xl font-bold text-gray-900">{authInfo?.commissionRate || item.defaultCommission || 40}</div>
                                 </div>
                               </div>
                             )}
