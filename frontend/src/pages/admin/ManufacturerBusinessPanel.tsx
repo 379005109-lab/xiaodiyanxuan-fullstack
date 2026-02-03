@@ -25,6 +25,7 @@ type ProductFilter = 'all' | 'own' | 'authorized' | 'pending'
 
 interface ChannelItem {
   _id: string
+  tierCompanyId?: string
   type: 'manufacturer' | 'designer'
   name: string
   avatar?: string
@@ -32,8 +33,8 @@ interface ChannelItem {
   skuCount: number
   gmv: number
   status: string
-  minDiscount?: number  // 最低折扣（百分比）
-  commissionRate?: number  // 返佣比例（百分比）
+  minDiscount: number
+  commissionRate: number
 }
 
 interface ProductItem {
@@ -148,6 +149,7 @@ export default function ManufacturerBusinessPanel() {
       const authorizations = authRes.data?.data || []
       const channelList: ChannelItem[] = authorizations.map((auth: any) => ({
         _id: auth._id,
+        tierCompanyId: String(auth.tierCompanyId || ''),
         type: auth.authorizationType,
         name: auth.authorizationType === 'manufacturer' 
           ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知商家')
@@ -290,8 +292,10 @@ export default function ManufacturerBusinessPanel() {
     // 如果展开且尚未加载层级数据，则加载
     if (!isCurrentlyExpanded && !channelTiers[channelId]) {
       try {
+        const channel = channels.find((c) => String(c._id) === String(channelId))
+        const companyId = String(channel?.tierCompanyId || '').trim() || String(channelId)
         const res = await apiClient.get(`/authorizations/tier-hierarchy-v2`, {
-          params: { manufacturerId, companyId: channelId }
+          params: { manufacturerId, companyId }
         })
         const nodes = res.data?.data?.nodes || []
         setChannelTiers(prev => ({ ...prev, [channelId]: nodes }))
@@ -760,7 +764,8 @@ export default function ManufacturerBusinessPanel() {
                                     <button
                                       onClick={() => {
                                         const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=channels`)
-                                        navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${channel._id}&returnTo=${rt}`)
+                                        const cid = String((channel as any)?.tierCompanyId || '').trim() || String(channel._id)
+                                        navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${cid}&returnTo=${rt}`)
                                       }}
                                       className="text-xs text-blue-600 hover:text-blue-800"
                                     >
@@ -777,7 +782,8 @@ export default function ManufacturerBusinessPanel() {
                             <button
                               onClick={() => {
                                 const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=channels`)
-                                navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${channel._id}&returnTo=${rt}`)
+                                const cid = String((channel as any)?.tierCompanyId || '').trim() || String(channel._id)
+                                navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${cid}&returnTo=${rt}`)
                               }}
                               className="mt-3 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors text-sm"
                             >

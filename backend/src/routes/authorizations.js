@@ -3313,11 +3313,18 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       ]
     }
 
+    // 只筛选“分层体系相关”的授权：
+    // - 新版：tierType=new_company|existing_tier
+    // - 旧版/历史数据：tierCompanyId 已写入或 tierLevel=0（根节点）
+    // - 子节点：parentAuthorizationId 存在
+    // 注意：不能排除 tierType 为空且 parentAuthorizationId 为空的“根授权”，否则前端只能显示虚拟根节点(下放=0)，无法新增下级。
     query.$and = [
       {
         $or: [
           { tierType: { $in: ['new_company', 'existing_tier'] } },
-          { tierType: { $in: [null] }, parentAuthorizationId: { $exists: true, $ne: null } }
+          { tierCompanyId: { $exists: true, $ne: null } },
+          { tierLevel: 0 },
+          { parentAuthorizationId: { $exists: true, $ne: null } }
         ]
       }
     ]
@@ -3403,10 +3410,11 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
 
     const rootNodes = filteredAuthorizations.filter(a => !a.parentAuthorizationId)
 
-    // 如果没有指定公司（companyId/companyName），返回一个虚拟的厂家根节点，
-    // 并把各公司根节点挂到该虚拟根下，避免 rootNodes[0] 随机选中导致返佣/名称不匹配
+    // 如果没有指定公司（companyId/companyName），默认返回一个虚拟的厂家根节点，
+    // 并把各公司根节点挂到该虚拟根下，避免 rootNodes[0] 随机选中导致返佣/名称不匹配。
+    // 但如果只有 1 个根节点，则直接使用真实根节点，保证可下放额度/可新增下级。
     let rootNode = null
-    const useVirtualManufacturerRoot = !companyId && !companyName
+    const useVirtualManufacturerRoot = !companyId && !companyName && rootNodes.length !== 1
 
     if (useVirtualManufacturerRoot) {
       rootNode = {
