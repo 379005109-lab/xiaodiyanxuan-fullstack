@@ -1703,12 +1703,19 @@ export default function ManufacturerManagement() {
                                   const authId = authInfo?.authorizationId
                                   if (!authId) return
                                   if (confirm('确定要取消与该厂家的合作吗？')) {
+                                    // 立即从本地状态中移除，避免等待网络请求
+                                    setReceivedAuths(prev => prev.filter(a => a._id !== authId))
                                     apiClient.delete(`/authorizations/${authId}`)
                                       .then(() => {
                                         toast.success('已取消合作')
+                                        // 仍然调用fetchData确保数据同步，但UI已经立即更新
                                         fetchData()
                                       })
-                                      .catch(() => toast.error('取消合作失败'))
+                                      .catch(() => {
+                                        toast.error('取消合作失败')
+                                        // 如果删除失败，恢复本地状态
+                                        fetchData()
+                                      })
                                   }
                                 }}
                                 className="py-2 border border-red-200 text-red-600 rounded-xl text-sm hover:bg-red-50"
@@ -2280,12 +2287,19 @@ export default function ManufacturerManagement() {
                               <button 
                                 onClick={() => {
                                   if (confirm('确定要取消对该渠道的授权吗？')) {
+                                    // 立即从本地状态中移除，避免等待网络请求
+                                    setGrantedAuths(prev => prev.filter(a => a._id !== auth._id))
                                     apiClient.delete(`/authorizations/${auth._id}`)
                                       .then(() => {
                                         toast.success('已取消授权')
+                                        // 仍然调用fetchData确保数据同步，但UI已经立即更新
                                         fetchData()
                                       })
-                                      .catch(() => toast.error('取消授权失败'))
+                                      .catch(() => {
+                                        toast.error('取消授权失败')
+                                        // 如果删除失败，恢复本地状态
+                                        fetchData()
+                                      })
                                   }
                                 }}
                                 className="px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
