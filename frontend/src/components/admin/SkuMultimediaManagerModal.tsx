@@ -347,6 +347,23 @@ export default function SkuMultimediaManagerModal({
                     />
                   </div>
 
+                  {/* Annotate button (top-right) */}
+                  {activeTab !== 'video' && (
+                    <button
+                      onMouseDown={(e) => {
+                        e.stopPropagation()
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setAnnotatingImage(item)
+                      }}
+                      className="absolute top-2 right-10 p-2 bg-blue-500 text-white rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600 z-20"
+                      title="标注图片"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  )}
+
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                     {activeTab !== 'video' && (
