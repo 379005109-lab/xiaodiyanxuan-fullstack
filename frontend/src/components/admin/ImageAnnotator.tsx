@@ -63,6 +63,11 @@ export default function ImageAnnotator({
   const [scale, setScale] = useState(1)
   const [orthogonal, setOrthogonal] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [draggingAnnotationId, setDraggingAnnotationId] = useState<string | null>(null)
+  const [dragCandidateId, setDragCandidateId] = useState<string | null>(null)
+  const dragStartPointRef = useRef<{ x: number; y: number } | null>(null)
+  const dragOriginalRef = useRef<Pick<Annotation, 'startX' | 'startY' | 'endX' | 'endY'> | null>(null)
+  const dragLongPressTimerRef = useRef<number | null>(null)
 
   // 加载图片
   useEffect(() => {
@@ -278,6 +283,21 @@ export default function ImageAnnotator({
     
     if (clickedAnnotation) {
       setSelectedAnnotation(clickedAnnotation.id)
+      setDragCandidateId(clickedAnnotation.id)
+      dragStartPointRef.current = coords
+      dragOriginalRef.current = {
+        startX: clickedAnnotation.startX,
+        startY: clickedAnnotation.startY,
+        endX: clickedAnnotation.endX,
+        endY: clickedAnnotation.endY,
+      }
+
+      if (dragLongPressTimerRef.current) {
+        window.clearTimeout(dragLongPressTimerRef.current)
+      }
+      dragLongPressTimerRef.current = window.setTimeout(() => {
+        setDraggingAnnotationId(clickedAnnotation.id)
+      }, 150)
       return
     }
     
@@ -290,6 +310,29 @@ export default function ImageAnnotator({
 
   // 鼠标移动
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (draggingAnnotationId && dragStartPointRef.current && dragOriginalRef.current) {
+      const coords = getCanvasCoords(e)
+      const dx = coords.x - dragStartPointRef.current.x
+      const dy = coords.y - dragStartPointRef.current.y
+      const original = dragOriginalRef.current
+
+      setAnnotations((prev) =>
+        prev.map((ann) => {
+          if (ann.id !== draggingAnnotationId) return ann
+          return {
+            ...ann,
+            startX: original.startX + dx,
+            startY: original.startY + dy,
+            endX: original.endX + dx,
+            endY: original.endY + dy,
+          }
+        })
+      )
+      return
+    }
+
+    if (dragCandidateId) return
+
     if (!isDrawing) return
     const raw = getCanvasCoords(e)
     if (orthogonal && startPoint) {
@@ -307,6 +350,26 @@ export default function ImageAnnotator({
 
   // 鼠标松开
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (dragLongPressTimerRef.current) {
+      window.clearTimeout(dragLongPressTimerRef.current)
+      dragLongPressTimerRef.current = null
+    }
+
+    if (draggingAnnotationId) {
+      setDraggingAnnotationId(null)
+      setDragCandidateId(null)
+      dragStartPointRef.current = null
+      dragOriginalRef.current = null
+      return
+    }
+
+    if (dragCandidateId) {
+      setDragCandidateId(null)
+      dragStartPointRef.current = null
+      dragOriginalRef.current = null
+      return
+    }
+
     if (!isDrawing || !startPoint) return
     
     const rawEnd = getCanvasCoords(e)
@@ -601,6 +664,21 @@ export default function ImageAnnotator({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={() => {
+              if (dragLongPressTimerRef.current) {
+                window.clearTimeout(dragLongPressTimerRef.current)
+                dragLongPressTimerRef.current = null
+              }
+              if (draggingAnnotationId) {
+                setDraggingAnnotationId(null)
+                setDragCandidateId(null)
+                dragStartPointRef.current = null
+                dragOriginalRef.current = null
+              }
+              if (dragCandidateId) {
+                setDragCandidateId(null)
+                dragStartPointRef.current = null
+                dragOriginalRef.current = null
+              }
               if (isDrawing) {
                 setIsDrawing(false)
                 setStartPoint(null)
