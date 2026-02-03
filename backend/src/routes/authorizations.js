@@ -3396,7 +3396,20 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
     const filteredAuthorizations = (() => {
       if (companyId) {
         const cid = String(companyId)
-        return (authorizations || []).filter(a => resolveCompanyId(a) === cid || String(a._id) === cid)
+        // 首先尝试直接匹配授权ID（用于精确定位特定渠道）
+        const directMatch = (authorizations || []).filter(a => String(a._id) === cid)
+        if (directMatch.length > 0) {
+          // 如果直接匹配到授权ID，只返回该授权及其子级
+          const targetAuth = directMatch[0]
+          return (authorizations || []).filter(a => {
+            // 包含目标授权本身
+            if (String(a._id) === cid) return true
+            // 包含以目标授权为根的所有子级
+            return resolveCompanyId(a) === cid
+          })
+        }
+        // 如果没有直接匹配，使用原有的tierCompanyId逻辑
+        return (authorizations || []).filter(a => resolveCompanyId(a) === cid)
       }
       if (companyName) {
         const cname = String(companyName)
