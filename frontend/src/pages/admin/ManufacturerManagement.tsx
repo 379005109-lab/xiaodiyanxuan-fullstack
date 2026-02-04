@@ -2190,20 +2190,20 @@ export default function ManufacturerManagement() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-4 flex-wrap justify-start md:justify-end w-full md:w-auto">
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500">最低折扣</div>
-                              <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500">返佣分成</div>
-                              <div className="text-lg font-bold text-blue-600">{auth.commissionRate ?? '--'}%</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500">门店销SKU</div>
-                              <div className="text-lg font-bold text-gray-900">{productCount}</div>
-                            </div>
-                            <div className="flex items-center gap-3 flex-wrap justify-start md:justify-end w-full md:w-auto">
+                          <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">最低折扣</div>
+                                <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">返佣分成</div>
+                                <div className="text-lg font-bold text-blue-600">{auth.commissionRate ?? '--'}%</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">门店销SKU</div>
+                                <div className="text-lg font-bold text-gray-900">{productCount}</div>
+                              </div>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-500">允许转授权</span>
                                 <button
@@ -2233,6 +2233,8 @@ export default function ManufacturerManagement() {
                                   }`} />
                                 </button>
                               </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
                               <button 
                                 onClick={() => {
                                   const rt = encodeURIComponent(`/admin/manufacturers?tab=channels`)
