@@ -3768,6 +3768,7 @@ router.post('/tier-node', auth, async (req, res) => {
     // 特殊处理：如果是虚拟根节点且 tierDelegatedRate=0，使用推导值
     const hasExplicitTierRates = parentAuth.tierDiscountRate !== undefined || parentAuth.tierCommissionRate !== undefined
     const isVirtualRoot = parentAuth.isVirtual || String(parentAuth._id).startsWith('mfr_')
+    const isRootAuthorization = !parentAuth.parentAuthorizationId
     const parentDelegatedRate = (() => {
       if (parentAuth.tierDelegatedRate === undefined || parentAuth.tierDelegatedRate === null) {
         return derivedParentDelegatedRate
@@ -3776,6 +3777,10 @@ router.post('/tier-node', auth, async (req, res) => {
       if (direct > 0) return direct
       // 如果是虚拟根节点且 tierDelegatedRate=0，使用推导值而不是0
       if (isVirtualRoot && direct === 0 && derivedParentDelegatedRate > 0) {
+        return derivedParentDelegatedRate
+      }
+      // 兼容历史“根授权”数据：tierDelegatedRate=0 但推导额度>0 时，允许回退到推导值
+      if (isRootAuthorization && direct === 0 && derivedParentDelegatedRate > 0) {
         return derivedParentDelegatedRate
       }
       if (hasExplicitTierRates) return 0
@@ -3816,6 +3821,10 @@ router.post('/tier-node', auth, async (req, res) => {
       }
       const direct = Number(parentAuth.tierPartnerDelegatedRate) || 0
       if (direct > 0) return direct
+      // 兼容历史“根授权”数据：tierPartnerDelegatedRate=0 但推导额度>0 时，允许回退到推导值
+      if (isRootAuthorization && direct === 0 && derivedParentPartnerDelegated > 0) {
+        return derivedParentPartnerDelegated
+      }
       if (hasExplicitTierPartnerRates) return 0
       return derivedParentPartnerDelegated
     })()
