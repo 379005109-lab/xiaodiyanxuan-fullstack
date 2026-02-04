@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
-import { Upload, X, GripVertical, Loader } from 'lucide-react'
+import { Upload, X, GripVertical, Loader, Pencil } from 'lucide-react'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
+import ImageAnnotator, { Annotation } from './ImageAnnotator'
 
 interface ImageUploaderProps {
   images: string[]
@@ -9,6 +10,9 @@ interface ImageUploaderProps {
   multiple?: boolean
   maxImages?: number
   label?: string
+  enableAnnotation?: boolean
+  annotations?: Record<string, Annotation[]>
+  onAnnotationsChange?: (annotations: Record<string, Annotation[]>) => void
 }
 
 export default function ImageUploader({
@@ -16,10 +20,14 @@ export default function ImageUploader({
   onChange,
   multiple = false,
   maxImages = 10,
-  label = '上传图片'
+  label = '上传图片',
+  enableAnnotation = true,
+  annotations = {},
+  onAnnotationsChange
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [annotatingImage, setAnnotatingImage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,6 +183,20 @@ export default function ImageUploader({
                 <GripVertical className="h-4 w-4 text-gray-600" />
               </div>
 
+              {/* 标注按钮 */}
+              {enableAnnotation && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setAnnotatingImage(image)
+                  }}
+                  className="absolute top-2 right-10 p-1 bg-blue-500 text-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-600"
+                  title="标注图片"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+
               {/* 删除按钮 */}
               <button
                 onClick={() => handleRemove(index)}
@@ -182,6 +204,13 @@ export default function ImageUploader({
               >
                 <X className="h-4 w-4" />
               </button>
+
+              {/* 标注指示器 */}
+              {annotations[image]?.length > 0 && (
+                <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-blue-600 text-white text-xs rounded">
+                  {annotations[image].length}个标注
+                </div>
+              )}
 
               {/* 主图标识 */}
               {index === 0 && multiple && (
@@ -197,7 +226,26 @@ export default function ImageUploader({
       {images.length > 0 && multiple && (
         <p className="text-sm text-gray-500">
           💡 提示：长按拖动图片可改变顺序，第一张为主图
+          {enableAnnotation && ' · 点击画笔图标可标注尺寸'}
         </p>
+      )}
+
+      {/* 标注编辑器 */}
+      {annotatingImage && (
+        <ImageAnnotator
+          imageUrl={getFileUrl(annotatingImage)}
+          initialAnnotations={annotations[annotatingImage] || []}
+          onSave={(newAnnotations) => {
+            if (onAnnotationsChange) {
+              onAnnotationsChange({
+                ...annotations,
+                [annotatingImage]: newAnnotations
+              })
+            }
+            setAnnotatingImage(null)
+          }}
+          onClose={() => setAnnotatingImage(null)}
+        />
       )}
     </div>
   )

@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
-import { X, Trash2, GripVertical, Upload, Video, Image, Sparkles, Play } from 'lucide-react'
+import { X, Trash2, GripVertical, Upload, Video, Image, Sparkles, Play, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { getFileUrl, uploadFile } from '@/services/uploadService'
+import ImageAnnotator from './ImageAnnotator'
 
 interface SkuMultimediaManagerModalProps {
   videos: string[]
@@ -36,6 +37,7 @@ export default function SkuMultimediaManagerModal({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
   const [isUploading, setIsUploading] = useState(false)
+  const [annotatingImage, setAnnotatingImage] = useState<{ id: string; tab: MediaType } | null>(null)
   const dragRef = useRef<number | null>(null)
 
   // Get current list based on active tab
@@ -346,7 +348,19 @@ export default function SkuMultimediaManagerModal({
                   </div>
 
                   {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                    {activeTab !== 'video' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setAnnotatingImage({ id: item, tab: activeTab })
+                        }}
+                        className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        title="标注图片"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         const newList = currentList.filter((_, i) => i !== index)
@@ -392,6 +406,34 @@ export default function SkuMultimediaManagerModal({
           </div>
         </div>
       </div>
+
+      {/* 图片标注编辑器 */}
+      {annotatingImage && (
+        <ImageAnnotator
+          imageUrl={getFileUrl(annotatingImage.id)}
+          initialAnnotations={[]}
+          onSaveImage={async (file) => {
+            try {
+              const result = await uploadFile(file)
+              if (result?.success) {
+                const fileId = result.data.fileId
+                if (annotatingImage.tab === 'image') {
+                  setImageList((prev) => [...prev, fileId])
+                }
+                if (annotatingImage.tab === 'effect') {
+                  setEffectList((prev) => [...prev, fileId])
+                }
+                toast.success('已另存为新图片')
+              } else {
+                toast.error('另存为新图片失败')
+              }
+            } catch (error) {
+              toast.error('另存为新图片失败')
+            }
+          }}
+          onClose={() => setAnnotatingImage(null)}
+        />
+      )}
     </div>
   )
 }

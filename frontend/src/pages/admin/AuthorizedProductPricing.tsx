@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Pencil, Save, ArrowLeft } from 'lucide-react'
 import { getProducts, updateProduct } from '@/services/productService'
@@ -9,6 +9,7 @@ import type { Product } from '@/types'
 
 export default function AuthorizedProductPricing() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
 
   const [loading, setLoading] = useState(true)
@@ -106,7 +107,14 @@ export default function AuthorizedProductPricing() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              const returnTo = searchParams.get('returnTo')
+              if (returnTo) {
+                navigate(decodeURIComponent(returnTo))
+              } else {
+                navigate(-1)
+              }
+            }}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             title="返回"
           >

@@ -1449,7 +1449,8 @@ export default function AdminManufacturerCenter() {
 
   const handleOpenTierSystem = (m: Manufacturer, tab?: 'hierarchy' | 'pool' | 'reconciliation') => {
     localStorage.setItem('tier_system_selected_manufacturer', String(m._id))
-    navigate(`/admin/tier-hierarchy?manufacturerId=${m._id}`)
+    const rt = encodeURIComponent(`/admin/manufacturers/${m._id}/business-panel?tab=tier`)
+    navigate(`/admin/tier-hierarchy?manufacturerId=${m._id}&returnTo=${rt}`)
   }
 
   const handleOpenProductAuthorization = (m: Manufacturer) => {

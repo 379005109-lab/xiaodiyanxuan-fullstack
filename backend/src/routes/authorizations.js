@@ -467,17 +467,20 @@ router.get('/summary', auth, async (req, res) => {
 router.get('/my-grants', auth, async (req, res) => {
   try {
     const user = await User.findById(req.userId)
-    if (!user.manufacturerId) {
+    // 超级管理员默认查询小迪严选的授权
+    const XDYX_MANUFACTURER_ID = '6948fca5630729ca224ec425'
+    const manufacturerId = user.manufacturerId || (user.role === 'super_admin' ? XDYX_MANUFACTURER_ID : null)
+    if (!manufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以查看授权' })
     }
 
     // 获取当前厂家信息（包含默认折扣和返佣设置）
-    const currentManufacturer = await Manufacturer.findById(user.manufacturerId)
+    const currentManufacturer = await Manufacturer.findById(manufacturerId)
       .select('defaultDiscount defaultCommission')
       .lean()
 
     const authorizations = await Authorization.find({
-      fromManufacturer: user.manufacturerId,
+      fromManufacturer: manufacturerId,
       // 排除已撤销的授权
       status: { $ne: 'revoked' },
       // 排除层级节点（tierLevel > 0的是分成体系子节点，不是独立渠道）
@@ -1250,10 +1253,14 @@ router.get('/received', auth, async (req, res) => {
     }
 
     // 根据用户类型查询
+    // 超级管理员默认查询小迪严选的授权
+    const XDYX_MANUFACTURER_ID = '6948fca5630729ca224ec425'
     if (user.role === 'designer') {
       query.toDesigner = req.userId
     } else if (user.manufacturerId) {
       query.toManufacturer = user.manufacturerId
+    } else if (user.role === 'super_admin') {
+      query.toManufacturer = XDYX_MANUFACTURER_ID
     } else {
       return res.json({ success: true, data: [] })
     }
@@ -3306,11 +3313,18 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       ]
     }
 
+    // 只筛选“分层体系相关”的授权：
+    // - 新版：tierType=new_company|existing_tier
+    // - 旧版/历史数据：tierCompanyId 已写入或 tierLevel=0（根节点）
+    // - 子节点：parentAuthorizationId 存在
+    // 注意：不能排除 tierType 为空且 parentAuthorizationId 为空的“根授权”，否则前端只能显示虚拟根节点(下放=0)，无法新增下级。
     query.$and = [
       {
         $or: [
           { tierType: { $in: ['new_company', 'existing_tier'] } },
-          { tierType: { $in: [null] }, parentAuthorizationId: { $exists: true, $ne: null } }
+          { tierCompanyId: { $exists: true, $ne: null } },
+          { tierLevel: 0 },
+          { parentAuthorizationId: { $exists: true, $ne: null } }
         ]
       }
     ]
@@ -3396,10 +3410,11 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
 
     const rootNodes = filteredAuthorizations.filter(a => !a.parentAuthorizationId)
 
-    // 如果没有指定公司（companyId/companyName），返回一个虚拟的厂家根节点，
-    // 并把各公司根节点挂到该虚拟根下，避免 rootNodes[0] 随机选中导致返佣/名称不匹配
+    // 如果没有指定公司（companyId/companyName），默认返回一个虚拟的厂家根节点，
+    // 并把各公司根节点挂到该虚拟根下，避免 rootNodes[0] 随机选中导致返佣/名称不匹配。
+    // 但如果只有 1 个根节点，则直接使用真实根节点，保证可下放额度/可新增下级。
     let rootNode = null
-    const useVirtualManufacturerRoot = !companyId && !companyName
+    const useVirtualManufacturerRoot = !companyId && !companyName && rootNodes.length !== 1
 
     if (useVirtualManufacturerRoot) {
       rootNode = {

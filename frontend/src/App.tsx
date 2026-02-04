@@ -360,11 +360,13 @@ const ManufacturersRoute = () => {
 
   const hasManufacturerId = Boolean((user as any)?.manufacturerId)
 
-  if (isSuperAdmin) return <AdminManufacturerCenter />
+  // 超级管理员也使用 ManufacturerManagement 界面（与厂家账号相同的样式）
+  if (isSuperAdmin) return <ManufacturerManagement />
   if (isDesigner) return <EliteManufacturerManagement />
   if (isManufacturerSubAccount || hasManufacturerId || isAdminButNotSuper) return <ManufacturerManagement />
   return <EliteManufacturerManagement />
 }
+
 // 加载组件
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
