@@ -2128,6 +2128,7 @@ export default function ManufacturerManagement() {
                 // 渠道管理仅展示“本厂家授权给下游”的渠道（grantedAuths），
                 // 否则 receivedAuths 会出现“上游厂家名称(如藤宝阁)”但 companyId 指向的是“本厂家(如鑫辉)”的授权根，导致分成体系串号。
                 const downstreamChannels = [...grantedAuths]
+                console.log('Debug - grantedAuths:', grantedAuths.length, 'downstreamChannels:', downstreamChannels.length)
                 return (
                   <>
                     <div className="flex items-center gap-2 mb-4">
@@ -2138,8 +2139,9 @@ export default function ManufacturerManagement() {
                     {downstreamChannels.length === 0 ? (
                       <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
                         <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500">暂无渠道授权</p>
-                        <p className="text-sm text-gray-400 mt-2">审批通过的合作商家会显示在这里</p>
+                        <p className="text-gray-500">暂无下游渠道授权</p>
+                        <p className="text-sm text-gray-400 mt-2">您授权给其他厂家的渠道会显示在这里</p>
+                        <p className="text-xs text-red-500 mt-1">Debug: grantedAuths={grantedAuths.length}, receivedAuths={receivedAuths.length}</p>
                       </div>
                     ) : (
                       <div className="space-y-4">
