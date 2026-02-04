@@ -3779,6 +3779,10 @@ router.post('/tier-node', auth, async (req, res) => {
       if (isVirtualRoot && direct === 0 && derivedParentDelegatedRate > 0) {
         return derivedParentDelegatedRate
       }
+      // 兼容数据：tierDelegatedRate 字段存在但为 0（常见于默认值/历史写入），且可推导出下放额度时，使用推导值
+      if (direct === 0 && derivedParentDelegatedRate > 0) {
+        return derivedParentDelegatedRate
+      }
       // 兼容历史“根授权”数据：tierDelegatedRate=0 但推导额度>0 时，允许回退到推导值
       if (isRootAuthorization && direct === 0 && derivedParentDelegatedRate > 0) {
         return derivedParentDelegatedRate
@@ -3821,6 +3825,10 @@ router.post('/tier-node', auth, async (req, res) => {
       }
       const direct = Number(parentAuth.tierPartnerDelegatedRate) || 0
       if (direct > 0) return direct
+      // 兼容数据：tierPartnerDelegatedRate 字段存在但为 0（常见于默认值/历史写入），且可推导出下放额度时，使用推导值
+      if (direct === 0 && derivedParentPartnerDelegated > 0) {
+        return derivedParentPartnerDelegated
+      }
       // 兼容历史“根授权”数据：tierPartnerDelegatedRate=0 但推导额度>0 时，允许回退到推导值
       if (isRootAuthorization && direct === 0 && derivedParentPartnerDelegated > 0) {
         return derivedParentPartnerDelegated
