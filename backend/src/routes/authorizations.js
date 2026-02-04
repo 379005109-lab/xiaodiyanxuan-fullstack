@@ -3894,8 +3894,8 @@ router.post('/tier-node', auth, async (req, res) => {
       ownProductCommission: tierCommissionRate || parentAuth.ownProductCommission,
       partnerProductMinDiscount: tierPartnerDiscountRate || parentAuth.partnerProductMinDiscount,
       partnerProductCommission: tierPartnerCommissionRate || parentAuth.partnerProductCommission,
-      minDiscountRate: tierDiscountRate || parentAuth.ownProductMinDiscount,
-      commissionRate: tierCommissionRate || parentAuth.ownProductCommission
+      minDiscountRate: parentAuth.minDiscountRate || parentAuth.ownProductMinDiscount,
+      commissionRate: parentAuth.commissionRate || parentAuth.ownProductCommission
     })
 
     await newAuth.save()
@@ -4015,7 +4015,7 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     if (tierDiscountRate !== undefined) {
       auth.tierDiscountRate = tierDiscountRate
       auth.ownProductMinDiscount = tierDiscountRate
-      auth.minDiscountRate = tierDiscountRate
+      // minDiscountRate 应该保持继承自父级，不应该被当前层级的 tierDiscountRate 覆盖
     }
     if (tierDelegatedRate !== undefined) {
       auth.tierDelegatedRate = tierDelegatedRate
@@ -4024,7 +4024,7 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     if (tierCommissionRate !== undefined) {
       auth.tierCommissionRate = tierCommissionRate
       auth.ownProductCommission = tierCommissionRate
-      auth.commissionRate = tierCommissionRate
+      // commissionRate 应该保持继承自父级，不应该被当前层级的 tierCommissionRate 覆盖
     }
     // 合作商产品返佣字段
     if (tierPartnerDiscountRate !== undefined) {
