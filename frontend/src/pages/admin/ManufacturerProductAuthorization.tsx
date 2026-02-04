@@ -576,22 +576,10 @@ export default function ManufacturerProductAuthorization() {
                                   )}
                                 </div>
                                 <div className="text-xs text-gray-500 font-mono mt-1">{p.productCode || '无编码'}</div>
-                                <div className="flex items-center gap-3 text-sm">
+                                <div className="flex flex-wrap gap-2 mt-3">
                                   <div className="px-2 py-1 bg-gray-50 rounded">
-                                    <div className="text-xs text-gray-400">零售价</div>
-                                    <div className="text-sm font-medium text-gray-500">{pricing.priceRange}</div>
-                                  </div>
-                                  <div className="px-2 py-1 bg-orange-50 rounded">
-                                    <div className="text-xs text-orange-500">最低售价</div>
-                                    <div className="text-sm font-medium text-orange-600">{pricing.minDiscountPrice}</div>
-                                  </div>
-                                  <div className="px-2 py-1 bg-green-50 rounded">
-                                    <div className="text-xs text-green-500">返佣金额</div>
-                                    <div className="text-sm font-medium text-green-600">{pricing.commissionPrice}</div>
-                                  </div>
-                                  <div className="px-2 py-1 bg-blue-50 rounded border border-blue-200">
-                                    <div className="text-xs text-blue-500">成本价</div>
-                                    <div className="text-sm font-bold text-blue-700">{pricing.factoryIncome}</div>
+                                    <div className="text-xs text-gray-500">零售价</div>
+                                    <div className="text-sm font-medium text-gray-700">{pricing.priceRange}</div>
                                   </div>
                                 </div>
                               </div>
@@ -610,22 +598,14 @@ export default function ManufacturerProductAuthorization() {
                                         <span className="font-medium">SKU:</span> {sku.code || `SKU-${index + 1}`}
                                         {sku.spec && <span className="ml-2">{sku.spec}</span>}
                                       </div>
-                                      <div className="grid grid-cols-4 gap-2 text-xs">
+                                      <div className="grid grid-cols-2 gap-3 text-sm">
                                         <div>
-                                          <div className="text-gray-500">标价</div>
-                                          <div className="font-medium text-gray-900">¥{skuPrice}</div>
+                                          <div className="text-gray-500">SKU规格</div>
+                                          <div className="font-medium">{sku.spec || '-'}</div>
                                         </div>
                                         <div>
-                                          <div className="text-gray-500">{(skuPricing.discountRate * 10).toFixed(0)}折价</div>
-                                          <div className="font-medium text-orange-600">¥{skuPricing.minDiscountPrice.toFixed(0)}</div>
-                                        </div>
-                                        <div>
-                                          <div className="text-gray-500">设计师佣金</div>
-                                          <div className="font-medium text-green-600">¥{skuPricing.designerCommission.toFixed(0)}</div>
-                                        </div>
-                                        <div>
-                                          <div className="text-gray-500">成本价</div>
-                                          <div className="font-bold text-blue-700">¥{skuPricing.factoryIncome.toFixed(0)}</div>
+                                          <div className="text-gray-500">零售价</div>
+                                          <div className="font-medium">¥{skuPricing.retailPrice}</div>
                                         </div>
                                       </div>
                                     </div>
