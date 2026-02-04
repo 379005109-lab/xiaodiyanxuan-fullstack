@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   ArrowLeft, Plus, Edit2, Trash2, Users, Package, 
@@ -19,6 +19,13 @@ interface TierNode {
   tierDiscountRate: number  // 自有产品返佣率
   tierDelegatedRate: number // 自有产品下放给下级的比例
   tierCommissionRate: number // 自有产品自留 = discountRate - delegatedRate
+  boundUserId?: any
+  boundUserIds?: any[]
+  tierDepthBasedCommissionRules?: Array<{
+    depth: number
+    commissionRate: number
+    description?: string
+  }>
   tierPartnerDiscountRate?: number  // 合作商产品返佣率
   tierPartnerDelegatedRate?: number // 合作商产品下放给下级的比例
   tierPartnerCommissionRate?: number // 合作商产品自留
@@ -42,6 +49,225 @@ interface TierNode {
   isVirtual?: boolean
 }
 
+function TierRuleModal({
+  isOpen,
+  onClose,
+  node,
+  onSave,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  node: TierNode | null
+  onSave: (rules: Array<{ depth: number; commissionRate: number; description?: string }>) => Promise<void>
+}) {
+  const [rules, setRules] = useState<Array<{ depth: number; commissionRate: number; description?: string }>>([])
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const init = Array.isArray(node?.tierDepthBasedCommissionRules)
+      ? node!.tierDepthBasedCommissionRules!
+      : []
+    setRules((init || []).map(r => ({
+      depth: Math.max(0, Number(r?.depth || 0)),
+      commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+      description: r?.description ? String(r.description) : ''
+    })).sort((a, b) => Number(a.depth) - Number(b.depth)))
+  }, [isOpen, node])
+
+  const totalPct = useMemo(() => {
+    return Math.round((rules || []).reduce((sum, r) => sum + (Number(r?.commissionRate || 0) * 100), 0))
+  }, [rules])
+
+  const setPreset = (type: 'direct' | 'two' | 'three') => {
+    if (type === 'direct') {
+      setRules([
+        { depth: 0, commissionRate: 0.4, description: '' }
+      ])
+      return
+    }
+    if (type === 'two') {
+      setRules([
+        { depth: 0, commissionRate: 0.2, description: '' },
+        { depth: 1, commissionRate: 0.2, description: '' },
+      ])
+      return
+    }
+    setRules([
+      { depth: 0, commissionRate: 0.1, description: '' },
+      { depth: 1, commissionRate: 0.15, description: '' },
+      { depth: 2, commissionRate: 0.15, description: '' },
+    ])
+  }
+
+  const addDepth = () => {
+    const maxDepth = rules.length > 0 ? Math.max(...rules.map(r => Number(r.depth))) : -1
+    const nextDepth = maxDepth + 1
+    setRules(prev => [...prev, { depth: nextDepth, commissionRate: 0, description: '' }])
+  }
+
+  const removeDepth = (depth: number) => {
+    setRules(prev => prev.filter(r => Number(r.depth) !== Number(depth)))
+  }
+
+  const updateRate = (depth: number, pct: number) => {
+    const next = Math.max(0, Math.min(100, Number(pct || 0))) / 100
+    setRules(prev => prev.map(r => Number(r.depth) === Number(depth) ? { ...r, commissionRate: next } : r))
+  }
+
+  const handleSave = async () => {
+    if (!node?._id) return
+    setSaving(true)
+    try {
+      const cleaned = (rules || [])
+        .map(r => ({
+          depth: Math.max(0, Number(r?.depth || 0)),
+          commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+          description: r?.description ? String(r.description) : ''
+        }))
+        .sort((a, b) => Number(a.depth) - Number(b.depth))
+      await onSave(cleaned)
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!isOpen || !node) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">多层级返佣规则</h2>
+              <p className="text-sm text-gray-500 mt-1">{node.tierDisplayName}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+              type="button"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => setPreset('direct')}
+              className="p-4 rounded-2xl border border-gray-200 hover:border-primary-300 hover:bg-primary-50 text-left"
+            >
+              <div className="font-bold text-gray-900">直推模式</div>
+              <div className="text-xs text-gray-500 mt-1">只返自己</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset('two')}
+              className="p-4 rounded-2xl border border-gray-200 hover:border-primary-300 hover:bg-primary-50 text-left"
+            >
+              <div className="font-bold text-gray-900">2层分佣</div>
+              <div className="text-xs text-gray-500 mt-1">自己 + 1级</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset('three')}
+              className="p-4 rounded-2xl border border-gray-200 hover:border-primary-300 hover:bg-primary-50 text-left"
+            >
+              <div className="font-bold text-gray-900">3层分佣</div>
+              <div className="text-xs text-gray-500 mt-1">自己 + 1级 + 2级</div>
+            </button>
+          </div>
+
+          <div className="bg-gray-50 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-bold text-gray-900">预计返佣总计</div>
+              <div className="text-xs text-gray-500 mt-1">当前规则各层返佣之和</div>
+            </div>
+            <div className="text-2xl font-bold text-green-700">{totalPct}%</div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-bold text-gray-900">层级配置</div>
+              <button
+                type="button"
+                onClick={addDepth}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                添加层级
+              </button>
+            </div>
+
+            {rules.length === 0 ? (
+              <div className="text-sm text-gray-500 py-6 text-center">暂无配置</div>
+            ) : (
+              <div className="space-y-2">
+                {rules
+                  .slice()
+                  .sort((a, b) => Number(a.depth) - Number(b.depth))
+                  .map((r) => (
+                    <div key={r.depth} className="flex items-center gap-2 bg-gray-50 rounded-xl p-3">
+                      <div className="text-xs font-bold text-gray-700 w-24">
+                        {Number(r.depth) === 0 ? '自己返佣' : `${Number(r.depth)}级返佣`}
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={Math.round(Number(r.commissionRate || 0) * 100)}
+                        onChange={(e) => updateRate(Number(r.depth), Number(e.target.value))}
+                        className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm text-center font-bold"
+                      />
+                      <div className="text-sm text-gray-500">%</div>
+                      <div className="flex-1" />
+                      {Number(r.depth) !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => removeDepth(Number(r.depth))}
+                          className="p-2 rounded-lg hover:bg-white text-gray-400 hover:text-red-600"
+                          title="删除"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 pt-0 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className={cn(
+              "px-6 py-2.5 rounded-xl text-white",
+              saving ? "bg-gray-400 cursor-not-allowed" : "bg-primary-600 hover:bg-primary-700"
+            )}
+          >
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // 卡片组件
 function TierCard({
   node,
@@ -49,6 +275,7 @@ function TierCard({
   onAddChild,
   onBindAccount,
   onEdit,
+  onOpenRules,
   onDelete,
   onViewDetails,
   expanded,
@@ -61,6 +288,7 @@ function TierCard({
   onAddChild: (parentId: string) => void
   onBindAccount: (parentId: string) => void
   onEdit: (node: TierNode) => void
+  onOpenRules: (node: TierNode) => void
   onDelete: (nodeId: string) => void
   onViewDetails: (node: TierNode) => void
   expanded: boolean
@@ -74,6 +302,7 @@ function TierCard({
   const canAddChild = canEdit && node.allowSubAuthorization !== false
   const canBindAccount = canEdit  // 绑定账号只需要canEdit权限
   const hasChildren = (node.children?.length || 0) > 0 || node.childCount > 0
+  const primaryBoundUserId = node.boundUserId ? String((node.boundUserId as any)?._id || node.boundUserId) : ''
   
   const ownCommission = (node.tierCommissionRate ?? node.ownProductCommission ?? 0) || 0
   
@@ -133,7 +362,7 @@ function TierCard({
           {/* 右上角齿轮 - 模板设置 */}
           {canEdit && (
             <button
-              onClick={() => onEdit(node)}
+              onClick={() => onOpenRules(node)}
               className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
               title="角色模板设置"
             >
@@ -183,7 +412,7 @@ function TierCard({
             <p className="text-xs text-gray-500 mb-2">已绑定账号:</p>
             <div className="flex flex-wrap gap-2">
               {(node as any).boundUserIds.slice(0, 5).map((user: any) => (
-                <div key={user._id} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg text-xs border">
+                <div key={user._id} className={`flex items-center gap-1 bg-white px-2 py-1 rounded-lg text-xs border ${primaryBoundUserId === String(user._id) ? 'bg-blue-100' : ''}`}>
                   <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-xs">
                     {user.nickname?.charAt(0) || user.username?.charAt(0) || '?'}
                   </div>
@@ -246,6 +475,7 @@ function TierTree({
   onAddChild,
   onBindAccount,
   onEdit,
+  onOpenRules,
   onDelete,
   onViewDetails,
   expandedNodes,
@@ -259,6 +489,7 @@ function TierTree({
   onAddChild: (parentId: string) => void
   onBindAccount: (parentId: string) => void
   onEdit: (node: TierNode) => void
+  onOpenRules: (node: TierNode) => void
   onDelete: (nodeId: string) => void
   onViewDetails: (node: TierNode) => void
   expandedNodes: Set<string>
@@ -294,6 +525,7 @@ function TierTree({
               onAddChild={onAddChild}
               onBindAccount={onBindAccount}
               onEdit={onEdit}
+              onOpenRules={onOpenRules}
               onDelete={onDelete}
               onViewDetails={onViewDetails}
               expanded={isExpanded}
@@ -318,6 +550,7 @@ function TierTree({
                   onAddChild={onAddChild}
                   onBindAccount={onBindAccount}
                   onEdit={onEdit}
+                  onOpenRules={onOpenRules}
                   onDelete={onDelete}
                   onViewDetails={onViewDetails}
                   expandedNodes={expandedNodes}
@@ -385,7 +618,7 @@ function TierEditModal({
   const totalUsed = formData.myCommission + formData.delegateToChild
   const isOverBudget = totalUsed > maxDiscountRate
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!formData.tierDisplayName.trim()) {
       toast.error('请输入名称')
@@ -603,13 +836,14 @@ function BindAccountModal({
 }: {
   isOpen: boolean
   onClose: () => void
-  onBind: (accounts: any[], parentNode: TierNode) => void
+  onBind: (accounts: any[], parentNode: TierNode, primaryUserId: string) => void
   parentNode: TierNode | null
   manufacturerId: string
 }) {
   const [loading, setLoading] = useState(false)
   const [accounts, setAccounts] = useState<any[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [primaryUserId, setPrimaryUserId] = useState('')
   const [searchKeyword, setSearchKeyword] = useState('')
 
   // 加载账号列表
@@ -628,12 +862,20 @@ function BindAccountModal({
         const list = resp.data?.data?.list || resp.data?.list || []
         setAccounts(list)
         
+        const existingPrimary = parentNode?.boundUserId
+          ? String((parentNode.boundUserId as any)?._id || parentNode.boundUserId)
+          : ''
+        setPrimaryUserId(existingPrimary)
+
         // 预选已绑定的账号
         if (parentNode && (parentNode as any).boundUserIds?.length > 0) {
           const existingIds = new Set<string>((parentNode as any).boundUserIds.map((u: any) => String(u._id || u)))
+          if (existingPrimary) existingIds.add(existingPrimary)
           setSelectedIds(existingIds)
         } else {
-          setSelectedIds(new Set())
+          const init = new Set<string>()
+          if (existingPrimary) init.add(existingPrimary)
+          setSelectedIds(init)
         }
       } catch (err) {
         console.error('加载账号列表失败:', err)
@@ -657,11 +899,18 @@ function BindAccountModal({
     )
   }, [accounts, searchKeyword])
 
+  const selectedAccounts = useMemo(() => {
+    return accounts.filter(a => selectedIds.has(String(a._id)))
+  }, [accounts, selectedIds])
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
       if (next.has(id)) {
         next.delete(id)
+        if (primaryUserId && primaryUserId === id) {
+          setPrimaryUserId('')
+        }
       } else {
         next.add(id)
       }
@@ -677,7 +926,8 @@ function BindAccountModal({
     if (!parentNode) return
     
     const selected = accounts.filter(a => selectedIds.has(a._id))
-    onBind(selected, parentNode)
+    const primary = primaryUserId && selectedIds.has(primaryUserId) ? primaryUserId : ''
+    onBind(selected, parentNode, primary)
     onClose()
   }
 
@@ -760,10 +1010,26 @@ function BindAccountModal({
         </div>
         
         {/* 底部按钮 */}
-        <div className="p-6 border-t border-gray-200 flex items-center justify-between">
-          <span className="text-sm text-gray-500">
-            已选择 {selectedIds.size} 个账号
-          </span>
+        <div className="p-6 border-t border-gray-200 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500">已选择 {selectedIds.size} 个账号</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">主账号</span>
+              <select
+                value={primaryUserId}
+                onChange={(e) => setPrimaryUserId(e.target.value)}
+                disabled={selectedIds.size === 0}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+              >
+                <option value="">不设置（平均分）</option>
+                {selectedAccounts.map(a => (
+                  <option key={String(a._id)} value={String(a._id)}>
+                    {a.nickname || a.username || String(a._id)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div className="flex gap-3">
             <button
               type="button"
@@ -848,10 +1114,10 @@ export default function TierHierarchyPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingNode, setEditingNode] = useState<TierNode | null>(null)
   const [parentNodeForAdd, setParentNodeForAdd] = useState<TierNode | null>(null)
-  
-  // 绑定账号模态框状态
   const [showBindModal, setShowBindModal] = useState(false)
   const [bindParentNode, setBindParentNode] = useState<TierNode | null>(null)
+  const [showRuleModal, setShowRuleModal] = useState(false)
+  const [ruleNode, setRuleNode] = useState<TierNode | null>(null)
   
   const currentUserId = (user as any)?._id || (user as any)?.id || ''
   
@@ -946,12 +1212,13 @@ export default function TierHierarchyPage() {
   }
   
   // 执行账号绑定 - 将账号关联到现有层级
-  const handleBindAccounts = async (accounts: any[], targetNode: TierNode) => {
+  const handleBindAccounts = async (accounts: any[], targetNode: TierNode, primaryUserId: string) => {
     try {
       // 将账号绑定到现有层级节点（使用现有PUT接口）
       const boundUserIds = accounts.map(a => a._id)
       await apiClient.put(`/authorizations/tier-node/${targetNode._id}`, {
-        boundUserIds
+        boundUserIds,
+        boundUserId: primaryUserId ? primaryUserId : null
       })
       
       toast.success(`成功绑定 ${accounts.length} 个账号`)
@@ -975,6 +1242,25 @@ export default function TierHierarchyPage() {
     }
     setEditingNode(node)
     setShowEditModal(true)
+  }
+
+  const handleOpenRules = (node: TierNode) => {
+    setRuleNode(node)
+    setShowRuleModal(true)
+  }
+
+  const handleSaveRules = async (rules: Array<{ depth: number; commissionRate: number; description?: string }>) => {
+    if (!ruleNode?._id) return
+    try {
+      await apiClient.put(`/authorizations/tier-node/${ruleNode._id}`, {
+        tierDepthBasedCommissionRules: rules
+      })
+      toast.success('规则已保存')
+      loadHierarchy()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || '保存失败')
+      throw err
+    }
   }
   
   // 删除节点 - 直接删除无需确认
@@ -1099,6 +1385,7 @@ export default function TierHierarchyPage() {
               onAddChild={handleAddChild}
               onBindAccount={handleBindAccount}
               onEdit={handleEdit}
+              onOpenRules={handleOpenRules}
               onDelete={handleDelete}
               onViewDetails={handleViewDetails}
               expanded={expandedNodes.has(rootNode._id)}
@@ -1117,6 +1404,7 @@ export default function TierHierarchyPage() {
                   onAddChild={handleAddChild}
                   onBindAccount={handleBindAccount}
                   onEdit={handleEdit}
+                  onOpenRules={handleOpenRules}
                   onDelete={handleDelete}
                   onViewDetails={handleViewDetails}
                   expandedNodes={expandedNodes}
@@ -1165,6 +1453,13 @@ export default function TierHierarchyPage() {
         onBind={handleBindAccounts}
         parentNode={bindParentNode}
         manufacturerId={manufacturerId}
+      />
+
+      <TierRuleModal
+        isOpen={showRuleModal}
+        onClose={() => setShowRuleModal(false)}
+        node={ruleNode}
+        onSave={handleSaveRules}
       />
     </div>
   )

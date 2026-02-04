@@ -1,5 +1,6 @@
 const TierSystem = require('../models/TierSystem')
 const Authorization = require('../models/Authorization')
+const User = require('../models/User')
 
 /**
  * 计算订单的分层返佣
@@ -14,15 +15,136 @@ const calculateTieredCommissions = async (userId, orderAmount, manufacturerId, t
   if (!userId || !orderAmount || !manufacturerId) return []
 
   try {
+    const cid = String(tierCompanyId || '').trim()
+    const cname = String(tierCompanyName || '').trim()
+
+    const authTreeResult = await (async () => {
+      const query = {
+        fromManufacturer: manufacturerId,
+        status: 'active',
+        $or: [
+          { boundUserIds: userId },
+          { boundUserId: userId }
+        ]
+      }
+
+      if (cid) {
+        query.$and = [
+          {
+            $or: [
+              { tierCompanyId: cid },
+              { _id: cid }
+            ]
+          }
+        ]
+      }
+
+      const matchedNodes = await Authorization.find(query)
+        .select('_id parentAuthorizationId tierLevel tierCompanyId tierCompanyName boundUserIds boundUserId tierDepthBasedCommissionRules')
+        .lean()
+
+      if (!Array.isArray(matchedNodes) || matchedNodes.length === 0) return []
+
+      // 如果同一用户被绑定到多个层级，优先选择最深的层级
+      const startNode = matchedNodes
+        .slice()
+        .sort((a, b) => Number(b?.tierLevel || 0) - Number(a?.tierLevel || 0))[0]
+
+      const commissions = []
+      const visited = new Set()
+      const cache = new Map([[String(startNode._id), startNode]])
+
+      let currentNode = startNode
+      let depth = 0
+
+      while (currentNode && depth < 10) {
+        const nodeId = String(currentNode._id)
+        if (visited.has(nodeId)) break
+        visited.add(nodeId)
+
+        const rules = Array.isArray(currentNode.tierDepthBasedCommissionRules)
+          ? currentNode.tierDepthBasedCommissionRules
+          : []
+        const rule = rules.find(r => Number(r?.depth || -1) === depth)
+        const rawRate = rule && typeof rule.commissionRate === 'number' ? Number(rule.commissionRate) : 0
+        const rate = Math.max(0, Math.min(1, rawRate))
+
+        const recipients = (() => {
+          const primary = currentNode.boundUserId ? String(currentNode.boundUserId?._id || currentNode.boundUserId) : ''
+          if (primary) return [primary]
+          const ids = []
+          const list = Array.isArray(currentNode.boundUserIds) ? currentNode.boundUserIds : []
+          list.forEach(id => ids.push(String(id?._id || id)))
+          if (currentNode.boundUserId) ids.push(String(currentNode.boundUserId?._id || currentNode.boundUserId))
+          return [...new Set(ids.filter(Boolean))]
+        })()
+
+        if (rate > 0 && recipients.length > 0) {
+          const totalNodeAmount = Math.round(Number(orderAmount) * rate)
+          const n = recipients.length
+          const base = Math.floor(totalNodeAmount / n)
+          const rem = totalNodeAmount - base * n
+
+          recipients.forEach((rid, idx) => {
+            const amount = base + (idx === n - 1 ? rem : 0)
+            if (amount <= 0) return
+            commissions.push({
+              accountId: nodeId,
+              userId: rid,
+              username: '',
+              nickname: '',
+              depth,
+              commissionRate: Number(orderAmount) > 0 ? amount / Number(orderAmount) : 0,
+              commissionAmount: amount,
+              tierCompanyId: cid || (currentNode.tierCompanyId ? String(currentNode.tierCompanyId) : ''),
+              tierCompanyName: cname || (currentNode.tierCompanyName ? String(currentNode.tierCompanyName) : ''),
+              calculatedAt: new Date()
+            })
+          })
+        }
+
+        const parentId = currentNode.parentAuthorizationId ? String(currentNode.parentAuthorizationId) : ''
+        if (!parentId) break
+
+        if (!cache.has(parentId)) {
+          const parent = await Authorization.findById(parentId)
+            .select('_id parentAuthorizationId tierLevel tierCompanyId tierCompanyName boundUserIds boundUserId tierDepthBasedCommissionRules')
+            .lean()
+          if (parent) cache.set(parentId, parent)
+        }
+
+        currentNode = cache.get(parentId) || null
+        depth++
+      }
+
+      if (commissions.length === 0) return []
+
+      const userIds = [...new Set(commissions.map(c => String(c.userId)))]
+      const users = await User.find({ _id: { $in: userIds } }).select('_id username nickname').lean()
+      const userMap = new Map((users || []).map(u => [String(u._id), u]))
+
+      commissions.forEach(c => {
+        const u = userMap.get(String(c.userId))
+        if (u) {
+          c.username = String(u.username || '')
+          c.nickname = String(u.nickname || u.username || '')
+        }
+      })
+
+      return commissions
+    })()
+
+    if (authTreeResult && authTreeResult.length > 0) {
+      return authTreeResult
+    }
+
     // 1. 获取分层体系数据
     const tierDocRaw = await TierSystem.findOne({ manufacturerId }).lean()
     if (!tierDocRaw) return []
 
     // 2. 选择对应公司的子体系（如果有）
     let tierDoc = tierDocRaw
-    const cid = String(tierCompanyId || '').trim()
-    const cname = String(tierCompanyName || '').trim()
-    
+
     if (cid || cname) {
       const systems = Array.isArray(tierDocRaw.companySystems) ? tierDocRaw.companySystems : []
       let found = null

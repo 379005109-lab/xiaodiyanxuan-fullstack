@@ -3340,6 +3340,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       .populate('toManufacturer', 'name fullName shortName logo')
       .populate('createdBy', 'username nickname')
       .populate('boundUserIds', 'username nickname avatar phone')
+      .populate('boundUserId', 'username nickname avatar phone')
       .sort({ tierLevel: 1, createdAt: 1 })
       .lean()
 
@@ -3540,7 +3541,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         createdBy: String(firstRoot.createdBy?._id || firstRoot.createdBy || ''),
         status: firstRoot.status,
         isOwner: isRootOwner,
-        allowSubAuthorization: (firstRoot.allowSubAuthorization !== false) && ((rootDelegatedRate > 0) || (rootPartnerDelegatedRate > 0))
+        allowSubAuthorization: (firstRoot.allowSubAuthorization !== false) && ((rootDelegatedRate > 0) || (rootPartnerDelegatedRate > 0)),
+        boundUserId: firstRoot.boundUserId || null,
+        boundUserIds: firstRoot.boundUserIds || []
       }
     }
 
@@ -3669,6 +3672,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         tierDiscountRate: effectiveTierDiscountRate,
         tierDelegatedRate: effectiveTierDelegatedRate,
         tierCommissionRate: effectiveTierCommissionRate,
+        tierDepthBasedCommissionRules: Array.isArray(auth.tierDepthBasedCommissionRules) ? auth.tierDepthBasedCommissionRules : [],
         tierPartnerDiscountRate: effectiveTierPartnerDiscountRate,
         tierPartnerDelegatedRate: effectiveTierPartnerDelegatedRate,
         tierPartnerCommissionRate: effectiveTierPartnerCommissionRate,
@@ -3687,6 +3691,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         status: auth.status,
         isOwner,
         allowSubAuthorization: (auth.allowSubAuthorization !== false) && ((effectiveTierDelegatedRate > 0) || (effectiveTierPartnerDelegatedRate > 0)),
+        boundUserId: auth.boundUserId || null,
         boundUserIds: auth.boundUserIds || []
       }
     }))
@@ -3854,6 +3859,8 @@ router.post('/tier-node', auth, async (req, res) => {
       
       // 绑定的用户ID（如果有）
       boundUserId: boundUserId || null,
+
+      boundUserIds: boundUserId ? [boundUserId] : [],
       
       // 层级相关字段
       tierType: 'existing_tier',
@@ -3911,7 +3918,9 @@ router.put('/tier-node/:id', auth, async (req, res) => {
       tierPartnerDiscountRate,
       tierPartnerDelegatedRate,
       tierPartnerCommissionRate,
-      boundUserIds  // 绑定的用户ID列表
+      boundUserIds,  // 绑定的用户ID列表
+      boundUserId,
+      tierDepthBasedCommissionRules
     } = req.body
 
     const auth = await Authorization.findById(id)
@@ -4015,6 +4024,33 @@ router.put('/tier-node/:id', auth, async (req, res) => {
       const newUserIds = [...new Set([...existingUserIds.map(id => String(id)), ...boundUserIds.map(id => String(id))])]
       auth.boundUserIds = newUserIds
     }
+
+    if (boundUserId !== undefined) {
+      const next = boundUserId ? String(boundUserId?._id || boundUserId) : ''
+      auth.boundUserId = next ? next : null
+      if (next) {
+        const list = Array.isArray(auth.boundUserIds) ? auth.boundUserIds.map(id => String(id)) : []
+        if (!list.includes(next)) {
+          auth.boundUserIds = [...(auth.boundUserIds || []), next]
+        }
+      }
+    }
+
+    if (tierDepthBasedCommissionRules !== undefined) {
+      if (tierDepthBasedCommissionRules === null) {
+        auth.tierDepthBasedCommissionRules = []
+      } else if (Array.isArray(tierDepthBasedCommissionRules)) {
+        auth.tierDepthBasedCommissionRules = tierDepthBasedCommissionRules
+          .map(r => ({
+            depth: Math.max(0, Number(r?.depth || 0)),
+            commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+            description: r?.description ? String(r.description) : ''
+          }))
+          .sort((a, b) => Number(a.depth) - Number(b.depth))
+      } else {
+        return res.status(400).json({ success: false, message: 'tierDepthBasedCommissionRules 格式不正确' })
+      }
+    }
     
     auth.updatedAt = new Date()
     await auth.save()
@@ -4034,7 +4070,7 @@ router.put('/tier-node/:id', auth, async (req, res) => {
 router.put('/tier-node/:id/bind-users', auth, async (req, res) => {
   try {
     const { id } = req.params
-    const { userIds } = req.body
+    const { userIds, boundUserId } = req.body
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
       return res.status(400).json({ success: false, message: '请选择要绑定的用户' })
@@ -4067,6 +4103,14 @@ router.put('/tier-node/:id/bind-users', auth, async (req, res) => {
     
     // 更新绑定用户列表
     authDoc.boundUserIds = newUserIds
+
+    if (boundUserId !== undefined) {
+      const next = boundUserId ? String(boundUserId?._id || boundUserId) : ''
+      authDoc.boundUserId = next ? next : null
+      if (next && !newUserIds.map(String).includes(next)) {
+        authDoc.boundUserIds = [...new Set([...(authDoc.boundUserIds || []).map(String), next])]
+      }
+    }
     authDoc.updatedAt = new Date()
     await authDoc.save()
 

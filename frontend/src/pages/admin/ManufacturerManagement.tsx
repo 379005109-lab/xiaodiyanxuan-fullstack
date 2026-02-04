@@ -2250,10 +2250,12 @@ export default function ManufacturerManagement() {
                                 onClick={() => {
                                   const currentMid = String(myManufacturerId || '').trim()
                                   if (!currentMid) return
-                                  const cid = String((auth as any)?._id || '').trim()
+                                  // Use tierCompanyId if available, otherwise use the authorization _id
+                                  const cid = String((auth as any)?.tierCompanyId || (auth as any)?._id || '').trim()
                                   const rt = encodeURIComponent(`/admin/manufacturer-management?tab=channels`)
                                   const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(currentMid)}&returnTo=${rt}`
                                   const withCompany = cid ? `${base}&companyId=${encodeURIComponent(cid)}` : base
+                                  console.log('Navigating to tier hierarchy:', withCompany)
                                   navigate(withCompany)
                                 }}
                                 className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"

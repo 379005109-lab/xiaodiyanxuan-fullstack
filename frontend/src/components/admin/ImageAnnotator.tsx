@@ -165,7 +165,7 @@ export default function ImageAnnotator({
         ctx.stroke()
         break
 
-      case 'arrow':
+      case 'arrow': {
         // 绘制箭头线
         ctx.beginPath()
         ctx.moveTo(startX, startY)
@@ -188,8 +188,9 @@ export default function ImageAnnotator({
         )
         ctx.stroke()
         break
+      }
 
-      case 'dimension':
+      case 'dimension': {
         // 绘制尺寸标注线
         const dx = endX - startX
         const dy = endY - startY
@@ -233,6 +234,7 @@ export default function ImageAnnotator({
           ctx.fillText(label, midX, midY)
         }
         break
+      }
     }
 
     // 如果选中，绘制端点

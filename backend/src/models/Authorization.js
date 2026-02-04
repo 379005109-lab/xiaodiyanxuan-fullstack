@@ -195,6 +195,12 @@ const authorizationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+
+  tierDepthBasedCommissionRules: [{
+    depth: { type: Number, min: 0 },
+    commissionRate: { type: Number, min: 0, max: 1 },
+    description: { type: String }
+  }],
   
   // === 分层体系相关字段 ===
   // 层级类型：新建公司或插入现有层级
