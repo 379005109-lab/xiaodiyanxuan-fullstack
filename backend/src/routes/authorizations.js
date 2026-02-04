@@ -3398,11 +3398,16 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
     const filteredAuthorizations = (() => {
       if (companyId) {
         const cid = String(companyId)
-        // companyId 既可能是“公司根授权ID(tierCompanyId)”，也可能是某条授权记录的 _id。
+        console.log(`[DEBUG] tier-hierarchy-v2: manufacturerId=${manufacturerId}, companyId=${cid}`)
+        // companyId 既可能是"公司根授权ID(tierCompanyId)"，也可能是某条授权记录的 _id。
         // 如果是授权 _id，则先解析到对应公司根ID，再按根ID过滤整棵树。
         const directAuth = (authorizations || []).find(a => String(a._id) === cid)
+        console.log(`[DEBUG] directAuth found:`, directAuth ? `${directAuth._id} tierCompanyId=${directAuth.tierCompanyId}` : 'null')
         const rootCid = directAuth ? resolveCompanyId(directAuth) : cid
-        return (authorizations || []).filter(a => resolveCompanyId(a) === String(rootCid))
+        console.log(`[DEBUG] resolved rootCid: ${rootCid}`)
+        const filtered = (authorizations || []).filter(a => resolveCompanyId(a) === String(rootCid))
+        console.log(`[DEBUG] filtered authorizations count: ${filtered.length}`)
+        return filtered
       }
       if (companyName) {
         const cname = String(companyName)
@@ -3444,15 +3449,17 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         isVirtual: true
       }
     } else if (rootNodes.length === 0) {
+      // 如果指定了companyId但没有找到对应的层级数据，给予合理的默认下放额度
+      const defaultDelegatedRate = (companyId || companyName) ? (manufacturer.defaultDiscount || 60) : 0
       rootNode = {
         _id: `mfr_${manufacturerId}`,
         tierDisplayName: manufacturer.fullName || manufacturer.name || '厂家',
         tierRole: 'company',
         tierDiscountRate: manufacturer.defaultDiscount || 60,
-        tierDelegatedRate: 0,
+        tierDelegatedRate: defaultDelegatedRate,
         tierCommissionRate: 0,
         tierPartnerDiscountRate: 0,
-        tierPartnerDelegatedRate: 0,
+        tierPartnerDelegatedRate: defaultDelegatedRate,
         tierPartnerCommissionRate: 0,
         tierLevel: 0,
         childCount: authorizations.length,
