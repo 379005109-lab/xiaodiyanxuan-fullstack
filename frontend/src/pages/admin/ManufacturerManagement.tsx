@@ -1,6 +1,6 @@
 // Build cache bust: 20260110-v1
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Search, Edit, Trash2, Factory, Phone, Mail, MapPin, Loader2, Key, Layers, Shield, BarChart3, Power, Settings, MessageSquare, ChevronDown, ChevronRight, ChevronLeft, X, Upload, DollarSign, TrendingUp, Users, Package, Clock, Camera } from 'lucide-react'
 import apiClient from '@/lib/apiClient'
 import { toast } from 'sonner'
@@ -148,6 +148,7 @@ interface ManufacturerAccount {
 
 export default function ManufacturerManagement() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
   const role = (user as any)?.role
   const isAdmin = role === 'admin' || role === 'super_admin' || role === 'platform_admin' || role === 'platform_staff'
@@ -256,7 +257,15 @@ export default function ManufacturerManagement() {
 
   // 厂家管理TAB
   type FactoryTabType = 'home' | 'partners' | 'channels' | 'commission'
-  const [factoryTab, setFactoryTab] = useState<FactoryTabType>('home')
+  const factoryTabs: FactoryTabType[] = ['home', 'partners', 'channels', 'commission']
+  const FACTORY_TAB_STORAGE_KEY = 'manufacturer_management_factory_tab'
+  const [factoryTab, setFactoryTab] = useState<FactoryTabType>(() => {
+    const tabParam = (searchParams.get('tab') as FactoryTabType) || ''
+    if (factoryTabs.includes(tabParam)) return tabParam
+    const stored = (sessionStorage.getItem(FACTORY_TAB_STORAGE_KEY) as FactoryTabType) || ''
+    if (factoryTabs.includes(stored)) return stored
+    return 'home'
+  })
   const [receivedAuths, setReceivedAuths] = useState<any[]>([])
   const [grantedAuths, setGrantedAuths] = useState<any[]>([])
   const [monthlyGrowth, setMonthlyGrowth] = useState<number>(0)
@@ -267,6 +276,31 @@ export default function ManufacturerManagement() {
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [approveTarget, setApproveTarget] = useState<any>(null)
+
+  // 监听URL参数变化，更新标签页状态（URL参数优先级最高）
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as FactoryTabType
+    if (factoryTabs.includes(tabParam)) {
+      setFactoryTab(tabParam)
+    }
+  }, [searchParams, factoryTabs])
+
+  // 记住最近一次停留的TAB（兜底：仅在没有URL参数时使用）
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    // 只有在URL没有tab参数时才记录到sessionStorage，避免干扰返回逻辑
+    if (!tabParam) {
+      sessionStorage.setItem(FACTORY_TAB_STORAGE_KEY, factoryTab)
+    }
+  }, [factoryTab, searchParams])
+
+  // 记录“渠道管理”的返回落点，供子页面在缺少 returnTo 参数时兜底返回
+  useEffect(() => {
+    if (factoryTab !== 'channels') return
+    const tabParam = searchParams.get('tab')
+    const url = tabParam ? '/admin/manufacturers?tab=channels' : '/admin/manufacturers?tab=channels'
+    sessionStorage.setItem('channels_return_to', url)
+  }, [factoryTab, searchParams])
   const [approveForm, setApproveForm] = useState({
     ownProductMinDiscount: 60,
     ownProductCommission: 10,
@@ -1571,45 +1605,12 @@ export default function ManufacturerManagement() {
                               <div className="text-xs text-orange-500 mb-4">{item.code}</div>
                             )}
                             
-                            {/* 成本价范围 - 默认显示 */}
+                            {/* 零售价格范围 - 只显示零售价，隐藏成本价和敏感信息 */}
                             {(priceMin > 0 || priceMax > 0) && (
                               <div className="mb-3">
-                                <div className="text-xs text-gray-500 mb-1">成本价范围</div>
+                                <div className="text-xs text-gray-500 mb-1">零售价格范围</div>
                                 <div className="text-lg font-semibold text-gray-900">
                                   ¥{priceMin.toLocaleString()} - ¥{priceMax.toLocaleString()}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* 折扣和返佣 - 点击展开 */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setExpandedPartnerPrices(prev => {
-                                  const next = new Set(prev)
-                                  if (next.has(item._id)) {
-                                    next.delete(item._id)
-                                  } else {
-                                    next.add(item._id)
-                                  }
-                                  return next
-                                })
-                              }}
-                              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors mb-3"
-                            >
-                              <span className="text-xs text-gray-500">折扣与返佣详情</span>
-                              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedPartnerPrices.has(item._id) ? 'rotate-180' : ''}`} />
-                            </button>
-                            
-                            {expandedPartnerPrices.has(item._id) && (
-                              <div className="grid grid-cols-2 gap-3 mb-4 animate-in slide-in-from-top-2 duration-200">
-                                <div className="border border-gray-200 rounded-xl p-3 text-center">
-                                  <div className="text-xs text-gray-500 mb-1">最低折扣(%)</div>
-                                  <div className="text-2xl font-bold text-gray-900">{authInfo?.minDiscountRate || item.defaultDiscount || 60}</div>
-                                </div>
-                                <div className="border border-gray-200 rounded-xl p-3 text-center">
-                                  <div className="text-xs text-gray-500 mb-1">返佣比例(%)</div>
-                                  <div className="text-2xl font-bold text-gray-900">{authInfo?.commissionRate || item.defaultCommission || 40}</div>
                                 </div>
                               </div>
                             )}
@@ -1677,12 +1678,19 @@ export default function ManufacturerManagement() {
                                   const authId = authInfo?.authorizationId
                                   if (!authId) return
                                   if (confirm('确定要取消与该厂家的合作吗？')) {
+                                    // 立即从本地状态中移除，避免等待网络请求
+                                    setReceivedAuths(prev => prev.filter(a => a._id !== authId))
                                     apiClient.delete(`/authorizations/${authId}`)
                                       .then(() => {
                                         toast.success('已取消合作')
+                                        // 仍然调用fetchData确保数据同步，但UI已经立即更新
                                         fetchData()
                                       })
-                                      .catch(() => toast.error('取消合作失败'))
+                                      .catch(() => {
+                                        toast.error('取消合作失败')
+                                        // 如果删除失败，恢复本地状态
+                                        fetchData()
+                                      })
                                   }
                                 }}
                                 className="py-2 border border-red-200 text-red-600 rounded-xl text-sm hover:bg-red-50"
@@ -2147,7 +2155,7 @@ export default function ManufacturerManagement() {
                     
                     return (
                       <div key={auth._id} className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
                               {targetAvatar ? (
@@ -2182,7 +2190,7 @@ export default function ManufacturerManagement() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-4 flex-wrap justify-start md:justify-end w-full md:w-auto">
                             <div className="text-center">
                               <div className="text-xs text-gray-500">最低折扣</div>
                               <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
@@ -2195,7 +2203,7 @@ export default function ManufacturerManagement() {
                               <div className="text-xs text-gray-500">门店销SKU</div>
                               <div className="text-lg font-bold text-gray-900">{productCount}</div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap justify-start md:justify-end w-full md:w-auto">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-500">允许转授权</span>
                                 <button
@@ -2227,7 +2235,7 @@ export default function ManufacturerManagement() {
                               </div>
                               <button 
                                 onClick={() => {
-                                  const rt = encodeURIComponent(`/admin/manufacturer-management?tab=channels`)
+                                  const rt = encodeURIComponent(`/admin/manufacturers?tab=channels`)
                                   navigate(`/admin/authorizations/${auth._id}/pricing?returnTo=${rt}`)
                                 }}
                                 className="px-3 py-1.5 text-xs bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42]"
@@ -2251,12 +2259,19 @@ export default function ManufacturerManagement() {
                               <button 
                                 onClick={() => {
                                   if (confirm('确定要取消对该渠道的授权吗？')) {
+                                    // 立即从本地状态中移除，避免等待网络请求
+                                    setGrantedAuths(prev => prev.filter(a => a._id !== auth._id))
                                     apiClient.delete(`/authorizations/${auth._id}`)
                                       .then(() => {
                                         toast.success('已取消授权')
+                                        // 仍然调用fetchData确保数据同步，但UI已经立即更新
                                         fetchData()
                                       })
-                                      .catch(() => toast.error('取消授权失败'))
+                                      .catch(() => {
+                                        toast.error('取消授权失败')
+                                        // 如果删除失败，恢复本地状态
+                                        fetchData()
+                                      })
                                   }
                                 }}
                                 className="px-3 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50"

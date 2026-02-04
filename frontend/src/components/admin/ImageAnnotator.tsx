@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Pencil, Trash2, Save, RotateCcw, Ruler, ArrowRight } from 'lucide-react'
+import { X, Pencil, Trash2, Save, RotateCcw, Ruler, ArrowRight, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // 标注类型
@@ -22,6 +22,7 @@ interface ImageAnnotatorProps {
   imageUrl: string
   initialAnnotations?: Annotation[]
   onSave?: (annotations: Annotation[]) => void
+  onSaveImage?: (file: File) => void | Promise<void>
   onClose: () => void
 }
 
@@ -40,6 +41,7 @@ export default function ImageAnnotator({
   imageUrl, 
   initialAnnotations = [], 
   onSave, 
+  onSaveImage,
   onClose 
 }: ImageAnnotatorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -59,6 +61,15 @@ export default function ImageAnnotator({
   const [pendingAnnotation, setPendingAnnotation] = useState<Omit<Annotation, 'id' | 'value'> | null>(null)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [scale, setScale] = useState(1)
+  const [orthogonal, setOrthogonal] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [draggingAnnotationId, setDraggingAnnotationId] = useState<string | null>(null)
+  const [dragCandidateId, setDragCandidateId] = useState<string | null>(null)
+  const [fontSize, setFontSize] = useState(14)
+  const [lineWidth, setLineWidth] = useState(2)
+  const dragStartPointRef = useRef<{ x: number; y: number } | null>(null)
+  const dragOriginalRef = useRef<Pick<Annotation, 'startX' | 'startY' | 'endX' | 'endY'> | null>(null)
+  const dragLongPressTimerRef = useRef<number | null>(null)
 
   // 加载图片
   useEffect(() => {
@@ -103,6 +114,16 @@ export default function ImageAnnotator({
       drawAnnotation(ctx, ann, ann.id === selectedAnnotation)
     })
 
+    // 绘制待确认的标注（输入数值时也可见）
+    if (pendingAnnotation) {
+      const pendingAnn: Annotation = {
+        id: 'pending',
+        ...pendingAnnotation,
+        value: pendingAnnotation.type === 'dimension' ? editingValue : '',
+      }
+      drawAnnotation(ctx, pendingAnn, false)
+    }
+
     // 绘制正在绘制的标注
     if (isDrawing && startPoint && currentPoint) {
       const tempAnn: Annotation = {
@@ -118,23 +139,23 @@ export default function ImageAnnotator({
       }
       drawAnnotation(ctx, tempAnn, false)
     }
-  }, [annotations, isDrawing, startPoint, currentPoint, currentType, currentColor, currentUnit, selectedAnnotation, imageLoaded, scale])
+  }, [annotations, isDrawing, startPoint, currentPoint, currentType, currentColor, currentUnit, selectedAnnotation, imageLoaded, scale, pendingAnnotation, editingValue, fontSize, lineWidth])
 
   useEffect(() => {
     drawCanvas()
   }, [drawCanvas])
 
   // 绘制单个标注
-  const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation, isSelected: boolean) => {
+  const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation, isSelected: boolean, drawScale: number = scale) => {
     ctx.strokeStyle = ann.color
     ctx.fillStyle = ann.color
-    ctx.lineWidth = isSelected ? 3 : 2
-    ctx.font = 'bold 14px Arial'
+    ctx.lineWidth = isSelected ? lineWidth + 1 : lineWidth
+    ctx.font = `bold ${fontSize}px Arial`
 
-    const startX = ann.startX * scale
-    const startY = ann.startY * scale
-    const endX = ann.endX * scale
-    const endY = ann.endY * scale
+    const startX = ann.startX * drawScale
+    const startY = ann.startY * drawScale
+    const endX = ann.endX * drawScale
+    const endY = ann.endY * drawScale
 
     switch (ann.type) {
       case 'line':
@@ -264,6 +285,21 @@ export default function ImageAnnotator({
     
     if (clickedAnnotation) {
       setSelectedAnnotation(clickedAnnotation.id)
+      setDragCandidateId(clickedAnnotation.id)
+      dragStartPointRef.current = coords
+      dragOriginalRef.current = {
+        startX: clickedAnnotation.startX,
+        startY: clickedAnnotation.startY,
+        endX: clickedAnnotation.endX,
+        endY: clickedAnnotation.endY,
+      }
+
+      if (dragLongPressTimerRef.current) {
+        window.clearTimeout(dragLongPressTimerRef.current)
+      }
+      dragLongPressTimerRef.current = window.setTimeout(() => {
+        setDraggingAnnotationId(clickedAnnotation.id)
+      }, 150)
       return
     }
     
@@ -276,15 +312,79 @@ export default function ImageAnnotator({
 
   // 鼠标移动
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (draggingAnnotationId && dragStartPointRef.current && dragOriginalRef.current) {
+      const coords = getCanvasCoords(e)
+      const dx = coords.x - dragStartPointRef.current.x
+      const dy = coords.y - dragStartPointRef.current.y
+      const original = dragOriginalRef.current
+
+      setAnnotations((prev) =>
+        prev.map((ann) => {
+          if (ann.id !== draggingAnnotationId) return ann
+          return {
+            ...ann,
+            startX: original.startX + dx,
+            startY: original.startY + dy,
+            endX: original.endX + dx,
+            endY: original.endY + dy,
+          }
+        })
+      )
+      return
+    }
+
+    if (dragCandidateId) return
+
     if (!isDrawing) return
-    setCurrentPoint(getCanvasCoords(e))
+    const raw = getCanvasCoords(e)
+    if (orthogonal && startPoint) {
+      const dx = raw.x - startPoint.x
+      const dy = raw.y - startPoint.y
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        setCurrentPoint({ x: raw.x, y: startPoint.y })
+      } else {
+        setCurrentPoint({ x: startPoint.x, y: raw.y })
+      }
+      return
+    }
+    setCurrentPoint(raw)
   }
 
   // 鼠标松开
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (dragLongPressTimerRef.current) {
+      window.clearTimeout(dragLongPressTimerRef.current)
+      dragLongPressTimerRef.current = null
+    }
+
+    if (draggingAnnotationId) {
+      setDraggingAnnotationId(null)
+      setDragCandidateId(null)
+      dragStartPointRef.current = null
+      dragOriginalRef.current = null
+      return
+    }
+
+    if (dragCandidateId) {
+      setDragCandidateId(null)
+      dragStartPointRef.current = null
+      dragOriginalRef.current = null
+      return
+    }
+
     if (!isDrawing || !startPoint) return
     
-    const endCoords = getCanvasCoords(e)
+    const rawEnd = getCanvasCoords(e)
+    const endCoords = orthogonal
+      ? (() => {
+        const dx = rawEnd.x - startPoint.x
+        const dy = rawEnd.y - startPoint.y
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          return { x: rawEnd.x, y: startPoint.y }
+        }
+        return { x: startPoint.x, y: rawEnd.y }
+      })()
+      : rawEnd
     
     // 检查是否有足够的距离
     const distance = Math.sqrt(
@@ -356,9 +456,47 @@ export default function ImageAnnotator({
   }
 
   // 保存标注
-  const handleSave = () => {
-    onSave?.(annotations)
-    onClose()
+  const exportAnnotatedImageFile = async (): Promise<File | null> => {
+    const img = imageRef.current
+    if (!img) return null
+
+    const exportCanvas = document.createElement('canvas')
+    exportCanvas.width = img.width
+    exportCanvas.height = img.height
+    const exportCtx = exportCanvas.getContext('2d')
+    if (!exportCtx) return null
+
+    exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height)
+    exportCtx.drawImage(img, 0, 0, exportCanvas.width, exportCanvas.height)
+    annotations.forEach((ann) => {
+      drawAnnotation(exportCtx, ann, false, 1)
+    })
+
+    const blob: Blob | null = await new Promise((resolve) => {
+      exportCanvas.toBlob((b) => resolve(b), 'image/png')
+    })
+    if (!blob) return null
+
+    return new File([blob], `annotated-${Date.now()}.png`, { type: 'image/png' })
+  }
+
+  const handleSave = async () => {
+    if (showValueInput) return
+    if (isSaving) return
+
+    setIsSaving(true)
+    try {
+      onSave?.(annotations)
+      if (onSaveImage) {
+        const file = await exportAnnotatedImageFile()
+        if (file) {
+          await onSaveImage(file)
+        }
+      }
+      onClose()
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // 计算点到线段的距离
@@ -399,8 +537,8 @@ export default function ImageAnnotator({
   return (
     <div className="fixed inset-0 z-[9999] bg-black/90 flex flex-col">
       {/* 顶部工具栏 */}
-      <div className="bg-gray-900 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="bg-gray-900 px-4 py-3 flex items-start justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-4 flex-wrap min-w-0">
           {/* 标注类型 */}
           <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-1">
             <button
@@ -461,6 +599,48 @@ export default function ImageAnnotator({
               <option key={unit} value={unit}>{unit}</option>
             ))}
           </select>
+
+          {/* 字体大小调节 */}
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400 text-sm">字体:</span>
+            <input
+              type="range"
+              min="10"
+              max="24"
+              value={fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              className="w-16 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+            />
+            <span className="text-gray-400 text-xs w-6">{fontSize}</span>
+          </div>
+
+          {/* 线条粗细调节 */}
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400 text-sm">线宽:</span>
+            <input
+              type="range"
+              min="1"
+              max="6"
+              value={lineWidth}
+              onChange={(e) => setLineWidth(Number(e.target.value))}
+              className="w-16 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+            />
+            <span className="text-gray-400 text-xs w-6">{lineWidth}</span>
+          </div>
+
+          <button
+            onClick={() => setOrthogonal((v) => !v)}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-sm border flex items-center gap-1.5 transition-colors',
+              orthogonal
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-gray-800 text-gray-200 border-gray-700 hover:text-white'
+            )}
+            title="正交模式（水平/垂直）"
+          >
+            <Square className="w-4 h-4" />
+            正交
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -482,10 +662,16 @@ export default function ImageAnnotator({
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-1.5 bg-green-600 text-white rounded-lg text-sm flex items-center gap-1.5 hover:bg-green-700"
+            disabled={showValueInput || isSaving}
+            className={cn(
+              'px-4 py-1.5 rounded-lg text-sm flex items-center gap-1.5',
+              showValueInput || isSaving
+                ? 'bg-green-600/60 text-white cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            )}
           >
             <Save className="w-4 h-4" />
-            保存
+            {isSaving ? '保存中...' : '保存'}
           </button>
           <button
             onClick={onClose}
@@ -508,6 +694,21 @@ export default function ImageAnnotator({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={() => {
+              if (dragLongPressTimerRef.current) {
+                window.clearTimeout(dragLongPressTimerRef.current)
+                dragLongPressTimerRef.current = null
+              }
+              if (draggingAnnotationId) {
+                setDraggingAnnotationId(null)
+                setDragCandidateId(null)
+                dragStartPointRef.current = null
+                dragOriginalRef.current = null
+              }
+              if (dragCandidateId) {
+                setDragCandidateId(null)
+                dragStartPointRef.current = null
+                dragOriginalRef.current = null
+              }
               if (isDrawing) {
                 setIsDrawing(false)
                 setStartPoint(null)

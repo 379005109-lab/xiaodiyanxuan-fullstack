@@ -797,6 +797,20 @@ export default function TierHierarchyPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
+
+  const getFallbackReturnTo = () => {
+    const stored = sessionStorage.getItem('channels_return_to')
+    return stored || '/admin/manufacturers?tab=channels'
+  }
+
+  const handleBack = () => {
+    const returnTo = searchParams.get('returnTo')
+    if (returnTo) {
+      navigate(decodeURIComponent(returnTo))
+    } else {
+      navigate(getFallbackReturnTo(), { replace: true })
+    }
+  }
   
   const queryManufacturerId = searchParams.get('manufacturerId') || ''
   const userManufacturerRaw = (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0] || ''
@@ -1046,14 +1060,7 @@ export default function TierHierarchyPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => {
-                  const returnTo = searchParams.get('returnTo')
-                  if (returnTo) {
-                    navigate(decodeURIComponent(returnTo))
-                  } else {
-                    navigate(-1)
-                  }
-                }}
+                onClick={handleBack}
                 className="p-2 hover:bg-gray-100 rounded-lg"
               >
                 <ArrowLeft className="w-5 h-5" />

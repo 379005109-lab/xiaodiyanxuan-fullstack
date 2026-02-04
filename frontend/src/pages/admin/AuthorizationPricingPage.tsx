@@ -41,6 +41,20 @@ export default function AuthorizationPricingPage() {
   const { authorizationId } = useParams()
   const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
+
+  const getFallbackReturnTo = () => {
+    const stored = sessionStorage.getItem('channels_return_to')
+    return stored || '/admin/manufacturers?tab=channels'
+  }
+
+  const handleBack = () => {
+    const returnTo = searchParams.get('returnTo')
+    if (returnTo) {
+      navigate(decodeURIComponent(returnTo))
+    } else {
+      navigate(getFallbackReturnTo(), { replace: true })
+    }
+  }
   
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -252,14 +266,7 @@ export default function AuthorizationPricingPage() {
         <div className="text-center">
           <p className="text-gray-500">授权不存在或已失效</p>
           <button 
-            onClick={() => {
-              const returnTo = searchParams.get('returnTo')
-              if (returnTo) {
-                navigate(decodeURIComponent(returnTo))
-              } else {
-                navigate(-1)
-              }
-            }}
+            onClick={handleBack}
             className="mt-4 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
           >
             返回
@@ -277,14 +284,7 @@ export default function AuthorizationPricingPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => {
-                  const returnTo = searchParams.get('returnTo')
-                  if (returnTo) {
-                    navigate(decodeURIComponent(returnTo))
-                  } else {
-                    navigate(-1)
-                  }
-                }}
+                onClick={handleBack}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />

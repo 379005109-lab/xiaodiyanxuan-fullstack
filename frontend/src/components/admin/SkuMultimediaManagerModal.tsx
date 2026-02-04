@@ -37,7 +37,7 @@ export default function SkuMultimediaManagerModal({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [uploadProgress, setUploadProgress] = useState<number>(0)
   const [isUploading, setIsUploading] = useState(false)
-  const [annotatingImage, setAnnotatingImage] = useState<string | null>(null)
+  const [annotatingImage, setAnnotatingImage] = useState<{ id: string; tab: MediaType } | null>(null)
   const dragRef = useRef<number | null>(null)
 
   // Get current list based on active tab
@@ -353,7 +353,7 @@ export default function SkuMultimediaManagerModal({
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          setAnnotatingImage(item)
+                          setAnnotatingImage({ id: item, tab: activeTab })
                         }}
                         className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                         title="标注图片"
@@ -410,11 +410,26 @@ export default function SkuMultimediaManagerModal({
       {/* 图片标注编辑器 */}
       {annotatingImage && (
         <ImageAnnotator
-          imageUrl={getFileUrl(annotatingImage)}
+          imageUrl={getFileUrl(annotatingImage.id)}
           initialAnnotations={[]}
-          onSave={(newAnnotations) => {
-            toast.success('标注功能需要后端支持保存')
-            setAnnotatingImage(null)
+          onSaveImage={async (file) => {
+            try {
+              const result = await uploadFile(file)
+              if (result?.success) {
+                const fileId = result.data.fileId
+                if (annotatingImage.tab === 'image') {
+                  setImageList((prev) => [...prev, fileId])
+                }
+                if (annotatingImage.tab === 'effect') {
+                  setEffectList((prev) => [...prev, fileId])
+                }
+                toast.success('已另存为新图片')
+              } else {
+                toast.error('另存为新图片失败')
+              }
+            } catch (error) {
+              toast.error('另存为新图片失败')
+            }
           }}
           onClose={() => setAnnotatingImage(null)}
         />

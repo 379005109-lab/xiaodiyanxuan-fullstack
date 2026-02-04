@@ -206,10 +206,21 @@ router.get('/commission-stats', async (req, res) => {
     const user = await User.findById(req.userId).select('manufacturerId manufacturerIds role').lean()
     const isAdmin = ['admin', 'super_admin', 'superadmin', 'platform_admin'].includes(user?.role)
     
-    // 查询所有返佣模式订单
+    // 查询所有返佣相关订单：兼容历史数据 settlementMode 为空/不一致的情况
+    // - 排除 supplier_transfer（一键到底）
+    // - 只要满足以下任一条件就视为返佣相关：
+    //   1) settlementMode=commission_mode
+    //   2) commissionStatus 在返佣流程状态中
+    //   3) commissionAmount > 0
+    const commissionStatuses = ['pending', 'applied', 'approved', 'paid']
     let query = {
-      settlementMode: 'commission_mode',
-      isDeleted: { $ne: true }
+      isDeleted: { $ne: true },
+      settlementMode: { $ne: 'supplier_transfer' },
+      $or: [
+        { settlementMode: 'commission_mode' },
+        { commissionStatus: { $in: commissionStatuses } },
+        { commissionAmount: { $gt: 0 } }
+      ]
     }
     
     console.log('📊 [commission-stats] userId:', req.userId, 'role:', user?.role, 'isAdmin:', isAdmin)

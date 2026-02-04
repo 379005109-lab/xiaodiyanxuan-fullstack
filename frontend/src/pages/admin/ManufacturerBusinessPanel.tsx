@@ -1414,7 +1414,8 @@ export default function ManufacturerBusinessPanel() {
                                 toast.error('未找到授权记录')
                                 return
                               }
-                              navigate(`/admin/authorizations/${authId}/pricing?productTab=partner`)
+                              const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=channels`)
+                              navigate(`/admin/authorizations/${authId}/pricing?productTab=partner&returnTo=${rt}`)
                             }}
                             onViewTierSystem={() => {
                               const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)
