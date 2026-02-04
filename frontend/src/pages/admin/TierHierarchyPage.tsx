@@ -618,6 +618,10 @@ function TierEditModal({
   const totalUsed = formData.myCommission + formData.delegateToChild
   const isOverBudget = totalUsed > maxDiscountRate
   
+  // 验证：我的返佣不能超过上级的返佣率
+  const parentCommissionRate = parentNode?.tierCommissionRate ?? parentNode?.ownProductCommission ?? 0
+  const isCommissionOverParent = formData.myCommission > parentCommissionRate
+  
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!formData.tierDisplayName.trim()) {
@@ -626,6 +630,10 @@ function TierEditModal({
     }
     if (isOverBudget) {
       toast.error(`返佣 + 下放 (${totalUsed}%) 不能超过上级给的额度 (${maxDiscountRate}%)`)
+      return
+    }
+    if (isCommissionOverParent) {
+      toast.error(`我的返佣 (${formData.myCommission}%) 不能超过上级返佣率 (${parentCommissionRate}%)`)
       return
     }
 
@@ -777,14 +785,22 @@ function TierEditModal({
             "rounded-xl p-4",
             isOverBudget ? "bg-red-50" : "bg-green-50"
           )}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={cn("text-sm font-medium", isOverBudget ? "text-red-700" : "text-green-700")}>
-                  {isOverBudget ? '⚠️ 超出额度' : '✓ 分配合理'}
-                </p>
-                <p className={cn("text-xs", isOverBudget ? "text-red-500" : "text-green-500")}>
+            <div className="flex items-center gap-4">
+              <p className={cn(
+                "text-sm font-medium",
+                (isOverBudget || isCommissionOverParent) ? "text-red-600" : "text-green-600"
+              )}>
+                {(isOverBudget || isCommissionOverParent) ? '⚠️ 配置有误' : '✓ 分配合理'}
+              </p>
+              <div className="text-xs">
+                <p className={cn(isOverBudget ? "text-red-500" : "text-green-500")}>
                   我的返佣 ({formData.myCommission}%) + 下放 ({formData.delegateToChild}%) = {totalUsed}%
                 </p>
+                {isCommissionOverParent && (
+                  <p className="text-red-500 mt-1">
+                    ⚠️ 我的返佣不能超过上级返佣率 ({parentCommissionRate}%)
+                  </p>
+                )}
               </div>
               <span className={cn(
                 "text-2xl font-bold",
@@ -809,10 +825,10 @@ function TierEditModal({
             </button>
             <button
               type="submit"
-              disabled={isOverBudget}
+              disabled={isOverBudget || isCommissionOverParent}
               className={cn(
                 "px-6 py-2.5 rounded-xl text-white",
-                isOverBudget 
+                (isOverBudget || isCommissionOverParent)
                   ? "bg-gray-400 cursor-not-allowed" 
                   : "bg-primary-600 hover:bg-primary-700"
               )}
