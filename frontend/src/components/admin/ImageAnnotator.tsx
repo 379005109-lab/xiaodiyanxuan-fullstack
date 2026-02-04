@@ -537,8 +537,8 @@ export default function ImageAnnotator({
   return (
     <div className="fixed inset-0 z-[9999] bg-black/90 flex flex-col">
       {/* 顶部工具栏 */}
-      <div className="bg-gray-900 px-4 py-3 flex items-center justify-between overflow-x-auto">
-        <div className="flex items-center gap-4 flex-nowrap min-w-0">
+      <div className="bg-gray-900 px-4 py-3 flex items-start justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-4 flex-wrap min-w-0">
           {/* 标注类型 */}
           <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-1">
             <button

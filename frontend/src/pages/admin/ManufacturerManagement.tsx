@@ -293,6 +293,14 @@ export default function ManufacturerManagement() {
       sessionStorage.setItem(FACTORY_TAB_STORAGE_KEY, factoryTab)
     }
   }, [factoryTab, searchParams])
+
+  // 记录“渠道管理”的返回落点，供子页面在缺少 returnTo 参数时兜底返回
+  useEffect(() => {
+    if (factoryTab !== 'channels') return
+    const tabParam = searchParams.get('tab')
+    const url = tabParam ? '/admin/manufacturers?tab=channels' : '/admin/manufacturers?tab=channels'
+    sessionStorage.setItem('channels_return_to', url)
+  }, [factoryTab, searchParams])
   const [approveForm, setApproveForm] = useState({
     ownProductMinDiscount: 60,
     ownProductCommission: 10,
