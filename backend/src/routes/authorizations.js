@@ -1821,8 +1821,11 @@ router.put('/designer-requests/:id/reject', auth, async (req, res) => {
 
 router.post('/manufacturer-requests', auth, async (req, res) => {
   try {
+    console.log('[manufacturer-requests] Request received')
     console.log('[manufacturer-requests] Request body:', JSON.stringify(req.body))
+    console.log('[manufacturer-requests] User ID:', req.userId)
     const currentUser = await User.findById(req.userId)
+    console.log('[manufacturer-requests] Current user:', currentUser ? `${currentUser._id} (manufacturerId: ${currentUser.manufacturerId})` : 'null')
     const requesterManufacturerId = currentUser?.manufacturerId || currentUser?.manufacturerIds?.[0]
     if (!requesterManufacturerId) {
       return res.status(403).json({ success: false, message: '只有厂家用户可以申请厂家授权' })
@@ -3779,7 +3782,14 @@ router.post('/tier-node', auth, async (req, res) => {
       parentHasDelegatedRate: parentAuth.tierDelegatedRate !== undefined,
       parentDirectDelegated: parentAuth.tierDelegatedRate,
       derivedFallback: derivedParentDelegatedRate,
-      finalLimit: parentDelegatedRate
+      finalLimit: parentDelegatedRate,
+      parentAuth: {
+        _id: parentAuth._id,
+        tierDiscountRate: parentAuth.tierDiscountRate,
+        tierDelegatedRate: parentAuth.tierDelegatedRate,
+        tierCommissionRate: parentAuth.tierCommissionRate,
+        isVirtual: parentAuth.isVirtual
+      }
     })
 
     if (tierDiscountRate > parentDelegatedRate) {
