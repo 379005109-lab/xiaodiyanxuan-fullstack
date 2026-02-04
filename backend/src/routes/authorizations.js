@@ -3849,6 +3849,17 @@ router.post('/tier-node', auth, async (req, res) => {
       })
     }
 
+    // 验证返佣率层级关系：下级的"我的返佣"不能超过上级的"我的返佣"
+    const parentMyCommission = parentCommissionForValidation
+    const childMyCommission = tierCommissionRate || (tierDiscountRate - tierDelegatedRate) || 0
+    
+    if (childMyCommission > parentMyCommission) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `下级返佣率(${childMyCommission}%)不能超过上级返佣率(${parentMyCommission}%)` 
+      })
+    }
+
     // 创建新的授权记录
     const newAuth = new Authorization({
       fromManufacturer: manufacturerId,
@@ -3980,6 +3991,19 @@ router.put('/tier-node/:id', auth, async (req, res) => {
           return res.status(400).json({ 
             success: false, 
             message: `合作商产品返佣不能超过上级返佣折扣上限 ${parentPartnerDelegatedRate}%` 
+          })
+        }
+
+        // 验证返佣率层级关系：下级的"我的返佣"不能超过上级的"我的返佣"
+        const parentMyCommission = parentCommissionForValidation
+        const childMyCommission = tierCommissionRate !== undefined ? tierCommissionRate : 
+          (tierDiscountRate !== undefined && tierDelegatedRate !== undefined ? (tierDiscountRate - tierDelegatedRate) : 
+          (auth.tierCommissionRate || 0))
+        
+        if (childMyCommission > parentMyCommission) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `下级返佣率(${childMyCommission}%)不能超过上级返佣率(${parentMyCommission}%)` 
           })
         }
       }
