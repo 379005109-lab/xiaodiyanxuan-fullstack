@@ -3764,14 +3764,20 @@ router.post('/tier-node', auth, async (req, res) => {
     
     // 优先使用明确设置的 tierDelegatedRate (即使是 0)，否则回退到推导值。
     // 兼容历史数据：如果 tierDelegatedRate=0 但没有显式的 tierDiscountRate/tierCommissionRate（通常是旧根授权），
-    // 则认为 0 不是“明确配置”，回退到推导值，避免无法新增下级。
+    // 则认为 0 不是"明确配置"，回退到推导值，避免无法新增下级。
+    // 特殊处理：如果是虚拟根节点且 tierDelegatedRate=0，使用推导值
     const hasExplicitTierRates = parentAuth.tierDiscountRate !== undefined || parentAuth.tierCommissionRate !== undefined
+    const isVirtualRoot = parentAuth.isVirtual || String(parentAuth._id).startsWith('mfr_')
     const parentDelegatedRate = (() => {
       if (parentAuth.tierDelegatedRate === undefined || parentAuth.tierDelegatedRate === null) {
         return derivedParentDelegatedRate
       }
       const direct = Number(parentAuth.tierDelegatedRate) || 0
       if (direct > 0) return direct
+      // 如果是虚拟根节点且 tierDelegatedRate=0，使用推导值而不是0
+      if (isVirtualRoot && direct === 0 && derivedParentDelegatedRate > 0) {
+        return derivedParentDelegatedRate
+      }
       if (hasExplicitTierRates) return 0
       return derivedParentDelegatedRate
     })()
