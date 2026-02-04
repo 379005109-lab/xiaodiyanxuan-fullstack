@@ -2155,7 +2155,7 @@ export default function ManufacturerManagement() {
                     
                     return (
                       <div key={auth._id} className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
                               {targetAvatar ? (
@@ -2190,7 +2190,7 @@ export default function ManufacturerManagement() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-4 flex-wrap justify-start md:justify-end w-full md:w-auto">
                             <div className="text-center">
                               <div className="text-xs text-gray-500">最低折扣</div>
                               <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
@@ -2203,7 +2203,7 @@ export default function ManufacturerManagement() {
                               <div className="text-xs text-gray-500">门店销SKU</div>
                               <div className="text-lg font-bold text-gray-900">{productCount}</div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap justify-start md:justify-end w-full md:w-auto">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-gray-500">允许转授权</span>
                                 <button
