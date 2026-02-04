@@ -3313,21 +3313,23 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       ]
     }
 
-    // 只筛选“分层体系相关”的授权：
-    // - 新版：tierType=new_company|existing_tier
-    // - 旧版/历史数据：tierCompanyId 已写入或 tierLevel=0（根节点）
-    // - 子节点：parentAuthorizationId 存在
-    // 注意：不能排除 tierType 为空且 parentAuthorizationId 为空的“根授权”，否则前端只能显示虚拟根节点(下放=0)，无法新增下级。
-    query.$and = [
-      {
-        $or: [
-          { tierType: { $in: ['new_company', 'existing_tier'] } },
-          { tierCompanyId: { $exists: true, $ne: null } },
-          { tierLevel: 0 },
-          { parentAuthorizationId: { $exists: true, $ne: null } }
-        ]
-      }
-    ]
+    if (!companyId && !companyName) {
+      // 只筛选“分层体系相关”的授权：
+      // - 新版：tierType=new_company|existing_tier
+      // - 旧版/历史数据：tierCompanyId 已写入或 tierLevel=0（根节点）
+      // - 子节点：parentAuthorizationId 存在
+      // 注意：不能排除 tierType 为空且 parentAuthorizationId 为空的“根授权”，否则前端只能显示虚拟根节点(下放=0)，无法新增下级。
+      query.$and = [
+        {
+          $or: [
+            { tierType: { $in: ['new_company', 'existing_tier'] } },
+            { tierCompanyId: { $exists: true, $ne: null } },
+            { tierLevel: 0 },
+            { parentAuthorizationId: { $exists: true, $ne: null } }
+          ]
+        }
+      ]
+    }
 
     // 查询所有相关授权
     const authorizations = await Authorization.find(query)
@@ -3396,20 +3398,11 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
     const filteredAuthorizations = (() => {
       if (companyId) {
         const cid = String(companyId)
-        // 首先尝试直接匹配授权ID（用于精确定位特定渠道）
-        const directMatch = (authorizations || []).filter(a => String(a._id) === cid)
-        if (directMatch.length > 0) {
-          // 如果直接匹配到授权ID，只返回该授权及其子级
-          const targetAuth = directMatch[0]
-          return (authorizations || []).filter(a => {
-            // 包含目标授权本身
-            if (String(a._id) === cid) return true
-            // 包含以目标授权为根的所有子级
-            return resolveCompanyId(a) === cid
-          })
-        }
-        // 如果没有直接匹配，使用原有的tierCompanyId逻辑
-        return (authorizations || []).filter(a => resolveCompanyId(a) === cid)
+        // companyId 既可能是“公司根授权ID(tierCompanyId)”，也可能是某条授权记录的 _id。
+        // 如果是授权 _id，则先解析到对应公司根ID，再按根ID过滤整棵树。
+        const directAuth = (authorizations || []).find(a => String(a._id) === cid)
+        const rootCid = directAuth ? resolveCompanyId(directAuth) : cid
+        return (authorizations || []).filter(a => resolveCompanyId(a) === String(rootCid))
       }
       if (companyName) {
         const cname = String(companyName)
@@ -3759,10 +3752,19 @@ router.post('/tier-node', auth, async (req, res) => {
     const parentCommissionForValidation = parentAuth.ownProductCommission ?? parentAuth.commissionRate ?? parentAuth.tierCommissionRate ?? 0
     const derivedParentDelegatedRate = Math.max(0, Number(parentDiscountForValidation) - Number(parentCommissionForValidation))
     
-    // 优先使用明确设置的 tierDelegatedRate (即使是 0)，否则回退到推导值
-    const parentDelegatedRate = (parentAuth.tierDelegatedRate !== undefined && parentAuth.tierDelegatedRate !== null)
-      ? parentAuth.tierDelegatedRate
-      : derivedParentDelegatedRate
+    // 优先使用明确设置的 tierDelegatedRate (即使是 0)，否则回退到推导值。
+    // 兼容历史数据：如果 tierDelegatedRate=0 但没有显式的 tierDiscountRate/tierCommissionRate（通常是旧根授权），
+    // 则认为 0 不是“明确配置”，回退到推导值，避免无法新增下级。
+    const hasExplicitTierRates = parentAuth.tierDiscountRate !== undefined || parentAuth.tierCommissionRate !== undefined
+    const parentDelegatedRate = (() => {
+      if (parentAuth.tierDelegatedRate === undefined || parentAuth.tierDelegatedRate === null) {
+        return derivedParentDelegatedRate
+      }
+      const direct = Number(parentAuth.tierDelegatedRate) || 0
+      if (direct > 0) return direct
+      if (hasExplicitTierRates) return 0
+      return derivedParentDelegatedRate
+    })()
 
     console.log('[TierNode] Create Validation - Check Parent Limit:', {
       requestTierDiscount: tierDiscountRate,
@@ -3784,9 +3786,16 @@ router.post('/tier-node', auth, async (req, res) => {
     const parentPartnerDiscount = parentAuth.partnerProductMinDiscount ?? parentAuth.tierPartnerDiscountRate ?? 0
     const parentPartnerCommission = parentAuth.partnerProductCommission ?? parentAuth.tierPartnerCommissionRate ?? 0
     const derivedParentPartnerDelegated = Math.max(0, Number(parentPartnerDiscount) - Number(parentPartnerCommission))
-    const parentPartnerDelegatedRate = (parentAuth.tierPartnerDelegatedRate !== undefined && parentAuth.tierPartnerDelegatedRate !== null)
-      ? parentAuth.tierPartnerDelegatedRate
-      : derivedParentPartnerDelegated
+    const hasExplicitTierPartnerRates = parentAuth.tierPartnerDiscountRate !== undefined || parentAuth.tierPartnerCommissionRate !== undefined
+    const parentPartnerDelegatedRate = (() => {
+      if (parentAuth.tierPartnerDelegatedRate === undefined || parentAuth.tierPartnerDelegatedRate === null) {
+        return derivedParentPartnerDelegated
+      }
+      const direct = Number(parentAuth.tierPartnerDelegatedRate) || 0
+      if (direct > 0) return direct
+      if (hasExplicitTierPartnerRates) return 0
+      return derivedParentPartnerDelegated
+    })()
 
     if ((tierPartnerDiscountRate || 0) > parentPartnerDelegatedRate) {
       return res.status(400).json({ 

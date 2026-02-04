@@ -53,7 +53,8 @@ function TierCard({
   onViewDetails,
   expanded,
   onToggleExpand,
-  currentUserId
+  currentUserId,
+  isManufacturerAdmin
 }: {
   node: TierNode
   isRoot?: boolean
@@ -65,10 +66,11 @@ function TierCard({
   expanded: boolean
   onToggleExpand: () => void
   currentUserId: string
+  isManufacturerAdmin: boolean
 }) {
   const isOwner = node.createdBy === currentUserId || node.isOwner
   const isVirtual = Boolean((node as any).isVirtual)
-  const canEdit = isOwner && !isVirtual
+  const canEdit = (isOwner || isManufacturerAdmin) && !isVirtual
   const canAddChild = canEdit && node.allowSubAuthorization !== false
   const canBindAccount = canEdit  // 绑定账号只需要canEdit权限
   const hasChildren = (node.children?.length || 0) > 0 || node.childCount > 0
@@ -248,7 +250,8 @@ function TierTree({
   onViewDetails,
   expandedNodes,
   onToggleExpand,
-  currentUserId
+  currentUserId,
+  isManufacturerAdmin
 }: {
   nodes: TierNode[]
   parentId: string | null
@@ -261,6 +264,7 @@ function TierTree({
   expandedNodes: Set<string>
   onToggleExpand: (nodeId: string) => void
   currentUserId: string
+  isManufacturerAdmin: boolean
 }) {
   const children = nodes.filter(n => 
     (n.parentAuthorizationId || null) === parentId
@@ -295,6 +299,7 @@ function TierTree({
               expanded={isExpanded}
               onToggleExpand={() => onToggleExpand(node._id)}
               currentUserId={currentUserId}
+              isManufacturerAdmin={isManufacturerAdmin}
             />
             
             {/* 子节点 */}
@@ -318,6 +323,7 @@ function TierTree({
                   expandedNodes={expandedNodes}
                   onToggleExpand={onToggleExpand}
                   currentUserId={currentUserId}
+                  isManufacturerAdmin={isManufacturerAdmin}
                 />
               </div>
             )}
@@ -814,7 +820,9 @@ export default function TierHierarchyPage() {
 
   const manufacturerId = String(rawManufacturerId || '')
   const companyId = searchParams.get('companyId') || ''
-  const companyName = searchParams.get('companyName') || ''
+  const companyNameFromUrl = searchParams.get('companyName') || ''
+  const effectiveCompanyName = companyId ? '' : companyNameFromUrl
+  const isManufacturerAdmin = Boolean(manufacturerId) && (isPlatformAdmin || userAllManufacturerIds.includes(String(manufacturerId)))
   
   const [loading, setLoading] = useState(true)
   const [nodes, setNodes] = useState<TierNode[]>([])
@@ -841,7 +849,7 @@ export default function TierHierarchyPage() {
     try {
       const params: any = { manufacturerId, _t: Date.now() }
       if (companyId) params.companyId = companyId
-      if (companyName) params.companyName = companyName
+      if (effectiveCompanyName) params.companyName = effectiveCompanyName
       
       const resp = await apiClient.get('/authorizations/tier-hierarchy-v2', { params })
       const data = resp.data?.data || resp.data || {}
@@ -860,7 +868,7 @@ export default function TierHierarchyPage() {
     } finally {
       setLoading(false)
     }
-  }, [manufacturerId, companyId, companyName])
+  }, [manufacturerId, companyId, effectiveCompanyName])
   
   useEffect(() => {
     loadHierarchy()
@@ -884,7 +892,22 @@ export default function TierHierarchyPage() {
     const parent = nodes.find(n => n._id === parentId) || rootNode
     if (!parent) return
 
-    const delegatedRate = parent.tierDelegatedRate || 0
+    const delegatedRate = (() => {
+      const direct = (parent as any)?.tierDelegatedRate
+      if (direct === undefined || direct === null) {
+        const discount = (parent as any)?.tierDiscountRate ?? (parent as any)?.ownProductMinDiscount ?? (parent as any)?.minDiscountRate ?? 0
+        const commission = (parent as any)?.tierCommissionRate ?? (parent as any)?.ownProductCommission ?? (parent as any)?.commissionRate ?? 0
+        return Math.max(0, Number(discount) - Number(commission))
+      }
+      const directNum = Number(direct) || 0
+      if (directNum > 0) return directNum
+      const hasExplicitTierRates = (parent as any)?.tierDiscountRate !== undefined || (parent as any)?.tierCommissionRate !== undefined
+      if (hasExplicitTierRates) return 0
+      const discount = (parent as any)?.ownProductMinDiscount ?? (parent as any)?.minDiscountRate ?? (parent as any)?.tierDiscountRate ?? 0
+      const commission = (parent as any)?.ownProductCommission ?? (parent as any)?.commissionRate ?? (parent as any)?.tierCommissionRate ?? 0
+      const derived = Math.max(0, Number(discount) - Number(commission))
+      return derived
+    })()
     
     if (delegatedRate <= 0) {
       toast.error('此节点未设置下放额度，无法添加下级')
@@ -965,7 +988,7 @@ export default function TierHierarchyPage() {
           parentAuthorizationId: parentNodeForAdd._id,
           manufacturerId,
           companyId,
-          companyName
+          companyName: effectiveCompanyName
         })
         toast.success('层级已添加')
       }
@@ -994,7 +1017,17 @@ export default function TierHierarchyPage() {
     if (parentNodeForAdd) {
       return parentNodeForAdd.tierDelegatedRate
     }
-    return rootNode?.tierDelegatedRate || 40
+    const direct = (rootNode as any)?.tierDelegatedRate
+    if (direct !== undefined && direct !== null) {
+      const directNum = Number(direct) || 0
+      if (directNum > 0) return directNum
+      const hasExplicitTierRates = (rootNode as any)?.tierDiscountRate !== undefined || (rootNode as any)?.tierCommissionRate !== undefined
+      if (hasExplicitTierRates) return 0
+    }
+    const discount = (rootNode as any)?.ownProductMinDiscount ?? (rootNode as any)?.minDiscountRate ?? (rootNode as any)?.tierDiscountRate ?? 0
+    const commission = (rootNode as any)?.ownProductCommission ?? (rootNode as any)?.commissionRate ?? (rootNode as any)?.tierCommissionRate ?? 0
+    const derived = Math.max(0, Number(discount) - Number(commission))
+    return derived || 40
   }, [editingNode, parentNodeForAdd, rootNode])
   
   if (loading) {
@@ -1030,7 +1063,7 @@ export default function TierHierarchyPage() {
                 {manufacturerInfo && (
                   <p className="text-sm text-gray-500">
                     {manufacturerInfo.name || manufacturerInfo.fullName}
-                    {companyName && ` - ${companyName}`}
+                    {effectiveCompanyName && ` - ${effectiveCompanyName}`}
                   </p>
                 )}
               </div>
@@ -1064,6 +1097,7 @@ export default function TierHierarchyPage() {
               expanded={expandedNodes.has(rootNode._id)}
               onToggleExpand={() => handleToggleExpand(rootNode._id)}
               currentUserId={currentUserId}
+              isManufacturerAdmin={isManufacturerAdmin}
             />
             
             {/* 子节点树 */}
@@ -1081,6 +1115,7 @@ export default function TierHierarchyPage() {
                   expandedNodes={expandedNodes}
                   onToggleExpand={handleToggleExpand}
                   currentUserId={currentUserId}
+                  isManufacturerAdmin={isManufacturerAdmin}
                 />
               </div>
             )}

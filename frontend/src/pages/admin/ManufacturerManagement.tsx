@@ -2117,15 +2117,17 @@ export default function ManufacturerManagement() {
               {/* 已合作渠道 - 显示其他厂家授权给本厂家的记录 + 本厂家授权给其他厂家的记录 */}
               {(() => {
                 const activeReceivedAuths = receivedAuths.filter((a: any) => a.status === 'active')
-                const allPartners = [...activeReceivedAuths, ...grantedAuths]
+                // 渠道管理仅展示“本厂家授权给下游”的渠道（grantedAuths），
+                // 否则 receivedAuths 会出现“上游厂家名称(如藤宝阁)”但 companyId 指向的是“本厂家(如鑫辉)”的授权根，导致分成体系串号。
+                const downstreamChannels = [...grantedAuths]
                 return (
                   <>
                     <div className="flex items-center gap-2 mb-4">
                       <h3 className="text-lg font-bold text-gray-900">已合作渠道</h3>
-                      <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{allPartners.length}个</span>
+                      <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">{downstreamChannels.length}个</span>
                     </div>
 
-                    {allPartners.length === 0 ? (
+                    {downstreamChannels.length === 0 ? (
                       <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
                         <Factory className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                         <p className="text-gray-500">暂无渠道授权</p>
@@ -2133,15 +2135,13 @@ export default function ManufacturerManagement() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {allPartners.map((auth: any) => {
-                          // 判断是收到的授权还是授权出去的
-                          const isReceived = activeReceivedAuths.some((a: any) => a._id === auth._id)
-                          const targetName = isReceived
-                            ? (auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家')
-                            : (auth.toDesigner?.nickname || auth.toDesigner?.username || auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知渠道')
-                          const targetAvatar = isReceived
-                            ? auth.fromManufacturer?.logo
-                            : (auth.toDesigner?.avatar || auth.toManufacturer?.logo)
+                        {downstreamChannels.map((auth: any) => {
+                          const targetName = auth.authorizationType === 'manufacturer'
+                            ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知渠道')
+                            : (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师')
+                          const targetAvatar = auth.authorizationType === 'manufacturer'
+                            ? auth.toManufacturer?.logo
+                            : auth.toDesigner?.avatar
                     const targetType = auth.authorizationType === 'manufacturer' ? '厂家' : '设计师'
                     const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
                     
@@ -2236,15 +2236,12 @@ export default function ManufacturerManagement() {
                               </button>
                               <button 
                                 onClick={() => {
-                                  const fromId = String((auth as any)?.fromManufacturer?._id || (auth as any)?.fromManufacturer || '').trim()
-                                  if (!fromId) return
-                                  const cid = String((auth as any)?.tierCompanyId?._id || (auth as any)?.tierCompanyId || (auth as any)?._id || '').trim()
-                                  const cname = String((auth as any)?.tierCompanyName || (auth as any)?.tierDisplayName || '').trim()
+                                  const currentMid = String(myManufacturerId || '').trim()
+                                  if (!currentMid) return
+                                  const cid = String((auth as any)?._id || '').trim()
                                   const rt = encodeURIComponent(`/admin/manufacturer-management?tab=channels`)
-                                  const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(fromId)}&returnTo=${rt}`
-                                  const withCompany = cid
-                                    ? `${base}&companyId=${encodeURIComponent(cid)}${cname ? `&companyName=${encodeURIComponent(cname)}` : ''}`
-                                    : (cname ? `${base}&companyName=${encodeURIComponent(cname)}` : base)
+                                  const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(currentMid)}&returnTo=${rt}`
+                                  const withCompany = cid ? `${base}&companyId=${encodeURIComponent(cid)}` : base
                                   navigate(withCompany)
                                 }}
                                 className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -2272,6 +2269,63 @@ export default function ManufacturerManagement() {
                       </div>
                     )
                   })}
+                </div>
+              )}
+
+              {/* 上游合作商（授权给本厂家的记录） */}
+              {activeReceivedAuths.length > 0 && (
+                <div className="mt-10">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h3 className="text-lg font-bold text-gray-900">上游合作商</h3>
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">{activeReceivedAuths.length}个</span>
+                  </div>
+                  <div className="space-y-4">
+                    {activeReceivedAuths.map((auth: any) => {
+                      const targetName = auth.fromManufacturer?.name || auth.fromManufacturer?.fullName || '未知厂家'
+                      const targetAvatar = auth.fromManufacturer?.logo
+                      const productCount = auth.actualProductCount || (Array.isArray(auth.products) ? auth.products.length : 0)
+                      return (
+                        <div key={auth._id} className="bg-white rounded-xl border border-gray-100 p-5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
+                                {targetAvatar ? (
+                                  <img src={getFileUrl(targetAvatar)} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                    <Factory className="w-6 h-6" />
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-gray-900">{targetName}</span>
+                                  <span className="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700">厂家</span>
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  合约期至: {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久有效'}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-6">
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">最低折扣</div>
+                                <div className="text-lg font-bold text-green-600">{auth.minDiscountRate ?? '--'}%</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">返佣分成</div>
+                                <div className="text-lg font-bold text-blue-600">{auth.commissionRate ?? '--'}%</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">门店销SKU</div>
+                                <div className="text-lg font-bold text-gray-900">{productCount}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
                   </>

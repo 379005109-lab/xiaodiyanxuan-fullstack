@@ -147,6 +147,15 @@ export default function ManufacturerBusinessPanel() {
 
       // Process authorizations to get channels
       const authorizations = authRes.data?.data || []
+      console.log('[DEBUG] 原始授权数据:', authorizations.map(auth => ({
+        _id: auth._id,
+        name: auth.authorizationType === 'manufacturer' 
+          ? (auth.toManufacturer?.name || auth.toManufacturer?.fullName || '未知商家')
+          : (auth.toDesigner?.nickname || auth.toDesigner?.username || '未知设计师'),
+        tierCompanyId: auth.tierCompanyId,
+        authorizationType: auth.authorizationType
+      })))
+      
       const channelList: ChannelItem[] = authorizations.map((auth: any) => ({
         _id: auth._id,
         tierCompanyId: String(auth.tierCompanyId || ''),
@@ -164,10 +173,15 @@ export default function ManufacturerBusinessPanel() {
         minDiscount: auth.minDiscountRate || 0,
         commissionRate: auth.commissionRate || 0
       }))
-      setChannels(channelList.filter(c => c.status === 'active'))
+      const activeChannels = channelList.filter(c => c.status === 'active')
+      console.log('[DEBUG] 处理后的渠道列表:', activeChannels.map(c => ({
+        name: c.name,
+        _id: c._id,
+        tierCompanyId: c.tierCompanyId
+      })))
+      setChannels(activeChannels)
 
       // Calculate stats
-      const activeChannels = channelList.filter(c => c.status === 'active')
       setStats({
         totalGmv: 0,
         monthlyGrowth: 0,
@@ -293,7 +307,8 @@ export default function ManufacturerBusinessPanel() {
     if (!isCurrentlyExpanded && !channelTiers[channelId]) {
       try {
         const channel = channels.find((c) => String(c._id) === String(channelId))
-        const companyId = String(channel?.tierCompanyId || '').trim() || String(channelId)
+        // 直接使用授权ID作为companyId，确保唯一性
+        const companyId = String(channelId)
         const res = await apiClient.get(`/authorizations/tier-hierarchy-v2`, {
           params: { manufacturerId, companyId }
         })
@@ -764,7 +779,9 @@ export default function ManufacturerBusinessPanel() {
                                     <button
                                       onClick={() => {
                                         const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=channels`)
-                                        const cid = String((channel as any)?.tierCompanyId || '').trim() || String(channel._id)
+                                        // 直接使用授权ID作为companyId，确保唯一性
+                                        const cid = String(channel._id)
+                                        console.log(`[DEBUG] 管理层级 - 渠道: ${channel.name}, 授权ID: ${channel._id}, tierCompanyId: ${(channel as any)?.tierCompanyId}, 使用companyId: ${cid}`)
                                         navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${cid}&returnTo=${rt}`)
                                       }}
                                       className="text-xs text-blue-600 hover:text-blue-800"
@@ -782,7 +799,9 @@ export default function ManufacturerBusinessPanel() {
                             <button
                               onClick={() => {
                                 const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=channels`)
-                                const cid = String((channel as any)?.tierCompanyId || '').trim() || String(channel._id)
+                                // 直接使用授权ID作为companyId，确保唯一性
+                                const cid = String(channel._id)
+                                console.log(`[DEBUG] + 管理层级体系 - 渠道: ${channel.name}, 授权ID: ${channel._id}, tierCompanyId: ${(channel as any)?.tierCompanyId}, 使用companyId: ${cid}`)
                                 navigate(`/admin/tier-hierarchy?manufacturerId=${manufacturerId}&companyId=${cid}&returnTo=${rt}`)
                               }}
                               className="mt-3 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors text-sm"
@@ -1489,7 +1508,7 @@ export default function ManufacturerBusinessPanel() {
                               const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)
                               const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
                               const withCompany = companyId
-                                ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
+                                ? `${base}&companyId=${encodeURIComponent(companyId)}`
                                 : `${base}&companyName=${encodeURIComponent(companyName)}`
                               navigate(withCompany)
                             }}
@@ -1586,7 +1605,7 @@ export default function ManufacturerBusinessPanel() {
                                     const rt = encodeURIComponent(`/admin/manufacturers/${manufacturerId}/business-panel?tab=authorizations`)
                                     const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
                                     const withCompany = companyId
-                                      ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
+                                      ? `${base}&companyId=${encodeURIComponent(companyId)}`
                                       : `${base}&companyName=${encodeURIComponent(companyName)}`
                                     navigate(withCompany)
                                   }}
@@ -1627,7 +1646,7 @@ export default function ManufacturerBusinessPanel() {
                       setSelectedAuthForMap(null)
                       const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(String(manufacturerId))}&returnTo=${rt}`
                       const withCompany = companyId
-                        ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
+                        ? `${base}&companyId=${encodeURIComponent(companyId)}`
                         : `${base}&companyName=${encodeURIComponent(companyName)}`
                       navigate(withCompany)
                     }}

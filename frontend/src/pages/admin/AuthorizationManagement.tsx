@@ -1170,7 +1170,7 @@ export default function AuthorizationManagement() {
                       const rt = encodeURIComponent('/admin/authorizations')
                       const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(manufacturerId)}&returnTo=${rt}`
                       const withCompany = companyId
-                        ? `${base}&companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`
+                        ? `${base}&companyId=${encodeURIComponent(companyId)}`
                         : `${base}&companyName=${encodeURIComponent(companyName)}`
                       setShowCommissionMap(false)
                       setSelectedCompany(null)
