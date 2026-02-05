@@ -52,6 +52,52 @@ interface TierNode {
   isVirtual?: boolean
 }
 
+const toNumber = (value: any) => {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : 0
+}
+
+const resolveTotalCommission = (node?: TierNode | null) => {
+  if (!node) return 0
+  const authCommission = node.ownProductCommission ?? node.commissionRate
+  const authVal = authCommission !== undefined && authCommission !== null ? toNumber(authCommission) : 0
+  const tierVal = node.tierDiscountRate !== undefined && node.tierDiscountRate !== null ? toNumber(node.tierDiscountRate) : 0
+  if (authVal > 0) {
+    return tierVal > 0 ? Math.min(tierVal, authVal) : authVal
+  }
+  return tierVal
+}
+
+const resolveSelfCommission = (node: TierNode | null, totalCommission: number) => {
+  if (!node) return 0
+  let value = 0
+  if (node.tierCommissionRate !== undefined && node.tierCommissionRate !== null) {
+    value = toNumber(node.tierCommissionRate)
+  } else {
+    const authCommission = node.ownProductCommission ?? node.commissionRate
+    if (authCommission !== undefined && authCommission !== null) {
+      value = toNumber(authCommission)
+    } else if (node.tierDiscountRate !== undefined && node.tierDelegatedRate !== undefined) {
+      value = Math.max(0, toNumber(node.tierDiscountRate) - toNumber(node.tierDelegatedRate))
+    }
+  }
+  const normalized = Math.max(0, value)
+  return totalCommission > 0 ? Math.min(normalized, totalCommission) : normalized
+}
+
+const resolveDelegatedCommission = (node: TierNode | null, totalCommission: number, selfCommission: number) => {
+  if (!node) return 0
+  const raw = (node.tierDelegatedRate !== undefined && node.tierDelegatedRate !== null)
+    ? Math.max(0, toNumber(node.tierDelegatedRate))
+    : Math.max(0, totalCommission - selfCommission)
+  if (totalCommission > 0) {
+    return Math.max(0, Math.min(raw, Math.max(0, totalCommission - selfCommission)))
+  }
+  return raw
+}
+
+const formatPct = (value: number) => (Number.isFinite(value) ? Number(value.toFixed(2)) : 0)
+
 function TierRuleModal({
   isOpen,
   onClose,
@@ -65,17 +111,45 @@ function TierRuleModal({
 }) {
   const [rules, setRules] = useState<Array<{ depth: number; commissionRate: number; description?: string }>>([])
   const [saving, setSaving] = useState(false)
+  const baseTotalCommission = useMemo(() => resolveTotalCommission(node), [node])
 
   useEffect(() => {
     if (!isOpen) return
     const init = Array.isArray(node?.tierDepthBasedCommissionRules)
       ? node!.tierDepthBasedCommissionRules!
       : []
-    setRules((init || []).map(r => ({
+    const mapped = (init || []).map(r => ({
       depth: Math.max(0, Number(r?.depth || 0)),
       commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
       description: r?.description ? String(r.description) : ''
-    })).sort((a, b) => Number(a.depth) - Number(b.depth)))
+    })).sort((a, b) => Number(a.depth) - Number(b.depth))
+    if (mapped.length > 0) {
+      setRules(mapped)
+      return
+    }
+    if (node) {
+      const total = resolveTotalCommission(node)
+      const selfCommission = resolveSelfCommission(node, total)
+      const delegatedCommission = resolveDelegatedCommission(node, total, selfCommission)
+      const nextRules: Array<{ depth: number; commissionRate: number; description?: string }> = []
+      if (total > 0) {
+        nextRules.push({
+          depth: 0,
+          commissionRate: Math.max(0, Math.min(1, selfCommission / 100)),
+          description: ''
+        })
+        if (delegatedCommission > 0) {
+          nextRules.push({
+            depth: 1,
+            commissionRate: Math.max(0, Math.min(1, delegatedCommission / 100)),
+            description: ''
+          })
+        }
+      }
+      setRules(nextRules)
+      return
+    }
+    setRules([])
   }, [isOpen, node])
 
   const totalPct = useMemo(() => {
@@ -83,23 +157,27 @@ function TierRuleModal({
   }, [rules])
 
   const setPreset = (type: 'direct' | 'two' | 'three') => {
+    const presetBase = baseTotalCommission > 0 ? baseTotalCommission : 40
     if (type === 'direct') {
       setRules([
-        { depth: 0, commissionRate: 0.4, description: '' }
+        { depth: 0, commissionRate: Math.max(0, Math.min(1, presetBase / 100)), description: '' }
       ])
       return
     }
     if (type === 'two') {
+      const half = presetBase / 2
       setRules([
-        { depth: 0, commissionRate: 0.2, description: '' },
-        { depth: 1, commissionRate: 0.2, description: '' },
+        { depth: 0, commissionRate: Math.max(0, Math.min(1, half / 100)), description: '' },
+        { depth: 1, commissionRate: Math.max(0, Math.min(1, half / 100)), description: '' },
       ])
       return
     }
+    const selfRate = presetBase * 0.25
+    const subRate = presetBase * 0.375
     setRules([
-      { depth: 0, commissionRate: 0.1, description: '' },
-      { depth: 1, commissionRate: 0.15, description: '' },
-      { depth: 2, commissionRate: 0.15, description: '' },
+      { depth: 0, commissionRate: Math.max(0, Math.min(1, selfRate / 100)), description: '' },
+      { depth: 1, commissionRate: Math.max(0, Math.min(1, subRate / 100)), description: '' },
+      { depth: 2, commissionRate: Math.max(0, Math.min(1, subRate / 100)), description: '' },
     ])
   }
 
@@ -306,8 +384,12 @@ function TierCard({
   const canBindAccount = canEdit  // 绑定账号只需要canEdit权限
   const hasChildren = (node.children?.length || 0) > 0 || node.childCount > 0
   const primaryBoundUserId = node.boundUserId ? String((node.boundUserId as any)?._id || node.boundUserId) : ''
-  
-  const ownCommission = (node.tierCommissionRate ?? node.ownProductCommission ?? 0) || 0
+  const totalCommission = resolveTotalCommission(node)
+  const selfCommission = resolveSelfCommission(node, totalCommission)
+  const delegatedCommission = resolveDelegatedCommission(node, totalCommission, selfCommission)
+  const displayTotal = formatPct(totalCommission)
+  const displaySelf = formatPct(selfCommission)
+  const displayDelegated = formatPct(delegatedCommission)
   
   return (
     <div className="relative">
@@ -376,15 +458,20 @@ function TierCard({
         
         {/* 返佣信息 - 仅所有者可见详情 */}
         {isOwner ? (
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="bg-amber-50 rounded-xl p-3 text-center">
+              <p className="text-xs text-amber-600 mb-1">总返佣</p>
+              <p className="text-2xl font-bold text-amber-700">{displayTotal}</p>
+              <p className="text-xs text-amber-500">%</p>
+            </div>
             <div className="bg-green-50 rounded-xl p-3 text-center">
-              <p className="text-xs text-green-600 mb-1">我的返佣</p>
-              <p className="text-2xl font-bold text-green-700">{ownCommission}</p>
+              <p className="text-xs text-green-600 mb-1">本级自留</p>
+              <p className="text-2xl font-bold text-green-700">{displaySelf}</p>
               <p className="text-xs text-green-500">%</p>
             </div>
             <div className="bg-blue-50 rounded-xl p-3 text-center">
               <p className="text-xs text-blue-600 mb-1">下放给下级</p>
-              <p className="text-2xl font-bold text-blue-700">{node.tierDelegatedRate || 0}</p>
+              <p className="text-2xl font-bold text-blue-700">{displayDelegated}</p>
               <p className="text-xs text-blue-500">%</p>
             </div>
           </div>
