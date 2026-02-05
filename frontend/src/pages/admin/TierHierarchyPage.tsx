@@ -52,52 +52,6 @@ interface TierNode {
   isVirtual?: boolean
 }
 
-const toNumber = (value: any) => {
-  const num = Number(value)
-  return Number.isFinite(num) ? num : 0
-}
-
-const resolveTotalCommission = (node?: TierNode | null) => {
-  if (!node) return 0
-  const authCommission = node.ownProductCommission ?? node.commissionRate
-  const authVal = authCommission !== undefined && authCommission !== null ? toNumber(authCommission) : 0
-  const tierVal = node.tierDiscountRate !== undefined && node.tierDiscountRate !== null ? toNumber(node.tierDiscountRate) : 0
-  if (authVal > 0) {
-    return tierVal > 0 ? Math.min(tierVal, authVal) : authVal
-  }
-  return tierVal
-}
-
-const resolveSelfCommission = (node: TierNode | null, totalCommission: number) => {
-  if (!node) return 0
-  let value = 0
-  if (node.tierCommissionRate !== undefined && node.tierCommissionRate !== null) {
-    value = toNumber(node.tierCommissionRate)
-  } else {
-    const authCommission = node.ownProductCommission ?? node.commissionRate
-    if (authCommission !== undefined && authCommission !== null) {
-      value = toNumber(authCommission)
-    } else if (node.tierDiscountRate !== undefined && node.tierDelegatedRate !== undefined) {
-      value = Math.max(0, toNumber(node.tierDiscountRate) - toNumber(node.tierDelegatedRate))
-    }
-  }
-  const normalized = Math.max(0, value)
-  return totalCommission > 0 ? Math.min(normalized, totalCommission) : normalized
-}
-
-const resolveDelegatedCommission = (node: TierNode | null, totalCommission: number, selfCommission: number) => {
-  if (!node) return 0
-  const raw = (node.tierDelegatedRate !== undefined && node.tierDelegatedRate !== null)
-    ? Math.max(0, toNumber(node.tierDelegatedRate))
-    : Math.max(0, totalCommission - selfCommission)
-  if (totalCommission > 0) {
-    return Math.max(0, Math.min(raw, Math.max(0, totalCommission - selfCommission)))
-  }
-  return raw
-}
-
-const formatPct = (value: number) => (Number.isFinite(value) ? Number(value.toFixed(2)) : 0)
-
 function TierRuleModal({
   isOpen,
   onClose,
@@ -111,73 +65,50 @@ function TierRuleModal({
 }) {
   const [rules, setRules] = useState<Array<{ depth: number; commissionRate: number; description?: string }>>([])
   const [saving, setSaving] = useState(false)
-  const baseTotalCommission = useMemo(() => resolveTotalCommission(node), [node])
 
   useEffect(() => {
     if (!isOpen) return
     const init = Array.isArray(node?.tierDepthBasedCommissionRules)
       ? node!.tierDepthBasedCommissionRules!
       : []
-    const mapped = (init || []).map(r => ({
+    setRules((init || []).map(r => ({
       depth: Math.max(0, Number(r?.depth || 0)),
       commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
       description: r?.description ? String(r.description) : ''
-    })).sort((a, b) => Number(a.depth) - Number(b.depth))
-    if (mapped.length > 0) {
-      setRules(mapped)
-      return
-    }
-    if (node) {
-      const total = resolveTotalCommission(node)
-      const selfCommission = resolveSelfCommission(node, total)
-      const delegatedCommission = resolveDelegatedCommission(node, total, selfCommission)
-      const nextRules: Array<{ depth: number; commissionRate: number; description?: string }> = []
-      if (total > 0) {
-        nextRules.push({
-          depth: 0,
-          commissionRate: Math.max(0, Math.min(1, selfCommission / 100)),
-          description: ''
-        })
-        if (delegatedCommission > 0) {
-          nextRules.push({
-            depth: 1,
-            commissionRate: Math.max(0, Math.min(1, delegatedCommission / 100)),
-            description: ''
-          })
-        }
-      }
-      setRules(nextRules)
-      return
-    }
-    setRules([])
+    })).sort((a, b) => Number(a.depth) - Number(b.depth)))
   }, [isOpen, node])
+
+  // 本节点的总返佣额度（授权值）
+  const nodeTotal = (node?.tierDiscountRate || node?.ownProductCommission || node?.commissionRate || 0)
+  const nodeTotalDec = nodeTotal / 100 // 转为小数用于规则
 
   const totalPct = useMemo(() => {
     return Math.round((rules || []).reduce((sum, r) => sum + (Number(r?.commissionRate || 0) * 100), 0))
   }, [rules])
 
+  const isOverBudget = totalPct > nodeTotal
+
   const setPreset = (type: 'direct' | 'two' | 'three') => {
-    const presetBase = baseTotalCommission > 0 ? baseTotalCommission : 40
     if (type === 'direct') {
       setRules([
-        { depth: 0, commissionRate: Math.max(0, Math.min(1, presetBase / 100)), description: '' }
+        { depth: 0, commissionRate: nodeTotalDec, description: '' }
       ])
       return
     }
     if (type === 'two') {
-      const half = presetBase / 2
+      const half = Math.round(nodeTotalDec * 50) / 100
       setRules([
-        { depth: 0, commissionRate: Math.max(0, Math.min(1, half / 100)), description: '' },
-        { depth: 1, commissionRate: Math.max(0, Math.min(1, half / 100)), description: '' },
+        { depth: 0, commissionRate: half, description: '' },
+        { depth: 1, commissionRate: Math.round((nodeTotalDec - half) * 100) / 100, description: '' },
       ])
       return
     }
-    const selfRate = presetBase * 0.25
-    const subRate = presetBase * 0.375
+    const third = Math.round(nodeTotalDec * 100 / 3) / 100
+    const rest = Math.round((nodeTotalDec - third * 2) * 100) / 100
     setRules([
-      { depth: 0, commissionRate: Math.max(0, Math.min(1, selfRate / 100)), description: '' },
-      { depth: 1, commissionRate: Math.max(0, Math.min(1, subRate / 100)), description: '' },
-      { depth: 2, commissionRate: Math.max(0, Math.min(1, subRate / 100)), description: '' },
+      { depth: 0, commissionRate: third, description: '' },
+      { depth: 1, commissionRate: third, description: '' },
+      { depth: 2, commissionRate: rest, description: '' },
     ])
   }
 
@@ -263,12 +194,24 @@ function TierRuleModal({
             </button>
           </div>
 
-          <div className="bg-gray-50 rounded-2xl p-4 flex items-center justify-between">
-            <div>
-              <div className="text-sm font-bold text-gray-900">预计返佣总计</div>
-              <div className="text-xs text-gray-500 mt-1">当前规则各层返佣之和</div>
+          <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold text-gray-900">授权返佣额度</div>
+                <div className="text-xs text-gray-500 mt-1">本节点可分配的总返佣</div>
+              </div>
+              <div className="text-2xl font-bold text-amber-700">{nodeTotal}%</div>
             </div>
-            <div className="text-2xl font-bold text-green-700">{totalPct}%</div>
+            <div className="flex items-center justify-between border-t border-gray-200 pt-2">
+              <div>
+                <div className="text-sm font-bold text-gray-900">规则返佣总计</div>
+                <div className="text-xs text-gray-500 mt-1">当前规则各层返佣之和</div>
+              </div>
+              <div className={cn("text-2xl font-bold", isOverBudget ? "text-red-600" : "text-green-700")}>{totalPct}%</div>
+            </div>
+            {isOverBudget && (
+              <p className="text-xs text-red-500 font-medium">规则返佣总计 ({totalPct}%) 超过了授权额度 ({nodeTotal}%)，请调整</p>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-4">
@@ -384,12 +327,10 @@ function TierCard({
   const canBindAccount = canEdit  // 绑定账号只需要canEdit权限
   const hasChildren = (node.children?.length || 0) > 0 || node.childCount > 0
   const primaryBoundUserId = node.boundUserId ? String((node.boundUserId as any)?._id || node.boundUserId) : ''
-  const totalCommission = resolveTotalCommission(node)
-  const selfCommission = resolveSelfCommission(node, totalCommission)
-  const delegatedCommission = resolveDelegatedCommission(node, totalCommission, selfCommission)
-  const displayTotal = formatPct(totalCommission)
-  const displaySelf = formatPct(selfCommission)
-  const displayDelegated = formatPct(delegatedCommission)
+  
+  const totalCommission = node.tierDiscountRate || node.ownProductCommission || 0
+  const ownCommission = (node.tierCommissionRate ?? node.ownProductCommission ?? 0) || 0
+  const delegated = node.tierDelegatedRate || 0
   
   return (
     <div className="relative">
@@ -458,21 +399,20 @@ function TierCard({
         
         {/* 返佣信息 - 仅所有者可见详情 */}
         {isOwner ? (
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="space-y-2 mb-4">
             <div className="bg-amber-50 rounded-xl p-3 text-center">
-              <p className="text-xs text-amber-600 mb-1">总返佣</p>
-              <p className="text-2xl font-bold text-amber-700">{displayTotal}</p>
-              <p className="text-xs text-amber-500">%</p>
+              <p className="text-xs text-amber-600 mb-1">总返佣额度</p>
+              <p className="text-2xl font-bold text-amber-700">{totalCommission}<span className="text-sm">%</span></p>
             </div>
-            <div className="bg-green-50 rounded-xl p-3 text-center">
-              <p className="text-xs text-green-600 mb-1">本级自留</p>
-              <p className="text-2xl font-bold text-green-700">{displaySelf}</p>
-              <p className="text-xs text-green-500">%</p>
-            </div>
-            <div className="bg-blue-50 rounded-xl p-3 text-center">
-              <p className="text-xs text-blue-600 mb-1">下放给下级</p>
-              <p className="text-2xl font-bold text-blue-700">{displayDelegated}</p>
-              <p className="text-xs text-blue-500">%</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-green-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-green-600 mb-1">本级自留</p>
+                <p className="text-xl font-bold text-green-700">{ownCommission}<span className="text-sm">%</span></p>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-blue-600 mb-1">下放给下级</p>
+                <p className="text-xl font-bold text-blue-700">{delegated}<span className="text-sm">%</span></p>
+              </div>
             </div>
           </div>
         ) : (
