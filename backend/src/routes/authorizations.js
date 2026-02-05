@@ -3963,8 +3963,11 @@ router.put('/tier-node/:id', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: '无权编辑此层级' })
     }
 
-    // 如果有父级，验证折扣率不超过父级下放率
-    if (auth.parentAuthorizationId) {
+    // 仅当修改了折扣/返佣率字段时才验证层级关系
+    const hasTierRateChange = tierDiscountRate !== undefined || tierDelegatedRate !== undefined || tierCommissionRate !== undefined ||
+      tierPartnerDiscountRate !== undefined || tierPartnerDelegatedRate !== undefined || tierPartnerCommissionRate !== undefined
+
+    if (auth.parentAuthorizationId && hasTierRateChange) {
       const parentAuth = await Authorization.findById(auth.parentAuthorizationId)
       if (parentAuth) {
         const parentDiscountForValidation = parentAuth.ownProductMinDiscount ?? parentAuth.minDiscountRate ?? parentAuth.tierDiscountRate ?? 0
@@ -4070,13 +4073,25 @@ router.put('/tier-node/:id', auth, async (req, res) => {
       if (tierDepthBasedCommissionRules === null) {
         auth.tierDepthBasedCommissionRules = []
       } else if (Array.isArray(tierDepthBasedCommissionRules)) {
-        auth.tierDepthBasedCommissionRules = tierDepthBasedCommissionRules
+        const cleaned = tierDepthBasedCommissionRules
           .map(r => ({
             depth: Math.max(0, Number(r?.depth || 0)),
             commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
             description: r?.description ? String(r.description) : ''
           }))
           .sort((a, b) => Number(a.depth) - Number(b.depth))
+
+        // 验证规则返佣总计不超过本节点的授权返佣额度
+        const rulesTotalPct = Math.round(cleaned.reduce((sum, r) => sum + (r.commissionRate * 100), 0))
+        const nodeTotal = auth.tierDiscountRate || auth.ownProductCommission || auth.commissionRate || 0
+        if (nodeTotal > 0 && rulesTotalPct > nodeTotal) {
+          return res.status(400).json({
+            success: false,
+            message: `规则返佣总计 (${rulesTotalPct}%) 超过了授权返佣额度 (${nodeTotal}%)，请调整`
+          })
+        }
+
+        auth.tierDepthBasedCommissionRules = cleaned
       } else {
         return res.status(400).json({ success: false, message: 'tierDepthBasedCommissionRules 格式不正确' })
       }

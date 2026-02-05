@@ -54,6 +54,11 @@ const calculateTieredCommissions = async (userId, orderAmount, manufacturerId, t
       const visited = new Set()
       const cache = new Map([[String(startNode._id), startNode]])
 
+      // 使用起始节点的规则作为所有层级的返佣依据
+      const startRules = Array.isArray(startNode.tierDepthBasedCommissionRules)
+        ? startNode.tierDepthBasedCommissionRules
+        : []
+
       let currentNode = startNode
       let depth = 0
 
@@ -62,10 +67,7 @@ const calculateTieredCommissions = async (userId, orderAmount, manufacturerId, t
         if (visited.has(nodeId)) break
         visited.add(nodeId)
 
-        const rules = Array.isArray(currentNode.tierDepthBasedCommissionRules)
-          ? currentNode.tierDepthBasedCommissionRules
-          : []
-        const rule = rules.find(r => Number(r?.depth || -1) === depth)
+        const rule = startRules.find(r => Number(r?.depth || -1) === depth)
         const rawRate = rule && typeof rule.commissionRate === 'number' ? Number(rule.commissionRate) : 0
         const rate = Math.max(0, Math.min(1, rawRate))
 

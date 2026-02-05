@@ -331,6 +331,7 @@ function TierCard({
   const totalCommission = node.tierDiscountRate || node.ownProductCommission || 0
   const ownCommission = (node.tierCommissionRate ?? node.ownProductCommission ?? 0) || 0
   const delegated = node.tierDelegatedRate || 0
+  const depthRules = Array.isArray(node.tierDepthBasedCommissionRules) ? node.tierDepthBasedCommissionRules.filter(r => r && r.commissionRate > 0) : []
   
   return (
     <div className="relative">
@@ -399,22 +400,41 @@ function TierCard({
         
         {/* 返佣信息 - 仅所有者可见详情 */}
         {isOwner ? (
-          <div className="space-y-2 mb-4">
-            <div className="bg-amber-50 rounded-xl p-3 text-center">
-              <p className="text-xs text-amber-600 mb-1">总返佣额度</p>
-              <p className="text-2xl font-bold text-amber-700">{totalCommission}<span className="text-sm">%</span></p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-green-50 rounded-xl p-3 text-center">
-                <p className="text-xs text-green-600 mb-1">本级自留</p>
-                <p className="text-xl font-bold text-green-700">{ownCommission}<span className="text-sm">%</span></p>
+          <>
+            <div className="space-y-2 mb-4">
+              <div className="bg-amber-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-amber-600 mb-1">总返佣额度</p>
+                <p className="text-2xl font-bold text-amber-700">{totalCommission}<span className="text-sm">%</span></p>
               </div>
-              <div className="bg-blue-50 rounded-xl p-3 text-center">
-                <p className="text-xs text-blue-600 mb-1">下放给下级</p>
-                <p className="text-xl font-bold text-blue-700">{delegated}<span className="text-sm">%</span></p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-green-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-green-600 mb-1">本级自留</p>
+                  <p className="text-xl font-bold text-green-700">{ownCommission}<span className="text-sm">%</span></p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-blue-600 mb-1">下放给下级</p>
+                  <p className="text-xl font-bold text-blue-700">{delegated}<span className="text-sm">%</span></p>
+                </div>
               </div>
             </div>
-          </div>
+            {/* 多级返佣规则 */}
+            {depthRules.length > 0 && (
+              <div className="bg-purple-50 rounded-xl p-3 mb-4">
+                <p className="text-xs text-purple-600 font-medium mb-2">多级返佣规则</p>
+                <div className="flex flex-wrap gap-2">
+                  {depthRules
+                    .slice()
+                    .sort((a, b) => Number(a.depth) - Number(b.depth))
+                    .map(r => (
+                      <div key={r.depth} className="bg-white rounded-lg px-2 py-1 text-xs border border-purple-200">
+                        <span className="text-purple-500">{Number(r.depth) === 0 ? '自己' : `${r.depth}级`}</span>
+                        <span className="text-purple-700 font-bold ml-1">{Math.round(Number(r.commissionRate) * 100)}%</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
             <p className="text-sm text-gray-500">
