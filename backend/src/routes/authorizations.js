@@ -3900,12 +3900,12 @@ router.post('/tier-node', auth, async (req, res) => {
       allowSubAuthorization: (tierDelegatedRate > 0) || (tierPartnerDelegatedRate > 0),
       
       // 继承父级的价格设置
-      ownProductMinDiscount: tierDiscountRate || parentAuth.ownProductMinDiscount,
-      ownProductCommission: tierCommissionRate || parentAuth.ownProductCommission,
-      partnerProductMinDiscount: tierPartnerDiscountRate || parentAuth.partnerProductMinDiscount,
-      partnerProductCommission: tierPartnerCommissionRate || parentAuth.partnerProductCommission,
-      minDiscountRate: parentAuth.minDiscountRate || parentAuth.ownProductMinDiscount,
-      commissionRate: parentAuth.commissionRate || parentAuth.ownProductCommission
+      ownProductMinDiscount: parentAuth.ownProductMinDiscount,
+      ownProductCommission: parentAuth.ownProductCommission,
+      partnerProductMinDiscount: parentAuth.partnerProductMinDiscount,
+      partnerProductCommission: parentAuth.partnerProductCommission,
+      minDiscountRate: parentAuth.minDiscountRate,
+      commissionRate: parentAuth.commissionRate
     })
 
     await newAuth.save()
@@ -4024,7 +4024,6 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     if (tierRole !== undefined) auth.tierRole = tierRole
     if (tierDiscountRate !== undefined) {
       auth.tierDiscountRate = tierDiscountRate
-      auth.ownProductMinDiscount = tierDiscountRate
     }
     if (tierDelegatedRate !== undefined) {
       auth.tierDelegatedRate = tierDelegatedRate
@@ -4032,7 +4031,6 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     }
     if (tierCommissionRate !== undefined) {
       auth.tierCommissionRate = tierCommissionRate
-      auth.ownProductCommission = tierCommissionRate
     }
     // 合作商产品返佣字段
     if (tierPartnerDiscountRate !== undefined) {
