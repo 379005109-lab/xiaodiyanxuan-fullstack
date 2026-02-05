@@ -33,6 +33,9 @@ interface TierNode {
   ownProductCommission?: number
   partnerProductMinDiscount?: number
   partnerProductCommission?: number
+  // 授权字段（兼容旧数据）
+  minDiscountRate?: number
+  commissionRate?: number
   tierLevel: number
   childCount: number
   productCount: number
@@ -594,9 +597,11 @@ function TierEditModal({
 
   useEffect(() => {
     if (editingNode) {
-      // 编辑模式：从现有数据计算
-      const myComm = editingNode.tierCommissionRate || 
-        (editingNode.tierDiscountRate || 0) - (editingNode.tierDelegatedRate || 0)
+      // 编辑模式：优先使用授权的真实返佣值，再兜底到tier字段
+      const realCommission = editingNode.ownProductCommission ?? editingNode.commissionRate ?? 0
+      const myComm = realCommission > 0 ? realCommission : 
+        (editingNode.tierCommissionRate || 
+        (editingNode.tierDiscountRate || 0) - (editingNode.tierDelegatedRate || 0))
       setFormData({
         tierDisplayName: editingNode.tierDisplayName || '',
         tierRole: editingNode.tierRole || 'person',
@@ -619,7 +624,7 @@ function TierEditModal({
   const isOverBudget = totalUsed > maxDiscountRate
   
   // 验证：我的返佣不能超过上级的返佣率
-  const parentCommissionRate = parentNode?.tierCommissionRate ?? parentNode?.ownProductCommission ?? 0
+  const parentCommissionRate = parentNode?.ownProductCommission ?? parentNode?.commissionRate ?? parentNode?.tierCommissionRate ?? 0
   const isCommissionOverParent = formData.myCommission > parentCommissionRate
   
   const handleSubmit = (e: FormEvent) => {
