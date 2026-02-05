@@ -3683,6 +3683,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         tierDelegatedRate: effectiveTierDelegatedRate,
         tierCommissionRate: effectiveTierCommissionRate,
         tierDepthBasedCommissionRules: Array.isArray(auth.tierDepthBasedCommissionRules) ? auth.tierDepthBasedCommissionRules : [],
+        tierCommissionRuleSets: Array.isArray(auth.tierCommissionRuleSets) ? auth.tierCommissionRuleSets : [],
         tierPartnerDiscountRate: effectiveTierPartnerDiscountRate,
         tierPartnerDelegatedRate: effectiveTierPartnerDelegatedRate,
         tierPartnerCommissionRate: effectiveTierPartnerCommissionRate,
@@ -3941,7 +3942,8 @@ router.put('/tier-node/:id', auth, async (req, res) => {
       tierPartnerCommissionRate,
       boundUserIds,  // 绑定的用户ID列表
       boundUserId,
-      tierDepthBasedCommissionRules
+      tierDepthBasedCommissionRules,
+      tierCommissionRuleSets
     } = req.body
 
     const auth = await Authorization.findById(id)
@@ -4094,6 +4096,50 @@ router.put('/tier-node/:id', auth, async (req, res) => {
         auth.tierDepthBasedCommissionRules = cleaned
       } else {
         return res.status(400).json({ success: false, message: 'tierDepthBasedCommissionRules 格式不正确' })
+      }
+    }
+
+    // 处理多套返佣规则集合
+    if (tierCommissionRuleSets !== undefined) {
+      if (tierCommissionRuleSets === null) {
+        auth.tierCommissionRuleSets = []
+      } else if (Array.isArray(tierCommissionRuleSets)) {
+        const nodeTotal = auth.ownProductCommission || auth.commissionRate || auth.tierDiscountRate || 0
+        const cleanedSets = tierCommissionRuleSets.map((set, idx) => {
+          const rules = Array.isArray(set?.rules) ? set.rules : []
+          const cleanedRules = rules
+            .map(r => ({
+              depth: Math.max(0, Number(r?.depth || 0)),
+              commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+              description: r?.description ? String(r.description) : ''
+            }))
+            .sort((a, b) => Number(a.depth) - Number(b.depth))
+
+          // 验证每套规则的返佣总计不超过授权额度
+          const rulesTotalPct = Math.round(cleanedRules.reduce((sum, r) => sum + (r.commissionRate * 100), 0))
+          if (nodeTotal > 0 && rulesTotalPct > nodeTotal) {
+            return { error: `第${idx + 1}套规则返佣总计 (${rulesTotalPct}%) 超过了授权返佣额度 (${nodeTotal}%)` }
+          }
+
+          return {
+            name: set?.name ? String(set.name) : `规则${idx + 1}`,
+            rules: cleanedRules
+          }
+        })
+
+        const validationError = cleanedSets.find(s => s.error)
+        if (validationError) {
+          return res.status(400).json({ success: false, message: validationError.error })
+        }
+
+        auth.tierCommissionRuleSets = cleanedSets
+
+        // 同步第一套规则到 tierDepthBasedCommissionRules（向后兼容）
+        if (cleanedSets.length > 0 && cleanedSets[0].rules.length > 0) {
+          auth.tierDepthBasedCommissionRules = cleanedSets[0].rules
+        }
+      } else {
+        return res.status(400).json({ success: false, message: 'tierCommissionRuleSets 格式不正确' })
       }
     }
     

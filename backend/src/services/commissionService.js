@@ -40,7 +40,7 @@ const calculateTieredCommissions = async (userId, orderAmount, manufacturerId, t
       }
 
       const matchedNodes = await Authorization.find(query)
-        .select('_id parentAuthorizationId tierLevel tierCompanyId tierCompanyName boundUserIds boundUserId tierDepthBasedCommissionRules')
+        .select('_id parentAuthorizationId tierLevel tierCompanyId tierCompanyName boundUserIds boundUserId tierDepthBasedCommissionRules tierCommissionRuleSets')
         .lean()
 
       if (!Array.isArray(matchedNodes) || matchedNodes.length === 0) return []
@@ -54,10 +54,24 @@ const calculateTieredCommissions = async (userId, orderAmount, manufacturerId, t
       const visited = new Set()
       const cache = new Map([[String(startNode._id), startNode]])
 
-      // 使用起始节点的规则作为所有层级的返佣依据
-      const startRules = Array.isArray(startNode.tierDepthBasedCommissionRules)
-        ? startNode.tierDepthBasedCommissionRules
-        : []
+      // 确定使用哪套规则：
+      // 如果有多套规则集(tierCommissionRuleSets)，根据起始节点的层级选择对应的规则集
+      // 第0套规则用于第1级产生的交易，第1套用于第2级，依此类推
+      const ruleSets = Array.isArray(startNode.tierCommissionRuleSets) ? startNode.tierCommissionRuleSets : []
+      const startLevel = Number(startNode.tierLevel || 0)
+      
+      let startRules
+      if (ruleSets.length > 0) {
+        // 使用层级对应的规则集（层级索引从0开始）
+        const ruleSetIndex = Math.min(startLevel, ruleSets.length - 1)
+        const selectedSet = ruleSets[ruleSetIndex]
+        startRules = Array.isArray(selectedSet?.rules) ? selectedSet.rules : []
+      } else {
+        // 向后兼容：使用旧的单一规则
+        startRules = Array.isArray(startNode.tierDepthBasedCommissionRules)
+          ? startNode.tierDepthBasedCommissionRules
+          : []
+      }
 
       let currentNode = startNode
       let depth = 0
@@ -110,7 +124,7 @@ const calculateTieredCommissions = async (userId, orderAmount, manufacturerId, t
 
         if (!cache.has(parentId)) {
           const parent = await Authorization.findById(parentId)
-            .select('_id parentAuthorizationId tierLevel tierCompanyId tierCompanyName boundUserIds boundUserId tierDepthBasedCommissionRules')
+            .select('_id parentAuthorizationId tierLevel tierCompanyId tierCompanyName boundUserIds boundUserId tierDepthBasedCommissionRules tierCommissionRuleSets')
             .lean()
           if (parent) cache.set(parentId, parent)
         }

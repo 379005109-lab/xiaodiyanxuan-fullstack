@@ -201,6 +201,17 @@ const authorizationSchema = new mongoose.Schema({
     commissionRate: { type: Number, min: 0, max: 1 },
     description: { type: String }
   }],
+
+  // 多套返佣规则集合，每套规则对应一个层级
+  // 第0套规则用于第1级产生的交易，第1套用于第2级，依此类推
+  tierCommissionRuleSets: [{
+    name: { type: String, default: '' },
+    rules: [{
+      depth: { type: Number, min: 0 },
+      commissionRate: { type: Number, min: 0, max: 1 },
+      description: { type: String }
+    }]
+  }],
   
   // === 分层体系相关字段 ===
   // 层级类型：新建公司或插入现有层级
