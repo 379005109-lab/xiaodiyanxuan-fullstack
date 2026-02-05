@@ -78,8 +78,8 @@ function TierRuleModal({
     })).sort((a, b) => Number(a.depth) - Number(b.depth)))
   }, [isOpen, node])
 
-  // 本节点的总返佣额度（授权值）
-  const nodeTotal = (node?.tierDiscountRate || node?.ownProductCommission || node?.commissionRate || 0)
+  // 本节点的总返佣额度（授权值，不用tierDiscountRate因为可能被污染）
+  const nodeTotal = (node?.ownProductCommission || node?.commissionRate || node?.tierDiscountRate || 0)
   const nodeTotalDec = nodeTotal / 100 // 转为小数用于规则
 
   const totalPct = useMemo(() => {
@@ -328,8 +328,9 @@ function TierCard({
   const hasChildren = (node.children?.length || 0) > 0 || node.childCount > 0
   const primaryBoundUserId = node.boundUserId ? String((node.boundUserId as any)?._id || node.boundUserId) : ''
   
-  const totalCommission = node.tierDiscountRate || node.ownProductCommission || 0
-  const ownCommission = (node.tierCommissionRate ?? node.ownProductCommission ?? 0) || 0
+  // 总返佣额度来自授权值（ownProductCommission），不用tierDiscountRate（可能被编辑操作污染）
+  const totalCommission = node.ownProductCommission || node.commissionRate || node.tierDiscountRate || 0
+  const ownCommission = node.tierCommissionRate || 0
   const delegated = node.tierDelegatedRate || 0
   const depthRules = Array.isArray(node.tierDepthBasedCommissionRules) ? node.tierDepthBasedCommissionRules.filter(r => r && r.commissionRate > 0) : []
   
@@ -638,41 +639,32 @@ function TierEditModal({
   const [formData, setFormData] = useState({
     tierDisplayName: '',
     tierRole: 'person' as 'company' | 'person' | 'channel' | 'designer',
-    myCommission: 0,      // 我的返佣
-    delegateToChild: 0    // 下放给下级
+    myCommission: 0      // 我的返佣
   })
+
+  // 总返佣额度：编辑时=节点的授权返佣，新增时=上级下放额度
+  const totalBudget = editingNode
+    ? (editingNode.ownProductCommission || editingNode.commissionRate || editingNode.tierDiscountRate || maxDiscountRate)
+    : maxDiscountRate
+
+  // 下放给下级 = 总额度 - 我的返佣（协同关系）
+  const delegateToChild = Math.max(0, totalBudget - formData.myCommission)
 
   useEffect(() => {
     if (editingNode) {
-      // 编辑模式：优先使用授权的真实返佣值，再兜底到tier字段
-      const realCommission = editingNode.ownProductCommission ?? editingNode.commissionRate ?? 0
-      const myComm = realCommission > 0 ? realCommission : 
-        (editingNode.tierCommissionRate || 
-        (editingNode.tierDiscountRate || 0) - (editingNode.tierDelegatedRate || 0))
       setFormData({
         tierDisplayName: editingNode.tierDisplayName || '',
         tierRole: editingNode.tierRole || 'person',
-        myCommission: Math.max(0, myComm),
-        delegateToChild: editingNode.tierDelegatedRate || 0
+        myCommission: editingNode.tierCommissionRate || 0
       })
     } else {
-      // 新增模式
       setFormData({
         tierDisplayName: '',
         tierRole: 'person',
-        myCommission: maxDiscountRate,  // 默认全拿
-        delegateToChild: 0              // 默认不下放
+        myCommission: maxDiscountRate  // 默认全拿
       })
     }
   }, [editingNode, maxDiscountRate])
-  
-  // 验证：我的返佣 + 下放 不能超过上级给的额度
-  const totalUsed = formData.myCommission + formData.delegateToChild
-  const isOverBudget = totalUsed > maxDiscountRate
-  
-  // 验证：我的返佣不能超过上级的返佣率
-  const parentCommissionRate = parentNode?.ownProductCommission ?? parentNode?.commissionRate ?? parentNode?.tierCommissionRate ?? 0
-  const isCommissionOverParent = formData.myCommission > parentCommissionRate
   
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -680,22 +672,14 @@ function TierEditModal({
       toast.error('请输入名称')
       return
     }
-    if (isOverBudget) {
-      toast.error(`返佣 + 下放 (${totalUsed}%) 不能超过上级给的额度 (${maxDiscountRate}%)`)
-      return
-    }
-    if (isCommissionOverParent) {
-      toast.error(`我的返佣 (${formData.myCommission}%) 不能超过上级返佣率 (${parentCommissionRate}%)`)
-      return
-    }
 
     // 转换为后端需要的字段
     const payload: any = {
       tierDisplayName: formData.tierDisplayName,
       tierRole: formData.tierRole,
-      tierDiscountRate: formData.myCommission + formData.delegateToChild,  // 总额度
-      tierDelegatedRate: formData.delegateToChild,  // 下放给下级
-      tierCommissionRate: formData.myCommission     // 我的返佣
+      tierDiscountRate: totalBudget,                // 总额度（=授权值，固定）
+      tierDelegatedRate: delegateToChild,            // 下放给下级（自动计算）
+      tierCommissionRate: formData.myCommission      // 我的返佣
     }
 
     if (!payload.tierRole) {
@@ -712,7 +696,7 @@ function TierEditModal({
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900">
-            {editingNode ? '编辑返佣设置' : '绑定账号'}
+            {editingNode ? '编辑返佣设置' : '新增下级'}
           </h2>
           {parentNode && (
             <p className="text-sm text-gray-500 mt-1">
@@ -725,14 +709,14 @@ function TierEditModal({
           {/* 账号名称 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              账号名称 <span className="text-red-500">*</span>
+              名称 <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.tierDisplayName}
               onChange={e => setFormData({ ...formData, tierDisplayName: e.target.value })}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="输入要绑定的账号名称"
+              placeholder="输入层级名称"
             />
           </div>
           
@@ -775,27 +759,27 @@ function TierEditModal({
             </div>
           </div>
           
-          {/* 上级分配的额度 */}
-          <div className="bg-blue-50 rounded-xl p-4">
+          {/* 总返佣额度 - 只读 */}
+          <div className="bg-amber-50 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-700">上级分配的返佣额度</p>
-                <p className="text-xs text-blue-500">你可以在这个范围内分配</p>
+                <p className="text-sm font-medium text-amber-700">总返佣额度</p>
+                <p className="text-xs text-amber-500">{editingNode ? '授权的返佣总额，不可修改' : '上级分配的返佣额度'}</p>
               </div>
-              <span className="text-2xl font-bold text-blue-600">{maxDiscountRate}%</span>
+              <span className="text-2xl font-bold text-amber-700">{totalBudget}%</span>
             </div>
           </div>
           
-          {/* 我的返佣 */}
+          {/* 我的返佣 - 滑块 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              我的返佣
+              我的返佣（本级自留）
             </label>
             <div className="flex items-center gap-3">
               <input
                 type="range"
                 min="0"
-                max={maxDiscountRate}
+                max={totalBudget}
                 value={formData.myCommission}
                 onChange={e => setFormData({ ...formData, myCommission: Number(e.target.value) })}
                 className="flex-1"
@@ -804,66 +788,44 @@ function TierEditModal({
                 {formData.myCommission}%
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              下级产生订单时，我能拿到的返佣比例
-            </p>
           </div>
           
-          {/* 下放给下级 */}
+          {/* 下放给下级 - 自动计算，只读 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              下放给下级
+              下放给下级（自动计算）
             </label>
             <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="0"
-                max={Math.max(0, maxDiscountRate - formData.myCommission)}
-                value={formData.delegateToChild}
-                onChange={e => setFormData({ ...formData, delegateToChild: Number(e.target.value) })}
-                className="flex-1"
-              />
+              <div className="flex-1 h-2 bg-blue-200 rounded-full relative">
+                <div
+                  className="h-full bg-blue-500 rounded-full"
+                  style={{ width: totalBudget > 0 ? `${(delegateToChild / totalBudget) * 100}%` : '0%' }}
+                />
+              </div>
               <span className="w-16 text-center font-bold text-lg text-blue-600">
-                {formData.delegateToChild}%
+                {delegateToChild}%
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              允许下级再分配的返佣额度
+              = 总额度 ({totalBudget}%) − 我的返佣 ({formData.myCommission}%)
             </p>
           </div>
           
           {/* 分配预览 */}
-          <div className={cn(
-            "rounded-xl p-4",
-            isOverBudget ? "bg-red-50" : "bg-green-50"
-          )}>
-            <div className="flex items-center gap-4">
-              <p className={cn(
-                "text-sm font-medium",
-                (isOverBudget || isCommissionOverParent) ? "text-red-600" : "text-green-600"
-              )}>
-                {(isOverBudget || isCommissionOverParent) ? '⚠️ 配置有误' : '✓ 分配合理'}
-              </p>
-              <div className="text-xs">
-                <p className={cn(isOverBudget ? "text-red-500" : "text-green-500")}>
-                  我的返佣 ({formData.myCommission}%) + 下放 ({formData.delegateToChild}%) = {totalUsed}%
+          <div className="bg-green-50 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <p className="text-green-600 font-medium">✓ 分配合理</p>
+                <p className="text-green-500 text-xs mt-1">
+                  本级 {formData.myCommission}% + 下放 {delegateToChild}% = {totalBudget}%
                 </p>
-                {isCommissionOverParent && (
-                  <p className="text-red-500 mt-1">
-                    ⚠️ 我的返佣不能超过上级返佣率 ({parentCommissionRate}%)
-                  </p>
-                )}
               </div>
-              <span className={cn(
-                "text-2xl font-bold",
-                isOverBudget ? "text-red-600" : "text-green-600"
-              )}>
-                {maxDiscountRate - totalUsed}%
-              </span>
+              {delegateToChild > 0 && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
+                  可继续分配
+                </span>
+              )}
             </div>
-            {!isOverBudget && (
-              <p className="text-xs text-green-500 mt-1">剩余未分配</p>
-            )}
           </div>
           
           {/* 按钮 */}
@@ -877,15 +839,9 @@ function TierEditModal({
             </button>
             <button
               type="submit"
-              disabled={isOverBudget || isCommissionOverParent}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-white",
-                (isOverBudget || isCommissionOverParent)
-                  ? "bg-gray-400 cursor-not-allowed" 
-                  : "bg-primary-600 hover:bg-primary-700"
-              )}
+              className="px-6 py-2.5 rounded-xl text-white bg-primary-600 hover:bg-primary-700"
             >
-              {editingNode ? '保存' : '绑定'}
+              {editingNode ? '保存' : '创建'}
             </button>
           </div>
         </form>
@@ -1511,7 +1467,7 @@ export default function TierHierarchyPage() {
         parentNode={parentNodeForAdd}
         editingNode={editingNode}
         maxDiscountRate={maxDiscountRate}
-        rootDiscount={rootNode?.tierDiscountRate || rootNode?.ownProductMinDiscount || 0}
+        rootDiscount={rootNode?.ownProductMinDiscount || (rootNode as any)?.minDiscountRate || 0}
       />
       
       {/* 绑定账号模态框 */}

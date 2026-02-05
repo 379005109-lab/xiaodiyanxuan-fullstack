@@ -4081,9 +4081,9 @@ router.put('/tier-node/:id', auth, async (req, res) => {
           }))
           .sort((a, b) => Number(a.depth) - Number(b.depth))
 
-        // 验证规则返佣总计不超过本节点的授权返佣额度
+        // 验证规则返佣总计不超过本节点的授权返佣额度（使用授权值，非tier字段）
         const rulesTotalPct = Math.round(cleaned.reduce((sum, r) => sum + (r.commissionRate * 100), 0))
-        const nodeTotal = auth.tierDiscountRate || auth.ownProductCommission || auth.commissionRate || 0
+        const nodeTotal = auth.ownProductCommission || auth.commissionRate || auth.tierDiscountRate || 0
         if (nodeTotal > 0 && rulesTotalPct > nodeTotal) {
           return res.status(400).json({
             success: false,
