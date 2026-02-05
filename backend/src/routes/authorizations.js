@@ -327,6 +327,16 @@ router.get('/summary', auth, async (req, res) => {
     for (const auth of authorizations) {
       const fromId = auth.fromManufacturer?._id?.toString()
       if (!fromId) continue
+
+      const effectiveMinDiscountRate =
+        (auth.ownProductMinDiscount !== undefined && auth.ownProductMinDiscount !== null)
+          ? Number(auth.ownProductMinDiscount) || 0
+          : (Number(auth.minDiscountRate) || 0)
+
+      const effectiveCommissionRate =
+        (auth.ownProductCommission !== undefined && auth.ownProductCommission !== null)
+          ? Number(auth.ownProductCommission) || 0
+          : (Number(auth.commissionRate) || 0)
       
       console.log('[Authorization Summary] Processing auth:', {
         fromId,
@@ -345,8 +355,8 @@ router.get('/summary', auth, async (req, res) => {
           products: [],
           authorizationId: auth._id.toString(), // 转换为字符串
           priceSettings: auth.priceSettings || {},
-          minDiscountRate: auth.minDiscountRate || 0,
-          commissionRate: auth.commissionRate || 0,
+          minDiscountRate: effectiveMinDiscountRate,
+          commissionRate: effectiveCommissionRate,
           scope: auth.scope,
           isEnabled: auth.status === 'active' ? (auth.isEnabled !== false) : true // 只有active状态才使用真实的isEnabled
         })
@@ -356,8 +366,8 @@ router.get('/summary', auth, async (req, res) => {
       // 更新状态（优先显示active）
       if (auth.status === 'active') {
         summary.status = auth.status
-        summary.minDiscountRate = auth.minDiscountRate || summary.minDiscountRate
-        summary.commissionRate = auth.commissionRate || summary.commissionRate
+        summary.minDiscountRate = effectiveMinDiscountRate || summary.minDiscountRate
+        summary.commissionRate = effectiveCommissionRate || summary.commissionRate
         summary.authorizationId = auth._id.toString() // 转换为字符串
         // 对于active的授权，使用其isEnabled状态
         summary.isEnabled = auth.isEnabled !== false
@@ -550,9 +560,9 @@ router.get('/my-grants', auth, async (req, res) => {
         ...auth,
         tierCompanyId: resolveCompanyId(auth),
         actualProductCount: skuCount,
-        // 优先使用授权记录的值，否则使用厂家默认值
-        minDiscountRate: auth.minDiscountRate || mfrDefaultDiscount,
-        commissionRate: auth.commissionRate || mfrDefaultCommission
+        // 优先使用授权记录的自有产品字段，其次兼容旧字段，否则使用厂家默认值
+        minDiscountRate: (auth.ownProductMinDiscount ?? auth.minDiscountRate ?? mfrDefaultDiscount) || 0,
+        commissionRate: (auth.ownProductCommission ?? auth.commissionRate ?? mfrDefaultCommission) || 0
       }
     }))
 
@@ -4015,7 +4025,6 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     if (tierDiscountRate !== undefined) {
       auth.tierDiscountRate = tierDiscountRate
       auth.ownProductMinDiscount = tierDiscountRate
-      // minDiscountRate 应该保持继承自父级，不应该被当前层级的 tierDiscountRate 覆盖
     }
     if (tierDelegatedRate !== undefined) {
       auth.tierDelegatedRate = tierDelegatedRate
@@ -4024,7 +4033,6 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     if (tierCommissionRate !== undefined) {
       auth.tierCommissionRate = tierCommissionRate
       auth.ownProductCommission = tierCommissionRate
-      // commissionRate 应该保持继承自父级，不应该被当前层级的 tierCommissionRate 覆盖
     }
     // 合作商产品返佣字段
     if (tierPartnerDiscountRate !== undefined) {
