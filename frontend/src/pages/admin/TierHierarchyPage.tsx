@@ -496,6 +496,7 @@ function TierCard({
     ? node.tierCommissionRuleSets
     : (depthRules.length > 0 ? [{ name: '规则1', rules: depthRules }] : [])
   const [cardRuleSetIndex, setCardRuleSetIndex] = useState(0)
+  const [rulesExpanded, setRulesExpanded] = useState(false)
   const displayRuleSet = ruleSets[cardRuleSetIndex] || null
   const displayRules = displayRuleSet ? (displayRuleSet.rules || []).filter(r => r && r.commissionRate > 0) : []
   
@@ -583,42 +584,43 @@ function TierCard({
                 </div>
               </div>
             </div>
-            {/* 多级返佣规则 */}
-            {ruleSets.length > 0 && displayRules.length > 0 && (
-              <div className="bg-purple-50 rounded-xl p-3 mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-purple-600 font-medium">多级返佣规则</p>
-                  {ruleSets.length > 1 && (
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setCardRuleSetIndex(prev => Math.max(0, prev - 1)) }}
-                        disabled={cardRuleSetIndex === 0}
-                        className={cn("p-0.5 rounded", cardRuleSetIndex === 0 ? "text-purple-300" : "text-purple-500 hover:bg-purple-100")}
-                      >
-                        <ChevronRight className="w-3.5 h-3.5 rotate-180" />
-                      </button>
-                      <span className="text-xs text-purple-500 font-medium">{cardRuleSetIndex + 1}/{ruleSets.length}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setCardRuleSetIndex(prev => Math.min(ruleSets.length - 1, prev + 1)) }}
-                        disabled={cardRuleSetIndex === ruleSets.length - 1}
-                        className={cn("p-0.5 rounded", cardRuleSetIndex === ruleSets.length - 1 ? "text-purple-300" : "text-purple-500 hover:bg-purple-100")}
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {displayRules
-                    .slice()
-                    .sort((a, b) => Number(a.depth) - Number(b.depth))
-                    .map(r => (
-                      <div key={r.depth} className="bg-white rounded-lg px-2 py-1 text-xs border border-purple-200">
-                        <span className="text-purple-500">{Number(r.depth) === 0 ? '自己' : `${r.depth}级`}</span>
-                        <span className="text-purple-700 font-bold ml-1">{Math.round(Number(r.commissionRate) * 100)}%</span>
-                      </div>
-                    ))}
-                </div>
+            {/* 多级返佣规则 - 收纳箭头展开 */}
+            {ruleSets.length > 0 && (
+              <div className="mb-4">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setRulesExpanded(prev => !prev) }}
+                  className="w-full flex items-center justify-between bg-purple-50 rounded-xl px-3 py-2 hover:bg-purple-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-purple-600 font-medium">多级返佣规则</span>
+                    <span className="bg-purple-200 text-purple-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{ruleSets.length}套</span>
+                  </div>
+                  <ChevronDown className={cn("w-4 h-4 text-purple-500 transition-transform", rulesExpanded && "rotate-180")} />
+                </button>
+                {rulesExpanded && (
+                  <div className="mt-2 space-y-2">
+                    {ruleSets.map((ruleSet, idx) => {
+                      const rules = (ruleSet.rules || []).filter(r => r && r.commissionRate > 0)
+                      if (rules.length === 0) return null
+                      return (
+                        <div key={idx} className="bg-purple-50 rounded-xl p-2.5">
+                          <p className="text-xs text-purple-500 mb-1.5">{ruleSet.name || `规则${idx + 1}`}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {rules
+                              .slice()
+                              .sort((a, b) => Number(a.depth) - Number(b.depth))
+                              .map(r => (
+                                <div key={r.depth} className="bg-white rounded-lg px-2 py-1 text-xs border border-purple-200">
+                                  <span className="text-purple-500">{Number(r.depth) === 0 ? '自己' : `${r.depth}级`}</span>
+                                  <span className="text-purple-700 font-bold ml-1">{Math.round(Number(r.commissionRate) * 100)}%</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </>
