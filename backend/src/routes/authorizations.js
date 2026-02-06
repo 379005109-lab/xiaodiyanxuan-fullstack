@@ -4258,6 +4258,12 @@ router.put('/tier-node/:id', auth, async (req, res) => {
     }
     
     auth.updatedAt = new Date()
+    if (tierCommissionRuleSets !== undefined) {
+      auth.markModified('tierCommissionRuleSets')
+    }
+    if (tierDepthBasedCommissionRules !== undefined) {
+      auth.markModified('tierDepthBasedCommissionRules')
+    }
     await auth.save()
 
     res.json({
