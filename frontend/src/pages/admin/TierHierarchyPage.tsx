@@ -1432,16 +1432,17 @@ export default function TierHierarchyPage() {
   }
 
   const handleSaveRules = async (ruleSets: Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }>; partnerRules: Array<{ depth: number; commissionRate: number; description?: string }> }>) => {
-    if (!ruleNode?._id) return
-    try {
-      await apiClient.put(`/authorizations/tier-node/${ruleNode._id}`, {
-        tierCommissionRuleSets: ruleSets
-      })
-      toast.success('规则已保存')
-      loadHierarchy()
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || '保存失败')
+    if (!ruleNode?._id) {
+      toast.error('节点ID无效，无法保存')
+      throw new Error('节点ID无效')
     }
+    console.log('[handleSaveRules] Saving to node:', ruleNode._id, 'ruleSets:', JSON.stringify(ruleSets))
+    const resp = await apiClient.put(`/authorizations/tier-node/${ruleNode._id}`, {
+      tierCommissionRuleSets: ruleSets
+    })
+    console.log('[handleSaveRules] Response:', resp.data)
+    toast.success('规则已保存')
+    loadHierarchy()
   }
   
   // 删除节点 - 直接删除无需确认
