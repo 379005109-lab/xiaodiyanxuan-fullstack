@@ -112,7 +112,9 @@ function TierRuleModal({
   const ownTotal = isChildNode
     ? (node?.tierDiscountRate || node?.ownProductCommission || 0)
     : (node?.ownProductCommission || node?.commissionRate || node?.tierDiscountRate || 0)
-  const partnerTotal = node?.tierPartnerDiscountRate || node?.partnerProductCommission || 0
+  const partnerTotal = isChildNode
+    ? (node?.tierPartnerDiscountRate || node?.partnerProductCommission || 0)
+    : (node?.partnerProductCommission || node?.tierPartnerDiscountRate || 0)
 
   const currentSet = ruleSets[currentSetIndex] || { name: '', rules: [], partnerRules: [] }
   const isOwn = activeTab === 'own'
@@ -179,7 +181,10 @@ function TierRuleModal({
       const cleaned = ruleSets.map((s, idx) => ({ name: s.name || `规则${idx + 1}`, rules: clean(s.rules), partnerRules: clean(s.partnerRules) }))
       await onSave(cleaned)
       onClose()
-    } catch (err) { console.error('保存规则失败:', err) }
+    } catch (err: any) {
+      console.error('保存规则失败:', err)
+      toast.error(err?.response?.data?.message || err?.message || '保存失败')
+    }
     finally { setSaving(false) }
   }
 
@@ -205,7 +210,7 @@ function TierRuleModal({
         </div>
 
         <div className="p-6 space-y-5">
-          {/* 规则集翻页导航 */}
+          {/* 规则集导航 */}
           <div className="flex items-center justify-between bg-gray-50 rounded-2xl p-3">
             <button
               type="button"
@@ -235,14 +240,6 @@ function TierRuleModal({
               <span className="text-sm font-medium text-gray-700">
                 {currentSetIndex + 1} / {ruleSets.length} 套规则
               </span>
-              <button
-                type="button"
-                onClick={addRuleSet}
-                className="p-1.5 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
-                title="添加新规则集"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
             </div>
             <button
               type="button"
@@ -256,6 +253,16 @@ function TierRuleModal({
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
+
+          {/* 新增规则集按钮 */}
+          <button
+            type="button"
+            onClick={addRuleSet}
+            className="w-full py-3 border-2 border-dashed border-primary-300 rounded-xl text-primary-600 hover:bg-primary-50 hover:border-primary-400 transition-colors flex items-center justify-center gap-2 font-medium text-sm"
+          >
+            <Plus className="w-5 h-5" />
+            新增一套返佣规则
+          </button>
 
           {/* 名称 + 删除 */}
           <div className="flex items-center gap-3">
@@ -1434,7 +1441,6 @@ export default function TierHierarchyPage() {
       loadHierarchy()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || '保存失败')
-      throw err
     }
   }
   
