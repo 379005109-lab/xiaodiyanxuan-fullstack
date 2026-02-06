@@ -4019,6 +4019,7 @@ router.post('/tier-node', auth, async (req, res) => {
 router.put('/tier-node/:id', auth, async (req, res) => {
   try {
     const { id } = req.params
+    console.log('[PUT tier-node] id:', id, 'body keys:', Object.keys(req.body), 'tierCommissionRuleSets?', !!req.body.tierCommissionRuleSets)
     const {
       tierDisplayName,
       tierRole,

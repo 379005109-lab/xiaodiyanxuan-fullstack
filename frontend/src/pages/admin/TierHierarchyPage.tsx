@@ -167,9 +167,9 @@ function TierRuleModal({
     if (!node?._id) { toast.error('节点ID无效'); return }
     for (let i = 0; i < ruleSets.length; i++) {
       const ot = Math.round((ruleSets[i].rules || []).reduce((s, r) => s + Number(r?.commissionRate || 0) * 100, 0))
-      if (ownTotal > 0 && ot > ownTotal) { toast.error(`第${i+1}套自有产品返佣(${ot}%)超额`); setCurrentSetIndex(i); setActiveTab('own'); return }
+      if (ownTotal > 0 && ot > ownTotal) { toast.error(`第${i+1}套自有产品返佣(${ot}%)超过额度(${ownTotal}%)`); setCurrentSetIndex(i); setActiveTab('own'); return }
       const pt = Math.round((ruleSets[i].partnerRules || []).reduce((s, r) => s + Number(r?.commissionRate || 0) * 100, 0))
-      if (partnerTotal > 0 && pt > partnerTotal) { toast.error(`第${i+1}套授权产品返佣(${pt}%)超额`); setCurrentSetIndex(i); setActiveTab('partner'); return }
+      if (partnerTotal > 0 && pt > partnerTotal) { toast.error(`第${i+1}套授权产品返佣(${pt}%)超过额度(${partnerTotal}%)`); setCurrentSetIndex(i); setActiveTab('partner'); return }
     }
     setSaving(true)
     try {
@@ -179,11 +179,14 @@ function TierRuleModal({
         description: r?.description ? String(r.description) : ''
       })).sort((a, b) => a.depth - b.depth)
       const cleaned = ruleSets.map((s, idx) => ({ name: s.name || `规则${idx + 1}`, rules: clean(s.rules), partnerRules: clean(s.partnerRules) }))
+      console.log('[TierRuleModal] Calling onSave with:', JSON.stringify(cleaned), 'nodeId:', node._id)
       await onSave(cleaned)
+      toast.success('保存成功')
       onClose()
     } catch (err: any) {
       console.error('保存规则失败:', err)
-      toast.error(err?.response?.data?.message || err?.message || '保存失败')
+      const msg = err?.response?.data?.message || err?.message || '保存失败'
+      toast.error('保存失败: ' + msg)
     }
     finally { setSaving(false) }
   }
