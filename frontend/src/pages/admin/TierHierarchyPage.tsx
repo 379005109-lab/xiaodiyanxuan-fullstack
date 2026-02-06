@@ -26,6 +26,14 @@ interface TierNode {
     commissionRate: number
     description?: string
   }>
+  tierCommissionRuleSets?: Array<{
+    name: string
+    rules: Array<{
+      depth: number
+      commissionRate: number
+      description?: string
+    }>
+  }>
   tierPartnerDiscountRate?: number  // 合作商产品返佣率
   tierPartnerDelegatedRate?: number // 合作商产品下放给下级的比例
   tierPartnerCommissionRate?: number // 合作商产品自留
@@ -61,43 +69,76 @@ function TierRuleModal({
   isOpen: boolean
   onClose: () => void
   node: TierNode | null
-  onSave: (rules: Array<{ depth: number; commissionRate: number; description?: string }>) => Promise<void>
+  onSave: (ruleSets: Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }> }>) => Promise<void>
 }) {
-  const [rules, setRules] = useState<Array<{ depth: number; commissionRate: number; description?: string }>>([])
+  const [ruleSets, setRuleSets] = useState<Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }> }>>([])
+  const [currentSetIndex, setCurrentSetIndex] = useState(0)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
-    const init = Array.isArray(node?.tierDepthBasedCommissionRules)
-      ? node!.tierDepthBasedCommissionRules!
-      : []
-    setRules((init || []).map(r => ({
-      depth: Math.max(0, Number(r?.depth || 0)),
-      commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
-      description: r?.description ? String(r.description) : ''
-    })).sort((a, b) => Number(a.depth) - Number(b.depth)))
+    // 从 tierCommissionRuleSets 初始化，如果没有则从旧的 tierDepthBasedCommissionRules 迁移
+    const existingSets = Array.isArray(node?.tierCommissionRuleSets) && node!.tierCommissionRuleSets!.length > 0
+      ? node!.tierCommissionRuleSets!
+      : null
+
+    if (existingSets) {
+      setRuleSets(existingSets.map(s => ({
+        name: s.name || '',
+        rules: (Array.isArray(s.rules) ? s.rules : []).map(r => ({
+          depth: Math.max(0, Number(r?.depth || 0)),
+          commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+          description: r?.description ? String(r.description) : ''
+        })).sort((a, b) => Number(a.depth) - Number(b.depth))
+      })))
+    } else {
+      // 迁移旧数据
+      const oldRules = Array.isArray(node?.tierDepthBasedCommissionRules)
+        ? node!.tierDepthBasedCommissionRules!
+        : []
+      const migrated = oldRules.map(r => ({
+        depth: Math.max(0, Number(r?.depth || 0)),
+        commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+        description: r?.description ? String(r.description) : ''
+      })).sort((a, b) => Number(a.depth) - Number(b.depth))
+
+      if (migrated.length > 0) {
+        setRuleSets([{ name: '规则1', rules: migrated }])
+      } else {
+        setRuleSets([{ name: '规则1', rules: [] }])
+      }
+    }
+    setCurrentSetIndex(0)
   }, [isOpen, node])
 
-  // 本节点的总返佣额度（授权值，不用tierDiscountRate因为可能被污染）
   const nodeTotal = (node?.ownProductCommission || node?.commissionRate || node?.tierDiscountRate || 0)
-  const nodeTotalDec = nodeTotal / 100 // 转为小数用于规则
+  const nodeTotalDec = nodeTotal / 100
+
+  const currentSet = ruleSets[currentSetIndex] || { name: '', rules: [] }
+  const currentRules = currentSet.rules || []
 
   const totalPct = useMemo(() => {
-    return Math.round((rules || []).reduce((sum, r) => sum + (Number(r?.commissionRate || 0) * 100), 0))
-  }, [rules])
+    return Math.round((currentRules || []).reduce((sum, r) => sum + (Number(r?.commissionRate || 0) * 100), 0))
+  }, [currentRules])
 
   const isOverBudget = totalPct > nodeTotal
 
+  const updateCurrentRules = (newRules: typeof currentRules) => {
+    setRuleSets(prev => prev.map((s, i) => i === currentSetIndex ? { ...s, rules: newRules } : s))
+  }
+
+  const updateCurrentName = (name: string) => {
+    setRuleSets(prev => prev.map((s, i) => i === currentSetIndex ? { ...s, name } : s))
+  }
+
   const setPreset = (type: 'direct' | 'two' | 'three') => {
     if (type === 'direct') {
-      setRules([
-        { depth: 0, commissionRate: nodeTotalDec, description: '' }
-      ])
+      updateCurrentRules([{ depth: 0, commissionRate: nodeTotalDec, description: '' }])
       return
     }
     if (type === 'two') {
       const half = Math.round(nodeTotalDec * 50) / 100
-      setRules([
+      updateCurrentRules([
         { depth: 0, commissionRate: half, description: '' },
         { depth: 1, commissionRate: Math.round((nodeTotalDec - half) * 100) / 100, description: '' },
       ])
@@ -105,7 +146,7 @@ function TierRuleModal({
     }
     const third = Math.round(nodeTotalDec * 100 / 3) / 100
     const rest = Math.round((nodeTotalDec - third * 2) * 100) / 100
-    setRules([
+    updateCurrentRules([
       { depth: 0, commissionRate: third, description: '' },
       { depth: 1, commissionRate: third, description: '' },
       { depth: 2, commissionRate: rest, description: '' },
@@ -113,31 +154,45 @@ function TierRuleModal({
   }
 
   const addDepth = () => {
-    const maxDepth = rules.length > 0 ? Math.max(...rules.map(r => Number(r.depth))) : -1
-    const nextDepth = maxDepth + 1
-    setRules(prev => [...prev, { depth: nextDepth, commissionRate: 0, description: '' }])
+    const maxDepth = currentRules.length > 0 ? Math.max(...currentRules.map(r => Number(r.depth))) : -1
+    updateCurrentRules([...currentRules, { depth: maxDepth + 1, commissionRate: 0, description: '' }])
   }
 
   const removeDepth = (depth: number) => {
-    setRules(prev => prev.filter(r => Number(r.depth) !== Number(depth)))
+    updateCurrentRules(currentRules.filter(r => Number(r.depth) !== Number(depth)))
   }
 
   const updateRate = (depth: number, pct: number) => {
     const next = Math.max(0, Math.min(100, Number(pct || 0))) / 100
-    setRules(prev => prev.map(r => Number(r.depth) === Number(depth) ? { ...r, commissionRate: next } : r))
+    updateCurrentRules(currentRules.map(r => Number(r.depth) === Number(depth) ? { ...r, commissionRate: next } : r))
+  }
+
+  const addRuleSet = () => {
+    const newIndex = ruleSets.length
+    setRuleSets(prev => [...prev, { name: `规则${newIndex + 1}`, rules: [] }])
+    setCurrentSetIndex(newIndex)
+  }
+
+  const removeCurrentRuleSet = () => {
+    if (ruleSets.length <= 1) return
+    setRuleSets(prev => prev.filter((_, i) => i !== currentSetIndex))
+    setCurrentSetIndex(prev => Math.max(0, prev - 1))
   }
 
   const handleSave = async () => {
     if (!node?._id) return
     setSaving(true)
     try {
-      const cleaned = (rules || [])
-        .map(r => ({
-          depth: Math.max(0, Number(r?.depth || 0)),
-          commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
-          description: r?.description ? String(r.description) : ''
-        }))
-        .sort((a, b) => Number(a.depth) - Number(b.depth))
+      const cleaned = ruleSets.map((s, idx) => ({
+        name: s.name || `规则${idx + 1}`,
+        rules: (s.rules || [])
+          .map(r => ({
+            depth: Math.max(0, Number(r?.depth || 0)),
+            commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+            description: r?.description ? String(r.description) : ''
+          }))
+          .sort((a, b) => Number(a.depth) - Number(b.depth))
+      }))
       await onSave(cleaned)
       onClose()
     } finally {
@@ -167,6 +222,80 @@ function TierRuleModal({
         </div>
 
         <div className="p-6 space-y-5">
+          {/* 规则集翻页导航 */}
+          <div className="flex items-center justify-between bg-gray-50 rounded-2xl p-3">
+            <button
+              type="button"
+              onClick={() => setCurrentSetIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentSetIndex === 0}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                currentSetIndex === 0 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-white hover:text-primary-600"
+              )}
+            >
+              <ChevronRight className="w-5 h-5 rotate-180" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                {ruleSets.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCurrentSetIndex(idx)}
+                    className={cn(
+                      "w-2.5 h-2.5 rounded-full transition-all",
+                      idx === currentSetIndex ? "bg-primary-600 scale-125" : "bg-gray-300 hover:bg-gray-400"
+                    )}
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-medium text-gray-700">
+                {currentSetIndex + 1} / {ruleSets.length} 套规则
+              </span>
+              <button
+                type="button"
+                onClick={addRuleSet}
+                className="p-1.5 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
+                title="添加新规则集"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentSetIndex(prev => Math.min(ruleSets.length - 1, prev + 1))}
+              disabled={currentSetIndex === ruleSets.length - 1}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                currentSetIndex === ruleSets.length - 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-white hover:text-primary-600"
+              )}
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* 当前规则集名称 */}
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={currentSet.name}
+              onChange={(e) => updateCurrentName(e.target.value)}
+              placeholder="规则名称"
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
+            />
+            {ruleSets.length > 1 && (
+              <button
+                type="button"
+                onClick={removeCurrentRuleSet}
+                className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                title="删除此规则集"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* 预设模板 */}
           <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
@@ -204,8 +333,8 @@ function TierRuleModal({
             </div>
             <div className="flex items-center justify-between border-t border-gray-200 pt-2">
               <div>
-                <div className="text-sm font-bold text-gray-900">规则返佣总计</div>
-                <div className="text-xs text-gray-500 mt-1">当前规则各层返佣之和</div>
+                <div className="text-sm font-bold text-gray-900">当前规则返佣总计</div>
+                <div className="text-xs text-gray-500 mt-1">第{currentSetIndex + 1}套规则各层返佣之和</div>
               </div>
               <div className={cn("text-2xl font-bold", isOverBudget ? "text-red-600" : "text-green-700")}>{totalPct}%</div>
             </div>
@@ -227,11 +356,11 @@ function TierRuleModal({
               </button>
             </div>
 
-            {rules.length === 0 ? (
+            {currentRules.length === 0 ? (
               <div className="text-sm text-gray-500 py-6 text-center">暂无配置</div>
             ) : (
               <div className="space-y-2">
-                {rules
+                {currentRules
                   .slice()
                   .sort((a, b) => Number(a.depth) - Number(b.depth))
                   .map((r) => (
@@ -264,6 +393,15 @@ function TierRuleModal({
                   ))}
               </div>
             )}
+          </div>
+
+          {/* 规则说明 */}
+          <div className="bg-blue-50 rounded-xl p-3">
+            <p className="text-xs text-blue-600">
+              <span className="font-medium">结算说明：</span>
+              第1套规则用于第1级产生的交易结算，第2套规则用于第2级产生的交易，依此类推。
+              每套规则中，自己和上级都会按对应层级获得返佣。
+            </p>
           </div>
         </div>
 
@@ -333,6 +471,12 @@ function TierCard({
   const ownCommission = node.tierCommissionRate || 0
   const delegated = node.tierDelegatedRate || 0
   const depthRules = Array.isArray(node.tierDepthBasedCommissionRules) ? node.tierDepthBasedCommissionRules.filter(r => r && r.commissionRate > 0) : []
+  const ruleSets = Array.isArray(node.tierCommissionRuleSets) && node.tierCommissionRuleSets.length > 0
+    ? node.tierCommissionRuleSets
+    : (depthRules.length > 0 ? [{ name: '规则1', rules: depthRules }] : [])
+  const [cardRuleSetIndex, setCardRuleSetIndex] = useState(0)
+  const displayRuleSet = ruleSets[cardRuleSetIndex] || null
+  const displayRules = displayRuleSet ? (displayRuleSet.rules || []).filter(r => r && r.commissionRate > 0) : []
   
   return (
     <div className="relative">
@@ -419,11 +563,32 @@ function TierCard({
               </div>
             </div>
             {/* 多级返佣规则 */}
-            {depthRules.length > 0 && (
+            {ruleSets.length > 0 && displayRules.length > 0 && (
               <div className="bg-purple-50 rounded-xl p-3 mb-4">
-                <p className="text-xs text-purple-600 font-medium mb-2">多级返佣规则</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-purple-600 font-medium">多级返佣规则</p>
+                  {ruleSets.length > 1 && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setCardRuleSetIndex(prev => Math.max(0, prev - 1)) }}
+                        disabled={cardRuleSetIndex === 0}
+                        className={cn("p-0.5 rounded", cardRuleSetIndex === 0 ? "text-purple-300" : "text-purple-500 hover:bg-purple-100")}
+                      >
+                        <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+                      </button>
+                      <span className="text-xs text-purple-500 font-medium">{cardRuleSetIndex + 1}/{ruleSets.length}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setCardRuleSetIndex(prev => Math.min(ruleSets.length - 1, prev + 1)) }}
+                        disabled={cardRuleSetIndex === ruleSets.length - 1}
+                        className={cn("p-0.5 rounded", cardRuleSetIndex === ruleSets.length - 1 ? "text-purple-300" : "text-purple-500 hover:bg-purple-100")}
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {depthRules
+                  {displayRules
                     .slice()
                     .sort((a, b) => Number(a.depth) - Number(b.depth))
                     .map(r => (
@@ -1273,11 +1438,13 @@ export default function TierHierarchyPage() {
     setShowRuleModal(true)
   }
 
-  const handleSaveRules = async (rules: Array<{ depth: number; commissionRate: number; description?: string }>) => {
+  const handleSaveRules = async (ruleSets: Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }> }>) => {
     if (!ruleNode?._id) return
     try {
       await apiClient.put(`/authorizations/tier-node/${ruleNode._id}`, {
-        tierDepthBasedCommissionRules: rules
+        tierCommissionRuleSets: ruleSets,
+        // 同步第一套规则到旧字段（向后兼容）
+        tierDepthBasedCommissionRules: ruleSets.length > 0 ? ruleSets[0].rules : []
       })
       toast.success('规则已保存')
       loadHierarchy()
