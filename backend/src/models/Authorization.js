@@ -210,6 +210,11 @@ const authorizationSchema = new mongoose.Schema({
       depth: { type: Number, min: 0 },
       commissionRate: { type: Number, min: 0, max: 1 },
       description: { type: String }
+    }],
+    partnerRules: [{
+      depth: { type: Number, min: 0 },
+      commissionRate: { type: Number, min: 0, max: 1 },
+      description: { type: String }
     }]
   }],
   

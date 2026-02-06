@@ -33,6 +33,11 @@ interface TierNode {
       commissionRate: number
       description?: string
     }>
+    partnerRules?: Array<{
+      depth: number
+      commissionRate: number
+      description?: string
+    }>
   }>
   tierPartnerDiscountRate?: number  // 合作商产品返佣率
   tierPartnerDelegatedRate?: number // 合作商产品下放给下级的比例
@@ -69,114 +74,87 @@ function TierRuleModal({
   isOpen: boolean
   onClose: () => void
   node: TierNode | null
-  onSave: (ruleSets: Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }> }>) => Promise<void>
+  onSave: (ruleSets: Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }>; partnerRules: Array<{ depth: number; commissionRate: number; description?: string }> }>) => Promise<void>
 }) {
-  const [ruleSets, setRuleSets] = useState<Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }> }>>([])
+  type DepthRule = { depth: number; commissionRate: number; description?: string }
+  type RuleSetType = { name: string; rules: DepthRule[]; partnerRules: DepthRule[] }
+  const [ruleSets, setRuleSets] = useState<RuleSetType[]>([])
   const [currentSetIndex, setCurrentSetIndex] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState<'own' | 'partner'>('own')
 
   useEffect(() => {
     if (!isOpen) return
-    // 从 tierCommissionRuleSets 初始化，如果没有则从旧的 tierDepthBasedCommissionRules 迁移
     const existingSets = Array.isArray(node?.tierCommissionRuleSets) && node!.tierCommissionRuleSets!.length > 0
-      ? node!.tierCommissionRuleSets!
-      : null
+      ? node!.tierCommissionRuleSets! : null
+
+    const parseRules = (arr: any[]) => (arr || []).map((r: any) => ({
+      depth: Math.max(0, Number(r?.depth || 0)),
+      commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+      description: r?.description ? String(r.description) : ''
+    })).sort((a: any, b: any) => a.depth - b.depth)
 
     if (existingSets) {
       setRuleSets(existingSets.map(s => ({
         name: s.name || '',
-        rules: (Array.isArray(s.rules) ? s.rules : []).map(r => ({
-          depth: Math.max(0, Number(r?.depth || 0)),
-          commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
-          description: r?.description ? String(r.description) : ''
-        })).sort((a, b) => Number(a.depth) - Number(b.depth))
+        rules: parseRules(s.rules),
+        partnerRules: parseRules((s as any).partnerRules || [])
       })))
     } else {
-      // 迁移旧数据
-      const oldRules = Array.isArray(node?.tierDepthBasedCommissionRules)
-        ? node!.tierDepthBasedCommissionRules!
-        : []
-      const migrated = oldRules.map(r => ({
-        depth: Math.max(0, Number(r?.depth || 0)),
-        commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
-        description: r?.description ? String(r.description) : ''
-      })).sort((a, b) => Number(a.depth) - Number(b.depth))
-
-      if (migrated.length > 0) {
-        setRuleSets([{ name: '规则1', rules: migrated }])
-      } else {
-        setRuleSets([{ name: '规则1', rules: [] }])
-      }
+      const oldRules = parseRules(node?.tierDepthBasedCommissionRules || [])
+      setRuleSets([{ name: '规则1', rules: oldRules, partnerRules: [] }])
     }
     setCurrentSetIndex(0)
+    setActiveTab('own')
   }, [isOpen, node])
 
-  // 本节点的总返佣额度：有父级的用tierDiscountRate（上级分配），根节点用ownProductCommission
   const isChildNode = Boolean(node?.parentAuthorizationId)
-  const nodeTotal = isChildNode
+  const ownTotal = isChildNode
     ? (node?.tierDiscountRate || node?.ownProductCommission || 0)
     : (node?.ownProductCommission || node?.commissionRate || node?.tierDiscountRate || 0)
-  const nodeTotalDec = nodeTotal / 100 // 转为小数用于规则
+  const partnerTotal = node?.tierPartnerDiscountRate || node?.partnerProductCommission || 0
 
-  const currentSet = ruleSets[currentSetIndex] || { name: '', rules: [] }
-  const currentRules = currentSet.rules || []
+  const currentSet = ruleSets[currentSetIndex] || { name: '', rules: [], partnerRules: [] }
+  const isOwn = activeTab === 'own'
+  const currentRules = isOwn ? (currentSet.rules || []) : (currentSet.partnerRules || [])
+  const nodeTotal = isOwn ? ownTotal : partnerTotal
+  const nodeTotalDec = nodeTotal / 100
 
   const totalPct = useMemo(() => {
-    return Math.round((currentRules || []).reduce((sum, r) => sum + (Number(r?.commissionRate || 0) * 100), 0))
+    return Math.round(currentRules.reduce((sum, r) => sum + (Number(r?.commissionRate || 0) * 100), 0))
   }, [currentRules])
+  const isOverBudget = nodeTotal > 0 && totalPct > nodeTotal
 
-  const isOverBudget = totalPct > nodeTotal
-
-  const updateCurrentRules = (newRules: typeof currentRules) => {
-    setRuleSets(prev => prev.map((s, i) => i === currentSetIndex ? { ...s, rules: newRules } : s))
-  }
-
-  const updateCurrentName = (name: string) => {
-    setRuleSets(prev => prev.map((s, i) => i === currentSetIndex ? { ...s, name } : s))
+  const updateRules = (newRules: DepthRule[]) => {
+    const key = isOwn ? 'rules' : 'partnerRules'
+    setRuleSets(prev => prev.map((s, i) => i === currentSetIndex ? { ...s, [key]: newRules } : s))
   }
 
   const setPreset = (type: 'direct' | 'two' | 'three') => {
-    if (type === 'direct') {
-      updateCurrentRules([{ depth: 0, commissionRate: nodeTotalDec, description: '' }])
-      return
-    }
+    const dec = nodeTotalDec
+    if (type === 'direct') { updateRules([{ depth: 0, commissionRate: dec, description: '' }]); return }
     if (type === 'two') {
-      const half = Math.round(nodeTotalDec * 50) / 100
-      updateCurrentRules([
-        { depth: 0, commissionRate: half, description: '' },
-        { depth: 1, commissionRate: Math.round((nodeTotalDec - half) * 100) / 100, description: '' },
-      ])
-      return
+      const half = Math.round(dec * 50) / 100
+      updateRules([{ depth: 0, commissionRate: half, description: '' }, { depth: 1, commissionRate: Math.round((dec - half) * 100) / 100, description: '' }]); return
     }
-    const third = Math.round(nodeTotalDec * 100 / 3) / 100
-    const rest = Math.round((nodeTotalDec - third * 2) * 100) / 100
-    updateCurrentRules([
-      { depth: 0, commissionRate: third, description: '' },
-      { depth: 1, commissionRate: third, description: '' },
-      { depth: 2, commissionRate: rest, description: '' },
-    ])
+    const third = Math.round(dec * 100 / 3) / 100
+    updateRules([{ depth: 0, commissionRate: third, description: '' }, { depth: 1, commissionRate: third, description: '' }, { depth: 2, commissionRate: Math.round((dec - third * 2) * 100) / 100, description: '' }])
   }
 
   const addDepth = () => {
-    const maxDepth = currentRules.length > 0 ? Math.max(...currentRules.map(r => Number(r.depth))) : -1
-    updateCurrentRules([...currentRules, { depth: maxDepth + 1, commissionRate: 0, description: '' }])
+    const maxD = currentRules.length > 0 ? Math.max(...currentRules.map(r => r.depth)) : -1
+    updateRules([...currentRules, { depth: maxD + 1, commissionRate: 0, description: '' }])
   }
-
-  const removeDepth = (depth: number) => {
-    updateCurrentRules(currentRules.filter(r => Number(r.depth) !== Number(depth)))
-  }
-
-  const updateRate = (depth: number, pct: number) => {
-    const next = Math.max(0, Math.min(100, Number(pct || 0))) / 100
-    updateCurrentRules(currentRules.map(r => Number(r.depth) === Number(depth) ? { ...r, commissionRate: next } : r))
+  const removeDepth = (d: number) => updateRules(currentRules.filter(r => r.depth !== d))
+  const updateRate = (d: number, pct: number) => {
+    const v = Math.max(0, Math.min(100, Number(pct || 0))) / 100
+    updateRules(currentRules.map(r => r.depth === d ? { ...r, commissionRate: v } : r))
   }
 
   const addRuleSet = () => {
-    const newIndex = ruleSets.length
-    setRuleSets(prev => [...prev, { name: `规则${newIndex + 1}`, rules: [] }])
-    setCurrentSetIndex(newIndex)
+    setRuleSets(prev => [...prev, { name: `规则${prev.length + 1}`, rules: [], partnerRules: [] }])
+    setCurrentSetIndex(ruleSets.length)
   }
-
   const removeCurrentRuleSet = () => {
     if (ruleSets.length <= 1) return
     setRuleSets(prev => prev.filter((_, i) => i !== currentSetIndex))
@@ -184,39 +162,25 @@ function TierRuleModal({
   }
 
   const handleSave = async () => {
-    if (!node?._id) {
-      toast.error('节点ID无效，无法保存')
-      return
-    }
-    // 验证所有规则集的返佣总计
+    if (!node?._id) { toast.error('节点ID无效'); return }
     for (let i = 0; i < ruleSets.length; i++) {
-      const setRules = ruleSets[i].rules || []
-      const setTotal = Math.round(setRules.reduce((sum, r) => sum + (Number(r?.commissionRate || 0) * 100), 0))
-      if (setTotal > nodeTotal) {
-        toast.error(`第${i + 1}套规则返佣总计 (${setTotal}%) 超过了授权额度 (${nodeTotal}%)`)
-        setCurrentSetIndex(i)
-        return
-      }
+      const ot = Math.round((ruleSets[i].rules || []).reduce((s, r) => s + Number(r?.commissionRate || 0) * 100, 0))
+      if (ownTotal > 0 && ot > ownTotal) { toast.error(`第${i+1}套自有产品返佣(${ot}%)超额`); setCurrentSetIndex(i); setActiveTab('own'); return }
+      const pt = Math.round((ruleSets[i].partnerRules || []).reduce((s, r) => s + Number(r?.commissionRate || 0) * 100, 0))
+      if (partnerTotal > 0 && pt > partnerTotal) { toast.error(`第${i+1}套授权产品返佣(${pt}%)超额`); setCurrentSetIndex(i); setActiveTab('partner'); return }
     }
     setSaving(true)
     try {
-      const cleaned = ruleSets.map((s, idx) => ({
-        name: s.name || `规则${idx + 1}`,
-        rules: (s.rules || [])
-          .map(r => ({
-            depth: Math.max(0, Number(r?.depth || 0)),
-            commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
-            description: r?.description ? String(r.description) : ''
-          }))
-          .sort((a, b) => Number(a.depth) - Number(b.depth))
-      }))
+      const clean = (arr: DepthRule[]) => (arr || []).map(r => ({
+        depth: Math.max(0, Number(r?.depth || 0)),
+        commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+        description: r?.description ? String(r.description) : ''
+      })).sort((a, b) => a.depth - b.depth)
+      const cleaned = ruleSets.map((s, idx) => ({ name: s.name || `规则${idx + 1}`, rules: clean(s.rules), partnerRules: clean(s.partnerRules) }))
       await onSave(cleaned)
       onClose()
-    } catch (err: any) {
-      console.error('保存规则失败:', err)
-    } finally {
-      setSaving(false)
-    }
+    } catch (err) { console.error('保存规则失败:', err) }
+    finally { setSaving(false) }
   }
 
   if (!isOpen || !node) return null
@@ -293,25 +257,25 @@ function TierRuleModal({
             </button>
           </div>
 
-          {/* 当前规则集名称 */}
+          {/* 名称 + 删除 */}
           <div className="flex items-center gap-3">
-            <input
-              type="text"
-              value={currentSet.name}
-              onChange={(e) => updateCurrentName(e.target.value)}
-              placeholder="规则名称"
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium"
-            />
+            <input type="text" value={currentSet.name} onChange={(e) => setRuleSets(prev => prev.map((s, i) => i === currentSetIndex ? { ...s, name: e.target.value } : s))}
+              placeholder="规则名称" className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium" />
             {ruleSets.length > 1 && (
-              <button
-                type="button"
-                onClick={removeCurrentRuleSet}
-                className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                title="删除此规则集"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <button type="button" onClick={removeCurrentRuleSet} className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
             )}
+          </div>
+
+          {/* 自有/授权产品 Tab */}
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            <button type="button" onClick={() => setActiveTab('own')}
+              className={cn("flex-1 py-2 rounded-lg text-sm font-medium transition-colors", isOwn ? "bg-white text-green-700 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+              自有产品 {ownTotal > 0 && <span className="text-xs ml-1">({ownTotal}%)</span>}
+            </button>
+            <button type="button" onClick={() => setActiveTab('partner')}
+              className={cn("flex-1 py-2 rounded-lg text-sm font-medium transition-colors", !isOwn ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+              授权产品 {partnerTotal > 0 && <span className="text-xs ml-1">({partnerTotal}%)</span>}
+            </button>
           </div>
 
           {/* 预设模板 */}
@@ -344,27 +308,19 @@ function TierRuleModal({
 
           <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
             <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-bold text-gray-900">授权返佣额度</div>
-                <div className="text-xs text-gray-500 mt-1">本节点可分配的总返佣</div>
-              </div>
-              <div className="text-2xl font-bold text-amber-700">{nodeTotal}%</div>
+              <span className="text-sm font-bold text-gray-900">{isOwn ? '自有产品' : '授权产品'}额度</span>
+              <span className="text-2xl font-bold text-amber-700">{nodeTotal}%</span>
             </div>
             <div className="flex items-center justify-between border-t border-gray-200 pt-2">
-              <div>
-                <div className="text-sm font-bold text-gray-900">当前规则返佣总计</div>
-                <div className="text-xs text-gray-500 mt-1">第{currentSetIndex + 1}套规则各层返佣之和</div>
-              </div>
-              <div className={cn("text-2xl font-bold", isOverBudget ? "text-red-600" : "text-green-700")}>{totalPct}%</div>
+              <span className="text-sm font-bold text-gray-900">当前规则总计</span>
+              <span className={cn("text-2xl font-bold", isOverBudget ? "text-red-600" : "text-green-700")}>{totalPct}%</span>
             </div>
-            {isOverBudget && (
-              <p className="text-xs text-red-500 font-medium">规则返佣总计 ({totalPct}%) 超过了授权额度 ({nodeTotal}%)，请调整</p>
-            )}
+            {isOverBudget && <p className="text-xs text-red-500">超过授权额度，请调整</p>}
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-bold text-gray-900">层级配置</div>
+              <div className="text-sm font-bold text-gray-900">{isOwn ? '自有产品' : '授权产品'}层级配置</div>
               <button
                 type="button"
                 onClick={addDepth}
@@ -412,15 +368,6 @@ function TierRuleModal({
                   ))}
               </div>
             )}
-          </div>
-
-          {/* 规则说明 */}
-          <div className="bg-blue-50 rounded-xl p-3">
-            <p className="text-xs text-blue-600">
-              <span className="font-medium">结算说明：</span>
-              第1套规则用于第1级产生的交易结算，第2套规则用于第2级产生的交易，依此类推。
-              每套规则中，自己和上级都会按对应层级获得返佣。
-            </p>
           </div>
         </div>
 
@@ -494,7 +441,7 @@ function TierCard({
   const depthRules = Array.isArray(node.tierDepthBasedCommissionRules) ? node.tierDepthBasedCommissionRules.filter(r => r && r.commissionRate > 0) : []
   const ruleSets = Array.isArray(node.tierCommissionRuleSets) && node.tierCommissionRuleSets.length > 0
     ? node.tierCommissionRuleSets
-    : (depthRules.length > 0 ? [{ name: '规则1', rules: depthRules }] : [])
+    : (depthRules.length > 0 ? [{ name: '规则1', rules: depthRules, partnerRules: [] as typeof depthRules }] : [])
   const [cardRuleSetIndex, setCardRuleSetIndex] = useState(0)
   const [rulesExpanded, setRulesExpanded] = useState(false)
   const displayRuleSet = ruleSets[cardRuleSetIndex] || null
@@ -601,21 +548,37 @@ function TierCard({
                   <div className="mt-2 space-y-2">
                     {ruleSets.map((ruleSet, idx) => {
                       const rules = (ruleSet.rules || []).filter(r => r && r.commissionRate > 0)
-                      if (rules.length === 0) return null
+                      const pRules = ((ruleSet as any).partnerRules || []).filter((r: any) => r && r.commissionRate > 0)
+                      if (rules.length === 0 && pRules.length === 0) return null
                       return (
-                        <div key={idx} className="bg-purple-50 rounded-xl p-2.5">
-                          <p className="text-xs text-purple-500 mb-1.5">{ruleSet.name || `规则${idx + 1}`}</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {rules
-                              .slice()
-                              .sort((a, b) => Number(a.depth) - Number(b.depth))
-                              .map(r => (
-                                <div key={r.depth} className="bg-white rounded-lg px-2 py-1 text-xs border border-purple-200">
-                                  <span className="text-purple-500">{Number(r.depth) === 0 ? '自己' : `${r.depth}级`}</span>
-                                  <span className="text-purple-700 font-bold ml-1">{Math.round(Number(r.commissionRate) * 100)}%</span>
-                                </div>
-                              ))}
-                          </div>
+                        <div key={idx} className="bg-purple-50 rounded-xl p-2.5 space-y-2">
+                          <p className="text-xs text-purple-500 font-medium">{ruleSet.name || `规则${idx + 1}`}</p>
+                          {rules.length > 0 && (
+                            <div>
+                              <p className="text-xs text-green-600 mb-1">自有产品</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {rules.slice().sort((a, b) => Number(a.depth) - Number(b.depth)).map(r => (
+                                  <div key={r.depth} className="bg-white rounded-lg px-2 py-1 text-xs border border-green-200">
+                                    <span className="text-green-500">{Number(r.depth) === 0 ? '自己' : `${r.depth}级`}</span>
+                                    <span className="text-green-700 font-bold ml-1">{Math.round(Number(r.commissionRate) * 100)}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {pRules.length > 0 && (
+                            <div>
+                              <p className="text-xs text-blue-600 mb-1">授权产品</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {pRules.slice().sort((a: any, b: any) => Number(a.depth) - Number(b.depth)).map((r: any) => (
+                                  <div key={r.depth} className="bg-white rounded-lg px-2 py-1 text-xs border border-blue-200">
+                                    <span className="text-blue-500">{Number(r.depth) === 0 ? '自己' : `${r.depth}级`}</span>
+                                    <span className="text-blue-700 font-bold ml-1">{Math.round(Number(r.commissionRate) * 100)}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -1461,7 +1424,7 @@ export default function TierHierarchyPage() {
     setShowRuleModal(true)
   }
 
-  const handleSaveRules = async (ruleSets: Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }> }>) => {
+  const handleSaveRules = async (ruleSets: Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }>; partnerRules: Array<{ depth: number; commissionRate: number; description?: string }> }>) => {
     if (!ruleNode?._id) return
     try {
       await apiClient.put(`/authorizations/tier-node/${ruleNode._id}`, {

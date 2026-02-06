@@ -4171,6 +4171,7 @@ router.put('/tier-node/:id', auth, async (req, res) => {
         auth.tierCommissionRuleSets = []
       } else if (Array.isArray(tierCommissionRuleSets)) {
         const nodeTotal = auth.ownProductCommission || auth.commissionRate || auth.tierDiscountRate || 0
+        const partnerTotal = auth.partnerProductCommission || auth.tierPartnerDiscountRate || 0
         const cleanedSets = tierCommissionRuleSets.map((set, idx) => {
           const rules = Array.isArray(set?.rules) ? set.rules : []
           const cleanedRules = rules
@@ -4181,15 +4182,32 @@ router.put('/tier-node/:id', auth, async (req, res) => {
             }))
             .sort((a, b) => Number(a.depth) - Number(b.depth))
 
-          // 验证每套规则的返佣总计不超过授权额度
+          // 处理授权产品返佣规则
+          const partnerRulesRaw = Array.isArray(set?.partnerRules) ? set.partnerRules : []
+          const cleanedPartnerRules = partnerRulesRaw
+            .map(r => ({
+              depth: Math.max(0, Number(r?.depth || 0)),
+              commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+              description: r?.description ? String(r.description) : ''
+            }))
+            .sort((a, b) => Number(a.depth) - Number(b.depth))
+
+          // 验证自有产品规则
           const rulesTotalPct = Math.round(cleanedRules.reduce((sum, r) => sum + (r.commissionRate * 100), 0))
           if (nodeTotal > 0 && rulesTotalPct > nodeTotal) {
-            return { error: `第${idx + 1}套规则返佣总计 (${rulesTotalPct}%) 超过了授权返佣额度 (${nodeTotal}%)` }
+            return { error: `第${idx + 1}套规则自有产品返佣总计 (${rulesTotalPct}%) 超过了授权额度 (${nodeTotal}%)` }
+          }
+
+          // 验证授权产品规则
+          const partnerTotalPct = Math.round(cleanedPartnerRules.reduce((sum, r) => sum + (r.commissionRate * 100), 0))
+          if (partnerTotal > 0 && partnerTotalPct > partnerTotal) {
+            return { error: `第${idx + 1}套规则授权产品返佣总计 (${partnerTotalPct}%) 超过了授权额度 (${partnerTotal}%)` }
           }
 
           return {
             name: set?.name ? String(set.name) : `规则${idx + 1}`,
-            rules: cleanedRules
+            rules: cleanedRules,
+            partnerRules: cleanedPartnerRules
           }
         })
 
