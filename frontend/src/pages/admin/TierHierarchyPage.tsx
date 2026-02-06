@@ -188,9 +188,15 @@ function TierRuleModal({
       toast.error('节点ID无效，无法保存')
       return
     }
-    if (isOverBudget) {
-      toast.error(`规则返佣总计 (${totalPct}%) 超过了授权额度 (${nodeTotal}%)，请调整`)
-      return
+    // 验证所有规则集的返佣总计
+    for (let i = 0; i < ruleSets.length; i++) {
+      const setRules = ruleSets[i].rules || []
+      const setTotal = Math.round(setRules.reduce((sum, r) => sum + (Number(r?.commissionRate || 0) * 100), 0))
+      if (setTotal > nodeTotal) {
+        toast.error(`第${i + 1}套规则返佣总计 (${setTotal}%) 超过了授权额度 (${nodeTotal}%)`)
+        setCurrentSetIndex(i)
+        return
+      }
     }
     setSaving(true)
     try {
@@ -1457,9 +1463,7 @@ export default function TierHierarchyPage() {
     if (!ruleNode?._id) return
     try {
       await apiClient.put(`/authorizations/tier-node/${ruleNode._id}`, {
-        tierCommissionRuleSets: ruleSets,
-        // 同步第一套规则到旧字段（向后兼容）
-        tierDepthBasedCommissionRules: ruleSets.length > 0 ? ruleSets[0].rules : []
+        tierCommissionRuleSets: ruleSets
       })
       toast.success('规则已保存')
       loadHierarchy()

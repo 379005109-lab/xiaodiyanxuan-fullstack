@@ -3562,6 +3562,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       const mfId = auth.fromManufacturer?._id || auth.fromManufacturer
       let count = 0
       
+      // 计算自有产品数量
       if (auth.scope === 'all') {
         count = await Product.countDocuments({
           status: 'active',
@@ -3597,6 +3598,71 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         }
         const specificCount = auth.products?.length || 0
         count = categoryCount + specificCount
+      }
+      
+      // 计算授权产品数量：查找其他厂家授权给此节点绑定用户的产品
+      const boundIds = []
+      if (auth.boundUserId) boundIds.push(String(auth.boundUserId?._id || auth.boundUserId))
+      if (Array.isArray(auth.boundUserIds)) {
+        auth.boundUserIds.forEach(id => {
+          const uid = String(id?._id || id)
+          if (uid && !boundIds.includes(uid)) boundIds.push(uid)
+        })
+      }
+      
+      if (boundIds.length > 0) {
+        try {
+          // 查找授权给这些用户的其他授权记录（不同厂家的）
+          const receivedAuths = await Authorization.find({
+            status: 'active',
+            fromManufacturer: { $ne: mfId },
+            $or: [
+              { boundUserIds: { $in: boundIds } },
+              { boundUserId: { $in: boundIds } },
+              { toDesigner: { $in: boundIds } }
+            ]
+          }).select('scope products categories fromManufacturer').lean()
+          
+          for (const ra of receivedAuths) {
+            const raMfId = ra.fromManufacturer?._id || ra.fromManufacturer
+            if (ra.scope === 'all') {
+              const c = await Product.countDocuments({
+                status: 'active',
+                $or: [{ manufacturerId: raMfId }, { 'skus.manufacturerId': raMfId }]
+              })
+              count += c
+            } else if (ra.scope === 'specific' && ra.products?.length > 0) {
+              count += ra.products.length
+            } else if (ra.scope === 'category' && ra.categories?.length > 0) {
+              const catIds = ra.categories.map(c => String(c))
+              const catOids = catIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id))
+              const c = await Product.countDocuments({
+                status: 'active',
+                $and: [
+                  { $or: [{ manufacturerId: raMfId }, { 'skus.manufacturerId': raMfId }] },
+                  { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+                ]
+              })
+              count += c
+            } else if (ra.scope === 'mixed') {
+              let cc = 0
+              if (ra.categories?.length > 0) {
+                const catIds = ra.categories.map(c => String(c))
+                const catOids = catIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id))
+                cc = await Product.countDocuments({
+                  status: 'active',
+                  $and: [
+                    { $or: [{ manufacturerId: raMfId }, { 'skus.manufacturerId': raMfId }] },
+                    { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+                  ]
+                })
+              }
+              count += cc + (ra.products?.length || 0)
+            }
+          }
+        } catch (e) {
+          console.error('计算授权产品数量失败:', e)
+        }
       }
       
       return count
