@@ -187,11 +187,17 @@ export default function AuthorizationPricingPage() {
       setAuthorization(authData)
       
       // Set initial values from authorization
-      if (authData?.priceSettings) {
-        setMinDiscountRate((authData.priceSettings.minDiscountRate || 0.6) * 100)
-        setCommissionRate((authData.priceSettings.commissionRate || 0.4) * 100)
-        setPartnerMinDiscountRate((authData.priceSettings.partnerMinDiscountRate || authData.priceSettings.minDiscountRate || 0.6) * 100)
-        setPartnerCommissionRate((authData.priceSettings.partnerCommissionRate || authData.priceSettings.commissionRate || 0.4) * 100)
+      if (authData) {
+        // 优先使用授权级别字段（来自厂家授权审批），而非 priceSettings
+        const ownDiscount = authData.ownProductMinDiscount ?? authData.minDiscountRate ?? ((authData.priceSettings?.minDiscountRate || 0.6) * 100)
+        const ownCommission = authData.ownProductCommission ?? authData.commissionRate ?? ((authData.priceSettings?.commissionRate || 0.4) * 100)
+        const partnerDiscount = authData.partnerProductMinDiscount ?? ((authData.priceSettings?.partnerMinDiscountRate || authData.priceSettings?.minDiscountRate || 0.6) * 100)
+        const partnerCommission = authData.partnerProductCommission ?? ((authData.priceSettings?.partnerCommissionRate || authData.priceSettings?.commissionRate || 0.4) * 100)
+        // 如果值 > 1 说明已经是百分比格式，否则需要 *100
+        setMinDiscountRate(ownDiscount > 1 ? ownDiscount : ownDiscount * 100)
+        setCommissionRate(ownCommission > 1 ? ownCommission : ownCommission * 100)
+        setPartnerMinDiscountRate(partnerDiscount > 1 ? partnerDiscount : partnerDiscount * 100)
+        setPartnerCommissionRate(partnerCommission > 1 ? partnerCommission : partnerCommission * 100)
       }
       
       // Load authorized products
@@ -305,14 +311,10 @@ export default function AuthorizationPricingPage() {
                 只读模式
               </div>
             ) : (
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-[#153e35] text-white rounded-lg hover:bg-[#1a4d42] disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? '保存中...' : '保存设置'}
-              </button>
+              <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-500 rounded-lg">
+                <Lock className="w-4 h-4" />
+                价格来源于厂家授权
+              </div>
             )}
           </div>
         </div>
@@ -322,6 +324,11 @@ export default function AuthorizationPricingPage() {
         {/* Price Settings */}
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
           <h2 className="text-lg font-bold text-gray-900 mb-2">价格策略设置</h2>
+          <div className="mb-4 p-3 bg-amber-50 rounded-lg border border-amber-100">
+            <div className="text-sm text-amber-800">
+              <strong>提示：</strong>最低折扣率和返佣比例来源于厂家授权审批，不可修改。
+            </div>
+          </div>
           <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
             <div className="text-sm text-blue-800">
               <strong>价格计算公式：</strong>
@@ -347,14 +354,14 @@ export default function AuthorizationPricingPage() {
                   <input
                     type="number"
                     value={minDiscountRate}
-                    onChange={(e) => !isReadOnly && setMinDiscountRate(Number(e.target.value))}
                     min={0}
                     max={100}
-                    disabled={isReadOnly}
-                    className={`w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center focus:outline-none focus:border-orange-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    disabled
+                    className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center bg-gray-100 cursor-not-allowed"
                   />
                   <span className="text-lg font-bold text-orange-600">%</span>
                 </div>
+                <p className="text-xs text-gray-400 mt-1">来源于厂家授权审批</p>
               </div>
               <div className="bg-green-50 rounded-xl p-4">
                 <div className="text-sm font-medium text-gray-700 mb-2">返佣比例</div>
@@ -362,14 +369,14 @@ export default function AuthorizationPricingPage() {
                   <input
                     type="number"
                     value={commissionRate}
-                    onChange={(e) => !isReadOnly && setCommissionRate(Number(e.target.value))}
                     min={0}
                     max={100}
-                    disabled={isReadOnly}
-                    className={`w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center focus:outline-none focus:border-green-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    disabled
+                    className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center bg-gray-100 cursor-not-allowed"
                   />
                   <span className="text-lg font-bold text-green-600">%</span>
                 </div>
+                <p className="text-xs text-gray-400 mt-1">来源于厂家授权审批</p>
               </div>
             </div>
           </div>
@@ -388,14 +395,14 @@ export default function AuthorizationPricingPage() {
                   <input
                     type="number"
                     value={partnerMinDiscountRate}
-                    onChange={(e) => !isReadOnly && setPartnerMinDiscountRate(Number(e.target.value))}
                     min={0}
                     max={100}
-                    disabled={isReadOnly}
-                    className={`w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center focus:outline-none focus:border-purple-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    disabled
+                    className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center bg-gray-100 cursor-not-allowed"
                   />
                   <span className="text-lg font-bold text-purple-600">%</span>
                 </div>
+                <p className="text-xs text-gray-400 mt-1">来源于厂家授权审批</p>
               </div>
               <div className="bg-indigo-50 rounded-xl p-4">
                 <div className="text-sm font-medium text-gray-700 mb-2">返佣比例</div>
@@ -403,14 +410,14 @@ export default function AuthorizationPricingPage() {
                   <input
                     type="number"
                     value={partnerCommissionRate}
-                    onChange={(e) => !isReadOnly && setPartnerCommissionRate(Number(e.target.value))}
                     min={0}
                     max={100}
-                    disabled={isReadOnly}
-                    className={`w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center focus:outline-none focus:border-indigo-500 ${isReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    disabled
+                    className="w-20 px-3 py-2 border border-gray-200 rounded-lg text-lg font-bold text-center bg-gray-100 cursor-not-allowed"
                   />
                   <span className="text-lg font-bold text-indigo-600">%</span>
                 </div>
+                <p className="text-xs text-gray-400 mt-1">来源于厂家授权审批</p>
               </div>
             </div>
           </div>
