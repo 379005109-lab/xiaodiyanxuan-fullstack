@@ -406,7 +406,21 @@ export default function ManufacturerManagement() {
           setReceivedAuths(receivedRes.data?.data || [])
           setGrantedAuths(grantedRes.data?.data || [])
           setMonthlyGrowth(growthRes.data?.data?.monthlyGrowth || 0)
-          setCommissionStats(commissionRes.data?.data || { pending: 0, settled: 0, total: 0, pendingOrders: [] })
+          setCommissionStats(() => {
+            const raw = commissionRes.data?.data || {}
+            return {
+              pending: raw.pending || 0,
+              settled: raw.settled || 0,
+              total: raw.total || 0,
+              pendingOrders: raw.pendingOrders || raw.waitingOrders || [],
+              pendingApplication: raw.pendingApplication ?? raw.waiting ?? 0,
+              applied: raw.applied || 0,
+              pendingApplicationOrders: raw.pendingApplicationOrders || raw.waitingOrders || [],
+              appliedOrders: raw.appliedOrders || [],
+              approvedOrders: raw.approvedOrders || [],
+              paidOrders: raw.paidOrders || []
+            }
+          })
           // 合并待审批请求
           const pendingDesigner = pendingDesignerRes.data?.data || []
           const pendingManufacturer = pendingManufacturerRes.data?.data || []
@@ -2252,7 +2266,7 @@ export default function ManufacturerManagement() {
                                   if (!currentMid) return
                                   // Use tierCompanyId if available, otherwise use the authorization _id
                                   const cid = String((auth as any)?.tierCompanyId || (auth as any)?._id || '').trim()
-                                  const rt = encodeURIComponent(`/admin/manufacturer-management?tab=channels`)
+                                  const rt = encodeURIComponent(`/admin/manufacturers?tab=channels`)
                                   const base = `/admin/tier-hierarchy?manufacturerId=${encodeURIComponent(currentMid)}&returnTo=${rt}`
                                   const withCompany = cid ? `${base}&companyId=${encodeURIComponent(cid)}` : base
                                   console.log('Navigating to tier hierarchy:', withCompany)

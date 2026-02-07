@@ -1289,7 +1289,12 @@ export default function TierHierarchyPage() {
   }
 
   const handleBack = () => {
-    navigate('/admin/manufacturers?tab=channels', { replace: true })
+    const returnTo = searchParams.get('returnTo')
+    if (returnTo) {
+      navigate(decodeURIComponent(returnTo))
+    } else {
+      navigate(-1)
+    }
   }
   
   const queryManufacturerId = searchParams.get('manufacturerId') || ''
