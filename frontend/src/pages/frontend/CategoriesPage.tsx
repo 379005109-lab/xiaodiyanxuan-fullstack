@@ -26,7 +26,7 @@ export default function CategoriesPage() {
 
   const loadCategories = async () => {
     try {
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/categories')
+      const response = await fetch('/api/categories')
       if (response.ok) {
         const data = await response.json()
         setCategories(data.data || [])

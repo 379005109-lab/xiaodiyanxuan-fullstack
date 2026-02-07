@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   ArrowLeft, Plus, Edit2, Trash2, Users, Package, 
@@ -19,6 +19,26 @@ interface TierNode {
   tierDiscountRate: number  // 自有产品返佣率
   tierDelegatedRate: number // 自有产品下放给下级的比例
   tierCommissionRate: number // 自有产品自留 = discountRate - delegatedRate
+  boundUserId?: any
+  boundUserIds?: any[]
+  tierDepthBasedCommissionRules?: Array<{
+    depth: number
+    commissionRate: number
+    description?: string
+  }>
+  tierCommissionRuleSets?: Array<{
+    name: string
+    rules: Array<{
+      depth: number
+      commissionRate: number
+      description?: string
+    }>
+    partnerRules?: Array<{
+      depth: number
+      commissionRate: number
+      description?: string
+    }>
+  }>
   tierPartnerDiscountRate?: number  // 合作商产品返佣率
   tierPartnerDelegatedRate?: number // 合作商产品下放给下级的比例
   tierPartnerCommissionRate?: number // 合作商产品自留
@@ -26,9 +46,14 @@ interface TierNode {
   ownProductCommission?: number
   partnerProductMinDiscount?: number
   partnerProductCommission?: number
+  // 授权字段（兼容旧数据）
+  minDiscountRate?: number
+  commissionRate?: number
   tierLevel: number
   childCount: number
   productCount: number
+  ownProductCount?: number
+  partnerProductCount?: number
   parentAuthorizationId: string | null
   fromManufacturer: any
   toDesigner?: any
@@ -42,6 +67,347 @@ interface TierNode {
   isVirtual?: boolean
 }
 
+function TierRuleModal({
+  isOpen,
+  onClose,
+  node,
+  onSave,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  node: TierNode | null
+  onSave: (ruleSets: Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }>; partnerRules: Array<{ depth: number; commissionRate: number; description?: string }> }>) => Promise<void>
+}) {
+  type DepthRule = { depth: number; commissionRate: number; description?: string }
+  type RuleSetType = { name: string; rules: DepthRule[]; partnerRules: DepthRule[] }
+  const [ruleSets, setRuleSets] = useState<RuleSetType[]>([])
+  const [currentSetIndex, setCurrentSetIndex] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState<'own' | 'partner'>('own')
+
+  useEffect(() => {
+    if (!isOpen) return
+    const existingSets = Array.isArray(node?.tierCommissionRuleSets) && node!.tierCommissionRuleSets!.length > 0
+      ? node!.tierCommissionRuleSets! : null
+
+    const parseRules = (arr: any[]) => (arr || []).map((r: any) => ({
+      depth: Math.max(0, Number(r?.depth || 0)),
+      commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+      description: r?.description ? String(r.description) : ''
+    })).sort((a: any, b: any) => a.depth - b.depth)
+
+    if (existingSets) {
+      setRuleSets(existingSets.map(s => ({
+        name: s.name || '',
+        rules: parseRules(s.rules),
+        partnerRules: parseRules((s as any).partnerRules || [])
+      })))
+    } else {
+      const oldRules = parseRules(node?.tierDepthBasedCommissionRules || [])
+      setRuleSets([{ name: '规则1', rules: oldRules, partnerRules: [] }])
+    }
+    setCurrentSetIndex(0)
+    setActiveTab('own')
+  }, [isOpen, node])
+
+  const isChildNode = Boolean(node?.parentAuthorizationId)
+  const ownTotal = isChildNode
+    ? (node?.tierDiscountRate || node?.ownProductCommission || 0)
+    : (node?.ownProductCommission || node?.commissionRate || node?.tierDiscountRate || 0)
+  const partnerTotal = isChildNode
+    ? (node?.tierPartnerDiscountRate || node?.partnerProductCommission || 0)
+    : (node?.partnerProductCommission || node?.tierPartnerDiscountRate || 0)
+
+  const currentSet = ruleSets[currentSetIndex] || { name: '', rules: [], partnerRules: [] }
+  const isOwn = activeTab === 'own'
+  const currentRules = isOwn ? (currentSet.rules || []) : (currentSet.partnerRules || [])
+  const nodeTotal = isOwn ? ownTotal : partnerTotal
+  const nodeTotalDec = nodeTotal / 100
+
+  const totalPct = useMemo(() => {
+    return Math.round(currentRules.reduce((sum, r) => sum + (Number(r?.commissionRate || 0) * 100), 0))
+  }, [currentRules])
+  const isOverBudget = nodeTotal > 0 && totalPct > nodeTotal
+
+  const updateRules = (newRules: DepthRule[]) => {
+    const key = isOwn ? 'rules' : 'partnerRules'
+    setRuleSets(prev => prev.map((s, i) => i === currentSetIndex ? { ...s, [key]: newRules } : s))
+  }
+
+  const setPreset = (type: 'direct' | 'two' | 'three') => {
+    const dec = nodeTotalDec
+    if (type === 'direct') { updateRules([{ depth: 0, commissionRate: dec, description: '' }]); return }
+    if (type === 'two') {
+      const half = Math.round(dec * 50) / 100
+      updateRules([{ depth: 0, commissionRate: half, description: '' }, { depth: 1, commissionRate: Math.round((dec - half) * 100) / 100, description: '' }]); return
+    }
+    const third = Math.round(dec * 100 / 3) / 100
+    updateRules([{ depth: 0, commissionRate: third, description: '' }, { depth: 1, commissionRate: third, description: '' }, { depth: 2, commissionRate: Math.round((dec - third * 2) * 100) / 100, description: '' }])
+  }
+
+  const addDepth = () => {
+    const maxD = currentRules.length > 0 ? Math.max(...currentRules.map(r => r.depth)) : -1
+    updateRules([...currentRules, { depth: maxD + 1, commissionRate: 0, description: '' }])
+  }
+  const removeDepth = (d: number) => updateRules(currentRules.filter(r => r.depth !== d))
+  const updateRate = (d: number, pct: number) => {
+    const v = Math.max(0, Math.min(100, Number(pct || 0))) / 100
+    updateRules(currentRules.map(r => r.depth === d ? { ...r, commissionRate: v } : r))
+  }
+
+  const addRuleSet = () => {
+    setRuleSets(prev => [...prev, { name: `规则${prev.length + 1}`, rules: [], partnerRules: [] }])
+    setCurrentSetIndex(ruleSets.length)
+  }
+  const removeCurrentRuleSet = () => {
+    if (ruleSets.length <= 1) return
+    setRuleSets(prev => prev.filter((_, i) => i !== currentSetIndex))
+    setCurrentSetIndex(prev => Math.max(0, prev - 1))
+  }
+
+  const handleSave = async () => {
+    if (!node?._id) { toast.error('节点ID无效'); return }
+    for (let i = 0; i < ruleSets.length; i++) {
+      const ot = Math.round((ruleSets[i].rules || []).reduce((s, r) => s + Number(r?.commissionRate || 0) * 100, 0))
+      if (ownTotal > 0 && ot > ownTotal) { toast.error(`第${i+1}套自有产品返佣(${ot}%)超过额度(${ownTotal}%)`); setCurrentSetIndex(i); setActiveTab('own'); return }
+      const pt = Math.round((ruleSets[i].partnerRules || []).reduce((s, r) => s + Number(r?.commissionRate || 0) * 100, 0))
+      if (partnerTotal > 0 && pt > partnerTotal) { toast.error(`第${i+1}套授权产品返佣(${pt}%)超过额度(${partnerTotal}%)`); setCurrentSetIndex(i); setActiveTab('partner'); return }
+    }
+    setSaving(true)
+    try {
+      const clean = (arr: DepthRule[]) => (arr || []).map(r => ({
+        depth: Math.max(0, Number(r?.depth || 0)),
+        commissionRate: Math.max(0, Math.min(1, Number(r?.commissionRate || 0))),
+        description: r?.description ? String(r.description) : ''
+      })).sort((a, b) => a.depth - b.depth)
+      const cleaned = ruleSets.map((s, idx) => ({ name: s.name || `规则${idx + 1}`, rules: clean(s.rules), partnerRules: clean(s.partnerRules) }))
+      console.log('[TierRuleModal] Calling onSave with:', JSON.stringify(cleaned), 'nodeId:', node._id)
+      await onSave(cleaned)
+      toast.success('保存成功')
+      onClose()
+    } catch (err: any) {
+      console.error('保存规则失败:', err)
+      const msg = err?.response?.data?.message || err?.message || '保存失败'
+      toast.error('保存失败: ' + msg)
+    }
+    finally { setSaving(false) }
+  }
+
+  if (!isOpen || !node) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">多层级返佣规则</h2>
+              <p className="text-sm text-gray-500 mt-1">{node.tierDisplayName}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+              type="button"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* 规则集导航 */}
+          <div className="flex items-center justify-between bg-gray-50 rounded-2xl p-3">
+            <button
+              type="button"
+              onClick={() => setCurrentSetIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentSetIndex === 0}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                currentSetIndex === 0 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-white hover:text-primary-600"
+              )}
+            >
+              <ChevronRight className="w-5 h-5 rotate-180" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                {ruleSets.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCurrentSetIndex(idx)}
+                    className={cn(
+                      "w-2.5 h-2.5 rounded-full transition-all",
+                      idx === currentSetIndex ? "bg-primary-600 scale-125" : "bg-gray-300 hover:bg-gray-400"
+                    )}
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-medium text-gray-700">
+                {currentSetIndex + 1} / {ruleSets.length} 套规则
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentSetIndex(prev => Math.min(ruleSets.length - 1, prev + 1))}
+              disabled={currentSetIndex === ruleSets.length - 1}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                currentSetIndex === ruleSets.length - 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-600 hover:bg-white hover:text-primary-600"
+              )}
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* 新增规则集按钮 */}
+          <button
+            type="button"
+            onClick={addRuleSet}
+            className="w-full py-3 border-2 border-dashed border-primary-300 rounded-xl text-primary-600 hover:bg-primary-50 hover:border-primary-400 transition-colors flex items-center justify-center gap-2 font-medium text-sm"
+          >
+            <Plus className="w-5 h-5" />
+            新增一套返佣规则
+          </button>
+
+          {/* 名称 + 删除 */}
+          <div className="flex items-center gap-3">
+            <input type="text" value={currentSet.name} onChange={(e) => setRuleSets(prev => prev.map((s, i) => i === currentSetIndex ? { ...s, name: e.target.value } : s))}
+              placeholder="规则名称" className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium" />
+            {ruleSets.length > 1 && (
+              <button type="button" onClick={removeCurrentRuleSet} className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+            )}
+          </div>
+
+          {/* 自有/授权产品 Tab */}
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            <button type="button" onClick={() => setActiveTab('own')}
+              className={cn("flex-1 py-2 rounded-lg text-sm font-medium transition-colors", isOwn ? "bg-white text-green-700 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+              自有产品 {ownTotal > 0 && <span className="text-xs ml-1">({ownTotal}%)</span>}
+            </button>
+            <button type="button" onClick={() => setActiveTab('partner')}
+              className={cn("flex-1 py-2 rounded-lg text-sm font-medium transition-colors", !isOwn ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+              授权产品 {partnerTotal > 0 && <span className="text-xs ml-1">({partnerTotal}%)</span>}
+            </button>
+          </div>
+
+          {/* 预设模板 */}
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => setPreset('direct')}
+              className="p-4 rounded-2xl border border-gray-200 hover:border-primary-300 hover:bg-primary-50 text-left"
+            >
+              <div className="font-bold text-gray-900">直推模式</div>
+              <div className="text-xs text-gray-500 mt-1">只返自己</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset('two')}
+              className="p-4 rounded-2xl border border-gray-200 hover:border-primary-300 hover:bg-primary-50 text-left"
+            >
+              <div className="font-bold text-gray-900">2层分佣</div>
+              <div className="text-xs text-gray-500 mt-1">自己 + 1级</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset('three')}
+              className="p-4 rounded-2xl border border-gray-200 hover:border-primary-300 hover:bg-primary-50 text-left"
+            >
+              <div className="font-bold text-gray-900">3层分佣</div>
+              <div className="text-xs text-gray-500 mt-1">自己 + 1级 + 2级</div>
+            </button>
+          </div>
+
+          <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-gray-900">{isOwn ? '自有产品' : '授权产品'}额度</span>
+              <span className="text-2xl font-bold text-amber-700">{nodeTotal}%</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-gray-200 pt-2">
+              <span className="text-sm font-bold text-gray-900">当前规则总计</span>
+              <span className={cn("text-2xl font-bold", isOverBudget ? "text-red-600" : "text-green-700")}>{totalPct}%</span>
+            </div>
+            {isOverBudget && <p className="text-xs text-red-500">超过授权额度，请调整</p>}
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-bold text-gray-900">{isOwn ? '自有产品' : '授权产品'}层级配置</div>
+              <button
+                type="button"
+                onClick={addDepth}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                添加层级
+              </button>
+            </div>
+
+            {currentRules.length === 0 ? (
+              <div className="text-sm text-gray-500 py-6 text-center">暂无配置</div>
+            ) : (
+              <div className="space-y-2">
+                {currentRules
+                  .slice()
+                  .sort((a, b) => Number(a.depth) - Number(b.depth))
+                  .map((r) => (
+                    <div key={r.depth} className="flex items-center gap-2 bg-gray-50 rounded-xl p-3">
+                      <div className="text-xs font-bold text-gray-700 w-24">
+                        {Number(r.depth) === 0 ? '自己返佣' : `${Number(r.depth)}级返佣`}
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={Math.round(Number(r.commissionRate || 0) * 100)}
+                        onChange={(e) => updateRate(Number(r.depth), Number(e.target.value))}
+                        className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm text-center font-bold"
+                      />
+                      <div className="text-sm text-gray-500">%</div>
+                      <div className="flex-1" />
+                      {Number(r.depth) !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => removeDepth(Number(r.depth))}
+                          className="p-2 rounded-lg hover:bg-white text-gray-400 hover:text-red-600"
+                          title="删除"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 pt-0 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className={cn(
+              "px-6 py-2.5 rounded-xl text-white",
+              saving ? "bg-gray-400 cursor-not-allowed" : "bg-primary-600 hover:bg-primary-700"
+            )}
+          >
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // 卡片组件
 function TierCard({
   node,
@@ -49,31 +415,51 @@ function TierCard({
   onAddChild,
   onBindAccount,
   onEdit,
+  onOpenRules,
   onDelete,
   onViewDetails,
   expanded,
   onToggleExpand,
-  currentUserId
+  currentUserId,
+  isManufacturerAdmin,
+  onUnbindUser
 }: {
   node: TierNode
   isRoot?: boolean
   onAddChild: (parentId: string) => void
   onBindAccount: (parentId: string) => void
   onEdit: (node: TierNode) => void
+  onOpenRules: (node: TierNode) => void
   onDelete: (nodeId: string) => void
   onViewDetails: (node: TierNode) => void
   expanded: boolean
   onToggleExpand: () => void
   currentUserId: string
+  isManufacturerAdmin: boolean
+  onUnbindUser?: (nodeId: string, userId: string) => void
 }) {
   const isOwner = node.createdBy === currentUserId || node.isOwner
   const isVirtual = Boolean((node as any).isVirtual)
-  const canEdit = isOwner && !isVirtual
+  const canEdit = (isOwner || isManufacturerAdmin) && !isVirtual
   const canAddChild = canEdit && node.allowSubAuthorization !== false
   const canBindAccount = canEdit  // 绑定账号只需要canEdit权限
   const hasChildren = (node.children?.length || 0) > 0 || node.childCount > 0
+  const primaryBoundUserId = node.boundUserId ? String((node.boundUserId as any)?._id || node.boundUserId) : ''
   
-  const ownCommission = (node.tierCommissionRate ?? node.ownProductCommission ?? 0) || 0
+  // 总返佣额度：根节点用授权值（ownProductCommission），子节点用tierDiscountRate（上级分配的额度）
+  const totalCommission = isRoot
+    ? (node.ownProductCommission || node.commissionRate || node.tierDiscountRate || 0)
+    : (node.tierDiscountRate || node.ownProductCommission || 0)
+  const ownCommission = node.tierCommissionRate || 0
+  const delegated = node.tierDelegatedRate || 0
+  const depthRules = Array.isArray(node.tierDepthBasedCommissionRules) ? node.tierDepthBasedCommissionRules.filter(r => r && r.commissionRate > 0) : []
+  const ruleSets = Array.isArray(node.tierCommissionRuleSets) && node.tierCommissionRuleSets.length > 0
+    ? node.tierCommissionRuleSets
+    : (depthRules.length > 0 ? [{ name: '规则1', rules: depthRules, partnerRules: [] as typeof depthRules }] : [])
+  const [cardRuleSetIndex, setCardRuleSetIndex] = useState(0)
+  const [rulesExpanded, setRulesExpanded] = useState(false)
+  const displayRuleSet = ruleSets[cardRuleSetIndex] || null
+  const displayRules = displayRuleSet ? (displayRuleSet.rules || []).filter(r => r && r.commissionRate > 0) : []
   
   return (
     <div className="relative">
@@ -131,7 +517,7 @@ function TierCard({
           {/* 右上角齿轮 - 模板设置 */}
           {canEdit && (
             <button
-              onClick={() => onEdit(node)}
+              onClick={() => onOpenRules(node)}
               className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
               title="角色模板设置"
             >
@@ -142,18 +528,79 @@ function TierCard({
         
         {/* 返佣信息 - 仅所有者可见详情 */}
         {isOwner ? (
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-green-50 rounded-xl p-3 text-center">
-              <p className="text-xs text-green-600 mb-1">我的返佣</p>
-              <p className="text-2xl font-bold text-green-700">{ownCommission}</p>
-              <p className="text-xs text-green-500">%</p>
+          <>
+            <div className="space-y-2 mb-4">
+              <div className="bg-amber-50 rounded-xl p-3 text-center">
+                <p className="text-xs text-amber-600 mb-1">总返佣额度</p>
+                <p className="text-2xl font-bold text-amber-700">{totalCommission}<span className="text-sm">%</span></p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-green-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-green-600 mb-1">本级自留</p>
+                  <p className="text-xl font-bold text-green-700">{ownCommission}<span className="text-sm">%</span></p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-blue-600 mb-1">下放给下级</p>
+                  <p className="text-xl font-bold text-blue-700">{delegated}<span className="text-sm">%</span></p>
+                </div>
+              </div>
             </div>
-            <div className="bg-blue-50 rounded-xl p-3 text-center">
-              <p className="text-xs text-blue-600 mb-1">下放给下级</p>
-              <p className="text-2xl font-bold text-blue-700">{node.tierDelegatedRate || 0}</p>
-              <p className="text-xs text-blue-500">%</p>
-            </div>
-          </div>
+            {/* 多级返佣规则 - 收纳箭头展开 */}
+            {ruleSets.length > 0 && (
+              <div className="mb-4">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setRulesExpanded(prev => !prev) }}
+                  className="w-full flex items-center justify-between bg-purple-50 rounded-xl px-3 py-2 hover:bg-purple-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-purple-600 font-medium">多级返佣规则</span>
+                    <span className="bg-purple-200 text-purple-700 text-xs font-bold px-1.5 py-0.5 rounded-full">{ruleSets.length}套</span>
+                  </div>
+                  <ChevronDown className={cn("w-4 h-4 text-purple-500 transition-transform", rulesExpanded && "rotate-180")} />
+                </button>
+                {rulesExpanded && (
+                  <div className="mt-2 space-y-2">
+                    {ruleSets.map((ruleSet, idx) => {
+                      const rules = (ruleSet.rules || []).filter(r => r && r.commissionRate > 0)
+                      const pRules = ((ruleSet as any).partnerRules || []).filter((r: any) => r && r.commissionRate > 0)
+                      if (rules.length === 0 && pRules.length === 0) return null
+                      return (
+                        <div key={idx} className="bg-purple-50 rounded-xl p-2.5 space-y-2">
+                          <p className="text-xs text-purple-500 font-medium">{ruleSet.name || `规则${idx + 1}`}</p>
+                          {rules.length > 0 && (
+                            <div>
+                              <p className="text-xs text-green-600 mb-1">自有产品</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {rules.slice().sort((a, b) => Number(a.depth) - Number(b.depth)).map(r => (
+                                  <div key={r.depth} className="bg-white rounded-lg px-2 py-1 text-xs border border-green-200">
+                                    <span className="text-green-500">{Number(r.depth) === 0 ? '自己' : `${r.depth}级`}</span>
+                                    <span className="text-green-700 font-bold ml-1">{Math.round(Number(r.commissionRate) * 100)}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {pRules.length > 0 && (
+                            <div>
+                              <p className="text-xs text-blue-600 mb-1">授权产品</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {pRules.slice().sort((a: any, b: any) => Number(a.depth) - Number(b.depth)).map((r: any) => (
+                                  <div key={r.depth} className="bg-white rounded-lg px-2 py-1 text-xs border border-blue-200">
+                                    <span className="text-blue-500">{Number(r.depth) === 0 ? '自己' : `${r.depth}级`}</span>
+                                    <span className="text-blue-700 font-bold ml-1">{Math.round(Number(r.commissionRate) * 100)}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
             <p className="text-sm text-gray-500">
@@ -169,10 +616,18 @@ function TierCard({
             <Users className="w-4 h-4" />
             {(node as any).boundUserIds?.length || node.childCount || 0}人
           </span>
-          <span className="flex items-center gap-1">
-            <Package className="w-4 h-4" />
-            {node.productCount || 0}商品
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1" title="自有商品">
+              <Package className="w-4 h-4 text-green-500" />
+              <span className="text-green-600">{node.ownProductCount ?? node.productCount ?? 0}</span>
+            </span>
+            {(node.partnerProductCount ?? 0) > 0 && (
+              <span className="flex items-center gap-1" title="授权商品">
+                <Package className="w-4 h-4 text-blue-500" />
+                <span className="text-blue-600">{node.partnerProductCount}</span>
+              </span>
+            )}
+          </div>
         </div>
         
         {/* 已绑定的账号列表 */}
@@ -181,11 +636,20 @@ function TierCard({
             <p className="text-xs text-gray-500 mb-2">已绑定账号:</p>
             <div className="flex flex-wrap gap-2">
               {(node as any).boundUserIds.slice(0, 5).map((user: any) => (
-                <div key={user._id} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg text-xs border">
+                <div key={user._id} className={`flex items-center gap-1 bg-white px-2 py-1 rounded-lg text-xs border ${primaryBoundUserId === String(user._id) ? 'bg-blue-100' : ''}`}>
                   <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-xs">
                     {user.nickname?.charAt(0) || user.username?.charAt(0) || '?'}
                   </div>
                   <span className="text-gray-700">{user.nickname || user.username}</span>
+                  {canEdit && onUnbindUser && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onUnbindUser(node._id, String(user._id)) }}
+                      className="ml-1 p-0.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="取消绑定"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               ))}
               {(node as any).boundUserIds.length > 5 && (
@@ -244,11 +708,14 @@ function TierTree({
   onAddChild,
   onBindAccount,
   onEdit,
+  onOpenRules,
   onDelete,
   onViewDetails,
   expandedNodes,
   onToggleExpand,
-  currentUserId
+  currentUserId,
+  isManufacturerAdmin,
+  onUnbindUser
 }: {
   nodes: TierNode[]
   parentId: string | null
@@ -256,11 +723,14 @@ function TierTree({
   onAddChild: (parentId: string) => void
   onBindAccount: (parentId: string) => void
   onEdit: (node: TierNode) => void
+  onOpenRules: (node: TierNode) => void
   onDelete: (nodeId: string) => void
   onViewDetails: (node: TierNode) => void
   expandedNodes: Set<string>
   onToggleExpand: (nodeId: string) => void
   currentUserId: string
+  isManufacturerAdmin: boolean
+  onUnbindUser?: (nodeId: string, userId: string) => void
 }) {
   const children = nodes.filter(n => 
     (n.parentAuthorizationId || null) === parentId
@@ -290,11 +760,14 @@ function TierTree({
               onAddChild={onAddChild}
               onBindAccount={onBindAccount}
               onEdit={onEdit}
+              onOpenRules={onOpenRules}
               onDelete={onDelete}
               onViewDetails={onViewDetails}
               expanded={isExpanded}
               onToggleExpand={() => onToggleExpand(node._id)}
               currentUserId={currentUserId}
+              isManufacturerAdmin={isManufacturerAdmin}
+              onUnbindUser={onUnbindUser}
             />
             
             {/* 子节点 */}
@@ -313,11 +786,14 @@ function TierTree({
                   onAddChild={onAddChild}
                   onBindAccount={onBindAccount}
                   onEdit={onEdit}
+                  onOpenRules={onOpenRules}
                   onDelete={onDelete}
                   onViewDetails={onViewDetails}
                   expandedNodes={expandedNodes}
                   onToggleExpand={onToggleExpand}
                   currentUserId={currentUserId}
+                  isManufacturerAdmin={isManufacturerAdmin}
+                  onUnbindUser={onUnbindUser}
                 />
               </div>
             )}
@@ -349,44 +825,37 @@ function TierEditModal({
   const [formData, setFormData] = useState({
     tierDisplayName: '',
     tierRole: 'person' as 'company' | 'person' | 'channel' | 'designer',
-    myCommission: 0,      // 我的返佣
-    delegateToChild: 0    // 下放给下级
+    myCommission: 0      // 我的返佣
   })
+
+  // 总返佣额度：编辑时=节点的授权返佣，新增时=上级下放额度
+  const totalBudget = editingNode
+    ? (editingNode.ownProductCommission || editingNode.commissionRate || editingNode.tierDiscountRate || maxDiscountRate)
+    : maxDiscountRate
+
+  // 下放给下级 = 总额度 - 我的返佣（协同关系）
+  const delegateToChild = Math.max(0, totalBudget - formData.myCommission)
 
   useEffect(() => {
     if (editingNode) {
-      // 编辑模式：从现有数据计算
-      const myComm = editingNode.tierCommissionRate || 
-        (editingNode.tierDiscountRate || 0) - (editingNode.tierDelegatedRate || 0)
       setFormData({
         tierDisplayName: editingNode.tierDisplayName || '',
         tierRole: editingNode.tierRole || 'person',
-        myCommission: Math.max(0, myComm),
-        delegateToChild: editingNode.tierDelegatedRate || 0
+        myCommission: editingNode.tierCommissionRate || 0
       })
     } else {
-      // 新增模式
       setFormData({
         tierDisplayName: '',
         tierRole: 'person',
-        myCommission: maxDiscountRate,  // 默认全拿
-        delegateToChild: 0              // 默认不下放
+        myCommission: maxDiscountRate  // 默认全拿
       })
     }
   }, [editingNode, maxDiscountRate])
   
-  // 验证：我的返佣 + 下放 不能超过上级给的额度
-  const totalUsed = formData.myCommission + formData.delegateToChild
-  const isOverBudget = totalUsed > maxDiscountRate
-  
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!formData.tierDisplayName.trim()) {
       toast.error('请输入名称')
-      return
-    }
-    if (isOverBudget) {
-      toast.error(`返佣 + 下放 (${totalUsed}%) 不能超过上级给的额度 (${maxDiscountRate}%)`)
       return
     }
 
@@ -394,9 +863,9 @@ function TierEditModal({
     const payload: any = {
       tierDisplayName: formData.tierDisplayName,
       tierRole: formData.tierRole,
-      tierDiscountRate: formData.myCommission + formData.delegateToChild,  // 总额度
-      tierDelegatedRate: formData.delegateToChild,  // 下放给下级
-      tierCommissionRate: formData.myCommission     // 我的返佣
+      tierDiscountRate: totalBudget,                // 总额度（=授权值，固定）
+      tierDelegatedRate: delegateToChild,            // 下放给下级（自动计算）
+      tierCommissionRate: formData.myCommission      // 我的返佣
     }
 
     if (!payload.tierRole) {
@@ -413,7 +882,7 @@ function TierEditModal({
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900">
-            {editingNode ? '编辑返佣设置' : '绑定账号'}
+            {editingNode ? '编辑返佣设置' : '新增下级'}
           </h2>
           {parentNode && (
             <p className="text-sm text-gray-500 mt-1">
@@ -426,14 +895,14 @@ function TierEditModal({
           {/* 账号名称 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              账号名称 <span className="text-red-500">*</span>
+              名称 <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.tierDisplayName}
               onChange={e => setFormData({ ...formData, tierDisplayName: e.target.value })}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              placeholder="输入要绑定的账号名称"
+              placeholder="输入层级名称"
             />
           </div>
           
@@ -466,37 +935,46 @@ function TierEditModal({
           </div>
           
           {/* 固定折扣 - 只读显示 */}
-          <div className="bg-gray-50 rounded-xl p-4">
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-700">最低折扣</p>
-                <p className="text-xs text-gray-500">继承自厂家授权，不可修改</p>
+                <p className="text-sm font-medium text-gray-700">最低折扣（自有产品）</p>
+                <p className="text-xs text-gray-500">来源于厂家授权审批，不可修改</p>
               </div>
               <span className="text-2xl font-bold text-gray-600">{rootDiscount}%</span>
             </div>
+            {(editingNode?.partnerProductCommission ?? 0) > 0 && (
+              <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">返佣比例（授权产品）</p>
+                  <p className="text-xs text-gray-500">来源于厂家授权审批，不可修改</p>
+                </div>
+                <span className="text-2xl font-bold text-gray-600">{editingNode?.partnerProductCommission ?? 0}%</span>
+              </div>
+            )}
           </div>
           
-          {/* 上级分配的额度 */}
-          <div className="bg-blue-50 rounded-xl p-4">
+          {/* 总返佣额度 - 只读 */}
+          <div className="bg-amber-50 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-700">上级分配的返佣额度</p>
-                <p className="text-xs text-blue-500">你可以在这个范围内分配</p>
+                <p className="text-sm font-medium text-amber-700">总返佣额度</p>
+                <p className="text-xs text-amber-500">{editingNode ? '授权的返佣总额，不可修改' : '上级分配的返佣额度'}</p>
               </div>
-              <span className="text-2xl font-bold text-blue-600">{maxDiscountRate}%</span>
+              <span className="text-2xl font-bold text-amber-700">{totalBudget}%</span>
             </div>
           </div>
           
-          {/* 我的返佣 */}
+          {/* 我的返佣 - 滑块 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              我的返佣
+              我的返佣（本级自留）
             </label>
             <div className="flex items-center gap-3">
               <input
                 type="range"
                 min="0"
-                max={maxDiscountRate}
+                max={totalBudget}
                 value={formData.myCommission}
                 onChange={e => setFormData({ ...formData, myCommission: Number(e.target.value) })}
                 className="flex-1"
@@ -505,58 +983,44 @@ function TierEditModal({
                 {formData.myCommission}%
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              下级产生订单时，我能拿到的返佣比例
-            </p>
           </div>
           
-          {/* 下放给下级 */}
+          {/* 下放给下级 - 自动计算，只读 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              下放给下级
+              下放给下级（自动计算）
             </label>
             <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="0"
-                max={Math.max(0, maxDiscountRate - formData.myCommission)}
-                value={formData.delegateToChild}
-                onChange={e => setFormData({ ...formData, delegateToChild: Number(e.target.value) })}
-                className="flex-1"
-              />
+              <div className="flex-1 h-2 bg-blue-200 rounded-full relative">
+                <div
+                  className="h-full bg-blue-500 rounded-full"
+                  style={{ width: totalBudget > 0 ? `${(delegateToChild / totalBudget) * 100}%` : '0%' }}
+                />
+              </div>
               <span className="w-16 text-center font-bold text-lg text-blue-600">
-                {formData.delegateToChild}%
+                {delegateToChild}%
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              允许下级再分配的返佣额度
+              = 总额度 ({totalBudget}%) − 我的返佣 ({formData.myCommission}%)
             </p>
           </div>
           
           {/* 分配预览 */}
-          <div className={cn(
-            "rounded-xl p-4",
-            isOverBudget ? "bg-red-50" : "bg-green-50"
-          )}>
+          <div className="bg-green-50 rounded-xl p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className={cn("text-sm font-medium", isOverBudget ? "text-red-700" : "text-green-700")}>
-                  {isOverBudget ? '⚠️ 超出额度' : '✓ 分配合理'}
-                </p>
-                <p className={cn("text-xs", isOverBudget ? "text-red-500" : "text-green-500")}>
-                  我的返佣 ({formData.myCommission}%) + 下放 ({formData.delegateToChild}%) = {totalUsed}%
+              <div className="text-sm">
+                <p className="text-green-600 font-medium">✓ 分配合理</p>
+                <p className="text-green-500 text-xs mt-1">
+                  本级 {formData.myCommission}% + 下放 {delegateToChild}% = {totalBudget}%
                 </p>
               </div>
-              <span className={cn(
-                "text-2xl font-bold",
-                isOverBudget ? "text-red-600" : "text-green-600"
-              )}>
-                {maxDiscountRate - totalUsed}%
-              </span>
+              {delegateToChild > 0 && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
+                  可继续分配
+                </span>
+              )}
             </div>
-            {!isOverBudget && (
-              <p className="text-xs text-green-500 mt-1">剩余未分配</p>
-            )}
           </div>
           
           {/* 按钮 */}
@@ -570,15 +1034,9 @@ function TierEditModal({
             </button>
             <button
               type="submit"
-              disabled={isOverBudget}
-              className={cn(
-                "px-6 py-2.5 rounded-xl text-white",
-                isOverBudget 
-                  ? "bg-gray-400 cursor-not-allowed" 
-                  : "bg-primary-600 hover:bg-primary-700"
-              )}
+              className="px-6 py-2.5 rounded-xl text-white bg-primary-600 hover:bg-primary-700"
             >
-              {editingNode ? '保存' : '绑定'}
+              {editingNode ? '保存' : '创建'}
             </button>
           </div>
         </form>
@@ -597,13 +1055,14 @@ function BindAccountModal({
 }: {
   isOpen: boolean
   onClose: () => void
-  onBind: (accounts: any[], parentNode: TierNode) => void
+  onBind: (accounts: any[], parentNode: TierNode, primaryUserId: string) => void
   parentNode: TierNode | null
   manufacturerId: string
 }) {
   const [loading, setLoading] = useState(false)
   const [accounts, setAccounts] = useState<any[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [primaryUserId, setPrimaryUserId] = useState('')
   const [searchKeyword, setSearchKeyword] = useState('')
 
   // 加载账号列表
@@ -622,12 +1081,20 @@ function BindAccountModal({
         const list = resp.data?.data?.list || resp.data?.list || []
         setAccounts(list)
         
+        const existingPrimary = parentNode?.boundUserId
+          ? String((parentNode.boundUserId as any)?._id || parentNode.boundUserId)
+          : ''
+        setPrimaryUserId(existingPrimary)
+
         // 预选已绑定的账号
         if (parentNode && (parentNode as any).boundUserIds?.length > 0) {
           const existingIds = new Set<string>((parentNode as any).boundUserIds.map((u: any) => String(u._id || u)))
+          if (existingPrimary) existingIds.add(existingPrimary)
           setSelectedIds(existingIds)
         } else {
-          setSelectedIds(new Set())
+          const init = new Set<string>()
+          if (existingPrimary) init.add(existingPrimary)
+          setSelectedIds(init)
         }
       } catch (err) {
         console.error('加载账号列表失败:', err)
@@ -651,11 +1118,18 @@ function BindAccountModal({
     )
   }, [accounts, searchKeyword])
 
+  const selectedAccounts = useMemo(() => {
+    return accounts.filter(a => selectedIds.has(String(a._id)))
+  }, [accounts, selectedIds])
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
       if (next.has(id)) {
         next.delete(id)
+        if (primaryUserId && primaryUserId === id) {
+          setPrimaryUserId('')
+        }
       } else {
         next.add(id)
       }
@@ -671,7 +1145,8 @@ function BindAccountModal({
     if (!parentNode) return
     
     const selected = accounts.filter(a => selectedIds.has(a._id))
-    onBind(selected, parentNode)
+    const primary = primaryUserId && selectedIds.has(primaryUserId) ? primaryUserId : ''
+    onBind(selected, parentNode, primary)
     onClose()
   }
 
@@ -754,10 +1229,26 @@ function BindAccountModal({
         </div>
         
         {/* 底部按钮 */}
-        <div className="p-6 border-t border-gray-200 flex items-center justify-between">
-          <span className="text-sm text-gray-500">
-            已选择 {selectedIds.size} 个账号
-          </span>
+        <div className="p-6 border-t border-gray-200 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500">已选择 {selectedIds.size} 个账号</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">主账号</span>
+              <select
+                value={primaryUserId}
+                onChange={(e) => setPrimaryUserId(e.target.value)}
+                disabled={selectedIds.size === 0}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+              >
+                <option value="">不设置（平均分）</option>
+                {selectedAccounts.map(a => (
+                  <option key={String(a._id)} value={String(a._id)}>
+                    {a.nickname || a.username || String(a._id)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div className="flex gap-3">
             <button
               type="button"
@@ -791,6 +1282,20 @@ export default function TierHierarchyPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
+
+  const getFallbackReturnTo = () => {
+    const stored = sessionStorage.getItem('channels_return_to')
+    return stored || '/admin/manufacturers?tab=channels'
+  }
+
+  const handleBack = () => {
+    const returnTo = searchParams.get('returnTo')
+    if (returnTo) {
+      navigate(decodeURIComponent(returnTo))
+    } else {
+      navigate(-1)
+    }
+  }
   
   const queryManufacturerId = searchParams.get('manufacturerId') || ''
   const userManufacturerRaw = (user as any)?.manufacturerId || (user as any)?.manufacturerIds?.[0] || ''
@@ -814,7 +1319,9 @@ export default function TierHierarchyPage() {
 
   const manufacturerId = String(rawManufacturerId || '')
   const companyId = searchParams.get('companyId') || ''
-  const companyName = searchParams.get('companyName') || ''
+  const companyNameFromUrl = searchParams.get('companyName') || ''
+  const effectiveCompanyName = companyId ? '' : companyNameFromUrl
+  const isManufacturerAdmin = Boolean(manufacturerId) && (isPlatformAdmin || userAllManufacturerIds.includes(String(manufacturerId)))
   
   const [loading, setLoading] = useState(true)
   const [nodes, setNodes] = useState<TierNode[]>([])
@@ -826,10 +1333,10 @@ export default function TierHierarchyPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingNode, setEditingNode] = useState<TierNode | null>(null)
   const [parentNodeForAdd, setParentNodeForAdd] = useState<TierNode | null>(null)
-  
-  // 绑定账号模态框状态
   const [showBindModal, setShowBindModal] = useState(false)
   const [bindParentNode, setBindParentNode] = useState<TierNode | null>(null)
+  const [showRuleModal, setShowRuleModal] = useState(false)
+  const [ruleNode, setRuleNode] = useState<TierNode | null>(null)
   
   const currentUserId = (user as any)?._id || (user as any)?.id || ''
   
@@ -841,7 +1348,7 @@ export default function TierHierarchyPage() {
     try {
       const params: any = { manufacturerId, _t: Date.now() }
       if (companyId) params.companyId = companyId
-      if (companyName) params.companyName = companyName
+      if (effectiveCompanyName) params.companyName = effectiveCompanyName
       
       const resp = await apiClient.get('/authorizations/tier-hierarchy-v2', { params })
       const data = resp.data?.data || resp.data || {}
@@ -860,7 +1367,7 @@ export default function TierHierarchyPage() {
     } finally {
       setLoading(false)
     }
-  }, [manufacturerId, companyId, companyName])
+  }, [manufacturerId, companyId, effectiveCompanyName])
   
   useEffect(() => {
     loadHierarchy()
@@ -884,7 +1391,22 @@ export default function TierHierarchyPage() {
     const parent = nodes.find(n => n._id === parentId) || rootNode
     if (!parent) return
 
-    const delegatedRate = parent.tierDelegatedRate || 0
+    const delegatedRate = (() => {
+      const direct = (parent as any)?.tierDelegatedRate
+      if (direct === undefined || direct === null) {
+        const discount = (parent as any)?.tierDiscountRate ?? (parent as any)?.ownProductMinDiscount ?? (parent as any)?.minDiscountRate ?? 0
+        const commission = (parent as any)?.tierCommissionRate ?? (parent as any)?.ownProductCommission ?? (parent as any)?.commissionRate ?? 0
+        return Math.max(0, Number(discount) - Number(commission))
+      }
+      const directNum = Number(direct) || 0
+      if (directNum > 0) return directNum
+      const hasExplicitTierRates = (parent as any)?.tierDiscountRate !== undefined || (parent as any)?.tierCommissionRate !== undefined
+      if (hasExplicitTierRates) return 0
+      const discount = (parent as any)?.ownProductMinDiscount ?? (parent as any)?.minDiscountRate ?? (parent as any)?.tierDiscountRate ?? 0
+      const commission = (parent as any)?.ownProductCommission ?? (parent as any)?.commissionRate ?? (parent as any)?.tierCommissionRate ?? 0
+      const derived = Math.max(0, Number(discount) - Number(commission))
+      return derived
+    })()
     
     if (delegatedRate <= 0) {
       toast.error('此节点未设置下放额度，无法添加下级')
@@ -909,12 +1431,13 @@ export default function TierHierarchyPage() {
   }
   
   // 执行账号绑定 - 将账号关联到现有层级
-  const handleBindAccounts = async (accounts: any[], targetNode: TierNode) => {
+  const handleBindAccounts = async (accounts: any[], targetNode: TierNode, primaryUserId: string) => {
     try {
       // 将账号绑定到现有层级节点（使用现有PUT接口）
       const boundUserIds = accounts.map(a => a._id)
       await apiClient.put(`/authorizations/tier-node/${targetNode._id}`, {
-        boundUserIds
+        boundUserIds,
+        boundUserId: primaryUserId ? primaryUserId : null
       })
       
       toast.success(`成功绑定 ${accounts.length} 个账号`)
@@ -939,6 +1462,25 @@ export default function TierHierarchyPage() {
     setEditingNode(node)
     setShowEditModal(true)
   }
+
+  const handleOpenRules = (node: TierNode) => {
+    setRuleNode(node)
+    setShowRuleModal(true)
+  }
+
+  const handleSaveRules = async (ruleSets: Array<{ name: string; rules: Array<{ depth: number; commissionRate: number; description?: string }>; partnerRules: Array<{ depth: number; commissionRate: number; description?: string }> }>) => {
+    if (!ruleNode?._id) {
+      toast.error('节点ID无效，无法保存')
+      throw new Error('节点ID无效')
+    }
+    console.log('[handleSaveRules] Saving to node:', ruleNode._id, 'ruleSets:', JSON.stringify(ruleSets))
+    const resp = await apiClient.put(`/authorizations/tier-node/${ruleNode._id}`, {
+      tierCommissionRuleSets: ruleSets
+    })
+    console.log('[handleSaveRules] Response:', resp.data)
+    toast.success('规则已保存')
+    loadHierarchy()
+  }
   
   // 删除节点 - 直接删除无需确认
   const handleDelete = async (nodeId: string) => {
@@ -948,6 +1490,19 @@ export default function TierHierarchyPage() {
       loadHierarchy()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || '删除失败')
+    }
+  }
+
+  // 取消绑定用户
+  const handleUnbindUser = async (nodeId: string, userId: string) => {
+    try {
+      await apiClient.put(`/authorizations/tier-node/${nodeId}`, {
+        removeUserIds: [userId]
+      })
+      toast.success('已取消绑定')
+      loadHierarchy()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || '取消绑定失败')
     }
   }
   
@@ -965,7 +1520,7 @@ export default function TierHierarchyPage() {
           parentAuthorizationId: parentNodeForAdd._id,
           manufacturerId,
           companyId,
-          companyName
+          companyName: effectiveCompanyName
         })
         toast.success('层级已添加')
       }
@@ -994,7 +1549,17 @@ export default function TierHierarchyPage() {
     if (parentNodeForAdd) {
       return parentNodeForAdd.tierDelegatedRate
     }
-    return rootNode?.tierDelegatedRate || 40
+    const direct = (rootNode as any)?.tierDelegatedRate
+    if (direct !== undefined && direct !== null) {
+      const directNum = Number(direct) || 0
+      if (directNum > 0) return directNum
+      const hasExplicitTierRates = (rootNode as any)?.tierDiscountRate !== undefined || (rootNode as any)?.tierCommissionRate !== undefined
+      if (hasExplicitTierRates) return 0
+    }
+    const discount = (rootNode as any)?.ownProductMinDiscount ?? (rootNode as any)?.minDiscountRate ?? (rootNode as any)?.tierDiscountRate ?? 0
+    const commission = (rootNode as any)?.ownProductCommission ?? (rootNode as any)?.commissionRate ?? (rootNode as any)?.tierCommissionRate ?? 0
+    const derived = Math.max(0, Number(discount) - Number(commission))
+    return derived || 40
   }, [editingNode, parentNodeForAdd, rootNode])
   
   if (loading) {
@@ -1013,14 +1578,7 @@ export default function TierHierarchyPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => {
-                  const returnTo = searchParams.get('returnTo')
-                  if (returnTo) {
-                    navigate(decodeURIComponent(returnTo))
-                  } else {
-                    navigate(-1)
-                  }
-                }}
+                onClick={handleBack}
                 className="p-2 hover:bg-gray-100 rounded-lg"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -1030,7 +1588,7 @@ export default function TierHierarchyPage() {
                 {manufacturerInfo && (
                   <p className="text-sm text-gray-500">
                     {manufacturerInfo.name || manufacturerInfo.fullName}
-                    {companyName && ` - ${companyName}`}
+                    {effectiveCompanyName && ` - ${effectiveCompanyName}`}
                   </p>
                 )}
               </div>
@@ -1059,11 +1617,14 @@ export default function TierHierarchyPage() {
               onAddChild={handleAddChild}
               onBindAccount={handleBindAccount}
               onEdit={handleEdit}
+              onOpenRules={handleOpenRules}
               onDelete={handleDelete}
               onViewDetails={handleViewDetails}
               expanded={expandedNodes.has(rootNode._id)}
               onToggleExpand={() => handleToggleExpand(rootNode._id)}
               currentUserId={currentUserId}
+              isManufacturerAdmin={isManufacturerAdmin}
+              onUnbindUser={handleUnbindUser}
             />
             
             {/* 子节点树 */}
@@ -1076,11 +1637,14 @@ export default function TierHierarchyPage() {
                   onAddChild={handleAddChild}
                   onBindAccount={handleBindAccount}
                   onEdit={handleEdit}
+                  onOpenRules={handleOpenRules}
                   onDelete={handleDelete}
                   onViewDetails={handleViewDetails}
                   expandedNodes={expandedNodes}
                   onToggleExpand={handleToggleExpand}
                   currentUserId={currentUserId}
+                  isManufacturerAdmin={isManufacturerAdmin}
+                  onUnbindUser={handleUnbindUser}
                 />
               </div>
             )}
@@ -1113,7 +1677,7 @@ export default function TierHierarchyPage() {
         parentNode={parentNodeForAdd}
         editingNode={editingNode}
         maxDiscountRate={maxDiscountRate}
-        rootDiscount={rootNode?.tierDiscountRate || rootNode?.ownProductMinDiscount || 0}
+        rootDiscount={rootNode?.ownProductMinDiscount || (rootNode as any)?.minDiscountRate || 0}
       />
       
       {/* 绑定账号模态框 */}
@@ -1123,6 +1687,13 @@ export default function TierHierarchyPage() {
         onBind={handleBindAccounts}
         parentNode={bindParentNode}
         manufacturerId={manufacturerId}
+      />
+
+      <TierRuleModal
+        isOpen={showRuleModal}
+        onClose={() => setShowRuleModal(false)}
+        node={ruleNode}
+        onSave={handleSaveRules}
       />
     </div>
   )

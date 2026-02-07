@@ -53,7 +53,7 @@ export default function OrderManagementNew() {
         return
       }
       
-      let url = `https://pkochbpmcgaa.sealoshzh.site/api/orders?page=${page}&pageSize=${pageSize}`
+      let url = `/api/orders?page=${page}&pageSize=${pageSize}`
       if (filterStatus) {
         url += `&status=${filterStatus}`
       }
@@ -103,7 +103,7 @@ export default function OrderManagementNew() {
   const handleStatusChange = async (orderId: string, newStatus: number) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/status`, {
+      const response = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

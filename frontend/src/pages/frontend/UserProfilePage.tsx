@@ -38,7 +38,7 @@ export default function UserProfilePage() {
     
     try {
       setSaving(true);
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/users/profile', {
+      const response = await fetch('/api/users/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

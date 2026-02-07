@@ -102,7 +102,7 @@ export default function PackageDetailPageNew() {
     if (!isAuthenticated || !token) return
     setLoadingAddresses(true)
     try {
-      const res = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/addresses', {
+      const res = await fetch('/api/addresses', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (res.ok) {
@@ -314,7 +314,7 @@ export default function PackageDetailPageNew() {
 
       console.log('📦 提交套餐订单:', JSON.stringify(payload, null, 2))
 
-      const response = await fetch('https://pkochbpmcgaa.sealoshzh.site/api/orders/package', {
+      const response = await fetch('/api/orders/package', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(payload)
@@ -325,7 +325,7 @@ export default function PackageDetailPageNew() {
         
         // 自动保存地址到地址簿
         try {
-          await fetch('https://pkochbpmcgaa.sealoshzh.site/api/addresses', {
+          await fetch('/api/addresses', {
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json', 
