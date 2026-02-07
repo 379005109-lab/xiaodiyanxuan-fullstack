@@ -3580,7 +3580,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
           status: 'active',
           $and: [
             { $or: [{ manufacturerId: mfId }, { 'skus.manufacturerId': mfId }] },
-            { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+            { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }, { category: { $in: [...catIds, ...catOids] } }] }
           ]
         })
       } else if (auth.scope === 'specific' && auth.products?.length > 0) {
@@ -3594,7 +3594,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
             status: 'active',
             $and: [
               { $or: [{ manufacturerId: mfId }, { 'skus.manufacturerId': mfId }] },
-              { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+              { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }, { category: { $in: [...catIds, ...catOids] } }] }
             ]
           })
         }
@@ -3653,7 +3653,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
                 status: 'active',
                 $and: [
                   { $or: [{ manufacturerId: raMfId }, { 'skus.manufacturerId': raMfId }] },
-                  { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+                  { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }, { category: { $in: [...catIds, ...catOids] } }] }
                 ]
               })
               count += c
@@ -3666,7 +3666,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
                   status: 'active',
                   $and: [
                     { $or: [{ manufacturerId: raMfId }, { 'skus.manufacturerId': raMfId }] },
-                    { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }] }
+                    { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }, { category: { $in: [...catIds, ...catOids] } }] }
                   ]
                 })
               }
