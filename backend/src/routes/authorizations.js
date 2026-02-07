@@ -3562,11 +3562,12 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
     // 计算每个授权的实际商品数量
     const calculateProductCount = async (auth) => {
       const mfId = auth.fromManufacturer?._id || auth.fromManufacturer
-      let count = 0
+      let ownCount = 0
+      let partnerCount = 0
       
       // 计算自有产品数量
       if (auth.scope === 'all') {
-        count = await Product.countDocuments({
+        ownCount = await Product.countDocuments({
           status: 'active',
           $or: [
             { manufacturerId: mfId },
@@ -3576,7 +3577,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       } else if (auth.scope === 'category' && auth.categories?.length > 0) {
         const catIds = auth.categories.map(c => String(c))
         const catOids = catIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id))
-        count = await Product.countDocuments({
+        ownCount = await Product.countDocuments({
           status: 'active',
           $and: [
             { $or: [{ manufacturerId: mfId }, { 'skus.manufacturerId': mfId }] },
@@ -3584,7 +3585,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
           ]
         })
       } else if (auth.scope === 'specific' && auth.products?.length > 0) {
-        count = auth.products.length
+        ownCount = auth.products.length
       } else if (auth.scope === 'mixed') {
         let categoryCount = 0
         if (auth.categories?.length > 0) {
@@ -3599,7 +3600,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
           })
         }
         const specificCount = auth.products?.length || 0
-        count = categoryCount + specificCount
+        ownCount = categoryCount + specificCount
       }
       
       // 计算授权产品数量：查找其他厂家授权给此节点绑定用户或此厂家的产品
@@ -3643,9 +3644,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
                 status: 'active',
                 $or: [{ manufacturerId: raMfId }, { 'skus.manufacturerId': raMfId }]
               })
-              count += c
+              partnerCount += c
             } else if (ra.scope === 'specific' && ra.products?.length > 0) {
-              count += ra.products.length
+              partnerCount += ra.products.length
             } else if (ra.scope === 'category' && ra.categories?.length > 0) {
               const catIds = ra.categories.map(c => String(c))
               const catOids = catIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id))
@@ -3656,7 +3657,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
                   { $or: [{ categoryId: { $in: catOids } }, { 'category._id': { $in: catIds } }, { category: { $in: [...catIds, ...catOids] } }] }
                 ]
               })
-              count += c
+              partnerCount += c
             } else if (ra.scope === 'mixed') {
               let cc = 0
               if (ra.categories?.length > 0) {
@@ -3670,7 +3671,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
                   ]
                 })
               }
-              count += cc + (ra.products?.length || 0)
+              partnerCount += cc + (ra.products?.length || 0)
             }
           }
         } catch (e) {
@@ -3678,13 +3679,16 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         }
       }
       
-      return count
+      return { ownProductCount: ownCount, partnerProductCount: partnerCount, productCount: ownCount + partnerCount }
     }
 
     // 计算根节点的商品数量（如果根节点是真实授权节点）
     if (rootNode && !rootNode.isVirtual && rootNodes.length > 0) {
       try {
-        rootNode.productCount = await calculateProductCount(rootNodes[0])
+        const counts = await calculateProductCount(rootNodes[0])
+        rootNode.productCount = counts.productCount
+        rootNode.ownProductCount = counts.ownProductCount
+        rootNode.partnerProductCount = counts.partnerProductCount
       } catch (e) {
         console.error('计算根节点商品数量失败:', e)
       }
@@ -3699,7 +3703,7 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
       ).length
       
       // 计算商品数量
-      const productCount = await calculateProductCount(auth)
+      const counts = await calculateProductCount(auth)
 
       // 确定显示名称
       let displayName = auth.tierDisplayName
@@ -3781,7 +3785,9 @@ router.get('/tier-hierarchy-v2', auth, async (req, res) => {
         partnerProductCommission: effectiveTierPartnerCommissionRate,
         tierLevel: effectiveTierLevel,
         childCount,
-        productCount,
+        productCount: counts.productCount,
+        ownProductCount: counts.ownProductCount,
+        partnerProductCount: counts.partnerProductCount,
         parentAuthorizationId: effectiveParentAuthorizationId,
         fromManufacturer: auth.fromManufacturer,
         toDesigner: auth.toDesigner,
@@ -4031,6 +4037,7 @@ router.put('/tier-node/:id', auth, async (req, res) => {
       tierPartnerCommissionRate,
       boundUserIds,  // 绑定的用户ID列表
       boundUserId,
+      removeUserIds,  // 要解绑的用户ID列表
       tierDepthBasedCommissionRules,
       tierCommissionRuleSets
     } = req.body
@@ -4157,6 +4164,16 @@ router.put('/tier-node/:id', auth, async (req, res) => {
         if (!list.includes(next)) {
           auth.boundUserIds = [...(auth.boundUserIds || []), next]
         }
+      }
+    }
+
+    // 处理解绑用户
+    if (removeUserIds !== undefined && Array.isArray(removeUserIds) && removeUserIds.length > 0) {
+      const removeSet = new Set(removeUserIds.map(id => String(id)))
+      auth.boundUserIds = (auth.boundUserIds || []).filter(id => !removeSet.has(String(id)))
+      // 如果主账号被解绑，清空主账号
+      if (auth.boundUserId && removeSet.has(String(auth.boundUserId))) {
+        auth.boundUserId = null
       }
     }
 

@@ -52,6 +52,8 @@ interface TierNode {
   tierLevel: number
   childCount: number
   productCount: number
+  ownProductCount?: number
+  partnerProductCount?: number
   parentAuthorizationId: string | null
   fromManufacturer: any
   toDesigner?: any
@@ -419,7 +421,8 @@ function TierCard({
   expanded,
   onToggleExpand,
   currentUserId,
-  isManufacturerAdmin
+  isManufacturerAdmin,
+  onUnbindUser
 }: {
   node: TierNode
   isRoot?: boolean
@@ -433,6 +436,7 @@ function TierCard({
   onToggleExpand: () => void
   currentUserId: string
   isManufacturerAdmin: boolean
+  onUnbindUser?: (nodeId: string, userId: string) => void
 }) {
   const isOwner = node.createdBy === currentUserId || node.isOwner
   const isVirtual = Boolean((node as any).isVirtual)
@@ -612,10 +616,18 @@ function TierCard({
             <Users className="w-4 h-4" />
             {(node as any).boundUserIds?.length || node.childCount || 0}人
           </span>
-          <span className="flex items-center gap-1">
-            <Package className="w-4 h-4" />
-            {node.productCount || 0}商品
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1" title="自有商品">
+              <Package className="w-4 h-4 text-green-500" />
+              <span className="text-green-600">{node.ownProductCount ?? node.productCount ?? 0}</span>
+            </span>
+            {(node.partnerProductCount ?? 0) > 0 && (
+              <span className="flex items-center gap-1" title="授权商品">
+                <Package className="w-4 h-4 text-blue-500" />
+                <span className="text-blue-600">{node.partnerProductCount}</span>
+              </span>
+            )}
+          </div>
         </div>
         
         {/* 已绑定的账号列表 */}
@@ -629,6 +641,15 @@ function TierCard({
                     {user.nickname?.charAt(0) || user.username?.charAt(0) || '?'}
                   </div>
                   <span className="text-gray-700">{user.nickname || user.username}</span>
+                  {canEdit && onUnbindUser && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onUnbindUser(node._id, String(user._id)) }}
+                      className="ml-1 p-0.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="取消绑定"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               ))}
               {(node as any).boundUserIds.length > 5 && (
@@ -693,7 +714,8 @@ function TierTree({
   expandedNodes,
   onToggleExpand,
   currentUserId,
-  isManufacturerAdmin
+  isManufacturerAdmin,
+  onUnbindUser
 }: {
   nodes: TierNode[]
   parentId: string | null
@@ -708,6 +730,7 @@ function TierTree({
   onToggleExpand: (nodeId: string) => void
   currentUserId: string
   isManufacturerAdmin: boolean
+  onUnbindUser?: (nodeId: string, userId: string) => void
 }) {
   const children = nodes.filter(n => 
     (n.parentAuthorizationId || null) === parentId
@@ -744,6 +767,7 @@ function TierTree({
               onToggleExpand={() => onToggleExpand(node._id)}
               currentUserId={currentUserId}
               isManufacturerAdmin={isManufacturerAdmin}
+              onUnbindUser={onUnbindUser}
             />
             
             {/* 子节点 */}
@@ -769,6 +793,7 @@ function TierTree({
                   onToggleExpand={onToggleExpand}
                   currentUserId={currentUserId}
                   isManufacturerAdmin={isManufacturerAdmin}
+                  onUnbindUser={onUnbindUser}
                 />
               </div>
             )}
@@ -910,14 +935,23 @@ function TierEditModal({
           </div>
           
           {/* 固定折扣 - 只读显示 */}
-          <div className="bg-gray-50 rounded-xl p-4">
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-700">最低折扣</p>
-                <p className="text-xs text-gray-500">继承自厂家授权，不可修改</p>
+                <p className="text-sm font-medium text-gray-700">最低折扣（自有产品）</p>
+                <p className="text-xs text-gray-500">来源于厂家授权审批，不可修改</p>
               </div>
               <span className="text-2xl font-bold text-gray-600">{rootDiscount}%</span>
             </div>
+            {(editingNode?.partnerProductCommission ?? 0) > 0 && (
+              <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">返佣比例（授权产品）</p>
+                  <p className="text-xs text-gray-500">来源于厂家授权审批，不可修改</p>
+                </div>
+                <span className="text-2xl font-bold text-gray-600">{editingNode?.partnerProductCommission ?? 0}%</span>
+              </div>
+            )}
           </div>
           
           {/* 总返佣额度 - 只读 */}
@@ -1458,6 +1492,19 @@ export default function TierHierarchyPage() {
       toast.error(err?.response?.data?.message || '删除失败')
     }
   }
+
+  // 取消绑定用户
+  const handleUnbindUser = async (nodeId: string, userId: string) => {
+    try {
+      await apiClient.put(`/authorizations/tier-node/${nodeId}`, {
+        removeUserIds: [userId]
+      })
+      toast.success('已取消绑定')
+      loadHierarchy()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || '取消绑定失败')
+    }
+  }
   
   // 保存节点
   const handleSave = async (data: any) => {
@@ -1577,6 +1624,7 @@ export default function TierHierarchyPage() {
               onToggleExpand={() => handleToggleExpand(rootNode._id)}
               currentUserId={currentUserId}
               isManufacturerAdmin={isManufacturerAdmin}
+              onUnbindUser={handleUnbindUser}
             />
             
             {/* 子节点树 */}
@@ -1596,6 +1644,7 @@ export default function TierHierarchyPage() {
                   onToggleExpand={handleToggleExpand}
                   currentUserId={currentUserId}
                   isManufacturerAdmin={isManufacturerAdmin}
+                  onUnbindUser={handleUnbindUser}
                 />
               </div>
             )}
