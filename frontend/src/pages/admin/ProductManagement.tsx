@@ -32,6 +32,7 @@ export default function ProductManagement() {
   const isEnterpriseAdmin = user?.role === 'enterprise_admin'
   const canViewCostPrice = user?.role === 'super_admin' || user?.role === 'admin' || (user as any)?.permissions?.canViewCostPrice === true
   const myManufacturerId = (user as any)?.manufacturerId ? String((user as any).manufacturerId) : ''
+  const isDesignerUser = user?.role === 'designer'
   const isPlatformAdminUser =
     user?.role === 'admin' ||
     user?.role === 'super_admin' ||
@@ -163,8 +164,26 @@ export default function ProductManagement() {
       const response = await apiClient.get('/manufacturers', { params: { pageSize: 100 } })
       let allManufacturers = response.data.data || []
       
+      // 设计师：只显示已授权的厂家
+      if (isDesignerUser) {
+        try {
+          const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 1 } })
+          // 从授权商品中收集厂家ID
+          const authProductsResp = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } })
+          const authorizedProducts = authProductsResp.data?.data || []
+          const authorizedMfrIds = new Set<string>()
+          authorizedProducts.forEach((p: any) => {
+            const mfrId = p.manufacturerId?._id || p.manufacturerId || p.skus?.[0]?.manufacturerId
+            if (mfrId) authorizedMfrIds.add(String(mfrId))
+          })
+          allManufacturers = allManufacturers.filter((m: any) => authorizedMfrIds.has(String(m._id)))
+        } catch (authError) {
+          console.log('设计师加载授权厂家失败:', authError)
+          allManufacturers = []
+        }
+      }
       // 对于厂家账号，只显示自己的厂家和授权过来的厂家
-      if (!isPlatformAdminUser && myManufacturerId) {
+      else if (!isPlatformAdminUser && myManufacturerId) {
         try {
           // 获取授权给我的厂家列表
           const authResponse = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
@@ -3041,13 +3060,18 @@ export default function ProductManagement() {
                 </th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">图片</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">商品名称</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">厂家</th>
+                {currentRole !== 'designer' && (
+                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">厂家</th>
+                )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">分类</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">价格</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">折后价(A)</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">{currentRole === 'designer' ? '设计师售价' : '价格'}</th>
+                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">{currentRole === 'designer' ? '授权折后价' : '折后价(A)'}</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">返佣金额(B)</th>
-                {currentRole === 'designer' && false && (
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">单品折扣覆盖</th>
+                {currentRole === 'designer' && (
+                  <>
+                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">差额(C)</th>
+                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">总收益(B+C)</th>
+                  </>
                 )}
                 {showCostColumn && currentRole !== 'designer' && (
                   <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
@@ -3117,9 +3141,10 @@ export default function ProductManagement() {
                       <p className="text-xs text-gray-500 line-clamp-1 mt-1">{product.description}</p>
                     </div>
                   </td>
-                  {/* 厂家列 */}
+                  {/* 厂家列 - 设计师隐藏 */}
+                  {currentRole !== 'designer' && (
                   <td className="py-4 px-4">
-                    {currentRole !== 'designer' && editingManufacturer === product._id ? (
+                    {editingManufacturer === product._id ? (
                       <select
                         autoFocus
                         className="text-sm border border-gray-300 rounded px-2 py-1 w-24"
@@ -3136,14 +3161,15 @@ export default function ProductManagement() {
                       </select>
                     ) : (
                       <span 
-                        className={`text-sm text-gray-700 ${currentRole !== 'designer' ? 'cursor-pointer hover:text-primary hover:underline' : ''}`}
-                        onClick={() => currentRole !== 'designer' && setEditingManufacturer(product._id)}
-                        title={currentRole !== 'designer' ? "点击编辑厂家" : ""}
+                        className="text-sm text-gray-700 cursor-pointer hover:text-primary hover:underline"
+                        onClick={() => setEditingManufacturer(product._id)}
+                        title="点击编辑厂家"
                       >
                         {(product as any).manufacturerDisplayName || getManufacturerName(getProductManufacturerId(product) || undefined)}
                       </span>
                     )}
                   </td>
+                  )}
                   <td className="py-4 px-4">
                     <span className="text-sm text-gray-700">
                       {(() => {
@@ -3165,16 +3191,83 @@ export default function ProductManagement() {
                       })()}
                     </span>
                   </td>
+                  {/* 价格列：设计师显示可编辑售价，其他角色显示商品价格 */}
                   <td className="py-4 px-4">
                     <div className="flex flex-col">
                       {(() => {
                         const p: any = product as any
                         const isAuthorized = (product as any).isAuthorized
                         
-                        // 授权商品快速编辑价格
+                        // 设计师：显示设计师售价（可编辑）
+                        if (currentRole === 'designer') {
+                          const discountedPrice = Number(p?.tierPricing?.discountedPrice) || 0
+                          const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
+                          const takePrice = Number(p?.takePrice) || 0
+                          // 设计师售价：覆盖价 > 授权价 > 折后价
+                          const designerSellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : discountedPrice)
+                          
+                          // 编辑模式
+                          if (editingPriceProductId === product._id) {
+                            return (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={editingPriceValue}
+                                  onChange={(e) => setEditingPriceValue(e.target.value)}
+                                  className="w-20 px-2 py-1 text-sm border rounded"
+                                  placeholder="售价"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleAuthorizedPriceEdit(product)
+                                    if (e.key === 'Escape') {
+                                      setEditingPriceProductId(null)
+                                      setEditingPriceValue('')
+                                    }
+                                  }}
+                                />
+                                <button
+                                  onClick={() => handleAuthorizedPriceEdit(product)}
+                                  disabled={savingPrice}
+                                  className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+                                >
+                                  {savingPrice ? '...' : '✓'}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingPriceProductId(null)
+                                    setEditingPriceValue('')
+                                  }}
+                                  className="px-2 py-1 text-xs bg-gray-300 rounded hover:bg-gray-400"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )
+                          }
+                          
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span 
+                                className="font-medium text-primary-600 cursor-pointer hover:underline"
+                                onClick={() => {
+                                  setEditingPriceProductId(product._id)
+                                  setEditingPriceValue(String(designerSellPrice))
+                                }}
+                                title="点击编辑设计师售价"
+                              >
+                                {formatPrice(designerSellPrice)}
+                              </span>
+                              {overridePrice > 0 && (
+                                <span className="px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-700">
+                                  已改价
+                                </span>
+                              )}
+                            </div>
+                          )
+                        }
+                        
+                        // 授权商品快速编辑价格（厂家角色）
                         if (isAuthorized && editingPriceProductId === product._id) {
-                          const originalPrice = p?.skus?.[0]?.price || p.basePrice || 0
-                          const minAllowed = Math.ceil(originalPrice * 0.6)
                           return (
                             <div className="flex items-center gap-1">
                               <input
@@ -3182,7 +3275,6 @@ export default function ProductManagement() {
                                 value={editingPriceValue}
                                 onChange={(e) => setEditingPriceValue(e.target.value)}
                                 className="w-20 px-2 py-1 text-sm border rounded"
-                                placeholder={`≥${minAllowed}`}
                                 autoFocus
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') handleAuthorizedPriceEdit(product)
@@ -3210,26 +3302,6 @@ export default function ProductManagement() {
                               </button>
                             </div>
                           )
-                        }
-                        
-                        // 设计师优先使用后端返回的授权价格
-                        if (currentRole === 'designer') {
-                          const takePrice = Number(p?.takePrice)
-                          const labelPrice = Number(p?.labelPrice1)
-                          if (Number.isFinite(takePrice) && takePrice > 0) {
-                            return (
-                              <span className="font-medium text-primary-600">
-                                {formatPrice(takePrice)}
-                              </span>
-                            )
-                          }
-                          if (Number.isFinite(labelPrice) && labelPrice > 0) {
-                            return (
-                              <span className="font-medium text-primary-600">
-                                {formatPrice(labelPrice)}
-                              </span>
-                            )
-                          }
                         }
                         
                         // 其他角色使用 SKU 价格计算
@@ -3263,7 +3335,7 @@ export default function ProductManagement() {
                                   setEditingPriceProductId(product._id)
                                   setEditingPriceValue(String(finalPrice))
                                 }}
-                                title="点击编辑价格（不低于标价60%）"
+                                title="点击编辑价格"
                               >
                                 {formatPrice(finalPrice)}
                               </span>
@@ -3292,6 +3364,7 @@ export default function ProductManagement() {
                     </div>
                   </td>
 
+                  {/* 折后价列：始终显示授权折后价（从 tierPricing） */}
                   <td className="py-4 px-4">
                     <div className="text-sm text-gray-700">
                       {(() => {
@@ -3303,6 +3376,7 @@ export default function ProductManagement() {
                     </div>
                   </td>
 
+                  {/* 返佣金额列：始终基于授权折后价计算 */}
                   <td className="py-4 px-4">
                     <div className="text-sm text-gray-700">
                       {(() => {
@@ -3314,40 +3388,41 @@ export default function ProductManagement() {
                     </div>
                   </td>
 
-                  {currentRole === 'designer' && false && (
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={100}
-                          step={1}
-                          className="input w-24"
-                          placeholder="默认"
-                          value={(() => {
-                            const v = designerDiscountEdits[product._id]
-                            if (v !== undefined) return v
+                  {/* 设计师专属列：差额 和 总收益 */}
+                  {currentRole === 'designer' && (
+                    <>
+                      <td className="py-4 px-4">
+                        <div className="text-sm">
+                          {(() => {
                             const p: any = product as any
-                            const rate = Number(p?.tierPricing?.overrideDiscountRate)
-                            if (Number.isFinite(rate) && rate > 0) return String(Math.round(rate * 100))
-                            return ''
+                            const discountedPrice = Number(p?.tierPricing?.discountedPrice) || 0
+                            if (discountedPrice <= 0) return '-'
+                            const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
+                            const takePrice = Number(p?.takePrice) || 0
+                            const designerSellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : discountedPrice)
+                            const diff = designerSellPrice - discountedPrice
+                            if (diff <= 0) return <span className="text-gray-400">0</span>
+                            return <span className="text-orange-600 font-medium">{formatPrice(diff)}</span>
                           })()}
-                          onChange={(e) => {
-                            const next = e.target.value
-                            setDesignerDiscountEdits(prev => ({ ...prev, [product._id]: next }))
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          disabled={savingDesignerDiscount[product._id] === true}
-                          onClick={() => saveDesignerProductDiscountOverride(product)}
-                        >
-                          {savingDesignerDiscount[product._id] ? '保存中' : '保存'}
-                        </button>
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">单位：%</div>
-                    </td>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="text-sm">
+                          {(() => {
+                            const p: any = product as any
+                            const discountedPrice = Number(p?.tierPricing?.discountedPrice) || 0
+                            const commission = Number(p?.tierPricing?.commissionAmount) || 0
+                            if (discountedPrice <= 0 && commission <= 0) return '-'
+                            const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
+                            const takePrice = Number(p?.takePrice) || 0
+                            const designerSellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : discountedPrice)
+                            const diff = Math.max(0, designerSellPrice - discountedPrice)
+                            const total = diff + commission
+                            return <span className="text-green-600 font-bold">{formatPrice(total)}</span>
+                          })()}
+                        </div>
+                      </td>
+                    </>
                   )}
 
                   {showCostColumn && currentRole !== 'designer' && (
@@ -3502,7 +3577,7 @@ export default function ProductManagement() {
                     exit={{ opacity: 0, height: 0 }}
                     className="bg-gray-50"
                   >
-                    <td colSpan={(showCostColumn ? 10 : 9) + 2 + (currentRole === 'designer' ? 1 : 0)} className="py-4 px-4">
+                    <td colSpan={currentRole === 'designer' ? 12 : (showCostColumn ? 12 : 11)} className="py-4 px-4">
                       <div className="space-y-2">
                         <div className="text-xs font-semibold text-gray-600 mb-2">SKU列表：</div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

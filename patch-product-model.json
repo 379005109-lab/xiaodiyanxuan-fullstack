@@ -1,0 +1,21 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/volumeMounts/-",
+    "value": {
+      "name": "product-model-volume",
+      "mountPath": "/app/src/models/Product.js",
+      "subPath": "Product.js"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/volumes/-",
+    "value": {
+      "name": "product-model-volume",
+      "configMap": {
+        "name": "product-model-config"
+      }
+    }
+  }
+]
