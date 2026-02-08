@@ -164,6 +164,8 @@ export default function ProductForm() {
         videos: [] as string[],
         images: [] as string[],
         effectImages: [] as string[],
+        inspectionImages: [] as string[],
+        deliveryImages: [] as string[],
         code: 'sku-1762',
         spec: '2人位',
         specRemark: '', // 规格备注
@@ -389,6 +391,12 @@ export default function ProductForm() {
                 .map(normalizeFileId)
                 .filter((img: string) => img && !img.startsWith('data:'))),
               effectImages: (((sku as any).effectImages || []) as any[])
+                .map(normalizeFileId)
+                .filter((img: string) => img && !img.startsWith('data:')),
+              inspectionImages: (((sku as any).inspectionImages || []) as any[])
+                .map(normalizeFileId)
+                .filter((img: string) => img && !img.startsWith('data:')),
+              deliveryImages: (((sku as any).deliveryImages || []) as any[])
                 .map(normalizeFileId)
                 .filter((img: string) => img && !img.startsWith('data:')),
               code: (sku as any).code || sku._id,
@@ -1090,6 +1098,8 @@ export default function ProductForm() {
           videos: [],
           images: [],
           effectImages: [],
+          inspectionImages: [],
+          deliveryImages: [],
           code: newCode,
           spec: '',
           specRemark: '',
@@ -1205,6 +1215,8 @@ export default function ProductForm() {
             videos: [], // 视频
             images: [], // 不使用材质配置图片，SKU图片独立管理
             effectImages: [], // 效果图独立管理
+            inspectionImages: [], // 验货图片
+            deliveryImages: [], // 交付实物图片
             code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
             spec: spec.name,
             specRemark: '',
@@ -1249,6 +1261,8 @@ export default function ProductForm() {
           videos: [],
           images: [],
           effectImages: [],
+          inspectionImages: [],
+          deliveryImages: [],
           code: `${baseCode}-${String(skuIndex).padStart(2, '0')}`,
           spec: spec.name,
           specRemark: '',
@@ -1483,6 +1497,8 @@ export default function ProductForm() {
             videos: [],
             images: [],
             effectImages: [],
+            inspectionImages: [],
+            deliveryImages: [],
             code: modelCode || `SKU-${index + 1}`,
             spec: spec,
             specRemark: specRemark,
@@ -2438,7 +2454,7 @@ export default function ProductForm() {
                         ))}
                       </select>
                     </td>
-                    {/* 多媒体 - 视频+图片+效果图 */}
+                    {/* 多媒体 - 视频+图片+效果图+验货图+交付图 */}
                     <td className="py-3 px-4">
                       <button
                         type="button"
@@ -2449,7 +2465,7 @@ export default function ProductForm() {
                         className="relative flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg cursor-pointer hover:border-primary-500 transition-colors group"
                       >
                         {/* 显示第一个媒体预览 */}
-                        {(sku.videos?.length > 0 || sku.images?.length > 0 || sku.effectImages?.length > 0) ? (
+                        {(sku.videos?.length > 0 || sku.images?.length > 0 || sku.effectImages?.length > 0 || sku.inspectionImages?.length > 0 || sku.deliveryImages?.length > 0) ? (
                           <>
                             <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0 bg-gray-100">
                               {sku.videos?.length > 0 ? (
@@ -2461,14 +2477,20 @@ export default function ProductForm() {
                                 />
                               ) : sku.images?.length > 0 ? (
                                 <img src={getThumbnailUrl(normalizeFileId(sku.images[0]), 80)} alt="预览" className="w-full h-full object-cover" />
-                              ) : (
+                              ) : sku.effectImages?.length > 0 ? (
                                 <img src={getThumbnailUrl(normalizeFileId(sku.effectImages[0]), 80)} alt="预览" className="w-full h-full object-cover" />
+                              ) : sku.inspectionImages?.length > 0 ? (
+                                <img src={getThumbnailUrl(normalizeFileId(sku.inspectionImages[0]), 80)} alt="预览" className="w-full h-full object-cover" />
+                              ) : (
+                                <img src={getThumbnailUrl(normalizeFileId(sku.deliveryImages[0]), 80)} alt="预览" className="w-full h-full object-cover" />
                               )}
                             </div>
                             <div className="flex flex-col text-left text-xs">
                               {sku.videos?.length > 0 && <span className="text-blue-600">视频 {sku.videos.length}</span>}
                               {sku.images?.length > 0 && <span className="text-gray-600">图片 {sku.images.length}</span>}
                               {sku.effectImages?.length > 0 && <span className="text-amber-600">效果 {sku.effectImages.length}</span>}
+                              {sku.inspectionImages?.length > 0 && <span className="text-orange-600">验货 {sku.inspectionImages.length}</span>}
+                              {sku.deliveryImages?.length > 0 && <span className="text-emerald-600">交付 {sku.deliveryImages.length}</span>}
                             </div>
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
                               <span className="text-white text-xs">管理</span>

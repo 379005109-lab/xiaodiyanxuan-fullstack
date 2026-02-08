@@ -181,6 +181,8 @@ const sanitizeProductForAuthorizedViewer = (product, takePrice, labelPrice1, all
     seriesImage: product.seriesImage,
     thumbnail: product.thumbnail,
     images: product.images,
+    videos: product.videos || [],
+    videoTitles: product.videoTitles || [],
     status: product.status,
     skus: product.skus || [],
     materialConfigs: product.materialConfigs || [],
@@ -1023,6 +1025,11 @@ const createProduct = async (req, res) => {
         materialCategories: sku.materialCategories || [],
         material: sku.material || {},
         materialUpgradePrices: sku.materialUpgradePrices || {},
+        videos: Array.isArray(sku.videos) ? sku.videos : [],
+        images: Array.isArray(sku.images) ? sku.images : [],
+        effectImages: Array.isArray(sku.effectImages) ? sku.effectImages : [],
+        inspectionImages: Array.isArray(sku.inspectionImages) ? sku.inspectionImages : [],
+        deliveryImages: Array.isArray(sku.deliveryImages) ? sku.deliveryImages : [],
       }))
     }
 
@@ -1176,6 +1183,8 @@ const updateProduct = async (req, res) => {
           videos: Array.isArray(sku.videos) ? sku.videos : [],
           images: Array.isArray(sku.images) ? sku.images : [],
           effectImages: Array.isArray(sku.effectImages) ? sku.effectImages : [],
+          inspectionImages: Array.isArray(sku.inspectionImages) ? sku.inspectionImages : [],
+          deliveryImages: Array.isArray(sku.deliveryImages) ? sku.deliveryImages : [],
         }
       })
       console.log('🔥 [更新商品] 处理后的SKU数据:', productData.skus.map(s => ({ code: s.code, spec: s.spec, specRemark: s.specRemark, files: s.files?.length || 0 })))
