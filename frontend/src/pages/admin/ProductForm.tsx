@@ -3283,6 +3283,8 @@ export default function ProductForm() {
           videos={formData.skus[managingSkuIndex]?.videos || []}
           images={formData.skus[managingSkuIndex]?.images || []}
           effectImages={formData.skus[managingSkuIndex]?.effectImages || []}
+          inspectionImages={formData.skus[managingSkuIndex]?.inspectionImages || []}
+          deliveryImages={formData.skus[managingSkuIndex]?.deliveryImages || []}
           onClose={() => {
             setShowImageManager(false)
             setManagingSkuIndex(-1)
@@ -3292,6 +3294,8 @@ export default function ProductForm() {
             newSkus[managingSkuIndex].videos = data.videos
             newSkus[managingSkuIndex].images = data.images
             newSkus[managingSkuIndex].effectImages = data.effectImages
+            newSkus[managingSkuIndex].inspectionImages = data.inspectionImages
+            newSkus[managingSkuIndex].deliveryImages = data.deliveryImages
             setFormData({ ...formData, skus: newSkus })
           }}
         />

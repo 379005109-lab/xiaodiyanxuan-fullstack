@@ -39,6 +39,8 @@ const skuSchema = new mongoose.Schema({
   videos: [String], // SKU视频
   images: [String],
   effectImages: [String], // 效果图/渲染图
+  inspectionImages: [String], // 验货图片
+  deliveryImages: [String], // 交付实物图片
   files: [mongoose.Schema.Types.Mixed], // SKU专属文件 {name, url, size, type}
   length: Number,
   width: Number,
