@@ -1,4 +1,4 @@
-# 构建阶段
+# 构建阶段 - Updated 2026-02-08
 FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app

@@ -1,4 +1,4 @@
-# 构建阶段 - Updated 2026-01-30 - Force rebuild
+# 构建阶段 - Updated 2026-02-08 - Force rebuild
 FROM node:18-alpine AS builder
 
 # Cache bust arg
