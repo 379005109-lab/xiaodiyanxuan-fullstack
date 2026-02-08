@@ -176,6 +176,10 @@ export interface ProductSKU {
   costPrice?: number
   discountPrice?: number
   images: string[]
+  effectImages?: string[]
+  inspectionImages?: string[]
+  deliveryImages?: string[]
+  videos?: string[]
   code?: string
   spec?: string
   specRemark?: string

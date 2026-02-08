@@ -12,6 +12,11 @@ export default function AuthorizedProductPricing() {
   const [searchParams] = useSearchParams()
   const { user } = useAuthStore()
 
+  const getFallbackReturnTo = () => {
+    const stored = sessionStorage.getItem('channels_return_to')
+    return stored || '/admin/manufacturers?tab=channels'
+  }
+
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -112,7 +117,7 @@ export default function AuthorizedProductPricing() {
               if (returnTo) {
                 navigate(decodeURIComponent(returnTo))
               } else {
-                navigate(-1)
+                navigate(getFallbackReturnTo(), { replace: true })
               }
             }}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"

@@ -136,7 +136,7 @@ export default function OrderManagementNew2() {
       }
       
       // 使用完整的公网地址
-      const apiUrl = 'https://pkochbpmcgaa.sealoshzh.site/api/orders?pageSize=10000'
+      const apiUrl = '/api/orders?pageSize=10000'
       console.log('[OrderManagement] Fetching from:', apiUrl)
       
       const response = await fetch(apiUrl, {
@@ -221,7 +221,7 @@ export default function OrderManagementNew2() {
   const handleMarkPaid = async (orderId: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`, {
+      const response = await fetch(`/api/orders/${orderId}/pay`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -327,7 +327,7 @@ export default function OrderManagementNew2() {
         return
       }
 
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/invoice-status`, {
+      const response = await fetch(`/api/orders/${orderId}/invoice-status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -540,7 +540,7 @@ export default function OrderManagementNew2() {
     
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrderId}/price`, {
+      const response = await fetch(`/api/orders/${selectedOrderId}/price`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -567,7 +567,7 @@ export default function OrderManagementNew2() {
   const handleShip = async (orderId: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/status`, {
+      const response = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -591,7 +591,7 @@ export default function OrderManagementNew2() {
   const handleUpdateStatus = async (orderId: string, newStatus: number) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/status`, {
+      const response = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -616,7 +616,7 @@ export default function OrderManagementNew2() {
   const handleCancelOrderWithReason = async (orderId: string, reason: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/status`, {
+      const response = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -646,7 +646,7 @@ export default function OrderManagementNew2() {
   const handleDeleteOrder = async (orderId: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}`, {
+      const response = await fetch(`/api/orders/${orderId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -669,7 +669,7 @@ export default function OrderManagementNew2() {
   const handleMarkPaidWithChannel = async (orderId: string, paymentMethod: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/pay`, {
+      const response = await fetch(`/api/orders/${orderId}/pay`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -702,7 +702,7 @@ export default function OrderManagementNew2() {
     }
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/status`, {
+      const response = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -737,7 +737,7 @@ export default function OrderManagementNew2() {
     }
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/verify-payment`, {
+      const response = await fetch(`/api/orders/${orderId}/verify-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -776,7 +776,7 @@ export default function OrderManagementNew2() {
     }
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/verify-deposit`, {
+      const response = await fetch(`/api/orders/${orderId}/verify-deposit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -809,7 +809,7 @@ export default function OrderManagementNew2() {
   const handleRequestFinalPayment = async (orderId: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/request-final-payment`, {
+      const response = await fetch(`/api/orders/${orderId}/request-final-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -838,7 +838,7 @@ export default function OrderManagementNew2() {
     }
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/verify-final-payment`, {
+      const response = await fetch(`/api/orders/${orderId}/verify-final-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -869,7 +869,7 @@ export default function OrderManagementNew2() {
   const handleCompleteOrder = async (orderId: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/status`, {
+      const response = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -894,7 +894,7 @@ export default function OrderManagementNew2() {
   const handleSaveRemark = async (orderId: string, remark: string) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}`, {
+      const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1687,7 +1687,7 @@ export default function OrderManagementNew2() {
                       onClick={async () => {
                         if (!window.confirm('确定要批准取消此订单吗？')) return
                         try {
-                          const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/cancel-approve`, {
+                          const response = await fetch(`/api/orders/${selectedOrder._id}/cancel-approve`, {
                             method: 'POST',
                             headers: {
                               'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -1714,7 +1714,7 @@ export default function OrderManagementNew2() {
                       onClick={async () => {
                         if (!window.confirm('确定要拒绝取消请求吗？')) return
                         try {
-                          const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/cancel-reject`, {
+                          const response = await fetch(`/api/orders/${selectedOrder._id}/cancel-reject`, {
                             method: 'POST',
                             headers: {
                               'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -1967,7 +1967,7 @@ export default function OrderManagementNew2() {
                     onClick={async () => {
                       if (!window.confirm(`供应商调货模式\n\n实付: ¥${(selectedOrder.totalAmount * 0.36).toLocaleString()}\n\n确定？`)) return
                       try {
-                        const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/settlement-mode`, {
+                        const response = await fetch(`/api/orders/${selectedOrder._id}/settlement-mode`, {
                           method: 'POST',
                           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
                           body: JSON.stringify({ settlementMode: 'supplier_transfer', minDiscountRate: 0.6, commissionRate: 0.4 })
@@ -2467,7 +2467,7 @@ export default function OrderManagementNew2() {
                         return
                       }
                       try {
-                        const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${selectedOrder._id}/settlement-mode`, {
+                        const response = await fetch(`/api/orders/${selectedOrder._id}/settlement-mode`, {
                           method: 'POST',
                           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
                           body: JSON.stringify({ 

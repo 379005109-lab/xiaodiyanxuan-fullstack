@@ -46,7 +46,7 @@ export default function SiteSettingsPage() {
     setUploading(true)
     try {
       const fileId = await uploadFile(file)
-      const logoUrl = `https://pkochbpmcgaa.sealoshzh.site/api/files/${fileId}`
+      const logoUrl = `/api/files/${fileId}`
       setSettings({ ...settings, siteLogo: logoUrl })
       toast.success('LOGO 上传成功')
     } catch (error: any) {

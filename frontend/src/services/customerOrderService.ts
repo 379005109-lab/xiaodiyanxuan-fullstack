@@ -26,7 +26,7 @@ export const createCustomerOrder = async (payload: Omit<CustomerOrder, 'id' | 'c
 // 更新订单
 export const updateCustomerOrder = async (id: string, updates: Partial<CustomerOrder>) => {
   try {
-    const response = await apiClient.put(`/api/orders/${id}`, updates)
+    const response = await apiClient.put(`/orders/${id}`, updates)
     return response.data.data
   } catch (error: any) {
     console.error('更新订单失败:', error)
@@ -37,7 +37,7 @@ export const updateCustomerOrder = async (id: string, updates: Partial<CustomerO
 // 删除订单
 export const deleteCustomerOrder = async (id: string) => {
   try {
-    const response = await apiClient.delete(`/api/orders/${id}`)
+    const response = await apiClient.delete(`/orders/${id}`)
     return response.data.success
   } catch (error: any) {
     console.error('删除订单失败:', error)
@@ -48,7 +48,7 @@ export const deleteCustomerOrder = async (id: string) => {
 // 添加订单项目
 export const appendItemToOrder = async (orderId: string, item: CustomerOrderItem) => {
   try {
-    const response = await apiClient.post(`/api/orders/${orderId}/items`, item)
+    const response = await apiClient.post(`/orders/${orderId}/items`, item)
     return response.data.data
   } catch (error: any) {
     console.error('添加订单项目失败:', error)
@@ -59,7 +59,7 @@ export const appendItemToOrder = async (orderId: string, item: CustomerOrderItem
 // 更新订单状态
 export const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
   try {
-    const response = await apiClient.patch(`/api/orders/${orderId}/status`, { status })
+    const response = await apiClient.patch(`/orders/${orderId}/status`, { status })
     return response.data.data
   } catch (error: any) {
     console.error('更新订单状态失败:', error)

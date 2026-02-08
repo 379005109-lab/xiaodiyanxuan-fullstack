@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Grid, List, SlidersHorizontal, Heart, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
+import { ArrowLeft, Check, Grid, List, SlidersHorizontal, Heart, Sofa, Armchair, Gem, Sparkles } from 'lucide-react'
 import { Product } from '@/types'
 import { formatPrice } from '@/lib/utils'
 // 使用真实API服务
@@ -33,6 +33,18 @@ const getDisplayPrice = (product: any): number => {
   }
   return Number.isFinite(n) ? n : 0
 }
+
+const sofaSubFilterOptions = [
+  { value: 'single', label: '单人位' },
+  { value: 'double', label: '双人位' },
+  { value: 'triple', label: '三人位' },
+  { value: 'four', label: '四人位' },
+  { value: 'fiveplus', label: '五人及以上' },
+  { value: 'chaise', label: '贵妃' },
+  { value: 'genuine_leather', label: '真皮' },
+  { value: 'tech_fabric', label: '科技布' },
+  { value: 'linen', label: '棉麻布艺' },
+]
 
 export default function ProductsPage() {
   const navigate = useNavigate()
@@ -83,6 +95,34 @@ export default function ProductsPage() {
     sort: searchParams.get('sort') || 'recommend',
     series: searchParams.get('series') || '',
   })
+
+  const applySearchParamPatch = (patch: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    Object.entries(patch).forEach(([k, v]) => {
+      const vv = String(v ?? '')
+      if (!vv) {
+        params.delete(k)
+      } else {
+        params.set(k, vv)
+      }
+    })
+    params.delete('page')
+    setSearchParams(params, { replace: true })
+  }
+
+  const toggleFilterParam = (key: keyof typeof filters, value: string) => {
+    const current = String((filters as any)[key] || '')
+    const next = current === value ? '' : value
+    setFilters(prev => ({ ...prev, [key]: next }))
+    applySearchParamPatch({ [String(key)]: next })
+    setCurrentPage(1)
+  }
+
+  const clearFilterParam = (key: keyof typeof filters) => {
+    setFilters(prev => ({ ...prev, [key]: '' }))
+    applySearchParamPatch({ [String(key)]: '' })
+    setCurrentPage(1)
+  }
   
   // 分页状态 - 从URL读取初始页码
   const getInitialPage = () => {
@@ -357,12 +397,15 @@ export default function ProductsPage() {
   const subLabel = useMemo(() => {
     const key = String(filters.sub || '')
     const map: Record<string, string> = {
-      electric: '电动沙发',
-      double: '双人沙发',
-      triple: '三人沙发',
-      chaise: '带贵妃沙发',
-      modular: '模块沙发',
-      corner: '转角沙发',
+      single: '单人位',
+      double: '双人位',
+      triple: '三人位',
+      four: '四人位',
+      fiveplus: '五人及以上',
+      chaise: '贵妃',
+      genuine_leather: '真皮',
+      tech_fabric: '科技布',
+      linen: '棉麻布艺',
     }
     return map[key] || ''
   }, [filters.sub])
@@ -381,6 +424,20 @@ export default function ProductsPage() {
     return null
   }
 
+  // 递归查找父级分类
+  const findParentCategoryRecursive = (cats: any[], targetId: string, parent: any = null): any => {
+    for (const cat of cats) {
+      if (cat._id === targetId || cat.slug === targetId || cat.name === targetId) {
+        return parent
+      }
+      if (cat.children && cat.children.length > 0) {
+        const found = findParentCategoryRecursive(cat.children, targetId, cat)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
   const categoryLabel = useMemo(() => {
     if (!filters.category) return ''
     // 等待分类数据加载完成后再显示
@@ -389,6 +446,41 @@ export default function ProductsPage() {
     // 如果找不到分类，返回空字符串而不是显示"查看全部分类"
     return cat?.name || ''
   }, [categories, filters.category])
+
+  const showSofaSubFilters = useMemo(() => {
+    const t = `${parentLabel || ''}${categoryLabel || ''}${subLabel || ''}`
+    return t.includes('沙发')
+  }, [categoryLabel, parentLabel, subLabel])
+
+  const handleBackToParent = () => {
+    if (filters.sub) {
+      clearFilterParam('sub')
+      return
+    }
+    if (filters.category) {
+      // 优先按分类树回退到父级分类（例如：二级“沙发”回到一级“沙发和扶手椅”）
+      const parentCat = findParentCategoryRecursive(categories, filters.category)
+      if (parentCat) {
+        const parentKey = String(parentCat.slug || parentCat._id || '')
+
+        // parent 参数用于面包屑显示（父级的父级名称）；若无则清空
+        const grandParentCat = findParentCategoryRecursive(categories, parentKey)
+        const grandParentName = grandParentCat?.name ? String(grandParentCat.name) : ''
+
+        setFilters(prev => ({ ...prev, category: parentKey, sub: '' }))
+        applySearchParamPatch({ category: parentKey, sub: '', parent: grandParentName })
+        setCurrentPage(1)
+        return
+      }
+
+      // 如果当前分类已是顶级分类，则回到全部商品
+      setFilters(prev => ({ ...prev, category: '', sub: '' }))
+      applySearchParamPatch({ category: '', sub: '', parent: '' })
+      setCurrentPage(1)
+      return
+    }
+    navigate('/categories')
+  }
 
   // 获取当前分类的子分类（用于顶部快捷标签）
   const subcategoryTabs = useMemo(() => {
@@ -470,6 +562,33 @@ export default function ProductsPage() {
           }
         }
       }
+    }
+
+    // 细分筛选（沙发：单人位/双人位/材质等）
+    if (filters.sub) {
+      const name = String((product as any)?.name || '')
+      const tagsRaw = (product as any)?.tags
+      const tags = Array.isArray(tagsRaw) ? tagsRaw.map((t: any) => String(t || '')) : []
+      const specsRaw = (product as any)?.specifications
+      const specsText = specsRaw ? JSON.stringify(specsRaw) : ''
+
+      const haystack = [name, ...tags, specsText].join(' ').toLowerCase()
+
+      const keywordMap: Record<string, string[]> = {
+        single: ['单人位', '单人', '1人', '一人'],
+        double: ['双人位', '双人', '2人', '二人'],
+        triple: ['三人位', '三人', '3人'],
+        four: ['四人位', '四人', '4人'],
+        fiveplus: ['五人及以上', '五人', '5人', '多人'],
+        chaise: ['贵妃', '贵妃位'],
+        genuine_leather: ['真皮', '头层', '牛皮', '皮'],
+        tech_fabric: ['科技布'],
+        linen: ['棉麻', '布艺', '麻'],
+      }
+
+      const keys = keywordMap[String(filters.sub)] || [String(subLabel || filters.sub)]
+      const matched = keys.some(k => k && haystack.includes(String(k).toLowerCase()))
+      if (!matched) return false
     }
 
     // 风格筛选
@@ -739,14 +858,102 @@ export default function ProductsPage() {
     <div className={categoryMode ? 'min-h-screen bg-white' : 'min-h-screen bg-[#F2F4F3]'}>
       {categoryMode ? (
         <div className="max-w-[1800px] mx-auto px-4 lg:px-8 pt-10">
-          {breadcrumb.length > 0 && (
-            <div className="text-sm text-stone-500">
-              {breadcrumb.join(' > ')}
-            </div>
-          )}
+          <div className="flex items-center gap-3 text-sm text-stone-500 flex-wrap">
+            {(filters.sub || filters.category) && (
+              <button
+                type="button"
+                onClick={handleBackToParent}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-stone-200 bg-white hover:bg-stone-50 text-stone-700"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                返回上级
+              </button>
+            )}
+            {breadcrumb.length > 0 && (
+              <div>
+                {breadcrumb.join(' > ')}
+              </div>
+            )}
+          </div>
           <div className="mt-4 flex items-end justify-between gap-4">
             <h1 className="text-4xl font-semibold text-stone-900">{pageTitle}</h1>
           </div>
+
+          {showSofaSubFilters && (
+            <div className="mt-6 flex flex-wrap gap-2">
+              {sofaSubFilterOptions.map(opt => {
+                const active = filters.sub === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => toggleFilterParam('sub', opt.value)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                      active
+                        ? 'border-primary bg-primary/10 text-primary font-medium'
+                        : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+                    }`}
+                  >
+                    {active && <Check className="w-4 h-4" />}
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {(filters.category || filters.sub || filters.style || filters.priceRange || filters.series || searchKeyword) && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {filters.category && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm">
+                  已选 {categoryLabel || filters.category}
+                  <button type="button" onClick={() => handleBackToParent()} className="hover:text-primary/80">×</button>
+                </span>
+              )}
+              {filters.sub && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-100 text-indigo-700 text-sm">
+                  已选 {subLabel || filters.sub}
+                  <button type="button" onClick={() => clearFilterParam('sub')} className="hover:text-indigo-900">×</button>
+                </span>
+              )}
+              {filters.style && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 text-sm">
+                  已选 {filters.style}
+                  <button type="button" onClick={() => clearFilterParam('style')} className="hover:text-amber-900">×</button>
+                </span>
+              )}
+              {filters.series && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-100 text-stone-700 text-sm">
+                  已选 {filters.series}
+                  <button type="button" onClick={() => clearFilterParam('series')} className="hover:text-stone-900">×</button>
+                </span>
+              )}
+              {filters.priceRange && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-100 text-stone-700 text-sm">
+                  已选 价格 {filters.priceRange}
+                  <button type="button" onClick={() => clearFilterParam('priceRange')} className="hover:text-stone-900">×</button>
+                </span>
+              )}
+              {searchKeyword && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-sm">
+                  已选 {searchKeyword}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const params = new URLSearchParams(searchParams.toString())
+                      params.delete('search')
+                      params.delete('page')
+                      setSearchParams(params, { replace: true })
+                      setCurrentPage(1)
+                    }}
+                    className="hover:text-blue-900"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
 
           {/* 子分类图片卡片 */}
           {subcategoryTabs.length > 0 && (
@@ -755,8 +962,11 @@ export default function ProductsPage() {
                 <div
                   key={tab.id}
                   onClick={() => {
-                    setSearchParams({ ...Object.fromEntries(searchParams), category: tab.id })
-                    setFilters({ ...filters, category: tab.id })
+                    const currentCat = findCategoryRecursive(categories, filters.category)
+                    const currentName = String(currentCat?.name || categoryLabel || '')
+                    setFilters(prev => ({ ...prev, category: tab.id, sub: '' }))
+                    applySearchParamPatch({ category: tab.id, sub: '', parent: currentName })
+                    setCurrentPage(1)
                   }}
                   className={`cursor-pointer group ${
                     filters.category === tab.id
@@ -894,8 +1104,7 @@ export default function ProductsPage() {
                         key={style.value}
                         type="button"
                         onClick={() => {
-                          setFilters({ ...filters, style: style.value })
-                          setSearchParams({ ...Object.fromEntries(searchParams), style: style.value })
+                          toggleFilterParam('style', style.value)
                         }}
                         className={`px-3 py-2 rounded-full text-sm transition-colors ${
                           filters.style === style.value
@@ -1006,8 +1215,7 @@ export default function ProductsPage() {
                         key={s}
                         type="button"
                         onClick={() => {
-                          setFilters({ ...filters, series: s })
-                          setSearchParams({ ...Object.fromEntries(searchParams), series: s })
+                          toggleFilterParam('series', s)
                         }}
                         className={`px-3 py-2 rounded-full text-sm transition-colors ${
                           filters.series === s

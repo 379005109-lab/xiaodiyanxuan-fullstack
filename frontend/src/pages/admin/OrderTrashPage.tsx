@@ -45,7 +45,7 @@ export default function OrderTrashPage() {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/trash/list?page=${page}&pageSize=10000`, {
+      const response = await fetch(`/api/orders/trash/list?page=${page}&pageSize=10000`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -74,7 +74,7 @@ export default function OrderTrashPage() {
     
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/restore`, {
+      const response = await fetch(`/api/orders/${orderId}/restore`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -98,7 +98,7 @@ export default function OrderTrashPage() {
     
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${orderId}/permanent`, {
+      const response = await fetch(`/api/orders/${orderId}/permanent`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

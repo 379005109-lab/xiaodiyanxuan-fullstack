@@ -14,10 +14,8 @@ const setRedirecting = (val: boolean) => {
 
 // 多个可用的API地址（按优先级排序）
 const API_URLS = [
-  'https://pkochbpmcgaa.sealoshzh.site/api', // 后端API地址
-  'https://lgpzubdtdxjf.sealoshzh.site/api', // 前端代理地址
-  'https://xiaodiyanxuan.com/api',            // 备用域名
-  '/api'                                       // 相对路径（最后降级）
+  '/api',                                       // 相对路径（通过nginx代理到后端）
+  'https://api.xiaodiyanxuan.com/api',          // 备用域名
 ]
 
 // 从localStorage获取上次成功的API地址

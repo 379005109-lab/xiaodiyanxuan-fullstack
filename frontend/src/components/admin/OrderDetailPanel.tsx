@@ -83,7 +83,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
   const handleDelete = async () => {
     if (!window.confirm('确定要删除此订单吗？订单将移至回收站。')) return
     try {
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}`, {
+      const response = await fetch(`/api/orders/${order._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -106,7 +106,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
   const handleApproveCancel = async () => {
     if (!window.confirm('确定要批准取消此订单吗？')) return
     try {
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/cancel-approve`, {
+      const response = await fetch(`/api/orders/${order._id}/cancel-approve`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -128,7 +128,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
   const handleRejectCancel = async () => {
     if (!window.confirm('确定要拒绝取消请求吗？')) return
     try {
-      const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/cancel-reject`, {
+      const response = await fetch(`/api/orders/${order._id}/cancel-reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -281,7 +281,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
                 onClick={async () => {
                   if (!window.confirm(`供应商调货模式（一键到底）\n\n原价: ¥${order.totalAmount?.toLocaleString()}\n最低折扣价(60%): ¥${(order.totalAmount * 0.6).toLocaleString()}\n返佣(40%): ¥${(order.totalAmount * 0.6 * 0.4).toLocaleString()}\n\n实付金额: ¥${(order.totalAmount * 0.6 * 0.6).toLocaleString()}\n\n确定选择此模式？`)) return
                   try {
-                    const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/settlement-mode`, {
+                    const response = await fetch(`/api/orders/${order._id}/settlement-mode`, {
                       method: 'POST',
                       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
                       body: JSON.stringify({ settlementMode: 'supplier_transfer', minDiscountRate: 0.6, commissionRate: 0.4 })
@@ -305,7 +305,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
                 onClick={async () => {
                   if (!window.confirm(`返佣模式\n\n原价: ¥${order.totalAmount?.toLocaleString()}\n最低折扣价(60%): ¥${(order.totalAmount * 0.6).toLocaleString()}\n\n首付(50%): ¥${(order.totalAmount * 0.6 * 0.5).toLocaleString()}\n尾款(50%): ¥${(order.totalAmount * 0.6 * 0.5).toLocaleString()}\n\n返佣(40%): ¥${(order.totalAmount * 0.6 * 0.4).toLocaleString()}（完成后申请）\n\n确定选择此模式？`)) return
                   try {
-                    const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/settlement-mode`, {
+                    const response = await fetch(`/api/orders/${order._id}/settlement-mode`, {
                       method: 'POST',
                       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' },
                       body: JSON.stringify({ settlementMode: 'commission_mode', minDiscountRate: 0.6, commissionRate: 0.4, paymentRatio: 50, estimatedProductionDays: 30 })
@@ -593,7 +593,7 @@ export default function OrderDetailPanel({ order, onClose, onStatusChange, onRef
               <button
                 onClick={async () => {
                   try {
-                    const response = await fetch(`https://pkochbpmcgaa.sealoshzh.site/api/orders/${order._id}/request-final-payment`, {
+                    const response = await fetch(`/api/orders/${order._id}/request-final-payment`, {
                       method: 'POST',
                       headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' }
                     })
