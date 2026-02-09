@@ -216,7 +216,42 @@ export default function ProductManagement() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      // includeHidden=true 确保管理页面能看到所有商品（包括隐藏的）
+      // 设计师账号：只加载授权商品，不加载任何非授权商品
+      if (isDesignerUser) {
+        try {
+          const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000, _t: Date.now() } })
+          let authorizedProducts = authResponse.data?.data || []
+          console.log('[ProductManagement] 设计师授权商品数量:', authorizedProducts.length)
+          
+          // 标记为授权商品
+          authorizedProducts.forEach((p: any) => { p.isAuthorized = true })
+          
+          // 加载商品覆盖设置
+          try {
+            const overridesResponse = await apiClient.get('/authorizations/product-overrides', { params: { _t: Date.now() } })
+            const overrides = overridesResponse.data?.data || {}
+            authorizedProducts = authorizedProducts.map((p: any) => {
+              const override = overrides[p._id]
+              return { 
+                ...p, 
+                isHidden: override?.hidden === true, 
+                overridePrice: override?.price
+              }
+            })
+          } catch (overrideError) {
+            console.log('[ProductManagement] 加载商品覆盖设置失败:', overrideError)
+          }
+          
+          setProducts(authorizedProducts)
+        } catch (authError) {
+          console.error('[ProductManagement] 加载设计师授权商品失败:', authError)
+          toast.error('加载授权商品失败')
+          setProducts([])
+        }
+        return
+      }
+
+      // 非设计师账号：正常加载
       const response = await getProducts({ pageSize: 10000, includeHidden: true, _t: Date.now() });
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
@@ -278,7 +313,6 @@ export default function ProductManagement() {
             console.log('[ProductManagement] 加载授权商品失败:', authError)
           }
         }
-        
         
         setProducts(filteredProducts);
       }
@@ -3078,12 +3112,6 @@ export default function ProductManagement() {
                   <>
                     <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">{currentRole === 'designer' ? '授权折后价' : '折后价(A)'}</th>
                     <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">返佣金额(B)</th>
-                    {currentRole === 'designer' && (
-                      <>
-                        <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">差额(C)</th>
-                        <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">总收益(B+C)</th>
-                      </>
-                    )}
                     {showCostColumn && currentRole !== 'designer' && (
                       <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
                     )}
@@ -3394,7 +3422,6 @@ export default function ProductManagement() {
                     if (currentRole === 'designer') {
                       sellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : origDiscountedPrice)
                     } else {
-                      // 非设计师：使用覆盖价或SKU价格
                       const skuPrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
                       sellPrice = overridePrice > 0 ? overridePrice : skuPrice
                     }
@@ -3403,10 +3430,6 @@ export default function ProductManagement() {
                     const actualDiscounted = discountRate > 0 ? Math.round(sellPrice * discountRate) : origDiscountedPrice
                     // 返佣 = 实际售价 × 折扣率 × 返佣率
                     const actualCommission = (discountRate > 0 && commissionRate > 0) ? Math.round(sellPrice * discountRate * commissionRate) : origCommission
-                    // 差额 = 新折后价 - 原始折后价
-                    const diff = Math.max(0, actualDiscounted - origDiscountedPrice)
-                    // 总收益 = 差额 + 返佣
-                    const totalEarnings = diff + actualCommission
 
                     return (
                       <>
@@ -3422,21 +3445,6 @@ export default function ProductManagement() {
                             {actualCommission > 0 ? formatPrice(actualCommission) : '-'}
                           </div>
                         </td>
-                        {/* 设计师专属：差额 + 总收益 */}
-                        {currentRole === 'designer' && (
-                          <>
-                            <td className="py-4 px-4">
-                              <div className="text-sm">
-                                {diff > 0 ? <span className="text-orange-600 font-medium">{formatPrice(diff)}</span> : <span className="text-gray-400">0</span>}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm">
-                                {totalEarnings > 0 ? <span className="text-green-600 font-bold">{formatPrice(totalEarnings)}</span> : '-'}
-                              </div>
-                            </td>
-                          </>
-                        )}
                         {showCostColumn && currentRole !== 'designer' && (
                           <td className="py-4 px-4">
                             <div className="text-sm text-gray-700">
@@ -3597,7 +3605,6 @@ export default function ProductManagement() {
                       let cols = currentRole === 'designer' ? 8 : 9
                       if (showFinancialColumns) {
                         cols += 2 // 折后价 + 返佣
-                        if (currentRole === 'designer') cols += 2 // 差额 + 总收益
                         if (showCostColumn && currentRole !== 'designer') cols += 1
                       }
                       return cols
