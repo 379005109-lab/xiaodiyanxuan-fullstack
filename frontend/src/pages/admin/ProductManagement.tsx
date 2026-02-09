@@ -38,6 +38,7 @@ export default function ProductManagement() {
     user?.role === 'super_admin' ||
     user?.role === 'platform_admin' ||
     user?.role === 'platform_staff'
+  const [showFinancialColumns, setShowFinancialColumns] = useState(false)
   const [designerDiscountEdits, setDesignerDiscountEdits] = useState<Record<string, string>>({})
   const [savingDesignerDiscount, setSavingDesignerDiscount] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
@@ -3063,17 +3064,32 @@ export default function ProductManagement() {
                   <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">厂家</th>
                 )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">分类</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">{currentRole === 'designer' ? '设计师售价' : '价格'}</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">{currentRole === 'designer' ? '授权折后价' : '折后价(A)'}</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">返佣金额(B)</th>
-                {currentRole === 'designer' && (
+                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <div className="flex items-center gap-1">
+                    <span>{currentRole === 'designer' ? '设计师售价' : '价格'}</span>
+                    <button
+                      onClick={() => setShowFinancialColumns(!showFinancialColumns)}
+                      className="ml-1 text-gray-400 hover:text-gray-600 text-xs"
+                      title={showFinancialColumns ? '收起财务明细' : '展开财务明细'}
+                    >
+                      {showFinancialColumns ? '▼' : '▶'}
+                    </button>
+                  </div>
+                </th>
+                {showFinancialColumns && (
                   <>
-                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">差额(C)</th>
-                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">总收益(B+C)</th>
+                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">{currentRole === 'designer' ? '授权折后价' : '折后价(A)'}</th>
+                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">返佣金额(B)</th>
+                    {currentRole === 'designer' && (
+                      <>
+                        <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">差额(C)</th>
+                        <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">总收益(B+C)</th>
+                      </>
+                    )}
+                    {showCostColumn && currentRole !== 'designer' && (
+                      <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
+                    )}
                   </>
-                )}
-                {showCostColumn && currentRole !== 'designer' && (
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
                 )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">SKU数量</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">状态</th>
@@ -3363,83 +3379,115 @@ export default function ProductManagement() {
                     </div>
                   </td>
 
-                  {/* 折后价列：始终显示授权折后价（从 tierPricing） */}
-                  <td className="py-4 px-4">
-                    <div className="text-sm text-gray-700">
-                      {(() => {
-                        const p: any = product as any
-                        const v = Number(p?.tierPricing?.discountedPrice)
-                        if (!Number.isFinite(v) || v <= 0) return '-'
-                        return formatPrice(v)
-                      })()}
-                    </div>
-                  </td>
-
-                  {/* 返佣金额列：始终基于授权折后价计算 */}
-                  <td className="py-4 px-4">
-                    <div className="text-sm text-gray-700">
-                      {(() => {
-                        const p: any = product as any
-                        const v = Number(p?.tierPricing?.commissionAmount)
-                        if (!Number.isFinite(v) || v < 0) return '-'
-                        return formatPrice(v)
-                      })()}
-                    </div>
-                  </td>
-
-                  {/* 设计师专属列：差额 和 总收益 */}
-                  {currentRole === 'designer' && (
+                  {/* 财务明细列（折后价、返佣、差额、总收益、成本价）- 默认隐藏 */}
+                  {showFinancialColumns && (
                     <>
+                      {/* 折后价列：基于实际售价 × 折扣系数 */}
                       <td className="py-4 px-4">
-                        <div className="text-sm">
+                        <div className="text-sm text-gray-700">
                           {(() => {
                             const p: any = product as any
-                            const discountedPrice = Number(p?.tierPricing?.discountedPrice) || 0
-                            if (discountedPrice <= 0) return '-'
+                            const tp = p?.tierPricing
+                            const discountRate = Number(tp?.discountRate) || 0
+                            if (discountRate <= 0) {
+                              const v = Number(tp?.discountedPrice)
+                              if (!Number.isFinite(v) || v <= 0) return '-'
+                              return formatPrice(v)
+                            }
+                            // 基于实际售价计算折后价
                             const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
-                            const takePrice = Number(p?.takePrice) || 0
-                            const designerSellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : discountedPrice)
-                            const diff = designerSellPrice - discountedPrice
-                            if (diff <= 0) return <span className="text-gray-400">0</span>
-                            return <span className="text-orange-600 font-medium">{formatPrice(diff)}</span>
+                            const basePrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
+                            const sellPrice = overridePrice > 0 ? overridePrice : basePrice
+                            const discounted = Math.round(sellPrice * discountRate)
+                            return formatPrice(discounted)
                           })()}
                         </div>
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="text-sm">
-                          {(() => {
-                            const p: any = product as any
-                            const discountedPrice = Number(p?.tierPricing?.discountedPrice) || 0
-                            const commission = Number(p?.tierPricing?.commissionAmount) || 0
-                            if (discountedPrice <= 0 && commission <= 0) return '-'
-                            const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
-                            const takePrice = Number(p?.takePrice) || 0
-                            const designerSellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : discountedPrice)
-                            const diff = Math.max(0, designerSellPrice - discountedPrice)
-                            const total = diff + commission
-                            return <span className="text-green-600 font-bold">{formatPrice(total)}</span>
-                          })()}
-                        </div>
-                      </td>
-                    </>
-                  )}
 
-                  {showCostColumn && currentRole !== 'designer' && (
-                    <td className="py-4 px-4">
-                      <div className="text-sm text-gray-700">
-                        {(() => {
-                          const p: any = product as any
-                          const cost = Number(
-                            p?.tierPricing?.netCostPrice ??
-                            p.costPrice ??
-                            p.takePrice ??
-                            p?.skus?.[0]?.costPrice ??
-                            0
-                          )
-                          return formatPrice(cost)
-                        })()}
-                      </div>
-                    </td>
+                      {/* 返佣金额列：基于实际售价 × 折扣系数 × 返佣比例 */}
+                      <td className="py-4 px-4">
+                        <div className="text-sm text-gray-700">
+                          {(() => {
+                            const p: any = product as any
+                            const tp = p?.tierPricing
+                            const discountRate = Number(tp?.discountRate) || 0
+                            const commissionRate = Number(tp?.commissionRate) || 0
+                            if (discountRate <= 0 || commissionRate <= 0) {
+                              const v = Number(tp?.commissionAmount)
+                              if (!Number.isFinite(v) || v < 0) return '-'
+                              return formatPrice(v)
+                            }
+                            const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
+                            const basePrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
+                            const sellPrice = overridePrice > 0 ? overridePrice : basePrice
+                            const commission = Math.round(sellPrice * discountRate * commissionRate)
+                            return formatPrice(commission)
+                          })()}
+                        </div>
+                      </td>
+
+                      {/* 设计师专属列：差额 和 总收益 */}
+                      {currentRole === 'designer' && (
+                        <>
+                          <td className="py-4 px-4">
+                            <div className="text-sm">
+                              {(() => {
+                                const p: any = product as any
+                                const tp = p?.tierPricing
+                                const discountRate = Number(tp?.discountRate) || 0
+                                const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
+                                const basePrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
+                                const sellPrice = overridePrice > 0 ? overridePrice : basePrice
+                                const origDiscounted = Number(tp?.discountedPrice) || Math.round(basePrice * (discountRate || 0.6))
+                                if (origDiscounted <= 0) return '-'
+                                const actualDiscounted = discountRate > 0 ? Math.round(sellPrice * discountRate) : origDiscounted
+                                const diff = actualDiscounted - origDiscounted
+                                if (diff <= 0) return <span className="text-gray-400">0</span>
+                                return <span className="text-orange-600 font-medium">{formatPrice(diff)}</span>
+                              })()}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="text-sm">
+                              {(() => {
+                                const p: any = product as any
+                                const tp = p?.tierPricing
+                                const discountRate = Number(tp?.discountRate) || 0
+                                const commissionRate = Number(tp?.commissionRate) || 0
+                                const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
+                                const basePrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
+                                const sellPrice = overridePrice > 0 ? overridePrice : basePrice
+                                const origDiscounted = Number(tp?.discountedPrice) || Math.round(basePrice * (discountRate || 0.6))
+                                const actualDiscounted = discountRate > 0 ? Math.round(sellPrice * discountRate) : origDiscounted
+                                const commission = (discountRate > 0 && commissionRate > 0) ? Math.round(sellPrice * discountRate * commissionRate) : (Number(tp?.commissionAmount) || 0)
+                                const diff = Math.max(0, actualDiscounted - origDiscounted)
+                                const total = diff + commission
+                                if (total <= 0) return '-'
+                                return <span className="text-green-600 font-bold">{formatPrice(total)}</span>
+                              })()}
+                            </div>
+                          </td>
+                        </>
+                      )}
+
+                      {showCostColumn && currentRole !== 'designer' && (
+                        <td className="py-4 px-4">
+                          <div className="text-sm text-gray-700">
+                            {(() => {
+                              const p: any = product as any
+                              const cost = Number(
+                                p?.tierPricing?.netCostPrice ??
+                                p.costPrice ??
+                                p.takePrice ??
+                                p?.skus?.[0]?.costPrice ??
+                                0
+                              )
+                              return formatPrice(cost)
+                            })()}
+                          </div>
+                        </td>
+                      )}
+                    </>
                   )}
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
@@ -3576,7 +3624,17 @@ export default function ProductManagement() {
                     exit={{ opacity: 0, height: 0 }}
                     className="bg-gray-50"
                   >
-                    <td colSpan={currentRole === 'designer' ? 12 : (showCostColumn ? 12 : 11)} className="py-4 px-4">
+                    <td colSpan={(() => {
+                      // base cols: checkbox, image, name, category, price, sku, status, date, actions = 9
+                      // designer hides manufacturer (-1), non-designer has manufacturer (+1)
+                      let cols = currentRole === 'designer' ? 8 : 9
+                      if (showFinancialColumns) {
+                        cols += 2 // 折后价 + 返佣
+                        if (currentRole === 'designer') cols += 2 // 差额 + 总收益
+                        if (showCostColumn && currentRole !== 'designer') cols += 1
+                      }
+                      return cols
+                    })()} className="py-4 px-4">
                       <div className="space-y-2">
                         <div className="text-xs font-semibold text-gray-600 mb-2">SKU列表：</div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

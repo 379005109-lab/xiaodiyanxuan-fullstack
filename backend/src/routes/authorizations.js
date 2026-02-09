@@ -2764,9 +2764,10 @@ router.put('/product-override/:productId', auth, async (req, res) => {
     const { productId } = req.params
     const { price, hidden } = req.body
     
-    const user = await User.findById(req.userId).select('manufacturerId').lean()
-    if (!user?.manufacturerId) {
-      return res.status(403).json({ success: false, message: '只有厂家用户可以操作' })
+    const user = await User.findById(req.userId).select('manufacturerId role').lean()
+    const isDesigner = user?.role === 'designer'
+    if (!user?.manufacturerId && !isDesigner) {
+      return res.status(403).json({ success: false, message: '只有厂家或设计师用户可以操作' })
     }
     
     // 查找该商品
@@ -2783,15 +2784,17 @@ router.put('/product-override/:productId', auth, async (req, res) => {
     }
     
     // 检查是否有该商品的授权
-    console.log('[product-override] 查找授权:', { productId, productManufacturerId, userManufacturerId: user.manufacturerId })
-    const authorization = await Authorization.findOne({
-      fromManufacturer: productManufacturerId,
-      $or: [
+    console.log('[product-override] 查找授权:', { productId, productManufacturerId, userManufacturerId: user.manufacturerId, isDesigner })
+    const authQuery = { fromManufacturer: productManufacturerId, status: 'active' }
+    if (isDesigner) {
+      authQuery.toDesigner = req.userId
+    } else {
+      authQuery.$or = [
         { toManufacturer: user.manufacturerId },
         { toDesigner: req.userId }
-      ],
-      status: 'active'
-    })
+      ]
+    }
+    const authorization = await Authorization.findOne(authQuery)
     
     if (!authorization) {
       console.log('[product-override] 未找到授权')
@@ -2856,18 +2859,22 @@ router.put('/product-override/:productId', auth, async (req, res) => {
 // GET /api/authorizations/product-overrides - 获取所有授权商品的覆盖设置
 router.get('/product-overrides', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('manufacturerId').lean()
-    if (!user?.manufacturerId) {
-      return res.status(403).json({ success: false, message: '只有厂家用户可以操作' })
+    const user = await User.findById(req.userId).select('manufacturerId role').lean()
+    const isDesigner = user?.role === 'designer'
+    if (!user?.manufacturerId && !isDesigner) {
+      return res.status(403).json({ success: false, message: '只有厂家或设计师用户可以操作' })
     }
     
-    const authorizations = await Authorization.find({
-      $or: [
+    const authFilter = { status: 'active' }
+    if (isDesigner) {
+      authFilter.toDesigner = req.userId
+    } else {
+      authFilter.$or = [
         { toManufacturer: user.manufacturerId },
         { toDesigner: req.userId }
-      ],
-      status: 'active'
-    }).select('productOverrides').lean()
+      ]
+    }
+    const authorizations = await Authorization.find(authFilter).select('productOverrides').lean()
     
     const allOverrides = {}
     for (const auth of authorizations) {
