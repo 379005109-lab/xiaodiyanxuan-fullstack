@@ -1,0 +1,342 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Apple Design System - Global Typography */
+  body {
+    @apply text-apple-body text-apple-text-primary bg-apple-bg;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Typography Hierarchy */
+  h1 {
+    @apply text-apple-hero text-apple-text-primary;
+  }
+
+  h2 {
+    @apply text-apple-title-lg text-apple-text-primary;
+  }
+
+  h3 {
+    @apply text-apple-title text-apple-text-primary;
+  }
+
+  h4 {
+    @apply text-apple-title-sm text-apple-text-primary;
+  }
+
+  p {
+    @apply text-apple-body text-apple-text-primary;
+  }
+
+  small {
+    @apply text-apple-caption text-apple-text-secondary;
+  }
+}
+
+@layer components {
+  /* Apple Button Styles */
+  .btn-apple-primary {
+    @apply bg-apple-text-primary text-white rounded-apple px-apple-lg py-3 text-apple-body-lg font-semibold whitespace-nowrap cursor-pointer transition-all duration-200 active:scale-95;
+  }
+
+  .btn-apple-secondary {
+    @apply bg-apple-bg-secondary text-apple-text-primary rounded-apple px-apple-lg py-3 text-apple-body-lg font-semibold whitespace-nowrap cursor-pointer transition-all duration-200 active:scale-95;
+  }
+
+  .btn-apple-outline {
+    @apply border border-apple-text-primary text-apple-text-primary rounded-apple px-apple-lg py-3 text-apple-body-lg font-semibold whitespace-nowrap cursor-pointer transition-all duration-200 active:scale-95;
+  }
+
+  /* Apple Input Styles */
+  .input-apple {
+    @apply bg-apple-bg-secondary rounded-apple px-apple-md py-3 text-apple-body text-apple-text-primary placeholder:text-apple-text-secondary border-none outline-none focus:ring-2 focus:ring-apple-text-primary/20;
+  }
+
+  /* Apple Card Styles */
+  .card-apple {
+    @apply bg-apple-bg rounded-apple border border-apple-divider;
+  }
+
+  /* Apple Divider */
+  .divider-apple {
+    @apply border-t border-apple-divider;
+  }
+
+  /* Apple List Item */
+  .list-item-apple {
+    @apply bg-apple-bg border-b border-apple-divider last:border-b-0 cursor-pointer active:bg-apple-bg-secondary transition-colors;
+  }
+}
+
+@layer utilities {
+  /* Remove default styles */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Apple-style Animation System */
+  /* Fade In Up Animation */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Spring Animation Classes */
+  .animate-fade-in-up {
+    animation: fadeInUp 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  /* Press State Base Class */
+  .press-interactive {
+    transition: all 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .press-interactive:active {
+    transform: scale(0.97) translateY(1px);
+  }
+
+  /* Press with Shadow */
+  .press-shadow {
+    transition: all 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .press-shadow:active {
+    transform: scale(0.97) translateY(1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Press with Highlight */
+  .press-highlight {
+    position: relative;
+    transition: all 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .press-highlight::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+    opacity: 0;
+    transition: opacity 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    pointer-events: none;
+  }
+
+  .press-highlight:active::before {
+    opacity: 1;
+  }
+
+  /* Button Press */
+  .press-button {
+    transition: all 0.16s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .press-button:active {
+    transform: scale(0.96);
+    opacity: 0.85;
+  }
+
+  /* Smooth Transitions */
+  .transition-apple {
+    transition: all 0.24s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .transition-apple-fast {
+    transition: all 0.16s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .transition-apple-slow {
+    transition: all 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  /* Spring Bounce */
+  .transition-spring {
+    transition: all 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Ease Out */
+  .transition-ease-out {
+    transition: all 0.22s cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  /* Parallax Container */
+  .parallax-container {
+    overflow: hidden;
+  }
+
+  .parallax-image {
+    transition: transform 0.1s ease-out;
+    will-change: transform;
+  }
+
+  /* Stagger Delays */
+  .stagger-1 {
+    animation-delay: 0.06s;
+  }
+
+  .stagger-2 {
+    animation-delay: 0.12s;
+  }
+
+  .stagger-3 {
+    animation-delay: 0.18s;
+  }
+
+  .stagger-4 {
+    animation-delay: 0.24s;
+  }
+
+  .stagger-5 {
+    animation-delay: 0.3s;
+  }
+
+  .stagger-6 {
+    animation-delay: 0.36s;
+  }
+
+  /* Hover Lift Effect */
+  .hover-lift {
+    transition: all 0.24s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Scale on Hover */
+  .hover-scale {
+    transition: transform 0.24s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+
+  /* Card Hover - subtle lift + shadow */
+  .hover-card {
+    transition: transform 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .hover-card:hover {
+    transform: translateY(-3px) scale(1.008);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  }
+
+  .hover-card:active {
+    transform: scale(0.97) translateY(1px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Image Hover Zoom - inside overflow-hidden container */
+  .hover-img-zoom {
+    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .group:hover .hover-img-zoom {
+    transform: scale(1.04);
+  }
+
+  .group:active .hover-img-zoom {
+    transform: scale(0.96);
+  }
+
+  /* List Item Hover - subtle bg tint */
+  .hover-list-item {
+    transition: background-color 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .hover-list-item:hover {
+    background-color: rgba(0, 0, 0, 0.018);
+  }
+
+  .hover-list-item:active {
+    transform: scale(0.985) translateY(1px);
+  }
+
+  /* Button Hover - darken bg */
+  .hover-btn {
+    transition: all 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .hover-btn:hover {
+    background-color: #F5F5F7;
+    border-color: #D2D2D7;
+  }
+
+  .hover-btn:active {
+    transform: scale(0.985);
+    background-color: #EBEBED;
+  }
+
+  /* Info Card Hover */
+  .hover-info-card {
+    transition: transform 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .hover-info-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  }
+
+  .hover-info-card:active {
+    transform: scale(0.985) translateY(1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Space Card Overlay Hover */
+  .hover-space-card .space-overlay {
+    transition: opacity 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    opacity: 0.7;
+  }
+
+  .hover-space-card:hover .space-overlay {
+    opacity: 0.85;
+  }
+}

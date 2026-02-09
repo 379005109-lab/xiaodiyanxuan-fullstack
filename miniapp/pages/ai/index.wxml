@@ -1,0 +1,155 @@
+<view class="page-container">
+  <!-- Toast -->
+  <view class="toast {{showToast ? 'show' : ''}}" wx:if="{{showToast}}">{{toastMessage}}</view>
+
+  <!-- 删除确认弹窗 -->
+  <view class="modal-mask" wx:if="{{showDeleteConfirm}}" catchtap="closeDeleteConfirm">
+    <view class="modal-dialog" catchtap="">
+      <view class="modal-body">
+        <view class="modal-title">删除素材</view>
+        <view class="modal-desc">确定要删除这个素材吗？删除后无法恢复。</view>
+      </view>
+      <view class="modal-actions">
+        <view class="modal-btn modal-cancel" bindtap="closeDeleteConfirm">取消</view>
+        <view class="modal-btn modal-confirm" bindtap="confirmDelete">删除</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 批量删除确认弹窗 -->
+  <view class="modal-mask" wx:if="{{showBatchDeleteConfirm}}" catchtap="closeBatchDeleteConfirm">
+    <view class="modal-dialog" catchtap="">
+      <view class="modal-body">
+        <view class="modal-title">批量删除</view>
+        <view class="modal-desc">确定要删除选中的 {{selectedMaterials.length}} 个素材吗？删除后无法恢复。</view>
+      </view>
+      <view class="modal-actions">
+        <view class="modal-btn modal-cancel" bindtap="closeBatchDeleteConfirm">取消</view>
+        <view class="modal-btn modal-confirm" bindtap="confirmBatchDelete">删除</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 顶部导航栏 -->
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+    <view class="nav-content" wx:if="{{!isManageMode}}">
+      <view class="nav-title">AI 创作</view>
+      <view class="nav-actions">
+        <view class="nav-icon-btn" bindtap="onCameraTap"><text class="ri ri-camera-line"></text></view>
+        <view class="nav-icon-btn" bindtap="onSearchTap"><text class="ri ri-search-line"></text></view>
+      </view>
+    </view>
+    <view class="nav-content" wx:else>
+      <view class="nav-text-btn" bindtap="exitManageMode">取消</view>
+      <view class="nav-title">已选择 {{selectedMaterials.length}} 项</view>
+      <view class="nav-text-btn nav-text-bold" bindtap="exitManageMode">完成</view>
+    </view>
+  </view>
+
+  <!-- 分类标签栏 -->
+  <view class="category-bar" style="top: {{navBarHeight}}px;">
+    <scroll-view class="category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="category-list">
+        <block wx:for="{{materialCategories}}" wx:key="id">
+          <view class="category-chip {{activeCategory === item.id ? 'active' : ''}}" bindtap="onCategoryChange" data-id="{{item.id}}">
+            <text class="category-name">{{item.name}}</text>
+          </view>
+        </block>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 素材网格 -->
+  <scroll-view class="material-area" scroll-y enhanced show-scrollbar="{{false}}" style="top: {{navBarHeight + 52}}px;">
+    <!-- 素材统计 -->
+    <view class="material-stats">
+      <text class="stats-count">共 {{filteredMaterials.length}} 个素材</text>
+      <view class="stats-manage" bindtap="enterManageMode" wx:if="{{!isManageMode}}">
+        <text>管理</text>
+        <text class="stats-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 素材网格 -->
+    <view class="material-grid">
+      <block wx:for="{{filteredMaterials}}" wx:key="id">
+        <view class="material-card {{isManageMode && selectedMaterials.indexOf(item.id + '') > -1 ? 'selected' : ''}}" bindtap="onMaterialTap" data-id="{{item.id}}">
+          <view class="material-img-wrap">
+            <image class="material-img" src="{{item.image}}" mode="aspectFill"></image>
+            <!-- 管理模式选择框 -->
+            <view class="select-circle {{selectedMaterials.indexOf(item.id + '') > -1 ? 'checked' : ''}}" wx:if="{{isManageMode}}">
+              <text wx:if="{{selectedMaterials.indexOf(item.id + '') > -1}}">✓</text>
+            </view>
+            <!-- 非管理模式日期标签 -->
+            <view class="date-tag" wx:if="{{!isManageMode}}">
+              <text>{{item.date}}</text>
+            </view>
+            <!-- 更多操作按钮 -->
+            <view class="more-btn" wx:if="{{!isManageMode}}" catchtap="onMoreTap" data-id="{{item.id}}">⋯</view>
+          </view>
+          <view class="material-info">
+            <view class="material-title">{{item.title}}</view>
+            <view class="material-tags">
+              <text class="material-tag" wx:for="{{item.tags}}" wx:key="*this" wx:for-item="tag">{{tag}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{filteredMaterials.length === 0}}">
+      <text class="empty-icon">🖼</text>
+      <text class="empty-text">暂无素材</text>
+      <view class="empty-btn" bindtap="toggleMenu">开始创作</view>
+    </view>
+
+    <!-- 底部提示 -->
+    <view class="bottom-tip" wx:if="{{filteredMaterials.length > 0 && !isManageMode}}">已经到底了</view>
+
+    <!-- 管理模式底部留白 -->
+    <view style="height: 160rpx;" wx:if="{{isManageMode}}"></view>
+    <view style="height: 160rpx;" wx:else></view>
+  </scroll-view>
+
+  <!-- 管理模式底部操作栏 -->
+  <view class="manage-bar" wx:if="{{isManageMode}}">
+    <view class="manage-left" bindtap="toggleSelectAll">
+      <view class="select-circle-small {{isAllSelected ? 'checked' : ''}}">
+        <text wx:if="{{isAllSelected}}">✓</text>
+      </view>
+      <text class="manage-text">全选</text>
+    </view>
+    <view class="manage-right">
+      <view class="manage-action-btn {{selectedMaterials.length > 0 ? '' : 'disabled'}}" bindtap="onUseInProduct">
+        <text>使用到产品中{{selectedMaterials.length > 0 ? '（' + selectedMaterials.length + '）' : ''}}</text>
+      </view>
+      <view class="manage-icon-btn {{selectedMaterials.length > 0 ? '' : 'disabled'}}" bindtap="onBatchDownload">↓</view>
+      <view class="manage-icon-btn {{selectedMaterials.length > 0 ? '' : 'disabled'}}" bindtap="onBatchDelete">🗑</view>
+    </view>
+  </view>
+
+  <!-- 右下角浮动按钮 -->
+  <view class="fab-btn {{showMenu ? 'active' : ''}}" bindtap="toggleMenu" wx:if="{{!isManageMode}}" style="bottom: calc(120rpx + env(safe-area-inset-bottom));">
+    <text class="fab-icon">{{showMenu ? '✕' : '+'}}</text>
+  </view>
+
+  <!-- 功能菜单遮罩 -->
+  <view class="menu-mask" wx:if="{{showMenu}}" bindtap="toggleMenu"></view>
+
+  <!-- 功能菜单面板 -->
+  <view class="menu-panel" wx:if="{{showMenu}}" style="bottom: calc(200rpx + env(safe-area-inset-bottom));">
+    <view class="menu-header">
+      <text class="menu-header-title">AI 功能</text>
+    </view>
+    <block wx:for="{{menuItems}}" wx:key="id">
+      <view class="menu-item {{index < menuItems.length - 1 ? 'border-bottom' : ''}}" bindtap="onMenuClick" data-id="{{item.id}}">
+        <view class="menu-item-icon-wrap">
+          <text class="menu-item-icon">{{item.emoji}}</text>
+        </view>
+        <text class="menu-item-name">{{item.name}}</text>
+        <text class="menu-item-arrow">›</text>
+      </view>
+    </block>
+  </view>
+</view>

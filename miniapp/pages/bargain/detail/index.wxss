@@ -1,9 +1,8 @@
 /**bargain/detail/index.wxss**/
-/* 小迪严选砍价详情页 - ZenLife 2.0 主题 */
+/* 小迪严选砍价详情页 - 按UI设计规范 */
 page { 
-  background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 50%, #dcfce7 100%);
-  background-attachment: fixed;
-  color: #1f2937; 
+  background: var(--color-bg); 
+  color: var(--color-text); 
 }
 .page-scroll { height: 100vh; }
 .page { 
@@ -15,10 +14,10 @@ page {
 .goods-card {
   display: flex;
   gap: 24rpx;
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 20rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
   padding: 24rpx;
-  box-shadow: 0 8rpx 32rpx -12rpx rgba(0,0,0,0.08);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
 }
 .goods-cover {
   width: 180rpx;
@@ -48,7 +47,7 @@ page {
 .current-price {
   font-size: 40rpx;
   font-weight: 700;
-  color: #f59e0b;
+  color: var(--color-accent);
 }
 .origin-price {
   font-size: 26rpx;
@@ -58,11 +57,11 @@ page {
 
 /* ========== 砍价进度 ========== */
 .progress-section {
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 20rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
   padding: 32rpx;
   margin-top: 24rpx;
-  box-shadow: 0 8rpx 32rpx -12rpx rgba(0,0,0,0.08);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
 }
 .progress-header {
   display: flex;
@@ -78,18 +77,19 @@ page {
 .progress-percent {
   font-size: 32rpx;
   font-weight: 700;
-  color: #0891b2;
+  color: var(--color-accent);
 }
 .progress-bar {
   height: 16rpx;
-  background: rgba(34, 211, 238, 0.2);
+  background: rgba(214, 173, 96, 0.2);
   border-radius: 8rpx;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #22d3ee 0%, #34d399 100%);
+  background: linear-gradient(90deg, var(--color-accent) 0%, #E8C98D 100%);
   border-radius: 8rpx;
+  transition: width 0.3s ease;
 }
 .progress-info {
   display: flex;
@@ -104,8 +104,8 @@ page {
   display: flex;
   align-items: center;
   gap: 16rpx;
-  background: rgba(34, 211, 238, 0.1);
-  border-radius: 16rpx;
+  background: rgba(20, 69, 47, 0.08);
+  border-radius: 12rpx;
   padding: 24rpx;
   margin-top: 24rpx;
 }
@@ -122,16 +122,16 @@ page {
 .countdown-time {
   font-size: 32rpx;
   font-weight: 700;
-  color: #0891b2;
+  color: var(--color-primary);
 }
 
 /* ========== 砍价记录 ========== */
 .records-section {
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 20rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
   padding: 32rpx;
   margin-top: 24rpx;
-  box-shadow: 0 8rpx 32rpx -12rpx rgba(0,0,0,0.08);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
 }
 .section-title {
   font-size: 28rpx;
@@ -172,7 +172,7 @@ page {
 .record-amount {
   font-size: 28rpx;
   font-weight: 600;
-  color: #22c55e;
+  color: var(--color-accent);
 }
 .record-empty {
   text-align: center;
@@ -183,8 +183,8 @@ page {
 
 /* ========== 邀请好友 ========== */
 .invite-section {
-  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
-  border-radius: 20rpx;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #1a5a3d 100%);
+  border-radius: 16rpx;
   padding: 40rpx 32rpx;
   margin-top: 24rpx;
   text-align: center;
@@ -204,9 +204,9 @@ page {
   width: 320rpx;
   height: 80rpx;
   min-height: 80rpx;
-  border-radius: 999rpx;
-  background: #FFFFFF !important;
-  color: #0891b2 !important;
+  border-radius: 40rpx;
+  background: var(--color-accent) !important;
+  color: #FFFFFF !important;
   font-size: 28rpx;
   font-weight: 600;
   border: none;
@@ -216,7 +216,6 @@ page {
   line-height: 1;
   padding: 0;
   margin: 0 auto;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.1);
 }
 .invite-btn::after {
   display: none;
@@ -229,7 +228,7 @@ page {
   display: flex;
   gap: 16rpx;
   padding: 20rpx 32rpx;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--color-card);
   box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.06);
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
 }
@@ -237,7 +236,7 @@ page {
   flex: 1;
   height: 80rpx;
   min-height: 80rpx;
-  border-radius: 999rpx;
+  border-radius: 12rpx;
   font-size: 28rpx;
   font-weight: 600;
   border: none;
@@ -248,19 +247,17 @@ page {
   padding: 0;
 }
 .btn-share {
-  background: #FFFFFF !important;
-  color: #0891b2 !important;
-  border: 2rpx solid #22d3ee !important;
+  background: var(--color-card) !important;
+  color: var(--color-primary) !important;
+  border: 2rpx solid var(--color-primary) !important;
 }
 .btn-buy {
-  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%) !important;
+  background: var(--color-accent) !important;
   color: #FFFFFF !important;
-  box-shadow: 0 8rpx 24rpx -8rpx rgba(52, 211, 153, 0.5);
 }
 .btn-continue {
-  background: linear-gradient(135deg, #22d3ee 0%, #34d399 100%) !important;
+  background: var(--color-primary) !important;
   color: #FFFFFF !important;
-  box-shadow: 0 8rpx 24rpx -8rpx rgba(52, 211, 153, 0.5);
 }
 .btn-cancel {
   background: var(--color-card) !important;

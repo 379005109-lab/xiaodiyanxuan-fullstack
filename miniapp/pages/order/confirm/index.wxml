@@ -1,176 +1,140 @@
 <navigation-bar title="确认订单" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
-<scroll-view class="scrollarea" scroll-y>
+<scroll-view class="scrollarea" scroll-y enhanced show-scrollbar="{{false}}">
 <view class="page">
 	<!-- 生产周期提醒 -->
 	<view class="notice-bar">
-		<view class="notice-icon-simple"></view>
-		<text class="notice-text">温馨提示：商品为定制生产，生产周期约6-8周</text>
+		<text class="notice-icon">⏱</text>
+		<text class="notice-text">定制生产，生产周期约6-8周</text>
 	</view>
-	
+
 	<!-- 普通订单 -->
 	<block wx:if="{{orderType === 'normal'}}">
-		<view class="card goods-card">
-			<view class="card-title-bar">
-				<view class="card-title-line"></view>
-				<text class="card-title-text">商品清单</text>
-			</view>
-			<view class="goods-item-new">
+		<view class="section-card">
+			<view class="section-title">商品清单</view>
+			<view class="goods-row">
 				<image class="goods-thumb" src="{{order.goodsImage || 'https://picsum.photos/200/200?random=1'}}" mode="aspectFill"></image>
-				<view class="goods-detail">
-					<view class="goods-name-row">
-						<text class="goods-name">{{order.goodsName}}</text>
-						<view class="goods-delete-btn" bindtap="onDeleteNormalOrder">🗑</view>
+				<view class="goods-info">
+					<view class="goods-name">{{order.goodsName}}</view>
+					<view class="goods-specs">
+						<text class="goods-tag" wx:if="{{order.sizeName}}">{{order.sizeName}}</text>
+						<text class="goods-tag" wx:if="{{order.materialName}}">{{order.materialName}}</text>
 					</view>
-					<view class="goods-spec-text" wx:if="{{order.sizeName}}">规格: {{order.sizeName}}</view>
-					<view class="goods-spec-text" wx:if="{{order.sizeDims}}">尺寸: {{order.sizeDims}}</view>
-					<view class="goods-spec-text" wx:if="{{order.materialName}}">面料: {{order.materialName}}{{order.materialColor ? '-' + order.materialColor : ''}}{{order.materialExtra > 0 ? ' (+¥' + order.materialExtra + ')' : ''}}</view>
-					<view class="goods-spec-text" wx:if="{{order.fillName}}">填充: {{order.fillName}}{{order.fillExtra > 0 ? ' (+¥' + order.fillExtra + ')' : ''}}</view>
-					<view class="goods-spec-text" wx:if="{{order.frameName}}">框架: {{order.frameName}}{{order.frameExtra > 0 ? ' (+¥' + order.frameExtra + ')' : ''}}</view>
-					<view class="goods-spec-text" wx:if="{{order.legName}}">脚架: {{order.legName}}{{order.legExtra > 0 ? ' (+¥' + order.legExtra + ')' : ''}}</view>
-					<view class="goods-price-new">¥{{order.totalPrice}}</view>
+					<view class="goods-price-row">
+						<text class="goods-price">¥{{order.totalPrice}}</text>
+						<text class="goods-del" bindtap="onDeleteNormalOrder">删除</text>
+					</view>
 				</view>
 			</view>
-			<view class="price-summary-new">
-				<view class="summary-row">
-					<text class="summary-label">商品小计</text>
-					<text class="summary-value">¥{{order.totalPrice}}</text>
-				</view>
-				<view class="summary-row summary-total">
-					<text class="summary-label">订单总额</text>
-					<text class="summary-value-total">¥{{order.totalPrice}}</text>
-				</view>
+			<view class="total-row">
+				<text class="total-label">订单总额</text>
+				<text class="total-value">¥{{order.totalPrice}}</text>
 			</view>
 		</view>
 	</block>
-	
+
 	<!-- 购物车订单 -->
 	<block wx:if="{{orderType === 'cart'}}">
-		<view class="card goods-card">
-			<view class="card-title-bar">
-				<view class="card-title-line"></view>
-				<text class="card-title-text">商品清单 ({{cartGoodsList.length}}件)</text>
-			</view>
-			<block wx:for="{{cartGoodsList}}" wx:key="id" wx:for-index="cartIndex">
-				<view class="goods-item-new">
-					<image class="goods-thumb" src="{{item.thumb || 'https://picsum.photos/200/200?random=' + cartIndex}}" mode="aspectFill"></image>
-					<view class="goods-detail">
-						<view class="goods-name-row">
-							<text class="goods-name">{{item.name}}</text>
-							<view class="goods-delete-btn" catchtap="onDeleteCartGoods" data-index="{{cartIndex}}">🗑</view>
+		<view class="section-card">
+			<view class="section-title">商品清单 ({{cartGoodsList.length}}件)</view>
+			<block wx:for="{{cartGoodsList}}" wx:key="id" wx:for-index="ci">
+				<view class="goods-row">
+					<image class="goods-thumb" src="{{item.thumb || 'https://picsum.photos/200/200?random=' + ci}}" mode="aspectFill"></image>
+					<view class="goods-info">
+						<view class="goods-name">{{item.name}}</view>
+						<view class="goods-specs">
+							<text class="goods-tag" wx:if="{{item.sizeName}}">{{item.sizeName}}</text>
+							<text class="goods-tag" wx:if="{{item.fabric || item.material}}">{{item.fabric || item.material}}</text>
 						</view>
-						<view class="goods-spec-text">规格: {{item.sizeName || '默认'}}</view>
-						<view class="goods-spec-text" wx:if="{{item.dims}}">尺寸: {{item.dims}}</view>
-						<view class="goods-spec-text" wx:if="{{item.fabric || item.material}}">面料: {{item.fabric || item.material}}{{item.materialColor ? '-' + item.materialColor : ''}}</view>
-						<view class="goods-spec-text" wx:if="{{item.fill}}">填充: {{item.fill}}{{item.fillExtra > 0 ? ' (+¥' + item.fillExtra + ')' : ''}}</view>
-						<view class="goods-spec-text" wx:if="{{item.frame}}">框架: {{item.frame}}</view>
-						<view class="goods-spec-text" wx:if="{{item.leg}}">脚架: {{item.leg}}</view>
-						<view class="goods-price-qty">
-							<text class="goods-price-new">¥{{item.price}}</text>
-							<text class="goods-qty">×{{item.count || 1}}</text>
+						<view class="goods-price-row">
+							<text class="goods-price">¥{{item.price}} <text class="goods-qty">×{{item.count || 1}}</text></text>
+							<text class="goods-del" catchtap="onDeleteCartGoods" data-index="{{ci}}">删除</text>
 						</view>
 					</view>
 				</view>
 			</block>
-			<view class="price-summary-new">
-				<view class="summary-row summary-total">
-					<text class="summary-label">订单总额</text>
-					<text class="summary-value-total">¥{{totalPrice}}</text>
-				</view>
+			<view class="total-row">
+				<text class="total-label">订单总额</text>
+				<text class="total-value">¥{{totalPrice}}</text>
 			</view>
 		</view>
 	</block>
 	
 	<!-- 套餐订单 -->
 	<block wx:if="{{orderType === 'package'}}">
-		<!-- 套餐提示 -->
-		<view class="package-notice">
-			<view class="package-icon-simple"></view>
-			<view class="package-notice-content">
-				<text class="package-notice-title">套餐一口价</text>
-				<text class="package-notice-desc">套餐商品为整体定价，无法单独删除或减少商品。如需修改，请返回重新选择套餐。</text>
+		<view class="pkg-notice">
+			<text class="pkg-notice-icon">📦</text>
+			<view class="pkg-notice-body">
+				<text class="pkg-notice-title">套餐一口价</text>
+				<text class="pkg-notice-desc">套餐商品为整体定价，如需修改请返回重新选择。</text>
 			</view>
 		</view>
-		
-		<!-- 商品清单 -->
-		<view class="card goods-card">
-			<view class="card-title-bar">
-				<view class="card-title-line"></view>
-				<text class="card-title-text">套餐商品</text>
-				<text class="package-tag">套餐</text>
-			</view>
-			<block wx:for="{{packageGoodsList}}" wx:key="id" wx:for-index="goodsIndex">
-				<view class="goods-item-new package-goods-item">
+
+		<view class="section-card">
+			<view class="section-title">套餐商品 <text class="pkg-badge">套餐</text></view>
+			<block wx:for="{{packageGoodsList}}" wx:key="id" wx:for-index="pi">
+				<view class="goods-row">
 					<image class="goods-thumb" src="{{item.thumb}}" mode="aspectFill"></image>
-					<view class="goods-detail">
-						<view class="goods-name-row">
-							<text class="goods-name">{{item.code}}</text>
-							<view class="package-lock-icon" catchtap="onPackageItemTip">🔒</view>
+					<view class="goods-info">
+						<view class="goods-name">{{item.code}}</view>
+						<view class="goods-specs">
+							<text class="goods-tag" wx:if="{{item.categoryName}}">{{item.categoryName}}</text>
+							<text class="goods-tag" wx:if="{{item.fabric || item.material}}">{{item.fabric || item.material}}</text>
 						</view>
-						<view class="goods-spec-text" wx:if="{{item.dims}}">尺寸: {{item.dims}}</view>
-						<view class="goods-price-new">¥{{item.price}}</view>
+						<text class="goods-price">¥{{item.price}}</text>
 					</view>
 				</view>
 			</block>
 		</view>
-		
-		<!-- 搭配推荐 - 已添加的商品 -->
-		<view class="card goods-card" wx:if="{{addedRecommendations.length > 0}}">
-			<view class="card-title-bar">
-				<view class="card-title-line"></view>
-				<text class="card-title-text">搭配推荐</text>
-			</view>
-			<block wx:for="{{addedRecommendations}}" wx:key="id" wx:for-index="recIndex">
-				<view class="goods-item-new">
+
+		<!-- 已添加推荐 -->
+		<view class="section-card" wx:if="{{addedRecommendations.length > 0}}">
+			<view class="section-title">搭配推荐</view>
+			<block wx:for="{{addedRecommendations}}" wx:key="id" wx:for-index="ri">
+				<view class="goods-row">
 					<image class="goods-thumb" src="{{item.thumb}}" mode="aspectFill"></image>
-					<view class="goods-detail">
-						<view class="goods-name-row">
-							<text class="goods-name">{{item.name}}</text>
-							<view class="goods-delete-btn" catchtap="onDeleteRecommendation" data-index="{{recIndex}}">🗑</view>
+					<view class="goods-info">
+						<view class="goods-name">{{item.name}}</view>
+						<view class="goods-price-row">
+							<text class="goods-price">¥{{item.price}} <text class="goods-qty">×{{item.count || 1}}</text></text>
+							<text class="goods-del" catchtap="onDeleteRecommendation" data-index="{{ri}}">删除</text>
 						</view>
-						<view class="goods-spec-text">类型: 搭配推荐</view>
-						<view class="goods-spec-text">数量: ×{{item.count || 1}}</view>
-						<view class="goods-price-new">¥{{item.price}}</view>
 					</view>
 				</view>
 			</block>
 		</view>
-		
-		<!-- 搭配推荐小计 - 始终显示 -->
-		<view class="card price-card">
-			<view class="price-summary-new">
-				<view class="summary-row">
-					<text class="summary-label">商品小计</text>
-					<text class="summary-value">¥{{packageOrder.totalPrice || 0}}</text>
-				</view>
-				<view class="summary-row" wx:if="{{addedRecommendations.length > 0}}">
-					<text class="summary-label">搭配推荐小计</text>
-					<text class="summary-value">¥{{recommendationTotalPrice}}</text>
-				</view>
-				<view class="summary-row summary-total">
-					<text class="summary-label">订单总额</text>
-					<text class="summary-value-total">¥{{totalPrice}}</text>
-				</view>
+
+		<!-- 价格汇总 -->
+		<view class="section-card">
+			<view class="summary-line">
+				<text class="summary-label">套餐价</text>
+				<text class="summary-val">¥{{packageOrder.totalPrice || 0}}</text>
+			</view>
+			<view class="summary-line" wx:if="{{addedRecommendations.length > 0}}">
+				<text class="summary-label">搭配推荐</text>
+				<text class="summary-val">¥{{recommendationTotalPrice}}</text>
+			</view>
+			<view class="summary-line summary-main">
+				<text class="summary-label">订单总额</text>
+				<text class="summary-val-big">¥{{totalPrice}}</text>
 			</view>
 		</view>
-		
-		<!-- 搭配推荐选择区 -->
-		<view class="card recommendation-select-card">
-			<view class="title">搭配推荐</view>
-			<scroll-view class="recommendations-scroll" scroll-x>
-				<view class="recommendations-list">
-					<block wx:for="{{recommendations}}" wx:key="id" wx:for-index="recIndex">
-						<view class="recommendation-item">
-							<image class="recommendation-img" src="{{item.thumb}}" mode="aspectFill"></image>
-							<view class="recommendation-name">{{item.name}}</view>
-							<text class="recommendation-price">¥{{item.price}}</text>
-							<view class="recommendation-quantity-control">
-								<view class="rec-quantity-btn" bindtap="onDecreaseRecQuantity" data-index="{{recIndex}}">-</view>
-								<text class="rec-quantity-value">{{item.count || 1}}</text>
-								<view class="rec-quantity-btn" bindtap="onIncreaseRecQuantity" data-index="{{recIndex}}">+</view>
+
+		<!-- 推荐选择 -->
+		<view class="section-card">
+			<view class="section-title">搭配推荐</view>
+			<scroll-view class="rec-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+				<view class="rec-list">
+					<block wx:for="{{recommendations}}" wx:key="id" wx:for-index="recI">
+						<view class="rec-item">
+							<image class="rec-img" src="{{item.thumb}}" mode="aspectFill"></image>
+							<text class="rec-name">{{item.name}}</text>
+							<text class="rec-price">¥{{item.price}}</text>
+							<view class="rec-qty-wrap">
+								<view class="rec-qty-btn" bindtap="onDecreaseRecQuantity" data-index="{{recI}}">-</view>
+								<text class="rec-qty-num">{{item.count || 1}}</text>
+								<view class="rec-qty-btn" bindtap="onIncreaseRecQuantity" data-index="{{recI}}">+</view>
 							</view>
-							<view class="recommendation-add {{item.added ? 'added' : ''}}" bindtap="onAddRecommendation" data-id="{{item.id}}" data-index="{{recIndex}}">
-								<text class="add-icon">{{item.added ? '已添加' : '添加'}}</text>
-							</view>
+							<view class="rec-add-btn {{item.added ? 'added' : ''}}" bindtap="onAddRecommendation" data-id="{{item.id}}" data-index="{{recI}}">{{item.added ? '已添加' : '添加'}}</view>
 						</view>
 					</block>
 				</view>
@@ -179,46 +143,45 @@
 	</block>
 
 	<!-- 收货信息 -->
-	<view class="card address-card">
-		<view class="title">收货信息</view>
-		<!-- 默认地址选择 -->
-		<view class="address-select" wx:if="{{defaultAddress}}" bindtap="onSelectAddress">
-			<view class="address-info">
-				<view class="address-user">
-					<text class="address-name">{{defaultAddress.name}}</text>
-					<text class="address-phone">{{defaultAddress.phone}}</text>
-					<text class="address-tag" wx:if="{{defaultAddress.isDefault}}">默认</text>
+	<view class="section-card">
+		<view class="section-title">收货信息</view>
+		<view class="addr-select" wx:if="{{defaultAddress}}" bindtap="onSelectAddress">
+			<view class="addr-body">
+				<view class="addr-top">
+					<text class="addr-name">{{defaultAddress.name}}</text>
+					<text class="addr-phone">{{defaultAddress.phone}}</text>
+					<text class="addr-tag" wx:if="{{defaultAddress.isDefault}}">默认</text>
 				</view>
-				<view class="address-detail">{{defaultAddress.address}}</view>
+				<text class="addr-detail">{{defaultAddress.address}}</text>
 			</view>
-			<text class="address-arrow">›</text>
+			<text class="addr-arrow">›</text>
 		</view>
-		<view class="address-form" wx:else>
-			<input class="ipt" placeholder="收货人姓名" value="{{name}}" bindinput="onName" />
-			<input class="ipt" placeholder="手机号码" type="number" value="{{phone}}" bindinput="onPhone" />
-			<input class="ipt" placeholder="详细收货地址" value="{{address}}" bindinput="onAddress" />
-			<view class="default-check" bindtap="onToggleDefault">
-				<view class="check-box {{setAsDefault ? 'checked' : ''}}">{{setAsDefault ? '✓' : ''}}</view>
-				<text>设为默认地址</text>
+		<view class="addr-form" wx:else>
+			<input class="form-input" placeholder="收货人姓名" value="{{name}}" bindinput="onName" />
+			<input class="form-input" placeholder="手机号码" type="number" value="{{phone}}" bindinput="onPhone" />
+			<input class="form-input" placeholder="详细收货地址" value="{{address}}" bindinput="onAddress" />
+			<view class="form-check" bindtap="onToggleDefault">
+				<view class="check-circle {{setAsDefault ? 'checked' : ''}}">{{setAsDefault ? '✓' : ''}}</view>
+				<text class="check-label">设为默认地址</text>
 			</view>
 		</view>
 	</view>
-	
+
 	<!-- 订单备注 -->
-	<view class="card remark-card">
-		<view class="title">订单备注</view>
-		<textarea class="remark-input" placeholder="请输入备注信息（选填）" value="{{remark}}" bindinput="onRemark" maxlength="200"></textarea>
+	<view class="section-card">
+		<view class="section-title">订单备注</view>
+		<textarea class="remark-area" placeholder="请输入备注信息（选填）" value="{{remark}}" bindinput="onRemark" maxlength="200"></textarea>
 	</view>
+
+	<view style="height: 60rpx;"></view>
 </view>
 </scroll-view>
 
 <!-- 底部提交栏 -->
 <view class="submit-bar">
-	<view class="submit-bar-left">
-		<text class="sum-label">合计</text>
-		<text class="sum-value">¥{{totalPrice}}</text>
+	<view class="submit-left">
+		<text class="submit-label">合计</text>
+		<text class="submit-price"><text class="price-sym">¥</text>{{totalPrice}}</text>
 	</view>
-	<button class="btn-submit" bindtap="onSubmit">提交订单</button>
+	<button class="submit-btn" bindtap="onSubmit">提交订单</button>
 </view>
-
-

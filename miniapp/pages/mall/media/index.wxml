@@ -1,0 +1,65 @@
+<!-- 商品媒体页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">媒体资料</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <view class="content">
+    <!-- 工艺视频 -->
+    <view class="section" wx:if="{{videos.length > 0}}">
+      <view class="section-title">工艺视频 ({{videos.length}})</view>
+      <scroll-view class="video-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="video-list">
+          <block wx:for="{{videos}}" wx:key="id">
+            <view class="video-card" bindtap="playVideo" data-index="{{index}}">
+              <image class="video-thumb" src="{{item.thumbnail}}" mode="aspectFill"></image>
+              <view class="video-play-btn">▶</view>
+              <view class="video-duration">{{item.duration}}</view>
+              <view class="video-title">{{item.title}}</view>
+            </view>
+          </block>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 场景图 -->
+    <view class="section" wx:if="{{scenePhotos.length > 0}}">
+      <view class="section-title">场景图 ({{scenePhotos.length}})</view>
+      <view class="photo-grid">
+        <block wx:for="{{scenePhotos}}" wx:key="id">
+          <view class="photo-card" bindtap="previewImage" data-urls="{{scenePhotos}}" data-current="{{item.url}}">
+            <image class="photo-img" src="{{item.url}}" mode="aspectFill"></image>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 细节图 -->
+    <view class="section" wx:if="{{detailPhotos.length > 0}}">
+      <view class="section-title">细节图 ({{detailPhotos.length}})</view>
+      <view class="photo-grid">
+        <block wx:for="{{detailPhotos}}" wx:key="id">
+          <view class="photo-card" bindtap="previewImage" data-urls="{{detailPhotos}}" data-current="{{item.url}}">
+            <image class="photo-img" src="{{item.url}}" mode="aspectFill"></image>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 产品图 -->
+    <view class="section" wx:if="{{productPhotos.length > 0}}">
+      <view class="section-title">产品图 ({{productPhotos.length}})</view>
+      <view class="photo-grid">
+        <block wx:for="{{productPhotos}}" wx:key="id">
+          <view class="photo-card" bindtap="previewImage" data-urls="{{productPhotos}}" data-current="{{item.url}}">
+            <image class="photo-img" src="{{item.url}}" mode="aspectFill"></image>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <view style="height: 60rpx;"></view>
+  </view>
+</view>

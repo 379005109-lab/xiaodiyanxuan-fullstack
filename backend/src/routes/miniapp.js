@@ -15,8 +15,10 @@ const Material = require('../models/Material')
 const Package = require('../models/Package')
 const Style = require('../models/Style')
 const Banner = require('../models/Banner')
+const bcrypt = require('bcryptjs')
 const { auth } = require('../middleware/auth')
 const { sendNewOrderNotification } = require('../services/emailService')
+const { sendVerificationCode, verifyCode } = require('../services/smsService')
 
 // 微信小程序配置
 const WX_APPID = process.env.WX_APPID || ''
@@ -235,10 +237,158 @@ router.post('/auth/wxlogin', async (req, res) => {
   }
 })
 
+// ========== 1.1 账号密码登录 ==========
+router.post('/auth/login', async (req, res) => {
+  try {
+    const { account, password } = req.body
+    if (!account || !password) {
+      return res.status(400).json(error(400, '请输入账号和密码'))
+    }
+
+    // 支持用户名或手机号登录
+    const user = await User.findOne({
+      $or: [{ username: account }, { phone: account }],
+      status: 'active'
+    })
+
+    if (!user) {
+      return res.status(400).json(error(400, '账号或密码错误'))
+    }
+
+    if (!user.password) {
+      return res.status(400).json(error(400, '该账号未设置密码，请使用其他方式登录'))
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) {
+      return res.status(400).json(error(400, '账号或密码错误'))
+    }
+
+    // 更新最后登录时间
+    user.lastLoginAt = new Date()
+    await user.save()
+
+    const token = jwt.sign(
+      { userId: user._id },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    )
+
+    res.json(success({
+      token,
+      userId: user._id,
+      nickname: user.nickname,
+      avatar: user.avatar
+    }))
+  } catch (err) {
+    console.error('账号密码登录错误:', err)
+    res.status(500).json(error(500, '登录失败'))
+  }
+})
+
+// ========== 1.2 发送短信验证码 ==========
+router.post('/auth/send-code', async (req, res) => {
+  try {
+    const { phone } = req.body
+    if (!phone) {
+      return res.status(400).json(error(400, '请输入手机号'))
+    }
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      return res.status(400).json(error(400, '手机号格式不正确'))
+    }
+
+    const result = await sendVerificationCode(phone)
+    if (result.success) {
+      res.json(success(null, '验证码已发送'))
+    } else {
+      res.status(400).json(error(400, result.message))
+    }
+  } catch (err) {
+    console.error('发送验证码错误:', err)
+    res.status(500).json(error(500, '发送失败'))
+  }
+})
+
+// ========== 1.3 手机号验证码登录 ==========
+router.post('/auth/phone-login', async (req, res) => {
+  try {
+    const { phone, code } = req.body
+    if (!phone || !code) {
+      return res.status(400).json(error(400, '请输入手机号和验证码'))
+    }
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      return res.status(400).json(error(400, '手机号格式不正确'))
+    }
+
+    const isValid = verifyCode(phone, code)
+    if (!isValid) {
+      return res.status(400).json(error(400, '验证码无效或已过期'))
+    }
+
+    // 查找或创建用户
+    let user = await User.findOne({ phone, status: 'active' })
+    let isNew = false
+
+    if (!user) {
+      isNew = true
+      user = await User.create({
+        phone,
+        userType: 'customer',
+        role: 'customer',
+        nickname: '手机用户',
+        status: 'active',
+        createdAt: new Date()
+      })
+    }
+
+    user.lastLoginAt = new Date()
+    await user.save()
+
+    const token = jwt.sign(
+      { userId: user._id },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    )
+
+    res.json(success({
+      token,
+      userId: user._id,
+      nickname: user.nickname,
+      avatar: user.avatar,
+      isNew
+    }))
+  } catch (err) {
+    console.error('手机号登录错误:', err)
+    res.status(500).json(error(500, '登录失败'))
+  }
+})
+
 // ========== 2. 获取用户信息 ==========
 router.get('/user/info', auth, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select('-password')
+    if (!user) {
+      return res.status(404).json(error(404, '用户不存在'))
+    }
+    res.json(success(user))
+  } catch (err) {
+    res.status(500).json(error(500, err.message))
+  }
+})
+
+// ========== 2.1 更新用户信息 ==========
+router.put('/user/update', auth, async (req, res) => {
+  try {
+    const { nickname, avatar, phone, gender, birthday } = req.body
+    const updates = {}
+    if (nickname !== undefined) updates.nickname = nickname
+    if (avatar !== undefined) updates.avatar = avatar
+    if (phone !== undefined) updates.phone = phone
+    if (gender !== undefined) updates.gender = gender
+    if (birthday !== undefined) updates.birthday = birthday
+    updates.updatedAt = new Date()
+
+    const user = await User.findByIdAndUpdate(req.userId, updates, { new: true }).select('-password')
     if (!user) {
       return res.status(404).json(error(404, '用户不存在'))
     }

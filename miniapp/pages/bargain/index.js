@@ -1,20 +1,27 @@
 const app = getApp()
 const api = app.api || require('../../utils/api.js')
 
+const mockGoodsList = [
+	{ id: 'b1', name: '质感沙发 · 莫兰迪灰', cover: 'https://picsum.photos/400/500?random=600', origin: 3999, price: 2199, cut: 200, cutCount: 12, style: '现代简约', category: '沙发' },
+	{ id: 'b2', name: '原木电视柜 · 极简主义', cover: 'https://picsum.photos/400/500?random=601', origin: 1699, price: 1099, cut: 120, cutCount: 8, style: '北欧风', category: '柜类' },
+	{ id: 'b3', name: '北欧餐椅（对）· 舒适棉麻', cover: 'https://picsum.photos/400/500?random=602', origin: 799, price: 499, cut: 60, cutCount: 5, style: '北欧风', category: '餐桌椅' },
+	{ id: 'b4', name: '布艺单椅 · 云朵沙发', cover: 'https://picsum.photos/400/500?random=603', origin: 1299, price: 899, cut: 80, cutCount: 4, style: '现代简约', category: '沙发' },
+	{ id: 'b5', name: '轻奢真皮沙发 · 头层牛皮', cover: 'https://picsum.photos/400/500?random=604', origin: 5999, price: 3999, cut: 300, cutCount: 15, style: '轻奢', category: '沙发' },
+	{ id: 'b6', name: '实木双人床 · 胡桃木', cover: 'https://picsum.photos/400/500?random=605', origin: 4599, price: 2999, cut: 250, cutCount: 10, style: '中式', category: '床具' }
+]
+
 Page({
 	data: {
 		leftSeconds: 30 * 60,
 		leftText: '00:30:00',
 		timer: null,
-		loading: false,
 		// 筛选相关
 		activeFilter: '',
 		showFilterPopup: false,
-		styleOptions: ['全部', '现代简约', '北欧风', '轻奢', '中式', '美式'],
+		styleOptions: ['全部', '现代简约', '北欧风', '轻奢', '中式'],
 		categoryOptions: ['全部', '沙发', '床具', '餐桌椅', '柜类', '其他'],
 		selectedStyle: '全部',
 		selectedCategory: '全部',
-		// 商品列表（从 API 加载）
 		allGoodsList: [],
 		goodsList: [],
 		myBargains: [],
@@ -23,104 +30,51 @@ Page({
 	},
 	onLoad() {
 		this.startTimer()
-		// 加载砍价商品列表
 		this.loadBargainGoods()
-		// 加载我的砍价数据
 		this.loadMyBargains()
 	},
-	// 从 API 加载砍价商品列表
-	async loadBargainGoods() {
-		this.setData({ loading: true })
-		try {
-			const res = await api.getBargainGoods()
-			// 兼容多种返回格式
-			let rawList = []
-			if (Array.isArray(res)) {
-				rawList = res
-			} else if (res && res.data && Array.isArray(res.data)) {
-				rawList = res.data
-			} else if (res && Array.isArray(res.list)) {
-				rawList = res.list
-			}
-			
-			const goods = rawList.map(item => {
-				// 处理图片URL
-				let cover = item.coverImage || item.cover || item.image || ''
-				if (cover && !cover.startsWith('http')) {
-					// 如果是相对路径或文件ID，添加基础URL
-					const config = require('../../config/api.js')
-					const baseUrl = config.baseURL.replace('/api/miniapp', '')
-					cover = `${baseUrl}/api/files/${cover}`
-				}
-				if (!cover) {
-					cover = `https://picsum.photos/400/500?random=${Date.now()}`
-				}
-				
-				return {
-					id: item._id || item.id,
-					name: item.name || item.productName,
-					cover: cover,
-					origin: item.originalPrice || 0,
-					price: item.targetPrice || 0,
-					cut: 0,
-					cutCount: item.totalBargains || 0,
-					style: item.style || '现代简约',
-					category: item.category || '沙发',
-					minCut: item.minCutAmount || 1,
-					maxCut: item.maxCutAmount || 50,
-					// 材质信息
-					materialsGroups: item.materialsGroups || [],
-					materialImages: item.materialImages || null,
-					materialCategories: item.materialCategories || []
-				}
-			})
-			this.setData({ allGoodsList: goods })
+	loadBargainGoods() {
+		api.getBargainList({ style: this.data.selectedStyle, category: this.data.selectedCategory }).then((data) => {
+			const list = (data.list || data || []).map(item => ({
+				id: item._id || item.id,
+				name: item.name || item.productName,
+				cover: item.coverImage || item.cover || '',
+				origin: item.originalPrice || item.origin || 0,
+				price: item.targetPrice || item.price || 0,
+				cut: item.totalCut || item.cut || 0,
+				cutCount: item.helpersCount || item.cutCount || 0,
+				style: item.style || '',
+				category: item.category || ''
+			}))
+			const allGoodsList = list.length > 0 ? list : mockGoodsList
+			this.setData({ allGoodsList })
 			this.filterGoods()
-		} catch (e) {
-			console.error('加载砍价商品失败:', e)
-		} finally {
-			this.setData({ loading: false })
-		}
+		}).catch(() => {
+			this.setData({ allGoodsList: mockGoodsList })
+			this.filterGoods()
+		})
 	},
-	// 从 API 加载我的砍价
-	async loadMyBargains() {
-		try {
-			const token = wx.getStorageSync('token')
-			if (!token) return
-			
-			const res = await api.getMyBargains()
-			// 只显示active状态的砍价
-			const myBargains = (res.data || [])
-				.filter(item => item.status === 'active')
-				.map(item => {
-					// 处理图片URL - 使用thumbnail字段
-					let cover = item.thumbnail || item.coverImage || ''
-					if (cover && !cover.startsWith('http')) {
-						const config = require('../../config/api.js')
-						const baseUrl = config.baseURL.replace('/api/miniapp', '')
-						cover = `${baseUrl}/api/files/${cover}`
-					}
-					if (!cover) {
-						// 尝试从商品列表中获取图片
-						const product = this.data.goodsList.find(g => g.id === item.productId)
-						cover = product?.cover || `https://picsum.photos/400/400?random=${item._id}`
-					}
-					return {
-						id: item._id,
-						productId: item.productId, // 保留productId用于匹配
-						name: item.productName,
-						cover: cover,
-						origin: item.originalPrice || 0,
-						price: item.currentPrice || item.targetPrice || 0,
-						remain: (item.currentPrice || item.targetPrice || 0) - (item.targetPrice || 0),
-						progress: item.originalPrice > 0 ? ((item.originalPrice - (item.currentPrice || item.originalPrice)) / (item.originalPrice - item.targetPrice)) : 0,
-						status: item.status
-					}
-				})
-			this.setData({ myBargains })
-		} catch (e) {
-			console.error('加载我的砍价失败:', e)
-		}
+	loadMyBargains() {
+		api.getMyBargains().then((data) => {
+			const list = (data.list || data || []).map(item => ({
+				id: item._id || item.id,
+				name: item.productName || item.name,
+				origin: item.originalPrice || item.origin || 0,
+				price: item.targetPrice || item.price || 0,
+				remain: item.remainAmount || item.remain || 0,
+				progress: item.progress || 0,
+				cover: item.coverImage || item.cover || ''
+			}))
+			this.setData({ myBargains: this.normalizeMyBargains(list) })
+		}).catch(() => {
+			// fallback to localStorage
+			try {
+				const myBargains = wx.getStorageSync('myBargains') || []
+				this.setData({ myBargains: this.normalizeMyBargains(myBargains) })
+			} catch (e) {
+				console.error('加载砍价数据失败:', e)
+			}
+		})
 	},
 	ensureLogin(action = '使用砍价功能') {
 		let token = ''
@@ -130,16 +84,7 @@ Page({
 			console.error('读取登录状态失败:', err)
 		}
 		if (token) return true
-		wx.showModal({
-			title: '提示',
-			content: `请先登录后${action}`,
-			confirmText: '去登录',
-			success: (res) => {
-				if (res.confirm) {
-					wx.switchTab({ url: '/pages/profile/index' })
-				}
-			}
-		})
+		wx.showToast({ title: `请先登录后${action}`, icon: 'none' })
 		return false
 	},
 	normalizeMyBargains(list = []) {
@@ -210,10 +155,6 @@ Page({
 		return `${hh}:${mm}:${ss}`
 	},
 	onShow() {
-		if (this.getTabBar) {
-			this.getTabBar().setData({ selected: 1 })
-		}
-		// 重新加载我的砍价数据
 		this.loadMyBargains()
 		// 从详情页带回的发起砍价
 		try {
@@ -279,187 +220,93 @@ Page({
 		
 		this.setData({ goodsList: filtered })
 	},
-	// 查看材质
-	onShowMaterials(e) {
-		const id = e.currentTarget.dataset.id
-		const goods = this.data.goodsList.find(g => g.id === id)
-		if (!goods || !goods.materialsGroups || goods.materialsGroups.length === 0) {
-			wx.showToast({ title: '暂无材质信息', icon: 'none' })
-			return
-		}
-		
-		// 构建材质预览内容
-		const materials = goods.materialsGroups.map(mg => {
-			const colorNames = (mg.colors || []).map(c => c.name).join('、')
-			return `${mg.name}: ${colorNames || '多色可选'}`
-		}).join('\n')
-		
-		wx.showModal({
-			title: '可选材质',
-			content: materials,
-			showCancel: false,
-			confirmText: '知道了'
-		})
-	},
-	async onHelpCut(e) {
+	onHelpCut(e) {
 		if (!this.ensureLogin('帮好友助力砍价')) return
 		const id = e.currentTarget.dataset.id
 		const goods = this.data.goodsList.find(g => g.id === id)
 		if (!goods) return
 		
-		try {
-			wx.showLoading({ title: '砍价中...' })
-			const res = await api.helpBargain(id)
-			wx.hideLoading()
-			
-			if (res.code === 0 || res.success) {
-				// 重新加载数据
-				this.loadBargainGoods()
-				this.loadMyBargains()
-				wx.showToast({ title: `砍价成功！`, icon: 'success' })
+		api.helpBargain(id).then((data) => {
+			const cutAmount = data.cutAmount || data.amount || 20
+			wx.showToast({ title: `砍价成功，已省¥${cutAmount}`, icon: 'success' })
+			this.loadMyBargains()
+			this.loadBargainGoods()
+		}).catch(() => {
+			// fallback: local update
+			const updatedGoods = { ...goods, cut: goods.cut + 20, cutCount: goods.cutCount + 1 }
+			const list = this.data.goodsList.map(g => g.id === id ? updatedGoods : g)
+			this.setData({ goodsList: list })
+			const targetSave = updatedGoods.origin - updatedGoods.price
+			const remain = Math.max(targetSave - updatedGoods.cut, 0)
+			const progress = targetSave > 0 ? Math.min(updatedGoods.cut / targetSave, 1) : 0
+			const exists = this.data.myBargains.some(b => b.id === id)
+			let myBargains
+			if (!exists) {
+				myBargains = [{ id, name: updatedGoods.name, remain, progress }, ...this.data.myBargains]
 			} else {
-				wx.showToast({ title: res.message || '砍价失败', icon: 'none' })
+				myBargains = this.data.myBargains.map(b => b.id === id ? { ...b, remain, progress } : b)
 			}
-		} catch (e) {
-			wx.hideLoading()
-			wx.showToast({ title: '砍价失败', icon: 'none' })
-		}
-		return
-		
-		// 以下为旧逻辑，保留注释
-		// 更新商品砍价进度
-		const updatedGoods = { ...goods, cut: goods.cut + 20, cutCount: goods.cutCount + 1 }
-		const list = this.data.goodsList.map(g => g.id === id ? updatedGoods : g)
-		this.setData({ goodsList: list })
-		
-		// 计算新的进度
-		const targetSave = updatedGoods.origin - updatedGoods.price
-		const remain = Math.max(targetSave - updatedGoods.cut, 0)
-		const progress = targetSave > 0 ? Math.min(updatedGoods.cut / targetSave, 1) : 0
-		
-		// 检查是否在我的砍价列表中，如果不在则添加
-		const exists = this.data.myBargains.some(b => b.id === id)
-		let myBargains
-		if (!exists) {
-			myBargains = [{ id, name: updatedGoods.name, remain, progress }, ...this.data.myBargains]
-		} else {
-			// 如果已存在，更新进度
-			myBargains = this.data.myBargains.map(b => b.id === id ? { ...b, remain, progress } : b)
-		}
-		
-		this.setData({ myBargains })
-		try {
-			wx.setStorageSync('myBargains', myBargains)
-		} catch (e) {
-			console.error('保存砍价数据失败:', e)
-		}
-		
-		wx.showToast({ title: '砍价成功，已省¥20', icon: 'success' })
+			this.setData({ myBargains })
+			try { wx.setStorageSync('myBargains', myBargains) } catch (e) {}
+			wx.showToast({ title: '砍价成功，已省¥20', icon: 'success' })
+		})
 	},
-	async onCancelMyBargain(e) {
+	onCancelMyBargain(e) {
 		const id = e.currentTarget.dataset.id
-		console.log('取消砍价 - 砍价ID:', id)
-		if (!id) {
-			wx.showToast({ title: '砍价ID无效', icon: 'none' })
-			return
-		}
+		if (!id) return
 		wx.showModal({
 			title: '取消砍价',
 			content: '取消后将无法继续砍价，确定要取消吗？',
 			confirmText: '取消砍价',
 			confirmColor: '#DC2626',
-			success: async (res) => {
+			success: (res) => {
 				if (res.confirm) {
-					try {
-						wx.showLoading({ title: '取消中...' })
-						console.log('调用取消砍价API, ID:', id)
-						const result = await api.cancelBargain(id)
-						console.log('取消砍价结果:', result)
-						wx.hideLoading()
-						
-						// 从本地列表移除（立即更新UI）
-						const myBargains = this.data.myBargains.filter(b => b.id !== id)
-						this.setData({ myBargains, showCancelId: '' })
+					api.cancelBargain(id).then(() => {
 						this.clearCancelTimer()
-						
-						// 重新从服务器加载
+						this.setData({ showCancelId: '' })
 						this.loadMyBargains()
 						wx.showToast({ title: '已取消砍价', icon: 'success' })
-					} catch (err) {
-						wx.hideLoading()
-						console.error('取消砍价失败:', err)
-						// 即使API失败，也从本地移除（用户体验）
-						const myBargains = this.data.myBargains.filter(b => b.id !== id)
-						this.setData({ myBargains, showCancelId: '' })
-						wx.showToast({ title: '已取消', icon: 'success' })
-					}
+					}).catch(() => {
+						// fallback: local remove
+						const filtered = this.data.myBargains.filter(item => item.id !== id)
+						const normalized = this.normalizeMyBargains(filtered)
+						this.clearCancelTimer()
+						this.setData({ myBargains: normalized, showCancelId: '' })
+						try { wx.setStorageSync('myBargains', normalized) } catch (err) {}
+						wx.showToast({ title: '已取消砍价', icon: 'success' })
+					})
 				}
 			}
 		})
 	},
-	async onStartBargain(e) {
+	onStartBargain(e) {
 		if (!this.ensureLogin('发起砍价')) return
 		const id = e.currentTarget.dataset.id
 		const goods = this.data.goodsList.find(g => g.id === id)
 		if (!goods) return
 		
-		try {
-			wx.showLoading({ title: '发起砍价中...' })
-			const res = await api.startBargain(id, goods.name, goods.origin, goods.price, goods.cover)
-			wx.hideLoading()
-			console.log('发起砍价返回:', res)
-			
-			// 发起成功，跳转到砍价详情页
-			const bargainId = res._id || res.id || id
-			wx.showToast({ title: '发起成功', icon: 'success', duration: 1000 })
-			
-			// 1秒后跳转到砍价详情页
-			setTimeout(() => {
-				wx.navigateTo({
-					url: `/pages/bargain/detail/index?id=${bargainId}&name=${encodeURIComponent(goods.name)}&origin=${goods.origin}&price=${goods.price}&remain=${goods.origin - goods.price}&progress=0&cover=${encodeURIComponent(goods.cover)}`
-				})
-			}, 1000)
-			
-			// 重新加载我的砍价列表
+		api.startBargain({
+			productId: id,
+			productName: goods.name,
+			originalPrice: goods.origin,
+			targetPrice: goods.price,
+			coverImage: goods.cover
+		}).then(() => {
+			wx.showToast({ title: '已发起砍价', icon: 'success' })
 			this.loadMyBargains()
-		} catch (e) {
-			wx.hideLoading()
-			console.error('发起砍价失败:', e)
-			
-			// 检查是否是"已有进行中砍价"的错误
-			if (e.message && e.message.includes('已有') && e.message.includes('砍价')) {
-				// 先重新加载我的砍价列表，确保数据最新
-				this.loadMyBargains().then(() => {
-					// 查找该商品的已有砍价
-					const existingBargain = this.data.myBargains.find(b => b.productId === id)
-					console.log('查找已有砍价:', id, this.data.myBargains, existingBargain)
-					
-					wx.showModal({
-						title: '提示',
-						content: '您已有该商品的进行中砍价，是否查看？',
-						confirmText: '查看砍价',
-						cancelText: '取消',
-						success: (res) => {
-							if (res.confirm && existingBargain) {
-								// 跳转到已有砍价详情页
-								wx.navigateTo({
-									url: `/pages/bargain/detail/index?id=${existingBargain.id}&name=${encodeURIComponent(existingBargain.name)}&origin=${existingBargain.origin}&price=${existingBargain.price}&remain=${existingBargain.remain}&progress=${existingBargain.progress}&cover=${encodeURIComponent(existingBargain.cover)}`
-								})
-							} else if (res.confirm) {
-								// 没找到对应记录，滚动到我的砍价区域
-								if (this.data.myBargains.length > 0) {
-									wx.pageScrollTo({ selector: '.my-bargain', duration: 300 })
-								} else {
-									wx.showToast({ title: '请刷新页面后查看', icon: 'none', duration: 2000 })
-								}
-							}
-						}
-					})
-				})
-			} else {
-				wx.showToast({ title: e.message || '发起砍价失败', icon: 'none' })
+		}).catch(() => {
+			// fallback: local add
+			const targetSave = goods.origin - goods.price
+			const remain = Math.max(targetSave - goods.cut, 0)
+			const progress = targetSave > 0 ? Math.min(goods.cut / targetSave, 1) : 0
+			const exists = this.data.myBargains.some(b => b.id === id)
+			if (!exists) {
+				const myBargains = [{ id, name: goods.name, remain, progress }, ...this.data.myBargains]
+				this.setData({ myBargains })
+				try { wx.setStorageSync('myBargains', myBargains) } catch (e) {}
 			}
-		}
+			wx.showToast({ title: '已发起砍价', icon: 'success' })
+		})
 	},
 	onShareAppMessage(res) {
 		// 获取分享来源（可能是按钮的data-id）
@@ -472,18 +319,6 @@ Page({
 			title: item ? `帮我砍一刀！${item.name}还差￥${item.remain}` : '帮我砍一刀，最高省50%',
 			path: '/pages/bargain/index',
 			imageUrl: '' // 可以设置分享图片
-		}
-	},
-	// 跳转到我的砍价
-	goMyBargain() {
-		// 滚动到我的砍价区域或显示我的砍价列表
-		if (this.data.myBargains.length > 0) {
-			wx.pageScrollTo({
-				selector: '.my-bargain',
-				duration: 300
-			})
-		} else {
-			wx.showToast({ title: '暂无砍价记录', icon: 'none' })
 		}
 	}
 })

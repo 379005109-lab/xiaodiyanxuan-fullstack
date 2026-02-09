@@ -6,13 +6,8 @@ Page({
 	data: {
 		id: '',
 		goods: { name: '商品', basePrice: 0, price: 0 },
-		// 微信胶囊按钮位置
-		statusBarHeight: 0,
-		menuButtonInfo: null,
-		navBarHeight: 0,
 		images: [],
 		detailImages: [],
-		mainImage: '', // 保存原始商品主图
 		loading: false,
 		tabList: [], // 动态生成，根据商品是否有材质/内部结构数据
 		hasMaterials: false, // 是否有材质数据
@@ -54,15 +49,7 @@ Page({
 		inCart: false,
 		hasBargain: false,
 		showAnimation: false,
-		animationType: '', // 'favorite' or 'cart'
-		// 新UI相关
-		quantity: 1,
-		showSpecs: false,
-		showColors: false,
-		selectedColorIndex: 0,
-		displayColors: [],
-		selectedConfigText: '默认规格',
-		colors: []
+		animationType: '' // 'favorite' or 'cart'
 	},
 	onLoad(query) {
 		const { id = '' } = query || {}
@@ -73,20 +60,7 @@ Page({
 			}, 1500)
 			return
 		}
-		
-		// 获取微信胶囊按钮位置
-		const menuButtonInfo = wx.getMenuButtonBoundingClientRect()
-		const systemInfo = wx.getSystemInfoSync()
-		const statusBarHeight = systemInfo.statusBarHeight
-		const navBarHeight = (menuButtonInfo.top - statusBarHeight) * 2 + menuButtonInfo.height
-		
-		this.setData({ 
-			id, 
-			loading: true,
-			statusBarHeight,
-			menuButtonInfo,
-			navBarHeight
-		})
+		this.setData({ id, loading: true })
 		
 		// 加载商品详情
 		this.loadGoodsDetail(id)
@@ -99,76 +73,30 @@ Page({
 		this.checkBargain(id)
 	},
 	loadGoodsDetail(id) {
+		// 默认材质数据 - 当API没有返回时使用
+		const defaultMaterialsGroups = [
+			{ name: '标准皮革', extra: 0, better: false, img: 'https://picsum.photos/800/800?random=400', colors: [{name:'经典黑'},{name:'米白色'},{name:'深棕色'}] },
+			{ name: '全青皮', extra: 3000, better: true, img: 'https://picsum.photos/800/800?random=401', colors: [{name:'经典黑'},{name:'米白色'},{name:'深棕色'}] }
+		]
+		const defaultFills = [
+			{ name: '高密度海绵', extra: 0, better: false, img: 'https://picsum.photos/800/800?random=410' },
+			{ name: '海绵+羽绒', extra: 800, better: true, img: 'https://picsum.photos/800/800?random=411' }
+		]
+		const defaultFrames = [
+			{ name: '实木框架', extra: 0, better: false, img: 'https://picsum.photos/800/800?random=420' },
+			{ name: '加厚实木', extra: 1200, better: true, img: 'https://picsum.photos/800/800?random=421' }
+		]
+		const defaultLegs = [
+			{ name: '木质脚', extra: 0, better: false, img: 'https://picsum.photos/800/800?random=430' },
+			{ name: '金属脚', extra: 600, better: true, img: 'https://picsum.photos/800/800?random=431' }
+		]
+		
 		api.getGoodsDetail(id).then((data) => {
-			console.log('商品详情API返回:', data)
-			
-			// 解析材质数据的辅助函数（带去重）
-			const parseMaterialsGroups = (materialsGroups) => {
-				const result = []
-				const seenNames = new Set()  // 用于去重材质分组
-				
-				if (materialsGroups && materialsGroups.length > 0) {
-					materialsGroups.forEach(mg => {
-						if (mg.subGroups && mg.subGroups.length > 0) {
-							mg.subGroups.forEach(sg => {
-								const groupName = sg.name || mg.name
-								// 跳过重复的材质分组
-								if (seenNames.has(groupName)) return
-								seenNames.add(groupName)
-								
-								// 颜色去重
-								const seenColors = new Set()
-								const uniqueColors = (sg.colors || []).filter(c => {
-									if (seenColors.has(c.name)) return false
-									seenColors.add(c.name)
-									return true
-								}).map(c => ({
-									name: c.name,
-									img: c.image || ''
-								}))
-								
-								result.push({
-									name: groupName,
-									extra: 0,
-									better: false,
-									img: sg.colors?.[0]?.image || '',
-									colors: uniqueColors
-								})
-							})
-						}
-					})
-				}
-				return result
-			}
-			
-			// 处理规格数据 - 每个规格包含自己的材质
-			let sizes = []
-			if (data.sizes && data.sizes.length > 0) {
-				sizes = data.sizes.map((s, i) => ({
-					name: s.name || `规格${i+1}`,
-					dims: s.dims || '',
-					extra: s.extra || 0,
-					price: s.price || 0,
-					img: s.images?.[0] || '',
-					materialsGroups: parseMaterialsGroups(s.materialsGroups)  // 保存每个规格的材质
-				}))
-			}
-			
-			// 默认显示第一个规格的材质（或全局材质）
-			let materialsGroups = []
-			if (sizes.length > 0 && sizes[0].materialsGroups && sizes[0].materialsGroups.length > 0) {
-				materialsGroups = sizes[0].materialsGroups
-			} else if (data.materialsGroups && data.materialsGroups.length > 0) {
-				materialsGroups = parseMaterialsGroups(data.materialsGroups)
-			}
-			
-			// 处理内部结构数据 - 只有后端返回了才使用
-			const fills = data.fills || []
-			const frames = data.frames || []
-			const legs = data.legs || []
-			
-			const hasMaterials = materialsGroups.length > 0 || sizes.some(s => s.materialsGroups && s.materialsGroups.length > 0)
-			const hasStructure = fills.length > 0 || frames.length > 0 || legs.length > 0
+			// 使用API数据或默认数据
+			const materialsGroups = (data.materialsGroups && data.materialsGroups.length > 0) ? data.materialsGroups : defaultMaterialsGroups
+			const fills = (data.fills && data.fills.length > 0) ? data.fills : defaultFills
+			const frames = (data.frames && data.frames.length > 0) ? data.frames : defaultFrames
+			const legs = (data.legs && data.legs.length > 0) ? data.legs : defaultLegs
 			
 			this.setData({
 				goods: {
@@ -177,15 +105,13 @@ Page({
 					price: data.price || 0
 				},
 				images: data.images || (data.thumb ? [data.thumb] : []),
-					mainImage: (data.images && data.images[0]) || data.thumb || '', // 原始商品主图
 				detailImages: data.detailImages || data.images || [],
-				sizes: sizes.length > 0 ? sizes : this.data.sizes,
 				materialsGroups: materialsGroups,
 				fills: fills,
 				frames: frames,
 				legs: legs,
-				hasMaterials: hasMaterials,
-				hasStructure: hasStructure,
+				hasMaterials: true,
+				hasStructure: true,
 				loading: false
 			}, () => {
 				this.buildTabList()
@@ -484,34 +410,7 @@ Page({
 	},
 	onSelectSize(e) {
 		const i = e.currentTarget.dataset.index
-		const selectedSize = this.data.sizes[i]
-		
-		console.log('选择规格:', i, selectedSize?.name, '材质数量:', selectedSize?.materialsGroups?.length)
-		
-		// 如果该规格有自己的材质列表，更新显示
-		const updates = { sizeIndex: i }
-		if (selectedSize && selectedSize.materialsGroups && selectedSize.materialsGroups.length > 0) {
-			updates.materialsGroups = selectedSize.materialsGroups
-			updates.materialGroupIndex = 0  // 重置材质分组选择
-			updates.materialColorIndex = 0  // 重置颜色选择
-		}
-		
-		this.setData(updates, () => {
-			this.buildTabList()  // 重新构建tab（可能材质数量变化）
-			this.recalculate()
-		})
-		
-		// 更新顶部轮播图到该规格图片
-		if (selectedSize && selectedSize.img) {
-			const images = [...this.data.images]
-			const existIndex = images.indexOf(selectedSize.img)
-			if (existIndex >= 0) {
-				this.setData({ imageIndex: existIndex })
-			} else {
-				images.unshift(selectedSize.img)
-				this.setData({ images, imageIndex: 0 })
-			}
-		}
+		this.setData({ sizeIndex: i }, this.recalculate)
 	},
 	recalculate() {
 		const d = this.data
@@ -523,9 +422,6 @@ Page({
 		const base = d.goods.basePrice ? d.goods.basePrice : 0
 		const total = base + matExtra + fillExtra + frameExtra + legExtra + sizeExtra
 		this.setData({ totalPrice: total })
-		// 更新新UI相关数据
-		this.updateDisplayColors()
-		this.updateSelectedConfigText()
 	},
 	onStartBargain() {
 		if (!this.ensureLogin()) return
@@ -656,14 +552,11 @@ Page({
 					const fill = this.data.fills[this.data.fillIndex] || {}
 					const frame = this.data.frames[this.data.frameIndex] || {}
 					const leg = this.data.legs[this.data.legIndex] || {}
-					// 获取面料图片（优先使用颜色图片，其次使用材质组图片）
-					const fabricImg = color.img || mg.img || ''
 					cart.unshift({
 						id: id,
 						name: goods.name,
 						price: totalPrice,
-						thumb: this.data.mainImage || images[0] || 'https://picsum.photos/200/200?random=1',
-						fabricImg: fabricImg,
+						thumb: images[0] || 'https://picsum.photos/200/200?random=1',
 						count: 1,
 						sizeName: size.name || '',
 						dims: size.dims || '',
@@ -715,9 +608,8 @@ Page({
 		const frame = d.frames[d.frameIndex] || {}
 		const leg = d.legs[d.legIndex] || {}
 		const order = {
-			goodsId: d.id,  // 商品ID
 			goodsName: d.goods.name,
-			goodsImage: d.mainImage || d.images[0] || 'https://picsum.photos/200/200?random=1',
+			goodsImage: d.images[0] || 'https://picsum.photos/200/200?random=1',
 			sizeName: size.name || '',
 			sizeDims: size.dims || '',
 			materialName: mg.name || '',
@@ -736,79 +628,10 @@ Page({
 		wx.navigateTo({ url: '/pages/order/confirm/index' })
 	},
 	onShareAppMessage() {
-		const goods = this.data.goods
-		const price = this.data.totalPrice || goods.basePrice || 0
 		return {
-			title: `${goods.name} ¥${price}`,
-			path: `/pages/mall/detail/index?id=${this.data.id}`,
-			imageUrl: this.data.images[0] || goods.image || ''
+			title: this.data.goods.name,
+			path: `/pages/mall/detail/index?id=${this.data.id}`
 		}
-	},
-	// 新UI方法
-	showSpecsSheet() {
-		this.setData({ showSpecs: true })
-	},
-	hideSpecsSheet() {
-		this.setData({ showSpecs: false })
-	},
-	showColorSheet() {
-		this.setData({ showColors: true })
-	},
-	hideColorSheet() {
-		this.setData({ showColors: false })
-	},
-	increaseQty() {
-		this.setData({ quantity: this.data.quantity + 1 })
-	},
-	decreaseQty() {
-		if (this.data.quantity > 1) {
-			this.setData({ quantity: this.data.quantity - 1 })
-		}
-	},
-	onSelectColor(e) {
-		const index = e.currentTarget.dataset.index
-		this.setData({ selectedColorIndex: index })
-	},
-	onQuickSelectColor(e) {
-		const ci = e.currentTarget.dataset.c
-		this.setData({ materialColorIndex: ci }, () => {
-			this.recalculate()
-		})
-	},
-	updateDisplayColors() {
-		// 生成显示用的颜色数组
-		let colors = []
-		const colorHexMap = {
-			'经典黑': '#1f2937',
-			'米白色': '#f5f5dc',
-			'深棕色': '#654321',
-			'灰色': '#9ca3af',
-			'浅灰': '#d1d5db',
-			'米色': '#deb887',
-			'红色': '#dc2626'
-		}
-		if (this.data.materialsGroups && this.data.materialsGroups.length > 0) {
-			this.data.materialsGroups.forEach(mg => {
-				if (mg.colors) {
-					mg.colors.forEach(c => {
-						colors.push({ name: c.name, hex: colorHexMap[c.name] || '#deb887' })
-					})
-				}
-			})
-		}
-		// 只取前6个
-		colors = colors.slice(0, 6)
-		this.setData({ displayColors: colors })
-	},
-	updateSelectedConfigText() {
-		const d = this.data
-		const sizeName = d.sizes[d.sizeIndex]?.name || '默认规格'
-		const materialName = d.materialsGroups[d.materialGroupIndex]?.name || ''
-		const colorName = d.materialsGroups[d.materialGroupIndex]?.colors?.[d.materialColorIndex]?.name || ''
-		let text = sizeName
-		if (materialName) text += '+' + materialName
-		if (colorName) text += '+' + colorName
-		this.setData({ selectedConfigText: text })
 	}
 })
 

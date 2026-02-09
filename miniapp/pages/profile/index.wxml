@@ -1,92 +1,164 @@
-<navigation-bar title="" back="{{false}}" color="black" background="transparent"></navigation-bar>
-<scroll-view class="scrollarea" scroll-y>
-<view class="page">
-		<!-- 设置按钮 -->
-		<view class="settings-btn" bindtap="goSettings">•••</view>
-
-		<!-- 用户头像和信息 -->
-		<view class="header">
-			<image class="avatar" src="{{avatar}}" mode="aspectFill"></image>
-			<view class="u-info">
-				<text class="name">{{nickname || '用户'}}</text>
-				<text class="badge">钻石会员</text>
+<view class="page-container">
+	<!-- 退出确认弹窗 -->
+	<view class="modal-mask" wx:if="{{showLogoutConfirm}}" catchtap="closeLogoutConfirm">
+		<view class="modal-dialog" catchtap="">
+			<view class="modal-body">
+				<view class="modal-title">退出登录</view>
+				<view class="modal-desc">退出后将清除登录状态，确定要退出吗？</view>
 			</view>
-		</view>
-
-		<!-- 统计数据 -->
-		<view class="stats">
-			<view class="stat" bindtap="goFavorites">
-				<text class="value">{{favoriteCount || 0}}</text>
-				<text class="label">收藏</text>
+			<view class="modal-actions">
+				<view class="modal-btn modal-cancel" bindtap="closeLogoutConfirm">取消</view>
+				<view class="modal-btn modal-confirm" bindtap="confirmLogout">退出</view>
 			</view>
-			<view class="stat" bindtap="goOrders">
-				<text class="value">{{orderCount || 0}}</text>
-				<text class="label">订单</text>
-			</view>
-			<view class="stat" bindtap="goCoupons">
-				<text class="value orange">¥{{couponAmount || 0}}</text>
-				<text class="label">优惠券</text>
-			</view>
-		</view>
-
-		<!-- 快捷入口 -->
-		<view class="quick-actions">
-			<view class="quick-action" bindtap="goBooking">
-				<view class="quick-action-icon"><view class="icon-calendar"></view></view>
-				<text class="quick-action-text">我的预约</text>
-			</view>
-			<view class="quick-action" bindtap="goCart">
-				<view class="quick-action-icon"><view class="icon-cart"></view></view>
-				<text class="quick-action-text">我的购物车</text>
-			</view>
-		</view>
-
-		<!-- 最近浏览 -->
-		<view class="recent-section" wx:if="{{recentItem}}">
-			<view class="section-header">
-				<view class="section-icon"><view class="icon-clock"></view></view>
-				<text class="section-title">最近浏览</text>
-			</view>
-			<view class="recent-item" bindtap="goProductDetail" data-id="{{recentItem.id}}">
-				<image class="recent-img" src="{{recentItem.cover}}" mode="aspectFill"></image>
-				<view class="recent-info">
-					<text class="recent-name">{{recentItem.name}}</text>
-					<text class="recent-desc">{{recentItem.desc || '精选好物'}}</text>
-					<text class="recent-price">¥{{recentItem.price}}</text>
-				</view>
-				<view class="recent-buy-btn">购买</view>
-			</view>
-		</view>
-
-		<!-- 更多功能列表 -->
-		<view class="list">
-			<view class="cell" bindtap="goReferral">
-				<view class="cell-icon-box"><view class="icon-gift"></view></view>
-				<text class="cell-text">推荐有奖</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" bindtap="goAddress">
-				<view class="cell-icon-box"><view class="icon-location"></view></view>
-				<text class="cell-text">地址管理</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" bindtap="goService">
-				<view class="cell-icon-box"><view class="icon-chat"></view></view>
-				<text class="cell-text">客服中心</text>
-				<text class="cell-arrow">›</text>
-			</view>
-			<view class="cell" bindtap="goLanguage">
-				<view class="cell-icon-box"><view class="icon-globe"></view></view>
-				<text class="cell-text">语言 / Language</text>
-				<text class="cell-arrow">›</text>
-			</view>
-		</view>
-
-		<view class="footer">
-			<view class="fold">关于我们 · 隐私政策 · 帮助中心</view>
-			<view class="copy">© 小迪严选</view>
 		</view>
 	</view>
-</scroll-view>
 
+	<!-- 顶部导航栏 -->
+	<view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+		<view class="nav-content">
+			<view class="nav-title">我的</view>
+		</view>
+	</view>
 
+	<!-- 主体内容 -->
+	<scroll-view class="scroll-area" scroll-y enhanced show-scrollbar="{{false}}" style="top: {{navBarHeight}}px;">
+		<!-- 用户信息卡 -->
+		<view class="user-card" bindtap="{{isLoggedIn ? 'goEditProfile' : 'goLogin'}}">
+			<view class="user-left">
+				<view class="avatar-wrap">
+					<image class="avatar" src="{{userInfo.avatar}}" mode="aspectFill"></image>
+				</view>
+				<view class="user-info">
+					<view class="user-name-row" wx:if="{{isLoggedIn}}">
+						<text class="nickname">{{userInfo.nickname}}</text>
+						<text class="edit-icon ri ri-pencil-line"></text>
+					</view>
+					<view class="user-name-row" wx:else>
+						<text class="nickname">点击登录</text>
+					</view>
+					<text class="user-phone" wx:if="{{isLoggedIn && userInfo.phone}}">{{userInfo.phone}}</text>
+					<text class="user-phone" wx:if="{{!isLoggedIn}}">登录后享受更多会员权益</text>
+				</view>
+			</view>
+			<text class="user-arrow ri ri-arrow-right-s-line"></text>
+		</view>
+
+		<!-- 核心资产区 -->
+		<view class="assets-row">
+			<!-- 积分卡 -->
+			<view class="asset-card" bindtap="goPoints">
+				<view class="asset-header">
+					<text class="asset-title">我的积分</text>
+					<text class="asset-arrow ri ri-arrow-right-s-line"></text>
+				</view>
+				<view class="asset-value">{{userInfo.points || 0}}</view>
+				<view class="asset-desc">用于AI生图消耗</view>
+				<view class="asset-btns">
+					<view class="asset-btn asset-btn-warm" catchtap="goRecharge">去充值</view>
+					<view class="asset-btn" catchtap="goAiGenerate">去生成</view>
+				</view>
+			</view>
+			<!-- 优惠券卡 -->
+			<view class="asset-card" bindtap="goCoupons">
+				<view class="asset-header">
+					<text class="asset-title">优惠券</text>
+					<text class="asset-arrow ri ri-arrow-right-s-line"></text>
+				</view>
+				<view class="asset-value">{{userInfo.stats.coupons || 0}}<text class="asset-unit">张可用</text></view>
+				<view class="asset-desc">下单立减，限时优惠</view>
+				<view class="asset-btns">
+					<view class="asset-btn asset-btn-primary" catchtap="goCoupons">去使用</view>
+				</view>
+			</view>
+		</view>
+
+		<!-- 我的订单 -->
+		<view class="section-card">
+			<view class="section-header">
+				<text class="section-title">我的订单</text>
+				<view class="section-link" bindtap="goOrders" data-tab="0">
+					<text>全部订单</text>
+					<text class="section-arrow ri ri-arrow-right-s-line"></text>
+				</view>
+			</view>
+			<view class="order-shortcuts">
+				<view class="order-shortcut" bindtap="goOrders" data-tab="1">
+					<view class="shortcut-icon-wrap">
+						<text class="shortcut-icon ri ri-wallet-3-line"></text>
+						<view class="shortcut-badge" wx:if="{{orderCounts.unpaid > 0}}">{{orderCounts.unpaid}}</view>
+					</view>
+					<text class="shortcut-label">待付款</text>
+				</view>
+				<view class="order-shortcut" bindtap="goOrders" data-tab="2">
+					<view class="shortcut-icon-wrap">
+						<text class="shortcut-icon ri ri-box-3-line"></text>
+					</view>
+					<text class="shortcut-label">待发货</text>
+				</view>
+				<view class="order-shortcut" bindtap="goOrders" data-tab="3">
+					<view class="shortcut-icon-wrap">
+						<text class="shortcut-icon ri ri-truck-line"></text>
+					</view>
+					<text class="shortcut-label">待收货</text>
+				</view>
+				<view class="order-shortcut" bindtap="goOrders" data-tab="0">
+					<view class="shortcut-icon-wrap">
+						<text class="shortcut-icon ri ri-more-line"></text>
+					</view>
+					<text class="shortcut-label">更多</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 更多服务 -->
+		<view class="section-card">
+			<view class="section-header">
+				<text class="section-title">更多服务</text>
+			</view>
+			<view class="service-list">
+				<view class="service-item" bindtap="goCart">
+					<text class="service-icon ri ri-shopping-cart-2-line"></text>
+					<text class="service-text">购物车</text>
+					<view class="service-right">
+						<view class="service-badge" wx:if="{{cartCount > 0}}">{{cartCount}}</view>
+						<text class="service-arrow ri ri-arrow-right-s-line"></text>
+					</view>
+				</view>
+				<view class="service-item" bindtap="goAddress">
+					<text class="service-icon ri ri-map-pin-2-line"></text>
+					<text class="service-text">地址管理</text>
+					<view class="service-right">
+						<text class="service-arrow ri ri-arrow-right-s-line"></text>
+					</view>
+				</view>
+				<view class="service-item" bindtap="goInvoice">
+					<text class="service-icon ri ri-file-text-line"></text>
+					<text class="service-text">发票管理</text>
+					<view class="service-right">
+						<text class="service-arrow ri ri-arrow-right-s-line"></text>
+					</view>
+				</view>
+				<view class="service-item" bindtap="goPrivacy">
+					<text class="service-icon ri ri-shield-keyhole-line"></text>
+					<text class="service-text">隐私与账号安全</text>
+					<view class="service-right">
+						<text class="service-arrow ri ri-arrow-right-s-line"></text>
+					</view>
+				</view>
+				<view class="service-item" bindtap="contactService">
+					<text class="service-icon ri ri-customer-service-line"></text>
+					<text class="service-text">帮助与客服</text>
+					<view class="service-right">
+						<text class="service-hint">400-888-8888</text>
+						<text class="service-arrow ri ri-arrow-right-s-line"></text>
+					</view>
+				</view>
+			</view>
+		</view>
+
+		<!-- 退出登录 -->
+		<view class="logout-btn" bindtap="onLogout" wx:if="{{isLoggedIn}}">退出登录</view>
+
+		<view style="height: 160rpx;"></view>
+	</scroll-view>
+</view>

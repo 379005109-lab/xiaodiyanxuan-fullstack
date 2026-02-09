@@ -1,4 +1,4 @@
-<navigation-bar title="套餐配置" back="{{true}}" color="black" background="transparent"></navigation-bar>
+<navigation-bar title="套餐配置" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
 	<!-- 主视图大图 -->
 	<view class="preview-main">
@@ -102,24 +102,20 @@
 							<view class="variant-price" wx:if="{{item.priceDelta}}">+¥{{item.priceDelta}}</view>
 						</view>
 					</view>
+					<!-- 规格尺寸显示在选择规格下方 -->
+					<view class="spec-dims-row">
+						<text class="spec-dims-text">尺寸：{{goodsModalData.dims || '—'}}</text>
+					</view>
 				</view>
-				<!-- 面料选择（按类别分组显示） -->
-				<view class="goods-modal-section" wx:if="{{goodsModalFabricGroups.length > 0}}">
+				<!-- 面料选择（材质+颜色合并） -->
+				<view class="goods-modal-section" wx:if="{{goodsModalFabrics.length > 0}}">
 					<view class="goods-modal-label">选择面料</view>
-					<block wx:for="{{goodsModalFabricGroups}}" wx:key="groupName" wx:for-item="group">
-						<view class="fabric-group">
-							<view class="fabric-group-title">
-								<view class="fabric-group-line"></view>
-								<text>{{group.groupName}}</text>
-							</view>
-							<view class="fabric-grid">
-								<view class="fabric-item {{goodsModalFabricId===item.id?'active':''}}" wx:for="{{group.items}}" wx:key="id" data-id="{{item.id}}" data-group="{{group.groupName}}" bindtap="onSelectFabric">
-									<image class="fabric-img" src="{{item.image || item.img}}" mode="aspectFill"></image>
-									<text class="fabric-name">{{item.colorName || item.name}}</text>
-								</view>
-							</view>
+					<view class="fabric-grid">
+						<view class="fabric-item {{goodsModalFabricIndex===index?'active':''}}" wx:for="{{goodsModalFabrics}}" wx:key="id" data-index="{{index}}" bindtap="onSelectFabric">
+							<image class="fabric-img" src="{{item.img}}" mode="aspectFill"></image>
+							<view class="fabric-name">{{item.name}}</view>
 						</view>
-					</block>
+					</view>
 				</view>
 				<!-- 数量选择（可重复选择的商品） -->
 				<view class="goods-modal-section" wx:if="{{goodsModalAllowRepeat}}">

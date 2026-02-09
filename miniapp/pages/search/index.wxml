@@ -1,0 +1,86 @@
+<!-- 搜索页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="search-bar">
+      <text class="search-icon">🔍</text>
+      <input class="search-input" placeholder="搜索家具" focus="{{true}}" value="{{keyword}}" bindinput="onInput" bindconfirm="doSearch" confirm-type="search" />
+      <view class="search-clear" wx:if="{{keyword}}" bindtap="clearKeyword">✕</view>
+    </view>
+    <view class="nav-search-btn" bindtap="doSearch">搜索</view>
+  </view>
+
+  <view class="content">
+    <!-- 搜索历史 -->
+    <view class="section" wx:if="{{!isSearching && history.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">搜索历史</text>
+        <view class="section-action" bindtap="clearHistory">清空</view>
+      </view>
+      <view class="tag-list">
+        <block wx:for="{{history}}" wx:key="*this">
+          <view class="tag-item" bindtap="tapHistory" data-keyword="{{item}}">{{item}}</view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 热门搜索 -->
+    <view class="section" wx:if="{{!isSearching && hotWords.length > 0}}">
+      <view class="section-header">
+        <text class="section-title">热门搜索</text>
+      </view>
+      <view class="tag-list">
+        <block wx:for="{{hotWords}}" wx:key="*this">
+          <view class="tag-item hot" bindtap="tapHistory" data-keyword="{{item}}">{{item}}</view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 搜索结果 -->
+    <view class="result-section" wx:if="{{isSearching}}">
+      <view class="result-header" wx:if="{{resultList.length > 0}}">
+        <text>找到 {{total}} 件商品</text>
+      </view>
+
+      <view class="goods-grid" wx:if="{{resultList.length > 0}}">
+        <block wx:for="{{resultList}}" wx:key="_id">
+          <view class="goods-card" bindtap="goDetail" data-id="{{item._id}}">
+            <view class="goods-img-wrap">
+              <image class="goods-img" src="{{item.thumbnail || item.images[0] || ''}}" mode="aspectFill"></image>
+            </view>
+            <view class="goods-info">
+              <view class="goods-name text-ellipsis-2">{{item.name}}</view>
+              <view class="goods-price-row">
+                <text class="goods-price"><text class="price-symbol">¥</text>{{item.price}}</text>
+                <text class="goods-original" wx:if="{{item.originalPrice}}">¥{{item.originalPrice}}</text>
+              </view>
+              <text class="goods-sold" wx:if="{{item.sold}}">已售 {{item.sold}}</text>
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <!-- 加载中 -->
+      <view class="loading-state" wx:if="{{loading}}">
+        <text class="loading-text">搜索中...</text>
+      </view>
+
+      <!-- 空结果 -->
+      <view class="empty-state" wx:if="{{!loading && resultList.length === 0 && searched}}">
+        <text class="empty-icon">🔍</text>
+        <text class="empty-text">未找到相关商品</text>
+        <text class="empty-hint">换个关键词试试</text>
+      </view>
+
+      <!-- 加载更多 -->
+      <view class="load-more" wx:if="{{hasMore && !loading}}" bindtap="loadMore">
+        <text>加载更多</text>
+      </view>
+      <view class="bottom-tip" wx:if="{{!hasMore && resultList.length > 0}}">
+        <text>已经到底了</text>
+      </view>
+    </view>
+
+    <view style="height: 60rpx;"></view>
+  </view>
+</view>

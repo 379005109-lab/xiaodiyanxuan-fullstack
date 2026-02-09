@@ -1,0 +1,49 @@
+<!-- 我的砍价页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">我的砍价</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <view class="content">
+    <!-- 状态 Tab -->
+    <view class="tabs">
+      <view class="tab {{currentTab === 'active' ? 'active' : ''}}" bindtap="switchTab" data-tab="active">进行中</view>
+      <view class="tab {{currentTab === 'completed' ? 'active' : ''}}" bindtap="switchTab" data-tab="completed">已完成</view>
+      <view class="tab {{currentTab === 'expired' ? 'active' : ''}}" bindtap="switchTab" data-tab="expired">已过期</view>
+    </view>
+
+    <!-- 砍价列表 -->
+    <view class="bargain-list" wx:if="{{list.length > 0}}">
+      <block wx:for="{{list}}" wx:key="_id">
+        <view class="bargain-card" bindtap="goDetail" data-id="{{item._id || item.id}}">
+          <image class="bargain-img" src="{{item.coverImage || item.image}}" mode="aspectFill"></image>
+          <view class="bargain-info">
+            <view class="bargain-name text-ellipsis">{{item.productName || item.name}}</view>
+            <view class="bargain-progress-wrap">
+              <view class="bargain-progress-bar">
+                <view class="bargain-progress-fill" style="width: {{item.progress || 0}}%"></view>
+              </view>
+              <text class="bargain-progress-text">{{item.progress || 0}}%</text>
+            </view>
+            <view class="bargain-price-row">
+              <text class="bargain-current">¥{{item.currentPrice}}</text>
+              <text class="bargain-original">¥{{item.originalPrice}}</text>
+            </view>
+            <view class="bargain-bottom">
+              <text class="bargain-helpers">{{item.helpCount || 0}}人帮砍</text>
+              <text class="bargain-countdown" wx:if="{{item.countdown}}">{{item.countdown}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <view class="empty-state" wx:if="{{list.length === 0 && !loading}}">
+      <text class="empty-icon">✂</text>
+      <text class="empty-title">暂无砍价记录</text>
+      <view class="empty-btn" bindtap="goBrowse">去砍价</view>
+    </view>
+  </view>
+</view>

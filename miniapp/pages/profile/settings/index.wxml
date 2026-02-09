@@ -1,0 +1,36 @@
+<!-- 设置页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">设置</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <view class="content">
+    <view class="settings-group">
+      <view class="settings-item" bindtap="goPrivacy">
+        <text class="item-label">隐私政策</text>
+        <text class="item-arrow">›</text>
+      </view>
+      <view class="settings-item">
+        <text class="item-label">消息通知</text>
+        <switch checked="{{notifyEnabled}}" bindchange="toggleNotify" color="#1D1D1F" />
+      </view>
+      <view class="settings-item">
+        <text class="item-label">清除缓存</text>
+        <text class="item-value">{{cacheSize}}</text>
+      </view>
+    </view>
+
+    <view class="settings-group">
+      <view class="settings-item">
+        <text class="item-label">当前版本</text>
+        <text class="item-value">v1.0.0</text>
+      </view>
+    </view>
+
+    <view class="logout-btn" bindtap="logout" wx:if="{{isLoggedIn}}">
+      <text>退出登录</text>
+    </view>
+  </view>
+</view>

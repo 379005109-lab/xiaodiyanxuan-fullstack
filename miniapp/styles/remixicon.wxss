@@ -1,0 +1,55 @@
+/**
+ * Remix Icon subset for miniapp
+ * Font loaded via wx.loadFontFace in app.js
+ */
+
+/* Base icon class */
+.ri {
+  font-family: 'remixicon' !important;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ========== TabBar Icons ========== */
+.ri-home-5-line::before { content: "\ee1f"; }
+.ri-home-5-fill::before { content: "\ee1e"; }
+.ri-apps-2-line::before { content: "\ea42"; }
+.ri-apps-2-fill::before { content: "\ea41"; }
+.ri-magic-line::before { content: "\eeea"; }
+.ri-magic-fill::before { content: "\eee9"; }
+.ri-stack-line::before { content: "\f181"; }
+.ri-stack-fill::before { content: "\f180"; }
+.ri-user-line::before { content: "\f264"; }
+.ri-user-fill::before { content: "\f25f"; }
+
+/* ========== Profile Page Icons ========== */
+.ri-wallet-3-line::before { content: "\f2ac"; }
+.ri-box-3-line::before { content: "\f2f5"; }
+.ri-truck-line::before { content: "\f231"; }
+.ri-more-line::before { content: "\ef79"; }
+.ri-shopping-cart-2-line::before { content: "\f11e"; }
+.ri-map-pin-2-line::before { content: "\ef0a"; }
+.ri-file-text-line::before { content: "\ed0f"; }
+.ri-shield-keyhole-line::before { content: "\f107"; }
+.ri-customer-service-line::before { content: "\ec0e"; }
+.ri-pencil-line::before { content: "\efe0"; }
+.ri-arrow-right-s-line::before { content: "\ea6e"; }
+
+/* ========== Common Icons ========== */
+.ri-search-line::before { content: "\f0d1"; }
+.ri-camera-line::before { content: "\eb31"; }
+.ri-time-line::before { content: "\f20f"; }
+.ri-arrow-right-line::before { content: "\ea6c"; }
+.ri-file-list-3-line::before { content: "\ecef"; }
+.ri-inbox-line::before { content: "\ee4f"; }
+
+/* ========== Login Page Icons ========== */
+.ri-arrow-left-s-line::before { content: "\ea64"; }
+.ri-lock-line::before { content: "\eece"; }
+.ri-eye-line::before { content: "\ecb5"; }
+.ri-eye-off-line::before { content: "\ecb7"; }
+.ri-smartphone-line::before { content: "\f15a"; }
+.ri-shield-check-line::before { content: "\f100"; }
+.ri-check-line::before { content: "\eb7b"; }
+.ri-wechat-fill::before { content: "\f2b5"; }
+.ri-home-smile-line::before { content: "\ee2f"; }

@@ -1,0 +1,51 @@
+<!-- 套餐配置页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">配置套餐</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <view class="content">
+    <!-- 套餐信息 -->
+    <view class="pkg-header" wx:if="{{packageInfo.name}}">
+      <view class="pkg-name">{{packageInfo.name}}</view>
+      <view class="pkg-base-price">基础价：¥{{packageInfo.basePrice}}</view>
+    </view>
+
+    <!-- 分类选择 -->
+    <block wx:for="{{categories}}" wx:key="id">
+      <view class="category-section">
+        <view class="category-title">{{item.name}} <text class="category-hint">(选择{{item.required || 1}}件)</text></view>
+        <view class="product-list">
+          <block wx:for="{{item.products}}" wx:for-item="product" wx:key="_id">
+            <view class="product-card {{product.selected ? 'selected' : ''}}" bindtap="toggleProduct" data-catIdx="{{index}}" data-prodIdx="{{productIndex}}" data-product="{{product}}">
+              <image class="product-img" src="{{product.thumbnail || product.images[0]}}" mode="aspectFill"></image>
+              <view class="product-info">
+                <view class="product-name text-ellipsis">{{product.name}}</view>
+                <view class="product-price">¥{{product.price}}</view>
+              </view>
+              <view class="product-check" wx:if="{{product.selected}}">✓</view>
+            </view>
+          </block>
+        </view>
+      </view>
+    </block>
+
+    <view style="height: 200rpx;"></view>
+  </view>
+
+  <!-- 底部提交栏 -->
+  <view class="bottom-bar">
+    <view class="bar-info">
+      <text class="bar-count">已选 {{selectedCount}} 件</text>
+      <view class="bar-price">
+        <text class="bar-label">合计：</text>
+        <text class="bar-amount">¥{{totalPrice}}</text>
+      </view>
+    </view>
+    <view class="bar-btn {{canSubmit ? '' : 'disabled'}}" bindtap="submitConfig">
+      <text>确认配置</text>
+    </view>
+  </view>
+</view>

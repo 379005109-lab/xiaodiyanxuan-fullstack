@@ -1,0 +1,52 @@
+/* 我的套餐页 — Apple 风格 */
+page { background: #F5F5F7; color: #1D1D1F; }
+.page { padding-top: calc(88rpx + env(safe-area-inset-top)); }
+.nav-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  background: rgba(255,255,255,0.95); backdrop-filter: saturate(180%) blur(40rpx);
+  border-bottom: 1rpx solid #E5E5EA;
+  display: flex; align-items: center; justify-content: space-between;
+  height: calc(88rpx + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 32rpx 0;
+}
+.nav-back { width: 64rpx; height: 64rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; }
+.nav-title { font-size: 34rpx; font-weight: 600; }
+.nav-placeholder { width: 64rpx; }
+
+.content { padding: 24rpx 32rpx; }
+
+.pkg-list { display: flex; flex-direction: column; gap: 16rpx; }
+
+.pkg-card {
+  background: #FFFFFF; border-radius: 24rpx; padding: 24rpx;
+  border: 1rpx solid #E5E5EA;
+}
+.pkg-card:active { background: #FAFAFA; }
+
+.pkg-top { display: flex; gap: 20rpx; }
+.pkg-img { width: 160rpx; height: 160rpx; border-radius: 20rpx; flex-shrink: 0; background: #F5F5F7; }
+.pkg-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+.pkg-name { font-size: 30rpx; font-weight: 600; color: #1D1D1F; }
+.pkg-tags { display: flex; gap: 8rpx; margin-top: 8rpx; }
+.pkg-tag { font-size: 22rpx; color: #6E6E73; background: #F5F5F7; padding: 4rpx 12rpx; border-radius: 8rpx; border: 1rpx solid #E5E5EA; }
+.pkg-price { font-size: 36rpx; font-weight: 700; color: #1D1D1F; margin-top: 8rpx; }
+
+.pkg-status {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid #E5E5EA;
+}
+.status-text { font-size: 26rpx; font-weight: 500; color: #34C759; }
+.status-text.completed { color: #8E8E93; }
+.status-text.cancelled { color: #FF3B30; }
+.pkg-date { font-size: 24rpx; color: #8E8E93; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; padding: 120rpx 0; }
+.empty-icon { font-size: 80rpx; margin-bottom: 16rpx; }
+.empty-title { font-size: 34rpx; font-weight: 500; color: #1D1D1F; margin-bottom: 8rpx; }
+.empty-hint { font-size: 26rpx; color: #8E8E93; margin-bottom: 32rpx; }
+.empty-btn {
+  height: 88rpx; padding: 0 64rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #FFFFFF; border: 2rpx solid #D2D2D7; border-radius: 24rpx;
+  font-size: 30rpx; font-weight: 500; color: #1D1D1F;
+}
+.empty-btn:active { background: #F5F5F7; }

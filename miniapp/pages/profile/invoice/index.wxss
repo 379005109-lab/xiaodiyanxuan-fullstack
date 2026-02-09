@@ -1,0 +1,46 @@
+/* 发票管理页 — Apple 风格 */
+page { background: #F5F5F7; color: #1D1D1F; }
+.page { padding-top: calc(88rpx + env(safe-area-inset-top)); }
+.nav-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  background: rgba(255,255,255,0.95); backdrop-filter: saturate(180%) blur(40rpx);
+  border-bottom: 1rpx solid #E5E5EA;
+  display: flex; align-items: center; justify-content: space-between;
+  height: calc(88rpx + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 32rpx 0;
+}
+.nav-back { width: 64rpx; height: 64rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; }
+.nav-title { font-size: 34rpx; font-weight: 600; }
+.nav-placeholder { width: 64rpx; }
+
+.content { padding: 24rpx 32rpx; }
+.invoice-list { display: flex; flex-direction: column; gap: 16rpx; }
+
+.invoice-card {
+  display: flex; align-items: center; gap: 16rpx;
+  background: #FFFFFF; border-radius: 24rpx; padding: 24rpx;
+  border: 1rpx solid #E5E5EA;
+}
+.invoice-card:active { background: #FAFAFA; }
+
+.invoice-type-tag {
+  font-size: 22rpx; color: #FFFFFF; background: #1D1D1F;
+  padding: 6rpx 16rpx; border-radius: 8rpx; font-weight: 500; flex-shrink: 0;
+}
+.invoice-info { flex: 1; min-width: 0; }
+.invoice-title-text { font-size: 30rpx; font-weight: 500; color: #1D1D1F; }
+.invoice-tax { font-size: 24rpx; color: #8E8E93; margin-top: 4rpx; }
+.invoice-actions { display: flex; align-items: center; gap: 8rpx; flex-shrink: 0; }
+.invoice-default { font-size: 22rpx; color: #34C759; background: rgba(52,199,89,0.1); padding: 4rpx 12rpx; border-radius: 8rpx; }
+.invoice-arrow { font-size: 36rpx; color: #C7C7CC; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; padding: 120rpx 0; }
+.empty-icon { font-size: 80rpx; margin-bottom: 16rpx; }
+.empty-text { font-size: 28rpx; color: #8E8E93; }
+
+.add-btn {
+  margin-top: 32rpx; height: 96rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #FFFFFF; border: 2rpx solid #D2D2D7; border-radius: 24rpx;
+  font-size: 30rpx; font-weight: 500; color: #1D1D1F;
+}
+.add-btn:active { background: #F5F5F7; }

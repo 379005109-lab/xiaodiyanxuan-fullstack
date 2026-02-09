@@ -1,0 +1,120 @@
+<!-- 商品列表页 — Apple 风格 -->
+<view class="page">
+	<!-- 顶部导航栏 -->
+	<view class="nav-bar">
+		<view class="nav-back" bindtap="goBack">←</view>
+		<view class="nav-title">{{pageTitle}}</view>
+		<view class="nav-placeholder"></view>
+	</view>
+
+	<!-- 搜索框 -->
+	<view class="search-section">
+		<view class="search-box">
+			<text class="search-icon">🔍</text>
+			<input class="search-input" placeholder="搜索商品" value="{{searchText}}" bindinput="onSearchInput" bindconfirm="onSearchConfirm" />
+			<view class="search-tag" wx:if="{{subCategoryName}}" bindtap="clearSubCategory">
+				<text>{{subCategoryName}}</text>
+				<text class="tag-close">✕</text>
+			</view>
+		</view>
+	</view>
+
+	<!-- 筛选条 -->
+	<view class="filter-bar">
+		<scroll-view class="filter-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+			<view class="filter-items">
+				<view class="filter-chip {{showFilter ? 'active' : ''}}" bindtap="toggleFilter">
+					<text>筛选</text>
+				</view>
+				<view class="filter-chip {{sortBy === 'price-asc' || sortBy === 'price-desc' ? 'active' : ''}}" bindtap="togglePrice">
+					<text>价格</text>
+					<text class="chip-arrow">{{sortBy === 'price-asc' ? '↑' : sortBy === 'price-desc' ? '↓' : ''}}</text>
+				</view>
+				<view class="filter-chip {{sortBy === 'sales' ? 'active' : ''}}" bindtap="setSortSales">
+					<text>{{sortBy === 'sales' ? '✓ ' : ''}}销量</text>
+				</view>
+				<view class="filter-chip {{stockOnly ? 'active' : ''}}" bindtap="toggleStockOnly">
+					<text>{{stockOnly ? '✓ ' : ''}}仅看有货</text>
+				</view>
+			</view>
+		</scroll-view>
+	</view>
+
+	<!-- 筛选面板 -->
+	<view class="filter-panel" wx:if="{{showFilter}}">
+		<!-- 风格筛选 -->
+		<view class="filter-group" wx:if="{{styles.length > 0}}">
+			<text class="filter-group-title">风格</text>
+			<view class="filter-tags">
+				<block wx:for="{{styles}}" wx:key="id">
+					<view class="filter-tag {{selectedStyle === item.name ? 'active' : ''}}" data-name="{{item.name}}" bindtap="onSelectStyle">
+						<text wx:if="{{selectedStyle === item.name}}">✓ </text>{{item.name}}
+					</view>
+				</block>
+			</view>
+		</view>
+
+		<!-- 价格区间 -->
+		<view class="filter-group">
+			<text class="filter-group-title">价格区间</text>
+			<view class="price-range-row">
+				<input class="price-input" type="number" placeholder="最低价" value="{{minPrice}}" bindinput="onMinPriceInput" />
+				<text class="price-sep">-</text>
+				<input class="price-input" type="number" placeholder="最高价" value="{{maxPrice}}" bindinput="onMaxPriceInput" />
+			</view>
+		</view>
+
+		<!-- 操作按钮 -->
+		<view class="filter-actions">
+			<button class="filter-reset-btn" bindtap="resetFilter">重置</button>
+			<button class="filter-apply-btn" bindtap="applyFilter">确定</button>
+		</view>
+	</view>
+
+	<!-- 商品网格 -->
+	<scroll-view class="goods-scroll" scroll-y enhanced show-scrollbar="{{false}}" bindscrolltolower="loadMore">
+		<view class="goods-grid" wx:if="{{!loading && goodsList.length > 0}}">
+			<block wx:for="{{goodsList}}" wx:key="_id">
+				<view class="goods-card" bindtap="goDetail" data-id="{{item._id}}">
+					<view class="goods-img-wrap">
+						<image class="goods-img" src="{{item.thumbnail || item.images[0] || ''}}" mode="aspectFill"></image>
+						<view class="goods-tag goods-tag-left" wx:if="{{item.inStock}}">现货</view>
+						<view class="goods-tag goods-tag-right" wx:if="{{item.isHot}}">热销</view>
+						<view class="goods-tag goods-tag-right" wx:elif="{{item.isNew}}">新品</view>
+					</view>
+					<view class="goods-info">
+						<view class="goods-model" wx:if="{{item.model}}">{{item.model}}</view>
+						<view class="goods-name text-ellipsis-2">{{item.name}}</view>
+						<view class="goods-price-row">
+							<text class="goods-price"><text class="price-symbol">¥</text>{{item.price}}</text>
+							<text class="goods-original" wx:if="{{item.originalPrice}}">¥{{item.originalPrice}}</text>
+						</view>
+						<view class="goods-bottom">
+							<text class="goods-sold" wx:if="{{item.sold}}">已售 {{item.sold}}</text>
+							<view class="goods-cart-btn" catchtap="addToCart" data-item="{{item}}">🛒</view>
+						</view>
+					</view>
+				</view>
+			</block>
+		</view>
+
+		<!-- 空状态 -->
+		<view class="empty-state" wx:if="{{!loading && goodsList.length === 0}}">
+			<text class="empty-icon">📦</text>
+			<text class="empty-text">暂无商品</text>
+		</view>
+
+		<!-- 加载中 -->
+		<view class="loading-state" wx:if="{{loading}}">
+			<text class="loading-text">加载中...</text>
+		</view>
+
+		<!-- 底部提示 -->
+		<view class="bottom-tip" wx:if="{{!loading && goodsList.length > 0 && !hasMore}}">
+			<text>已经到底了</text>
+		</view>
+
+		<!-- 底部占位 -->
+		<view style="height: 60rpx;"></view>
+	</scroll-view>
+</view>

@@ -1,6 +1,6 @@
 {
-  "libVersion": "3.11.1",
-  "projectname": "xiaodiyanxuan1",
+  "libVersion": "3.14.2",
+  "projectname": "miniapp",
   "setting": {
     "urlCheck": false,
     "coverView": true,

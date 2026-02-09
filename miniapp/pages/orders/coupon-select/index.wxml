@@ -1,0 +1,35 @@
+<!-- 优惠券选择页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">选择优惠券</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <view class="content">
+    <view class="coupon-list" wx:if="{{coupons.length > 0}}">
+      <block wx:for="{{coupons}}" wx:key="_id">
+        <view class="coupon-card {{item.disabled ? 'disabled' : ''}} {{selectedId === (item._id || item.id) ? 'selected' : ''}}" bindtap="selectCoupon" data-item="{{item}}">
+          <view class="coupon-left">
+            <text class="coupon-amount"><text class="coupon-symbol">¥</text>{{item.discount || item.amount}}</text>
+            <text class="coupon-condition">满{{item.minAmount || 0}}可用</text>
+          </view>
+          <view class="coupon-right">
+            <view class="coupon-name">{{item.name || item.title}}</view>
+            <view class="coupon-expire">{{item.expireDate || '限时使用'}}</view>
+          </view>
+          <view class="coupon-check" wx:if="{{selectedId === (item._id || item.id)}}">✓</view>
+        </view>
+      </block>
+    </view>
+
+    <view class="no-coupon-btn" bindtap="noCoupon">
+      <text>不使用优惠券</text>
+    </view>
+
+    <view class="empty-state" wx:if="{{coupons.length === 0 && !loading}}">
+      <text class="empty-icon">🎫</text>
+      <text class="empty-text">暂无可用优惠券</text>
+    </view>
+  </view>
+</view>

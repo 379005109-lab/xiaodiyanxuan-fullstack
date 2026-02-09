@@ -1,0 +1,24 @@
+<!-- 分类列表页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">{{categoryName || '分类'}}</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <view class="content">
+    <!-- 子分类网格 -->
+    <view class="sub-grid" wx:if="{{subCategories.length > 0}}">
+      <block wx:for="{{subCategories}}" wx:key="id">
+        <view class="sub-card" bindtap="goProductList" data-item="{{item}}">
+          <image class="sub-img" src="{{item.image}}" mode="aspectFill"></image>
+          <view class="sub-name">{{item.name}}</view>
+        </view>
+      </block>
+    </view>
+
+    <view class="empty-state" wx:if="{{subCategories.length === 0 && !loading}}">
+      <text class="empty-text">暂无子分类</text>
+    </view>
+  </view>
+</view>

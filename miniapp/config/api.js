@@ -3,9 +3,17 @@
 // 注意：小程序必须使用 HTTPS 协议，且域名需要备案
 
 const config = {
-  // Sealos 后端服务地址
-  // 使用公共 API 域名
-  baseURL: 'https://api.xiaodiyanxuan.com/api',
+  // Sealos 后端服务地址（根域名，不含路径后缀）
+  // 小程序专用接口前缀：/api/miniapp
+  // 通用接口前缀：/api
+  // baseURL: 'https://pkochbpmcgaa.sealoshzh.site',
+  baseURL: 'https://xiaodiyanxuan.com',
+
+  // 小程序专用接口前缀（认证、商品、订单、套餐等）
+  miniappPrefix: '/api/miniapp',
+
+  // 通用接口前缀（购物车、收藏、地址、优惠券等）
+  apiPrefix: '/api',
   
   // 请求超时时间（毫秒）
   timeout: 10000,

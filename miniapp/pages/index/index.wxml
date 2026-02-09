@@ -1,42 +1,201 @@
-<navigation-bar title="" back="{{false}}" color="white" background="transparent"></navigation-bar>
-<scroll-view class="page-scroll" scroll-y>
+<navigation-bar title="小迪严选" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="page-scroll" scroll-y enhanced show-scrollbar="{{false}}" bounces="{{true}}" bindscrolltolower="onReachBottom">
 <view class="page">
-	<!-- 全屏Hero - 完整背景图片 -->
-	<view class="hero-fullscreen">
-		<image class="hero-full-image" src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80" mode="aspectFill"></image>
-		<view class="hero-overlay"></view>
-		<!-- 标语 -->
-		<view class="hero-slogan">
-			<view class="slogan-line"><text class="bold">{{i18n.home.slogan1 || '线上选款'}}</text></view>
-			<view class="slogan-line"><text class="bold">{{i18n.home.slogan2 || '展厅体验'}}</text></view>
-		</view>
-		<view class="hero-price-tag"><text class="bold">{{i18n.home.priceTag || '一口价'}}</text></view>
-		<view class="hero-arrow">↓</view>
-	</view>
 
-	<!-- 陪买服务卡片 -->
-	<view class="service-card" bindtap="goGuideService">
-		<view class="service-title">{{i18n.home.serviceTitle || '陪买服务'}}</view>
-		<view class="service-desc">{{i18n.home.serviceDesc || '专业顾问一对一陪同选购，为您甄选最适合的家居方案。'}}</view>
-		<view class="service-btn">
-			<text>{{i18n.home.bookService || '预约服务'}}</text>
-			<text class="arrow">›</text>
-		</view>
-	</view>
-
-	<!-- 快捷入口 -->
-	<view class="quick-entries">
-		<view class="quick-item" bindtap="goBargain">
-			<view class="quick-icon bargain">🏷️</view>
-			<view class="quick-value">50%</view>
-			<view class="quick-label">{{i18n.home.discount || '限时折扣'}}</view>
-		</view>
-		<view class="quick-item" bindtap="goPackage">
-			<view class="quick-icon package">📦</view>
-			<view class="quick-value">{{i18n.home.packageEntry || '套餐'}}</view>
-			<view class="quick-label">{{i18n.home.oneStop || '一站式购齐'}}</view>
+	<!-- ========== Hero Banner 轮播 ========== -->
+	<view class="hero-section">
+		<swiper class="hero-swiper" indicator-dots="{{false}}" autoplay="{{autoPlay}}" interval="5000" duration="700" circular current="{{currentBanner}}" bindchange="onBannerChange">
+			<block wx:for="{{banners}}" wx:key="id">
+				<swiper-item>
+					<view class="hero-slide" bindtap="onBannerTap" data-index="{{index}}" data-item="{{item}}">
+						<image class="hero-img" src="{{item.image || item.poster}}" mode="aspectFill"></image>
+						<view class="hero-gradient"></view>
+						<view class="hero-content">
+							<view class="hero-title">{{item.title}}</view>
+							<view class="hero-subtitle">{{item.subtitle}}</view>
+							<view class="hero-btn">
+								<text>了解更多</text>
+								<text class="hero-btn-arrow ri ri-arrow-right-line"></text>
+							</view>
+						</view>
+					</view>
+				</swiper-item>
+			</block>
+		</swiper>
+		<!-- 指示器 -->
+		<view class="hero-indicators">
+			<block wx:for="{{banners}}" wx:key="id">
+				<view class="hero-dot {{currentBanner === index ? 'active' : ''}}" bindtap="goToSlide" data-index="{{index}}"></view>
+			</block>
 		</view>
 	</view>
 
+	<!-- ========== 砍价专区 ========== -->
+	<view class="section" wx:if="{{bargainProducts.length > 0}}">
+		<view class="section-header">
+			<view class="section-header-left">
+				<view class="section-title">砍价专区</view>
+				<view class="section-desc">邀请好友帮砍，超低价带回家</view>
+			</view>
+			<view class="section-more" bindtap="goMoreBargain">
+				<text>全部</text>
+				<text class="more-arrow ri ri-arrow-right-s-line"></text>
+			</view>
+		</view>
+		<scroll-view class="bargain-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+			<view class="bargain-list">
+				<block wx:for="{{bargainProducts}}" wx:key="id">
+					<view class="bargain-card" bindtap="goBargainDetail" data-id="{{item.id}}">
+						<view class="bargain-img-wrap">
+							<image class="bargain-img" src="{{item.image}}" mode="aspectFill"></image>
+							<view class="bargain-countdown">
+								<text class="countdown-icon ri ri-time-line"></text>
+								<text>{{item.countdown || '00:00:00'}}</text>
+							</view>
+						</view>
+						<view class="bargain-info">
+							<view class="bargain-name text-ellipsis-2">{{item.name}}</view>
+							<view class="bargain-progress-wrap">
+								<view class="bargain-progress-bar">
+									<view class="bargain-progress-fill" style="width: {{item.progress}}%"></view>
+								</view>
+								<text class="bargain-progress-text">{{item.progress}}%</text>
+							</view>
+							<view class="bargain-price-row">
+								<text class="bargain-price"><text class="price-symbol">¥</text>{{item.currentPrice}}</text>
+								<text class="bargain-original-price">¥{{item.originalPrice}}</text>
+							</view>
+						</view>
+					</view>
+				</block>
+			</view>
+		</scroll-view>
+		<view class="bargain-entry-btn" bindtap="goMoreBargain">
+			<text>查看全部砍价商品</text>
+			<text class="more-arrow ri ri-arrow-right-s-line"></text>
+		</view>
+	</view>
+
+	<!-- ========== 新品推荐 ========== -->
+	<view class="section" wx:if="{{recommendProducts.length > 0}}">
+		<view class="section-header">
+			<view class="section-header-left">
+				<view class="section-title">新品推荐</view>
+				<view class="section-desc">精选优质家具，工厂直发</view>
+			</view>
+			<view class="section-more" bindtap="goMoreProducts">
+				<text>更多</text>
+				<text class="more-arrow ri ri-arrow-right-s-line"></text>
+			</view>
+		</view>
+		<view class="recommend-list">
+			<block wx:for="{{recommendProducts}}" wx:key="id">
+				<view class="recommend-item" bindtap="goProductDetail" data-id="{{item._id || item.id}}">
+					<image class="recommend-img" src="{{item.image || item.thumbnail}}" mode="aspectFill"></image>
+					<view class="recommend-info">
+						<view class="recommend-name text-ellipsis">{{item.name}}</view>
+						<view class="recommend-highlight">{{item.highlight || item.description}}</view>
+						<view class="recommend-bottom">
+							<view class="recommend-price-wrap">
+								<text class="recommend-price"><text class="price-symbol">¥</text>{{item.price}}</text>
+								<text class="recommend-original-price" wx:if="{{item.originalPrice}}">¥{{item.originalPrice}}</text>
+							</view>
+							<text class="recommend-sales" wx:if="{{item.sales}}">已售 {{item.sales}}</text>
+						</view>
+					</view>
+				</view>
+				<view class="recommend-divider" wx:if="{{index < recommendProducts.length - 1}}"></view>
+			</block>
+		</view>
+	</view>
+
+	<!-- ========== 空间灵感 ========== -->
+	<view class="section">
+		<view class="section-header">
+			<view class="section-header-left">
+				<view class="section-title">空间灵感</view>
+				<view class="section-desc">展厅实景，所见即所得</view>
+			</view>
+			<view class="section-more" bindtap="goCategory">
+				<text>更多</text>
+				<text class="more-arrow ri ri-arrow-right-s-line"></text>
+			</view>
+		</view>
+		<view class="space-grid">
+			<block wx:for="{{spaces}}" wx:key="id">
+				<view class="space-card" bindtap="goSpaceDetail" data-item="{{item}}">
+					<image class="space-img" src="{{item.image}}" mode="aspectFill"></image>
+					<view class="space-overlay"></view>
+					<view class="space-text">
+						<view class="space-title">{{item.title}}</view>
+						<view class="space-subtitle">{{item.subtitle}}</view>
+					</view>
+				</view>
+			</block>
+		</view>
+	</view>
+
+	<!-- ========== 精选好物 ========== -->
+	<view class="section" wx:if="{{featuredProducts.length > 0}}">
+		<view class="section-header">
+			<view class="section-header-left">
+				<view class="section-title">精选好物</view>
+				<view class="section-desc">源头工厂，品质保障</view>
+			</view>
+			<view class="section-more" bindtap="goMoreProducts">
+				<text>更多</text>
+				<text class="more-arrow ri ri-arrow-right-s-line"></text>
+			</view>
+		</view>
+		<view class="featured-grid">
+			<block wx:for="{{featuredProducts}}" wx:key="id">
+				<view class="featured-card" bindtap="goProductDetail" data-id="{{item._id || item.id}}">
+					<view class="featured-img-wrap">
+						<image class="featured-img" src="{{item.image || item.thumbnail}}" mode="aspectFill"></image>
+					</view>
+					<view class="featured-info">
+						<view class="featured-name text-ellipsis-2">{{item.name}}</view>
+						<view class="featured-highlight" wx:if="{{item.highlight}}">{{item.highlight}}</view>
+						<view class="featured-price-row">
+							<text class="featured-price"><text class="price-symbol">¥</text>{{item.price}}</text>
+							<text class="featured-original" wx:if="{{item.originalPrice}}">¥{{item.originalPrice}}</text>
+						</view>
+					</view>
+				</view>
+			</block>
+		</view>
+	</view>
+
+	<!-- ========== 店铺信息 ========== -->
+	<view class="section shop-section">
+		<view class="shop-card" bindtap="goShopInfo">
+			<view class="shop-main">
+				<image class="shop-logo" src="{{shopInfo.logo}}" mode="aspectFill" wx:if="{{shopInfo.logo}}"></image>
+				<view class="shop-logo-placeholder" wx:else>
+					<text>小</text>
+				</view>
+				<view class="shop-info">
+					<view class="shop-name-row">
+						<text class="shop-name">{{shopInfo.name}}</text>
+						<view class="shop-verified" wx:if="{{shopInfo.isVerified}}">
+							<text>✓ 已认证</text>
+						</view>
+					</view>
+					<view class="shop-address text-ellipsis">{{shopInfo.address}}</view>
+				</view>
+			</view>
+			<view class="shop-actions">
+				<view class="shop-action-btn" catchtap="callShop">
+					<text>📞 联系</text>
+				</view>
+				<view class="shop-action-btn" catchtap="goShopInfo">
+					<text>🏪 进店</text>
+				</view>
+			</view>
+		</view>
+	</view>
+
+	<!-- 底部占位 -->
+	<view style="height: 160rpx;"></view>
 </view>
 </scroll-view>

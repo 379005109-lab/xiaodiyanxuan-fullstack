@@ -1,0 +1,43 @@
+<!-- 地址选择页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">选择收货地址</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <view class="content">
+    <!-- 地址列表 -->
+    <view class="address-list" wx:if="{{addresses.length > 0}}">
+      <block wx:for="{{addresses}}" wx:key="_id">
+        <view class="address-card {{item.isDefault ? 'is-default' : ''}}" bindtap="selectAddress" data-item="{{item}}">
+          <view class="address-radio">
+            <view class="radio-dot {{selectedId === (item._id || item.id) ? 'checked' : ''}}">
+              <text wx:if="{{selectedId === (item._id || item.id)}}">✓</text>
+            </view>
+          </view>
+          <view class="address-info">
+            <view class="address-header">
+              <text class="address-name">{{item.name}}</text>
+              <text class="address-phone">{{item.phone}}</text>
+              <view class="default-tag" wx:if="{{item.isDefault}}">默认</view>
+            </view>
+            <view class="address-detail">{{item.province}}{{item.city}}{{item.district}}{{item.address}}</view>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{addresses.length === 0 && !loading}}">
+      <text class="empty-icon">📍</text>
+      <text class="empty-text">暂无收货地址</text>
+      <text class="empty-hint">添加一个地址以便收货</text>
+    </view>
+
+    <!-- 添加地址按钮 -->
+    <view class="add-btn" bindtap="goAddAddress">
+      <text>+ 新建收货地址</text>
+    </view>
+  </view>
+</view>

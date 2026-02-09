@@ -1,3 +1,6 @@
+const app = getApp()
+const api = app.api || require('../../../utils/api.js')
+
 Page({
   data: {
     bookingDate: '',
@@ -31,21 +34,36 @@ Page({
     return `${year}-${month}-${day}`
   },
   checkLogin() {
-    // 检查登录状态
     try {
-      const userInfo = wx.getStorageSync('userInfo')
-      this.setData({ isLoggedIn: !!userInfo })
+      const token = wx.getStorageSync('token')
+      this.setData({ isLoggedIn: !!token })
     } catch (e) {
       this.setData({ isLoggedIn: false })
     }
   },
   loadMyBookings() {
-    try {
-      const bookings = wx.getStorageSync('myBookings') || []
-      this.setData({ myBookings: bookings })
-    } catch (e) {
-      console.error('加载预约记录失败:', e)
-    }
+    api.getMyBookings().then((data) => {
+      const list = (data.list || data || []).map(b => ({
+        id: b._id || b.id,
+        date: b.scheduledDate ? b.scheduledDate.substring(0, 10) : (b.date || ''),
+        time: b.serviceType || b.time || '',
+        name: b.userName || b.name || '',
+        phone: b.userPhone || b.phone || '',
+        remark: b.notes || b.remark || '',
+        status: b.status || 'pending',
+        statusText: { pending: '待确认', confirmed: '已确认', completed: '已完成', cancelled: '已取消' }[b.status] || '待确认',
+        createTime: b.createdAt || b.createTime
+      }))
+      this.setData({ myBookings: list })
+    }).catch(() => {
+      // fallback to localStorage
+      try {
+        const bookings = wx.getStorageSync('myBookings') || []
+        this.setData({ myBookings: bookings })
+      } catch (e) {
+        console.error('加载预约记录失败:', e)
+      }
+    })
   },
   onDateChange(e) {
     this.setData({ bookingDate: e.detail.value })
@@ -111,37 +129,54 @@ Page({
     }
     
     // 创建预约
-    const booking = {
-      id: 'booking_' + Date.now(),
-      date: bookingDate,
-      time: this.data.timeSlots[timeIndex],
-      name: name,
-      phone: phone,
-      remark: this.data.remark,
-      status: 'pending',
-      statusText: '待确认',
-      createTime: Date.now()
+    const bookingData = {
+      serviceType: this.data.timeSlots[timeIndex],
+      scheduledDate: bookingDate,
+      userName: name,
+      userPhone: phone,
+      notes: this.data.remark
     }
     
-    try {
-      const bookings = wx.getStorageSync('myBookings') || []
-      bookings.unshift(booking)
-      wx.setStorageSync('myBookings', bookings)
-      
+    api.createBooking(bookingData).then(() => {
       this.setData({
-        myBookings: bookings,
         bookingDate: '',
         timeIndex: -1,
         name: '',
         phone: '',
         remark: ''
       })
-      
       wx.showToast({ title: '预约成功', icon: 'success' })
-    } catch (e) {
-      console.error('保存预约失败:', e)
-      wx.showToast({ title: '预约失败', icon: 'none' })
-    }
+      this.loadMyBookings()
+    }).catch(() => {
+      // fallback: save locally
+      const booking = {
+        id: 'booking_' + Date.now(),
+        date: bookingDate,
+        time: this.data.timeSlots[timeIndex],
+        name: name,
+        phone: phone,
+        remark: this.data.remark,
+        status: 'pending',
+        statusText: '待确认',
+        createTime: Date.now()
+      }
+      try {
+        const bookings = wx.getStorageSync('myBookings') || []
+        bookings.unshift(booking)
+        wx.setStorageSync('myBookings', bookings)
+        this.setData({
+          myBookings: bookings,
+          bookingDate: '',
+          timeIndex: -1,
+          name: '',
+          phone: '',
+          remark: ''
+        })
+        wx.showToast({ title: '预约成功', icon: 'success' })
+      } catch (e) {
+        wx.showToast({ title: '预约失败', icon: 'none' })
+      }
+    })
   },
   onViewBookingDetail(e) {
     const id = e.currentTarget.dataset.id

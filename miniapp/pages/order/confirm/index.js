@@ -95,8 +95,6 @@ Page({
 						orderType: 'cart',
 						cartGoodsList: cartGoodsList,
 						totalPrice: data.totalPrice || 0
-					}, () => {
-						this.calculateTotalPrice()
 					})
 				} else {
 					this.calculateTotalPrice()
@@ -151,13 +149,7 @@ Page({
 		if (this.data.orderType === 'package') {
 			// 套餐一口价
 			baseTotalPrice = this.data.packageOrder.totalPrice || 0
-		} else if (this.data.orderType === 'cart') {
-			// 购物车订单：计算所有商品价格
-			baseTotalPrice = (this.data.cartGoodsList || []).reduce((sum, item) => {
-				return sum + (item.price || 0) * (item.count || item.quantity || 1)
-			}, 0)
 		} else {
-			// 普通订单
 			baseTotalPrice = this.data.order.totalPrice || 0
 		}
 		let recommendationTotalPrice = (this.data.addedRecommendations || []).reduce((sum, r) => sum + (r.price || 0) * (r.count || 1), 0)
@@ -434,22 +426,6 @@ Page({
 		})
 	},
 	onSubmit() {
-		// 检查是否登录
-		const token = wx.getStorageSync('token')
-		if (!token) {
-			wx.showModal({
-				title: '提示',
-				content: '请先登录后再提交订单',
-				confirmText: '去登录',
-				success: (res) => {
-					if (res.confirm) {
-						wx.switchTab({ url: '/pages/profile/index' })
-					}
-				}
-			})
-			return
-		}
-		
 		if (!this.data.name || !this.data.phone || !this.data.address) {
 			wx.showToast({ title: '请完善收货信息', icon: 'none' })
 			return
@@ -495,7 +471,7 @@ Page({
 			}))
 		} else {
 			goods = [{
-				id: this.data.order.goodsId || 'g1',
+				id: 'g1',
 				name: this.data.order.goodsName,
 				code: this.data.order.goodsName,
 				dims: this.data.order.sizeDims,
@@ -510,31 +486,14 @@ Page({
 			}]
 		}
 		
-		// 组装订单数据（与后端 API 格式匹配）
+		// 组装订单数据
 		const orderData = {
 			type: this.data.orderType,
 			totalPrice: totalPrice,
-			goods: goods.map(g => ({
-				goodsId: g.id,
-				name: g.name,
-				thumb: g.thumb,
-				price: g.price,
-				count: g.count || 1,
-				specs: {
-					size: g.sizeName || g.dims,
-					material: g.fabric,
-					materialColor: g.materialColor,
-					fill: g.fill,
-					frame: g.frame,
-					leg: g.leg
-				}
-			})),
-			receiver: {
-				name: this.data.name,
-				phone: this.data.phone,
-				address: this.data.address
-			},
-			remark: this.data.remark
+			goods: goods,
+			name: this.data.name,
+			phone: this.data.phone,
+			address: this.data.address
 		}
 		
 		wx.showLoading({ title: '提交中...' })

@@ -1,230 +1,178 @@
-// 使用全局 api，避免懒加载导致的路径问题
-const app = getApp()
-const api = app.api || require('../../utils/api.js')
+const spaceDetails = {
+  all: {
+    id: 'all', name: '全部商品', description: '精选全屋家具，打造理想生活空间',
+    coverImage: 'https://readdy.ai/api/search-image?query=modern%20luxury%20furniture%20showroom%20with%20elegant%20sofas%20tables%20and%20lighting%20in%20bright%20spacious%20interior%2C%20professional%20interior%20photography%20with%20warm%20natural%20lighting%20and%20sophisticated%20design%20aesthetic%2C%20high%20end%20home%20furnishing%20display&width=800&height=400&seq=cat-cover-all&orientation=landscape',
+    subCategories: [
+      { id: 'sofa', name: '沙发系列', image: 'https://readdy.ai/api/search-image?query=elegant%20modern%20sofa%20collection%20display%20with%20multiple%20styles%20in%20bright%20showroom%2C%20premium%20leather%20and%20fabric%20sofas%20with%20clean%20design%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-all-sofa&orientation=squarish' },
+      { id: 'bed', name: '床具系列', image: 'https://readdy.ai/api/search-image?query=luxury%20bed%20collection%20with%20upholstered%20headboards%20and%20premium%20bedding%20in%20modern%20bedroom%20display%2C%20professional%20furniture%20photography%20with%20soft%20warm%20lighting%20on%20light%20background&width=400&height=400&seq=cat-all-bed&orientation=squarish' },
+      { id: 'dining', name: '餐桌椅系列', image: 'https://readdy.ai/api/search-image?query=modern%20dining%20table%20and%20chairs%20set%20collection%20in%20elegant%20showroom%20display%2C%20solid%20wood%20and%20marble%20dining%20furniture%2C%20professional%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-all-dining&orientation=squarish' },
+      { id: 'cabinet', name: '柜类系列', image: 'https://readdy.ai/api/search-image?query=modern%20storage%20cabinet%20collection%20with%20wardrobes%20bookcases%20and%20TV%20stands%20in%20bright%20showroom%2C%20premium%20wood%20finish%20furniture%20display%2C%20professional%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-all-cabinet&orientation=squarish' },
+      { id: 'decoration', name: '软装饰品', image: 'https://readdy.ai/api/search-image?query=home%20decoration%20accessories%20collection%20with%20cushions%20rugs%20wall%20art%20and%20candles%20in%20elegant%20display%2C%20modern%20soft%20furnishing%20items%2C%20professional%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-all-deco&orientation=squarish' }
+    ]
+  },
+  new: {
+    id: 'new', name: '新品上市', description: '2024春夏新品，引领家居潮流',
+    coverImage: 'https://readdy.ai/api/search-image?query=brand%20new%20modern%20furniture%20collection%20launch%20display%20with%20trendy%20designs%20in%20bright%20contemporary%20showroom%2C%20fresh%20spring%20summer%20home%20furnishing%20styles%2C%20professional%20interior%20photography%20with%20warm%20natural%20lighting&width=800&height=400&seq=cat-cover-new&orientation=landscape',
+    subCategories: [
+      { id: 'new-sofa', name: '新品沙发', image: 'https://readdy.ai/api/search-image?query=brand%20new%20modern%20curved%20sofa%20with%20unique%20organic%20shape%20design%20in%20cream%20white%20boucle%20fabric%2C%20trendy%202024%20furniture%20style%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20clean%20light%20background&width=400&height=400&seq=cat-new-sofa&orientation=squarish' },
+      { id: 'new-bed', name: '新品床具', image: 'https://readdy.ai/api/search-image?query=brand%20new%20luxury%20floating%20platform%20bed%20with%20integrated%20LED%20ambient%20lighting%20and%20velvet%20headboard%2C%20modern%202024%20bedroom%20furniture%20design%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20clean%20light%20background&width=400&height=400&seq=cat-new-bed&orientation=squarish' },
+      { id: 'new-table', name: '新品餐桌', image: 'https://readdy.ai/api/search-image?query=brand%20new%20sintered%20stone%20dining%20table%20with%20unique%20sculptural%20base%20design%20in%20modern%20style%2C%20trendy%202024%20dining%20furniture%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20clean%20light%20background&width=400&height=400&seq=cat-new-table&orientation=squarish' },
+      { id: 'new-chair', name: '新品座椅', image: 'https://readdy.ai/api/search-image?query=brand%20new%20designer%20accent%20chair%20with%20bold%20contemporary%20silhouette%20in%20terracotta%20velvet%20fabric%2C%20trendy%202024%20seating%20furniture%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20clean%20light%20background&width=400&height=400&seq=cat-new-chair&orientation=squarish' },
+      { id: 'new-light', name: '新品灯具', image: 'https://readdy.ai/api/search-image?query=brand%20new%20modern%20sculptural%20pendant%20light%20with%20organic%20flowing%20shape%20in%20warm%20brass%20finish%2C%20trendy%202024%20lighting%20design%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20clean%20light%20background&width=400&height=400&seq=cat-new-light&orientation=squarish' }
+    ]
+  },
+  living: {
+    id: 'living', name: '客厅空间', description: '打造舒适会客空间，彰显生活品味',
+    coverImage: 'https://readdy.ai/api/search-image?query=modern%20luxury%20living%20room%20interior%20with%20elegant%20sofa%20coffee%20table%20and%20ambient%20lighting%20in%20bright%20spacious%20space%2C%20professional%20interior%20design%20photography%20with%20warm%20natural%20light%20and%20sophisticated%20aesthetic&width=800&height=400&seq=cat-cover-living&orientation=landscape',
+    subCategories: [
+      { id: 'living-sofa', name: '客厅沙发', image: 'https://readdy.ai/api/search-image?query=modern%20luxury%20sectional%20sofa%20in%20premium%20grey%20fabric%20with%20clean%20lines%20and%20plush%20cushions%20for%20living%20room%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-living-sofa&orientation=squarish' },
+      { id: 'living-table', name: '茶几边几', image: 'https://readdy.ai/api/search-image?query=modern%20marble%20top%20coffee%20table%20with%20gold%20metal%20frame%20and%20matching%20side%20table%20set%20for%20living%20room%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-living-table&orientation=squarish' },
+      { id: 'living-tv', name: '电视柜', image: 'https://readdy.ai/api/search-image?query=modern%20minimalist%20TV%20stand%20cabinet%20in%20walnut%20wood%20with%20storage%20drawers%20and%20open%20shelves%20for%20living%20room%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-living-tv&orientation=squarish' },
+      { id: 'living-rug', name: '客厅地毯', image: 'https://readdy.ai/api/search-image?query=modern%20geometric%20pattern%20area%20rug%20in%20neutral%20tones%20with%20soft%20texture%20for%20living%20room%20floor%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-living-rug&orientation=squarish' },
+      { id: 'living-light', name: '客厅灯具', image: 'https://readdy.ai/api/search-image?query=modern%20crystal%20chandelier%20pendant%20light%20with%20elegant%20design%20for%20living%20room%20ceiling%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-living-light&orientation=squarish' }
+    ]
+  },
+  bedroom: {
+    id: 'bedroom', name: '卧室空间', description: '营造温馨睡眠环境，享受优质休息',
+    coverImage: 'https://readdy.ai/api/search-image?query=modern%20luxury%20bedroom%20interior%20with%20elegant%20bed%20nightstands%20and%20soft%20lighting%20in%20peaceful%20atmosphere%2C%20professional%20interior%20design%20photography%20with%20warm%20ambient%20light%20and%20cozy%20aesthetic&width=800&height=400&seq=cat-cover-bedroom&orientation=landscape',
+    subCategories: [
+      { id: 'bedroom-bed', name: '双人床', image: 'https://readdy.ai/api/search-image?query=modern%20luxury%20upholstered%20king%20size%20bed%20with%20tufted%20headboard%20in%20soft%20grey%20fabric%20and%20premium%20bedding%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-bedroom-bed&orientation=squarish' },
+      { id: 'bedroom-wardrobe', name: '衣柜', image: 'https://readdy.ai/api/search-image?query=modern%20sliding%20door%20wardrobe%20closet%20in%20white%20finish%20with%20mirror%20panels%20and%20organized%20storage%20for%20bedroom%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-bedroom-wardrobe&orientation=squarish' },
+      { id: 'bedroom-nightstand', name: '床头柜', image: 'https://readdy.ai/api/search-image?query=modern%20wooden%20nightstand%20with%20drawers%20and%20gold%20handles%20for%20bedroom%20beside%20table%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-bedroom-nightstand&orientation=squarish' },
+      { id: 'bedroom-dresser', name: '梳妆台', image: 'https://readdy.ai/api/search-image?query=modern%20vanity%20dresser%20table%20with%20LED%20mirror%20and%20storage%20drawers%20in%20white%20finish%20for%20bedroom%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-bedroom-dresser&orientation=squarish' },
+      { id: 'bedroom-mattress', name: '床垫', image: 'https://readdy.ai/api/search-image?query=premium%20memory%20foam%20mattress%20with%20quilted%20white%20cover%20and%20comfort%20layers%20displayed%20on%20platform%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-bedroom-mattress&orientation=squarish' }
+    ]
+  },
+  dining: {
+    id: 'dining', name: '餐厅空间', description: '享受美食时光，共聚温馨餐桌',
+    coverImage: 'https://readdy.ai/api/search-image?query=modern%20elegant%20dining%20room%20interior%20with%20dining%20table%20chairs%20and%20pendant%20lighting%20in%20bright%20inviting%20space%2C%20professional%20interior%20design%20photography%20with%20warm%20natural%20light%20and%20sophisticated%20aesthetic&width=800&height=400&seq=cat-cover-dining&orientation=landscape',
+    subCategories: [
+      { id: 'dining-table', name: '餐桌', image: 'https://readdy.ai/api/search-image?query=modern%20rectangular%20dining%20table%20in%20solid%20wood%20with%20natural%20finish%20for%206%20people%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-dining-table&orientation=squarish' },
+      { id: 'dining-chair', name: '餐椅', image: 'https://readdy.ai/api/search-image?query=modern%20upholstered%20dining%20chair%20with%20curved%20backrest%20in%20beige%20fabric%20and%20wooden%20legs%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-dining-chair&orientation=squarish' },
+      { id: 'dining-sideboard', name: '餐边柜', image: 'https://readdy.ai/api/search-image?query=modern%20sideboard%20buffet%20cabinet%20in%20walnut%20wood%20with%20storage%20drawers%20and%20glass%20doors%20for%20dining%20room%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-dining-sideboard&orientation=squarish' },
+      { id: 'dining-bar', name: '吧台吧椅', image: 'https://readdy.ai/api/search-image?query=modern%20bar%20counter%20with%20high%20bar%20stools%20in%20black%20metal%20and%20leather%20for%20home%20dining%20area%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-dining-bar&orientation=squarish' }
+    ]
+  },
+  study: {
+    id: 'study', name: '书房空间', description: '专注工作学习，提升效率品质',
+    coverImage: 'https://readdy.ai/api/search-image?query=modern%20home%20office%20study%20room%20interior%20with%20desk%20bookshelf%20and%20comfortable%20chair%20in%20bright%20productive%20space%2C%20professional%20interior%20design%20photography%20with%20natural%20light%20and%20organized%20aesthetic&width=800&height=400&seq=cat-cover-study&orientation=landscape',
+    subCategories: [
+      { id: 'study-desk', name: '书桌', image: 'https://readdy.ai/api/search-image?query=modern%20minimalist%20writing%20desk%20in%20walnut%20wood%20with%20clean%20lines%20and%20spacious%20work%20surface%20for%20home%20office%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-study-desk&orientation=squarish' },
+      { id: 'study-chair', name: '办公椅', image: 'https://readdy.ai/api/search-image?query=modern%20ergonomic%20office%20chair%20with%20mesh%20back%20and%20adjustable%20features%20in%20black%20for%20home%20study%20room%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-study-chair&orientation=squarish' },
+      { id: 'study-bookshelf', name: '书架', image: 'https://readdy.ai/api/search-image?query=modern%20tall%20bookshelf%20with%20multiple%20shelves%20in%20white%20finish%20for%20home%20office%20book%20storage%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-study-bookshelf&orientation=squarish' },
+      { id: 'study-cabinet', name: '文件柜', image: 'https://readdy.ai/api/search-image?query=modern%20filing%20cabinet%20with%20drawers%20in%20grey%20metal%20finish%20for%20home%20office%20document%20storage%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-study-cabinet&orientation=squarish' },
+      { id: 'study-light', name: '书房灯具', image: 'https://readdy.ai/api/search-image?query=modern%20adjustable%20desk%20lamp%20with%20LED%20light%20in%20black%20metal%20finish%20for%20home%20office%20study%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-study-light&orientation=squarish' }
+    ]
+  },
+  balcony: {
+    id: 'balcony', name: '阳台空间', description: '打造休闲角落，享受惬意时光',
+    coverImage: 'https://readdy.ai/api/search-image?query=modern%20cozy%20balcony%20terrace%20with%20outdoor%20furniture%20plants%20and%20comfortable%20seating%20in%20bright%20sunny%20space%2C%20professional%20interior%20design%20photography%20with%20natural%20light%20and%20relaxing%20aesthetic&width=800&height=400&seq=cat-cover-balcony&orientation=landscape',
+    subCategories: [
+      { id: 'balcony-chair', name: '休闲椅', image: 'https://readdy.ai/api/search-image?query=modern%20outdoor%20lounge%20chair%20in%20rattan%20wicker%20with%20soft%20cushions%20for%20balcony%20relaxation%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-balcony-chair&orientation=squarish' },
+      { id: 'balcony-table', name: '阳台小桌', image: 'https://readdy.ai/api/search-image?query=modern%20small%20round%20side%20table%20in%20metal%20and%20wood%20for%20balcony%20outdoor%20use%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-balcony-table&orientation=squarish' },
+      { id: 'balcony-swing', name: '吊椅秋千', image: 'https://readdy.ai/api/search-image?query=modern%20hanging%20egg%20chair%20swing%20in%20rattan%20with%20cushions%20for%20balcony%20relaxation%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-balcony-swing&orientation=squarish' },
+      { id: 'balcony-shelf', name: '花架置物架', image: 'https://readdy.ai/api/search-image?query=modern%20tiered%20plant%20stand%20shelf%20in%20metal%20for%20balcony%20flower%20pot%20display%20and%20storage%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-balcony-shelf&orientation=squarish' },
+      { id: 'balcony-storage', name: '阳台收纳柜', image: 'https://readdy.ai/api/search-image?query=modern%20outdoor%20storage%20cabinet%20in%20waterproof%20material%20for%20balcony%20organization%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-balcony-storage&orientation=squarish' }
+    ]
+  },
+  entrance: {
+    id: 'entrance', name: '玄关空间', description: '第一印象空间，展现家居品味',
+    coverImage: 'https://readdy.ai/api/search-image?query=modern%20elegant%20entrance%20hallway%20interior%20with%20console%20table%20mirror%20and%20organized%20storage%20in%20bright%20welcoming%20space%2C%20professional%20interior%20design%20photography%20with%20natural%20light%20and%20sophisticated%20aesthetic&width=800&height=400&seq=cat-cover-entrance&orientation=landscape',
+    subCategories: [
+      { id: 'entrance-shoe', name: '鞋柜', image: 'https://readdy.ai/api/search-image?query=modern%20shoe%20storage%20cabinet%20with%20seat%20cushion%20in%20white%20finish%20for%20entrance%20hallway%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-entrance-shoe&orientation=squarish' },
+      { id: 'entrance-console', name: '玄关桌', image: 'https://readdy.ai/api/search-image?query=modern%20narrow%20console%20table%20in%20marble%20and%20gold%20metal%20for%20entrance%20hallway%20decor%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-entrance-console&orientation=squarish' },
+      { id: 'entrance-mirror', name: '玄关镜', image: 'https://readdy.ai/api/search-image?query=modern%20full%20length%20wall%20mirror%20with%20gold%20metal%20frame%20for%20entrance%20hallway%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-entrance-mirror&orientation=squarish' },
+      { id: 'entrance-rack', name: '衣帽架', image: 'https://readdy.ai/api/search-image?query=modern%20coat%20rack%20stand%20in%20wood%20and%20metal%20with%20hooks%20for%20entrance%20hallway%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-entrance-rack&orientation=squarish' },
+      { id: 'entrance-bench', name: '换鞋凳', image: 'https://readdy.ai/api/search-image?query=modern%20upholstered%20bench%20with%20storage%20for%20entrance%20hallway%20shoe%20changing%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-entrance-bench&orientation=squarish' }
+    ]
+  },
+  bathroom: {
+    id: 'bathroom', name: '卫浴空间', description: '精致卫浴体验，提升生活质感',
+    coverImage: 'https://readdy.ai/api/search-image?query=modern%20luxury%20bathroom%20interior%20with%20vanity%20mirror%20and%20elegant%20fixtures%20in%20bright%20clean%20space%2C%20professional%20interior%20design%20photography%20with%20natural%20light%20and%20spa-like%20aesthetic&width=800&height=400&seq=cat-cover-bathroom&orientation=landscape',
+    subCategories: [
+      { id: 'bathroom-vanity', name: '浴室柜', image: 'https://readdy.ai/api/search-image?query=modern%20bathroom%20vanity%20cabinet%20with%20sink%20and%20storage%20in%20white%20finish%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-bathroom-vanity&orientation=squarish' },
+      { id: 'bathroom-mirror', name: '智能镜柜', image: 'https://readdy.ai/api/search-image?query=modern%20LED%20mirror%20cabinet%20with%20lighting%20and%20storage%20for%20bathroom%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-bathroom-mirror&orientation=squarish' },
+      { id: 'bathroom-shelf', name: '置物架', image: 'https://readdy.ai/api/search-image?query=modern%20bathroom%20wall%20shelf%20in%20chrome%20metal%20for%20towel%20and%20toiletry%20storage%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-bathroom-shelf&orientation=squarish' },
+      { id: 'bathroom-accessories', name: '卫浴配件', image: 'https://readdy.ai/api/search-image?query=modern%20bathroom%20accessories%20set%20with%20soap%20dispenser%20toothbrush%20holder%20in%20chrome%20finish%2C%20professional%20product%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-bathroom-accessories&orientation=squarish' }
+    ]
+  },
+  style: {
+    id: 'style', name: '风格合集', description: '多样风格选择，满足个性需求',
+    coverImage: 'https://readdy.ai/api/search-image?query=diverse%20interior%20design%20styles%20showcase%20with%20modern%20scandinavian%20industrial%20and%20luxury%20furniture%20collections%20in%20bright%20showroom%2C%20professional%20interior%20photography%20with%20natural%20lighting%20and%20aesthetic%20variety&width=800&height=400&seq=cat-cover-style&orientation=landscape',
+    subCategories: [
+      { id: 'style-modern', name: '现代简约', image: 'https://readdy.ai/api/search-image?query=modern%20minimalist%20furniture%20collection%20with%20clean%20lines%20in%20neutral%20colors%20and%20simple%20design%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-style-modern&orientation=squarish' },
+      { id: 'style-nordic', name: '北欧风格', image: 'https://readdy.ai/api/search-image?query=scandinavian%20nordic%20style%20furniture%20in%20light%20wood%20and%20white%20with%20cozy%20textiles%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-style-nordic&orientation=squarish' },
+      { id: 'style-japanese', name: '日式和风', image: 'https://readdy.ai/api/search-image?query=japanese%20zen%20style%20furniture%20in%20natural%20wood%20with%20minimalist%20design%20and%20tatami%20elements%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-style-japanese&orientation=squarish' },
+      { id: 'style-industrial', name: '工业复古', image: 'https://readdy.ai/api/search-image?query=industrial%20vintage%20style%20furniture%20with%20metal%20frames%20and%20reclaimed%20wood%20in%20rustic%20finish%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-style-industrial&orientation=squarish' },
+      { id: 'style-luxury', name: '轻奢风格', image: 'https://readdy.ai/api/search-image?query=light%20luxury%20style%20furniture%20with%20velvet%20upholstery%20gold%20accents%20and%20elegant%20design%2C%20professional%20furniture%20photography%20with%20soft%20lighting%20on%20light%20background&width=400&height=400&seq=cat-style-luxury&orientation=squarish' }
+    ]
+  }
+}
 
 Page({
-	data: {
-		tabs: [
-			{ name: '全部' }, { name: '沙发' }, { name: '床具' }, { name: '桌椅' }, { name: '定制' }
-		],
-		currentTab: 0,
-		// 顶部搜索与筛选
-		searchText: '',
-		sortKey: 'comprehensive',
-		priceAsc: true,
-		showStylePopup: false,
-		showCategoryDrawer: false,
-		styles: [],  // 从后台加载
-		selectedStyle: '',
-		categories: [{ id: '', name: '全部' }],  // 从后台加载
-		selectedCategory: '',  // 使用分类ID
-		selectedCategoryName: '全部',
-		viewMode: 'grid',  // 'grid' 或 'list'
+  data: {
+    statusBarHeight: 0,
+    topBarHeight: 0,
+    categories: [
+      { id: 'all', name: '全部' },
+      { id: 'new', name: '新品' },
+      { id: 'living', name: '客厅空间' },
+      { id: 'bedroom', name: '卧室空间' },
+      { id: 'dining', name: '餐厅空间' },
+      { id: 'study', name: '书房空间' },
+      { id: 'balcony', name: '阳台空间' },
+      { id: 'entrance', name: '玄关空间' },
+      { id: 'bathroom', name: '卫浴空间' },
+      { id: 'style', name: '风格合集' }
+    ],
+    selectedCategory: 'all',
+    currentSpace: null,
+    isLoading: false
+  },
 
-		allGoods: [],
-		filteredGoods: [],
-		loading: false
-	},
-	onLoad() {
-		this.loadCategories()
-		this.loadStyles()
-		this.loadGoodsList()
-		this.closeOverlays()
-	},
-	// 加载风格列表（从风格API和商品styles字段中提取）
-	loadStyles() {
-		// 先从style API获取风格列表
-		Promise.all([
-			api.getStyles().catch(() => []),
-			api.getGoodsList().catch(() => [])
-		]).then(([styleData, goodsData]) => {
-			const styleSet = new Set()
-			// 从风格列表中添加
-			if (Array.isArray(styleData)) {
-				styleData.forEach(s => {
-					if (s.name) styleSet.add(s.name)
-				})
-			}
-			// 从商品中提取风格标签
-			if (Array.isArray(goodsData)) {
-				goodsData.forEach(g => {
-					if (g.style) styleSet.add(typeof g.style === 'object' ? g.style.name : g.style)
-					if (g.styles && Array.isArray(g.styles)) {
-						g.styles.forEach(s => styleSet.add(s))
-					}
-				})
-			}
-			const styles = Array.from(styleSet).filter(s => s && s.trim())
-			console.log('加载到的风格列表:', styles)
-			this.setData({ styles: styles.length > 0 ? styles : ['中古风','现代风','极简风','轻奢风'] })
-		}).catch((err) => {
-			console.error('加载风格失败:', err)
-			this.setData({ styles: ['中古风','现代风','极简风','轻奢风'] })
-		})
-	},
-	// 加载分类列表
-	loadCategories() {
-		api.getCategories().then((data) => {
-			const categoryList = [{ id: '', name: '全部' }]
-			if (Array.isArray(data)) {
-				data.forEach(c => {
-					categoryList.push({ id: c.id, name: c.name })
-				})
-			}
-			this.setData({ categories: categoryList })
-		}).catch((err) => {
-			console.error('加载分类失败:', err)
-		})
-	},
-	// 切换视图模式
-	toggleViewMode() {
-		const newMode = this.data.viewMode === 'grid' ? 'list' : 'grid'
-		this.setData({ viewMode: newMode })
-	},
-	// 收藏切换
-	onToggleFav(e) {
-		const id = e.currentTarget.dataset.id
-		const goods = this.data.filteredGoods.map(g => {
-			if (g.id === id) {
-				return { ...g, isFav: !g.isFav }
-			}
-			return g
-		})
-		this.setData({ filteredGoods: goods })
-		wx.showToast({ title: goods.find(g => g.id === id)?.isFav ? '已收藏' : '已取消', icon: 'none' })
-	},
-	// 加入购物车
-	onAddCart(e) {
-		const id = e.currentTarget.dataset.id
-		wx.showToast({ title: '已加入购物车', icon: 'success' })
-	},
-	loadGoodsList() {
-		this.setData({ loading: true })
-		const params = {
-			page: 1,
-			pageSize: 500  // 加载更多商品
-		}
-		// 如果选择了分类，添加分类筛选
-		if (this.data.selectedCategory) {
-			params.category = this.data.selectedCategory
-		}
-		api.getGoodsList(params).then((data) => {
-			// 假设后端返回格式：{ list: [], total: 0 }
-			const goodsList = data.list || data || []
-			this.setData({
-				allGoods: goodsList,
-				loading: false
-			}, () => {
-				this.applyFilter()
-			})
-		}).catch((err) => {
-			console.error('加载商品列表失败:', err)
-			this.setData({ loading: false })
-			// 如果请求失败，使用默认数据
-			this.setData({
-				allGoods: [
-					{ id: 'g1', name: '莫兰迪沙发', price: 2699, thumb: 'https://picsum.photos/1080/1080?random=200', style: '现代风', category: '沙发' },
-					{ id: 'g2', name: '原木床具', price: 3599, thumb: 'https://picsum.photos/1080/1080?random=201', style: '极简风', category: '家具' },
-					{ id: 'g3', name: '北欧餐椅', price: 499, thumb: 'https://picsum.photos/1080/1080?random=202', style: '现代风', category: '家具' },
-					{ id: 'g4', name: '茶几套装', price: 899, thumb: 'https://picsum.photos/1080/1080?random=203', style: '中古风', category: '家具' },
-					{ id: 'g5', name: '定制衣柜', price: 5299, thumb: 'https://picsum.photos/1080/1080?random=204', style: '极简风', category: '家具' },
-					{ id: 'g6', name: '布艺沙发', price: 2899, thumb: 'https://picsum.photos/1080/1080?random=205', style: '轻奢风', category: '沙发' }
-				]
-			}, () => {
-				this.applyFilter()
-			})
-		})
-	},
-	onShow() {
-		if (this.getTabBar) {
-			this.getTabBar().setData({ selected: 2 })
-		}
-		// 打开时关闭可能残留的弹层
-		this.closeOverlays()
-	},
-	onTabChange(e) {
-		this.setData({ currentTab: e.currentTarget.dataset.index });
-	},
-	// 搜索
-	onSearchInput(e) { this.setData({ searchText: e.detail.value }) },
-	onSearchConfirm() {
-		const keyword = this.data.searchText
-		if (keyword) {
-			// 调用搜索接口
-			this.setData({ loading: true })
-			api.searchGoods(keyword).then((data) => {
-				const goodsList = data.list || data || []
-				this.setData({
-					allGoods: goodsList,
-					loading: false
-				}, () => {
-					this.applyFilter()
-				})
-			}).catch((err) => {
-				console.error('搜索失败:', err)
-				this.setData({ loading: false })
-				this.applyFilter()
-			})
-		} else {
-			// 如果没有关键词，重新加载全部商品
-			this.loadGoodsList()
-		}
-	},
+  onLoad() {
+    const sysInfo = wx.getWindowInfo()
+    const menuBtn = wx.getMenuButtonBoundingClientRect()
+    const statusBarHeight = sysInfo.statusBarHeight || 44
+    const topBarHeight = menuBtn.bottom + (menuBtn.top - statusBarHeight) + 56
+    this.setData({ statusBarHeight, topBarHeight })
+    this.updateSpace()
+  },
 
-	// 顶部排序
-	onTapSort(e) { this.closeOverlays(); this.setData({ sortKey: e.currentTarget.dataset.key }, this.applyFilter) },
-	onTapPrice() { this.closeOverlays(); this.setData({ sortKey: 'price', priceAsc: !this.data.priceAsc }, this.applyFilter) },
+  onShow() {
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selected: 1 })
+    }
+  },
 
-	// 风格筛选
-	toggleStyle() { this.setData({ showStylePopup: !this.data.showStylePopup, showCategoryDrawer: false }) },
-	onSelectStyle(e) { this.setData({ selectedStyle: e.currentTarget.dataset.style }) },
-	resetStyle() { this.setData({ selectedStyle: '' }) },
-	applyStyle() { this.setData({ showStylePopup: false }, this.applyFilter) },
+  updateSpace() {
+    const space = spaceDetails[this.data.selectedCategory] || null
+    this.setData({ currentSpace: space, isLoading: false })
+  },
 
-	// 类别抽屉
-	openCategory() { this.setData({ showCategoryDrawer: true, showStylePopup: false }) },
-	closeCategory() { this.setData({ showCategoryDrawer: false }) },
-	onSelectCategory(e) { 
-		const catId = e.currentTarget.dataset.id || ''
-		const catName = e.currentTarget.dataset.name || '全部'
-		this.setData({ 
-			selectedCategory: catId, 
-			selectedCategoryName: catName,
-			showCategoryDrawer: false 
-		})
-		// 重新加载商品列表（按分类筛选）
-		this.loadGoodsList()
-	},
-	closeOverlays() { this.setData({ showStylePopup: false, showCategoryDrawer: false }) },
+  onSelectCategory(e) {
+    const id = e.currentTarget.dataset.id
+    if (id === this.data.selectedCategory) return
+    this.setData({ selectedCategory: id, isLoading: true })
+    setTimeout(() => this.updateSpace(), 300)
+  },
 
-	applyFilter() {
-		const { searchText, selectedStyle } = this.data
-		let list = this.data.allGoods.slice()
-		// 搜索
-		if (searchText) list = list.filter(g => (g.name || '').includes(searchText))
-		// 风格
-		if (selectedStyle) list = list.filter(g => g.style === selectedStyle)
-		// 排序
-		if (this.data.sortKey === 'sales') {
-			list.sort((a, b) => (b.sales || 0) - (a.sales || 0))
-		} else if (this.data.sortKey === 'price') {
-			list.sort((a, b) => this.data.priceAsc ? a.price - b.price : b.price - a.price)
-		}
-		this.setData({ filteredGoods: list })
-	},
-	goDetail(e) {
-		// 若弹层展开，先关闭，不进行跳转
-		if (this.data.showStylePopup || this.data.showCategoryDrawer) {
-			this.closeOverlays()
-			return
-		}
-		const id = e.currentTarget.dataset.id
-		wx.navigateTo({ url: `/pages/mall/detail/index?id=${id}` })
-	},
-	// 以图搜图
-	goImageSearch() {
-		wx.navigateTo({ url: '/pages/image-search/index' })
-	}
+  handleViewAll() {
+    const { selectedCategory } = this.data
+    wx.navigateTo({ url: '/pages/mall/category-list/index?space=' + selectedCategory })
+  },
+
+  handleSubCategoryClick(e) {
+    const subId = e.currentTarget.dataset.id
+    const { selectedCategory } = this.data
+    wx.navigateTo({ url: '/pages/mall/category-list/index?space=' + selectedCategory + '&category=' + subId })
+  },
+
+  goSearch() {
+    wx.navigateTo({ url: '/pages/search/index' })
+  },
+
+  onCameraTap() {
+    wx.showToast({ title: '功能开发中', icon: 'none' })
+  }
 })
-
-

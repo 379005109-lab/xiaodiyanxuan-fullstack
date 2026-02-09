@@ -1,0 +1,50 @@
+<!-- 发票编辑页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">{{isEdit ? '编辑发票' : '新增发票'}}</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <view class="content">
+    <!-- 类型选择 -->
+    <view class="type-row">
+      <view class="type-btn {{form.type === 'personal' ? 'active' : ''}}" bindtap="setType" data-type="personal">个人</view>
+      <view class="type-btn {{form.type === 'company' ? 'active' : ''}}" bindtap="setType" data-type="company">企业</view>
+    </view>
+
+    <view class="form-card">
+      <view class="form-item">
+        <text class="form-label">{{form.type === 'company' ? '公司名称' : '姓名'}}</text>
+        <input class="form-input" placeholder="请输入" value="{{form.title}}" bindinput="onInput" data-field="title" />
+      </view>
+      <view class="form-item" wx:if="{{form.type === 'company'}}">
+        <text class="form-label">税号</text>
+        <input class="form-input" placeholder="请输入税号" value="{{form.taxNumber}}" bindinput="onInput" data-field="taxNumber" />
+      </view>
+      <view class="form-item" wx:if="{{form.type === 'company'}}">
+        <text class="form-label">开户银行</text>
+        <input class="form-input" placeholder="选填" value="{{form.bank}}" bindinput="onInput" data-field="bank" />
+      </view>
+      <view class="form-item" wx:if="{{form.type === 'company'}}">
+        <text class="form-label">银行账号</text>
+        <input class="form-input" placeholder="选填" value="{{form.bankAccount}}" bindinput="onInput" data-field="bankAccount" />
+      </view>
+      <view class="form-item" wx:if="{{form.type === 'company'}}">
+        <text class="form-label">企业地址</text>
+        <input class="form-input" placeholder="选填" value="{{form.companyAddress}}" bindinput="onInput" data-field="companyAddress" />
+      </view>
+      <view class="form-item" wx:if="{{form.type === 'company'}}">
+        <text class="form-label">企业电话</text>
+        <input class="form-input" type="number" placeholder="选填" value="{{form.companyPhone}}" bindinput="onInput" data-field="companyPhone" />
+      </view>
+      <view class="form-item form-switch-item">
+        <text class="form-label">设为默认</text>
+        <switch checked="{{form.isDefault}}" bindchange="onDefaultChange" color="#1D1D1F" />
+      </view>
+    </view>
+
+    <view class="save-btn" bindtap="save">保存</view>
+    <view class="delete-btn" wx:if="{{isEdit}}" bindtap="deleteInvoice">删除</view>
+  </view>
+</view>

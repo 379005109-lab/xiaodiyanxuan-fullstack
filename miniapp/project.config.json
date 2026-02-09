@@ -14,7 +14,7 @@
     "useCompilerPlugins": false,
     "minifyWXML": true,
     "compileWorklet": false,
-    "uploadWithSourceMap": false,
+    "uploadWithSourceMap": true,
     "packNpmManually": false,
     "minifyWXSS": true,
     "localPlugins": false,
@@ -26,19 +26,10 @@
   "compileType": "miniprogram",
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [
-      { "type": "file", "value": ".gitignore" },
-      { "type": "file", "value": ".DS_Store" },
-      { "type": "file", "value": "README.md" },
-      { "type": "file", "value": "package.json" },
-      { "type": "file", "value": "package-lock.json" },
-      { "type": "folder", "value": "node_modules" },
-      { "type": "folder", "value": ".git" },
-      { "type": "folder", "value": "typings" }
-    ],
+    "ignore": [],
     "include": []
   },
-  "appid": "wx0eaeabec6bb33f31",
+  "appid": "wxa2f1c936ea317100",
   "editorSetting": {},
   "libVersion": "3.11.1"
 }

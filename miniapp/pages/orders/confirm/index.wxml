@@ -1,0 +1,99 @@
+<!-- 订单确认页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">确认订单</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <scroll-view class="scroll-area" scroll-y enhanced show-scrollbar="{{false}}">
+    <!-- 收货地址 -->
+    <view class="address-card" bindtap="goSelectAddress">
+      <view class="address-content" wx:if="{{selectedAddress}}">
+        <view class="address-top">
+          <text class="address-name">{{selectedAddress.name}}</text>
+          <text class="address-phone">{{selectedAddress.phone}}</text>
+        </view>
+        <view class="address-detail">{{selectedAddress.province}}{{selectedAddress.city}}{{selectedAddress.district}}{{selectedAddress.address}}</view>
+      </view>
+      <view class="address-empty" wx:else>
+        <text class="address-empty-icon">📍</text>
+        <text class="address-empty-text">请选择收货地址</text>
+      </view>
+      <text class="address-arrow">›</text>
+    </view>
+
+    <!-- 商品列表 -->
+    <view class="goods-card">
+      <view class="goods-header">
+        <text class="goods-header-title">商品信息</text>
+        <text class="goods-header-count">共 {{items.length}} 件</text>
+      </view>
+      <block wx:for="{{items}}" wx:key="id">
+        <view class="goods-item">
+          <image class="goods-thumb" src="{{item.thumb || item.image || item.goodsImage}}" mode="aspectFill"></image>
+          <view class="goods-info">
+            <view class="goods-name text-ellipsis">{{item.name || item.goodsName}}</view>
+            <view class="goods-specs" wx:if="{{item.sizeName || item.materialName}}">
+              <text wx:if="{{item.sizeName}}">{{item.sizeName}}</text>
+              <text wx:if="{{item.materialName}}"> · {{item.materialName}}</text>
+              <text wx:if="{{item.materialColor}}"> {{item.materialColor}}</text>
+            </view>
+            <view class="goods-price-row">
+              <text class="goods-price">¥{{item.price || item.totalPrice}}</text>
+              <text class="goods-qty">×{{item.count || 1}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <!-- 优惠券 -->
+    <view class="option-card" bindtap="goSelectCoupon">
+      <text class="option-label">优惠券</text>
+      <view class="option-right">
+        <text class="option-value {{selectedCoupon ? 'has-value' : ''}}">{{selectedCoupon ? '-¥' + selectedCoupon.discount : '暂无可用'}}</text>
+        <text class="option-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 备注 -->
+    <view class="option-card">
+      <text class="option-label">订单备注</text>
+      <input class="option-input" placeholder="选填" value="{{remark}}" bindinput="onRemarkInput" />
+    </view>
+
+    <!-- 价格明细 -->
+    <view class="price-card">
+      <view class="price-row">
+        <text class="price-label">商品金额</text>
+        <text class="price-value">¥{{goodsTotal}}</text>
+      </view>
+      <view class="price-row" wx:if="{{couponDiscount > 0}}">
+        <text class="price-label">优惠券</text>
+        <text class="price-value discount">-¥{{couponDiscount}}</text>
+      </view>
+      <view class="price-row">
+        <text class="price-label">运费</text>
+        <text class="price-value">{{freight > 0 ? '¥' + freight : '免运费'}}</text>
+      </view>
+      <view class="price-total-row">
+        <text class="price-total-label">合计</text>
+        <text class="price-total-value"><text class="price-symbol">¥</text>{{totalAmount}}</text>
+      </view>
+    </view>
+
+    <view style="height: 200rpx;"></view>
+  </scroll-view>
+
+  <!-- 底部提交栏 -->
+  <view class="bottom-bar">
+    <view class="bar-info">
+      <text class="bar-label">实付款</text>
+      <text class="bar-amount"><text class="bar-symbol">¥</text>{{totalAmount}}</text>
+    </view>
+    <view class="bar-btn" bindtap="submitOrder">
+      <text>提交订单</text>
+    </view>
+  </view>
+</view>

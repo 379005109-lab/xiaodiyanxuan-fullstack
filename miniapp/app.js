@@ -1,25 +1,19 @@
 // app.js
 const api = require('./utils/api.js')
-import { initLanguage, getLanguage, getLocale } from './utils/i18n/index'
 
 App({
   onLaunch() {
-    // 初始化多语言
-    this.initI18n()
+    // 加载 Remix Icon 字体
+    wx.loadFontFace({
+      global: true,
+      family: 'remixicon',
+      source: 'url("https://cdn.jsdelivr.net/npm/remixicon@4.0.0/fonts/remixicon.woff2")',
+      scopes: ['webview', 'native'],
+      success: () => console.log('[Font] remixicon loaded'),
+      fail: (err) => console.warn('[Font] remixicon load failed:', err)
+    })
     // 微信登录
     this.wxLogin()
-  },
-  
-  // 初始化多语言系统
-  initI18n() {
-    const lang = initLanguage()
-    this.globalData.language = lang
-    this.globalData.i18n = getLocale()
-  },
-  
-  // 获取当前语言翻译对象
-  getI18n() {
-    return getLocale()
   },
   
   wxLogin() {
@@ -49,9 +43,7 @@ App({
   },
   
   globalData: {
-    userInfo: null,
-    language: 'zh',
-    i18n: {}
+    userInfo: null
   },
   
   // 将 api 挂载到全局，避免懒加载导致的路径问题

@@ -1,18 +1,11 @@
 <view class="tabbar">
 	<block wx:for="{{list}}" wx:key="pagePath">
-		<view class="item {{selected===index?'active':''}}" data-index="{{index}}" data-path="{{item.pagePath}}" bindtap="switchTab">
-			<view class="icon-wrap">
-				<view class="icon {{selected===index?'icon-active':''}}">
-					<view wx:if="{{index===0}}" class="svg-icon home-icon"></view>
-					<view wx:elif="{{index===1}}" class="svg-icon tag-icon"></view>
-					<view wx:elif="{{index===2}}" class="svg-icon shop-icon"></view>
-					<view wx:elif="{{index===3}}" class="svg-icon box-icon"></view>
-					<view wx:elif="{{index===4}}" class="svg-icon user-icon"></view>
-				</view>
+		<view class="tab-item {{selected===index?'active':''}}" data-index="{{index}}" data-path="{{item.pagePath}}" bindtap="switchTab">
+			<view class="tab-icon-wrap">
+				<text class="tab-icon ri {{selected===index ? item.activeIcon : item.icon}}"></text>
+				<view class="tab-badge" wx:if="{{item.badge > 0}}">{{item.badge > 99 ? '99+' : item.badge}}</view>
 			</view>
-			<text class="text">{{item.text}}</text>
+			<text class="tab-label">{{item.text}}</text>
 		</view>
 	</block>
 </view>
-
-

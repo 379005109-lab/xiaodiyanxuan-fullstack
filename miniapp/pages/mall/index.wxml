@@ -1,83 +1,80 @@
-<navigation-bar title="" back="{{false}}" color="black" background="transparent"></navigation-bar>
-<scroll-view class="scrollarea" scroll-y>
-<view class="page">
-		<!-- 顶部卡片：标题+搜索+筛选 -->
-		<view class="top-card">
-			<!-- 页面标题栏 -->
-			<view class="page-header">
-				<view class="page-title">商城</view>
-				<view class="header-actions">
-					<view class="view-toggle" bindtap="toggleViewMode">
-						<view class="grid-icon-simple"></view>
-					</view>
-				</view>
-			</view>
-
-			<!-- 搜索框 -->
-			<view class="search-bar">
-				<view class="search-input">
-					<view class="search-icon-svg"></view>
-					<input placeholder="搜索沙发、桌椅..." value="{{searchText}}" bindinput="onSearchInput" confirm-type="search" bindconfirm="onSearchConfirm" />
-				</view>
-				<view class="image-search-btn" bindtap="goImageSearch">
-					<view class="camera-icon-svg"></view>
-				</view>
-			</view>
-
-			<!-- 顶部筛选条：综合、销量、价格、类别、风格 -->
-			<view class="top-filters">
-			<view class="f-item {{sortKey==='comprehensive'?'active':''}}" data-key="comprehensive" bindtap="onTapSort">综合</view>
-			<view class="f-item {{sortKey==='sales'?'active':''}}" data-key="sales" bindtap="onTapSort">销量</view>
-			<view class="f-item {{sortKey==='price'?'active':''}}" data-key="price" bindtap="onTapPrice">价格<text class="arrow">{{priceAsc? '↑' : '↓'}}</text></view>
-			<view class="f-item {{selectedCategoryName && selectedCategoryName !== '全部' ? 'active' : ''}}" bindtap="openCategory">类别{{selectedCategoryName && selectedCategoryName !== '全部' ? '·'+selectedCategoryName : ''}}</view>
-			<view class="f-item {{selectedStyle ? 'active' : ''}} {{showStylePopup?'active':''}}" bindtap="toggleStyle">风格{{selectedStyle ? '·'+selectedStyle : ''}}</view>
-			<!-- 风格弹出 -->
-			<view class="style-popup" wx:if="{{showStylePopup}}">
-				<view class="style-list">
-					<block wx:for="{{styles}}" wx:key="*this">
-						<view class="style-tag {{selectedStyle===item?'active':''}}" data-style="{{item}}" bindtap="onSelectStyle">{{item}}</view>
-					</block>
-				</view>
-				<view class="style-actions">
-					<button class="btn-reset" bindtap="resetStyle">重置</button>
-					<button class="btn-apply" bindtap="applyStyle">确定</button>
-				</view>
-			</view>
-			</view>
+<view class="page-container">
+	<!-- 顶部导航栏 -->
+	<view class="top-bar" style="padding-top: {{statusBarHeight}}px;">
+		<view class="top-bar-inner">
+			<view class="top-title">商品库</view>
 		</view>
-
-		<!-- 类别抽屉遮罩 -->
-		<view class="drawer-mask {{showCategoryDrawer?'active':''}}" wx:if="{{showCategoryDrawer}}" bindtap="closeCategory"></view>
-		<!-- 左侧类别抽屉 -->
-		<view class="drawer" wx:if="{{showCategoryDrawer}}">
-			<scroll-view scroll-y class="drawer-list">
-				<block wx:for="{{categories}}" wx:key="id">
-					<view class="drawer-item {{selectedCategory===item.id?'active':''}}" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onSelectCategory">{{item.name}}</view>
-				</block>
-			</scroll-view>
-		</view>
-
-		<view class="goods-grid {{viewMode === 'list' ? 'list-mode' : ''}}">
-			<block wx:for="{{filteredGoods}}" wx:key="id">
-				<view class="goods-item" bindtap="goDetail" data-id="{{item.id}}">
-					<view class="thumb-box">
-						<image class="thumb-img" src="{{item.thumb || item.cover || item.image || item.pic}}" mode="aspectFill"></image>
-						<view class="fav-btn" catchtap="onToggleFav" data-id="{{item.id}}">
-							<view class="heart-icon {{item.isFav ? 'favorited' : ''}}"></view>
-						</view>
-					</view>
-					<view class="hot-info">
-						<text class="h-name">{{item.name}}</text>
-						<text class="h-desc">{{item.desc || item.style || '精选好物'}}</text>
-						<view class="h-price">
-							<text class="price">¥{{item.price}}</text>
-							<view class="cart-btn" catchtap="onAddCart" data-id="{{item.id}}">
-								<view class="cart-icon-svg"></view>
-							</view>
-						</view>
-					</view>
-				</view>
-			</block>
+		<!-- 搜索栏 -->
+		<view class="search-row">
+			<view class="search-input-wrap" bindtap="goSearch">
+				<text class="search-icon-text ri ri-search-line"></text>
+				<text class="search-placeholder">搜索商品/品牌/空间</text>
+			</view>
+			<view class="camera-btn" bindtap="onCameraTap"><text class="ri ri-camera-line"></text></view>
 		</view>
 	</view>
-</scroll-view>
+
+	<!-- 主体布局：左侧分类 + 右侧内容 -->
+	<view class="main-body" style="top: {{topBarHeight}}px;">
+		<!-- 左侧类目栏 -->
+		<scroll-view class="side-bar" scroll-y enhanced show-scrollbar="{{false}}">
+			<block wx:for="{{categories}}" wx:key="id">
+				<view class="side-item {{selectedCategory === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onSelectCategory">
+					<view class="side-indicator" wx:if="{{selectedCategory === item.id}}"></view>
+					<text class="side-text">{{item.name}}</text>
+				</view>
+			</block>
+		</scroll-view>
+
+		<!-- 右侧内容区 -->
+		<scroll-view class="content-area" scroll-y enhanced show-scrollbar="{{false}}">
+			<!-- 加载骨架 -->
+			<view class="skeleton" wx:if="{{isLoading}}">
+				<view class="skeleton-cover"></view>
+				<view class="skeleton-grid">
+					<view class="skeleton-item" wx:for="{{[1,2,3,4]}}" wx:key="*this">
+						<view class="skeleton-img"></view>
+						<view class="skeleton-text"></view>
+					</view>
+				</view>
+			</view>
+
+			<!-- 正常内容 -->
+			<view class="content-inner" wx:if="{{!isLoading && currentSpace}}">
+				<!-- 空间主视觉卡 -->
+				<view class="cover-card">
+					<image class="cover-img" src="{{currentSpace.coverImage}}" mode="aspectFill"></image>
+					<view class="cover-gradient"></view>
+					<view class="cover-info">
+						<view class="cover-name">{{currentSpace.name}}</view>
+						<view class="cover-desc">{{currentSpace.description}}</view>
+						<view class="cover-btn" bindtap="handleViewAll">查看全部</view>
+					</view>
+				</view>
+
+				<!-- 细分类目 -->
+				<view class="sub-section">
+					<view class="sub-title">细分类目</view>
+					<view class="sub-grid">
+						<block wx:for="{{currentSpace.subCategories}}" wx:key="id">
+							<view class="sub-card" bindtap="handleSubCategoryClick" data-id="{{item.id}}">
+								<view class="sub-img-wrap">
+									<image class="sub-img" src="{{item.image}}" mode="aspectFill"></image>
+								</view>
+								<view class="sub-name">{{item.name}}</view>
+							</view>
+						</block>
+					</view>
+				</view>
+			</view>
+
+			<!-- 空状态 -->
+			<view class="empty-content" wx:if="{{!isLoading && !currentSpace}}">
+				<text class="empty-icon-text ri ri-inbox-line"></text>
+				<text class="empty-msg">暂无该空间内容</text>
+			</view>
+
+			<view style="height: 120rpx;"></view>
+		</scroll-view>
+	</view>
+</view>

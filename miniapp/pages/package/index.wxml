@@ -1,42 +1,59 @@
-<navigation-bar title="" back="{{false}}" color="black" background="transparent"></navigation-bar>
-<scroll-view class="scrollarea" scroll-y>
-<view class="page">
-	<!-- 页面标题 -->
-	<view class="page-header">
-		<view class="page-title">精选套餐</view>
+<view class="page-container">
+	<!-- 顶部导航栏 -->
+	<view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
+		<view class="nav-content">
+			<view class="nav-title">套餐</view>
+			<view class="nav-right" bindtap="goMyPackages">
+				<text class="nav-link-icon ri ri-file-list-3-line"></text>
+				<text class="nav-link">我的套餐</text>
+			</view>
+		</view>
 	</view>
-	
-	<!-- 套餐列表 -->
-	<view class="pkg-list" wx:if="{{!loading && packages.length > 0}}">
-		<block wx:for="{{packages}}" wx:key="id">
-			<view class="pkg-card-new" data-id="{{item.id}}" bindtap="goPackageDetail">
-				<!-- 封面图 -->
-				<view class="pkg-cover-wrap">
-					<image class="pkg-cover-new" src="{{item.cover}}" mode="aspectFill"></image>
-					<view class="pkg-tag">{{item.tag || '全屋定制'}}</view>
-				</view>
-				<!-- 信息区 -->
-				<view class="pkg-info-new">
-					<view class="pkg-name">{{item.name}}</view>
-					<view class="pkg-desc">{{item.desc || '一站式配齐，省心又省钱'}}</view>
-					<view class="pkg-price-row">
-						<view class="pkg-price-info">
-							<text class="pkg-price-label">套餐价</text>
-							<text class="pkg-price-value">¥{{item.price}}</text>
+
+	<!-- 主体内容 -->
+	<scroll-view class="scroll-area" scroll-y enhanced show-scrollbar="{{false}}" style="top: {{navBarHeight}}px;">
+		<!-- 页面标题区 -->
+		<view class="page-header">
+			<view class="header-title">灵感套系</view>
+			<view class="header-desc">精选家具套餐，一站式配齐</view>
+		</view>
+
+		<!-- 套餐列表 -->
+		<view class="pkg-list">
+			<block wx:for="{{packages}}" wx:key="id">
+				<view class="pkg-card">
+					<view class="pkg-main">
+						<view class="pkg-img-wrap">
+							<image class="pkg-img" src="{{item.image}}" mode="aspectFill"></image>
 						</view>
-						<view class="pkg-view-btn">查看详情</view>
+						<view class="pkg-info">
+							<view class="pkg-name">{{item.name}}</view>
+							<view class="pkg-tags">
+								<text class="pkg-tag" wx:if="{{item.style}}">{{item.style}}</text>
+								<text class="pkg-tag" wx:if="{{item.roomType}}">{{item.roomType}}</text>
+							</view>
+							<view class="pkg-price-row">
+								<text class="pkg-price">¥{{item.price}}</text>
+								<text class="pkg-items-count" wx:if="{{item.contents.length > 0}}">可选{{item.contents.length}}件</text>
+							</view>
+						</view>
+					</view>
+					<view class="pkg-action">
+						<view class="pkg-config-btn" data-id="{{item.id}}" bindtap="goPackageConfig">配置此套系</view>
 					</view>
 				</view>
-			</view>
-		</block>
-	</view>
-	
-	<!-- 加载中 -->
-	<view class="loading-text" wx:if="{{loading}}">加载中...</view>
-	
-	<!-- 空状态 -->
-	<view class="empty-text" wx:if="{{!loading && packages.length === 0}}">暂无套餐</view>
+			</block>
+		</view>
+
+		<!-- 底部提示 -->
+		<view class="bottom-tip" wx:if="{{packages.length > 0}}">已展示全部套餐</view>
+
+		<!-- 空状态 -->
+		<view class="empty-state" wx:if="{{!isLoading && packages.length === 0}}">
+			<text class="empty-icon ri ri-inbox-line"></text>
+			<text class="empty-text">暂无套餐</text>
+		</view>
+
+		<view style="height: 160rpx;"></view>
+	</scroll-view>
 </view>
-</scroll-view>
-
-

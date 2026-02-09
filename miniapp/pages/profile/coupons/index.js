@@ -1,3 +1,6 @@
+const app = getApp()
+const api = app.api || require('../../../utils/api.js')
+
 Page({
 	data: {
 		currentTab: 0, // 0: 可用, 1: 已使用, 2: 已过期
@@ -5,24 +8,37 @@ Page({
 	},
 	onLoad() {
 		this.loadCoupons()
-		// 模拟定期推送优惠券
-		this.checkAndPushCoupons()
 	},
 	onShow() {
 		this.loadCoupons()
-		if (this.getTabBar) {
-			this.getTabBar().setData({ selected: 4 })
-		}
 	},
 	loadCoupons() {
+		api.getCoupons().then((data) => {
+			const list = data.list || data || []
+			const coupons = list.map(c => ({
+				id: c._id || c.id,
+				name: c.name || c.title || '',
+				desc: c.description || c.desc || '',
+				amount: c.discount || c.amount || 0,
+				minAmount: c.minOrderAmount || c.minAmount || 0,
+				startTime: c.startDate || c.startTime || '',
+				endTime: c.endDate || c.endTime || '',
+				status: c.status || 'available'
+			}))
+			this.setData({ coupons })
+			this.filterCoupons()
+		}).catch(() => {
+			// fallback to localStorage
+			this.loadCouponsFromLocal()
+		})
+	},
+	loadCouponsFromLocal() {
 		try {
 			let coupons = wx.getStorageSync('coupons') || []
-			// 如果没有优惠券，初始化一些示例数据
 			if (coupons.length === 0) {
 				coupons = this.getDefaultCoupons()
 				wx.setStorageSync('coupons', coupons)
 			}
-			// 检查优惠券是否过期
 			const now = new Date().getTime()
 			coupons = coupons.map(coupon => {
 				const endTime = new Date(coupon.endTime).getTime()

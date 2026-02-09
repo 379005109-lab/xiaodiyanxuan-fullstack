@@ -1,26 +1,46 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/bargain/index",
-    "pages/bargain/detail/index",
     "pages/mall/index",
     "pages/mall/detail/index",
-    "pages/guide/index",
-    "pages/order/confirm/index",
-    "pages/order/recommendations/index",
+    "pages/mall/list/index",
+    "pages/mall/media/index",
+    "pages/mall/category-list/index",
     "pages/package/index",
     "pages/package/detail/index",
+    "pages/package/config/index",
+    "pages/package/my/index",
+    "pages/ai/index",
+    "pages/bargain/index",
+    "pages/bargain/detail/index",
+    "pages/bargain/help/index",
+    "pages/bargain/my/index",
     "pages/profile/index",
+    "pages/profile/cart/index",
     "pages/profile/orders/index",
     "pages/profile/favorites/index",
     "pages/profile/coupons/index",
     "pages/profile/address/index",
+    "pages/profile/address/edit/index",
+    "pages/profile/invoice/index",
+    "pages/profile/invoice/edit/index",
+    "pages/profile/points/index",
+    "pages/profile/privacy/index",
+    "pages/profile/settings/index",
+    "pages/profile/edit/index",
     "pages/profile/service/index",
-    "pages/profile/cart/index",
     "pages/profile/booking/index",
-    "pages/profile/referral/index",
-    "pages/image-search/index",
-    "pages/settings/language/index"
+    "pages/search/index",
+    "pages/orders/confirm/index",
+    "pages/orders/detail/index",
+    "pages/orders/address-select/index",
+    "pages/orders/address-edit/index",
+    "pages/orders/coupon-select/index",
+    "pages/orders/result/index",
+    "pages/login/index",
+    "pages/guide/index",
+    "pages/order/confirm/index",
+    "pages/order/recommendations/index"
   ],
   "window": {
     "navigationBarTextStyle": "black",
@@ -28,8 +48,8 @@
   },
   "tabBar": {
     "custom": true,
-    "color": "#666666",
-    "selectedColor": "#333333",
+    "color": "#6E6E73",
+    "selectedColor": "#1D1D1F",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "black",
     "list": [
@@ -38,12 +58,12 @@
         "text": "首页"
       },
       {
-        "pagePath": "pages/bargain/index",
-        "text": "砍价"
+        "pagePath": "pages/mall/index",
+        "text": "分类"
       },
       {
-        "pagePath": "pages/mall/index",
-        "text": "商城"
+        "pagePath": "pages/ai/index",
+        "text": "AI"
       },
       {
         "pagePath": "pages/package/index",

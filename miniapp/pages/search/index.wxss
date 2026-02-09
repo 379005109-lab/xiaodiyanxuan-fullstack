@@ -1,0 +1,133 @@
+/* 搜索页 — Apple 风格 */
+page { background: #FFFFFF; color: #1D1D1F; }
+
+.page { padding-top: calc(88rpx + env(safe-area-inset-top)); }
+
+/* ========== 导航栏 ========== */
+.nav-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  background: rgba(255,255,255,0.95);
+  -webkit-backdrop-filter: saturate(180%) blur(40rpx);
+  backdrop-filter: saturate(180%) blur(40rpx);
+  border-bottom: 1rpx solid #E5E5EA;
+  display: flex; align-items: center; gap: 16rpx;
+  height: calc(88rpx + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 24rpx 0;
+}
+
+.nav-back {
+  width: 56rpx; height: 56rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40rpx; color: #1D1D1F; flex-shrink: 0;
+}
+
+.search-bar {
+  flex: 1; display: flex; align-items: center; gap: 12rpx;
+  background: #F5F5F7; border-radius: 20rpx; padding: 0 20rpx; height: 64rpx;
+}
+
+.search-icon { font-size: 26rpx; flex-shrink: 0; }
+
+.search-input {
+  flex: 1; font-size: 28rpx; color: #1D1D1F; background: transparent;
+}
+
+.search-clear {
+  width: 40rpx; height: 40rpx; border-radius: 50%;
+  background: #C7C7CC; color: #FFFFFF;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22rpx; flex-shrink: 0;
+}
+
+.nav-search-btn {
+  font-size: 30rpx; font-weight: 500; color: #1D1D1F;
+  flex-shrink: 0; padding: 0 8rpx;
+}
+
+/* ========== 内容 ========== */
+.content { padding: 24rpx 32rpx; }
+
+.section { margin-bottom: 32rpx; }
+
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.section-title { font-size: 30rpx; font-weight: 600; color: #1D1D1F; }
+
+.section-action { font-size: 26rpx; color: #8E8E93; }
+.section-action:active { color: #1D1D1F; }
+
+.tag-list { display: flex; flex-wrap: wrap; gap: 12rpx; }
+
+.tag-item {
+  padding: 12rpx 24rpx; background: #F5F5F7; border-radius: 20rpx;
+  font-size: 26rpx; color: #1D1D1F;
+}
+.tag-item:active { background: #E5E5EA; }
+.tag-item.hot { background: #FFF5F5; color: #FF3B30; }
+
+/* ========== 搜索结果 ========== */
+.result-header {
+  font-size: 26rpx; color: #8E8E93; margin-bottom: 20rpx;
+}
+
+.goods-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx;
+}
+
+.goods-card {
+  background: #FFFFFF; border-radius: 24rpx; overflow: hidden;
+  border: 1rpx solid #E5E5EA;
+}
+.goods-card:active { opacity: 0.9; }
+
+.goods-img-wrap {
+  width: 100%; aspect-ratio: 3/4; background: #F5F5F7;
+  border-radius: 24rpx 24rpx 0 0; overflow: hidden;
+}
+.goods-img { width: 100%; height: 100%; }
+
+.goods-info { padding: 16rpx 16rpx 20rpx; }
+
+.goods-name {
+  font-size: 26rpx; font-weight: 500; color: #1D1D1F;
+  line-height: 1.4; min-height: 72rpx;
+}
+
+.goods-price-row {
+  display: flex; align-items: baseline; gap: 8rpx; margin-top: 8rpx;
+}
+.goods-price { font-size: 34rpx; font-weight: 600; color: #1D1D1F; }
+.price-symbol { font-size: 22rpx; }
+.goods-original { font-size: 22rpx; color: #8E8E93; text-decoration: line-through; }
+.goods-sold { font-size: 22rpx; color: #8E8E93; margin-top: 4rpx; display: block; }
+
+.text-ellipsis-2 {
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ========== 状态 ========== */
+.loading-state {
+  display: flex; align-items: center; justify-content: center; padding: 80rpx 0;
+}
+.loading-text { font-size: 26rpx; color: #8E8E93; }
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; padding: 120rpx 0;
+}
+.empty-icon { font-size: 80rpx; margin-bottom: 16rpx; }
+.empty-text { font-size: 30rpx; font-weight: 500; color: #1D1D1F; margin-bottom: 8rpx; }
+.empty-hint { font-size: 26rpx; color: #8E8E93; }
+
+.load-more {
+  display: flex; align-items: center; justify-content: center;
+  padding: 40rpx 0; font-size: 26rpx; color: #8E8E93;
+}
+.load-more:active { color: #1D1D1F; }
+
+.bottom-tip {
+  text-align: center; padding: 40rpx 0; font-size: 24rpx; color: #C7C7CC;
+}

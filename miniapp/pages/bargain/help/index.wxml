@@ -1,0 +1,60 @@
+<!-- 帮砍页 — Apple 风格 -->
+<view class="page">
+  <view class="nav-bar">
+    <view class="nav-back" bindtap="goBack">←</view>
+    <view class="nav-title">帮好友砍价</view>
+    <view class="nav-placeholder"></view>
+  </view>
+
+  <view class="content">
+    <!-- 商品信息 -->
+    <view class="product-card" wx:if="{{product.name}}">
+      <image class="product-img" src="{{product.image}}" mode="aspectFill"></image>
+      <view class="product-info">
+        <view class="product-name">{{product.name}}</view>
+        <view class="product-price-row">
+          <text class="price-current">¥{{product.currentPrice}}</text>
+          <text class="price-original">¥{{product.originalPrice}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 砍价进度 -->
+    <view class="progress-card">
+      <view class="progress-header">
+        <text class="progress-label">砍价进度</text>
+        <text class="progress-value">{{product.progress || 0}}%</text>
+      </view>
+      <view class="progress-bar">
+        <view class="progress-fill" style="width: {{product.progress || 0}}%"></view>
+      </view>
+      <view class="progress-info">
+        <text>目标价 ¥{{product.targetPrice}}</text>
+        <text>还差 ¥{{product.remainAmount || 0}}</text>
+      </view>
+    </view>
+
+    <!-- 帮砍按钮 -->
+    <view class="help-btn {{hasHelped ? 'disabled' : ''}}" bindtap="helpBargain">
+      <text>{{hasHelped ? '已帮砍' : '帮好友砍一刀'}}</text>
+    </view>
+
+    <!-- 砍价记录 -->
+    <view class="record-section" wx:if="{{records.length > 0}}">
+      <view class="record-title">砍价记录</view>
+      <view class="record-list">
+        <block wx:for="{{records}}" wx:key="id">
+          <view class="record-item">
+            <image class="record-avatar" src="{{item.avatar}}" mode="aspectFill" wx:if="{{item.avatar}}"></image>
+            <view class="record-avatar-placeholder" wx:else>{{item.nickname[0] || '友'}}</view>
+            <view class="record-info">
+              <text class="record-name">{{item.nickname || '匿名用户'}}</text>
+              <text class="record-time">{{item.time}}</text>
+            </view>
+            <text class="record-amount">砍了 ¥{{item.amount}}</text>
+          </view>
+        </block>
+      </view>
+    </view>
+  </view>
+</view>

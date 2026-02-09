@@ -1,0 +1,59 @@
+/* 优惠券选择页 — Apple 风格 */
+page { background: #F5F5F7; color: #1D1D1F; }
+.page { padding-top: calc(88rpx + env(safe-area-inset-top)); }
+.nav-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  background: rgba(255,255,255,0.95); backdrop-filter: saturate(180%) blur(40rpx);
+  border-bottom: 1rpx solid #E5E5EA;
+  display: flex; align-items: center; justify-content: space-between;
+  height: calc(88rpx + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 32rpx 0;
+}
+.nav-back { width: 64rpx; height: 64rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; }
+.nav-title { font-size: 34rpx; font-weight: 600; }
+.nav-placeholder { width: 64rpx; }
+
+.content { padding: 24rpx 32rpx; }
+
+.coupon-list { display: flex; flex-direction: column; gap: 16rpx; }
+
+.coupon-card {
+  display: flex; align-items: center; gap: 0;
+  background: #FFFFFF; border-radius: 24rpx; overflow: hidden;
+  border: 2rpx solid #E5E5EA; position: relative;
+}
+.coupon-card.selected { border-color: #1D1D1F; }
+.coupon-card.disabled { opacity: 0.5; }
+.coupon-card:active { background: #F5F5F7; }
+
+.coupon-left {
+  width: 200rpx; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 28rpx 0; background: #FAFAFA; border-right: 2rpx dashed #E5E5EA;
+}
+.coupon-amount { font-size: 48rpx; font-weight: 700; color: #1D1D1F; }
+.coupon-symbol { font-size: 24rpx; font-weight: 500; }
+.coupon-condition { font-size: 22rpx; color: #8E8E93; margin-top: 4rpx; }
+
+.coupon-right { flex: 1; padding: 28rpx 24rpx; }
+.coupon-name { font-size: 28rpx; font-weight: 500; color: #1D1D1F; margin-bottom: 8rpx; }
+.coupon-expire { font-size: 22rpx; color: #8E8E93; }
+
+.coupon-check {
+  position: absolute; top: 16rpx; right: 16rpx;
+  width: 40rpx; height: 40rpx; border-radius: 50%;
+  background: #1D1D1F; color: #FFFFFF;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24rpx;
+}
+
+.no-coupon-btn {
+  margin-top: 24rpx; height: 88rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #FFFFFF; border: 2rpx solid #D2D2D7; border-radius: 24rpx;
+  font-size: 30rpx; color: #8E8E93;
+}
+.no-coupon-btn:active { background: #F5F5F7; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; padding: 120rpx 0; }
+.empty-icon { font-size: 80rpx; margin-bottom: 16rpx; }
+.empty-text { font-size: 28rpx; color: #8E8E93; }

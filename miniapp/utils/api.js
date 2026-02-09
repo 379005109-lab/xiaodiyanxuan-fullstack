@@ -13,10 +13,9 @@ function request(options) {
       method = 'GET',
       data = {},
       header = {},
-      needAuth = true // 是否需要认证
+      needAuth = true
     } = options
 
-    // 获取 token（如果已登录）
     let token = ''
     if (needAuth) {
       try {
@@ -26,90 +25,59 @@ function request(options) {
       }
     }
 
-    // 构建完整的 URL
     const fullUrl = url.startsWith('http') ? url : `${config.baseURL}${url}`
 
-    // 设置请求头
     const requestHeader = {
       'Content-Type': 'application/json',
       ...header
     }
 
-    // 如果有 token，添加到请求头
     if (token) {
       requestHeader['Authorization'] = `Bearer ${token}`
     }
 
     if (config.debug) {
-      console.log('API Request:', {
-        url: fullUrl,
-        method,
-        data,
-        header: requestHeader
-      })
+      console.log('API Request:', { url: fullUrl, method, data })
     }
 
-    // 发起请求
     wx.request({
       url: fullUrl,
-      method: method,
-      data: data,
+      method,
+      data,
       header: requestHeader,
       timeout: config.timeout,
       success: (res) => {
         if (config.debug) {
-          console.log('API Response:', res)
+          console.log('API Response:', res.statusCode, res.data)
         }
 
-        // 处理响应
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          // 支持多种后端返回格式
-          const resData = res.data
-
-          // 格式1: { code: 0/200, data: ... }
-          if (resData && typeof resData === 'object' && 'code' in resData) {
-            if (resData.code === 0 || resData.code === 200) {
-              resolve(resData.data !== undefined ? resData.data : resData)
+          if (res.data && typeof res.data === 'object' && 'code' in res.data) {
+            if (res.data.code === 0 || res.data.code === 200) {
+              resolve(res.data.data || res.data)
             } else {
-              const errorMsg = resData.message || '请求失败'
+              const errorMsg = res.data.message || '请求失败'
               wx.showToast({ title: errorMsg, icon: 'none', duration: 2000 })
               reject(new Error(errorMsg))
             }
-          }
-          // 格式2: { success: true, data: ... }
-          else if (resData && typeof resData === 'object' && resData.success === true) {
-            resolve(resData.data !== undefined ? resData.data : resData)
-          }
-          // 格式3: { success: false, message: ... }
-          else if (resData && typeof resData === 'object' && resData.success === false) {
-            const errorMsg = resData.message || '请求失败'
-            wx.showToast({ title: errorMsg, icon: 'none', duration: 2000 })
-            reject(new Error(errorMsg))
-          }
-          // 其他格式: 直接返回
-          else {
-            resolve(resData)
+          } else if (res.data && res.data.success !== undefined) {
+            if (res.data.success) {
+              resolve(res.data.data || res.data)
+            } else {
+              const errorMsg = res.data.message || '请求失败'
+              wx.showToast({ title: errorMsg, icon: 'none', duration: 2000 })
+              reject(new Error(errorMsg))
+            }
+          } else {
+            resolve(res.data)
           }
         } else if (res.statusCode === 401) {
-          // 未授权，清除 token 并跳转到登录
           wx.removeStorageSync('token')
-          wx.showToast({
-            title: '登录已过期，请重新登录',
-            icon: 'none'
-          })
-          // 可以在这里跳转到登录页面
+          wx.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
           reject(new Error('未授权'))
         } else {
-          // HTTP 错误 - 尝试解析后端返回的错误消息
-          let errorMsg = `请求失败 (${res.statusCode})`
-          if (res.data && typeof res.data === 'object' && res.data.message) {
-            errorMsg = res.data.message
-          }
-          console.log('HTTP错误详情:', res.statusCode, res.data)
-          wx.showToast({
-            title: errorMsg,
-            icon: 'none'
-          })
+          const errorMsg = `请求失败 (${res.statusCode})`
+          wx.showToast({ title: errorMsg, icon: 'none' })
           reject(new Error(errorMsg))
         }
       },
@@ -117,503 +85,481 @@ function request(options) {
         if (config.debug) {
           console.error('API Request Failed:', err)
         }
-        wx.showToast({
-          title: '网络请求失败，请检查网络连接',
-          icon: 'none',
-          duration: 2000
-        })
+        wx.showToast({ title: '网络请求失败，请检查网络连接', icon: 'none', duration: 2000 })
         reject(err)
       }
     })
   })
 }
 
+// ==================== 辅助：路径前缀 ====================
+const MP = config.miniappPrefix   // /api/miniapp
+const AP = config.apiPrefix       // /api
+
 // ==================== 用户相关 API ====================
 
-/**
- * 微信登录
- * @param {String} code 微信登录 code
- */
 function wxLogin(code) {
   return request({
-    url: '/auth/wxlogin',
+    url: `${MP}/auth/wxlogin`,
     method: 'POST',
     data: { code },
     needAuth: false
   })
 }
 
-/**
- * 获取用户信息
- */
 function getUserInfo() {
   return request({
-    url: '/user/info',
+    url: `${MP}/user/info`,
     method: 'GET'
   })
 }
 
-// ==================== 商品相关 API ====================
+function updateProfile(data) {
+  return request({
+    url: `${MP}/user/update`,
+    method: 'PUT',
+    data
+  })
+}
 
-/**
- * 获取首页数据
- */
+function accountLogin(account, password) {
+  return request({
+    url: `${MP}/auth/login`,
+    method: 'POST',
+    data: { account, password },
+    needAuth: false
+  })
+}
+
+function sendSmsCode(phone) {
+  return request({
+    url: `${MP}/auth/send-code`,
+    method: 'POST',
+    data: { phone },
+    needAuth: false
+  })
+}
+
+function phoneLogin(phone, code) {
+  return request({
+    url: `${MP}/auth/phone-login`,
+    method: 'POST',
+    data: { phone, code },
+    needAuth: false
+  })
+}
+
+// ==================== 首页 & 基础数据 API ====================
+
 function getHomeData() {
   return request({
-    url: '/home',
+    url: `${MP}/home`,
     method: 'GET',
     needAuth: false
   })
 }
 
-/**
- * 获取商品列表
- * @param {Object} params 查询参数 { page, pageSize, category, style, keyword, sort }
- */
+function getStyles() {
+  return request({
+    url: `${MP}/styles`,
+    method: 'GET',
+    needAuth: false
+  })
+}
+
+function getCategories() {
+  return request({
+    url: `${MP}/categories`,
+    method: 'GET',
+    needAuth: false
+  })
+}
+
+// ==================== 商品相关 API ====================
+
 function getGoodsList(params = {}) {
   return request({
-    url: '/goods/list',
+    url: `${MP}/goods/list`,
     method: 'GET',
     data: params,
     needAuth: false
   })
 }
 
-/**
- * 获取商品详情
- * @param {String} id 商品ID
- */
 function getGoodsDetail(id) {
   return request({
-    url: `/goods/${id}`,
+    url: `${MP}/goods/${id}`,
     method: 'GET',
     needAuth: false
   })
 }
 
-/**
- * 搜索商品
- * @param {String} keyword 关键词
- * @param {Object} params 其他参数
- */
 function searchGoods(keyword, params = {}) {
   return request({
-    url: '/goods/search',
+    url: `${MP}/goods/search`,
     method: 'GET',
     data: { keyword, ...params },
     needAuth: false
   })
 }
 
-// ==================== 收藏相关 API ====================
-
-/**
- * 获取收藏列表
- */
-function getFavorites() {
-  return request({
-    url: '/favorites',
-    method: 'GET'
-  })
-}
-
-/**
- * 添加收藏
- * @param {String} goodsId 商品ID
- */
-function addFavorite(goodsId) {
-  return request({
-    url: '/favorites',
-    method: 'POST',
-    data: { goodsId }
-  })
-}
-
-/**
- * 取消收藏
- * @param {String} goodsId 商品ID
- */
-function removeFavorite(goodsId) {
-  return request({
-    url: `/favorites/${goodsId}`,
-    method: 'DELETE'
-  })
-}
-
-// ==================== 购物车相关 API ====================
-
-/**
- * 获取购物车
- */
-function getCart() {
-  return request({
-    url: '/cart',
-    method: 'GET'
-  })
-}
-
-/**
- * 添加到购物车
- * @param {Object} data { goodsId, count, specs }
- */
-function addToCart(data) {
-  return request({
-    url: '/cart',
-    method: 'POST',
-    data
-  })
-}
-
-/**
- * 更新购物车商品数量
- * @param {String} cartId 购物车项ID
- * @param {Number} count 数量
- */
-function updateCartItem(cartId, count) {
-  return request({
-    url: `/cart/${cartId}`,
-    method: 'PUT',
-    data: { count }
-  })
-}
-
-/**
- * 删除购物车商品
- * @param {String} cartId 购物车项ID
- */
-function removeCartItem(cartId) {
-  return request({
-    url: `/cart/${cartId}`,
-    method: 'DELETE'
-  })
-}
-
-// ==================== 订单相关 API ====================
-
-/**
- * 创建订单
- * @param {Object} orderData 订单数据
- */
-function createOrder(orderData) {
-  return request({
-    url: '/orders',
-    method: 'POST',
-    data: orderData
-  })
-}
-
-/**
- * 获取订单列表
- * @param {Object} params { status, page, pageSize }
- */
-function getOrders(params = {}) {
-  return request({
-    url: '/orders',
-    method: 'GET',
-    data: params
-  })
-}
-
-/**
- * 获取订单详情
- * @param {String} orderId 订单ID
- */
-function getOrderDetail(orderId) {
-  return request({
-    url: `/orders/${orderId}`,
-    method: 'GET'
-  })
-}
-
-/**
- * 取消订单
- * @param {String} orderId 订单ID
- */
-function cancelOrder(orderId, reason) {
-  return request({
-    url: `/orders/${orderId}/cancel`,
-    method: 'POST',
-    data: { reason }
-  })
-}
-
-/**
- * 确认收货
- * @param {String} orderId 订单ID
- */
-function confirmOrder(orderId) {
-  return request({
-    url: `/orders/${orderId}/confirm`,
-    method: 'POST'
-  })
-}
-
-// ==================== 砍价相关 API ====================
-
-/**
- * 获取砍价商品列表
- */
-function getBargainGoods() {
-  return request({
-    url: '/bargains',
-    method: 'GET',
-    needAuth: false
-  })
-}
-
-/**
- * 发起砍价
- * @param {String} goodsId 商品ID
- */
-function startBargain(productId, productName, originalPrice, targetPrice, coverImage) {
-  return request({
-    url: '/bargains',
-    method: 'POST',
-    data: { productId, productName, originalPrice, targetPrice, coverImage }
-  })
-}
-
-/**
- * 获取我的砍价列表
- */
-function getMyBargains() {
-  return request({
-    url: '/bargains/my',
-    method: 'GET'
-  })
-}
-
-/**
- * 帮好友砍价
- * @param {String} bargainId 砍价活动ID
- */
-function helpBargain(bargainId) {
-  return request({
-    url: `/bargains/${bargainId}/help`,
-    method: 'POST'
-  })
-}
-
-/**
- * 取消砍价
- * @param {String} bargainId 砍价活动ID
- */
-function cancelBargain(bargainId) {
-  return request({
-    url: `/bargains/${bargainId}`,
-    method: 'DELETE'
-  })
-}
-
-// ==================== 地址相关 API ====================
-
-/**
- * 获取地址列表
- */
-function getAddresses() {
-  return request({
-    url: '/addresses',
-    method: 'GET'
-  })
-}
-
-/**
- * 添加地址
- * @param {Object} addressData 地址数据
- */
-function addAddress(addressData) {
-  return request({
-    url: '/addresses',
-    method: 'POST',
-    data: addressData
-  })
-}
-
-/**
- * 更新地址
- * @param {String} addressId 地址ID
- * @param {Object} addressData 地址数据
- */
-function updateAddress(addressId, addressData) {
-  return request({
-    url: `/addresses/${addressId}`,
-    method: 'PUT',
-    data: addressData
-  })
-}
-
-/**
- * 删除地址
- * @param {String} addressId 地址ID
- */
-function deleteAddress(addressId) {
-  return request({
-    url: `/addresses/${addressId}`,
-    method: 'DELETE'
-  })
-}
-
-// ==================== 优惠券相关 API ====================
-
-/**
- * 获取优惠券列表
- * @param {Object} params { status: 'available' | 'used' | 'expired' }
- */
-function getCoupons(params = {}) {
-  return request({
-    url: '/coupons',
-    method: 'GET',
-    data: params
-  })
-}
-
-// ==================== 分类相关 API ====================
-
-/**
- * 获取分类列表
- */
-function getCategories() {
-  return request({
-    url: '/categories',
-    method: 'GET',
-    needAuth: false
-  })
-}
-
-/**
- * 获取风格列表
- */
-function getStyles() {
-  return request({
-    url: '/styles',
-    method: 'GET',
-    needAuth: false
-  })
-}
-
-// ==================== 套餐相关 API ====================
-
-/**
- * 获取套餐列表
- */
-function getPackages() {
-  return request({
-    url: '/packages',
-    method: 'GET',
-    needAuth: false
-  })
-}
-
-/**
- * 获取套餐详情
- * @param {String} id 套餐ID
- */
-function getPackageDetail(id) {
-  return request({
-    url: `/packages/${id}`,
-    method: 'GET',
-    needAuth: false
-  })
-}
-
-/**
- * 获取推荐商品（关联推荐）
- * @param {Object} params 参数
- * @param {String} params.productId 当前商品ID
- * @param {String} params.categoryId 分类ID
- * @param {String} params.categoryName 分类名称
- * @param {Number} params.limit 数量限制
- */
 function getRecommendations(params = {}) {
   return request({
-    url: '/recommendations',
+    url: `${MP}/recommendations`,
     method: 'GET',
     data: params,
     needAuth: false
   })
 }
 
-// 通用 POST 请求
-function post(url, data = {}, options = {}) {
+// ==================== 收藏相关 API ====================
+
+function getFavorites() {
+  return request({ url: `${AP}/favorites`, method: 'GET' })
+}
+
+function addFavorite(productId) {
   return request({
-    url,
+    url: `${AP}/favorites`,
     method: 'POST',
-    data,
-    ...options
+    data: { productId }
   })
 }
 
-// 通用 GET 请求
-function get(url, data = {}, options = {}) {
+function removeFavorite(id) {
   return request({
-    url,
+    url: `${AP}/favorites/${id}`,
+    method: 'DELETE'
+  })
+}
+
+function checkFavorite(productId) {
+  return request({
+    url: `${AP}/favorites/check/${productId}`,
+    method: 'GET'
+  })
+}
+
+// ==================== 购物车相关 API ====================
+
+function getCart() {
+  return request({ url: `${AP}/cart`, method: 'GET' })
+}
+
+function addToCart(data) {
+  return request({
+    url: `${AP}/cart`,
+    method: 'POST',
+    data
+  })
+}
+
+function updateCartItem(cartId, data) {
+  return request({
+    url: `${AP}/cart/${cartId}`,
+    method: 'PUT',
+    data
+  })
+}
+
+function removeCartItem(cartId) {
+  return request({
+    url: `${AP}/cart/${cartId}`,
+    method: 'DELETE'
+  })
+}
+
+function clearCart() {
+  return request({
+    url: `${AP}/cart/clear`,
+    method: 'DELETE'
+  })
+}
+
+// ==================== 订单相关 API ====================
+
+function createOrder(orderData) {
+  return request({
+    url: `${MP}/orders`,
+    method: 'POST',
+    data: orderData
+  })
+}
+
+function getOrders(params = {}) {
+  return request({
+    url: `${MP}/orders`,
     method: 'GET',
-    data,
-    ...options
+    data: params
+  })
+}
+
+function getOrderDetail(orderId) {
+  return request({
+    url: `${MP}/orders/${orderId}`,
+    method: 'GET'
+  })
+}
+
+function cancelOrder(orderId, reason) {
+  return request({
+    url: `${MP}/orders/${orderId}/cancel`,
+    method: 'POST',
+    data: { reason }
+  })
+}
+
+function confirmOrder(orderId) {
+  return request({
+    url: `${MP}/orders/${orderId}/confirm`,
+    method: 'POST'
+  })
+}
+
+// ==================== 套餐相关 API ====================
+
+function getPackages(params = {}) {
+  return request({
+    url: `${MP}/packages`,
+    method: 'GET',
+    data: params,
+    needAuth: false
+  })
+}
+
+function getPackageDetail(id) {
+  return request({
+    url: `${MP}/packages/${id}`,
+    method: 'GET',
+    needAuth: false
+  })
+}
+
+// ==================== 砍价相关 API ====================
+
+function getBargainList(params = {}) {
+  return request({
+    url: `${MP}/bargains`,
+    method: 'GET',
+    data: params,
+    needAuth: false
+  })
+}
+
+function getBargainDetail(id) {
+  return request({
+    url: `${MP}/bargains/${id}`,
+    method: 'GET',
+    needAuth: false
+  })
+}
+
+function startBargain(data) {
+  return request({
+    url: `${MP}/bargains`,
+    method: 'POST',
+    data
+  })
+}
+
+function getMyBargains() {
+  return request({
+    url: `${MP}/bargains/my`,
+    method: 'GET'
+  })
+}
+
+function helpBargain(bargainId) {
+  return request({
+    url: `${MP}/bargains/${bargainId}/help`,
+    method: 'POST'
+  })
+}
+
+function cancelBargain(bargainId) {
+  return request({
+    url: `${MP}/bargains/${bargainId}`,
+    method: 'DELETE'
+  })
+}
+
+// ==================== 地址相关 API ====================
+
+function getAddresses() {
+  return request({ url: `${AP}/addresses`, method: 'GET' })
+}
+
+function addAddress(data) {
+  return request({
+    url: `${AP}/addresses`,
+    method: 'POST',
+    data
+  })
+}
+
+function updateAddress(id, data) {
+  return request({
+    url: `${AP}/addresses/${id}`,
+    method: 'PUT',
+    data
+  })
+}
+
+function deleteAddress(id) {
+  return request({
+    url: `${AP}/addresses/${id}`,
+    method: 'DELETE'
+  })
+}
+
+function setDefaultAddress(id) {
+  return request({
+    url: `${AP}/addresses/${id}/default`,
+    method: 'PUT'
+  })
+}
+
+// ==================== 优惠券相关 API ====================
+
+function getCoupons(params = {}) {
+  return request({
+    url: `${AP}/coupons`,
+    method: 'GET',
+    data: params,
+    needAuth: false
+  })
+}
+
+function claimCoupon(couponId) {
+  return request({
+    url: `${AP}/coupons/${couponId}/claim`,
+    method: 'POST'
+  })
+}
+
+// ==================== 发票相关 API ====================
+
+function getInvoiceList() {
+  return request({ url: `${AP}/invoice-info`, method: 'GET' })
+}
+
+function getInvoiceDetail(id) {
+  return request({ url: `${AP}/invoice-info/${id}`, method: 'GET' })
+}
+
+function addInvoice(data) {
+  return request({
+    url: `${AP}/invoice-info`,
+    method: 'POST',
+    data
+  })
+}
+
+function updateInvoice(id, data) {
+  return request({
+    url: `${AP}/invoice-info/${id}`,
+    method: 'PUT',
+    data
+  })
+}
+
+function deleteInvoice(id) {
+  return request({
+    url: `${AP}/invoice-info/${id}`,
+    method: 'DELETE'
+  })
+}
+
+// ==================== 预约陪买相关 API ====================
+
+function createBooking(data) {
+  return request({
+    url: `${AP}/buying-service-requests`,
+    method: 'POST',
+    data
+  })
+}
+
+function getMyBookings() {
+  return request({
+    url: `${AP}/buying-service-requests`,
+    method: 'GET'
   })
 }
 
 module.exports = {
-  // 基础方法
   request,
-  post,
-  get,
   
-  // 用户相关
+  // 用户
   wxLogin,
   getUserInfo,
+  updateProfile,
+  accountLogin,
+  sendSmsCode,
+  phoneLogin,
   
-  // 商品相关
+  // 首页 & 基础数据
   getHomeData,
+  getStyles,
+  getCategories,
+  
+  // 商品
   getGoodsList,
   getGoodsDetail,
   searchGoods,
+  getRecommendations,
   
-  // 收藏相关
+  // 收藏
   getFavorites,
   addFavorite,
   removeFavorite,
+  checkFavorite,
   
-  // 购物车相关
+  // 购物车
   getCart,
   addToCart,
   updateCartItem,
   removeCartItem,
+  clearCart,
   
-  // 订单相关
+  // 订单
   createOrder,
   getOrders,
   getOrderDetail,
   cancelOrder,
   confirmOrder,
   
-  // 砍价相关
-  getBargainGoods,
+  // 套餐
+  getPackages,
+  getPackageDetail,
+  
+  // 砍价
+  getBargainList,
+  getBargainDetail,
   startBargain,
   getMyBargains,
   helpBargain,
   cancelBargain,
   
-  // 地址相关
+  // 地址
   getAddresses,
   addAddress,
   updateAddress,
   deleteAddress,
+  setDefaultAddress,
   
-  // 优惠券相关
+  // 优惠券
   getCoupons,
+  claimCoupon,
   
-  // 分类相关
-  getCategories,
+  // 发票
+  getInvoiceList,
+  getInvoiceDetail,
+  addInvoice,
+  updateInvoice,
+  deleteInvoice,
   
-  // 风格相关
-  getStyles,
-  
-  // 套餐相关
-  getPackages,
-  getPackageDetail,
-  
-  // 推荐相关
-  getRecommendations
+  // 预约陪买
+  createBooking,
+  getMyBookings
 }
-

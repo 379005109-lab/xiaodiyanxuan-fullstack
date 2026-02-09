@@ -1,0 +1,45 @@
+/* 地址编辑页 — Apple 风格 */
+page { background: #F5F5F7; color: #1D1D1F; }
+.page { padding-top: calc(88rpx + env(safe-area-inset-top)); }
+.nav-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  background: rgba(255,255,255,0.95); backdrop-filter: saturate(180%) blur(40rpx);
+  border-bottom: 1rpx solid #E5E5EA;
+  display: flex; align-items: center; justify-content: space-between;
+  height: calc(88rpx + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 32rpx 0;
+}
+.nav-back { width: 64rpx; height: 64rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; }
+.nav-title { font-size: 34rpx; font-weight: 600; }
+.nav-placeholder { width: 64rpx; }
+
+.content { padding: 24rpx 32rpx; }
+
+.form-card {
+  background: #FFFFFF; border-radius: 24rpx; overflow: hidden; border: 1rpx solid #E5E5EA;
+}
+.form-item {
+  display: flex; align-items: center; padding: 28rpx 32rpx; border-bottom: 1rpx solid #E5E5EA;
+}
+.form-item:last-child { border-bottom: none; }
+.form-label { font-size: 30rpx; font-weight: 500; color: #1D1D1F; width: 160rpx; flex-shrink: 0; }
+.form-input { flex: 1; font-size: 30rpx; color: #1D1D1F; }
+.form-value { flex: 1; font-size: 30rpx; color: #1D1D1F; }
+.form-value.placeholder { color: #C7C7CC; }
+.form-arrow { font-size: 36rpx; color: #C7C7CC; margin-left: 8rpx; }
+.form-switch-item { justify-content: space-between; }
+
+.save-btn {
+  margin-top: 40rpx; height: 96rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #1D1D1F; border-radius: 24rpx;
+  font-size: 32rpx; font-weight: 500; color: #FFFFFF;
+}
+.save-btn:active { background: #000000; }
+
+.delete-btn {
+  margin-top: 24rpx; height: 96rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #FFFFFF; border: 2rpx solid #D2D2D7; border-radius: 24rpx;
+  font-size: 32rpx; font-weight: 500; color: #FF3B30;
+}
+.delete-btn:active { background: #F5F5F7; }
