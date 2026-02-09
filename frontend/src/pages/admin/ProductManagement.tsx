@@ -3065,15 +3065,13 @@ export default function ProductManagement() {
                 )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">分类</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center">
                     <span>{currentRole === 'designer' ? '设计师售价' : '价格'}</span>
-                    <button
+                    <span
                       onClick={() => setShowFinancialColumns(!showFinancialColumns)}
-                      className="ml-1 text-gray-400 hover:text-gray-600 text-xs"
-                      title={showFinancialColumns ? '收起财务明细' : '展开财务明细'}
-                    >
-                      {showFinancialColumns ? '▼' : '▶'}
-                    </button>
+                      className="ml-1 cursor-pointer text-gray-300 hover:text-gray-400 select-none" style={{fontSize:'8px',lineHeight:1}}
+                      title={showFinancialColumns ? '收起' : '明细'}
+                    >···</span>
                   </div>
                 </th>
                 {showFinancialColumns && (
@@ -3380,115 +3378,84 @@ export default function ProductManagement() {
                   </td>
 
                   {/* 财务明细列（折后价、返佣、差额、总收益、成本价）- 默认隐藏 */}
-                  {showFinancialColumns && (
-                    <>
-                      {/* 折后价列：基于实际售价 × 折扣系数 */}
-                      <td className="py-4 px-4">
-                        <div className="text-sm text-gray-700">
-                          {(() => {
-                            const p: any = product as any
-                            const tp = p?.tierPricing
-                            const discountRate = Number(tp?.discountRate) || 0
-                            if (discountRate <= 0) {
-                              const v = Number(tp?.discountedPrice)
-                              if (!Number.isFinite(v) || v <= 0) return '-'
-                              return formatPrice(v)
-                            }
-                            // 基于实际售价计算折后价
-                            const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
-                            const basePrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
-                            const sellPrice = overridePrice > 0 ? overridePrice : basePrice
-                            const discounted = Math.round(sellPrice * discountRate)
-                            return formatPrice(discounted)
-                          })()}
-                        </div>
-                      </td>
+                  {showFinancialColumns && (() => {
+                    // 计算实际售价（与价格列显示一致）
+                    const p: any = product as any
+                    const tp = p?.tierPricing
+                    const discountRate = Number(tp?.discountRate) || 0
+                    const commissionRate = Number(tp?.commissionRate) || 0
+                    const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
+                    const takePrice = Number(p?.takePrice) || 0
+                    const origDiscountedPrice = Number(tp?.discountedPrice) || 0
+                    const origCommission = Number(tp?.commissionAmount) || 0
 
-                      {/* 返佣金额列：基于实际售价 × 折扣系数 × 返佣比例 */}
-                      <td className="py-4 px-4">
-                        <div className="text-sm text-gray-700">
-                          {(() => {
-                            const p: any = product as any
-                            const tp = p?.tierPricing
-                            const discountRate = Number(tp?.discountRate) || 0
-                            const commissionRate = Number(tp?.commissionRate) || 0
-                            if (discountRate <= 0 || commissionRate <= 0) {
-                              const v = Number(tp?.commissionAmount)
-                              if (!Number.isFinite(v) || v < 0) return '-'
-                              return formatPrice(v)
-                            }
-                            const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
-                            const basePrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
-                            const sellPrice = overridePrice > 0 ? overridePrice : basePrice
-                            const commission = Math.round(sellPrice * discountRate * commissionRate)
-                            return formatPrice(commission)
-                          })()}
-                        </div>
-                      </td>
+                    // 设计师售价 = 覆盖价 > 授权价 > 折后价
+                    let sellPrice = 0
+                    if (currentRole === 'designer') {
+                      sellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : origDiscountedPrice)
+                    } else {
+                      // 非设计师：使用覆盖价或SKU价格
+                      const skuPrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
+                      sellPrice = overridePrice > 0 ? overridePrice : skuPrice
+                    }
 
-                      {/* 设计师专属列：差额 和 总收益 */}
-                      {currentRole === 'designer' && (
-                        <>
-                          <td className="py-4 px-4">
-                            <div className="text-sm">
-                              {(() => {
-                                const p: any = product as any
-                                const tp = p?.tierPricing
-                                const discountRate = Number(tp?.discountRate) || 0
-                                const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
-                                const basePrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
-                                const sellPrice = overridePrice > 0 ? overridePrice : basePrice
-                                const origDiscounted = Number(tp?.discountedPrice) || Math.round(basePrice * (discountRate || 0.6))
-                                if (origDiscounted <= 0) return '-'
-                                const actualDiscounted = discountRate > 0 ? Math.round(sellPrice * discountRate) : origDiscounted
-                                const diff = actualDiscounted - origDiscounted
-                                if (diff <= 0) return <span className="text-gray-400">0</span>
-                                return <span className="text-orange-600 font-medium">{formatPrice(diff)}</span>
-                              })()}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="text-sm">
-                              {(() => {
-                                const p: any = product as any
-                                const tp = p?.tierPricing
-                                const discountRate = Number(tp?.discountRate) || 0
-                                const commissionRate = Number(tp?.commissionRate) || 0
-                                const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
-                                const basePrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
-                                const sellPrice = overridePrice > 0 ? overridePrice : basePrice
-                                const origDiscounted = Number(tp?.discountedPrice) || Math.round(basePrice * (discountRate || 0.6))
-                                const actualDiscounted = discountRate > 0 ? Math.round(sellPrice * discountRate) : origDiscounted
-                                const commission = (discountRate > 0 && commissionRate > 0) ? Math.round(sellPrice * discountRate * commissionRate) : (Number(tp?.commissionAmount) || 0)
-                                const diff = Math.max(0, actualDiscounted - origDiscounted)
-                                const total = diff + commission
-                                if (total <= 0) return '-'
-                                return <span className="text-green-600 font-bold">{formatPrice(total)}</span>
-                              })()}
-                            </div>
-                          </td>
-                        </>
-                      )}
+                    // 折后价 = 实际售价 × 折扣率
+                    const actualDiscounted = discountRate > 0 ? Math.round(sellPrice * discountRate) : origDiscountedPrice
+                    // 返佣 = 实际售价 × 折扣率 × 返佣率
+                    const actualCommission = (discountRate > 0 && commissionRate > 0) ? Math.round(sellPrice * discountRate * commissionRate) : origCommission
+                    // 差额 = 新折后价 - 原始折后价
+                    const diff = Math.max(0, actualDiscounted - origDiscountedPrice)
+                    // 总收益 = 差额 + 返佣
+                    const totalEarnings = diff + actualCommission
 
-                      {showCostColumn && currentRole !== 'designer' && (
+                    return (
+                      <>
+                        {/* 折后价 */}
                         <td className="py-4 px-4">
                           <div className="text-sm text-gray-700">
-                            {(() => {
-                              const p: any = product as any
-                              const cost = Number(
-                                p?.tierPricing?.netCostPrice ??
-                                p.costPrice ??
-                                p.takePrice ??
-                                p?.skus?.[0]?.costPrice ??
-                                0
-                              )
-                              return formatPrice(cost)
-                            })()}
+                            {actualDiscounted > 0 ? formatPrice(actualDiscounted) : '-'}
                           </div>
                         </td>
-                      )}
-                    </>
-                  )}
+                        {/* 返佣金额 */}
+                        <td className="py-4 px-4">
+                          <div className="text-sm text-gray-700">
+                            {actualCommission > 0 ? formatPrice(actualCommission) : '-'}
+                          </div>
+                        </td>
+                        {/* 设计师专属：差额 + 总收益 */}
+                        {currentRole === 'designer' && (
+                          <>
+                            <td className="py-4 px-4">
+                              <div className="text-sm">
+                                {diff > 0 ? <span className="text-orange-600 font-medium">{formatPrice(diff)}</span> : <span className="text-gray-400">0</span>}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="text-sm">
+                                {totalEarnings > 0 ? <span className="text-green-600 font-bold">{formatPrice(totalEarnings)}</span> : '-'}
+                              </div>
+                            </td>
+                          </>
+                        )}
+                        {showCostColumn && currentRole !== 'designer' && (
+                          <td className="py-4 px-4">
+                            <div className="text-sm text-gray-700">
+                              {(() => {
+                                const cost = Number(
+                                  p?.tierPricing?.netCostPrice ??
+                                  p.costPrice ??
+                                  p.takePrice ??
+                                  p?.skus?.[0]?.costPrice ??
+                                  0
+                                )
+                                return formatPrice(cost)
+                              })()}
+                            </div>
+                          </td>
+                        )}
+                      </>
+                    )
+                  })()}
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{product.skus ? product.skus.length : 0}</span>
