@@ -167,7 +167,6 @@ export default function ProductManagement() {
       // 设计师：只显示已授权的厂家
       if (isDesignerUser) {
         try {
-          const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 1 } })
           // 从授权商品中收集厂家ID
           const authProductsResp = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } })
           const authorizedProducts = authProductsResp.data?.data || []
@@ -3005,7 +3004,7 @@ export default function ProductManagement() {
               onChange={(e) => { setFilterManufacturer(e.target.value); setCurrentPage(1); }}
               className="input w-full"
             >
-              <option value="">所有厂家</option>
+              <option value="">{isDesignerUser ? '授权厂家' : '所有厂家'}</option>
               {manufacturers.map((m) => (
                 <option key={m._id} value={m._id}>
                   {m.shortName || m.fullName || m.name}

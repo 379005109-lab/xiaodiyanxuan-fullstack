@@ -1539,27 +1539,21 @@ export default function ManufacturerManagement() {
                     <p className="text-sm text-gray-400 mt-2">点击下方"合作市场"寻找合作伙伴</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     {cooperatingManufacturers.map((item) => {
                       const authInfo = authorizationMap[item._id]
-                      const productImage = item.galleryImages?.[0] || item.logo
-                      const priceMin = item.priceRangeMin || 0
-                      const priceMax = item.priceRangeMax || 0
-                      const styleTags = item.styleTags || []
-                      const categoryTags = item.categoryTags || []
                       
                       return (
                         <div
                           key={item._id}
-                          className="bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow"
+                          className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all"
                         >
-                          {/* 顶部状态栏 */}
-                          <div className="relative">
-                            <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+                          {/* 顶部：启用开关 + 状态 */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
                               <button
                                 onClick={async () => {
                                   const authId = authInfo?.authorizationId
-                                  console.log('[Toggle] authId:', authId, 'item._id:', item._id, 'authInfo:', authInfo)
                                   if (!authId) {
                                     toast.error('授权ID缺失，请刷新页面')
                                     return
@@ -1570,148 +1564,103 @@ export default function ManufacturerManagement() {
                                     await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: newEnabled })
                                     toast.success(newEnabled ? '已开启' : '已关闭')
                                   } catch (e: any) {
-                                    console.error('[Toggle] Error:', e)
                                     setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: !newEnabled } }))
                                     toast.error(e.response?.data?.message || '操作失败')
                                   }
                                 }}
                                 className={`relative w-12 h-6 rounded-full transition-colors ${
-                                  authInfo?.isEnabled !== false ? 'bg-green-500' : 'bg-gray-300'
+                                  authInfo?.isEnabled !== false ? 'bg-emerald-500' : 'bg-gray-300'
                                 }`}
                               >
-                                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                                  authInfo?.isEnabled !== false ? 'left-7' : 'left-1'
-                                }`} />
+                                <span
+                                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                                    authInfo?.isEnabled !== false ? 'translate-x-6' : 'translate-x-0'
+                                  }`}
+                                />
                               </button>
-                              <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                authInfo?.isEnabled !== false 
-                                  ? 'bg-green-500 text-white' 
-                                  : 'bg-gray-200 text-gray-600'
-                              }`}>
-                                {authInfo?.isEnabled !== false ? '启用中' : '已禁用'}
+                              <span className={`text-sm font-medium ${authInfo?.isEnabled !== false ? 'text-emerald-600' : 'text-gray-500'}`}>
+                                {authInfo?.isEnabled !== false ? '启用中' : '已停用'}
                               </span>
                             </div>
-                            
-                            {/* 产品图片 - 点击查看详情 */}
-                            <div 
-                              className="h-48 bg-gray-100 cursor-pointer"
-                              onClick={() => {
-                                setPartnerDetailTarget(item)
-                                setShowPartnerDetailModal(true)
-                              }}
-                            >
-                              {productImage ? (
-                                <img src={getFileUrl(productImage)} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                  <Factory className="w-16 h-16" />
-                                </div>
-                              )}
+                          </div>
+
+                          {/* 合作商类型标签 */}
+                          <div className="text-xs text-gray-400 mb-1">工厂门户</div>
+
+                          {/* 合作商名称 */}
+                          <h3 className="text-2xl font-bold text-gray-900 mb-1">{item.shortName || item.fullName || item.name}</h3>
+                          
+                          {/* ID号 */}
+                          <p className="text-sm text-emerald-500 font-mono mb-6">{item.code || item._id}</p>
+
+                          {/* 折扣和返佣显示 */}
+                          <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                              <div className="text-xs text-gray-500 mb-2">最低折扣(%)</div>
+                              <div className="text-3xl font-bold text-gray-900">{authInfo?.minDiscountRate || item.defaultDiscount || 0}</div>
+                            </div>
+                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                              <div className="text-xs text-gray-500 mb-2">返佣比例(%)</div>
+                              <div className="text-3xl font-bold text-gray-900">{authInfo?.commissionRate || item.defaultCommission || 0}</div>
                             </div>
                           </div>
-                          
-                          {/* 内容区 */}
-                          <div className="p-4">
-                            {/* 类型和名称 */}
-                            <div className="text-xs text-gray-400 mb-1">厂家商家</div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-1">{item.shortName || item.fullName || item.name}</h3>
-                            {item.code && (
-                              <div className="text-xs text-orange-500 mb-4">{item.code}</div>
-                            )}
-                            
-                            {/* 零售价格范围 - 只显示零售价，隐藏成本价和敏感信息 */}
-                            {(priceMin > 0 || priceMax > 0) && (
-                              <div className="mb-3">
-                                <div className="text-xs text-gray-500 mb-1">零售价格范围</div>
-                                <div className="text-lg font-semibold text-gray-900">
-                                  ¥{priceMin.toLocaleString()} - ¥{priceMax.toLocaleString()}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* 风格标签 */}
-                            {styleTags.length > 0 && (
-                              <div className="mb-3">
-                                <div className="text-xs text-gray-500 mb-1">风格</div>
-                                <div className="flex flex-wrap gap-1">
-                                  {styleTags.slice(0, 4).map((tag: string, i: number) => (
-                                    <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* 品类标签 */}
-                            {categoryTags.length > 0 && (
-                              <div className="mb-4">
-                                <div className="text-xs text-gray-500 mb-1">品类</div>
-                                <div className="flex flex-wrap gap-1">
-                                  {categoryTags.slice(0, 4).map((tag: string, i: number) => (
-                                    <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* 操作按钮 */}
-                            <button 
-                              onClick={() => handleOpenProductAuthorization(item)}
-                              className="w-full py-3 bg-[#153e35] text-white rounded-xl font-medium hover:bg-[#1a4d42] mb-2"
+
+                          {/* 经营授权按钮 */}
+                          <button
+                            onClick={() => handleOpenProductAuthorization(item)}
+                            className="w-full py-3.5 bg-[#153e35] text-white rounded-xl font-medium hover:bg-[#1a4d42] transition-colors mb-4"
+                          >
+                            经营授权
+                          </button>
+
+                          {/* 底部按钮 */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              onClick={async () => {
+                                const authId = authInfo?.authorizationId
+                                if (!authId) {
+                                  toast.error('授权ID缺失，请刷新页面')
+                                  return
+                                }
+                                const newEnabled = authInfo?.isEnabled === false
+                                try {
+                                  setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: newEnabled } }))
+                                  await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: newEnabled })
+                                  toast.success(newEnabled ? '已恢复合作' : '已暂停合作')
+                                } catch (e: any) {
+                                  setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: !newEnabled } }))
+                                  toast.error(e.response?.data?.message || '操作失败')
+                                }
+                              }}
+                              className={`py-3 bg-white border rounded-xl font-medium transition-colors ${
+                                authInfo?.isEnabled === false 
+                                  ? 'border-gray-300 text-emerald-600 hover:bg-gray-50' 
+                                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
                             >
-                              经营授权
+                              {authInfo?.isEnabled === false ? '恢复合作' : '暂停合作'}
                             </button>
-                            <div className="grid grid-cols-2 gap-2">
-                              <button 
-                                onClick={async () => {
-                                  const authId = authInfo?.authorizationId
-                                  console.log('[暂停/恢复合作] authId:', authId, 'item._id:', item._id, 'authInfo:', authInfo)
-                                  if (!authId) {
-                                    toast.error('授权ID缺失，请刷新页面')
-                                    return
-                                  }
-                                  const newEnabled = authInfo?.isEnabled === false
-                                  try {
-                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: newEnabled } }))
-                                    await apiClient.put(`/authorizations/${authId}/toggle-enabled`, { enabled: newEnabled })
-                                    toast.success(newEnabled ? '已恢复合作' : '已暂停合作')
-                                  } catch (e: any) {
-                                    setAuthorizationMap(prev => ({ ...prev, [item._id]: { ...prev[item._id], isEnabled: !newEnabled } }))
-                                    toast.error(e.response?.data?.message || '操作失败')
-                                  }
-                                }}
-                                className={`py-2 border rounded-xl text-sm ${authInfo?.isEnabled === false ? 'border-green-200 text-green-600 hover:bg-green-50' : 'border-orange-200 text-orange-600 hover:bg-orange-50'}`}
-                              >
-                                {authInfo?.isEnabled === false ? '恢复合作' : '暂停合作'}
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  const authId = authInfo?.authorizationId
-                                  if (!authId) return
-                                  if (confirm('确定要取消与该厂家的合作吗？')) {
-                                    // 立即从本地状态中移除，避免等待网络请求
-                                    setReceivedAuths(prev => prev.filter(a => a._id !== authId))
-                                    apiClient.delete(`/authorizations/${authId}`)
-                                      .then(() => {
-                                        toast.success('已取消合作')
-                                        // 仍然调用fetchData确保数据同步，但UI已经立即更新
-                                        fetchData()
-                                      })
-                                      .catch(() => {
-                                        toast.error('取消合作失败')
-                                        // 如果删除失败，恢复本地状态
-                                        fetchData()
-                                      })
-                                  }
-                                }}
-                                className="py-2 border border-red-200 text-red-600 rounded-xl text-sm hover:bg-red-50"
-                              >
-                                取消合作
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => {
+                                const authId = authInfo?.authorizationId
+                                if (!authId) return
+                                if (confirm('确定要取消与该厂家的合作吗？')) {
+                                  setReceivedAuths(prev => prev.filter(a => a._id !== authId))
+                                  apiClient.delete(`/authorizations/${authId}`)
+                                    .then(() => {
+                                      toast.success('已取消合作')
+                                      fetchData()
+                                    })
+                                    .catch(() => {
+                                      toast.error('取消合作失败')
+                                      fetchData()
+                                    })
+                                }
+                              }}
+                              className="py-3 bg-white border border-gray-300 text-gray-500 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+                            >
+                              取消合作
+                            </button>
                           </div>
                         </div>
                       )
