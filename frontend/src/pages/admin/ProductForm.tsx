@@ -954,6 +954,8 @@ export default function ProductForm() {
           videos: sku.videos || [],
           images: sku.images || [],
           effectImages: sku.effectImages || [],
+          inspectionImages: sku.inspectionImages || [],
+          deliveryImages: sku.deliveryImages || [],
           files: sku.files || [],
           isPro: sku.isPro,
           proFeature: sku.proFeature,

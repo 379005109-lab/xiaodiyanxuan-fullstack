@@ -319,7 +319,7 @@ export default function ProductGalleryPage() {
           {/* Tabs */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4 border-b border-gray-200 overflow-x-auto">
-              {tabDefs.filter(t => t.count > 0 || t.key === 'material').map(tab => (
+              {tabDefs.map(tab => (
                 <button
                   key={tab.key}
                   onClick={() => { setActiveTab(tab.key); setSelectedSkuId(null); }}
