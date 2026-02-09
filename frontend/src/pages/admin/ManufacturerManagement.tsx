@@ -253,6 +253,9 @@ export default function ManufacturerManagement() {
     minDiscountRate?: number;
     commissionRate?: number;
     isEnabled?: boolean;
+    scope?: string;
+    validFrom?: string;
+    validUntil?: string;
   }>>({})
 
   // 厂家管理TAB
@@ -361,7 +364,7 @@ export default function ManufacturerManagement() {
           const authRes = await apiClient.get('/authorizations/summary', { params: { manufacturerId: myManufacturerId } })
           console.log('[ManufacturerManagement] Authorization response:', authRes.data)
           const authData = authRes.data?.data || authRes.data || []
-          const authMap: Record<string, { status: string; productCount: number; authorizationId?: string; minDiscountRate?: number; commissionRate?: number; isEnabled?: boolean }> = {}
+          const authMap: Record<string, { status: string; productCount: number; authorizationId?: string; minDiscountRate?: number; commissionRate?: number; isEnabled?: boolean; scope?: string; validFrom?: string; validUntil?: string }> = {}
           
           if (Array.isArray(authData)) {
             authData.forEach((auth: any) => {
@@ -380,7 +383,10 @@ export default function ManufacturerManagement() {
                   authorizationId: auth.authorizationId,
                   minDiscountRate: auth.minDiscountRate || 0,
                   commissionRate: auth.commissionRate || 0,
-                  isEnabled: auth.isEnabled !== false // 默认为启用
+                  isEnabled: auth.isEnabled !== false, // 默认为启用
+                  scope: auth.scope || '',
+                  validFrom: auth.validFrom || '',
+                  validUntil: auth.validUntil || ''
                 } as any
               }
             })
@@ -1591,7 +1597,26 @@ export default function ManufacturerManagement() {
                           <h3 className="text-2xl font-bold text-gray-900 mb-1">{item.shortName || item.fullName || item.name}</h3>
                           
                           {/* ID号 */}
-                          <p className="text-sm text-emerald-500 font-mono mb-6">{item.code || item._id}</p>
+                          <p className="text-sm text-emerald-500 font-mono mb-4">{item.code || item._id}</p>
+
+                          {/* 合作时间段 */}
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3">
+                            <div className="text-xs text-gray-500 mb-1">合作期限</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {authInfo?.validFrom ? new Date(authInfo.validFrom).toLocaleDateString() : '--'}
+                              {' ~ '}
+                              {authInfo?.validUntil ? new Date(authInfo.validUntil).toLocaleDateString() : '永久'}
+                            </div>
+                          </div>
+
+                          {/* 授权协议 */}
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4">
+                            <div className="text-xs text-gray-500 mb-1">授权协议</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {authInfo?.scope === 'all' ? '全部商品授权' : authInfo?.scope === 'category' ? '分类授权' : authInfo?.scope === 'specific' ? '指定商品授权' : authInfo?.scope === 'mixed' ? '混合授权' : '未设置'}
+                              {authInfo?.productCount ? ` · ${authInfo.productCount}件` : ''}
+                            </div>
+                          </div>
 
                           {/* 折扣和返佣显示 */}
                           <div className="grid grid-cols-2 gap-4 mb-6">
@@ -2114,9 +2139,28 @@ export default function ManufacturerManagement() {
                               <h3 className="text-2xl font-bold text-gray-900 mb-1">{targetName}</h3>
                               
                               {/* 合约期 */}
-                              <p className="text-sm text-emerald-500 font-mono mb-6">
+                              <p className="text-sm text-emerald-500 font-mono mb-3">
                                 {auth.validUntil ? `至 ${new Date(auth.validUntil).toLocaleDateString()}` : '永久有效'}
                               </p>
+
+                              {/* 合作时间段 */}
+                              <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3">
+                                <div className="text-xs text-gray-500 mb-1">合作期限</div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {auth.validFrom || auth.createdAt ? new Date(auth.validFrom || auth.createdAt).toLocaleDateString() : '--'}
+                                  {' ~ '}
+                                  {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久'}
+                                </div>
+                              </div>
+
+                              {/* 授权协议 */}
+                              <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4">
+                                <div className="text-xs text-gray-500 mb-1">授权协议</div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {auth.scope === 'all' ? '全部商品授权' : auth.scope === 'category' ? '分类授权' : auth.scope === 'specific' ? '指定商品授权' : auth.scope === 'mixed' ? '混合授权' : '未设置'}
+                                  {productCount > 0 ? ` · ${productCount}件` : ''}
+                                </div>
+                              </div>
 
                               {/* 折扣和返佣显示 */}
                               <div className="grid grid-cols-2 gap-4 mb-6">
@@ -2198,9 +2242,28 @@ export default function ManufacturerManagement() {
                           </div>
                           <div className="text-xs text-gray-400 mb-1">工厂门户</div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-1">{targetName}</h3>
-                          <p className="text-sm text-emerald-500 font-mono mb-6">
+                          <p className="text-sm text-emerald-500 font-mono mb-3">
                             {auth.validUntil ? `至 ${new Date(auth.validUntil).toLocaleDateString()}` : '永久有效'}
                           </p>
+
+                          {/* 合作时间段 */}
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3">
+                            <div className="text-xs text-gray-500 mb-1">合作期限</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {auth.validFrom || auth.createdAt ? new Date(auth.validFrom || auth.createdAt).toLocaleDateString() : '--'}
+                              {' ~ '}
+                              {auth.validUntil ? new Date(auth.validUntil).toLocaleDateString() : '永久'}
+                            </div>
+                          </div>
+
+                          {/* 授权协议 */}
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4">
+                            <div className="text-xs text-gray-500 mb-1">授权协议</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {auth.scope === 'all' ? '全部商品授权' : auth.scope === 'category' ? '分类授权' : auth.scope === 'specific' ? '指定商品授权' : auth.scope === 'mixed' ? '混合授权' : '未设置'}
+                              {productCount > 0 ? ` · ${productCount}件` : ''}
+                            </div>
+                          </div>
                           <div className="grid grid-cols-2 gap-4 mb-6">
                             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
                               <div className="text-xs text-gray-500 mb-2">最低折扣(%)</div>

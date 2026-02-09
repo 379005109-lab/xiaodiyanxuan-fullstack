@@ -1399,6 +1399,9 @@ export default function ManufacturerBusinessPanel() {
                             partnerLogo={partner.partnerLogo}
                             status="active"
                             productCount={totalProducts}
+                            validFrom={[...partner.grantedAuths, ...partner.receivedAuths][0]?.validFrom || [...partner.grantedAuths, ...partner.receivedAuths][0]?.createdAt}
+                            validUntil={[...partner.grantedAuths, ...partner.receivedAuths][0]?.validUntil}
+                            scope={[...partner.grantedAuths, ...partner.receivedAuths][0]?.scope}
                             grantedAuth={partner.grantedAuths.length > 0 ? {
                               minDiscountRate: Math.round(partner.grantedAuths.reduce((sum, a) => sum + (a.minDiscountRate || 0), 0) / partner.grantedAuths.length),
                               commissionRate: Math.round(partner.grantedAuths.reduce((sum, a) => sum + (a.commissionRate || 0), 0) / partner.grantedAuths.length * 10) / 10
