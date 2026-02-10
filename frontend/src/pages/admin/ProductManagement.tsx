@@ -38,7 +38,7 @@ export default function ProductManagement() {
     user?.role === 'super_admin' ||
     user?.role === 'platform_admin' ||
     user?.role === 'platform_staff'
-  const [showFinancialColumns, setShowFinancialColumns] = useState(false)
+  const [showFinancialColumns, setShowFinancialColumns] = useState(false) // v2-designer-fix
   const [designerDiscountEdits, setDesignerDiscountEdits] = useState<Record<string, string>>({})
   const [savingDesignerDiscount, setSavingDesignerDiscount] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
