@@ -16,6 +16,9 @@ interface PartnerCardProps {
     minDiscountRate: number
     commissionRate: number
   }
+  validFrom?: string
+  validUntil?: string
+  scope?: string
   onViewProducts: () => void
   onViewTierSystem: () => void
   onToggleStatus?: () => void
@@ -31,6 +34,9 @@ export default function PartnerCard({
   productCount,
   grantedAuth,
   receivedAuth,
+  validFrom,
+  validUntil,
+  scope,
   onViewProducts,
   onViewTierSystem,
   onToggleStatus,
@@ -87,7 +93,26 @@ export default function PartnerCard({
       <h3 className="text-2xl font-bold text-gray-900 mb-1">{partnerName}</h3>
       
       {/* ID号 */}
-      <p className="text-sm text-emerald-500 font-mono mb-6">{partnerId}</p>
+      <p className="text-sm text-emerald-500 font-mono mb-4">{partnerId}</p>
+
+      {/* 合作时间段 */}
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3">
+        <div className="text-xs text-gray-500 mb-1">合作期限</div>
+        <div className="text-sm font-medium text-gray-900">
+          {validFrom ? new Date(validFrom).toLocaleDateString() : '--'}
+          {' ~ '}
+          {validUntil ? new Date(validUntil).toLocaleDateString() : '永久'}
+        </div>
+      </div>
+
+      {/* 授权协议 */}
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4">
+        <div className="text-xs text-gray-500 mb-1">授权协议</div>
+        <div className="text-sm font-medium text-gray-900">
+          {scope === 'all' ? '全部商品授权' : scope === 'category' ? '分类授权' : scope === 'specific' ? '指定商品授权' : scope === 'mixed' ? '混合授权' : '未设置'}
+          {productCount > 0 ? ` · ${productCount}件` : ''}
+        </div>
+      </div>
 
       {/* 折扣和返佣显示 */}
       <div className="grid grid-cols-2 gap-4 mb-6">

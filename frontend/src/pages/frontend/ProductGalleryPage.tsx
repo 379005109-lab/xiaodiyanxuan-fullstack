@@ -61,16 +61,37 @@ export default function ProductGalleryPage() {
     loadReviews();
   }, [id]);
 
-  // Videos
+  // Videos — collect from product-level AND all SKU-level videos
   const videos = useMemo<VideoItem[]>(() => {
     if (!product) return [];
+    const items: VideoItem[] = [];
+    const seen = new Set<string>();
+
+    // 1. Product-level videos
     const rawVideos = (product as any).videos || (product as any).videoUrls || [];
     const videoArray = Array.isArray(rawVideos) ? rawVideos : [rawVideos];
     const videoTitles = (product as any).videoTitles || [];
-    return videoArray.filter(Boolean).map((url: string, i: number) => ({
-      url: typeof url === 'string' ? url : (url as any)?.url || '',
-      title: videoTitles[i] || `视频 ${i + 1}`,
-    })).filter((v: VideoItem) => v.url);
+    videoArray.filter(Boolean).forEach((url: string, i: number) => {
+      const u = typeof url === 'string' ? url : (url as any)?.url || '';
+      if (!u || seen.has(u)) return;
+      seen.add(u);
+      items.push({ url: u, title: videoTitles[i] || `视频 ${i + 1}` });
+    });
+
+    // 2. SKU-level videos
+    const allS = Array.isArray((product as any)?.skus) ? (product as any).skus : [];
+    allS.forEach((sku: any, si: number) => {
+      (sku.videos || []).filter(Boolean).forEach((v: string) => {
+        const normalized = v.replace(/\.mp4$/i, '');
+        if (seen.has(v) || seen.has(normalized)) return;
+        seen.add(v);
+        seen.add(normalized);
+        const skuName = sku.fabricName || sku.color || sku.spec || `SKU${si + 1}`;
+        items.push({ url: v, title: `${skuName} 视频` });
+      });
+    });
+
+    return items;
   }, [product]);
 
   const allSkus = useMemo(() => {
@@ -102,7 +123,7 @@ export default function ProductGalleryPage() {
     return videoIds.has(fileId) || isVideoFileByExtension(fileId);
   };
 
-  // Helper: get unique media from SKUs
+  // Helper: get unique media from SKUs (images only, no videos)
   const getUniqueSkuMedia = (field: string, skuFilter?: string | null) => {
     let targetSkus = allSkus;
     if (skuFilter) {
@@ -111,36 +132,19 @@ export default function ProductGalleryPage() {
       targetSkus = allSkus.filter((s: any) => (s.fabricName || s.color || s.spec || '') === fabricName);
     }
     const seen = new Set<string>();
-    const videos: string[] = [];
-    const images: string[] = [];
+    const result: string[] = [];
     targetSkus.forEach((sku: any) => {
       (sku[field] || []).forEach((id: string) => {
         if (!id) return;
         const normalized = id.replace(/\.mp4$/i, '');
         if (seen.has(normalized)) return;
         seen.add(normalized);
-        if (field === 'images') {
-          // For images field, separate videos and images
-          if (videoIds.has(id) || isVideoFileByExtension(id)) videos.push(id);
-          else images.push(id);
-        } else {
-          images.push(id);
-        }
+        // For 'images' field, skip videos (they show in the video section)
+        if (field === 'images' && (videoIds.has(id) || isVideoFileByExtension(id))) return;
+        result.push(id);
       });
     });
-    // Also include videos from videos field for 'images' tab
-    if (field === 'images') {
-      targetSkus.forEach((sku: any) => {
-        (sku.videos || []).forEach((id: string) => {
-          if (!id) return;
-          const normalized = id.replace(/\.mp4$/i, '');
-          if (seen.has(normalized)) return;
-          seen.add(normalized);
-          videos.push(id);
-        });
-      });
-    }
-    return [...videos, ...images];
+    return result;
   };
 
   const allSkuImages = useMemo(() => getUniqueSkuMedia('images'), [allSkus, videoIds]);
@@ -319,7 +323,7 @@ export default function ProductGalleryPage() {
           {/* Tabs */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4 border-b border-gray-200 overflow-x-auto">
-              {tabDefs.filter(t => t.count > 0 || t.key === 'material').map(tab => (
+              {tabDefs.map(tab => (
                 <button
                   key={tab.key}
                   onClick={() => { setActiveTab(tab.key); setSelectedSkuId(null); }}

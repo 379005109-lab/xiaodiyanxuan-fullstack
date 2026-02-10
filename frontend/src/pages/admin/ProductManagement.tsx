@@ -38,6 +38,7 @@ export default function ProductManagement() {
     user?.role === 'super_admin' ||
     user?.role === 'platform_admin' ||
     user?.role === 'platform_staff'
+  const [showFinancialColumns, setShowFinancialColumns] = useState(false)
   const [designerDiscountEdits, setDesignerDiscountEdits] = useState<Record<string, string>>({})
   const [savingDesignerDiscount, setSavingDesignerDiscount] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
@@ -167,7 +168,6 @@ export default function ProductManagement() {
       // 设计师：只显示已授权的厂家
       if (isDesignerUser) {
         try {
-          const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 1 } })
           // 从授权商品中收集厂家ID
           const authProductsResp = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000 } })
           const authorizedProducts = authProductsResp.data?.data || []
@@ -216,7 +216,42 @@ export default function ProductManagement() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      // includeHidden=true 确保管理页面能看到所有商品（包括隐藏的）
+      // 设计师账号：只加载授权商品，不加载任何非授权商品
+      if (isDesignerUser) {
+        try {
+          const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000, _t: Date.now() } })
+          let authorizedProducts = authResponse.data?.data || []
+          console.log('[ProductManagement] 设计师授权商品数量:', authorizedProducts.length)
+          
+          // 标记为授权商品
+          authorizedProducts.forEach((p: any) => { p.isAuthorized = true })
+          
+          // 加载商品覆盖设置
+          try {
+            const overridesResponse = await apiClient.get('/authorizations/product-overrides', { params: { _t: Date.now() } })
+            const overrides = overridesResponse.data?.data || {}
+            authorizedProducts = authorizedProducts.map((p: any) => {
+              const override = overrides[p._id]
+              return { 
+                ...p, 
+                isHidden: override?.hidden === true, 
+                overridePrice: override?.price
+              }
+            })
+          } catch (overrideError) {
+            console.log('[ProductManagement] 加载商品覆盖设置失败:', overrideError)
+          }
+          
+          setProducts(authorizedProducts)
+        } catch (authError) {
+          console.error('[ProductManagement] 加载设计师授权商品失败:', authError)
+          toast.error('加载授权商品失败')
+          setProducts([])
+        }
+        return
+      }
+
+      // 非设计师账号：正常加载
       const response = await getProducts({ pageSize: 10000, includeHidden: true, _t: Date.now() });
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
@@ -278,7 +313,6 @@ export default function ProductManagement() {
             console.log('[ProductManagement] 加载授权商品失败:', authError)
           }
         }
-        
         
         setProducts(filteredProducts);
       }
@@ -3005,7 +3039,7 @@ export default function ProductManagement() {
               onChange={(e) => { setFilterManufacturer(e.target.value); setCurrentPage(1); }}
               className="input w-full"
             >
-              <option value="">所有厂家</option>
+              <option value="">{isDesignerUser ? '授权厂家' : '所有厂家'}</option>
               {manufacturers.map((m) => (
                 <option key={m._id} value={m._id}>
                   {m.shortName || m.fullName || m.name}
@@ -3064,17 +3098,24 @@ export default function ProductManagement() {
                   <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">厂家</th>
                 )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">分类</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">{currentRole === 'designer' ? '设计师售价' : '价格'}</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">{currentRole === 'designer' ? '授权折后价' : '折后价(A)'}</th>
-                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">返佣金额(B)</th>
-                {currentRole === 'designer' && (
+                <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">
+                  <div className="flex items-center">
+                    <span>{currentRole === 'designer' ? '设计师售价' : '价格'}</span>
+                    <span
+                      onClick={() => setShowFinancialColumns(!showFinancialColumns)}
+                      className="ml-1 cursor-pointer text-gray-300 hover:text-gray-400 select-none" style={{fontSize:'8px',lineHeight:1}}
+                      title={showFinancialColumns ? '收起' : '明细'}
+                    >···</span>
+                  </div>
+                </th>
+                {showFinancialColumns && (
                   <>
-                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">差额(C)</th>
-                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">总收益(B+C)</th>
+                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">{currentRole === 'designer' ? '授权折后价' : '折后价(A)'}</th>
+                    <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">返佣金额(B)</th>
+                    {showCostColumn && currentRole !== 'designer' && (
+                      <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
+                    )}
                   </>
-                )}
-                {showCostColumn && currentRole !== 'designer' && (
-                  <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">成本价</th>
                 )}
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">SKU数量</th>
                 <th className="text-left py-4 px-4 text-sm font-medium text-gray-700">状态</th>
@@ -3364,84 +3405,65 @@ export default function ProductManagement() {
                     </div>
                   </td>
 
-                  {/* 折后价列：始终显示授权折后价（从 tierPricing） */}
-                  <td className="py-4 px-4">
-                    <div className="text-sm text-gray-700">
-                      {(() => {
-                        const p: any = product as any
-                        const v = Number(p?.tierPricing?.discountedPrice)
-                        if (!Number.isFinite(v) || v <= 0) return '-'
-                        return formatPrice(v)
-                      })()}
-                    </div>
-                  </td>
+                  {/* 财务明细列（折后价、返佣、差额、总收益、成本价）- 默认隐藏 */}
+                  {showFinancialColumns && (() => {
+                    // 计算实际售价（与价格列显示一致）
+                    const p: any = product as any
+                    const tp = p?.tierPricing
+                    const discountRate = Number(tp?.discountRate) || 0
+                    const commissionRate = Number(tp?.commissionRate) || 0
+                    const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
+                    const takePrice = Number(p?.takePrice) || 0
+                    const origDiscountedPrice = Number(tp?.discountedPrice) || 0
+                    const origCommission = Number(tp?.commissionAmount) || 0
 
-                  {/* 返佣金额列：始终基于授权折后价计算 */}
-                  <td className="py-4 px-4">
-                    <div className="text-sm text-gray-700">
-                      {(() => {
-                        const p: any = product as any
-                        const v = Number(p?.tierPricing?.commissionAmount)
-                        if (!Number.isFinite(v) || v < 0) return '-'
-                        return formatPrice(v)
-                      })()}
-                    </div>
-                  </td>
+                    // 设计师售价 = 覆盖价 > 授权价 > 折后价
+                    let sellPrice = 0
+                    if (currentRole === 'designer') {
+                      sellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : origDiscountedPrice)
+                    } else {
+                      const skuPrice = Number(p?.skus?.[0]?.price || p?.basePrice) || 0
+                      sellPrice = overridePrice > 0 ? overridePrice : skuPrice
+                    }
 
-                  {/* 设计师专属列：差额 和 总收益 */}
-                  {currentRole === 'designer' && (
-                    <>
-                      <td className="py-4 px-4">
-                        <div className="text-sm">
-                          {(() => {
-                            const p: any = product as any
-                            const discountedPrice = Number(p?.tierPricing?.discountedPrice) || 0
-                            if (discountedPrice <= 0) return '-'
-                            const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
-                            const takePrice = Number(p?.takePrice) || 0
-                            const designerSellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : discountedPrice)
-                            const diff = designerSellPrice - discountedPrice
-                            if (diff <= 0) return <span className="text-gray-400">0</span>
-                            return <span className="text-orange-600 font-medium">{formatPrice(diff)}</span>
-                          })()}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="text-sm">
-                          {(() => {
-                            const p: any = product as any
-                            const discountedPrice = Number(p?.tierPricing?.discountedPrice) || 0
-                            const commission = Number(p?.tierPricing?.commissionAmount) || 0
-                            if (discountedPrice <= 0 && commission <= 0) return '-'
-                            const overridePrice = p.overridePrice !== undefined && p.overridePrice !== null ? Number(p.overridePrice) : 0
-                            const takePrice = Number(p?.takePrice) || 0
-                            const designerSellPrice = overridePrice > 0 ? overridePrice : (takePrice > 0 ? takePrice : discountedPrice)
-                            const diff = Math.max(0, designerSellPrice - discountedPrice)
-                            const total = diff + commission
-                            return <span className="text-green-600 font-bold">{formatPrice(total)}</span>
-                          })()}
-                        </div>
-                      </td>
-                    </>
-                  )}
+                    // 折后价 = 实际售价 × 折扣率
+                    const actualDiscounted = discountRate > 0 ? Math.round(sellPrice * discountRate) : origDiscountedPrice
+                    // 返佣 = 实际售价 × 折扣率 × 返佣率
+                    const actualCommission = (discountRate > 0 && commissionRate > 0) ? Math.round(sellPrice * discountRate * commissionRate) : origCommission
 
-                  {showCostColumn && currentRole !== 'designer' && (
-                    <td className="py-4 px-4">
-                      <div className="text-sm text-gray-700">
-                        {(() => {
-                          const p: any = product as any
-                          const cost = Number(
-                            p?.tierPricing?.netCostPrice ??
-                            p.costPrice ??
-                            p.takePrice ??
-                            p?.skus?.[0]?.costPrice ??
-                            0
-                          )
-                          return formatPrice(cost)
-                        })()}
-                      </div>
-                    </td>
-                  )}
+                    return (
+                      <>
+                        {/* 折后价 */}
+                        <td className="py-4 px-4">
+                          <div className="text-sm text-gray-700">
+                            {actualDiscounted > 0 ? formatPrice(actualDiscounted) : '-'}
+                          </div>
+                        </td>
+                        {/* 返佣金额 */}
+                        <td className="py-4 px-4">
+                          <div className="text-sm text-gray-700">
+                            {actualCommission > 0 ? formatPrice(actualCommission) : '-'}
+                          </div>
+                        </td>
+                        {showCostColumn && currentRole !== 'designer' && (
+                          <td className="py-4 px-4">
+                            <div className="text-sm text-gray-700">
+                              {(() => {
+                                const cost = Number(
+                                  p?.tierPricing?.netCostPrice ??
+                                  p.costPrice ??
+                                  p.takePrice ??
+                                  p?.skus?.[0]?.costPrice ??
+                                  0
+                                )
+                                return formatPrice(cost)
+                              })()}
+                            </div>
+                          </td>
+                        )}
+                      </>
+                    )
+                  })()}
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{product.skus ? product.skus.length : 0}</span>
@@ -3577,7 +3599,16 @@ export default function ProductManagement() {
                     exit={{ opacity: 0, height: 0 }}
                     className="bg-gray-50"
                   >
-                    <td colSpan={currentRole === 'designer' ? 12 : (showCostColumn ? 12 : 11)} className="py-4 px-4">
+                    <td colSpan={(() => {
+                      // base cols: checkbox, image, name, category, price, sku, status, date, actions = 9
+                      // designer hides manufacturer (-1), non-designer has manufacturer (+1)
+                      let cols = currentRole === 'designer' ? 8 : 9
+                      if (showFinancialColumns) {
+                        cols += 2 // 折后价 + 返佣
+                        if (showCostColumn && currentRole !== 'designer') cols += 1
+                      }
+                      return cols
+                    })()} className="py-4 px-4">
                       <div className="space-y-2">
                         <div className="text-xs font-semibold text-gray-600 mb-2">SKU列表：</div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

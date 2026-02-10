@@ -1,3 +1,4 @@
+// Build trigger: 2026-02-09T16:02
 require('dotenv').config()
 const mongoose = require('mongoose')
 const app = require('./src/app')

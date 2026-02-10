@@ -34,8 +34,16 @@ ARG CACHEBUST
 ARG GIT_SHA
 RUN echo "Cache bust: ${CACHEBUST:-none} SHA: ${GIT_SHA:-none}" && date
 
-# 复制应用代码 - 确保每次构建都是最新代码
+# 清除旧代码并复制最新代码
+RUN rm -rf /app/src 2>/dev/null || true
 COPY --chown=node:node . .
+
+# 构建验证 - 记录关键文件状态
+RUN echo "BUILD_TIME=$(date -u +%Y%m%dT%H%M%S)" > /app/build-info.txt && \
+    echo "GIT_SHA=${GIT_SHA}" >> /app/build-info.txt && \
+    echo "AUTH_LINES=$(wc -l < /app/src/routes/authorizations.js)" >> /app/build-info.txt && \
+    echo "AUTH_MD5=$(md5sum /app/src/routes/authorizations.js | cut -d' ' -f1)" >> /app/build-info.txt && \
+    grep -c "只有厂家或设计师" /app/src/routes/authorizations.js >> /app/build-info.txt || echo "DESIGNER_CHECK=0" >> /app/build-info.txt
 
 # 暴露端口
 EXPOSE 8080
