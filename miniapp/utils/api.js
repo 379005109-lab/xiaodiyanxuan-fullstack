@@ -487,6 +487,36 @@ function getMyBookings() {
   })
 }
 
+// ==================== 通知相关 API ====================
+
+function notifyAdmin(data) {
+  return request({
+    url: `${MP}/notify-admin`,
+    method: 'POST',
+    data
+  })
+}
+
+// ==================== 用户优惠券 API ====================
+
+function getMyCoupons(params) {
+  return request({
+    url: `${MP}/my-coupons`,
+    method: 'GET',
+    data: params
+  })
+}
+
+// ==================== 增强版订单创建 API ====================
+
+function createOrderV2(data) {
+  return request({
+    url: `${MP}/orders/v2`,
+    method: 'POST',
+    data
+  })
+}
+
 module.exports = {
   request,
   
@@ -561,5 +591,14 @@ module.exports = {
   
   // 预约陪买
   createBooking,
-  getMyBookings
+  getMyBookings,
+  
+  // 通知
+  notifyAdmin,
+  
+  // 用户优惠券
+  getMyCoupons,
+  
+  // 增强版订单
+  createOrderV2
 }

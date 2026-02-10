@@ -1,15 +1,39 @@
+const app = getApp()
+const api = app.api || require('../../utils/api.js')
+
+const defaultRecommendations = [
+	{ id: 'r1', name: '配套茶几', price: 1299, thumb: 'https://picsum.photos/200/200?random=100', added: false, count: 0 },
+	{ id: 'r2', name: '配套椅子', price: 599, thumb: 'https://picsum.photos/200/200?random=101', added: false, count: 0 },
+	{ id: 'r3', name: '配套灯具', price: 899, thumb: 'https://picsum.photos/200/200?random=102', added: false, count: 0 }
+]
+
 Page({
 	data: {
-		recommendations: [
-			{ id: 'r1', name: '配套茶几', price: 1299, thumb: 'https://picsum.photos/200/200?random=100', added: false, count: 0 },
-			{ id: 'r2', name: '配套椅子', price: 599, thumb: 'https://picsum.photos/200/200?random=101', added: false, count: 0 },
-			{ id: 'r3', name: '配套灯具', price: 899, thumb: 'https://picsum.photos/200/200?random=102', added: false, count: 0 }
-		],
+		recommendations: defaultRecommendations,
 		recommendationTotalPrice: 0
 	},
 	onLoad() {
+		this.loadRecommendationsFromAPI()
 		this.loadAddedRecommendations()
 		this.calculateTotalPrice()
+	},
+	loadRecommendationsFromAPI() {
+		api.getRecommendations({ limit: 6 }).then((data) => {
+			const list = data.list || data || []
+			if (list.length > 0) {
+				const recs = list.map(item => ({
+					id: item.id || item._id,
+					name: item.name,
+					price: item.price || 0,
+					thumb: item.thumb || item.cover || '',
+					added: false,
+					count: 0
+				}))
+				this.setData({ recommendations: recs })
+				this.loadAddedRecommendations()
+				this.calculateTotalPrice()
+			}
+		}).catch(() => {})
 	},
 	loadAddedRecommendations() {
 		try {

@@ -491,9 +491,11 @@ Page({
 			type: this.data.orderType,
 			totalPrice: totalPrice,
 			goods: goods,
-			name: this.data.name,
-			phone: this.data.phone,
-			address: this.data.address
+			receiver: {
+				name: this.data.name,
+				phone: this.data.phone,
+				address: this.data.address
+			}
 		}
 		
 		wx.showLoading({ title: '提交中...' })

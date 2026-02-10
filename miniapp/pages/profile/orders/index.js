@@ -188,16 +188,14 @@ Page({
 	},
 	// 通知管理员订单取消
 	notifyAdminCancelOrder(orderId, order, reason) {
-		// 调用API通知管理员
-		api.notifyAdmin && api.notifyAdmin({
+		api.notifyAdmin({
 			type: 'order_cancelled',
+			title: '订单取消通知',
+			content: `订单 ${order?.orderNo || orderId} 已被用户取消，原因：${reason || '未填写'}`,
 			orderId: orderId,
-			orderNo: order?.orderNo || orderId,
-			reason: reason || '用户未填写原因',
-			message: `订单 ${order?.orderNo || orderId} 已被用户取消，原因：${reason || '未填写'}`,
-			cancelTime: new Date().toISOString()
+			orderNo: order?.orderNo || orderId
 		}).catch((err) => {
-			console.log('通知管理员失败，将在后台重试:', err)
+			console.log('通知管理员失败:', err)
 		})
 	},
 	onPay(e) {

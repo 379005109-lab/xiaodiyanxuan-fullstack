@@ -91,6 +91,10 @@ app.use('/api/commission-system', require('./routes/commissionSystem'))
 app.use('/api/tier-system', require('./routes/tierSystem'))
 app.use('/api/site-settings', require('./routes/siteSettings'))
 
+// 小程序砍价专用接口（修正路由顺序，优先匹配）
+app.use('/api/miniapp/bargains', require('./routes/miniapp-bargain'))
+// 小程序补充接口（通知、优惠券、增强订单等）
+app.use('/api/miniapp', require('./routes/miniapp-extra'))
 // 微信小程序专用接口
 app.use('/api/miniapp', require('./routes/miniapp'))
 // 兼容小程序端 /api/miniapp/api/xxx 格式的请求

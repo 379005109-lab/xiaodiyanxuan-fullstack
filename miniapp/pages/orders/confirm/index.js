@@ -111,7 +111,7 @@ Page({
       totalAmount: this.data.totalAmount
     }
 
-    api.createOrder(orderData).then((data) => {
+    api.createOrderV2(orderData).then((data) => {
       const orderId = data.orderId || data._id || ''
       const orderNumber = data.orderNumber || orderId
       try { wx.removeStorageSync('orderConfirm') } catch(e) {}

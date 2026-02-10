@@ -1,4 +1,7 @@
 // pages/bargain/detail/index.js
+const app = getApp()
+const api = app.api || require('../../utils/api.js')
+
 Page({
   data: {
     id: '',
@@ -23,44 +26,87 @@ Page({
 
   onLoad(options) {
     const { id, name, origin, price, remain, progress, cover } = options
+    this.setData({ id })
+
+    // 先用 URL 参数初始化基本数据
+    this._initFromParams(options)
+
+    // 尝试从 API 加载真实数据
+    if (id) {
+      api.getBargainDetail(id).then((res) => {
+        const data = res.data || res || {}
+        const bargain = data.bargain || data
+        if (bargain && (bargain.originalPrice || bargain.currentPrice)) {
+          const originVal = bargain.originalPrice || parseFloat(origin) || 0
+          const targetVal = bargain.targetPrice || parseFloat(price) || 0
+          const currentVal = bargain.currentPrice || originVal
+          const targetSave = originVal - targetVal
+          const cutAmt = Math.max(originVal - currentVal, 0)
+          const prog = targetSave > 0 ? Math.min(cutAmt / targetSave, 1) : 0
+          const progPct = Math.round(prog * 100)
+          const helpers = bargain.helpers || []
+          this.setData({
+            name: bargain.productName || decodeURIComponent(name || ''),
+            origin: originVal,
+            price: targetVal,
+            remain: Math.max(currentVal - targetVal, 0),
+            progress: prog,
+            cover: bargain.thumbnail || bargain.coverImage || decodeURIComponent(cover || ''),
+            currentPrice: currentVal.toFixed(0),
+            cutAmount: cutAmt.toFixed(0),
+            progressPercent: progPct,
+            canDeal: progPct >= this.data.dealThreshold,
+            dealPrice: Math.round(currentVal),
+            records: helpers.map(h => ({
+              avatar: h.userAvatar || '',
+              name: h.userName || '用户',
+              time: h.helpedAt ? this._timeAgo(h.helpedAt) : '',
+              amount: h.priceReduction || 0
+            }))
+          })
+          // 计算剩余倒计时
+          if (bargain.expiresAt) {
+            const left = Math.max(0, Math.floor((new Date(bargain.expiresAt) - Date.now()) / 1000))
+            this.setData({ leftSeconds: left, leftText: this._formatLeftTime(left) })
+          }
+        }
+      }).catch(() => {})
+    }
+
+    this.startTimer()
+  },
+
+  _initFromParams(options) {
+    const { name, origin, price, remain, progress, cover } = options
     const originNum = parseFloat(origin) || 0
     const priceNum = parseFloat(price) || 0
     const remainNum = parseFloat(remain) || 0
     const progressNum = parseFloat(progress) || 0
-    
-    // 计算已砍金额和当前价格
     const targetSave = originNum - priceNum
     const cutAmount = Math.max(targetSave - remainNum, 0)
     const currentPrice = Math.max(originNum - cutAmount, priceNum)
     const progressPercent = Math.round(progressNum * 100)
-    
-    // 计算是否可成交（达到70%即可成交）
     const dealThreshold = 70
     const canDeal = progressPercent >= dealThreshold
-    // 成交价 = 原价 - (目标优惠 * 当前进度)
     const dealPrice = Math.round(originNum - (targetSave * progressNum))
-
     this.setData({
-      id,
       name: decodeURIComponent(name || ''),
-      origin: originNum,
-      price: priceNum,
-      remain: remainNum,
-      progress: progressNum,
-      cover: decodeURIComponent(cover || '') || 'https://picsum.photos/400/400?random=800',
+      origin: originNum, price: priceNum,
+      remain: remainNum, progress: progressNum,
+      cover: decodeURIComponent(cover || '') || '',
       currentPrice: currentPrice.toFixed(0),
       cutAmount: cutAmount.toFixed(0),
-      progressPercent,
-      dealThreshold,
-      canDeal,
-      dealPrice
+      progressPercent, dealThreshold, canDeal, dealPrice
     })
-
-    // 生成模拟砍价记录
     this.generateMockRecords()
-    
-    // 启动倒计时
-    this.startTimer()
+  },
+
+  _timeAgo(dateStr) {
+    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000)
+    if (diff < 60) return '刚刚'
+    if (diff < 3600) return Math.floor(diff / 60) + '分钟前'
+    if (diff < 86400) return Math.floor(diff / 3600) + '小时前'
+    return Math.floor(diff / 86400) + '天前'
   },
 
   onUnload() {
@@ -120,7 +166,7 @@ Page({
       confirmColor: '#DC2626',
       success: (res) => {
         if (res.confirm) {
-          // 从本地存储中删除
+          api.cancelBargain(this.data.id).catch(() => {})
           try {
             const myBargains = wx.getStorageSync('myBargains') || []
             const filtered = myBargains.filter(item => item.id !== this.data.id)
@@ -129,9 +175,7 @@ Page({
             console.error('删除砍价数据失败:', e)
           }
           wx.showToast({ title: '已取消砍价', icon: 'success' })
-          setTimeout(() => {
-            wx.navigateBack()
-          }, 1500)
+          setTimeout(() => { wx.navigateBack() }, 1500)
         }
       }
     })
@@ -139,43 +183,36 @@ Page({
 
   // 自己砍一刀
   onSelfCut() {
-    const cutValue = Math.floor(Math.random() * 20) + 5 // 随机砍5-25元
+    api.helpBargain(this.data.id).then((res) => {
+      const result = res.data || res || {}
+      const cutValue = result.cutAmount || Math.floor(Math.random() * 20) + 5
+      this._applyLocalCut(cutValue)
+      wx.showToast({ title: `成功砍掉 ¥${cutValue}`, icon: 'success' })
+    }).catch(() => {
+      // API 失败时使用本地模拟
+      const cutValue = Math.floor(Math.random() * 20) + 5
+      this._applyLocalCut(cutValue)
+      wx.showToast({ title: `成功砍掉 ¥${cutValue}`, icon: 'success' })
+    })
+  },
+
+  _applyLocalCut(cutValue) {
     const newRemain = Math.max(this.data.remain - cutValue, 0)
     const newCutAmount = parseFloat(this.data.cutAmount) + cutValue
     const targetSave = this.data.origin - this.data.price
     const newProgress = targetSave > 0 ? Math.min(newCutAmount / targetSave, 1) : 0
     const newCurrentPrice = Math.max(this.data.origin - newCutAmount, this.data.price)
     const newProgressPercent = Math.round(newProgress * 100)
-    
-    // 检查是否达到成交条件
     const canDeal = newProgressPercent >= this.data.dealThreshold
     const dealPrice = Math.round(this.data.origin - (targetSave * newProgress))
-
     this.setData({
-      remain: newRemain,
-      cutAmount: newCutAmount.toFixed(0),
-      currentPrice: newCurrentPrice.toFixed(0),
-      progressPercent: newProgressPercent,
-      canDeal,
-      dealPrice
+      remain: newRemain, cutAmount: newCutAmount.toFixed(0),
+      currentPrice: newCurrentPrice.toFixed(0), progressPercent: newProgressPercent,
+      canDeal, dealPrice
     })
-
-    // 添加砍价记录
-    const records = [{
-      avatar: 'https://picsum.photos/100/100?random=999',
-      name: '我',
-      time: '刚刚',
-      amount: cutValue
-    }, ...this.data.records]
+    const records = [{ avatar: '', name: '我', time: '刚刚', amount: cutValue }, ...this.data.records]
     this.setData({ records })
-
-    // 更新本地存储
     this.updateLocalStorage(newRemain, newProgress)
-
-    wx.showToast({
-      title: `成功砍掉 ¥${cutValue}`,
-      icon: 'success'
-    })
   },
 
   // 更新本地存储
