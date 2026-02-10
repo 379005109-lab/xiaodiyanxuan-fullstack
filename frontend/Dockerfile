@@ -12,12 +12,13 @@ COPY package*.json ./
 # 安装依赖（使用 npm install 代替 npm ci，更宽松）
 RUN npm install --legacy-peer-deps
 
-# 复制源代码 - cache bust
-RUN echo "Cache bust: $CACHEBUST"
+# 复制源代码 - 清除旧代码防止缓存
+ARG GIT_SHA=unknown
+RUN echo "Cache bust: $CACHEBUST SHA: $GIT_SHA" && rm -rf /app/src /app/public /app/index.html 2>/dev/null || true
 COPY . .
 
 # 构建应用
-RUN npm run build
+RUN npm run build && echo "BUILD OK - $(ls -la /app/dist/assets/*.js | wc -l) JS files"
 
 # 运行阶段
 FROM nginx:alpine
