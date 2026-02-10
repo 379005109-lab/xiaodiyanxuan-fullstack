@@ -216,42 +216,7 @@ export default function ProductManagement() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      // 设计师账号：只加载授权商品，不加载任何非授权商品
-      if (isDesignerUser) {
-        try {
-          const authResponse = await apiClient.get('/authorizations/products/authorized', { params: { pageSize: 10000, _t: Date.now() } })
-          let authorizedProducts = authResponse.data?.data || []
-          console.log('[ProductManagement] 设计师授权商品数量:', authorizedProducts.length)
-          
-          // 标记为授权商品
-          authorizedProducts.forEach((p: any) => { p.isAuthorized = true })
-          
-          // 加载商品覆盖设置
-          try {
-            const overridesResponse = await apiClient.get('/authorizations/product-overrides', { params: { _t: Date.now() } })
-            const overrides = overridesResponse.data?.data || {}
-            authorizedProducts = authorizedProducts.map((p: any) => {
-              const override = overrides[p._id]
-              return { 
-                ...p, 
-                isHidden: override?.hidden === true, 
-                overridePrice: override?.price
-              }
-            })
-          } catch (overrideError) {
-            console.log('[ProductManagement] 加载商品覆盖设置失败:', overrideError)
-          }
-          
-          setProducts(authorizedProducts)
-        } catch (authError) {
-          console.error('[ProductManagement] 加载设计师授权商品失败:', authError)
-          toast.error('加载授权商品失败')
-          setProducts([])
-        }
-        return
-      }
-
-      // 非设计师账号：正常加载
+      // 所有账号统一使用getProducts（后端listProducts已针对设计师过滤，只返回授权商品）
       const response = await getProducts({ pageSize: 10000, includeHidden: true, _t: Date.now() });
       console.log('[ProductManagement] 加载商品响应:', response);
       if (response.success) {
@@ -261,6 +226,25 @@ export default function ProductManagement() {
           ? rawProducts.filter((p: any) => String(getProductManufacturerId(p)) === String(myManufacturerId))
           : rawProducts
         
+        // 设计师账号：标记为授权商品并加载覆盖设置
+        if (isDesignerUser) {
+          filteredProducts.forEach((p: any) => { p.isAuthorized = true })
+          try {
+            const overridesResponse = await apiClient.get('/authorizations/product-overrides', { params: { _t: Date.now() } })
+            const overrides = overridesResponse.data?.data || {}
+            filteredProducts = filteredProducts.map((p: any) => {
+              const override = overrides[p._id]
+              return { 
+                ...p, 
+                isHidden: override?.hidden === true, 
+                overridePrice: override?.price
+              }
+            })
+          } catch (overrideError) {
+            console.log('[ProductManagement] 设计师加载覆盖设置失败:', overrideError)
+          }
+        }
+
         // 对于厂家账号，也加载授权过来的商品
         if (!isPlatformAdminUser && myManufacturerId) {
           try {

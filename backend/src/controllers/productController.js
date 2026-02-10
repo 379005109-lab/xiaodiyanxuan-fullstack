@@ -530,8 +530,6 @@ const listProducts = async (req, res) => {
       const baseOr = isDesigner
         ? [
             { _id: { $in: Array.from(authorizedProductIds) } },
-            { manufacturerId: platformManufacturerId },
-            { 'skus.manufacturerId': platformManufacturerId },
           ]
         : [
             { _id: { $in: Array.from(authorizedProductIds) } },
