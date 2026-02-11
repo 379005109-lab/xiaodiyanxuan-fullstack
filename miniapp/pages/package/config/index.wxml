@@ -1,11 +1,6 @@
 <!-- 套餐配置页 — Apple 风格 -->
+<navigation-bar title="配置套餐" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">←</view>
-    <view class="nav-title">配置套餐</view>
-    <view class="nav-placeholder"></view>
-  </view>
-
   <view class="content">
     <!-- 套餐信息 -->
     <view class="pkg-header" wx:if="{{packageInfo.name}}">

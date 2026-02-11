@@ -10,55 +10,8 @@ page {
   height: 100vh;
 }
 
-/* ========== 导航栏 ========== */
-.nav-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 40;
-  background: rgba(255, 255, 255, 0.95);
-  -webkit-backdrop-filter: saturate(180%) blur(40rpx);
-  backdrop-filter: saturate(180%) blur(40rpx);
-  border-bottom: 1rpx solid #E5E5EA;
-  padding-top: env(safe-area-inset-top);
-}
-
-.nav-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: calc(88rpx + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 32rpx 0;
-}
-
-.nav-back {
-  width: 64rpx;
-  height: 64rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 40rpx;
-  color: #1D1D1F;
-}
-
-.nav-title {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: #1D1D1F;
-}
-
-.nav-placeholder {
-  width: 64rpx;
-}
-
 /* ========== 搜索框 ========== */
 .search-section {
-  position: fixed;
-  top: calc(88rpx + env(safe-area-inset-top));
-  left: 0;
-  right: 0;
-  z-index: 39;
   background: #FFFFFF;
   padding: 16rpx 32rpx;
   border-bottom: 1rpx solid #E5E5EA;
@@ -105,11 +58,6 @@ page {
 
 /* ========== 筛选条 ========== */
 .filter-bar {
-  position: fixed;
-  top: calc(88rpx + env(safe-area-inset-top) + 104rpx);
-  left: 0;
-  right: 0;
-  z-index: 38;
   background: #FFFFFF;
   padding: 16rpx 0;
   border-bottom: 1rpx solid #E5E5EA;
@@ -150,11 +98,6 @@ page {
 
 /* ========== 筛选面板 ========== */
 .filter-panel {
-  position: fixed;
-  top: calc(88rpx + env(safe-area-inset-top) + 104rpx + 80rpx);
-  left: 0;
-  right: 0;
-  z-index: 37;
   background: #FFFFFF;
   border-bottom: 1rpx solid #E5E5EA;
   padding: 24rpx 32rpx;

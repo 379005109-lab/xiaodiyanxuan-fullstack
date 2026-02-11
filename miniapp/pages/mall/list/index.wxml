@@ -1,12 +1,6 @@
 <!-- 商品列表页 — Apple 风格 -->
+<navigation-bar title="{{pageTitle}}" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
-	<!-- 顶部导航栏 -->
-	<view class="nav-bar">
-		<view class="nav-back" bindtap="goBack">←</view>
-		<view class="nav-title">{{pageTitle}}</view>
-		<view class="nav-placeholder"></view>
-	</view>
-
 	<!-- 搜索框 -->
 	<view class="search-section">
 		<view class="search-box">

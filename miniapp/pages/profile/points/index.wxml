@@ -1,11 +1,6 @@
 <!-- 积分页 — Apple 风格 -->
+<navigation-bar title="我的积分" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">←</view>
-    <view class="nav-title">我的积分</view>
-    <view class="nav-placeholder"></view>
-  </view>
-
   <view class="content">
     <view class="points-card">
       <view class="points-label">当前积分</view>

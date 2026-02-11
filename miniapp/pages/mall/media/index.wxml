@@ -1,11 +1,6 @@
 <!-- 商品媒体页 — Apple 风格 -->
+<navigation-bar title="媒体资料" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">←</view>
-    <view class="nav-title">媒体资料</view>
-    <view class="nav-placeholder"></view>
-  </view>
-
   <view class="content">
     <!-- 工艺视频 -->
     <view class="section" wx:if="{{videos.length > 0}}">

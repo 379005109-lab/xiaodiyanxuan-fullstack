@@ -105,24 +105,29 @@ Page({
 			}
 
 			const recommendProducts = (data.hotGoods || []).map(g => ({
-				id: g._id,
+				_id: g._id || g.id,
+				id: g._id || g.id,
 				name: g.name,
 				price: g.price,
 				originalPrice: g.originalPrice,
-				image: g.thumbnail || g.images?.[0] || '',
-				highlight: g.description || '',
-				sales: g.sold || 0
+				image: g.image || g.cover || g.thumb || g.thumbnail || g.images?.[0] || '',
+				highlight: g.description || g.category || '',
+				sales: g.sales || g.sold || 0
 			}))
 
-			this.setData({ banners, recommendProducts })
+			// 如果没有推荐商品数据，使用兜底数据
+			const finalRecommend = recommendProducts.length > 0 ? recommendProducts : this._getMockRecommendProducts()
+
+			this.setData({ banners, recommendProducts: finalRecommend })
 		}).catch((err) => {
 			console.error('加载首页数据失败:', err)
-			// 使用默认 banner
+			// 使用默认 banner 和兜底推荐商品
 			this.setData({
 				banners: [
 					{ id: 'b1', image: 'https://picsum.photos/1080/1920?random=100', title: '现代自然', subtitle: '新季搭配灵感', link: '/pages/mall/index' },
 					{ id: 'b2', image: 'https://picsum.photos/1080/1920?random=101', title: '源头工厂', subtitle: '品质保障 · 工厂直发', link: '/pages/mall/index' }
-				]
+				],
+				recommendProducts: this._getMockRecommendProducts()
 			})
 		})
 	},
@@ -207,18 +212,122 @@ Page({
 	loadFeaturedProducts() {
 		return api.getGoodsList({ page: 1, pageSize: 6, sort: 'sales' }).then((data) => {
 			const list = (data.list || data || []).map(g => ({
-				id: g._id,
+				id: g._id || g.id,
 				name: g.name,
 				price: g.price,
 				originalPrice: g.originalPrice,
-				image: g.thumbnail || g.images?.[0] || '',
-				highlight: g.description || '',
-				sold: g.sold || 0
+				image: g.image || g.cover || g.thumb || g.thumbnail || g.images?.[0] || '',
+				highlight: g.description || g.category || '',
+				sold: g.sales || g.sold || 0
 			}))
-			this.setData({ featuredProducts: list })
+			const finalList = list.length > 0 ? list : this._getMockFeaturedProducts()
+			this.setData({ featuredProducts: finalList })
 		}).catch((err) => {
 			console.error('加载精选好物失败:', err)
+			this.setData({ featuredProducts: this._getMockFeaturedProducts() })
 		})
+	},
+
+	// ==================== 兜底数据 ====================
+
+	_getMockRecommendProducts() {
+		return [
+			{
+				id: 'mock-r1',
+				name: '意式极简真皮沙发客厅组合',
+				price: 5999,
+				originalPrice: 8999,
+				image: 'https://picsum.photos/600/600?random=recommend1',
+				highlight: '头层牛皮 · 高密度海绵 · 全实木框架',
+				sales: 326
+			},
+			{
+				id: 'mock-r2',
+				name: '北欧实木餐桌椅组合一桌四椅',
+				price: 3299,
+				originalPrice: 5299,
+				image: 'https://picsum.photos/600/600?random=recommend2',
+				highlight: '白蜡木 · 环保水性漆 · 稳固承重',
+				sales: 218
+			},
+			{
+				id: 'mock-r3',
+				name: '轻奢岩板茶几电视柜组合',
+				price: 2899,
+				originalPrice: 4599,
+				image: 'https://picsum.photos/600/600?random=recommend3',
+				highlight: '天然岩板 · 不锈钢拉丝 · 大容量收纳',
+				sales: 185
+			},
+			{
+				id: 'mock-r4',
+				name: '现代简约实木双人床1.8米',
+				price: 4599,
+				originalPrice: 6999,
+				image: 'https://picsum.photos/600/600?random=recommend4',
+				highlight: '进口橡木 · 静音排骨架 · 环保认证',
+				sales: 412
+			}
+		]
+	},
+
+	_getMockFeaturedProducts() {
+		return [
+			{
+				id: 'mock-f1',
+				name: '奶油风布艺沙发小户型',
+				price: 3599,
+				originalPrice: 5599,
+				image: 'https://picsum.photos/600/600?random=featured1',
+				highlight: '可拆洗 · 乳胶填充',
+				sold: 156
+			},
+			{
+				id: 'mock-f2',
+				name: '全实木书桌书架一体',
+				price: 1899,
+				originalPrice: 2899,
+				image: 'https://picsum.photos/600/600?random=featured2',
+				highlight: '橡胶木 · 大桌面',
+				sold: 89
+			},
+			{
+				id: 'mock-f3',
+				name: '意式轻奢床头柜皮质',
+				price: 899,
+				originalPrice: 1399,
+				image: 'https://picsum.photos/600/600?random=featured3',
+				highlight: '超纤皮 · 静音抽屉',
+				sold: 267
+			},
+			{
+				id: 'mock-f4',
+				name: '北欧风实木衣柜推拉门',
+				price: 4299,
+				originalPrice: 6599,
+				image: 'https://picsum.photos/600/600?random=featured4',
+				highlight: '白蜡木 · 大空间收纳',
+				sold: 134
+			},
+			{
+				id: 'mock-f5',
+				name: '现代简约圆形餐桌',
+				price: 2199,
+				originalPrice: 3299,
+				image: 'https://picsum.photos/600/600?random=featured5',
+				highlight: '岩板桌面 · 转盘设计',
+				sold: 98
+			},
+			{
+				id: 'mock-f6',
+				name: '高端乳胶弹簧床垫1.8m',
+				price: 2699,
+				originalPrice: 4599,
+				image: 'https://picsum.photos/600/600?random=featured6',
+				highlight: '泰国乳胶 · 独立袋装弹簧',
+				sold: 345
+			}
+		]
 	},
 
 	// ==================== 倒计时 ====================

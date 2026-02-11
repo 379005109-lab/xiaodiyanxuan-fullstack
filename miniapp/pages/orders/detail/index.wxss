@@ -2,20 +2,8 @@
 page { background: #F5F5F7; color: #1D1D1F; }
 .page { display: flex; flex-direction: column; height: 100vh; }
 
-.nav-bar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-  background: rgba(255,255,255,0.95); backdrop-filter: saturate(180%) blur(40rpx);
-  border-bottom: 1rpx solid #E5E5EA;
-  display: flex; align-items: center; justify-content: space-between;
-  height: calc(88rpx + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 32rpx 0;
-}
-.nav-back { width: 64rpx; height: 64rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; }
-.nav-title { font-size: 34rpx; font-weight: 600; }
-.nav-placeholder { width: 64rpx; }
-
 .scroll-area {
   flex: 1; padding: 24rpx 32rpx;
-  padding-top: calc(88rpx + env(safe-area-inset-top) + 24rpx);
 }
 
 /* 状态卡片 */

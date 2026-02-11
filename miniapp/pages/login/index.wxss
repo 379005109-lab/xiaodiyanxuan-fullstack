@@ -15,28 +15,9 @@ page { background: #FFFFFF; }
   backdrop-filter: blur(24rpx);
 }
 
-/* Nav Bar */
-.nav-bar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-  background: rgba(255,255,255,0.8);
-  backdrop-filter: saturate(180%) blur(40rpx);
-  border-bottom: 1rpx solid #E5E5EA;
-}
-.nav-content {
-  height: 88rpx; padding: 0 32rpx;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.nav-back {
-  width: 64rpx; height: 64rpx;
-  display: flex; align-items: center; justify-content: center;
-}
-.nav-back-icon { font-size: 48rpx; color: #1D1D1F; }
-.nav-title { font-size: 34rpx; font-weight: 600; color: #1D1D1F; }
-.nav-placeholder { width: 64rpx; }
-
 /* Scroll Area */
 .scroll-area {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  flex: 1; z-index: 10;
 }
 
 /* Welcome */

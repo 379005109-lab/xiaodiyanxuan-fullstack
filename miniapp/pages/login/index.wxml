@@ -6,18 +6,10 @@
 	</view>
 
 	<!-- 导航栏 -->
-	<view class="nav-bar" style="padding-top: {{statusBarHeight}}px;">
-		<view class="nav-content">
-			<view class="nav-back" bindtap="goBack">
-				<text class="ri ri-arrow-left-s-line nav-back-icon"></text>
-			</view>
-			<view class="nav-title">登录</view>
-			<view class="nav-placeholder"></view>
-		</view>
-	</view>
+	<navigation-bar title="登录" back="{{true}}" color="black" background="rgba(255,255,255,0.8)"></navigation-bar>
 
 	<!-- 主内容区 -->
-	<scroll-view class="scroll-area" scroll-y style="top: {{navBarHeight}}px;">
+	<scroll-view class="scroll-area" scroll-y>
 		<!-- Logo 和欢迎语 -->
 		<view class="welcome-section">
 			<view class="logo-wrap">

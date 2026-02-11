@@ -1,11 +1,6 @@
 <!-- 设置页 — Apple 风格 -->
+<navigation-bar title="设置" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">←</view>
-    <view class="nav-title">设置</view>
-    <view class="nav-placeholder"></view>
-  </view>
-
   <view class="content">
     <view class="settings-group">
       <view class="settings-item" bindtap="goPrivacy">

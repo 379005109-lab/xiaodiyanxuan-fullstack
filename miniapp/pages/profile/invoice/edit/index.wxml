@@ -1,11 +1,6 @@
 <!-- 发票编辑页 — Apple 风格 -->
+<navigation-bar title="{{isEdit ? '编辑发票' : '新增发票'}}" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">←</view>
-    <view class="nav-title">{{isEdit ? '编辑发票' : '新增发票'}}</view>
-    <view class="nav-placeholder"></view>
-  </view>
-
   <view class="content">
     <!-- 类型选择 -->
     <view class="type-row">

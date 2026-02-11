@@ -1,25 +1,6 @@
 /* 搜索页 — Apple 风格 */
 page { background: #FFFFFF; color: #1D1D1F; }
 
-.page { padding-top: calc(88rpx + env(safe-area-inset-top)); }
-
-/* ========== 导航栏 ========== */
-.nav-bar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-  background: rgba(255,255,255,0.95);
-  -webkit-backdrop-filter: saturate(180%) blur(40rpx);
-  backdrop-filter: saturate(180%) blur(40rpx);
-  border-bottom: 1rpx solid #E5E5EA;
-  display: flex; align-items: center; gap: 16rpx;
-  height: calc(88rpx + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 24rpx 0;
-}
-
-.nav-back {
-  width: 56rpx; height: 56rpx;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 40rpx; color: #1D1D1F; flex-shrink: 0;
-}
 
 .search-bar {
   flex: 1; display: flex; align-items: center; gap: 12rpx;

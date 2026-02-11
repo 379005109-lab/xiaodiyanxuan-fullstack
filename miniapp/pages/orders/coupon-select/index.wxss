@@ -1,16 +1,5 @@
 /* 优惠券选择页 — Apple 风格 */
 page { background: #F5F5F7; color: #1D1D1F; }
-.page { padding-top: calc(88rpx + env(safe-area-inset-top)); }
-.nav-bar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-  background: rgba(255,255,255,0.95); backdrop-filter: saturate(180%) blur(40rpx);
-  border-bottom: 1rpx solid #E5E5EA;
-  display: flex; align-items: center; justify-content: space-between;
-  height: calc(88rpx + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 32rpx 0;
-}
-.nav-back { width: 64rpx; height: 64rpx; display: flex; align-items: center; justify-content: center; font-size: 40rpx; }
-.nav-title { font-size: 34rpx; font-weight: 600; }
-.nav-placeholder { width: 64rpx; }
 
 .content { padding: 24rpx 32rpx; }
 

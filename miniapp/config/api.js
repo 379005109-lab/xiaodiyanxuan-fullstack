@@ -7,7 +7,8 @@ const config = {
   // 小程序专用接口前缀：/api/miniapp
   // 通用接口前缀：/api
   // baseURL: 'https://pkochbpmcgaa.sealoshzh.site',
-  baseURL: 'https://xiaodiyanxuan.com',
+  // baseURL: 'https://xiaodiyanxuan.com',
+  baseURL: 'http://localhost:8080',
 
   // 小程序专用接口前缀（认证、商品、订单、套餐等）
   miniappPrefix: '/api/miniapp',

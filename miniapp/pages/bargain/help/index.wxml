@@ -1,11 +1,6 @@
 <!-- 帮砍页 — Apple 风格 -->
+<navigation-bar title="帮好友砍价" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">←</view>
-    <view class="nav-title">帮好友砍价</view>
-    <view class="nav-placeholder"></view>
-  </view>
-
   <view class="content">
     <!-- 商品信息 -->
     <view class="product-card" wx:if="{{product.name}}">

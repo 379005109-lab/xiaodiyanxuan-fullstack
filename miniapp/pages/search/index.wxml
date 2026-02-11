@@ -1,15 +1,13 @@
 <!-- 搜索页 — Apple 风格 -->
-<view class="page">
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">←</view>
-    <view class="search-bar">
-      <text class="search-icon">🔍</text>
-      <input class="search-input" placeholder="搜索家具" focus="{{true}}" value="{{keyword}}" bindinput="onInput" bindconfirm="doSearch" confirm-type="search" />
-      <view class="search-clear" wx:if="{{keyword}}" bindtap="clearKeyword">✕</view>
-    </view>
-    <view class="nav-search-btn" bindtap="doSearch">搜索</view>
+<navigation-bar title="" back="{{true}}" color="black" background="#FFFFFF">
+  <view slot="center" class="search-bar">
+    <text class="search-icon">🔍</text>
+    <input class="search-input" placeholder="搜索家具" focus="{{true}}" value="{{keyword}}" bindinput="onInput" bindconfirm="doSearch" confirm-type="search" />
+    <view class="search-clear" wx:if="{{keyword}}" bindtap="clearKeyword">✕</view>
   </view>
-
+  <view slot="right" class="nav-search-btn" bindtap="doSearch">搜索</view>
+</navigation-bar>
+<view class="page">
   <view class="content">
     <!-- 搜索历史 -->
     <view class="section" wx:if="{{!isSearching && history.length > 0}}">

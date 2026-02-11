@@ -1,11 +1,6 @@
 <!-- 分类列表页 — Apple 风格 -->
+<navigation-bar title="{{categoryName || '分类'}}" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">←</view>
-    <view class="nav-title">{{categoryName || '分类'}}</view>
-    <view class="nav-placeholder"></view>
-  </view>
-
   <view class="content">
     <!-- 子分类网格 -->
     <view class="sub-grid" wx:if="{{subCategories.length > 0}}">

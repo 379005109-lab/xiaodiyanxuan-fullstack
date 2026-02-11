@@ -1,11 +1,6 @@
 <!-- 优惠券选择页 — Apple 风格 -->
+<navigation-bar title="选择优惠券" back="{{true}}" color="black" background="#FFFFFF"></navigation-bar>
 <view class="page">
-  <view class="nav-bar">
-    <view class="nav-back" bindtap="goBack">←</view>
-    <view class="nav-title">选择优惠券</view>
-    <view class="nav-placeholder"></view>
-  </view>
-
   <view class="content">
     <view class="coupon-list" wx:if="{{coupons.length > 0}}">
       <block wx:for="{{coupons}}" wx:key="_id">
