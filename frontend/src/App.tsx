@@ -94,6 +94,8 @@ const InvoiceManagement = lazy(() => import('./pages/admin/InvoiceManagement'))
 
 const AuthorizedProductPricing = lazy(() => import('./pages/admin/AuthorizedProductPricing.tsx'))
 const AuthorizationPricingPage = lazy(() => import('./pages/admin/AuthorizationPricingPage'))
+const StoreDecorationPage = lazy(() => import('./pages/admin/StoreDecorationPage'))
+const StoreDecorationEditor = lazy(() => import('./pages/admin/StoreDecorationEditor'))
 
 // 厂家端页面
 const ManufacturerLogin = lazy(() => import('./pages/manufacturer/ManufacturerLogin'))
@@ -576,6 +578,9 @@ function App() {
             <Route path="notification-test" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><NotificationTestPage /></ProtectedRoute>} />
             <Route path="notifications" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><NotificationManagementPage /></ProtectedRoute>} />
             <Route path="designs" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><DesignManagement /></ProtectedRoute>} />
+            <Route path="store-decoration" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><StoreDecorationPage /></ProtectedRoute>} />
+            <Route path="store-decoration/new" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/store-decoration"><StoreDecorationEditor /></ProtectedRoute>} />
+            <Route path="store-decoration/edit/:id" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/store-decoration"><StoreDecorationEditor /></ProtectedRoute>} />
             <Route path="customization" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><CustomizationManagement /></ProtectedRoute>} />
             <Route path="buying-service-requests" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><BuyingServiceRequestsPage /></ProtectedRoute>} />
             <Route path="activity" element={<ProtectedRoute requireAdmin disallowedRoles={['enterprise_admin']} fallbackPath="/admin/products"><ActivityDashboard /></ProtectedRoute>} />

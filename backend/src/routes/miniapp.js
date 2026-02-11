@@ -515,19 +515,24 @@ router.get('/home', async (req, res) => {
 
     // 转换格式
     const formattedGoods = hotGoods.map(p => {
-      const imageUrl = getImageUrl(p.images?.[0])
+      const imageUrl = getImageUrl(p.thumbnail || p.images?.[0])
       return {
+        _id: p._id,
         id: p._id,
         name: p.name,
         price: p.basePrice || p.price || 0,
         originalPrice: p.originalPrice || p.basePrice || p.price || 0,
+        description: p.description || '',
+        thumbnail: getImageUrl(p.thumbnail) || imageUrl,
         // 多个图片字段名兼容
         cover: imageUrl,
         image: imageUrl,
         thumb: imageUrl,
         pic: imageUrl,
+        images: (p.images || []).map(img => getImageUrl(img)),
         views: p.views || 0,
         sales: p.sales || 0,
+        sold: p.sales || 0,
         category: p.category?.name || '',
         style: Array.isArray(p.styles) ? p.styles[0] : (p.style || '')
       }

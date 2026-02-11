@@ -18,16 +18,29 @@ const setRedirecting = (val: boolean) => {
  * 云端服务配置
  */
 const getCloudApiUrl = () => {
-  let apiUrl = import.meta.env.VITE_API_URL || '/api'
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname
-    if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
-      if (apiUrl === '/api' || apiUrl === 'https://api.xiaodiyanxuan.com' || apiUrl === 'https://api.xiaodiyanxuan.com/') {
-        apiUrl = 'https://api.xiaodiyanxuan.com/api'
+  let apiUrl = import.meta.env.VITE_API_URL || ''
+  if (apiUrl) {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname
+      if (hostname === 'xiaodiyanxuan.com' || hostname === 'www.xiaodiyanxuan.com') {
+        if (apiUrl === '/api' || apiUrl === 'https://api.xiaodiyanxuan.com' || apiUrl === 'https://api.xiaodiyanxuan.com/') {
+          apiUrl = 'https://api.xiaodiyanxuan.com/api'
+        }
       }
     }
+    return apiUrl
   }
-  return apiUrl
+  // 开发环境或本地环境
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8080/api'
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
+      return 'http://localhost:8080/api'
+    }
+  }
+  return '/api'
 }
 
 export const cloudConfig = {

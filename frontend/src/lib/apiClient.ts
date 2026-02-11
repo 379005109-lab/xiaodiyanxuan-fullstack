@@ -34,8 +34,8 @@ const getApiUrl = () => {
   
   // 开发环境默认本地
   if (import.meta.env.DEV) {
-    console.log('✅ 开发环境，使用本地 API: http://localhost:8080');
-    return 'http://localhost:8080';
+    console.log('✅ 开发环境，使用本地 API: http://localhost:8080/api');
+    return 'http://localhost:8080/api';
   }
   
   // 生产环境：直接使用后端API地址
@@ -44,8 +44,8 @@ const getApiUrl = () => {
     
     // 如果在本地，使用本地 API
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
-      console.log('✅ 本地环境，使用本地 API: http://localhost:8080');
-      return 'http://localhost:8080';
+      console.log('✅ 本地环境，使用本地 API: http://localhost:8080/api');
+      return 'http://localhost:8080/api';
     }
     
     // 如果是测试环境（test-cxxiwxce），使用相对路径（通过nginx代理到测试后端）
@@ -69,8 +69,8 @@ const getApiUrl = () => {
   }
   
   // 默认使用本地
-  console.log('✅ 默认使用本地 API: http://localhost:8080');
-  return 'http://localhost:8080';
+  console.log('✅ 默认使用本地 API: http://localhost:8080/api');
+  return 'http://localhost:8080/api';
 };
 
 const API_URL = getApiUrl();

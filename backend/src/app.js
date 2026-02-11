@@ -90,6 +90,7 @@ app.use('/api/authorizations', require('./routes/authorizations'))
 app.use('/api/commission-system', require('./routes/commissionSystem'))
 app.use('/api/tier-system', require('./routes/tierSystem'))
 app.use('/api/site-settings', require('./routes/siteSettings'))
+app.use('/api/store-decoration', require('./routes/storeDecoration'))
 
 // 小程序砍价专用接口（修正路由顺序，优先匹配）
 app.use('/api/miniapp/bargains', require('./routes/miniapp-bargain'))

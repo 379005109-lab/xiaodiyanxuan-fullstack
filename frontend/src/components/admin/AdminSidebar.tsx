@@ -18,6 +18,7 @@ import {
   Factory,
   Shield,
   Layers,
+  Paintbrush,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
@@ -94,6 +95,7 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
             { name: '优惠券管理', path: '/admin/coupons' },
           ]
     },
+    { name: '店铺装修', path: '/admin/store-decoration', icon: Paintbrush },
     { name: '定制需求', path: '/admin/customization', icon: Pencil },
   ]
 
