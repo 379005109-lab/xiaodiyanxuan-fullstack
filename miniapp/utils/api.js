@@ -159,6 +159,15 @@ function getHomeData() {
   })
 }
 
+function getStoreDecorationDefault(params) {
+  return request({
+    url: `${MP}/store-decoration/default`,
+    method: 'GET',
+    data: params || {},
+    needAuth: false
+  })
+}
+
 function getStyles() {
   return request({
     url: `${MP}/styles`,
@@ -530,6 +539,7 @@ module.exports = {
   
   // 首页 & 基础数据
   getHomeData,
+  getStoreDecorationDefault,
   getStyles,
   getCategories,
   

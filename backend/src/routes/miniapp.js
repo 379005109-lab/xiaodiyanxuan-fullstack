@@ -457,6 +457,70 @@ router.get('/categories', async (req, res) => {
   }
 })
 
+// ========== 3.5 店铺装修首页配置（公开接口） ==========
+router.get('/store-decoration/default', async (req, res) => {
+  try {
+    const StoreDecoration = require('../models/StoreDecoration')
+    const { ownerType, manufacturerId } = req.query
+    const query = { isDefault: true, type: 'homepage' }
+    if (ownerType) query.ownerType = ownerType
+    if (manufacturerId) query.manufacturerId = manufacturerId
+    if (!ownerType && !manufacturerId) query.ownerType = 'platform'
+
+    const page = await StoreDecoration.findOne(query).lean()
+
+    if (!page) {
+      return res.json(success(null, '暂无默认首页'))
+    }
+
+    // 处理 components 中的图片 URL
+    if (page.value && page.value.components) {
+      page.value.components = page.value.components.map(comp => {
+        if (!comp || !comp.config) return comp
+        const cfg = comp.config
+        // 处理 banner 图片
+        if (comp.type === 'banner' && cfg.items) {
+          cfg.items = cfg.items.map(item => ({
+            ...item,
+            image: item.image ? getImageUrl(item.image) : ''
+          }))
+        }
+        // 处理 storeHeader logo
+        if (comp.type === 'storeHeader' && cfg.logo) {
+          cfg.logo = getImageUrl(cfg.logo)
+        }
+        // 处理 imageCube 图片
+        if (comp.type === 'imageCube' && cfg.images) {
+          cfg.images = cfg.images.map(img => ({
+            ...img,
+            url: img.url ? getImageUrl(img.url) : ''
+          }))
+        }
+        // 处理 video 封面
+        if (comp.type === 'video' && cfg.cover) {
+          cfg.cover = getImageUrl(cfg.cover)
+        }
+        // 处理 menuNav 图标
+        if (comp.type === 'menuNav' && cfg.items) {
+          cfg.items = cfg.items.map(item => ({
+            ...item,
+            image: item.image ? getImageUrl(item.image) : ''
+          }))
+        }
+        return comp
+      })
+    }
+
+    // 处理背景图
+    if (page.bgImage) page.bgImage = getImageUrl(page.bgImage)
+
+    res.json(success(page))
+  } catch (err) {
+    console.error('获取装修首页配置失败:', err)
+    res.status(500).json(error(500, err.message))
+  }
+})
+
 // ========== 4. 首页数据 ==========
 router.get('/home', async (req, res) => {
   try {

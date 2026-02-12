@@ -101,12 +101,12 @@ export default function AdminSidebar({ open, setOpen }: AdminSidebarProps) {
 
   const menuItems = role === 'designer'
     ? allMenuItems.filter(item =>
-        ['首页', '厂家管理', '商品管理', '套餐管理', '砍价管理', '订单管理'].includes(item.name)
+        ['首页', '厂家管理', '商品管理', '套餐管理', '砍价管理', '订单管理', '店铺装修'].includes(item.name)
       )
     : isManufacturerSubAccount
       ? allMenuItems
           .filter(item =>
-            ['厂家管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理'].includes(item.name)
+            ['厂家管理', '商品管理', '分类管理', '砍价管理', '订单管理', '账号管理', '店铺装修'].includes(item.name)
           )
           .map(item => {
             if (item.name === '砍价管理') {

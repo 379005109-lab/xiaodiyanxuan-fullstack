@@ -62,6 +62,7 @@ Page({
 	},
 
 	onLoad() {
+		this.loadDecoration()
 		this.loadHomeData()
 		this.loadBargainProducts()
 		this.loadFeaturedProducts()
@@ -75,11 +76,67 @@ Page({
 
 	onPullDownRefresh() {
 		Promise.all([
+			this.loadDecoration(),
 			this.loadHomeData(),
 			this.loadBargainProducts(),
 			this.loadFeaturedProducts()
 		]).finally(() => {
 			wx.stopPullDownRefresh()
+		})
+	},
+
+	// ==================== 装修配置加载 ====================
+
+	loadDecoration() {
+		return api.getStoreDecorationDefault().then((data) => {
+			if (!data || !data.value || !data.value.components || data.value.components.length === 0) {
+				console.log('无装修配置，使用默认数据')
+				return
+			}
+
+			const components = data.value.components
+			const updates = {}
+
+			components.forEach(comp => {
+				if (!comp || !comp.config) return
+
+				// 轮播图
+				if (comp.type === 'banner' && comp.config.items) {
+					const bannerItems = comp.config.items.filter(b => b.status !== false && b.image)
+					if (bannerItems.length > 0) {
+						updates.banners = bannerItems.map((b, i) => ({
+							id: `deco-banner-${i}`,
+							image: b.image,
+							title: '',
+							subtitle: '',
+							link: b.link || '/pages/mall/index'
+						}))
+					}
+				}
+
+				// 店铺头部
+				if (comp.type === 'storeHeader') {
+					const cfg = comp.config
+					if (cfg.name) {
+						updates.shopInfo = {
+							...this.data.shopInfo,
+							name: cfg.name,
+							logo: cfg.logo || '',
+							address: cfg.description || this.data.shopInfo.address
+						}
+					}
+				}
+			})
+
+			// 背景色
+			if (data.bgColor) updates.pageBgColor = data.bgColor
+
+			if (Object.keys(updates).length > 0) {
+				console.log('应用装修配置:', Object.keys(updates))
+				this.setData(updates)
+			}
+		}).catch((err) => {
+			console.error('加载装修配置失败:', err)
 		})
 	},
 

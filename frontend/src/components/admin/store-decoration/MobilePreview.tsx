@@ -1,3 +1,4 @@
+import { useRef, useState, useEffect, useCallback } from 'react'
 import {
   ComponentItem,
   BannerConfig,
@@ -372,6 +373,36 @@ export default function MobilePreview({
 
   const componentIndex = (id: string) => components.findIndex(c => c.id === id)
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const phoneFrameRef = useRef<HTMLDivElement>(null)
+  const [toolbarTop, setToolbarTop] = useState<number | null>(null)
+
+  const updateToolbarPosition = useCallback(() => {
+    if (!selectedId || !scrollRef.current || !phoneFrameRef.current) {
+      setToolbarTop(null)
+      return
+    }
+    const el = scrollRef.current.querySelector(`[data-comp-id="${selectedId}"]`) as HTMLElement | null
+    if (!el) { setToolbarTop(null); return }
+    const frameRect = phoneFrameRef.current.getBoundingClientRect()
+    const elRect = el.getBoundingClientRect()
+    const top = elRect.top - frameRect.top + elRect.height / 2
+    setToolbarTop(top)
+  }, [selectedId, components])
+
+  useEffect(() => {
+    updateToolbarPosition()
+  }, [updateToolbarPosition])
+
+  useEffect(() => {
+    const scrollEl = scrollRef.current
+    if (!scrollEl) return
+    scrollEl.addEventListener('scroll', updateToolbarPosition)
+    return () => scrollEl.removeEventListener('scroll', updateToolbarPosition)
+  }, [updateToolbarPosition])
+
+  const selectedIdx = selectedId ? componentIndex(selectedId) : -1
+
   return (
     <div className="flex justify-center">
       {/* 左侧标签列 */}
@@ -403,96 +434,102 @@ export default function MobilePreview({
         )}
       </div>
 
-      {/* 手机预览 */}
-      <div className="relative w-[375px] bg-black rounded-[3rem] p-3 shadow-2xl flex-shrink-0">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-black rounded-b-2xl z-20" />
-        <div className="relative rounded-[2.4rem] overflow-hidden" style={{ height: '680px' }}>
-          {/* 状态栏 */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-8 py-2 bg-white/80 backdrop-blur-sm text-xs text-gray-600">
-            <span className="font-semibold">9:41</span>
-            <div className="flex items-center gap-1">
-              <Signal className="h-3 w-3" />
-              <Wifi className="h-3 w-3" />
-              <Battery className="h-3.5 w-3.5" />
+      {/* 手机预览 + 右侧操作栏 */}
+      <div className="relative flex-shrink-0" ref={phoneFrameRef}>
+        <div className="w-[375px] bg-black rounded-[3rem] p-3 shadow-2xl">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-black rounded-b-2xl z-20" />
+          <div className="relative rounded-[2.4rem] overflow-hidden" style={{ height: '680px' }}>
+            {/* 状态栏 */}
+            <div className="sticky top-0 z-10 flex items-center justify-between px-8 py-2 bg-white/80 backdrop-blur-sm text-xs text-gray-600">
+              <span className="font-semibold">9:41</span>
+              <div className="flex items-center gap-1">
+                <Signal className="h-3 w-3" />
+                <Wifi className="h-3 w-3" />
+                <Battery className="h-3.5 w-3.5" />
+              </div>
+            </div>
+
+            {/* 页面内容 */}
+            <div
+              ref={scrollRef}
+              className="h-full overflow-y-auto scrollbar-hide"
+              style={{
+                backgroundColor: bgColor,
+                backgroundImage: bgImage ? `url(${getFileUrl(bgImage)})` : undefined,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              {components.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-[400px] text-gray-300">
+                  <Gift className="h-12 w-12 mb-3" />
+                  <p className="text-sm">点击左侧组件开始装修</p>
+                </div>
+              ) : (
+                components.map((comp) => {
+                  const isSelected = comp.id === selectedId
+                  return (
+                    <div
+                      key={comp.id}
+                      data-comp-id={comp.id}
+                      className={`relative group cursor-pointer transition-all ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-10' : 'hover:ring-1 hover:ring-blue-300 hover:ring-inset'}`}
+                      onClick={(e) => { e.stopPropagation(); onSelect(comp.id) }}
+                    >
+                      {renderComponent(comp)}
+
+                      {/* 选中标签 */}
+                      {isSelected && (
+                        <div className="absolute top-0 left-0 bg-blue-500 text-white text-[9px] px-1.5 py-0.5 rounded-br-lg z-20">
+                          {COMPONENT_LABEL[comp.type] || '组件'}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+              <div className="h-16" />
             </div>
           </div>
-
-          {/* 页面内容 */}
-          <div
-            className="h-full overflow-y-auto scrollbar-hide"
-            style={{
-              backgroundColor: bgColor,
-              backgroundImage: bgImage ? `url(${getFileUrl(bgImage)})` : undefined,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          >
-            {components.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-[400px] text-gray-300">
-                <Gift className="h-12 w-12 mb-3" />
-                <p className="text-sm">点击左侧组件开始装修</p>
-              </div>
-            ) : (
-              components.map((comp) => {
-                const isSelected = comp.id === selectedId
-                const idx = componentIndex(comp.id)
-                return (
-                  <div
-                    key={comp.id}
-                    className={`relative group cursor-pointer transition-all ${isSelected ? 'ring-2 ring-blue-500 ring-inset z-10' : 'hover:ring-1 hover:ring-blue-300 hover:ring-inset'}`}
-                    onClick={(e) => { e.stopPropagation(); onSelect(comp.id) }}
-                  >
-                    {renderComponent(comp)}
-
-                    {/* 操作栏 */}
-                    {isSelected && (
-                      <div className="absolute -right-1 top-1/2 -translate-y-1/2 translate-x-full flex flex-col gap-1 z-20">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onMoveUp(comp.id) }}
-                          disabled={idx === 0}
-                          className="w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-md border border-gray-200 text-gray-500 hover:text-blue-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="上移"
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onMoveDown(comp.id) }}
-                          disabled={idx === components.length - 1}
-                          className="w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-md border border-gray-200 text-gray-500 hover:text-blue-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="下移"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onCopy(comp.id) }}
-                          className="w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-md border border-gray-200 text-gray-500 hover:text-green-500"
-                          title="复制"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onDelete(comp.id) }}
-                          className="w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-md border border-gray-200 text-gray-500 hover:text-red-500"
-                          title="删除"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* 选中标签 */}
-                    {isSelected && (
-                      <div className="absolute top-0 left-0 bg-blue-500 text-white text-[9px] px-1.5 py-0.5 rounded-br-lg z-20">
-                        {COMPONENT_LABEL[comp.type] || '组件'}
-                      </div>
-                    )}
-                  </div>
-                )
-              })
-            )}
-            <div className="h-16" />
-          </div>
         </div>
+
+        {/* 操作栏 — 渲染在手机外框右侧，不受 overflow-hidden 影响 */}
+        {selectedId && toolbarTop !== null && (
+          <div
+            className="absolute z-30 flex flex-col rounded bg-[#666] py-1 px-0.5"
+            style={{ left: '100%', top: toolbarTop, transform: 'translate(8px, -50%)' }}
+          >
+            <button
+              onClick={(e) => { e.stopPropagation(); onMoveUp(selectedId) }}
+              disabled={selectedIdx === 0}
+              className="w-8 h-8 flex items-center justify-center text-white hover:text-blue-300 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="上移"
+            >
+              <ChevronUp className="h-5 w-5" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onMoveDown(selectedId) }}
+              disabled={selectedIdx === components.length - 1}
+              className="w-8 h-8 flex items-center justify-center text-white hover:text-blue-300 disabled:opacity-30 disabled:cursor-not-allowed"
+              title="下移"
+            >
+              <ChevronDown className="h-5 w-5" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onCopy(selectedId) }}
+              className="w-8 h-8 flex items-center justify-center text-white hover:text-green-300"
+              title="复制"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(selectedId) }}
+              className="w-8 h-8 flex items-center justify-center text-white hover:text-red-300"
+              title="删除"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
