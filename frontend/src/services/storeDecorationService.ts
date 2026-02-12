@@ -13,6 +13,12 @@ export type ComponentType =
   | 'spacer'
   | 'richText'
   | 'navBar'
+  | 'video'
+  | 'articleList'
+  | 'menuNav'
+  | 'seckill'
+  | 'groupBuy'
+  | 'bargain'
 
 // ============ 组件配置接口 ============
 
@@ -102,6 +108,47 @@ export interface NavBarItem {
 
 export interface NavBarConfig {
   items: NavBarItem[]
+}
+
+export interface VideoConfig {
+  url: string
+  cover: string
+  autoplay: boolean
+}
+
+export interface ArticleListConfig {
+  count: number
+  displayMode: 'list' | 'card'
+}
+
+export interface MenuNavItem {
+  image: string
+  text: string
+  link: string
+}
+
+export interface MenuNavConfig {
+  items: MenuNavItem[]
+  columns: 4 | 5
+  shape: 'square' | 'round'
+}
+
+export interface SeckillConfig {
+  title: string
+  bgColor: string
+  displayMode: 'scroll' | 'grid'
+}
+
+export interface GroupBuyConfig {
+  title: string
+  bgColor: string
+  displayMode: 'scroll' | 'grid'
+}
+
+export interface BargainConfig {
+  title: string
+  bgColor: string
+  displayMode: 'scroll' | 'grid'
 }
 
 // ============ 动态组件 ============
@@ -210,6 +257,18 @@ export const createDefaultConfig = (type: ComponentType): any => {
       return { content: '' } as RichTextConfig
     case 'navBar':
       return { items: [{ text: '首页', link: '/', icon: 'home' }] } as NavBarConfig
+    case 'video':
+      return { url: '', cover: '', autoplay: false } as VideoConfig
+    case 'articleList':
+      return { count: 3, displayMode: 'list' } as ArticleListConfig
+    case 'menuNav':
+      return { items: [{ image: '', text: '导航1', link: '' }, { image: '', text: '导航2', link: '' }, { image: '', text: '导航3', link: '' }, { image: '', text: '导航4', link: '' }], columns: 4, shape: 'round' } as MenuNavConfig
+    case 'seckill':
+      return { title: '限时秒杀', bgColor: '#ff4d4f', displayMode: 'scroll' } as SeckillConfig
+    case 'groupBuy':
+      return { title: '拼团活动', bgColor: '#ff7a45', displayMode: 'scroll' } as GroupBuyConfig
+    case 'bargain':
+      return { title: '砍价专区', bgColor: '#faad14', displayMode: 'scroll' } as BargainConfig
     default:
       return {}
   }

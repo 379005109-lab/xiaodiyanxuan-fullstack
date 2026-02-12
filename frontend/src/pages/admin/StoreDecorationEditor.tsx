@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Save, Star, User, Image, Tag, Package, Palette, ImageIcon,
   Search, LayoutGrid, Type, Minus, FileText, ChevronDown, Settings,
+  Video, Navigation, Zap, Users, Scissors,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -28,6 +29,12 @@ import SpacerEditor from '@/components/admin/store-decoration/SpacerEditor'
 import RichTextEditor from '@/components/admin/store-decoration/RichTextEditor'
 import ImageCubeEditor from '@/components/admin/store-decoration/ImageCubeEditor'
 import SearchBoxEditor from '@/components/admin/store-decoration/SearchBoxEditor'
+import VideoEditor from '@/components/admin/store-decoration/VideoEditor'
+import ArticleListEditor from '@/components/admin/store-decoration/ArticleListEditor'
+import MenuNavEditor from '@/components/admin/store-decoration/MenuNavEditor'
+import SeckillEditor from '@/components/admin/store-decoration/SeckillEditor'
+import GroupBuyEditor from '@/components/admin/store-decoration/GroupBuyEditor'
+import BargainEditor from '@/components/admin/store-decoration/BargainEditor'
 
 const PAGE_SETTINGS_ID = '__page_settings__'
 
@@ -45,12 +52,18 @@ const COMPONENT_CATEGORIES: ComponentCategory[] = [
       { type: 'searchBox', label: '搜索框', icon: Search },
       { type: 'imageCube', label: '图片魔方', icon: LayoutGrid },
       { type: 'productList', label: '商品列表', icon: Package },
+      { type: 'menuNav', label: '导航组', icon: Navigation },
+      { type: 'video', label: '视频', icon: Video },
+      { type: 'articleList', label: '文章列表', icon: FileText },
     ],
   },
   {
     label: '营销组件',
     items: [
       { type: 'coupon', label: '优惠券', icon: Tag },
+      { type: 'seckill', label: '秒杀', icon: Zap },
+      { type: 'groupBuy', label: '拼团', icon: Users },
+      { type: 'bargain', label: '砍价', icon: Scissors },
     ],
   },
   {
@@ -234,6 +247,12 @@ export default function StoreDecorationEditor() {
       case 'richText': return <RichTextEditor config={config} onChange={onChange} />
       case 'imageCube': return <ImageCubeEditor config={config} onChange={onChange} />
       case 'searchBox': return <SearchBoxEditor config={config} onChange={onChange} />
+      case 'video': return <VideoEditor config={config} onChange={onChange} />
+      case 'articleList': return <ArticleListEditor config={config} onChange={onChange} />
+      case 'menuNav': return <MenuNavEditor config={config} onChange={onChange} />
+      case 'seckill': return <SeckillEditor config={config} onChange={onChange} />
+      case 'groupBuy': return <GroupBuyEditor config={config} onChange={onChange} />
+      case 'bargain': return <BargainEditor config={config} onChange={onChange} />
       default: return <div className="text-center py-12 text-gray-400 text-sm">暂不支持编辑此组件</div>
     }
   }
