@@ -1,199 +1,333 @@
-<navigation-bar title="小迪严选" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<navigation-bar title="{{storeName}}" back="{{false}}" color="black" background="#FFF"></navigation-bar>
 <scroll-view class="page-scroll" scroll-y enhanced show-scrollbar="{{false}}" bounces="{{true}}" bindscrolltolower="onReachBottom">
-<view class="page">
+<view class="page" style="background-color: {{pageBgColor}}; {{pageBgImage ? 'background-image: url(' + pageBgImage + '); background-size: cover;' : ''}}">
 
-	<!-- ========== Hero Banner 轮播 ========== -->
-	<view class="hero-section">
-		<swiper class="hero-swiper" indicator-dots="{{false}}" autoplay="{{autoPlay}}" interval="5000" duration="700" circular current="{{currentBanner}}" bindchange="onBannerChange">
-			<block wx:for="{{banners}}" wx:key="id">
-				<swiper-item>
-					<view class="hero-slide" bindtap="onBannerTap" data-index="{{index}}" data-item="{{item}}">
-						<image class="hero-img" src="{{item.image || item.poster}}" mode="aspectFill"></image>
-						<view class="hero-gradient"></view>
-						<view class="hero-content">
-							<view class="hero-title">{{item.title}}</view>
-							<view class="hero-subtitle">{{item.subtitle}}</view>
-							<view class="hero-btn">
-								<text>了解更多</text>
-								<text class="hero-btn-arrow ri ri-arrow-right-line"></text>
-							</view>
-						</view>
-					</view>
-				</swiper-item>
-			</block>
-		</swiper>
-		<!-- 指示器 -->
-		<view class="hero-indicators">
-			<block wx:for="{{banners}}" wx:key="id">
-				<view class="hero-dot {{currentBanner === index ? 'active' : ''}}" bindtap="goToSlide" data-index="{{index}}"></view>
-			</block>
-		</view>
+	<!-- 加载中 -->
+	<view wx:if="{{loading}}" class="loading-container">
+		<view class="loading-spinner"></view>
+		<text class="loading-text">加载中...</text>
 	</view>
 
-	<!-- ========== 砍价专区 ========== -->
-	<view class="section" wx:if="{{bargainProducts.length > 0}}">
-		<view class="section-header">
-			<view class="section-header-left">
-				<view class="section-title">砍价专区</view>
-				<view class="section-desc">邀请好友帮砍，超低价带回家</view>
-			</view>
-			<view class="section-more" bindtap="goMoreBargain">
-				<text>全部</text>
-				<text class="more-arrow ri ri-arrow-right-s-line"></text>
-			</view>
-		</view>
-		<scroll-view class="bargain-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-			<view class="bargain-list">
-				<block wx:for="{{bargainProducts}}" wx:key="id">
-					<view class="bargain-card" bindtap="goBargainDetail" data-id="{{item.id}}">
-						<view class="bargain-img-wrap">
-							<image class="bargain-img" src="{{item.image}}" mode="aspectFill"></image>
-							<view class="bargain-countdown">
-								<text class="countdown-icon ri ri-time-line"></text>
-								<text>{{item.countdown || '00:00:00'}}</text>
+	<!-- 加载失败 -->
+	<view wx:elif="{{loaded && loadError && components.length === 0}}" class="empty-container">
+		<text class="empty-icon">⚠️</text>
+		<text class="empty-text">{{loadError}}</text>
+		<view class="empty-retry" bindtap="retryLoad">点击重试</view>
+	</view>
+
+	<!-- 动态装修组件循环渲染 -->
+	<block wx:for="{{components}}" wx:key="id">
+		<view class="deco-comp" style="margin: {{item.style.marginTop || 0}}rpx {{item.style.marginLR || 0}}rpx {{item.style.marginBottom || 0}}rpx; background-color: {{item.style.bgColor || ''}}; border-radius: {{item.style.borderRadius || 0}}rpx; overflow: hidden;">
+
+		<!-- ========== 店铺头部 storeHeader ========== -->
+		<view wx:if="{{item.type === 'storeHeader'}}" class="deco-store-header">
+			<view class="shop-card">
+				<view class="shop-main">
+					<image class="shop-logo" src="{{item.config.logo}}" mode="aspectFill" wx:if="{{item.config.logo}}"></image>
+					<view class="shop-logo-placeholder" wx:else>
+						<text>{{item.config.name[0] || '店'}}</text>
+					</view>
+					<view class="shop-info">
+						<view class="shop-name-row">
+							<text class="shop-name">{{item.config.name || '店铺名称'}}</text>
+							<view class="shop-verified" wx:if="{{item.config.isVerified}}">
+								<text>✓ 已认证</text>
 							</view>
 						</view>
-						<view class="bargain-info">
-							<view class="bargain-name text-ellipsis-2">{{item.name}}</view>
-							<view class="bargain-progress-wrap">
-								<view class="bargain-progress-bar">
-									<view class="bargain-progress-fill" style="width: {{item.progress}}%"></view>
+						<view class="shop-contact" wx:if="{{item.config.contactName || item.config.phone}}">
+							<text class="shop-contact-name">联系人: {{item.config.contactName}}</text>
+							<text class="shop-contact-phone" wx:if="{{item.config.phone}}"> {{item.config.phone}}</text>
+						</view>
+						<view class="shop-address text-ellipsis" wx:if="{{item.config.address}}">📍 {{item.config.address}}</view>
+						<view class="shop-desc text-ellipsis" wx:if="{{item.config.description}}">{{item.config.description}}</view>
+					</view>
+				</view>
+				<view class="shop-actions">
+					<view class="shop-action-btn" catchtap="goShopInfo">
+						<text class="action-icon">🏪</text>
+						<text>店铺信息</text>
+					</view>
+					<view class="shop-action-btn" catchtap="goShopPoster">
+						<text class="action-icon">🖼</text>
+						<text>店铺海报</text>
+					</view>
+				</view>
+			</view>
+		</view>
+
+		<!-- ========== 轮播图 banner ========== -->
+		<view wx:elif="{{item.type === 'banner' && item.config.items.length > 0}}" class="deco-banner">
+			<swiper class="deco-banner-swiper" indicator-dots="{{false}}" autoplay="{{true}}" interval="5000" duration="700" circular current="{{currentBanner}}" bindchange="onBannerChange" style="border-radius: {{item.style.innerRadius || 0}}rpx; overflow: hidden;">
+				<block wx:for="{{item.config.items}}" wx:for-item="banner" wx:for-index="bIdx" wx:key="bIdx">
+					<swiper-item wx:if="{{banner.status !== false && banner.image}}">
+						<view class="deco-banner-slide" bindtap="onBannerTap" data-link="{{banner.link}}">
+							<image class="deco-banner-img" src="{{banner.image}}" mode="aspectFill"></image>
+						</view>
+					</swiper-item>
+				</block>
+			</swiper>
+			<!-- 指示器 -->
+			<view class="deco-banner-dots">
+				<block wx:for="{{item.config.items}}" wx:for-item="banner" wx:for-index="bIdx" wx:key="bIdx">
+					<view wx:if="{{banner.status !== false && banner.image}}" class="deco-dot {{currentBanner === bIdx ? 'active' : ''}}"></view>
+				</block>
+			</view>
+		</view>
+
+		<!-- ========== 砍价专区 bargain ========== -->
+		<view wx:elif="{{item.type === 'bargain' && item.config.products && item.config.products.length > 0}}" class="deco-bargain" style="background: linear-gradient(180deg, {{item.config.headerBgColor || '#faad14'}} 0%, {{item.config.headerBgColor || '#faad14'}} 120rpx, {{item.config.contentBgColor || '#FFFFFF'}} 120rpx);">
+			<view class="deco-bargain-header">
+				<text class="deco-bargain-title" style="color: {{item.config.hintTextColor || '#FFFFFF'}};">{{item.config.title || '砍价专区'}}</text>
+			</view>
+
+			<!-- 横向滑动布局 layoutStyle=0 -->
+			<scroll-view wx:if="{{!item.config.layoutStyle || item.config.layoutStyle === 0}}" class="deco-bargain-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+				<view class="deco-bargain-list">
+					<block wx:for="{{item.config.products}}" wx:for-item="bp" wx:for-index="bpIdx" wx:key="_id">
+						<view class="deco-bargain-card" bindtap="goBargainDetail" data-id="{{bp._id}}">
+							<view class="deco-bargain-img-wrap">
+								<image class="deco-bargain-img" src="{{bp.coverImage}}" mode="aspectFill"></image>
+								<view class="deco-bargain-countdown">
+									<text class="countdown-icon">⏱</text>
+									<text>{{bp.countdown || '00:00:00'}}</text>
 								</view>
-								<text class="bargain-progress-text">{{item.progress}}%</text>
 							</view>
-							<view class="bargain-price-row">
-								<text class="bargain-price"><text class="price-symbol">¥</text>{{item.currentPrice}}</text>
-								<text class="bargain-original-price">¥{{item.originalPrice}}</text>
+							<view class="deco-bargain-info">
+								<text wx:if="{{item.config.showName !== false}}" class="deco-bargain-name text-ellipsis" style="color: {{item.config.nameColor || '#333'}};">{{bp.name}}</text>
+								<view wx:if="{{item.config.showTag !== false}}" class="deco-bargain-tags">
+									<text class="deco-bargain-tag" style="color: {{item.config.headerBgColor || '#faad14'}}; border-color: {{item.config.headerBgColor || '#faad14'}};">砍价</text>
+									<text class="deco-bargain-discount" wx:if="{{bp.discount > 0}}">{{bp.discount}}%</text>
+								</view>
+								<view class="deco-bargain-price-row">
+									<text wx:if="{{item.config.showPrice !== false}}" class="deco-bargain-price" style="color: {{item.config.headerBgColor || '#e8530e'}};">¥{{bp.targetPrice}}</text>
+									<text wx:if="{{item.config.showOriginalPrice !== false}}" class="deco-bargain-origin-price" style="color: {{item.config.originalPriceColor || '#999'}};">¥{{bp.originalPrice}}</text>
+								</view>
+								<view wx:if="{{item.config.showButton}}" class="deco-bargain-btn" style="background: {{item.config.headerBgColor || '#faad14'}}; color: {{item.config.buttonTextColor || '#fff'}};">去砍价</view>
+							</view>
+						</view>
+					</block>
+				</view>
+			</scroll-view>
+
+			<!-- 列表布局 layoutStyle=1 -->
+			<view wx:elif="{{item.config.layoutStyle === 1}}" class="deco-bargain-list-vertical">
+				<block wx:for="{{item.config.products}}" wx:for-item="bp" wx:for-index="bpIdx" wx:key="_id">
+					<view class="deco-bargain-list-item" bindtap="goBargainDetail" data-id="{{bp._id}}" style="background: {{item.config.contentBgColor || '#fff'}};">
+						<view class="deco-bargain-list-img">
+							<image src="{{bp.coverImage}}" mode="aspectFill"></image>
+							<view class="deco-bargain-countdown">
+								<text class="countdown-icon">⏱</text>
+								<text>{{bp.countdown || '00:00:00'}}</text>
+							</view>
+						</view>
+						<view class="deco-bargain-list-info">
+							<text wx:if="{{item.config.showName !== false}}" class="deco-bargain-name text-ellipsis-2" style="color: {{item.config.nameColor || '#333'}};">{{bp.name}}</text>
+							<view wx:if="{{item.config.showTag !== false}}" class="deco-bargain-tags">
+								<text class="deco-bargain-tag" style="color: {{item.config.headerBgColor || '#faad14'}}; border-color: {{item.config.headerBgColor || '#faad14'}};">砍价</text>
+							</view>
+							<view class="deco-bargain-price-row">
+								<text wx:if="{{item.config.showPrice !== false}}" class="deco-bargain-price" style="color: {{item.config.headerBgColor || '#e8530e'}};">¥{{bp.targetPrice}}</text>
+								<text wx:if="{{item.config.showOriginalPrice !== false}}" class="deco-bargain-origin-price" style="color: {{item.config.originalPriceColor || '#999'}};">¥{{bp.originalPrice}}</text>
+							</view>
+							<view wx:if="{{item.config.showButton}}" class="deco-bargain-btn-sm" style="background: {{item.config.headerBgColor || '#faad14'}}; color: {{item.config.buttonTextColor || '#fff'}};">去砍价</view>
+						</view>
+					</view>
+				</block>
+			</view>
+
+			<!-- 两列网格布局 layoutStyle=2 -->
+			<view wx:elif="{{item.config.layoutStyle === 2}}" class="deco-bargain-grid deco-bargain-grid-2">
+				<block wx:for="{{item.config.products}}" wx:for-item="bp" wx:for-index="bpIdx" wx:key="_id">
+					<view class="deco-bargain-grid-card" bindtap="goBargainDetail" data-id="{{bp._id}}" style="background: {{item.config.contentBgColor || '#fff'}};">
+						<view class="deco-bargain-grid-img">
+							<image src="{{bp.coverImage}}" mode="aspectFill"></image>
+							<view class="deco-bargain-countdown-sm">
+								<text class="countdown-icon">⏱</text>
+								<text>{{bp.countdown || '00:00:00'}}</text>
+							</view>
+						</view>
+						<view class="deco-bargain-grid-info">
+							<text wx:if="{{item.config.showName !== false}}" class="deco-bargain-name text-ellipsis" style="color: {{item.config.nameColor || '#333'}};">{{bp.name}}</text>
+							<view wx:if="{{item.config.showTag !== false}}" class="deco-bargain-tags">
+								<text class="deco-bargain-tag" style="color: {{item.config.headerBgColor || '#faad14'}}; border-color: {{item.config.headerBgColor || '#faad14'}};">砍价</text>
+							</view>
+							<view class="deco-bargain-price-row">
+								<text wx:if="{{item.config.showPrice !== false}}" class="deco-bargain-price" style="color: {{item.config.headerBgColor || '#e8530e'}};">¥{{bp.targetPrice}}</text>
+								<text wx:if="{{item.config.showOriginalPrice !== false}}" class="deco-bargain-origin-price" style="color: {{item.config.originalPriceColor || '#999'}};">¥{{bp.originalPrice}}</text>
+							</view>
+							<view wx:if="{{item.config.showButton}}" class="deco-bargain-btn" style="background: {{item.config.headerBgColor || '#faad14'}}; color: {{item.config.buttonTextColor || '#fff'}};">去砍价</view>
+						</view>
+					</view>
+				</block>
+			</view>
+
+			<!-- 三列网格布局 layoutStyle=3 -->
+			<view wx:elif="{{item.config.layoutStyle === 3}}" class="deco-bargain-grid deco-bargain-grid-3">
+				<block wx:for="{{item.config.products}}" wx:for-item="bp" wx:for-index="bpIdx" wx:key="_id">
+					<view class="deco-bargain-grid-card" bindtap="goBargainDetail" data-id="{{bp._id}}" style="background: {{item.config.contentBgColor || '#fff'}};">
+						<view class="deco-bargain-grid-img deco-bargain-grid-img-sm">
+							<image src="{{bp.coverImage}}" mode="aspectFill"></image>
+						</view>
+						<view class="deco-bargain-grid-info">
+							<text wx:if="{{item.config.showName !== false}}" class="deco-bargain-name text-ellipsis" style="font-size: 24rpx; color: {{item.config.nameColor || '#333'}};">{{bp.name}}</text>
+							<view class="deco-bargain-price-row">
+								<text wx:if="{{item.config.showPrice !== false}}" class="deco-bargain-price" style="font-size: 28rpx; color: {{item.config.headerBgColor || '#e8530e'}};">¥{{bp.targetPrice}}</text>
+								<text wx:if="{{item.config.showOriginalPrice !== false}}" class="deco-bargain-origin-price" style="font-size: 20rpx; color: {{item.config.originalPriceColor || '#999'}};">¥{{bp.originalPrice}}</text>
+							</view>
+							<view wx:if="{{item.config.showButton}}" class="deco-bargain-btn-sm" style="background: {{item.config.headerBgColor || '#faad14'}}; color: {{item.config.buttonTextColor || '#fff'}};">去砍价</view>
+						</view>
+					</view>
+				</block>
+			</view>
+		</view>
+
+		<!-- ========== 搜索框 searchBox ========== -->
+		<view wx:elif="{{item.type === 'searchBox'}}" class="deco-search" bindtap="onSearchTap">
+			<view class="deco-search-box" style="border-radius: {{item.config.borderRadius || 20}}rpx; background-color: {{item.config.bgColor || '#f5f5f5'}};">
+				<text class="deco-search-icon">🔍</text>
+				<text class="deco-search-placeholder">{{item.config.placeholder || '搜索商品'}}</text>
+			</view>
+		</view>
+
+		<!-- ========== 标题 title ========== -->
+		<view wx:elif="{{item.type === 'title'}}" class="deco-title" style="text-align: {{item.config.align || 'left'}};">
+			<view class="deco-title-row">
+				<view class="deco-title-left">
+					<text class="deco-title-text" style="font-size: {{item.config.fontSize || 16}}px; color: {{item.config.color || '#282828'}}; font-weight: {{item.config.bold ? 'bold' : 'normal'}}; font-style: {{item.config.fontStyle || 'normal'}};">{{item.config.text}}</text>
+					<text wx:if="{{item.config.subtitle}}" class="deco-subtitle-text" style="font-size: {{item.config.subtitleFontSize || 14}}px; color: {{item.config.subtitleColor || '#999'}};">{{item.config.subtitle}}</text>
+				</view>
+				<view wx:if="{{item.config.showRight}}" class="deco-title-right" bindtap="goLink" data-link="{{item.config.rightLink}}">
+					<text style="font-size: {{item.config.rightFontSize || 12}}px; color: {{item.config.rightColor || '#999'}};">{{item.config.rightText || '更多'}}</text>
+					<text class="more-arrow">›</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- ========== 商品列表 productList ========== -->
+		<view wx:elif="{{item.type === 'productList' && item.config.products.length > 0}}" class="deco-products">
+			<!-- grid 网格布局 -->
+			<view wx:if="{{item.config.displayMode === 'grid' || !item.config.displayMode}}" class="deco-product-grid">
+				<block wx:for="{{item.config.products}}" wx:for-item="prod" wx:for-index="pIdx" wx:key="_id">
+					<view class="deco-product-card" bindtap="goProductDetail" data-id="{{prod._id}}">
+						<view class="deco-product-img-wrap">
+							<image class="deco-product-img" src="{{prod.thumbnail || prod.images[0] || ''}}" mode="aspectFill"></image>
+						</view>
+						<view class="deco-product-info">
+							<view wx:if="{{item.config.showName !== false}}" class="deco-product-name text-ellipsis-2">{{prod.name}}</view>
+							<view class="deco-product-bottom">
+								<text wx:if="{{item.config.showPrice !== false}}" class="deco-product-price"><text class="price-symbol">¥</text>{{prod.basePrice || prod.price}}</text>
+								<text wx:if="{{item.config.showSales && prod.sales}}" class="deco-product-sales">已售{{prod.sales}}</text>
 							</view>
 						</view>
 					</view>
 				</block>
 			</view>
-		</scroll-view>
-		<view class="bargain-entry-btn" bindtap="goMoreBargain">
-			<text>查看全部砍价商品</text>
-			<text class="more-arrow ri ri-arrow-right-s-line"></text>
-		</view>
-	</view>
-
-	<!-- ========== 新品推荐 ========== -->
-	<view class="section" wx:if="{{recommendProducts.length > 0}}">
-		<view class="section-header">
-			<view class="section-header-left">
-				<view class="section-title">新品推荐</view>
-				<view class="section-desc">精选优质家具，工厂直发</view>
-			</view>
-			<view class="section-more" bindtap="goMoreProducts">
-				<text>更多</text>
-				<text class="more-arrow ri ri-arrow-right-s-line"></text>
-			</view>
-		</view>
-		<view class="recommend-list">
-			<block wx:for="{{recommendProducts}}" wx:key="id">
-				<view class="recommend-item" bindtap="goProductDetail" data-id="{{item._id || item.id}}">
-					<image class="recommend-img" src="{{item.image || item.thumbnail}}" mode="aspectFill"></image>
-					<view class="recommend-info">
-						<view class="recommend-name text-ellipsis">{{item.name}}</view>
-						<view class="recommend-highlight">{{item.highlight || item.description}}</view>
-						<view class="recommend-bottom">
-							<view class="recommend-price-wrap">
-								<text class="recommend-price"><text class="price-symbol">¥</text>{{item.price}}</text>
-								<text class="recommend-original-price" wx:if="{{item.originalPrice}}">¥{{item.originalPrice}}</text>
+			<!-- list 列表布局 -->
+			<view wx:elif="{{item.config.displayMode === 'list'}}" class="deco-product-list">
+				<block wx:for="{{item.config.products}}" wx:for-item="prod" wx:for-index="pIdx" wx:key="_id">
+					<view class="deco-product-list-item" bindtap="goProductDetail" data-id="{{prod._id}}">
+						<image class="deco-product-list-img" src="{{prod.thumbnail || prod.images[0] || ''}}" mode="aspectFill"></image>
+						<view class="deco-product-list-info">
+							<view wx:if="{{item.config.showName !== false}}" class="deco-product-name text-ellipsis-2">{{prod.name}}</view>
+							<view class="deco-product-bottom">
+								<text wx:if="{{item.config.showPrice !== false}}" class="deco-product-price"><text class="price-symbol">¥</text>{{prod.basePrice || prod.price}}</text>
+								<text wx:if="{{item.config.showSales && prod.sales}}" class="deco-product-sales">已售{{prod.sales}}</text>
 							</view>
-							<text class="recommend-sales" wx:if="{{item.sales}}">已售 {{item.sales}}</text>
 						</view>
 					</view>
-				</view>
-				<view class="recommend-divider" wx:if="{{index < recommendProducts.length - 1}}"></view>
-			</block>
-		</view>
-	</view>
-
-	<!-- ========== 空间灵感 ========== -->
-	<view class="section">
-		<view class="section-header">
-			<view class="section-header-left">
-				<view class="section-title">空间灵感</view>
-				<view class="section-desc">展厅实景，所见即所得</view>
+				</block>
 			</view>
-			<view class="section-more" bindtap="goCategory">
-				<text>更多</text>
-				<text class="more-arrow ri ri-arrow-right-s-line"></text>
-			</view>
-		</view>
-		<view class="space-grid">
-			<block wx:for="{{spaces}}" wx:key="id">
-				<view class="space-card" bindtap="goSpaceDetail" data-item="{{item}}">
-					<image class="space-img" src="{{item.image}}" mode="aspectFill"></image>
-					<view class="space-overlay"></view>
-					<view class="space-text">
-						<view class="space-title">{{item.title}}</view>
-						<view class="space-subtitle">{{item.subtitle}}</view>
-					</view>
-				</view>
-			</block>
-		</view>
-	</view>
-
-	<!-- ========== 精选好物 ========== -->
-	<view class="section" wx:if="{{featuredProducts.length > 0}}">
-		<view class="section-header">
-			<view class="section-header-left">
-				<view class="section-title">精选好物</view>
-				<view class="section-desc">源头工厂，品质保障</view>
-			</view>
-			<view class="section-more" bindtap="goMoreProducts">
-				<text>更多</text>
-				<text class="more-arrow ri ri-arrow-right-s-line"></text>
-			</view>
-		</view>
-		<view class="featured-grid">
-			<block wx:for="{{featuredProducts}}" wx:key="id">
-				<view class="featured-card" bindtap="goProductDetail" data-id="{{item._id || item.id}}">
-					<view class="featured-img-wrap">
-						<image class="featured-img" src="{{item.image || item.thumbnail}}" mode="aspectFill"></image>
-					</view>
-					<view class="featured-info">
-						<view class="featured-name text-ellipsis-2">{{item.name}}</view>
-						<view class="featured-highlight" wx:if="{{item.highlight}}">{{item.highlight}}</view>
-						<view class="featured-price-row">
-							<text class="featured-price"><text class="price-symbol">¥</text>{{item.price}}</text>
-							<text class="featured-original" wx:if="{{item.originalPrice}}">¥{{item.originalPrice}}</text>
+			<!-- scroll 横向滚动布局 -->
+			<scroll-view wx:elif="{{item.config.displayMode === 'scroll'}}" class="deco-product-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+				<view class="deco-product-scroll-inner">
+					<block wx:for="{{item.config.products}}" wx:for-item="prod" wx:for-index="pIdx" wx:key="_id">
+						<view class="deco-product-scroll-card" bindtap="goProductDetail" data-id="{{prod._id}}">
+							<image class="deco-product-scroll-img" src="{{prod.thumbnail || prod.images[0] || ''}}" mode="aspectFill"></image>
+							<view wx:if="{{item.config.showName !== false}}" class="deco-product-name text-ellipsis-2">{{prod.name}}</view>
+							<view class="deco-product-bottom">
+								<text wx:if="{{item.config.showPrice !== false}}" class="deco-product-price"><text class="price-symbol">¥</text>{{prod.basePrice || prod.price}}</text>
+								<text wx:if="{{item.config.showSales && prod.sales}}" class="deco-product-sales">已售{{prod.sales}}</text>
+							</view>
 						</view>
-					</view>
+					</block>
 				</view>
-			</block>
+			</scroll-view>
 		</view>
-	</view>
 
-	<!-- ========== 店铺信息 ========== -->
-	<view class="section shop-section">
-		<view class="shop-card" bindtap="goShopInfo">
-			<view class="shop-main">
-				<image class="shop-logo" src="{{shopInfo.logo}}" mode="aspectFill" wx:if="{{shopInfo.logo}}"></image>
-				<view class="shop-logo-placeholder" wx:else>
-					<text>小</text>
-				</view>
-				<view class="shop-info">
-					<view class="shop-name-row">
-						<text class="shop-name">{{shopInfo.name}}</text>
-						<view class="shop-verified" wx:if="{{shopInfo.isVerified}}">
-							<text>✓ 已认证</text>
-						</view>
+		<!-- ========== 图片魔方 imageCube ========== -->
+		<view wx:elif="{{item.type === 'imageCube' && item.config.images.length > 0}}" class="deco-image-cube" style="border-radius: {{item.style.innerRadius || 0}}rpx; overflow: hidden;">
+			<view class="deco-cube-grid deco-cube-col-{{item.config.columns || 2}}">
+				<block wx:for="{{item.config.images}}" wx:for-item="img" wx:for-index="iIdx" wx:key="iIdx">
+					<view class="deco-cube-item" bindtap="goLink" data-link="{{img.link}}">
+						<image class="deco-cube-img" src="{{img.url}}" mode="aspectFill"></image>
 					</view>
-					<view class="shop-address text-ellipsis">{{shopInfo.address}}</view>
-				</view>
-			</view>
-			<view class="shop-actions">
-				<view class="shop-action-btn" catchtap="callShop">
-					<text>📞 联系</text>
-				</view>
-				<view class="shop-action-btn" catchtap="goShopInfo">
-					<text>🏪 进店</text>
-				</view>
+				</block>
 			</view>
 		</view>
-	</view>
+
+		<!-- ========== 菜单导航 menuNav ========== -->
+		<view wx:elif="{{item.type === 'menuNav' && item.config.items.length > 0}}" class="deco-menu-nav">
+			<view class="deco-menu-grid deco-menu-col-{{item.config.columns || 4}}">
+				<block wx:for="{{item.config.items}}" wx:for-item="nav" wx:for-index="nIdx" wx:key="nIdx">
+					<view class="deco-menu-item" bindtap="goLink" data-link="{{nav.link}}">
+						<view class="deco-menu-icon-wrap {{item.config.shape === 'round' ? 'round' : ''}}">
+							<image wx:if="{{nav.image}}" class="deco-menu-icon" src="{{nav.image}}" mode="aspectFill"></image>
+							<view wx:else class="deco-menu-icon-placeholder">
+								<text>{{nav.text[0] || ''}}</text>
+							</view>
+						</view>
+						<text class="deco-menu-text">{{nav.text}}</text>
+					</view>
+				</block>
+			</view>
+		</view>
+
+		<!-- ========== 优惠券 coupon ========== -->
+		<view wx:elif="{{item.type === 'coupon' && item.config.items.length > 0}}" class="deco-coupon">
+			<scroll-view class="deco-coupon-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+				<view class="deco-coupon-list">
+					<block wx:for="{{item.config.items}}" wx:for-item="cp" wx:for-index="cIdx" wx:key="cIdx">
+						<view class="deco-coupon-card">
+							<view class="deco-coupon-amount">
+								<text class="price-symbol">¥</text>
+								<text class="deco-coupon-value">{{cp.amount || cp.coupon.value || 0}}</text>
+							</view>
+							<view class="deco-coupon-info">
+								<text class="deco-coupon-condition">满{{cp.threshold || cp.coupon.minAmount || 0}}可用</text>
+							</view>
+							<view class="deco-coupon-btn">领取</view>
+						</view>
+					</block>
+				</view>
+			</scroll-view>
+		</view>
+
+		<!-- ========== 辅助空白 spacer ========== -->
+		<view wx:elif="{{item.type === 'spacer'}}" class="deco-spacer" style="height: {{item.config.height || 20}}rpx; background-color: {{item.config.bgColor || 'transparent'}};"></view>
+
+		<!-- ========== 富文本 richText ========== -->
+		<view wx:elif="{{item.type === 'richText' && item.config.content}}" class="deco-rich-text">
+			<rich-text nodes="{{item.config.content}}"></rich-text>
+		</view>
+
+		<!-- ========== 视频 video ========== -->
+		<view wx:elif="{{item.type === 'video' && item.config.url}}" class="deco-video" style="border-radius: {{item.style.innerRadius || 0}}rpx; overflow: hidden;">
+			<video class="deco-video-player" src="{{item.config.url}}" poster="{{item.config.cover}}" autoplay="{{item.config.autoplay || false}}" controls show-center-play-btn object-fit="cover"></video>
+		</view>
+
+		<!-- ========== 导航栏 navBar ========== -->
+		<view wx:elif="{{item.type === 'navBar' && item.config.items.length > 0}}" class="deco-navbar">
+			<view class="deco-navbar-list">
+				<block wx:for="{{item.config.items}}" wx:for-item="nb" wx:for-index="nbIdx" wx:key="nbIdx">
+					<view class="deco-navbar-item" bindtap="goLink" data-link="{{nb.link}}">
+						<text>{{nb.text}}</text>
+					</view>
+				</block>
+			</view>
+		</view>
+
+		</view>
+	</block>
 
 	<!-- 底部占位 -->
 	<view style="height: 160rpx;"></view>

@@ -1,19 +1,22 @@
 import { Minus } from 'lucide-react'
-import { SpacerConfig } from '@/services/storeDecorationService'
+import { SpacerConfig, ComponentStyle } from '@/services/storeDecorationService'
+import EditorTabs from './EditorTabs'
+import StyleEditor from './StyleEditor'
 
 interface SpacerEditorProps {
   config: SpacerConfig
   onChange: (config: SpacerConfig) => void
+  style: ComponentStyle
+  onStyleChange: (style: ComponentStyle) => void
 }
 
-export default function SpacerEditor({ config, onChange }: SpacerEditorProps) {
+export default function SpacerEditor({ config, onChange, style, onStyleChange }: SpacerEditorProps) {
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
-        <Minus className="h-4 w-4" />
-        辅助空白
-      </h3>
-
+    <EditorTabs
+      title="辅助空白"
+      icon={<Minus className="h-4 w-4" />}
+      contentPanel={
+        <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">高度 ({config.height}px)</label>
         <input
@@ -50,5 +53,8 @@ export default function SpacerEditor({ config, onChange }: SpacerEditorProps) {
         </div>
       </div>
     </div>
+      }
+      stylePanel={<StyleEditor style={style} onChange={onStyleChange} />}
+    />
   )
 }

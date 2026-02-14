@@ -1,4 +1,6 @@
 // pages/profile/points/index.js
+const { requireLogin } = require('../../../utils/auth.js')
+
 Page({
   data: {
     points: 0,
@@ -6,6 +8,7 @@ Page({
   },
 
   onLoad() {
+    if (!requireLogin()) return
     this.loadPoints()
   },
 

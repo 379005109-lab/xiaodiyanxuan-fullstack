@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { Navigation, Plus, Trash2, Link, Image } from 'lucide-react'
-import { MenuNavConfig, MenuNavItem } from '@/services/storeDecorationService'
+import { MenuNavConfig, MenuNavItem, ComponentStyle } from '@/services/storeDecorationService'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
+import EditorTabs from './EditorTabs'
+import StyleEditor from './StyleEditor'
 
 interface MenuNavEditorProps {
   config: MenuNavConfig
   onChange: (config: MenuNavConfig) => void
+  style: ComponentStyle
+  onStyleChange: (style: ComponentStyle) => void
 }
 
-export default function MenuNavEditor({ config, onChange }: MenuNavEditorProps) {
+export default function MenuNavEditor({ config, onChange, style, onStyleChange }: MenuNavEditorProps) {
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
 
   const handleImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,12 +52,11 @@ export default function MenuNavEditor({ config, onChange }: MenuNavEditorProps) 
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
-        <Navigation className="h-4 w-4" />
-        导航组设置
-      </h3>
-
+    <EditorTabs
+      title="导航组设置"
+      icon={<Navigation className="h-4 w-4" />}
+      contentPanel={
+        <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">每行列数</label>
         <div className="flex gap-2">
@@ -141,5 +144,8 @@ export default function MenuNavEditor({ config, onChange }: MenuNavEditorProps) 
         </button>
       )}
     </div>
+      }
+      stylePanel={<StyleEditor style={style} onChange={onStyleChange} />}
+    />
   )
 }

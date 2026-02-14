@@ -1,19 +1,22 @@
 import { Search } from 'lucide-react'
-import { SearchBoxConfig } from '@/services/storeDecorationService'
+import { SearchBoxConfig, ComponentStyle } from '@/services/storeDecorationService'
+import EditorTabs from './EditorTabs'
+import StyleEditor from './StyleEditor'
 
 interface SearchBoxEditorProps {
   config: SearchBoxConfig
   onChange: (config: SearchBoxConfig) => void
+  style: ComponentStyle
+  onStyleChange: (style: ComponentStyle) => void
 }
 
-export default function SearchBoxEditor({ config, onChange }: SearchBoxEditorProps) {
+export default function SearchBoxEditor({ config, onChange, style, onStyleChange }: SearchBoxEditorProps) {
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
-        <Search className="h-4 w-4" />
-        搜索框
-      </h3>
-
+    <EditorTabs
+      title="搜索框"
+      icon={<Search className="h-4 w-4" />}
+      contentPanel={
+        <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">占位文字</label>
         <input
@@ -57,5 +60,8 @@ export default function SearchBoxEditor({ config, onChange }: SearchBoxEditorPro
         </div>
       </div>
     </div>
+      }
+      stylePanel={<StyleEditor style={style} onChange={onStyleChange} />}
+    />
   )
 }

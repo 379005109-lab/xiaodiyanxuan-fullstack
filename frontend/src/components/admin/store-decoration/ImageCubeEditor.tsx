@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { LayoutGrid, Plus, Trash2, Link, Image } from 'lucide-react'
-import { ImageCubeConfig, ImageCubeImage } from '@/services/storeDecorationService'
+import { ImageCubeConfig, ImageCubeImage, ComponentStyle } from '@/services/storeDecorationService'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
+import EditorTabs from './EditorTabs'
+import StyleEditor from './StyleEditor'
 
 interface ImageCubeEditorProps {
   config: ImageCubeConfig
   onChange: (config: ImageCubeConfig) => void
+  style: ComponentStyle
+  onStyleChange: (style: ComponentStyle) => void
 }
 
-export default function ImageCubeEditor({ config, onChange }: ImageCubeEditorProps) {
+export default function ImageCubeEditor({ config, onChange, style, onStyleChange }: ImageCubeEditorProps) {
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
 
   const columnOptions = [1, 2, 3, 4] as const
@@ -50,12 +54,11 @@ export default function ImageCubeEditor({ config, onChange }: ImageCubeEditorPro
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
-        <LayoutGrid className="h-4 w-4" />
-        图片魔方
-      </h3>
-
+    <EditorTabs
+      title="图片魔方"
+      icon={<LayoutGrid className="h-4 w-4" />}
+      contentPanel={
+        <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">列数</label>
         <div className="flex gap-2">
@@ -141,5 +144,8 @@ export default function ImageCubeEditor({ config, onChange }: ImageCubeEditorPro
         </button>
       )}
     </div>
+      }
+      stylePanel={<StyleEditor style={style} onChange={onStyleChange} />}
+    />
   )
 }

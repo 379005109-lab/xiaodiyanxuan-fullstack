@@ -1,5 +1,6 @@
 const app = getApp()
 const api = app.api || require('../../../utils/api.js')
+const { requireLogin } = require('../../../utils/auth.js')
 
 Page({
 	data: {
@@ -7,6 +8,7 @@ Page({
 		coupons: []
 	},
 	onLoad() {
+		if (!requireLogin()) return
 		this.loadCoupons()
 	},
 	onShow() {

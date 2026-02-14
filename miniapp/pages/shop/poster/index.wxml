@@ -1,0 +1,61 @@
+<navigation-bar title="店铺海报" back="{{true}}" color="black" background="#FFF"></navigation-bar>
+<view class="page">
+
+	<!-- 海报卡片 -->
+	<view class="poster-card">
+		<!-- 顶部信息区 -->
+		<view class="poster-top">
+			<!-- 店铺Logo -->
+			<view class="poster-logo-wrap">
+				<image wx:if="{{posterData.logo}}" class="poster-logo" src="{{posterData.logo}}" mode="aspectFill"></image>
+				<view wx:else class="poster-logo-placeholder">
+					<text>{{posterData.name[0] || '店'}}</text>
+				</view>
+			</view>
+
+			<!-- 店铺名称 -->
+			<text class="poster-shop-name">{{posterData.name || '店铺名称'}}</text>
+
+			<!-- 联系信息卡片 -->
+			<view class="poster-info-card">
+				<view class="poster-info-row">
+					<text class="poster-info-label">联系人</text>
+					<text class="poster-info-value">{{posterData.contactName || '-'}}</text>
+				</view>
+				<view class="poster-info-divider"></view>
+				<view class="poster-info-row">
+					<text class="poster-info-label">电话</text>
+					<text class="poster-info-value">{{posterData.phone || '-'}}</text>
+				</view>
+				<view class="poster-info-divider"></view>
+				<view class="poster-info-row row-top">
+					<text class="poster-info-label">地址</text>
+					<text class="poster-info-value text-right">{{posterData.address || '-'}}</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 二维码区域 -->
+		<view class="poster-qr-section">
+			<view class="poster-qr-card">
+				<view class="poster-qr-wrap">
+					<image wx:if="{{posterData.qrCodeImage}}" class="poster-qr-img" src="{{posterData.qrCodeImage}}" mode="aspectFit"></image>
+					<view wx:else class="poster-qr-placeholder">
+						<text class="poster-qr-placeholder-text">小程序码</text>
+					</view>
+				</view>
+				<text class="poster-qr-hint">长按或扫描二维码进入{{posterData.name || '店铺'}}小店</text>
+			</view>
+		</view>
+	</view>
+
+	<!-- 底部占位 -->
+	<view style="height: 160rpx;"></view>
+</view>
+
+<!-- 底部按钮 -->
+<view class="bottom-bar">
+	<view class="save-btn" bindtap="handleSavePoster">
+		<text>保存店铺海报后分享</text>
+	</view>
+</view>

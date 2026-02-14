@@ -1,6 +1,7 @@
 // 使用全局 api，避免懒加载导致的路径问题
 const app = getApp()
 const api = app.api || require('../../../utils/api.js')
+const config = require('../../../config/api.js')
 
 Page({
 	data: {
@@ -92,20 +93,27 @@ Page({
 		]
 		
 		api.getGoodsDetail(id).then((data) => {
+			const fix = (url) => {
+				if (!url) return ''
+				if (url.startsWith('http')) return url
+				return config.baseURL + url
+			}
 			// 使用API数据或默认数据
 			const materialsGroups = (data.materialsGroups && data.materialsGroups.length > 0) ? data.materialsGroups : defaultMaterialsGroups
 			const fills = (data.fills && data.fills.length > 0) ? data.fills : defaultFills
 			const frames = (data.frames && data.frames.length > 0) ? data.frames : defaultFrames
 			const legs = (data.legs && data.legs.length > 0) ? data.legs : defaultLegs
+			const images = (data.images || (data.thumb ? [data.thumb] : [])).map(img => fix(img))
 			
 			this.setData({
 				goods: {
 					name: data.name || '商品',
+					description: data.description || '',
 					basePrice: data.price || data.basePrice || 0,
 					price: data.price || 0
 				},
-				images: data.images || (data.thumb ? [data.thumb] : []),
-				detailImages: data.detailImages || data.images || [],
+				images: images,
+				detailImages: (data.detailImages || data.images || []).map(img => fix(img)),
 				materialsGroups: materialsGroups,
 				fills: fills,
 				frames: frames,
@@ -454,6 +462,7 @@ Page({
 		wx.switchTab({ url: '/pages/bargain/index' })
 	},
 	onToggleFavorite() {
+		if (!this.ensureLogin('收藏商品')) return
 		const { id, goods, isFavorited, totalPrice, images } = this.data
 		if (isFavorited) {
 			// 取消收藏
@@ -509,6 +518,7 @@ Page({
 		}
 	},
 	onAddToCart() {
+		if (!this.ensureLogin('加入购物车')) return
 		const { id, goods, totalPrice, images } = this.data
 		// 组装规格信息（根据实际需求调整）
 		const specs = {
@@ -599,6 +609,7 @@ Page({
 		wx.navigateTo({ url: '/pages/profile/cart/index' })
 	},
 	onBuyNow() {
+		if (!this.ensureLogin('购买商品')) return
 		// 组装当前选择信息并跳转至确认页
 		const d = this.data
 		const size = d.sizes[d.sizeIndex] || {}

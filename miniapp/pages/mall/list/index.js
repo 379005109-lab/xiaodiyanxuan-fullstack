@@ -1,6 +1,7 @@
 // pages/mall/list/index.js
 const app = getApp()
 const api = app.api || require('../../../utils/api.js')
+const config = require('../../../config/api.js')
 
 Page({
   data: {
@@ -103,7 +104,17 @@ Page({
     if (this.data.stockOnly) params.inStock = true
 
     return api.getGoodsList(params).then((data) => {
-      const list = data.list || data || []
+      const raw = data.list || data || []
+      const fix = (url) => {
+        if (!url) return ''
+        if (url.startsWith('http')) return url
+        return config.baseURL + url
+      }
+      const list = raw.map(item => ({
+        ...item,
+        thumbnail: fix(item.thumbnail),
+        images: (item.images || []).map(img => fix(img))
+      }))
       const total = data.total || list.length
       this.setData({
         goodsList: reset ? list : [...this.data.goodsList, ...list],

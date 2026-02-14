@@ -82,26 +82,32 @@ Page({
   },
 
   goCart() {
+    if (!this.ensureLogin()) return
     wx.navigateTo({ url: '/pages/profile/cart/index' })
   },
 
   goFavorites() {
+    if (!this.ensureLogin()) return
     wx.navigateTo({ url: '/pages/profile/favorites/index' })
   },
 
   goCoupons() {
+    if (!this.ensureLogin()) return
     wx.navigateTo({ url: '/pages/profile/coupons/index' })
   },
 
   goAddress() {
+    if (!this.ensureLogin()) return
     wx.navigateTo({ url: '/pages/profile/address/index' })
   },
 
   goInvoice() {
+    if (!this.ensureLogin()) return
     wx.navigateTo({ url: '/pages/profile/invoice/index' })
   },
 
   goPoints() {
+    if (!this.ensureLogin()) return
     wx.navigateTo({ url: '/pages/profile/points/index' })
   },
 

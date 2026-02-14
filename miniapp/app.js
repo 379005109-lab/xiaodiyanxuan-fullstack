@@ -2,7 +2,32 @@
 const api = require('./utils/api.js')
 
 App({
-  onLaunch() {
+  onLaunch(options) {
+    // 解析 QR 码场景值，提取 manufacturerId（店铺二维码入口）
+    // wxacode scene 格式: mId=<manufacturerId>
+    if (options && options.scene) {
+      try {
+        const scene = decodeURIComponent(options.scene)
+        console.log('[App] scene:', scene)
+        const params = {}
+        scene.split('&').forEach(pair => {
+          const [k, v] = pair.split('=')
+          if (k && v) params[k] = v
+        })
+        if (params.mId) {
+          this.globalData.manufacturerId = params.mId
+          console.log('[App] 进入厂家店铺, manufacturerId:', params.mId)
+        }
+      } catch (e) {
+        console.warn('[App] scene 解析失败:', e)
+      }
+    }
+    // query 参数也可能携带 manufacturerId（普通二维码 / 调试）
+    if (options && options.query && options.query.manufacturerId) {
+      this.globalData.manufacturerId = options.query.manufacturerId
+      console.log('[App] query 进入厂家店铺, manufacturerId:', options.query.manufacturerId)
+    }
+
     // 加载 Remix Icon 字体
     wx.loadFontFace({
       global: true,
@@ -43,7 +68,8 @@ App({
   },
   
   globalData: {
-    userInfo: null
+    userInfo: null,
+    manufacturerId: null
   },
   
   // 将 api 挂载到全局，避免懒加载导致的路径问题

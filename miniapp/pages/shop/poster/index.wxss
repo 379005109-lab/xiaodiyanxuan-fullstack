@@ -1,0 +1,172 @@
+.page {
+  min-height: 100vh;
+  background: #FFFFFF;
+  padding: 40rpx;
+}
+
+/* ========== 海报卡片 ========== */
+.poster-card {
+  background: #F5F5F7;
+  border-radius: 32rpx;
+  overflow: hidden;
+}
+
+/* ========== 顶部信息 ========== */
+.poster-top {
+  padding: 60rpx 48rpx 40rpx;
+  text-align: center;
+}
+
+.poster-logo-wrap {
+  width: 140rpx;
+  height: 140rpx;
+  margin: 0 auto 24rpx;
+  border-radius: 28rpx;
+  overflow: hidden;
+}
+
+.poster-logo {
+  width: 100%;
+  height: 100%;
+}
+
+.poster-logo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #E5E5EA;
+  font-size: 48rpx;
+  font-weight: 600;
+  color: #1D1D1F;
+}
+
+.poster-shop-name {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #1D1D1F;
+  margin-bottom: 36rpx;
+}
+
+/* ========== 联系信息卡片 ========== */
+.poster-info-card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  border: 1rpx solid #E5E5EA;
+  overflow: hidden;
+}
+
+.poster-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+}
+
+.poster-info-row.row-top {
+  align-items: flex-start;
+}
+
+.poster-info-label {
+  font-size: 28rpx;
+  color: #6E6E73;
+  flex-shrink: 0;
+}
+
+.poster-info-value {
+  font-size: 28rpx;
+  color: #1D1D1F;
+  font-weight: 500;
+}
+
+.poster-info-value.text-right {
+  text-align: right;
+  margin-left: 24rpx;
+}
+
+.poster-info-divider {
+  height: 1rpx;
+  background: #E5E5EA;
+  margin: 0 32rpx;
+}
+
+/* ========== 二维码区域 ========== */
+.poster-qr-section {
+  padding: 0 40rpx 60rpx;
+}
+
+.poster-qr-card {
+  background: #FFFFFF;
+  border-radius: 28rpx;
+  border: 1rpx solid #E5E5EA;
+  padding: 48rpx;
+  text-align: center;
+}
+
+.poster-qr-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 400rpx;
+  margin: 0 auto 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.poster-qr-img {
+  width: 100%;
+  height: 100%;
+}
+
+.poster-qr-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F5F5F7;
+  border-radius: 16rpx;
+}
+
+.poster-qr-placeholder-text {
+  font-size: 28rpx;
+  color: #86868B;
+}
+
+.poster-qr-hint {
+  font-size: 24rpx;
+  color: #6E6E73;
+  line-height: 1.6;
+}
+
+/* ========== 底部按钮 ========== */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20rpx 40rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  border-top: 1rpx solid #E5E5EA;
+}
+
+.save-btn {
+  width: 100%;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  border: 1rpx solid #D2D2D7;
+  border-radius: 24rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1D1D1F;
+}
+
+.save-btn:active {
+  background: #F5F5F7;
+}

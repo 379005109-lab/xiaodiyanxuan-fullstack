@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { Video, Image } from 'lucide-react'
-import { VideoConfig } from '@/services/storeDecorationService'
+import { VideoConfig, ComponentStyle } from '@/services/storeDecorationService'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
+import EditorTabs from './EditorTabs'
+import StyleEditor from './StyleEditor'
 
 interface VideoEditorProps {
   config: VideoConfig
   onChange: (config: VideoConfig) => void
+  style: ComponentStyle
+  onStyleChange: (style: ComponentStyle) => void
 }
 
-export default function VideoEditor({ config, onChange }: VideoEditorProps) {
+export default function VideoEditor({ config, onChange, style, onStyleChange }: VideoEditorProps) {
   const [uploading, setUploading] = useState(false)
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,12 +33,11 @@ export default function VideoEditor({ config, onChange }: VideoEditorProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
-        <Video className="h-4 w-4" />
-        视频设置
-      </h3>
-
+    <EditorTabs
+      title="视频设置"
+      icon={<Video className="h-4 w-4" />}
+      contentPanel={
+        <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">视频链接</label>
         <input
@@ -78,5 +81,8 @@ export default function VideoEditor({ config, onChange }: VideoEditorProps) {
         </button>
       </div>
     </div>
+      }
+      stylePanel={<StyleEditor style={style} onChange={onStyleChange} />}
+    />
   )
 }

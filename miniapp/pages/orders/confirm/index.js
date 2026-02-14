@@ -1,6 +1,7 @@
 // pages/orders/confirm/index.js
 const app = getApp()
 const api = app.api || require('../../../utils/api.js')
+const { requireLogin } = require('../../../utils/auth.js')
 
 Page({
   data: {
@@ -16,6 +17,7 @@ Page({
   },
 
   onLoad(options) {
+    if (!requireLogin()) return
     this.setData({ orderType: options.type || 'normal' })
     this.loadOrderItems()
     this.loadDefaultAddress()

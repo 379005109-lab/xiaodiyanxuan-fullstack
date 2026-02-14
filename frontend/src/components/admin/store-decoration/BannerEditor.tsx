@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { Plus, GripVertical, Trash2, Image, Link, ToggleLeft, ToggleRight } from 'lucide-react'
-import { BannerConfig, BannerItem } from '@/services/storeDecorationService'
+import { BannerConfig, BannerItem, ComponentStyle } from '@/services/storeDecorationService'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
 import { toast } from 'sonner'
+import EditorTabs from './EditorTabs'
+import StyleEditor from './StyleEditor'
 
 interface BannerEditorProps {
   config: BannerConfig
   onChange: (config: BannerConfig) => void
+  style: ComponentStyle
+  onStyleChange: (style: ComponentStyle) => void
 }
 
-export default function BannerEditor({ config, onChange }: BannerEditorProps) {
+export default function BannerEditor({ config, onChange, style, onStyleChange }: BannerEditorProps) {
   const value = config.items
   const onItemsChange = (items: BannerItem[]) => onChange({ ...config, items })
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -70,13 +74,11 @@ export default function BannerEditor({ config, onChange }: BannerEditorProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
-        <Image className="h-4 w-4" />
-        轮播横幅
-        <span className="text-xs text-gray-400 font-normal ml-1">({value.length} 张)</span>
-      </h3>
-
+    <EditorTabs
+      title={`轮播横幅 (${value.length} 张)`}
+      icon={<Image className="h-4 w-4" />}
+      contentPanel={
+        <div className="space-y-4">
       {value.length === 0 && (
         <div className="text-center py-6 text-gray-400 text-sm border border-dashed border-gray-200 rounded-xl">
           暂无横幅，点击下方按钮添加
@@ -101,7 +103,7 @@ export default function BannerEditor({ config, onChange }: BannerEditorProps) {
             </div>
 
             {/* 图片 */}
-            <div className="w-20 h-20 rounded-lg border border-stone-200 bg-white overflow-hidden flex-shrink-0 flex items-center justify-center">
+            <div className="w-20 aspect-[9/16] rounded-lg border border-stone-200 bg-white overflow-hidden flex-shrink-0 flex items-center justify-center">
               {item.image ? (
                 <img src={getFileUrl(item.image)} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -187,5 +189,8 @@ export default function BannerEditor({ config, onChange }: BannerEditorProps) {
         </button>
       )}
     </div>
+      }
+      stylePanel={<StyleEditor style={style} onChange={onStyleChange} />}
+    />
   )
 }

@@ -1,6 +1,7 @@
 // pages/orders/detail/index.js
 const app = getApp()
 const api = app.api || require('../../../utils/api.js')
+const { requireLogin } = require('../../../utils/auth.js')
 
 Page({
   data: {
@@ -13,6 +14,7 @@ Page({
   },
 
   onLoad(options) {
+    if (!requireLogin()) return
     if (options.id) {
       this.setData({ orderId: options.id })
       this.loadOrder(options.id)

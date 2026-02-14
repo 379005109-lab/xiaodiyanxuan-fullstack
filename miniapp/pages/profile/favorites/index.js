@@ -1,6 +1,7 @@
 // 使用全局 api，避免懒加载导致的路径问题
 const app = getApp()
 const api = app.api || require('../../utils/api.js')
+const { requireLogin } = require('../../utils/auth.js')
 
 Page({
 	data: {
@@ -15,6 +16,7 @@ Page({
 		currentFilter: 'all'
 	},
 	onLoad() {
+		if (!requireLogin()) return
 		this.loadFavorites()
 	},
 	onShow() {

@@ -1,19 +1,22 @@
 import { FileText, List, LayoutGrid } from 'lucide-react'
-import { ArticleListConfig } from '@/services/storeDecorationService'
+import { ArticleListConfig, ComponentStyle } from '@/services/storeDecorationService'
+import EditorTabs from './EditorTabs'
+import StyleEditor from './StyleEditor'
 
 interface ArticleListEditorProps {
   config: ArticleListConfig
   onChange: (config: ArticleListConfig) => void
+  style: ComponentStyle
+  onStyleChange: (style: ComponentStyle) => void
 }
 
-export default function ArticleListEditor({ config, onChange }: ArticleListEditorProps) {
+export default function ArticleListEditor({ config, onChange, style, onStyleChange }: ArticleListEditorProps) {
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
-        <FileText className="h-4 w-4" />
-        文章列表
-      </h3>
-
+    <EditorTabs
+      title="文章列表"
+      icon={<FileText className="h-4 w-4" />}
+      contentPanel={
+        <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">显示数量 ({config.count}篇)</label>
         <input
@@ -49,5 +52,8 @@ export default function ArticleListEditor({ config, onChange }: ArticleListEdito
         </div>
       </div>
     </div>
+      }
+      stylePanel={<StyleEditor style={style} onChange={onStyleChange} />}
+    />
   )
 }

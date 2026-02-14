@@ -13,6 +13,7 @@ const Order = require('../models/Order')
 const Category = require('../models/Category')
 const Material = require('../models/Material')
 const Package = require('../models/Package')
+const BargainProduct = require('../models/BargainProduct')
 const Style = require('../models/Style')
 const Banner = require('../models/Banner')
 const bcrypt = require('bcryptjs')
@@ -164,11 +165,11 @@ const buildMaterialsFromSkus = async (skus, getImageUrl) => {
   return materialsGroups
 }
 
-// 图片URL处理
+// 图片URL处理 — 只返回相对路径，让前端拼接完整URL
 const getImageUrl = (img) => {
   if (!img) return ''
   if (img.startsWith('http')) return img
-  return `${API_BASE_URL}/api/files/${img}`
+  return `/api/files/${img}`
 }
 
 // ========== 1. 微信登录 ==========
@@ -433,22 +434,36 @@ router.get('/styles', async (req, res) => {
   }
 })
 
-// ========== 4. 分类列表 ==========
+// ========== 4. 分类列表（含二级子分类） ==========
 router.get('/categories', async (req, res) => {
   try {
+    // 查询一级分类
     const categories = await Category.find({ status: 'active', level: 1 })
       .sort({ order: 1 })
       .lean()
 
+    // 查询所有二级分类，按 parentId 分组
+    const subCategories = await Category.find({ status: 'active', level: 2 })
+      .sort({ order: 1 })
+      .lean()
+
+    const childrenMap = {}
+    subCategories.forEach(sub => {
+      const pid = String(sub.parentId)
+      if (!childrenMap[pid]) childrenMap[pid] = []
+      childrenMap[pid].push({
+        id: sub._id,
+        name: sub.name,
+        image: getImageUrl(sub.image)
+      })
+    })
+
     const list = categories.map(c => ({
       id: c._id,
       name: c.name,
+      description: c.description || '',
       image: getImageUrl(c.image),
-      children: (c.children || []).map(child => ({
-        id: child._id,
-        name: child.name,
-        image: getImageUrl(child.image)
-      }))
+      children: childrenMap[String(c._id)] || []
     }))
 
     res.json(success(list))
@@ -473,10 +488,10 @@ router.get('/store-decoration/default', async (req, res) => {
       return res.json(success(null, '暂无默认首页'))
     }
 
-    // 处理 components 中的图片 URL
+    // 处理 components 中的图片 URL（返回相对路径，前端拼接 baseURL）
     if (page.value && page.value.components) {
-      page.value.components = page.value.components.map(comp => {
-        if (!comp || !comp.config) return comp
+      for (const comp of page.value.components) {
+        if (!comp || !comp.config) continue
         const cfg = comp.config
         // 处理 banner 图片
         if (comp.type === 'banner' && cfg.items) {
@@ -507,8 +522,100 @@ router.get('/store-decoration/default', async (req, res) => {
             image: item.image ? getImageUrl(item.image) : ''
           }))
         }
-        return comp
-      })
+        // 处理 productList 商品图片
+        if (comp.type === 'productList' && cfg.products) {
+          cfg.products = cfg.products.map(p => {
+            // images 可能是空格分隔的字符串或数组
+            let imgArr = []
+            if (Array.isArray(p.images)) {
+              imgArr = p.images
+            } else if (typeof p.images === 'string' && p.images.trim()) {
+              imgArr = p.images.trim().split(/\s+/)
+            }
+            const thumb = p.thumbnail
+              ? getImageUrl(p.thumbnail)
+              : (imgArr.length > 0 ? getImageUrl(imgArr[0]) : '')
+            return {
+              ...p,
+              thumbnail: thumb,
+              images: imgArr.map(img => getImageUrl(img))
+            }
+          })
+        }
+        // 处理 bargain 砍价专区：从数据库加载砍价商品
+        if (comp.type === 'bargain') {
+          try {
+            const limit = cfg.limit || 10
+            const selectedIds = cfg.productIds && cfg.productIds.length > 0 ? cfg.productIds : null
+            let bargainProducts
+
+            if (selectedIds) {
+              // 优先加载指定的砍价商品
+              bargainProducts = await BargainProduct.find({ _id: { $in: selectedIds } })
+                .sort({ sortOrder: -1, createdAt: -1 })
+                .limit(limit)
+                .lean()
+            } else {
+              bargainProducts = await BargainProduct.find({ status: 'active' })
+                .sort({ sortOrder: -1, createdAt: -1 })
+                .limit(limit)
+                .lean()
+            }
+
+            if (bargainProducts.length > 0) {
+              cfg.products = bargainProducts.map(bp => {
+                const discount = bp.originalPrice > 0
+                  ? Math.round((1 - bp.targetPrice / bp.originalPrice) * 100)
+                  : 0
+                return {
+                  _id: bp._id,
+                  name: bp.name,
+                  coverImage: getImageUrl(bp.coverImage),
+                  originalPrice: bp.originalPrice,
+                  targetPrice: bp.targetPrice,
+                  discount,
+                  category: bp.category || '',
+                  maxHelpers: bp.maxHelpers || 20
+                }
+              })
+            } else {
+              // 砍价商品表为空时，从普通商品表取数据作为砍价展示
+              const fallbackProducts = await Product.find({ status: 'active' })
+                .sort({ sales: -1, createdAt: -1 })
+                .limit(limit)
+                .lean()
+              cfg.products = fallbackProducts.map(p => {
+                const originalPrice = p.basePrice || p.price || 0
+                const targetPrice = Math.round(originalPrice * 0.5 * 100) / 100
+                const discount = originalPrice > 0
+                  ? Math.round((1 - targetPrice / originalPrice) * 100)
+                  : 0
+                let thumb = ''
+                if (p.thumbnail) {
+                  thumb = getImageUrl(p.thumbnail)
+                } else if (Array.isArray(p.images) && p.images.length > 0) {
+                  thumb = getImageUrl(p.images[0])
+                } else if (typeof p.images === 'string' && p.images.trim()) {
+                  thumb = getImageUrl(p.images.trim().split(/\s+/)[0])
+                }
+                return {
+                  _id: p._id,
+                  name: p.name,
+                  coverImage: thumb,
+                  originalPrice,
+                  targetPrice,
+                  discount,
+                  category: '',
+                  maxHelpers: 20
+                }
+              })
+            }
+          } catch (e) {
+            console.error('加载砍价商品失败:', e.message)
+            cfg.products = []
+          }
+        }
+      }
     }
 
     // 处理背景图
@@ -616,15 +723,49 @@ router.get('/home', async (req, res) => {
 // ========== 5. 商品列表 ==========
 router.get('/goods/list', async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, category, style, sort } = req.query
+    const { page = 1, pageSize = 10, category, subCategory, style, sort, order, keyword, minPrice, maxPrice, inStock } = req.query
     
     const query = { status: 'active' }
-    if (category) query.category = category  // 使用分类ID筛选
+    // subCategory 优先作为分类筛选（二级分类），否则用 category（一级分类）
+    if (subCategory) {
+      const mongoose = require('mongoose')
+      if (mongoose.Types.ObjectId.isValid(subCategory)) {
+        query.category = { $in: [subCategory, new mongoose.Types.ObjectId(subCategory)] }
+      } else {
+        query.category = subCategory
+      }
+    } else if (category && category !== 'all') {
+      // 一级分类：查找该分类下所有二级分类ID，然后用 $in 匹配
+      // Product.category 是 Mixed 类型，可能存储 string 或 ObjectId，所以同时匹配两种格式
+      const childCats = await Category.find({ parentId: category, status: 'active' }).select('_id').lean()
+      if (childCats.length > 0) {
+        const allIds = [category, ...childCats.map(c => String(c._id))]
+        // 同时匹配字符串ID和ObjectId
+        const mongoose = require('mongoose')
+        const objectIds = allIds.filter(id => mongoose.Types.ObjectId.isValid(id)).map(id => new mongoose.Types.ObjectId(id))
+        query.category = { $in: [...allIds, ...objectIds] }
+      } else {
+        query.category = category
+      }
+    }
     if (style) query.styles = style
+    if (keyword) {
+      query.$or = [
+        { name: { $regex: keyword, $options: 'i' } },
+        { description: { $regex: keyword, $options: 'i' } }
+      ]
+    }
+    if (minPrice || maxPrice) {
+      query.basePrice = {}
+      if (minPrice) query.basePrice.$gte = Number(minPrice)
+      if (maxPrice) query.basePrice.$lte = Number(maxPrice)
+    }
+    if (inStock === 'true') query.stock = { $gt: 0 }
 
     let sortOption = { createdAt: -1 }
-    if (sort === 'price_asc') sortOption = { basePrice: 1 }
-    if (sort === 'price_desc') sortOption = { basePrice: -1 }
+    // 兼容两种排序参数格式
+    if (sort === 'price_asc' || (sort === 'price' && order === 'asc')) sortOption = { basePrice: 1 }
+    if (sort === 'price_desc' || (sort === 'price' && order === 'desc')) sortOption = { basePrice: -1 }
     if (sort === 'sales') sortOption = { sales: -1 }
 
     const total = await Product.countDocuments(query)
@@ -636,18 +777,29 @@ router.get('/goods/list', async (req, res) => {
       .lean()
 
     const list = products.map(p => {
-      const imageUrl = getImageUrl(p.images?.[0])
+      let thumbnail = ''
+      if (p.thumbnail) {
+        thumbnail = getImageUrl(p.thumbnail)
+      } else if (Array.isArray(p.images) && p.images.length > 0) {
+        thumbnail = getImageUrl(p.images[0])
+      } else if (typeof p.images === 'string' && p.images.trim()) {
+        thumbnail = getImageUrl(p.images.trim().split(/\s+/)[0])
+      }
       return {
+        _id: p._id,
         id: p._id,
         name: p.name,
+        model: p.productCode || p.code || '',
         price: p.basePrice || p.price || 0,
         originalPrice: p.originalPrice || p.basePrice || p.price || 0,
-        // 多个图片字段名兼容不同小程序前端
-        cover: imageUrl,
-        image: imageUrl,
-        thumb: imageUrl,
-        pic: imageUrl,
+        thumbnail: thumbnail,
+        images: (p.images || []).map(img => getImageUrl(img)),
+        sold: p.sales || 0,
         sales: p.sales || 0,
+        stock: p.stock || 0,
+        inStock: (p.stock || 0) > 0,
+        isNew: (p.tags || []).includes('新品'),
+        isHot: (p.tags || []).includes('热销'),
         category: p.category?.name || '',
         style: Array.isArray(p.styles) ? p.styles[0] : (p.style || '')
       }
@@ -1321,7 +1473,7 @@ router.get('/packages/:id', async (req, res) => {
         } else if (product.skus && product.skus.length > 0) {
           // 否则从 SKU 构建
           console.log(`[套餐] 商品 ${product.name} 第一个SKU材质:`, product.skus[0].material)
-          const materialsGroups = await buildMaterialsFromSkus(product.skus, getImageUrl)
+          const materialsGroups = await buildMaterialsFromSkus(product.skus, (img) => getImageUrl(img))
           console.log(`[套餐] 商品 ${product.name} 构建的材质分组:`, materialsGroups.length)
           productMaterialsMap.set(product._id.toString(), materialsGroups)
         }
@@ -1401,5 +1553,9 @@ router.get('/packages/:id', async (req, res) => {
 // ========== 砍价相关 - 转发到主路由 ==========
 const bargainsRouter = require('./bargains')
 router.use('/bargains', bargainsRouter)
+
+// ========== 店铺信息相关 ==========
+const shopRouter = require('./shop')
+router.use('/shop', shopRouter)
 
 module.exports = router

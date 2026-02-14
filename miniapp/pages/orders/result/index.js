@@ -1,4 +1,6 @@
 // pages/orders/result/index.js
+const { requireLogin } = require('../../../utils/auth.js')
+
 Page({
   data: {
     orderNumber: '',
@@ -7,6 +9,7 @@ Page({
   },
 
   onLoad(options) {
+    if (!requireLogin()) return
     if (options.orderNumber) this.setData({ orderNumber: options.orderNumber })
     if (options.amount) this.setData({ totalAmount: options.amount })
     if (options.orderId) this.setData({ orderId: options.orderId })

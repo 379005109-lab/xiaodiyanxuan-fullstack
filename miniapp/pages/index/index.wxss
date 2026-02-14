@@ -1,5 +1,5 @@
 /**index.wxss**/
-/* 小迪严选首页 — Apple 风格 */
+/* 小迪严选首页 — 动态装修 */
 page {
   background: #FFFFFF;
   color: #1D1D1F;
@@ -7,494 +7,63 @@ page {
 }
 
 .page-scroll { height: 100vh; }
-.page { padding-top: calc(44px + env(safe-area-inset-top)); }
+.page { padding-top: calc(44px + env(safe-area-inset-top)); min-height: 100vh; }
 
-/* ========== Hero Banner ========== */
-.hero-section {
-  position: relative;
-  width: 100%;
-  height: calc(100vh - 120rpx);
-  overflow: hidden;
-}
+/* 通用工具类 */
+.text-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.text-ellipsis-2 { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+.price-symbol { font-size: 24rpx; font-weight: 500; }
+.more-arrow { font-size: 28rpx; color: #86868B; margin-left: 4rpx; }
 
-.hero-swiper {
-  width: 100%;
-  height: 100%;
-}
-
-.hero-slide {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.hero-img {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.hero-gradient {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 40%, transparent 100%);
-}
-
-.hero-content {
-  position: absolute;
-  left: 48rpx;
-  bottom: 200rpx;
-  z-index: 10;
-}
-
-.hero-title {
-  font-size: 48rpx;
-  font-weight: 600;
-  color: #FFFFFF;
-  line-height: 1.2;
-  letter-spacing: -0.5rpx;
-}
-
-.hero-subtitle {
-  font-size: 28rpx;
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 12rpx;
-  font-weight: 400;
-}
-
-.hero-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-top: 32rpx;
-  padding: 20rpx 40rpx;
-  background: #FFFFFF;
-  border: 2rpx solid #D2D2D7;
-  border-radius: 28rpx;
-  font-size: 30rpx;
-  font-weight: 500;
-  color: #1D1D1F;
-}
-
-.hero-btn-arrow {
-  font-size: 28rpx;
-}
-
-/* 指示器 */
-.hero-indicators {
-  position: absolute;
-  bottom: 80rpx;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  z-index: 30;
-}
-
-.hero-dot {
-  width: 16rpx;
-  height: 4rpx;
-  border-radius: 4rpx;
-  background: rgba(255, 255, 255, 0.35);
-  transition: all 0.5s ease;
-}
-
-.hero-dot.active {
-  width: 48rpx;
-  background: rgba(255, 255, 255, 0.9);
-}
-/* ========== 通用 Section ========== */
-.section {
-  padding: 48rpx 32rpx 0;
-}
-
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 32rpx;
-}
-
-.section-header-left {
-  flex: 1;
-}
-
-.section-title {
-  font-size: 44rpx;
-  font-weight: 600;
-  color: #1D1D1F;
-  letter-spacing: -0.5rpx;
-  line-height: 1.2;
-}
-
-.section-desc {
-  font-size: 26rpx;
-  color: #86868B;
-  margin-top: 8rpx;
-  line-height: 1.5;
-}
-
-.section-more {
-  display: flex;
-  align-items: center;
-  gap: 4rpx;
-  font-size: 26rpx;
-  color: #1D1D1F;
-  flex-shrink: 0;
-  padding-top: 8rpx;
-}
-
-.more-arrow {
-  font-size: 32rpx;
-  color: #86868B;
-}
-
-/* ========== 砍价专区 ========== */
-.bargain-scroll {
-  width: 100%;
-  white-space: nowrap;
-  margin: 0 -32rpx;
-  padding: 0 32rpx;
-}
-
-.bargain-list {
-  display: inline-flex;
-  gap: 24rpx;
-  padding-right: 32rpx;
-}
-
-.bargain-card {
-  width: 320rpx;
-  flex-shrink: 0;
-  display: inline-block;
-}
-
-.bargain-img-wrap {
-  position: relative;
-  width: 320rpx;
-  height: 320rpx;
-  border-radius: 32rpx;
-  overflow: hidden;
-  background: #F5F5F7;
-}
-
-.bargain-img {
-  width: 100%;
-  height: 100%;
-}
-
-.bargain-countdown {
-  position: absolute;
-  top: 20rpx;
-  left: 20rpx;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  padding: 8rpx 20rpx;
-  background: rgba(245, 245, 247, 0.9);
-  -webkit-backdrop-filter: blur(20rpx);
-  backdrop-filter: blur(20rpx);
-  border: 1rpx solid #D2D2D7;
-  border-radius: 999rpx;
-  font-size: 20rpx;
-  font-family: "SF Mono", "Menlo", monospace;
-  color: #1D1D1F;
-}
-
-.countdown-icon {
-  font-size: 20rpx;
-}
-
-.bargain-info {
-  padding: 16rpx 4rpx 0;
-}
-
-.bargain-name {
-  font-size: 26rpx;
-  color: #1D1D1F;
-  line-height: 1.4;
-  min-height: 72rpx;
-  white-space: normal;
-}
-
-.bargain-progress-wrap {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  margin-top: 16rpx;
-}
-
-.bargain-progress-bar {
-  flex: 1;
-  height: 4rpx;
-  background: #E5E5EA;
-  border-radius: 4rpx;
-  overflow: hidden;
-}
-
-.bargain-progress-fill {
-  height: 100%;
-  background: #1D1D1F;
-  border-radius: 4rpx;
-  transition: width 0.3s ease;
-}
-
-.bargain-progress-text {
-  font-size: 20rpx;
-  color: #86868B;
-  font-weight: 500;
-}
-
-.bargain-price-row {
-  display: flex;
-  align-items: baseline;
-  gap: 16rpx;
-  margin-top: 12rpx;
-}
-
-.bargain-price {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: #1D1D1F;
-  letter-spacing: -0.5rpx;
-}
-
-.bargain-original-price {
-  font-size: 24rpx;
-  color: #86868B;
-  text-decoration: line-through;
-}
-
-.bargain-entry-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  height: 96rpx;
-  margin-top: 32rpx;
-  background: #FFFFFF;
-  border: 2rpx solid #D2D2D7;
-  border-radius: 32rpx;
-  font-size: 30rpx;
-  font-weight: 500;
-  color: #1D1D1F;
-}
-
-.bargain-entry-btn:active {
-  background: #F5F5F7;
-}
-
-/* ========== 新品推荐 ========== */
-.recommend-list {
-  padding: 0;
-}
-
-.recommend-item {
-  display: flex;
-  gap: 24rpx;
-  padding: 24rpx 8rpx;
-  border-radius: 20rpx;
-}
-
-.recommend-item:active {
-  background: #F5F5F7;
-}
-
-.recommend-img {
-  width: 220rpx;
-  height: 220rpx;
-  border-radius: 32rpx;
-  flex-shrink: 0;
-  background: #F5F5F7;
-}
-
-.recommend-info {
-  flex: 1;
+/* ========== 加载状态 ========== */
+.loading-container {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-width: 0;
-  padding: 8rpx 0;
+  align-items: center;
+  justify-content: center;
+  padding: 200rpx 0;
 }
-
-.recommend-name {
-  font-size: 30rpx;
-  font-weight: 500;
-  color: #1D1D1F;
-  letter-spacing: -0.3rpx;
+.loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid #E5E5EA;
+  border-top-color: #1D1D1F;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
-
-.recommend-highlight {
-  font-size: 24rpx;
-  color: #86868B;
-  margin-top: 8rpx;
-  line-height: 1.5;
-}
-
-.recommend-bottom {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-top: 12rpx;
-}
-
-.recommend-price-wrap {
-  display: flex;
-  align-items: baseline;
-  gap: 12rpx;
-}
-
-.recommend-price {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: #1D1D1F;
-  letter-spacing: -0.5rpx;
-}
-
-.recommend-original-price {
-  font-size: 24rpx;
-  color: #86868B;
-  text-decoration: line-through;
-}
-
-.recommend-sales {
-  font-size: 22rpx;
-  color: #86868B;
-}
-
-.recommend-divider {
-  height: 1rpx;
-  background: #E5E5EA;
-  margin-left: 252rpx;
-}
-
-/* ========== 空间灵感 ========== */
-.space-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20rpx;
-}
-
-.space-card {
-  position: relative;
-  border-radius: 32rpx;
-  overflow: hidden;
-  aspect-ratio: 4/3;
-}
-
-.space-card:active {
-  opacity: 0.9;
-}
-
-.space-img {
-  width: 100%;
-  height: 100%;
-}
-
-.space-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.05) 50%, transparent 100%);
-}
-
-.space-text {
-  position: absolute;
-  bottom: 24rpx;
-  left: 24rpx;
-  right: 24rpx;
-}
-
-.space-title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #FFFFFF;
-  letter-spacing: -0.3rpx;
-}
-
-.space-subtitle {
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 4rpx;
-}
-
-/* ========== 精选好物 ========== */
-.featured-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20rpx;
-}
-
-.featured-card {
-  background: #FFFFFF;
-  border-radius: 24rpx;
-  overflow: hidden;
-}
-
-.featured-card:active {
-  opacity: 0.9;
-}
-
-.featured-img-wrap {
-  width: 100%;
-  aspect-ratio: 1;
-  background: #F5F5F7;
-  border-radius: 24rpx;
-  overflow: hidden;
-}
-
-.featured-img {
-  width: 100%;
-  height: 100%;
-}
-
-.featured-info {
-  padding: 16rpx 4rpx 8rpx;
-}
-
-.featured-name {
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+  margin-top: 24rpx;
   font-size: 26rpx;
-  font-weight: 400;
-  color: #1D1D1F;
-  line-height: 1.4;
-  min-height: 72rpx;
-}
-
-.featured-highlight {
-  font-size: 22rpx;
   color: #86868B;
-  margin-top: 4rpx;
 }
 
-.featured-price-row {
+/* ========== 空状态 / 错误状态 ========== */
+.empty-container {
   display: flex;
-  align-items: baseline;
-  gap: 12rpx;
-  margin-top: 8rpx;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 200rpx 0;
+}
+.empty-icon { font-size: 80rpx; margin-bottom: 16rpx; }
+.empty-text { font-size: 28rpx; color: #86868B; margin-bottom: 24rpx; }
+.empty-retry {
+  font-size: 28rpx;
+  color: #FFFFFF;
+  background: #1D1D1F;
+  padding: 16rpx 48rpx;
+  border-radius: 40rpx;
 }
 
-.featured-price {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: #1D1D1F;
-  letter-spacing: -0.5rpx;
+/* ========== 装修组件容器 ========== */
+.deco-comp {
+  box-sizing: border-box;
 }
 
-.featured-original {
-  font-size: 24rpx;
-  color: #86868B;
-  text-decoration: line-through;
-}
-
-/* ========== 店铺信息 ========== */
-.shop-section {
-  padding-bottom: 32rpx;
+/* ========== 店铺头部 storeHeader ========== */
+.deco-store-header {
+  padding: 24rpx;
 }
 
 .shop-card {
@@ -557,10 +126,30 @@ page {
   border-radius: 8rpx;
 }
 
+.shop-contact {
+  margin-top: 8rpx;
+}
+
+.shop-contact-name {
+  font-size: 24rpx;
+  color: #6E6E73;
+}
+
+.shop-contact-phone {
+  font-size: 24rpx;
+  color: #6E6E73;
+}
+
 .shop-address {
   font-size: 24rpx;
   color: #86868B;
   margin-top: 8rpx;
+}
+
+.shop-desc {
+  font-size: 24rpx;
+  color: #86868B;
+  margin-top: 4rpx;
 }
 
 .shop-actions {
@@ -575,6 +164,7 @@ page {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8rpx;
   background: #FFFFFF;
   border-radius: 20rpx;
   font-size: 26rpx;
@@ -583,5 +173,704 @@ page {
 }
 
 .shop-action-btn:active {
+  background: #E5E5EA;
+}
+
+.action-icon {
+  font-size: 28rpx;
+}
+
+/* ========== 轮播图 banner ========== */
+.deco-banner {
+  position: relative;
+  width: 100%;
+}
+
+.deco-banner-swiper {
+  width: 100%;
+  height: 1333rpx;
+}
+
+.deco-banner-slide {
+  width: 100%;
+  height: 100%;
+}
+
+.deco-banner-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.deco-banner-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 16rpx 0;
+}
+
+.deco-dot {
+  width: 12rpx;
+  height: 6rpx;
+  border-radius: 6rpx;
+  background: #D2D2D7;
+  transition: all 0.3s ease;
+}
+
+.deco-dot.active {
+  width: 36rpx;
+  background: #1D1D1F;
+}
+
+/* ========== 砍价专区 bargain ========== */
+.deco-bargain {
+  padding: 0 0 24rpx;
+}
+
+.deco-bargain-header {
+  padding: 24rpx 24rpx 16rpx;
+}
+
+.deco-bargain-title {
+  font-size: 36rpx;
+  font-weight: bold;
+}
+
+.deco-bargain-scroll {
+  width: 100%;
+}
+
+.deco-bargain-list {
+  display: flex;
+  flex-direction: row;
+  padding: 0 24rpx;
+  gap: 16rpx;
+}
+
+.deco-bargain-card {
+  flex-shrink: 0;
+  width: 300rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.deco-bargain-img-wrap {
+  position: relative;
+  width: 100%;
+  height: 300rpx;
+  background: #f5f5f7;
+}
+
+.deco-bargain-img {
+  width: 100%;
+  height: 100%;
+}
+
+.deco-bargain-countdown {
+  position: absolute;
+  top: 12rpx;
+  left: 12rpx;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+}
+
+.countdown-icon {
+  font-size: 20rpx;
+}
+
+.deco-bargain-info {
+  padding: 12rpx 16rpx 16rpx;
+}
+
+.deco-bargain-name {
+  font-size: 26rpx;
+  color: #333;
+  line-height: 1.4;
+  display: block;
+}
+
+.deco-bargain-tags {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 8rpx;
+}
+
+.deco-bargain-tag {
+  font-size: 20rpx;
+  padding: 2rpx 8rpx;
+  border: 1rpx solid;
+  border-radius: 4rpx;
+  line-height: 1.4;
+}
+
+.deco-bargain-discount {
+  font-size: 20rpx;
+  color: #999;
+}
+
+.deco-bargain-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+  margin-top: 8rpx;
+}
+
+.deco-bargain-price {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.deco-bargain-origin-price {
+  font-size: 22rpx;
+  text-decoration: line-through;
+}
+
+/* 砍价按钮 */
+.deco-bargain-btn {
+  display: block;
+  text-align: center;
+  font-size: 24rpx;
+  padding: 10rpx 0;
+  border-radius: 30rpx;
+  margin-top: 12rpx;
+}
+
+.deco-bargain-btn-sm {
+  display: inline-block;
+  font-size: 22rpx;
+  padding: 6rpx 20rpx;
+  border-radius: 20rpx;
+  margin-top: 10rpx;
+}
+
+/* 列表布局 layoutStyle=1 */
+.deco-bargain-list-vertical {
+  padding: 0 24rpx;
+}
+
+.deco-bargain-list-item {
+  display: flex;
+  gap: 20rpx;
+  padding: 16rpx;
+  border-radius: 16rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.deco-bargain-list-img {
+  position: relative;
+  width: 180rpx;
+  height: 180rpx;
+  flex-shrink: 0;
+  border-radius: 12rpx;
+  overflow: hidden;
+  background: #f5f5f7;
+}
+
+.deco-bargain-list-img image {
+  width: 100%;
+  height: 100%;
+}
+
+.deco-bargain-list-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4rpx 0;
+}
+
+.text-ellipsis-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 网格布局 layoutStyle=2,3 */
+.deco-bargain-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 24rpx;
+  gap: 16rpx;
+}
+
+.deco-bargain-grid-2 .deco-bargain-grid-card {
+  width: calc(50% - 8rpx);
+}
+
+.deco-bargain-grid-3 .deco-bargain-grid-card {
+  width: calc(33.33% - 11rpx);
+}
+
+.deco-bargain-grid-card {
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.deco-bargain-grid-img {
+  position: relative;
+  width: 100%;
+  height: 240rpx;
+  background: #f5f5f7;
+}
+
+.deco-bargain-grid-img-sm {
+  height: 180rpx;
+}
+
+.deco-bargain-grid-img image {
+  width: 100%;
+  height: 100%;
+}
+
+.deco-bargain-grid-info {
+  padding: 12rpx 16rpx 16rpx;
+}
+
+.deco-bargain-countdown-sm {
+  position: absolute;
+  top: 8rpx;
+  left: 8rpx;
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 18rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 16rpx;
+}
+
+/* ========== 搜索框 searchBox ========== */
+.deco-search {
+  padding: 16rpx 24rpx;
+}
+
+.deco-search-box {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 20rpx 28rpx;
+  background: #F5F5F7;
+  border-radius: 40rpx;
+}
+
+.deco-search-icon {
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+
+.deco-search-placeholder {
+  font-size: 28rpx;
+  color: #86868B;
+}
+
+/* ========== 标题 title ========== */
+.deco-title {
+  padding: 32rpx 24rpx 16rpx;
+}
+
+.deco-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.deco-title-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.deco-title-text {
+  display: block;
+  line-height: 1.3;
+}
+
+.deco-subtitle-text {
+  display: block;
+  line-height: 1.4;
+  margin-top: 4rpx;
+}
+
+.deco-title-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-left: 16rpx;
+}
+
+/* ========== 商品列表 productList — grid ========== */
+.deco-products {
+  padding: 0 24rpx;
+}
+
+.deco-product-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+}
+
+.deco-product-card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.deco-product-card:active {
+  opacity: 0.9;
+}
+
+.deco-product-img-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  background: #F5F5F7;
+  overflow: hidden;
+}
+
+.deco-product-img {
+  width: 100%;
+  height: 100%;
+}
+
+.deco-product-info {
+  padding: 16rpx 16rpx 20rpx;
+}
+
+.deco-product-name {
+  font-size: 26rpx;
+  color: #1D1D1F;
+  line-height: 1.4;
+  min-height: 72rpx;
+}
+
+.deco-product-bottom {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 8rpx;
+}
+
+.deco-product-price {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #1D1D1F;
+  letter-spacing: -0.5rpx;
+}
+
+.deco-product-sales {
+  font-size: 22rpx;
+  color: #86868B;
+  flex-shrink: 0;
+}
+
+/* ========== 商品列表 productList — list ========== */
+.deco-product-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.deco-product-list-item {
+  display: flex;
+  gap: 24rpx;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #F2F2F7;
+}
+
+.deco-product-list-item:last-child {
+  border-bottom: none;
+}
+
+.deco-product-list-item:active {
+  background: #F5F5F7;
+}
+
+.deco-product-list-img {
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 20rpx;
+  flex-shrink: 0;
+  background: #F5F5F7;
+}
+
+.deco-product-list-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 8rpx 0;
+}
+
+/* ========== 商品列表 productList — scroll ========== */
+.deco-product-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.deco-product-scroll-inner {
+  display: inline-flex;
+  gap: 16rpx;
+  padding: 0 4rpx;
+}
+
+.deco-product-scroll-card {
+  width: 260rpx;
+  flex-shrink: 0;
+  display: inline-block;
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  white-space: normal;
+}
+
+.deco-product-scroll-card:active {
+  opacity: 0.9;
+}
+
+.deco-product-scroll-img {
+  width: 260rpx;
+  height: 260rpx;
+  background: #F5F5F7;
+  display: block;
+}
+
+.deco-product-scroll-card .deco-product-name {
+  padding: 12rpx 16rpx 0;
+  min-height: 60rpx;
+  font-size: 24rpx;
+}
+
+.deco-product-scroll-card .deco-product-bottom {
+  padding: 4rpx 16rpx 16rpx;
+}
+
+.deco-product-scroll-card .deco-product-price {
+  font-size: 30rpx;
+}
+
+/* ========== 图片魔方 imageCube ========== */
+.deco-image-cube {
+  padding: 0 24rpx;
+}
+
+.deco-cube-grid {
+  display: grid;
+  gap: 8rpx;
+}
+
+.deco-cube-col-1 { grid-template-columns: 1fr; }
+.deco-cube-col-2 { grid-template-columns: 1fr 1fr; }
+.deco-cube-col-3 { grid-template-columns: 1fr 1fr 1fr; }
+.deco-cube-col-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+.deco-cube-item {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.deco-cube-item:active {
+  opacity: 0.9;
+}
+
+.deco-cube-img {
+  width: 100%;
+  height: 100%;
+}
+
+/* ========== 菜单导航 menuNav ========== */
+.deco-menu-nav {
+  padding: 24rpx;
+}
+
+.deco-menu-grid {
+  display: grid;
+  gap: 24rpx 0;
+}
+
+.deco-menu-col-4 { grid-template-columns: repeat(4, 1fr); }
+.deco-menu-col-5 { grid-template-columns: repeat(5, 1fr); }
+
+.deco-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.deco-menu-item:active {
+  opacity: 0.8;
+}
+
+.deco-menu-icon-wrap {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
+  background: #F5F5F7;
+}
+
+.deco-menu-icon-wrap.round {
+  border-radius: 50%;
+}
+
+.deco-menu-icon {
+  width: 100%;
+  height: 100%;
+}
+
+.deco-menu-icon-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #1D1D1F;
+  background: #F5F5F7;
+}
+
+.deco-menu-text {
+  font-size: 24rpx;
+  color: #1D1D1F;
+  text-align: center;
+}
+
+/* ========== 优惠券 coupon ========== */
+.deco-coupon {
+  padding: 0 24rpx;
+}
+
+.deco-coupon-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.deco-coupon-list {
+  display: inline-flex;
+  gap: 16rpx;
+}
+
+.deco-coupon-card {
+  width: 280rpx;
+  flex-shrink: 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24rpx 20rpx;
+  background: linear-gradient(135deg, #FFF5F5, #FFFFFF);
+  border-radius: 20rpx;
+  border: 1rpx solid #FFE0E0;
+  white-space: normal;
+}
+
+.deco-coupon-amount {
+  display: flex;
+  align-items: baseline;
+  color: #FF4D4F;
+}
+
+.deco-coupon-amount .price-symbol {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #FF4D4F;
+}
+
+.deco-coupon-value {
+  font-size: 52rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.deco-coupon-info {
+  margin-top: 8rpx;
+}
+
+.deco-coupon-condition {
+  font-size: 22rpx;
+  color: #86868B;
+}
+
+.deco-coupon-btn {
+  margin-top: 16rpx;
+  padding: 8rpx 32rpx;
+  background: #FF4D4F;
+  color: #FFFFFF;
+  font-size: 24rpx;
+  font-weight: 500;
+  border-radius: 999rpx;
+}
+
+.deco-coupon-btn:active {
+  opacity: 0.8;
+}
+
+/* ========== 辅助空白 spacer ========== */
+.deco-spacer {
+  width: 100%;
+}
+
+/* ========== 富文本 richText ========== */
+.deco-rich-text {
+  padding: 16rpx 24rpx;
+  font-size: 28rpx;
+  color: #1D1D1F;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+/* ========== 视频 video ========== */
+.deco-video {
+  padding: 0 24rpx;
+}
+
+.deco-video-player {
+  width: 100%;
+  border-radius: 20rpx;
+}
+
+/* ========== 导航栏 navBar ========== */
+.deco-navbar {
+  padding: 0 24rpx;
+}
+
+.deco-navbar-list {
+  display: flex;
+  background: #F5F5F7;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.deco-navbar-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #1D1D1F;
+}
+
+.deco-navbar-item:active {
   background: #E5E5EA;
 }

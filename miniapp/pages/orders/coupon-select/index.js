@@ -1,6 +1,7 @@
 // pages/orders/coupon-select/index.js
 const app = getApp()
 const api = app.api || require('../../../utils/api.js')
+const { requireLogin } = require('../../../utils/auth.js')
 
 Page({
   data: {
@@ -11,6 +12,7 @@ Page({
   },
 
   onLoad(options) {
+    if (!requireLogin()) return
     if (options.selectedId) this.setData({ selectedId: options.selectedId })
     if (options.amount) this.setData({ orderAmount: Number(options.amount) })
     this.loadCoupons()

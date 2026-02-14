@@ -1,3 +1,5 @@
+const { requireLogin } = require('../../../utils/auth.js')
+
 Page({
 	data: {
 		addresses: [],
@@ -11,6 +13,7 @@ Page({
 		}
 	},
 	onLoad() {
+		if (!requireLogin()) return
 		this.loadAddresses()
 	},
 	onShow() {

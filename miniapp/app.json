@@ -40,7 +40,9 @@
     "pages/login/index",
     "pages/guide/index",
     "pages/order/confirm/index",
-    "pages/order/recommendations/index"
+    "pages/order/recommendations/index",
+    "pages/shop/info/index",
+    "pages/shop/poster/index"
   ],
   "window": {
     "navigationBarTextStyle": "black",

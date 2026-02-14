@@ -1,86 +1,41 @@
-// index.js
+// index.js — 动态装修首页
 const app = getApp()
 const api = app.api || require('../../utils/api.js')
+const config = require('../../config/api.js')
 
 Page({
 	data: {
-		// Hero Banner
-		banners: [],
+		// 装修组件数组（核心数据源）
+		components: [],
+		pageBgColor: '#FFFFFF',
+		pageBgImage: '',
+		loaded: false,
+		loading: true,
+		loadError: '',
+
+		// banner 状态
 		currentBanner: 0,
-		autoPlay: true,
 
-		// 砍价专区
-		bargainProducts: [],
-
-		// 新品推荐
-		recommendProducts: [],
-
-		// 空间灵感（静态数据）
-		spaces: [
-			{
-				id: 1,
-				title: '奶油风客厅',
-				subtitle: '展厅实景方案',
-				image: 'https://picsum.photos/800/600?random=space1',
-				link: '/pages/mall/index'
-			},
-			{
-				id: 2,
-				title: '温馨卧室',
-				subtitle: '软装搭配方案',
-				image: 'https://picsum.photos/800/600?random=space2',
-				link: '/pages/mall/index'
-			},
-			{
-				id: 3,
-				title: '雅致餐厅',
-				subtitle: '材质甄选方案',
-				image: 'https://picsum.photos/800/600?random=space3',
-				link: '/pages/mall/index'
-			},
-			{
-				id: 4,
-				title: '简约书房',
-				subtitle: '定制收纳方案',
-				image: 'https://picsum.photos/800/600?random=space4',
-				link: '/pages/mall/index'
-			}
-		],
-
-		// 精选好物
-		featuredProducts: [],
-
-		// 店铺信息（静态数据）
-		shopInfo: {
-			logo: '',
-			name: '小迪严选',
-			address: '广东省佛山市顺德区十里家私城325国道辅道3537号',
-			contactName: '小迪',
-			phone: '13000000000',
-			isVerified: true
-		}
+		// 店铺信息
+		storeName: '小迪严选'
 	},
 
 	onLoad() {
-		this.loadDecoration()
-		this.loadHomeData()
-		this.loadBargainProducts()
-		this.loadFeaturedProducts()
+		// 首次加载在 onShow 中执行，保证 tab 页可靠触发
 	},
 
 	onShow() {
 		if (typeof this.getTabBar === 'function' && this.getTabBar()) {
 			this.getTabBar().setData({ selected: 0 })
 		}
+		// 仅首次加载（或刷新后重新加载）
+		if (!this.data.loaded) {
+			this.loadDecoration()
+		}
 	},
 
 	onPullDownRefresh() {
-		Promise.all([
-			this.loadDecoration(),
-			this.loadHomeData(),
-			this.loadBargainProducts(),
-			this.loadFeaturedProducts()
-		]).finally(() => {
+		this.loadDecoration().finally(() => {
 			wx.stopPullDownRefresh()
 		})
 	},
@@ -88,393 +43,228 @@ Page({
 	// ==================== 装修配置加载 ====================
 
 	loadDecoration() {
-		return api.getStoreDecorationDefault().then((data) => {
+		this.setData({ loading: true, loadError: '' })
+
+		// 读取全局店铺上下文
+		const mId = app.globalData.manufacturerId
+		const params = {}
+		if (mId) {
+			params.manufacturerId = mId
+			params.ownerType = 'manufacturer'
+			console.log('[首页] 加载厂家店铺装修, manufacturerId:', mId)
+		} else {
+			console.log('[首页] 加载平台默认装修')
+		}
+
+		return api.getStoreDecorationDefault(params).then((data) => {
 			if (!data || !data.value || !data.value.components || data.value.components.length === 0) {
-				console.log('无装修配置，使用默认数据')
+				console.log('[首页] 无装修配置，使用默认数据')
+				this.setData({ components: this._getDefaultComponents(), loaded: true, loading: false })
 				return
 			}
 
-			const components = data.value.components
-			const updates = {}
-
-			components.forEach(comp => {
-				if (!comp || !comp.config) return
-
-				// 轮播图
-				if (comp.type === 'banner' && comp.config.items) {
-					const bannerItems = comp.config.items.filter(b => b.status !== false && b.image)
-					if (bannerItems.length > 0) {
-						updates.banners = bannerItems.map((b, i) => ({
-							id: `deco-banner-${i}`,
-							image: b.image,
-							title: '',
-							subtitle: '',
-							link: b.link || '/pages/mall/index'
-						}))
-					}
-				}
-
-				// 店铺头部
-				if (comp.type === 'storeHeader') {
-					const cfg = comp.config
-					if (cfg.name) {
-						updates.shopInfo = {
-							...this.data.shopInfo,
-							name: cfg.name,
-							logo: cfg.logo || '',
-							address: cfg.description || this.data.shopInfo.address
-						}
-					}
-				}
+			const defaultStyle = { bgColor: '', marginTop: 0, marginBottom: 0, marginLR: 0, borderRadius: 0, innerRadius: 0 }
+			const comps = data.value.components.filter(c => c && c.config).map(c => {
+				this._fixCompImages(c)
+				return { ...c, style: { ...defaultStyle, ...(c.style || {}) } }
 			})
 
-			// 背景色
-			if (data.bgColor) updates.pageBgColor = data.bgColor
-
-			if (Object.keys(updates).length > 0) {
-				console.log('应用装修配置:', Object.keys(updates))
-				this.setData(updates)
-			}
-		}).catch((err) => {
-			console.error('加载装修配置失败:', err)
-		})
-	},
-
-	// ==================== 数据加载 ====================
-
-	loadHomeData() {
-		return api.getHomeData().then((data) => {
-			const banners = (data.banners || []).map((b, i) => ({
-				id: b._id || `banner-${i}`,
-				image: b.imageUrl || b.image || `https://picsum.photos/1080/1920?random=${100 + i}`,
-				title: b.title || '小迪严选',
-				subtitle: b.subtitle || '源头工厂 · 品质保障',
-				link: b.link || '/pages/mall/index'
-			}))
-
-			// 如果没有 banner 数据，用默认数据
-			if (banners.length === 0) {
-				banners.push(
-					{ id: 'b1', image: 'https://picsum.photos/1080/1920?random=100', title: '现代自然', subtitle: '新季搭配灵感', link: '/pages/mall/index' },
-					{ id: 'b2', image: 'https://picsum.photos/1080/1920?random=101', title: '源头工厂', subtitle: '品质保障 · 工厂直发', link: '/pages/mall/index' },
-					{ id: 'b3', image: 'https://picsum.photos/1080/1920?random=102', title: '意式轻奢', subtitle: '进口材质 · 匠心工艺', link: '/pages/mall/index' }
-				)
-			}
-
-			const recommendProducts = (data.hotGoods || []).map(g => ({
-				_id: g._id || g.id,
-				id: g._id || g.id,
-				name: g.name,
-				price: g.price,
-				originalPrice: g.originalPrice,
-				image: g.image || g.cover || g.thumb || g.thumbnail || g.images?.[0] || '',
-				highlight: g.description || g.category || '',
-				sales: g.sales || g.sold || 0
-			}))
-
-			// 如果没有推荐商品数据，使用兜底数据
-			const finalRecommend = recommendProducts.length > 0 ? recommendProducts : this._getMockRecommendProducts()
-
-			this.setData({ banners, recommendProducts: finalRecommend })
-		}).catch((err) => {
-			console.error('加载首页数据失败:', err)
-			// 使用默认 banner 和兜底推荐商品
-			this.setData({
-				banners: [
-					{ id: 'b1', image: 'https://picsum.photos/1080/1920?random=100', title: '现代自然', subtitle: '新季搭配灵感', link: '/pages/mall/index' },
-					{ id: 'b2', image: 'https://picsum.photos/1080/1920?random=101', title: '源头工厂', subtitle: '品质保障 · 工厂直发', link: '/pages/mall/index' }
-				],
-				recommendProducts: this._getMockRecommendProducts()
+			// 为 productList category 模式加载商品
+			const promises = comps.map((comp, idx) => {
+				if (comp.type === 'productList' && comp.config.selectMode === 'category' && comp.config.categoryIds && comp.config.categoryIds.length > 0 && (!comp.config.products || comp.config.products.length === 0)) {
+					return this._fetchProductsByCategories(comp.config.categoryIds, comp.config.limit || 10).then(products => {
+						comps[idx].config.products = products
+					}).catch(() => {})
+				}
+				return Promise.resolve()
 			})
-		})
-	},
 
-	loadBargainProducts() {
-		const mockBargainProducts = [
-			{
-				id: '1',
-				name: '北欧简约布艺沙发三人位',
-				image: 'https://readdy.ai/api/search-image?query=luxury%20cream%20white%20fabric%20sofa%20on%20dark%20gradient%20background%2C%20single%20side%20backlight%20creating%20rim%20light%20on%20edges%2C%20dark%20matte%20concrete%20floor%20with%20subtle%20reflection%2C%20clean%20centered%20composition%20with%20negative%20space%2C%20ultra%20realistic%20photography%2C%20low%20saturation%20warm%20neutral%20tones%2C%20cinematic%20lighting%20with%20soft%20volumetric%20light%2C%20premium%20material%20detail%20visible%2C%20shallow%20depth%20of%20field%20f2.8%2C%20subtle%20film%20grain%2C%20no%20text%20no%20logo%20no%20watermark&width=600&height=600&seq=bargain001&orientation=squarish',
-				originalPrice: 4999,
-				currentPrice: 2899,
-				progress: 68,
-				endTime: Date.now() + 3600000 * 12,
-				countdown: '00:00:00'
-			},
-			{
-				id: '2',
-				name: '实木餐桌椅组合现代简约',
-				image: 'https://readdy.ai/api/search-image?query=white%20oak%20wood%20dining%20table%20editorial%20shot%2C%20dark%20background%20with%20warm%20side%20lighting%20highlighting%20wood%20grain%20and%20beveled%20edges%2C%20sharp%20detail%20on%20texture%20but%20soft%20overall%20mood%2C%20clean%20blurred%20background%2C%20light%20fog%20volumetric%20light%2C%20low%20saturation%20taupe%20and%20walnut%20tones%2C%20high-end%20furniture%20photography%2C%20ultra%20realistic%2C%20no%20text%20no%20logo%20no%20watermark&width=600&height=600&seq=bargain002&orientation=squarish',
-				originalPrice: 3299,
-				currentPrice: 1899,
-				progress: 72,
-				endTime: Date.now() + 3600000 * 8,
-				countdown: '00:00:00'
-			},
-			{
-				id: '3',
-				name: '轻奢真皮床现代简约双人床',
-				image: 'https://readdy.ai/api/search-image?query=luxury%20light%20grey%20leather%20bed%20frame%20on%20black%20gradient%20background%2C%20cinematic%20chiaroscuro%20lighting%20from%20left%20side%2C%20premium%20leather%20texture%20detail%20visible%2C%20dark%20matte%20floor%20with%20minimal%20reflection%2C%20centered%20composition%20with%20breathing%20space%2C%20ultra%20realistic%20editorial%20photography%2C%20low%20saturation%20neutral%20tones%2C%20soft%20volumetric%20light%2C%20shallow%20depth%20of%20field%20f2.0%2C%20subtle%20film%20grain%2C%20no%20text%20no%20logo%20no%20watermark&width=600&height=600&seq=bargain003&orientation=squarish',
-				originalPrice: 6999,
-				currentPrice: 3999,
-				progress: 55,
-				endTime: Date.now() + 3600000 * 15,
-				countdown: '00:00:00'
-			},
-			{
-				id: '4',
-				name: '意式极简岩板茶几',
-				image: 'https://readdy.ai/api/search-image?query=minimalist%20Italian%20sintered%20stone%20coffee%20table%20on%20dark%20background%2C%20single%20backlight%20creating%20dramatic%20rim%20light%20on%20edges%20and%20corners%2C%20premium%20stone%20texture%20with%20natural%20veining%20visible%2C%20dark%20concrete%20floor%20subtle%20reflection%2C%20clean%20composition%20with%20negative%20space%2C%20ultra%20realistic%20furniture%20photography%2C%20low%20saturation%20sand%20and%20taupe%20tones%2C%20cinematic%20lighting%2C%20shallow%20depth%20of%20field%20f2.8%2C%20subtle%20film%20grain%2C%20no%20text%20no%20logo%20no%20watermark&width=600&height=600&seq=bargain004&orientation=squarish',
-				originalPrice: 2599,
-				currentPrice: 1499,
-				progress: 81,
-				endTime: Date.now() + 3600000 * 6,
-				countdown: '00:00:00'
-			},
-			{
-				id: '5',
-				name: '高端乳胶床垫独立袋装弹簧',
-				image: 'https://readdy.ai/api/search-image?query=premium%20white%20latex%20mattress%20editorial%20shot%2C%20dark%20gradient%20background%2C%20warm%20side%20lighting%20highlighting%20fabric%20texture%20and%20quilted%20details%2C%20material%20layers%20visible%20on%20side%20view%2C%20clean%20centered%20composition%2C%20ultra%20realistic%20photography%2C%20low%20saturation%20warm%20neutral%20tones%2C%20cinematic%20soft%20volumetric%20light%2C%20shallow%20depth%20of%20field%20f2.0%2C%20subtle%20film%20grain%2C%20no%20text%20no%20logo%20no%20watermark&width=600&height=600&seq=bargain005&orientation=squarish',
-				originalPrice: 4599,
-				currentPrice: 2699,
-				progress: 63,
-				endTime: Date.now() + 3600000 * 10,
-				countdown: '00:00:00'
-			}
-		]
-
-		return api.getBargainList({ pageSize: 6 }).then((data) => {
-			const list = (data.list || data || []).map(item => ({
-				id: item._id,
-				name: item.name || item.productName,
-				image: item.coverImage || item.image || '',
-				currentPrice: item.currentPrice || item.targetPrice,
-				originalPrice: item.originalPrice,
-				progress: item.progress || Math.round(((item.originalPrice - (item.currentPrice || item.targetPrice)) / (item.originalPrice - item.targetPrice)) * 100),
-				endTime: item.endTime,
-				countdown: '00:00:00'
-			}))
-			const finalList = list.length > 0 ? list : mockBargainProducts
-			this.setData({ bargainProducts: finalList })
-			if (finalList.length > 0) {
-				this.startCountdown()
-			}
+			Promise.all(promises).then(() => {
+				this.setData({
+					components: comps,
+					pageBgColor: data.bgColor || '#FFFFFF',
+					pageBgImage: data.bgImage ? this._fixUrl(data.bgImage) : '',
+					loaded: true,
+					loading: false,
+					storeName: data.name || '小迪严选'
+				})
+				console.log('[首页] 装修配置已加载，组件数:', comps.length)
+				// DEBUG: 输出图片URL帮助排查
+				const bannerComp = comps.find(c => c.type === 'banner')
+				if (bannerComp && bannerComp.config.items) {
+					console.log('[首页] banner图片URL:', bannerComp.config.items.map(i => i.image))
+				}
+				const prodComp = comps.find(c => c.type === 'productList')
+				if (prodComp && prodComp.config.products && prodComp.config.products.length > 0) {
+					console.log('[首页] 第一个商品图片URL:', prodComp.config.products[0].thumbnail)
+				}
+			})
 		}).catch((err) => {
-			console.error('加载砍价商品失败:', err)
-			this.setData({ bargainProducts: mockBargainProducts })
-			this.startCountdown()
+			console.error('[首页] 加载装修配置失败:', err)
+			this.setData({ components: this._getDefaultComponents(), loaded: true, loading: false, loadError: err.message || '加载失败' })
 		})
 	},
 
-	loadFeaturedProducts() {
-		return api.getGoodsList({ page: 1, pageSize: 6, sort: 'sales' }).then((data) => {
-			const list = (data.list || data || []).map(g => ({
-				id: g._id || g.id,
-				name: g.name,
-				price: g.price,
-				originalPrice: g.originalPrice,
-				image: g.image || g.cover || g.thumb || g.thumbnail || g.images?.[0] || '',
-				highlight: g.description || g.category || '',
-				sold: g.sales || g.sold || 0
-			}))
-			const finalList = list.length > 0 ? list : this._getMockFeaturedProducts()
-			this.setData({ featuredProducts: finalList })
-		}).catch((err) => {
-			console.error('加载精选好物失败:', err)
-			this.setData({ featuredProducts: this._getMockFeaturedProducts() })
+	// 将相对路径 /api/files/xxx 转为完整 URL
+	_fixUrl(url) {
+		if (!url) return ''
+		if (url.startsWith('http')) return url
+		return config.baseURL + url
+	},
+
+	// 递归修复组件内所有图片路径
+	_fixCompImages(comp) {
+		const cfg = comp.config
+		if (!cfg) return
+		const fix = this._fixUrl.bind(this)
+		if (comp.type === 'banner' && cfg.items) {
+			cfg.items.forEach(item => { item.image = fix(item.image) })
+		}
+		if (comp.type === 'storeHeader' && cfg.logo) {
+			cfg.logo = fix(cfg.logo)
+		}
+		if (comp.type === 'imageCube' && cfg.images) {
+			cfg.images.forEach(img => { img.url = fix(img.url) })
+		}
+		if (comp.type === 'video' && cfg.cover) {
+			cfg.cover = fix(cfg.cover)
+		}
+		if (comp.type === 'menuNav' && cfg.items) {
+			cfg.items.forEach(item => { item.image = fix(item.image) })
+		}
+		if (comp.type === 'productList' && cfg.products) {
+			cfg.products.forEach(p => {
+				p.thumbnail = fix(p.thumbnail)
+				if (Array.isArray(p.images)) {
+					p.images = p.images.map(fix)
+				}
+			})
+		}
+		if (comp.type === 'bargain' && cfg.products) {
+			cfg.products.forEach(p => {
+				p.coverImage = fix(p.coverImage)
+			})
+		}
+	},
+
+	// 根据分类 ID 获取商品
+	_fetchProductsByCategories(categoryIds, limit) {
+		const fetches = categoryIds.map(catId =>
+			api.getGoodsList({ page: 1, pageSize: limit, categoryId: catId }).then(data => {
+				const fix = this._fixUrl.bind(this)
+				return (data.list || data || []).map(g => ({
+					_id: g._id || g.id,
+					name: g.name,
+					basePrice: g.price || g.basePrice,
+					thumbnail: fix(g.image || g.cover || g.thumb || g.thumbnail || ''),
+					images: (g.images || []).map(fix),
+					sales: g.sales || g.sold || 0
+				}))
+			}).catch(() => [])
+		)
+		return Promise.all(fetches).then(results => {
+			const seen = {}
+			const all = []
+			results.forEach(list => {
+				list.forEach(p => {
+					if (!seen[p._id]) {
+						seen[p._id] = true
+						all.push(p)
+					}
+				})
+			})
+			return all.slice(0, limit)
 		})
 	},
 
-	// ==================== 兜底数据 ====================
-
-	_getMockRecommendProducts() {
+	// 无装修配置时的默认组件
+	_getDefaultComponents() {
+		const defaultStyle = { bgColor: '', marginTop: 0, marginBottom: 0, marginLR: 0, borderRadius: 0, innerRadius: 0 }
 		return [
 			{
-				id: 'mock-r1',
-				name: '意式极简真皮沙发客厅组合',
-				price: 5999,
-				originalPrice: 8999,
-				image: 'https://picsum.photos/600/600?random=recommend1',
-				highlight: '头层牛皮 · 高密度海绵 · 全实木框架',
-				sales: 326
-			},
-			{
-				id: 'mock-r2',
-				name: '北欧实木餐桌椅组合一桌四椅',
-				price: 3299,
-				originalPrice: 5299,
-				image: 'https://picsum.photos/600/600?random=recommend2',
-				highlight: '白蜡木 · 环保水性漆 · 稳固承重',
-				sales: 218
-			},
-			{
-				id: 'mock-r3',
-				name: '轻奢岩板茶几电视柜组合',
-				price: 2899,
-				originalPrice: 4599,
-				image: 'https://picsum.photos/600/600?random=recommend3',
-				highlight: '天然岩板 · 不锈钢拉丝 · 大容量收纳',
-				sales: 185
-			},
-			{
-				id: 'mock-r4',
-				name: '现代简约实木双人床1.8米',
-				price: 4599,
-				originalPrice: 6999,
-				image: 'https://picsum.photos/600/600?random=recommend4',
-				highlight: '进口橡木 · 静音排骨架 · 环保认证',
-				sales: 412
+				id: 'default-header',
+				type: 'storeHeader',
+				config: {
+					logo: '',
+					name: '小迪严选',
+					description: '',
+					contactName: '小迪',
+					phone: '13000000000',
+					address: '广东省佛山市顺德区十里家私城325国道辅道3537号',
+					isVerified: true
+				},
+				style: defaultStyle
 			}
 		]
 	},
 
-	_getMockFeaturedProducts() {
-		return [
-			{
-				id: 'mock-f1',
-				name: '奶油风布艺沙发小户型',
-				price: 3599,
-				originalPrice: 5599,
-				image: 'https://picsum.photos/600/600?random=featured1',
-				highlight: '可拆洗 · 乳胶填充',
-				sold: 156
-			},
-			{
-				id: 'mock-f2',
-				name: '全实木书桌书架一体',
-				price: 1899,
-				originalPrice: 2899,
-				image: 'https://picsum.photos/600/600?random=featured2',
-				highlight: '橡胶木 · 大桌面',
-				sold: 89
-			},
-			{
-				id: 'mock-f3',
-				name: '意式轻奢床头柜皮质',
-				price: 899,
-				originalPrice: 1399,
-				image: 'https://picsum.photos/600/600?random=featured3',
-				highlight: '超纤皮 · 静音抽屉',
-				sold: 267
-			},
-			{
-				id: 'mock-f4',
-				name: '北欧风实木衣柜推拉门',
-				price: 4299,
-				originalPrice: 6599,
-				image: 'https://picsum.photos/600/600?random=featured4',
-				highlight: '白蜡木 · 大空间收纳',
-				sold: 134
-			},
-			{
-				id: 'mock-f5',
-				name: '现代简约圆形餐桌',
-				price: 2199,
-				originalPrice: 3299,
-				image: 'https://picsum.photos/600/600?random=featured5',
-				highlight: '岩板桌面 · 转盘设计',
-				sold: 98
-			},
-			{
-				id: 'mock-f6',
-				name: '高端乳胶弹簧床垫1.8m',
-				price: 2699,
-				originalPrice: 4599,
-				image: 'https://picsum.photos/600/600?random=featured6',
-				highlight: '泰国乳胶 · 独立袋装弹簧',
-				sold: 345
-			}
-		]
-	},
-
-	// ==================== 倒计时 ====================
-
-	startCountdown() {
-		if (this._countdownTimer) clearInterval(this._countdownTimer)
-		this._countdownTimer = setInterval(() => {
-			const { bargainProducts } = this.data
-			let hasActive = false
-			const updated = bargainProducts.map(item => {
-				if (!item.endTime) return item
-				const remaining = new Date(item.endTime).getTime() - Date.now()
-				if (remaining <= 0) {
-					return { ...item, countdown: '00:00:00' }
-				}
-				hasActive = true
-				const h = Math.floor(remaining / 3600000)
-				const m = Math.floor((remaining % 3600000) / 60000)
-				const s = Math.floor((remaining % 60000) / 1000)
-				const countdown = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-				return { ...item, countdown }
-			})
-			this.setData({ bargainProducts: updated })
-			if (!hasActive) clearInterval(this._countdownTimer)
-		}, 1000)
-	},
-
-	onUnload() {
-		if (this._countdownTimer) clearInterval(this._countdownTimer)
-	},
-
-	// ==================== Banner 事件 ====================
+	// ==================== 事件处理 ====================
 
 	onBannerChange(e) {
 		this.setData({ currentBanner: e.detail.current })
 	},
 
-	goToSlide(e) {
-		this.setData({ currentBanner: e.currentTarget.dataset.index })
-	},
-
 	onBannerTap(e) {
-		const item = e.currentTarget.dataset.item
-		if (item && item.link) {
-			wx.navigateTo({ url: item.link }).catch(() => {
-				wx.switchTab({ url: item.link }).catch(() => {})
+		const link = e.currentTarget.dataset.link
+		if (link) {
+			wx.navigateTo({ url: link }).catch(() => {
+				wx.switchTab({ url: link }).catch(() => {})
 			})
 		}
 	},
 
-	// ==================== 导航事件 ====================
-
-	goMoreBargain() {
-		wx.navigateTo({ url: '/pages/bargain/index' })
-	},
-
-	goBargainDetail(e) {
-		const id = e.currentTarget.dataset.id
-		wx.navigateTo({ url: `/pages/bargain/detail/index?id=${id}` })
-	},
-
-	goMoreProducts() {
-		wx.switchTab({ url: '/pages/mall/index' })
+	onSearchTap() {
+		wx.navigateTo({ url: '/pages/mall/index' })
 	},
 
 	goProductDetail(e) {
 		const id = e.currentTarget.dataset.id
-		wx.navigateTo({ url: `/pages/mall/detail/index?id=${id}` })
+		if (id) {
+			wx.navigateTo({ url: '/pages/mall/detail/index?id=' + id })
+		}
 	},
 
-	goCategory() {
-		wx.switchTab({ url: '/pages/mall/index' })
+	goBargainDetail(e) {
+		const id = e.currentTarget.dataset.id
+		if (id) {
+			wx.navigateTo({ url: '/pages/bargain/detail/index?id=' + id })
+		}
 	},
 
-	goSpaceDetail(e) {
-		wx.switchTab({ url: '/pages/mall/index' })
+	goLink(e) {
+		const link = e.currentTarget.dataset.link
+		if (link) {
+			wx.navigateTo({ url: link }).catch(() => {
+				wx.switchTab({ url: link }).catch(() => {})
+			})
+		}
 	},
 
-	goShopInfo() {
-		wx.showToast({ title: '店铺详情', icon: 'none' })
-	},
-
-	callShop() {
-		const phone = this.data.shopInfo.phone
+	callPhone(e) {
+		const phone = e.currentTarget.dataset.phone
 		if (phone) {
 			wx.makePhoneCall({ phoneNumber: phone })
 		}
 	},
 
+	goShopInfo() {
+		wx.navigateTo({ url: '/pages/shop/info/index' })
+	},
+
+	goShopPoster() {
+		wx.navigateTo({ url: '/pages/shop/poster/index' })
+	},
+
+	retryLoad() {
+		this.setData({ loaded: false })
+		this.loadDecoration()
+	},
+
 	onReachBottom() {
 		// 首页暂无加载更多逻辑
+	},
+
+	onUnload() {
+		// 清理
 	}
 })

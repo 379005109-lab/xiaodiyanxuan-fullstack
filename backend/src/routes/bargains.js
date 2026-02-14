@@ -82,8 +82,26 @@ router.post('/products', auth, async (req, res) => {
 // PUT /api/bargains/products/:id - 更新砍价商品
 router.put('/products/:id', auth, async (req, res) => {
   try {
-    const updates = req.body
-    updates.updatedAt = new Date()
+    const body = req.body || {}
+    
+    // 只提取 schema 中允许的字段，避免无效字段导致 Mongoose 报错
+    const updates = { updatedAt: new Date() }
+    const allowedFields = ['name', 'coverImage', 'originalPrice', 'targetPrice',
+      'minCutAmount', 'maxCutAmount', 'maxHelpers', 'category', 'style',
+      'status', 'sortOrder', 'startTime', 'endTime']
+    
+    for (const key of allowedFields) {
+      if (body[key] !== undefined) {
+        updates[key] = body[key]
+      }
+    }
+    
+    // productId 需要特殊处理：只有非空且合法的 ObjectId 才写入
+    if (body.productId && /^[0-9a-fA-F]{24}$/.test(String(body.productId))) {
+      updates.productId = body.productId
+    }
+    
+    console.log('[砍价更新] id:', req.params.id, 'updates:', JSON.stringify(updates))
     
     const product = await BargainProduct.findByIdAndUpdate(req.params.id, updates, { new: true })
     if (!product) {
@@ -92,8 +110,8 @@ router.put('/products/:id', auth, async (req, res) => {
     
     res.json({ success: true, data: product, message: '更新成功' })
   } catch (error) {
-    console.error('更新砍价商品失败:', error)
-    res.status(500).json({ success: false, message: '更新失败' })
+    console.error('更新砍价商品失败:', error.message, error.stack)
+    res.status(500).json({ success: false, message: '更新失败: ' + error.message })
   }
 })
 

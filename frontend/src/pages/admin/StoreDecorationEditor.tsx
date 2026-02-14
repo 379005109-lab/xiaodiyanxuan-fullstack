@@ -14,8 +14,10 @@ import {
   createEmptyPageValue,
   createComponent,
   generateComponentId,
+  createDefaultStyle,
   ComponentItem,
   ComponentType,
+  ComponentStyle,
   PageValue,
 } from '@/services/storeDecorationService'
 import { uploadFile, getFileUrl } from '@/services/uploadService'
@@ -209,6 +211,10 @@ export default function StoreDecorationEditor() {
     setComponents(prev => prev.map(c => c.id === cid ? { ...c, config } : c))
   }
 
+  const updateComponentStyle = (cid: string, style: ComponentStyle) => {
+    setComponents(prev => prev.map(c => c.id === cid ? { ...c, style } : c))
+  }
+
   // ========== Background upload ==========
 
   const handleBgImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,23 +242,25 @@ export default function StoreDecorationEditor() {
       </div>
     )
     const { type, config } = selectedComponent
+    const compStyle = selectedComponent.style || createDefaultStyle()
     const onChange = (cfg: any) => updateComponentConfig(selectedComponent.id, cfg)
+    const onStyleChange = (s: ComponentStyle) => updateComponentStyle(selectedComponent.id, s)
     switch (type) {
-      case 'storeHeader': return <StoreHeaderEditor config={config} onChange={onChange} />
-      case 'banner': return <BannerEditor config={config} onChange={onChange} />
-      case 'coupon': return <CouponEditor config={config} onChange={onChange} />
-      case 'productList': return <ProductListEditor config={config} onChange={onChange} />
-      case 'title': return <TitleEditor config={config} onChange={onChange} />
-      case 'spacer': return <SpacerEditor config={config} onChange={onChange} />
-      case 'richText': return <RichTextEditor config={config} onChange={onChange} />
-      case 'imageCube': return <ImageCubeEditor config={config} onChange={onChange} />
-      case 'searchBox': return <SearchBoxEditor config={config} onChange={onChange} />
-      case 'video': return <VideoEditor config={config} onChange={onChange} />
-      case 'articleList': return <ArticleListEditor config={config} onChange={onChange} />
-      case 'menuNav': return <MenuNavEditor config={config} onChange={onChange} />
-      case 'seckill': return <SeckillEditor config={config} onChange={onChange} />
-      case 'groupBuy': return <GroupBuyEditor config={config} onChange={onChange} />
-      case 'bargain': return <BargainEditor config={config} onChange={onChange} />
+      case 'storeHeader': return <StoreHeaderEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'banner': return <BannerEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'coupon': return <CouponEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'productList': return <ProductListEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'title': return <TitleEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'spacer': return <SpacerEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'richText': return <RichTextEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'imageCube': return <ImageCubeEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'searchBox': return <SearchBoxEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'video': return <VideoEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'articleList': return <ArticleListEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'menuNav': return <MenuNavEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'seckill': return <SeckillEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'groupBuy': return <GroupBuyEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
+      case 'bargain': return <BargainEditor config={config} onChange={onChange} style={compStyle} onStyleChange={onStyleChange} />
       default: return <div className="text-center py-12 text-gray-400 text-sm">暂不支持编辑此组件</div>
     }
   }

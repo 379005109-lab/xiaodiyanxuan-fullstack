@@ -87,7 +87,7 @@ export default defineConfig({
     ],
     proxy: {
       '/api': {
-        target: 'https://pkochbpmcgaa.sealoshzh.site',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
       },

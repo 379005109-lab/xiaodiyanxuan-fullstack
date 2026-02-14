@@ -1,5 +1,6 @@
 const app = getApp()
 const api = app.api || require('../../../utils/api.js')
+const { requireLogin } = require('../../../utils/auth.js')
 
 Page({
   data: {
@@ -9,6 +10,7 @@ Page({
     checkedCount: 0
   },
   onLoad() {
+    if (!requireLogin()) return
     this.loadCart()
   },
   onShow() {

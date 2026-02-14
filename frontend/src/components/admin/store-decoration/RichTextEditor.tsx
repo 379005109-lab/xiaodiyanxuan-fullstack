@@ -1,19 +1,22 @@
 import { FileText } from 'lucide-react'
-import { RichTextConfig } from '@/services/storeDecorationService'
+import { RichTextConfig, ComponentStyle } from '@/services/storeDecorationService'
+import EditorTabs from './EditorTabs'
+import StyleEditor from './StyleEditor'
 
 interface RichTextEditorProps {
   config: RichTextConfig
   onChange: (config: RichTextConfig) => void
+  style: ComponentStyle
+  onStyleChange: (style: ComponentStyle) => void
 }
 
-export default function RichTextEditor({ config, onChange }: RichTextEditorProps) {
+export default function RichTextEditor({ config, onChange, style, onStyleChange }: RichTextEditorProps) {
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
-        <FileText className="h-4 w-4" />
-        富文本
-      </h3>
-
+    <EditorTabs
+      title="富文本"
+      icon={<FileText className="h-4 w-4" />}
+      contentPanel={
+        <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">内容</label>
         <textarea
@@ -35,5 +38,8 @@ export default function RichTextEditor({ config, onChange }: RichTextEditorProps
         </div>
       )}
     </div>
+      }
+      stylePanel={<StyleEditor style={style} onChange={onStyleChange} />}
+    />
   )
 }

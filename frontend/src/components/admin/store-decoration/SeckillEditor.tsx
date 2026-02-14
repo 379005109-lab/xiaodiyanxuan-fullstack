@@ -1,19 +1,22 @@
 import { Zap } from 'lucide-react'
-import { SeckillConfig } from '@/services/storeDecorationService'
+import { SeckillConfig, ComponentStyle } from '@/services/storeDecorationService'
+import EditorTabs from './EditorTabs'
+import StyleEditor from './StyleEditor'
 
 interface SeckillEditorProps {
   config: SeckillConfig
   onChange: (config: SeckillConfig) => void
+  style: ComponentStyle
+  onStyleChange: (style: ComponentStyle) => void
 }
 
-export default function SeckillEditor({ config, onChange }: SeckillEditorProps) {
+export default function SeckillEditor({ config, onChange, style, onStyleChange }: SeckillEditorProps) {
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
-        <Zap className="h-4 w-4" />
-        秒杀设置
-      </h3>
-
+    <EditorTabs
+      title="秒杀设置"
+      icon={<Zap className="h-4 w-4" />}
+      contentPanel={
+        <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">标题</label>
         <input
@@ -67,5 +70,8 @@ export default function SeckillEditor({ config, onChange }: SeckillEditorProps) 
         </div>
       </div>
     </div>
+      }
+      stylePanel={<StyleEditor style={style} onChange={onStyleChange} />}
+    />
   )
 }

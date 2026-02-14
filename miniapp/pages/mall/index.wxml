@@ -57,7 +57,7 @@
 					<view class="sub-title">细分类目</view>
 					<view class="sub-grid">
 						<block wx:for="{{currentSpace.subCategories}}" wx:key="id">
-							<view class="sub-card" bindtap="handleSubCategoryClick" data-id="{{item.id}}">
+							<view class="sub-card" bindtap="handleSubCategoryClick" data-id="{{item.id}}" data-name="{{item.name}}">
 								<view class="sub-img-wrap">
 									<image class="sub-img" src="{{item.image}}" mode="aspectFill"></image>
 								</view>

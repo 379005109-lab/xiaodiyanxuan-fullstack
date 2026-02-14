@@ -65,8 +65,12 @@ export const getFileUrl = (fileId: string, options?: { width?: number; height?: 
   }
   
   // 如果fileId已经是完整URL，直接返回
-  if (fileId.startsWith('http') || fileId.startsWith('/api/')) {
+  if (fileId.startsWith('http')) {
     return fileId
+  }
+  // 已经是 /api/ 路径 — 开发环境加上后端 origin
+  if (fileId.startsWith('/api/')) {
+    return import.meta.env.DEV ? `http://localhost:8080${fileId}` : fileId
   }
   // 如果是placeholder或其他静态资源路径（以/开头但不是/api/），直接返回
   if (fileId.startsWith('/')) {
@@ -78,8 +82,9 @@ export const getFileUrl = (fileId: string, options?: { width?: number; height?: 
     return '/placeholder.svg'; // 返回占位图而不是Base64
   }
   
-  // 构造正确的API路径
-  let url = `/api/files/${fileId}`
+  // 构造正确的API路径 — 开发环境直连本地后端，避免 Vite proxy 指向远程服务器
+  const baseUrl = import.meta.env.DEV ? 'http://localhost:8080' : ''
+  let url = `${baseUrl}/api/files/${fileId}`
   
   // 添加缩略图参数
   if (options) {

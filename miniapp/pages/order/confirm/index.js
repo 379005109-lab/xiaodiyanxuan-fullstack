@@ -1,6 +1,7 @@
 // 使用全局 api，避免懒加载导致的路径问题
 const app = getApp()
 const api = app.api || require('../../utils/api.js')
+const { requireLogin } = require('../../utils/auth.js')
 
 Page({
 	data: {
@@ -48,6 +49,7 @@ Page({
 		setAsDefault: true // 设为默认地址
 	},
 	onLoad(options) {
+		if (!requireLogin()) return
 		const { type } = options || {}
 		if (type === 'package') {
 			// 套餐订单

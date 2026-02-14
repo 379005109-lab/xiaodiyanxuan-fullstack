@@ -1,6 +1,7 @@
 // pages/profile/edit/index.js
 const app = getApp()
 const api = app.api || require('../../../utils/api.js')
+const { requireLogin } = require('../../../utils/auth.js')
 
 Page({
   data: {
@@ -14,6 +15,7 @@ Page({
   },
 
   onLoad() {
+    if (!requireLogin()) return
     try {
       const userInfo = wx.getStorageSync('userInfo') || {}
       this.setData({ userInfo })

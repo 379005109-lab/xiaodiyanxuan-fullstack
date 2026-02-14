@@ -26,6 +26,10 @@ export interface StoreHeaderConfig {
   logo: string
   name: string
   description: string
+  contactName: string
+  phone: string
+  address: string
+  isVerified: boolean
 }
 
 export interface BannerItem {
@@ -76,11 +80,16 @@ export interface CouponConfig {
 }
 
 export interface ProductListConfig {
-  title: string
   productIds: string[]
   displayMode: 'grid' | 'list' | 'scroll'
   limit: number
   products?: any[]
+  selectMode: 'product' | 'category'
+  categoryIds: string[]
+  sortBy: 'default' | 'sales' | 'price'
+  showName: boolean
+  showPrice: boolean
+  showSales: boolean
 }
 
 export interface TitleConfig {
@@ -89,6 +98,15 @@ export interface TitleConfig {
   align: 'left' | 'center' | 'right'
   color: string
   bold: boolean
+  fontStyle: 'normal' | 'italic'
+  subtitle: string
+  subtitleColor: string
+  subtitleFontSize: number
+  showRight: boolean
+  rightText: string
+  rightLink: string
+  rightColor: string
+  rightFontSize: number
 }
 
 export interface SpacerConfig {
@@ -149,7 +167,57 @@ export interface BargainConfig {
   title: string
   bgColor: string
   displayMode: 'scroll' | 'grid'
+  // 布局设置
+  layoutStyle: 0 | 1 | 2 | 3
+  // 头部设置
+  headerStyle: 'image' | 'color'
+  headerBgImage: string
+  headerBgColor: string
+  headerBgColor2: string
+  titleType: 'image' | 'text'
+  titleImage: string
+  // 显示内容
+  showName: boolean
+  showTag: boolean
+  showPrice: boolean
+  showOriginalPrice: boolean
+  showButton: boolean
+  moreLink: string
+  // 砍价商品设置
+  productIds: string[]
+  products: any[]
+  limit: number
+  sortBy: 'default' | 'sales' | 'price'
+  // 样式颜色
+  dividerColor: string
+  hintTextColor: string
+  headerButtonColor: string
+  contentBgColor: string
+  nameColor: string
+  originalPriceColor: string
+  themeMode: 'follow' | 'custom'
+  buttonTextColor: string
 }
+
+// ============ 组件样式配置 ============
+
+export interface ComponentStyle {
+  bgColor: string
+  marginTop: number
+  marginBottom: number
+  marginLR: number
+  borderRadius: number
+  innerRadius: number
+}
+
+export const createDefaultStyle = (): ComponentStyle => ({
+  bgColor: '',
+  marginTop: 0,
+  marginBottom: 0,
+  marginLR: 0,
+  borderRadius: 0,
+  innerRadius: 0,
+})
 
 // ============ 动态组件 ============
 
@@ -157,6 +225,7 @@ export interface ComponentItem {
   id: string
   type: ComponentType
   config: any
+  style?: ComponentStyle
 }
 
 export interface PageValue {
@@ -238,7 +307,7 @@ export const generateComponentId = (): string =>
 export const createDefaultConfig = (type: ComponentType): any => {
   switch (type) {
     case 'storeHeader':
-      return { logo: '', name: '', description: '' } as StoreHeaderConfig
+      return { logo: '', name: '', description: '', contactName: '', phone: '', address: '', isVerified: false } as StoreHeaderConfig
     case 'banner':
       return { items: [{ image: '', link: '', sort: 0, status: true }] } as BannerConfig
     case 'searchBox':
@@ -246,11 +315,11 @@ export const createDefaultConfig = (type: ComponentType): any => {
     case 'imageCube':
       return { images: [], columns: 2 } as ImageCubeConfig
     case 'productList':
-      return { title: '商品列表', productIds: [], displayMode: 'grid', limit: 10 } as ProductListConfig
+      return { productIds: [], displayMode: 'grid', limit: 10, selectMode: 'product', categoryIds: [], sortBy: 'default', showName: true, showPrice: true, showSales: true } as ProductListConfig
     case 'coupon':
       return { items: [] } as CouponConfig
     case 'title':
-      return { text: '标题', fontSize: 16, align: 'left', color: '#333333', bold: false } as TitleConfig
+      return { text: '标题', fontSize: 16, align: 'left', color: '#282828', bold: false, fontStyle: 'normal', subtitle: '', subtitleColor: '#282828', subtitleFontSize: 14, showRight: true, rightText: '更多', rightLink: '', rightColor: '#282828', rightFontSize: 12 } as TitleConfig
     case 'spacer':
       return { height: 20, bgColor: 'transparent' } as SpacerConfig
     case 'richText':
@@ -268,7 +337,7 @@ export const createDefaultConfig = (type: ComponentType): any => {
     case 'groupBuy':
       return { title: '拼团活动', bgColor: '#ff7a45', displayMode: 'scroll' } as GroupBuyConfig
     case 'bargain':
-      return { title: '砍价专区', bgColor: '#faad14', displayMode: 'scroll' } as BargainConfig
+      return { title: '砍价专区', bgColor: '#FFFFFF', displayMode: 'scroll', layoutStyle: 0, headerStyle: 'color', headerBgImage: '', headerBgColor: '#FFFFFF', headerBgColor2: '#FFFFFF', titleType: 'text', titleImage: '', showName: true, showTag: false, showPrice: true, showOriginalPrice: true, showButton: false, moreLink: '', productIds: [], products: [], limit: 10, sortBy: 'default', dividerColor: '#FFFFFF', hintTextColor: '#999999', headerButtonColor: '#999999', contentBgColor: '#FFFFFF', nameColor: '#000000', originalPriceColor: '#999999', themeMode: 'follow', buttonTextColor: '#FFFFFF' } as BargainConfig
     default:
       return {}
   }
@@ -282,4 +351,5 @@ export const createComponent = (type: ComponentType): ComponentItem => ({
   id: generateComponentId(),
   type,
   config: createDefaultConfig(type),
+  style: createDefaultStyle(),
 })

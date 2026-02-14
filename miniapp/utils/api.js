@@ -516,6 +516,26 @@ function getMyCoupons(params) {
   })
 }
 
+// ==================== 店铺信息相关 API ====================
+
+function getShopInfo(params = {}) {
+  return request({
+    url: `${MP}/shop/info`,
+    method: 'GET',
+    data: params,
+    needAuth: false
+  })
+}
+
+function getShopPoster(params = {}) {
+  return request({
+    url: `${MP}/shop/poster`,
+    method: 'GET',
+    data: params,
+    needAuth: false
+  })
+}
+
 // ==================== 增强版订单创建 API ====================
 
 function createOrderV2(data) {
@@ -610,5 +630,9 @@ module.exports = {
   getMyCoupons,
   
   // 增强版订单
-  createOrderV2
+  createOrderV2,
+  
+  // 店铺信息
+  getShopInfo,
+  getShopPoster
 }

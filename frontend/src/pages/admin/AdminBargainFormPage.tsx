@@ -219,13 +219,18 @@ const AdminBargainFormPage: React.FC = () => {
       const url = isEditing ? `/api/bargains/products/${id}` : '/api/bargains/products';
       const method = isEditing ? 'PUT' : 'POST';
       
+      // 清理提交数据：移除空的 productId/skuId 避免后端 ObjectId 转换失败
+      const submitData: any = { ...formData };
+      if (!submitData.productId) delete submitData.productId;
+      if (!submitData.skuId) delete submitData.skuId;
+      
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(submitData)
       });
       
       const data = await response.json();

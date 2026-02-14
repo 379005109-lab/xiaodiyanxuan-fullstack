@@ -74,8 +74,17 @@ router.post('/upload-multiple', auth, upload.array('files', 10), FileController.
 /**
  * 下载/访问文件
  * GET /api/files/:fileId
+ * 移除 helmet 的限制性头部，确保小程序 <image> 组件能正常加载
  */
-router.get('/:fileId', FileController.downloadFile);
+router.get('/:fileId', (req, res, next) => {
+  res.removeHeader('Content-Security-Policy');
+  res.removeHeader('Cross-Origin-Opener-Policy');
+  res.removeHeader('Cross-Origin-Resource-Policy');
+  res.removeHeader('Origin-Agent-Cluster');
+  res.removeHeader('Strict-Transport-Security');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+}, FileController.downloadFile);
 
 /**
  * 获取文件信息
